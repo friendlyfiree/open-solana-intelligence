@@ -150,3 +150,67 @@ window.TREASURY_DATA = {
     }
   ]
 };
+
+
+/* ============================================================
+   CASE STUDIES — worked forensic reports (credited by author)
+   ============================================================
+   Each report renders as a collapsible card on the site.
+   To add one, copy a { ... } block inside CASE_STUDIES[ ] and fill:
+     id, company, ticker, exchange, author,
+     declaredSOL, identifiedSOL   (numbers, no commas),
+     summary  : one line shown on the collapsed card,
+     intro    : opening paragraph,
+     timeline : [{ date:"2025-09-01", event:"..." }, ...],
+     clusters : [{ tag:"Cluster A", title:"...", body:"...",
+                   proofs:[{ label:"↗ ...", url:"https://..." }] }, ...],
+     holdings : [{ addr:"FULL_ADDRESS", short:"AAAA…ZZZZ",
+                   balance:"450,537", validator:"..." }, ...],
+     note     : closing "why it holds up" paragraph.
+   ============================================================ */
+window.CASE_STUDIES = [
+  {
+    id: "sharps-technology",
+    company: "Sharps Technology",
+    ticker: "STSS",
+    exchange: "NASDAQ",
+    author: "aksusarya",
+    declaredSOL: 2000000,
+    identifiedSOL: 1253407,
+    summary: "Declared ~2M SOL → 1,253,407 SOL traced across 5 wallets. FalconX-funded, Coinbase Prime custody, staked on Jupiter, Chorus One & Anchorage.",
+    intro: "Sharps Technology (NASDAQ: STSS) declared a ~2,000,000 SOL treasury. Starting only from its public filings, the chain led to 1,253,407 SOL across the five wallets below — funded through FalconX, held under Coinbase Prime Custody, and staked with Jupiter, Chorus One and Anchorage. These are the same addresses listed in the Sharps entry above; here's how they were found.",
+    timeline: [
+      { date: "2025-08-25", event: "$400M+ private placement announced (ParaFi, Pantera, FalconX, RockawayX…)" },
+      { date: "2025-08-28", event: "Placement closes, treasury strategy launches → wallets must be funded on/after this date" },
+      { date: "2025-09-02", event: "2M+ SOL acquisition announced → accumulation window is Aug 28 → early Oct" },
+      { date: "2025-09-23", event: "Jupiter staking partnership → wallets should show Jupiter staking" },
+      { date: "2025-10-09", event: "Coinbase expansion → wallets should interact with Coinbase Prime Custody" }
+    ],
+    clusters: [
+      { tag: "Cluster A", title: "FalconX inflow → Coinbase custody → Jupiter",
+        body: "Wallet 32pFK…uaws received 341,173 SOL from FalconX (Aug 30 – Sep 1), routed through Coinbase Prime Custody, then staked on Jupiter. Consolidated into 72aSN…kX5C.",
+        proofs: [
+          { label: "↗ 230K SOL FalconX inflow", url: "https://intel.arkm.com/explorer/tx/k1g1qQRzaykHiwoZeNxwbt6esMEbNS2pqeEXXiZtw3PtyhLnggCT9z6A56F7H8Bovc8VCZV9gF6Nny1RaKzA2LX" },
+          { label: "↗ stake deployment", url: "https://intel.arkm.com/explorer/tx/3f72LPordFugdt4nywq3maZPpQDuVG9zhF6DaDXg3WkMkzDNLQb8bPcVuP35fuGbtaEjUhb4zwfamfPPpnK1ADJK" }
+        ] },
+      { tag: "Cluster B", title: "Secondary accumulation, same fingerprints",
+        body: "Wallet 9i8p3…2zgV took 270K+ SOL from FalconX (Sep 1–5), staked via the same Coinbase Prime Custody wallet on Jupiter. Holdings under 2GyX8…fT1aX.",
+        proofs: [
+          { label: "↗ Jupiter stake proof", url: "https://intel.arkm.com/explorer/tx/g7i1bGENKGVZ4SDS8Zbnn43tJ9JXhy487MaEfyqitaUU1EksjA7vCU8Ge74a3pBKTT5fCDf4UV7uX14KGtKR1j5" }
+        ] },
+      { tag: "Cluster C", title: "Linked group, Chorus One + Anchorage",
+        body: "Wallets DGVxn…zCoX and 4vvMe…SHM5 hold 507K SOL staked with Chorus One and Anchorage — tied to Cluster A by a direct transfer to 72aSN…kX5C.",
+        proofs: [
+          { label: "↗ inter-wallet link", url: "https://intel.arkm.com/explorer/tx/3qr19DGUYtV5cSr5WMUsSijHpMUSFGExnL1B2mCGTfXJc88QDmV18eppwZBNRaEcuQE3mEZqMhc9btuM48ctXMdC" }
+        ] }
+    ],
+    holdings: [
+      { addr: "HHSNLApE2Txh6U2p2QsmfocE2fzoBk9fY5Vir9ndHM23", short: "HHSNL…HM23", balance: "450,537", validator: "Coinbase Prime → Jupiter" },
+      { addr: "5tfHZEKdQFTEfYCNoGYbV8Sq6vfmCS83sVADFUSrTBE", short: "5tfHZ…RTBE", balance: "202,580", validator: "Coinbase Prime → Jupiter" },
+      { addr: "72aSNbcPea1QN7NbxmEuQqDmBVowZpvFi1AvNdUekX5C", short: "72aSN…kX5C", balance: "93,191", validator: "Jupiter" },
+      { addr: "DGVxn3q4TNFvDUXDHzM8gSTcYDNaqNmZ1vBkTiU4zCoX", short: "DGVxn…zCoX", balance: "201,270", validator: "Chorus One + Anchorage" },
+      { addr: "4vvMe3mYNHrNb3rwZiqCWh3QCbTi6DaLN2NHbDxgSHM5", short: "4vvMe…SHM5", balance: "305,829", validator: "Anchorage" }
+    ],
+    note: "Why this holds up. Assets moved under Coinbase Prime Custody control two days before the Oct 9 Coinbase announcement, and Jupiter staking appeared days before the Sep 23 partnership — on-chain behavior that pre-empts the public reveal. Combined with matching funding timelines, FalconX inflows, shared custody controllers and inter-wallet transfers, the convergence makes coincidental overlap highly unlikely. Still probabilistic, not legal proof — but a robust, independently verifiable attribution."
+  }
+];

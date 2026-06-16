@@ -422,6 +422,10 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
 .cs-table a.mono:hover{color:var(--sol)}
 .cs-table tfoot td{font-weight:700;color:var(--ink);background:var(--bg-raised);border-bottom:none}
 .cs-table tfoot td.num{color:var(--sol)}
+.cs-card .co-name .meta{display:block;max-width:720px;line-height:1.5}
+.by-badge{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--cyan);background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.28);padding:2px 8px;border-radius:5px}
+.cs-inner{padding:24px}
+@media(max-width:520px){.cs-inner{padding:18px 16px}}
 </style>
 </head>
 <body>
@@ -439,7 +443,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
       <a href="#registry">Registry</a>
       <a href="#community">Community</a>
       <a href="#methodology">Method</a>
-      <a href="#case-study">Case Study</a>
+      <a href="#case-studies">Case Studies</a>
       <button class="wallet-btn" id="walletBtn" onclick="toggleWallet()">
         <span class="wb-dot"></span><span id="wbText">Connect Wallet</span>
       </button>
@@ -600,79 +604,16 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
   </div>
 </section>
 
-<section class="sec" id="case-study">
+<section class="sec" id="case-studies">
   <div class="wrap">
     <div class="sec-head">
-      <h2>Case Study — Sharps Technology</h2>
-      <div class="legend"><span class="mono" style="color:var(--ink-faint)">the method, applied to a real treasury</span></div>
+      <h2>Case Studies</h2>
+      <div class="legend"><span class="mono" style="color:var(--ink-faint)">the method, applied to real treasuries · tap to expand</span></div>
     </div>
-
     <div class="comm-intro" style="max-width:840px">
-      <p>Sharps Technology (NASDAQ: STSS) declared a ~2,000,000 SOL treasury. Starting only from its public filings, the chain led to <strong>1,253,407 SOL across the five wallets below</strong> — funded through FalconX, held under Coinbase Prime Custody, and staked with Jupiter, Chorus One and Anchorage. These are the same addresses listed in the Sharps entry above; here's how they were found. <span class="mono" style="color:var(--ink-faint)">(Declared 2M vs ~1.25M traced so far — that gap is exactly what a registry like this surfaces.)</span></p>
+      <p>Worked forensic reports — each starts from a company's public filings and ends at the wallets, with the on-chain evidence laid out. Tap a report to open the full trace.</p>
     </div>
-
-    <div class="cs-block">
-      <div class="cs-h mono">01 · The disclosures we anchored on</div>
-      <div class="tl">
-        <div class="e"><span class="d">2025-08-25</span><span class="ev">$400M+ private placement announced (ParaFi, Pantera, FalconX, RockawayX…)</span></div>
-        <div class="e"><span class="d">2025-08-28</span><span class="ev">Placement closes, treasury strategy launches → wallets must be funded on/after this date</span></div>
-        <div class="e"><span class="d">2025-09-02</span><span class="ev">2M+ SOL acquisition announced → accumulation window is Aug 28 → early Oct</span></div>
-        <div class="e"><span class="d">2025-09-23</span><span class="ev">Jupiter staking partnership → wallets should show Jupiter staking</span></div>
-        <div class="e"><span class="d">2025-10-09</span><span class="ev">Coinbase expansion → wallets should interact with Coinbase Prime Custody</span></div>
-      </div>
-    </div>
-
-    <div class="cs-block">
-      <div class="cs-h mono">02 · Following the money — three clusters</div>
-      <div class="cluster-grid">
-        <div class="cluster">
-          <div class="cl-tag">Cluster A</div>
-          <div class="cl-title">FalconX inflow → Coinbase custody → Jupiter</div>
-          <p>Wallet <span class="mono">32pFK…uaws</span> received <b>341,173 SOL</b> from FalconX (Aug 30 – Sep 1), routed through Coinbase Prime Custody, then staked on Jupiter. Consolidated into <span class="mono">72aSN…kX5C</span>.</p>
-          <div class="cl-proofs">
-            <a href="https://intel.arkm.com/explorer/tx/k1g1qQRzaykHiwoZeNxwbt6esMEbNS2pqeEXXiZtw3PtyhLnggCT9z6A56F7H8Bovc8VCZV9gF6Nny1RaKzA2LX" target="_blank" rel="noopener">↗ 230K SOL FalconX inflow</a>
-            <a href="https://intel.arkm.com/explorer/tx/3f72LPordFugdt4nywq3maZPpQDuVG9zhF6DaDXg3WkMkzDNLQb8bPcVuP35fuGbtaEjUhb4zwfamfPPpnK1ADJK" target="_blank" rel="noopener">↗ stake deployment</a>
-          </div>
-        </div>
-        <div class="cluster">
-          <div class="cl-tag">Cluster B</div>
-          <div class="cl-title">Secondary accumulation, same fingerprints</div>
-          <p>Wallet <span class="mono">9i8p3…2zgV</span> took <b>270K+ SOL</b> from FalconX (Sep 1–5), staked via the same Coinbase Prime Custody wallet on Jupiter. Holdings under <span class="mono">2GyX8…fT1aX</span>.</p>
-          <div class="cl-proofs">
-            <a href="https://intel.arkm.com/explorer/tx/g7i1bGENKGVZ4SDS8Zbnn43tJ9JXhy487MaEfyqitaUU1EksjA7vCU8Ge74a3pBKTT5fCDf4UV7uX14KGtKR1j5" target="_blank" rel="noopener">↗ Jupiter stake proof</a>
-          </div>
-        </div>
-        <div class="cluster">
-          <div class="cl-tag">Cluster C</div>
-          <div class="cl-title">Linked group, Chorus One + Anchorage</div>
-          <p>Wallets <span class="mono">DGVxn…zCoX</span> and <span class="mono">4vvMe…SHM5</span> hold <b>507K SOL</b> staked with Chorus One and Anchorage — tied to Cluster A by a direct transfer to <span class="mono">72aSN…kX5C</span>.</p>
-          <div class="cl-proofs">
-            <a href="https://intel.arkm.com/explorer/tx/3qr19DGUYtV5cSr5WMUsSijHpMUSFGExnL1B2mCGTfXJc88QDmV18eppwZBNRaEcuQE3mEZqMhc9btuM48ctXMdC" target="_blank" rel="noopener">↗ inter-wallet link</a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="cs-block">
-      <div class="cs-h mono">03 · The identified treasury — 1,253,407 SOL</div>
-      <div class="cs-table-wrap">
-        <table class="cs-table">
-          <thead><tr><th>Wallet</th><th>Balance (SOL)</th><th>Custody / Validator</th></tr></thead>
-          <tbody>
-            <tr><td><a class="mono" href="https://solscan.io/account/HHSNLApE2Txh6U2p2QsmfocE2fzoBk9fY5Vir9ndHM23" target="_blank" rel="noopener">HHSNL…HM23</a></td><td class="num">450,537</td><td>Coinbase Prime → Jupiter</td></tr>
-            <tr><td><a class="mono" href="https://solscan.io/account/5tfHZEKdQFTEfYCNoGYbV8Sq6vfmCS83sVADFUSrTBE" target="_blank" rel="noopener">5tfHZ…RTBE</a></td><td class="num">202,580</td><td>Coinbase Prime → Jupiter</td></tr>
-            <tr><td><a class="mono" href="https://solscan.io/account/72aSNbcPea1QN7NbxmEuQqDmBVowZpvFi1AvNdUekX5C" target="_blank" rel="noopener">72aSN…kX5C</a></td><td class="num">93,191</td><td>Jupiter</td></tr>
-            <tr><td><a class="mono" href="https://solscan.io/account/DGVxn3q4TNFvDUXDHzM8gSTcYDNaqNmZ1vBkTiU4zCoX" target="_blank" rel="noopener">DGVxn…zCoX</a></td><td class="num">201,270</td><td>Chorus One + Anchorage</td></tr>
-            <tr><td><a class="mono" href="https://solscan.io/account/4vvMe3mYNHrNb3rwZiqCWh3QCbTi6DaLN2NHbDxgSHM5" target="_blank" rel="noopener">4vvMe…SHM5</a></td><td class="num">305,829</td><td>Anchorage</td></tr>
-          </tbody>
-          <tfoot><tr><td>Total identified</td><td class="num">1,253,407</td><td>declared: 2,000,000</td></tr></tfoot>
-        </table>
-      </div>
-    </div>
-
-    <div class="warn">
-      <b>Why this holds up.</b> Assets moved under Coinbase Prime Custody control two days before the Oct 9 Coinbase announcement, and Jupiter staking appeared days before the Sep 23 partnership — on-chain behavior that pre-empts the public reveal. Combined with matching funding timelines, FalconX inflows, shared custody controllers and inter-wallet transfers, the convergence makes coincidental overlap highly unlikely. Still probabilistic, not legal proof — but a robust, independently verifiable attribution.
-    </div>
+    <div class="companies" id="case-studies-list"></div>
   </div>
 </section>
 
@@ -940,7 +881,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
       <div class="links">
         <a href="#registry">Registry</a>
         <a href="#methodology">Methodology</a>
-        <a href="#case-study">Case Study</a>
+        <a href="#case-studies">Case Studies</a>
         <a href="#roadmap">Roadmap</a>
         <a href="#newsletter">Weekly Brief</a>
         <a href="#" onclick="copyContact(event)">Feedback</a>
@@ -1141,7 +1082,7 @@ const CONTACT_EMAIL = "aksusarya@proton.me";
 // Direct, inline signup (no mail app). Create a free form at formspree.io,
 // then paste your endpoint here (looks like https://formspree.io/f/abcdwxyz).
 // Until it's set, the form politely says signups open soon.
-const FORMSPREE_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID";
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/mgobqzyy";
 
 // On-chain votes are written as a Solana Memo transaction — a real,
 // verifiable signed action that pays NO ONE (only the ~0.000005 SOL
@@ -1265,8 +1206,66 @@ window.addEventListener('load', async ()=>{
 });
 
 render();
+renderCaseStudies();
 loadPrice();
 
+// ---- case studies (data-driven, collapsible) ----
+function toggleCase(el){ el.closest('.co').classList.toggle('open'); }
+
+function renderCaseStudies(){
+  const host = document.getElementById('case-studies-list');
+  if(!host) return;
+  const LIST = window.CASE_STUDIES;
+  if(!LIST || !LIST.length){
+    host.innerHTML = '<div class="method-note" style="text-align:center;padding:24px">Case studies (<b>data.js</b>) didn\'t load.</div>';
+    return;
+  }
+  host.innerHTML = LIST.map(cs=>{
+    const timeline = cs.timeline.map(t=>`<div class="e"><span class="d">${t.date}</span><span class="ev">${t.event}</span></div>`).join('');
+    const clusters = cs.clusters.map(cl=>`
+      <div class="cluster">
+        <div class="cl-tag">${cl.tag}</div>
+        <div class="cl-title">${cl.title}</div>
+        <p>${cl.body}</p>
+        <div class="cl-proofs">${cl.proofs.map(p=>`<a href="${p.url}" target="_blank" rel="noopener">${p.label}</a>`).join('')}</div>
+      </div>`).join('');
+    const rows = cs.holdings.map(h=>`<tr><td><a class="mono" href="https://solscan.io/account/${h.addr}" target="_blank" rel="noopener">${h.short}</a></td><td class="num">${h.balance}</td><td>${h.validator}</td></tr>`).join('');
+    const tracedM = cs.identifiedSOL>=1e6 ? (cs.identifiedSOL/1e6).toFixed(2)+'M' : Math.round(cs.identifiedSOL).toLocaleString();
+    const noteParts = (cs.note||'').split('. ');
+    const noteLead = noteParts.shift()||'';
+    const noteRest = noteParts.join('. ');
+    return `
+    <div class="co cs-card">
+      <div class="co-top" onclick="toggleCase(this)">
+        <div class="co-id">
+          <div class="co-name">
+            <div class="nm">${cs.company}<span class="ticker">${cs.exchange}: ${cs.ticker}</span><span class="by-badge">by ${cs.author}</span></div>
+            <div class="meta">${cs.summary}</div>
+          </div>
+        </div>
+        <div class="co-fig">
+          <div class="amt"><div class="n">${tracedM}</div><div class="u">SOL TRACED</div></div>
+          <div class="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></div>
+        </div>
+      </div>
+      <div class="co-body">
+        <div class="cs-inner">
+          <div class="comm-intro" style="max-width:840px;margin-bottom:20px"><p>${cs.intro}</p></div>
+          <div class="cs-block"><div class="cs-h mono">01 · The disclosures we anchored on</div><div class="tl">${timeline}</div></div>
+          <div class="cs-block"><div class="cs-h mono">02 · Following the money</div><div class="cluster-grid">${clusters}</div></div>
+          <div class="cs-block"><div class="cs-h mono">03 · The identified treasury — ${cs.identifiedSOL.toLocaleString()} SOL</div>
+            <div class="cs-table-wrap"><table class="cs-table">
+              <thead><tr><th>Wallet</th><th>Balance (SOL)</th><th>Custody / Validator</th></tr></thead>
+              <tbody>${rows}</tbody>
+              <tfoot><tr><td>Total identified</td><td class="num">${cs.identifiedSOL.toLocaleString()}</td><td>declared: ${cs.declaredSOL.toLocaleString()}</td></tr></tfoot>
+            </table></div>
+          </div>
+          <div class="warn"><b>${noteLead}.</b> ${noteRest}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
 // ---- community interactions ----
 function switchTab(btn, id){
   document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('active'));
