@@ -426,9 +426,39 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
 .by-badge{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--cyan);background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.28);padding:2px 8px;border-radius:5px}
 .cs-inner{padding:24px}
 @media(max-width:520px){.cs-inner{padding:18px 16px}}
+/* ---- view tabs (top-level navigation) ---- */
+#viewbar{position:sticky;top:60px;z-index:45;background:rgba(8,11,20,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);scroll-margin-top:60px}
+.viewtabs{display:flex;gap:2px;max-width:1200px;margin:0 auto;padding:0 14px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.viewtabs::-webkit-scrollbar{display:none}
+.vtab{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;padding:13px 16px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.03em;white-space:nowrap;transition:color .15s,border-color .15s}
+.vtab:hover{color:var(--ink)}
+.vtab .vi{font-size:12px;opacity:.55;transition:opacity .15s}
+.vtab .vc{font-size:10px;font-weight:700;color:var(--ink-dim);background:var(--bg-raised);border:1px solid var(--line);border-radius:20px;padding:1px 7px;min-width:18px;text-align:center;transition:all .15s}
+body[data-view="registry"] .vtab[data-view="registry"],
+body[data-view="method"]   .vtab[data-view="method"],
+body[data-view="cases"]    .vtab[data-view="cases"],
+body[data-view="community"] .vtab[data-view="community"]{color:var(--sol);border-bottom-color:var(--sol)}
+body[data-view="registry"] .vtab[data-view="registry"] .vi,
+body[data-view="method"]   .vtab[data-view="method"] .vi,
+body[data-view="cases"]    .vtab[data-view="cases"] .vi,
+body[data-view="community"] .vtab[data-view="community"] .vi{opacity:1}
+body[data-view="registry"] .vtab[data-view="registry"] .vc,
+body[data-view="cases"]    .vtab[data-view="cases"] .vc{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.08)}
+@media(max-width:560px){
+  .vtab{padding:12px 12px;font-size:12px;gap:6px}
+  .vtab .vi{display:none}
+  #viewbar{position:relative}
+  #viewbar::after{content:"";position:absolute;top:0;right:0;height:100%;width:26px;pointer-events:none;background:linear-gradient(90deg,rgba(8,11,20,0),rgba(8,11,20,.82))}
+}
+/* view panels */
+section[data-view]{display:none;scroll-margin-top:122px}
+body[data-view="registry"] section[data-view="registry"],
+body[data-view="method"]   section[data-view="method"],
+body[data-view="cases"]    section[data-view="cases"],
+body[data-view="community"] section[data-view="community"]{display:block}
 </style>
 </head>
-<body>
+<body data-view="registry">
 <div class="backdrop"></div>
 <div class="glow"></div>
 
@@ -440,10 +470,6 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
       <span class="tag">Beta</span>
     </div>
     <nav class="nav-links">
-      <a href="#registry">Registry</a>
-      <a href="#community">Community</a>
-      <a href="#methodology">Method</a>
-      <a href="#case-studies">Case Studies</a>
       <button class="wallet-btn" id="walletBtn" onclick="toggleWallet()">
         <span class="wb-dot"></span><span id="wbText">Connect Wallet</span>
       </button>
@@ -490,7 +516,16 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
   </div>
 </section>
 
-<section class="sec" id="registry">
+<div id="viewbar">
+  <div class="viewtabs" role="tablist" aria-label="Sections">
+    <button class="vtab" data-view="registry" role="tab" onclick="showView('registry')"><span class="vi" aria-hidden="true">◆</span>Registry<span class="vc" id="vc-co">3</span></button>
+    <button class="vtab" data-view="method" role="tab" onclick="showView('method')"><span class="vi" aria-hidden="true">⊹</span>Methodology</button>
+    <button class="vtab" data-view="cases" role="tab" onclick="showView('cases')"><span class="vi" aria-hidden="true">⛓</span>Case Studies<span class="vc" id="vc-cases">2</span></button>
+    <button class="vtab" data-view="community" role="tab" onclick="showView('community')"><span class="vi" aria-hidden="true">✦</span>Community</button>
+  </div>
+</div>
+
+<section class="sec" id="registry" data-view="registry">
   <div class="wrap">
     <div class="sec-head">
       <h2>Treasury Registry</h2>
@@ -504,7 +539,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
   </div>
 </section>
 
-<section class="sec" id="how">
+<section class="sec" id="how" data-view="method">
   <div class="wrap">
     <div class="sec-head"><h2>How attribution works</h2></div>
     <div class="how">
@@ -527,7 +562,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
   </div>
 </section>
 
-<section class="sec" id="methodology">
+<section class="sec" id="methodology" data-view="method">
   <div class="wrap">
     <div class="sec-head">
       <h2>Methodology — the techniques, in the open</h2>
@@ -604,7 +639,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
   </div>
 </section>
 
-<section class="sec" id="case-studies">
+<section class="sec" id="case-studies" data-view="cases">
   <div class="wrap">
     <div class="sec-head">
       <h2>Case Studies</h2>
@@ -617,7 +652,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
   </div>
 </section>
 
-<section class="sec" id="community">
+<section class="sec" id="community" data-view="community">
   <div class="wrap">
     <div class="sec-head">
       <h2>Community Intelligence</h2>
@@ -812,7 +847,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
   </div>
 </section>
 
-<section class="sec" id="roadmap">
+<section class="sec" id="roadmap" data-view="community">
   <div class="wrap">
     <div class="sec-head">
       <h2>Where this goes</h2>
@@ -849,7 +884,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
   </div>
 </section>
 
-<section class="sec" id="newsletter">
+<section class="sec" id="newsletter" data-view="community">
   <div class="wrap">
     <div class="sec-head"><h2>Weekly Brief</h2></div>
     <div style="border:1px solid var(--line);border-radius:14px;background:var(--bg-card);padding:34px;display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:center">
@@ -879,11 +914,11 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
         </div>
       </div>
       <div class="links">
-        <a href="#registry">Registry</a>
-        <a href="#methodology">Methodology</a>
-        <a href="#case-studies">Case Studies</a>
-        <a href="#roadmap">Roadmap</a>
-        <a href="#newsletter">Weekly Brief</a>
+        <a href="#registry" onclick="return goSection('registry')">Registry</a>
+        <a href="#methodology" onclick="return goSection('methodology')">Methodology</a>
+        <a href="#case-studies" onclick="return goSection('case-studies')">Case Studies</a>
+        <a href="#roadmap" onclick="return goSection('roadmap')">Roadmap</a>
+        <a href="#newsletter" onclick="return goSection('newsletter')">Weekly Brief</a>
         <a href="#" onclick="copyContact(event)">Feedback</a>
       </div>
     </div>
@@ -1207,6 +1242,7 @@ window.addEventListener('load', async ()=>{
 
 render();
 renderCaseStudies();
+syncTabCounts();
 loadPrice();
 
 // ---- case studies (data-driven, collapsible) ----
@@ -1268,6 +1304,27 @@ function renderCaseStudies(){
   }).join('');
 }
 // ---- community interactions ----
+// ---- top-level view tabs ----
+const VIEW_OF = { registry:'registry', how:'method', methodology:'method', 'case-studies':'cases', community:'community', roadmap:'community', newsletter:'community' };
+function showView(v){
+  document.body.dataset.view = v;
+  const bar = document.getElementById('viewbar');
+  if(bar) bar.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+function goSection(id){
+  document.body.dataset.view = VIEW_OF[id] || 'registry';
+  requestAnimationFrame(()=>{ const el = document.getElementById(id); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' }); });
+  return false;
+}
+function syncTabCounts(){
+  try{
+    const co = (window.TREASURY_DATA && window.TREASURY_DATA.companies) ? window.TREASURY_DATA.companies.length : null;
+    const cs = window.CASE_STUDIES ? window.CASE_STUDIES.length : null;
+    const a = document.getElementById('vc-co'); if(a && co!=null) a.textContent = co;
+    const b = document.getElementById('vc-cases'); if(b && cs!=null) b.textContent = cs;
+  }catch(e){}
+}
+
 function switchTab(btn, id){
   document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
