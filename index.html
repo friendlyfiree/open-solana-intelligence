@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solana Treasury Watch — On-Chain Verified Institutional Holdings</title>
+<meta name="description" content="An open, on-chain-verified registry of public-company Solana treasuries. Don't trust the filing — verify the chain.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Buffer polyfill — web3.js needs a global Buffer when building transactions in the browser. Must load before web3.js. -->
+<script src="https://bundle.run/buffer@6.0.3"></script>
+<script>try{ if(!window.Buffer && window.buffer && window.buffer.Buffer){ window.Buffer = window.buffer.Buffer; } }catch(e){}</script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<style>
+:root{
+  --bg:#080b14;
+  --bg-raised:#0e1320;
+  --bg-card:#11172a;
+  --line:#1e2742;
+  --line-bright:#2c3860;
+  --ink:#eef2ff;
+  --ink-dim:#8b96b8;
+  --ink-faint:#5a6488;
+  --sol:#14f195;
+  --sol-deep:#0bbd75;
+  --violet:#9945ff;
+  --amber:#ffb020;
+  --cyan:#22d3ee;
+  --red:#ff5470;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Archivo',system-ui,sans-serif;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* ---- ambient grid backdrop ---- */
+.backdrop{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:64px 64px;
+  opacity:.25;
+  mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 20%,transparent 80%);
+}
+.glow{
+  position:fixed;top:-30%;left:50%;transform:translateX(-50%);
+  width:900px;height:600px;z-index:0;pointer-events:none;
+  background:radial-gradient(circle,rgba(20,241,149,.10),transparent 60%);
+  filter:blur(40px);
+}
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px}
+
+/* ---- community intelligence ---- */
+.comm-intro{max-width:760px;margin-bottom:26px}
+.comm-intro p{font-size:15px;color:var(--ink-dim);line-height:1.65}
+.comm-intro strong{color:var(--ink);font-weight:600}
+.comm-tabs{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:0}
+.ctab{background:none;border:none;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:500;padding:11px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;border-radius:6px 6px 0 0}
+.ctab:hover{color:var(--ink-dim);background:var(--bg-raised)}
+.ctab.active{color:var(--sol);border-bottom-color:var(--sol)}
+.tab-panel{display:none;animation:fadein .25s ease}
+.tab-panel.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.panel-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:16px;flex-wrap:wrap}
+.pb-title{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.pb-title .dim{font-weight:400;font-size:12px}
+.dim{color:var(--ink-faint)}
+.btn-ghost{background:none;border:1px solid var(--line-bright);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;padding:8px 14px;border-radius:7px;cursor:pointer;transition:all .15s}
+.btn-ghost:hover{border-color:var(--sol);color:var(--sol)}
+.btn-fill{background:var(--sol);color:var(--bg);border:none;font-family:'Archivo',sans-serif;font-size:13.5px;font-weight:700;padding:11px 20px;border-radius:8px;cursor:pointer;transition:background .15s}
+.btn-fill:hover{background:var(--sol-deep)}
+
+/* bounty */
+.bounty-list{display:flex;flex-direction:column;gap:11px}
+.bounty{display:grid;grid-template-columns:1fr auto;gap:24px;padding:18px 20px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px;transition:border-color .2s}
+.bounty:hover{border-color:var(--line-bright)}
+.bounty.dim-bounty{opacity:.72}
+.b-target{font-size:15.5px;font-weight:700;margin-bottom:6px;letter-spacing:-.01em}
+.b-desc{font-size:13px;color:var(--ink-dim);margin-bottom:10px;line-height:1.55;max-width:560px}
+.b-meta{font-size:11px;color:var(--ink-faint);display:flex;gap:8px;align-items:center}
+.b-who{color:var(--cyan)}
+.b-right{display:flex;flex-direction:column;align-items:flex-end;gap:7px;justify-content:center}
+.b-reward{font-family:'JetBrains Mono',monospace;display:flex;align-items:baseline;gap:5px}
+.b-reward .n{font-size:28px;font-weight:700;color:var(--sol);line-height:1}
+.b-reward .u{font-size:12px;color:var(--ink-dim);font-weight:500}
+.b-stakers{font-size:10.5px;color:var(--ink-faint)}
+.btn-stake{background:rgba(20,241,149,.1);border:1px solid rgba(20,241,149,.3);color:var(--sol);font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;padding:6px 14px;border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-stake:hover{background:var(--sol);color:var(--bg)}
+.phase-note{margin-top:16px;font-size:12px;color:var(--ink-faint);background:var(--bg-raised);border:1px solid var(--line);border-left:2px solid var(--violet);border-radius:8px;padding:13px 16px;line-height:1.6}
+.phase-note b{color:#c4a0ff}
+
+/* requests */
+.req-list{display:flex;flex-direction:column;gap:9px;margin-bottom:22px}
+.req{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px 18px;background:var(--bg-card);border:1px solid var(--line);border-radius:10px;transition:border-color .2s}
+.req:hover{border-color:var(--line-bright)}
+.req-ic{font-size:16px;color:var(--ink-faint)}
+.req-name{font-size:14.5px;font-weight:600}
+.req-sub{font-size:11px;color:var(--ink-faint);margin-top:3px}
+.up{background:var(--bg);border:1px solid var(--line-bright);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;padding:8px 13px;border-radius:7px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+.up:hover{border-color:var(--sol);color:var(--sol)}
+
+/* mini form */
+.mini-form{background:var(--bg-raised);border:1px solid var(--line);border-radius:12px;padding:22px;margin-top:8px}
+.mf-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:14px}
+.mf-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:640px){.mf-row{grid-template-columns:1fr}}
+.mini-form input,.mini-form textarea{width:100%;background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;padding:11px 14px;color:var(--ink);font-size:13.5px;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .15s;resize:vertical}
+.mini-form input:focus,.mini-form textarea:focus{border-color:var(--sol)}
+.mini-form input::placeholder,.mini-form textarea::placeholder{color:var(--ink-faint)}
+.mf-note{font-size:11px;color:var(--ink-faint);margin-top:10px}
+
+/* submit grid */
+.submit-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:18px}
+@media(max-width:780px){.submit-grid{grid-template-columns:1fr}}
+.rules{background:var(--bg-card);border:1px solid var(--line);border-radius:12px;padding:22px}
+.rules-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:16px}
+.rule-list{list-style:none;display:flex;flex-direction:column;gap:13px}
+.rule-list li{font-size:13px;color:var(--ink-dim);line-height:1.5;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.rule-list li b{color:var(--ink)}
+.rk{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sol);font-weight:700;background:rgba(20,241,149,.08);border:1px solid rgba(20,241,149,.2);border-radius:4px;padding:2px 6px;margin-top:1px}
+
+/* analysts */
+.analyst-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+@media(max-width:780px){.analyst-grid{grid-template-columns:1fr}}
+.analyst{display:flex;align-items:center;gap:14px;padding:18px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px}
+.av{width:42px;height:42px;border-radius:10px;background:var(--bg-raised);border:1px solid var(--line-bright);display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:var(--ink-dim);flex-shrink:0}
+.an-name{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.an-badge{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.05em;color:var(--ink-faint);border:1px solid var(--line-bright);padding:2px 6px;border-radius:4px}
+.an-badge.owner{color:var(--sol);border-color:rgba(20,241,149,.35);background:rgba(20,241,149,.07)}
+.an-stat{font-size:10.5px;color:var(--ink-faint);margin-top:4px}
+
+.vote-explain{background:var(--bg-raised);border:1px solid var(--line);border-radius:12px;padding:22px}
+.ve-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:18px}
+.ve-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:640px){.ve-row{grid-template-columns:1fr}}
+.ve-item{display:flex;gap:12px;align-items:flex-start}
+.ve-ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:700;flex-shrink:0}
+.up-ic{background:rgba(20,241,149,.1);color:var(--sol);border:1px solid rgba(20,241,149,.25)}
+.dn-ic{background:rgba(255,84,112,.1);color:var(--red);border:1px solid rgba(255,84,112,.25)}
+.ok-ic{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.25)}
+.ve-item b{font-size:13.5px;display:block;margin-bottom:3px}
+.ve-item span{font-size:12px;color:var(--ink-faint);line-height:1.45}
+
+/* review queue */
+.review-queue{margin-top:18px}
+.rq-head{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:13px}
+.report-card{background:var(--bg-card);border:1px solid var(--line);border-radius:12px;padding:20px}
+.rc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
+.rc-co{font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rc-by{font-size:11px;color:var(--ink-faint);margin-top:5px}
+.rc-score{display:flex;gap:8px;flex-shrink:0}
+.vote-up,.vote-dn{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;padding:8px 13px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;border:1px solid var(--line-bright);background:var(--bg)}
+.vote-up{color:var(--sol)}
+.vote-up:hover:not(:disabled){background:rgba(20,241,149,.12);border-color:var(--sol)}
+.vote-dn{color:var(--red)}
+.vote-dn:hover:not(:disabled){background:rgba(255,84,112,.12);border-color:var(--red)}
+.vote-up:disabled,.vote-dn:disabled{opacity:.4;cursor:default}
+.rc-sum{font-size:13.5px;color:var(--ink-dim);line-height:1.55;margin-bottom:14px}
+.rc-proof{display:flex;gap:8px;flex-wrap:wrap}
+.proof-tag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;padding:4px 9px;border-radius:5px;letter-spacing:.03em}
+.proof-tag.onchain{color:var(--sol);background:rgba(20,241,149,.08);border:1px solid rgba(20,241,149,.25)}
+.proof-tag.offchain{color:var(--cyan);background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25)}
+.proof-tag.conf{color:var(--amber);background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.25)}
+
+/* ---- top bar ---- */
+header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(8,11,20,.82);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.bar{display:flex;align-items:center;justify-content:space-between;height:60px;max-width:1200px;margin:0 auto;padding:0 24px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:-.02em;font-size:15px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--sol);box-shadow:0 0 14px var(--sol);animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.brand .tag{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:500;color:var(--ink-faint);border:1px solid var(--line-bright);padding:2px 6px;border-radius:4px;letter-spacing:.08em;text-transform:uppercase}
+.nav-links{display:flex;gap:26px;align-items:center}
+.nav-links a{color:var(--ink-dim);text-decoration:none;font-size:13px;font-weight:500;transition:color .15s}
+.nav-links a:hover{color:var(--ink)}
+.nav-cta{color:var(--bg)!important;background:var(--sol);padding:7px 14px;border-radius:6px;font-weight:700!important;font-size:12.5px!important}
+.nav-cta:hover{background:var(--sol-deep)}
+.wallet-btn{display:inline-flex;align-items:center;gap:8px;background:var(--sol);color:var(--bg);border:none;padding:8px 15px;border-radius:7px;font-weight:700;font-size:12.5px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .15s;letter-spacing:.02em}
+.wallet-btn:hover{background:var(--sol-deep)}
+.wallet-btn.connected{background:var(--bg-raised);color:var(--sol);border:1px solid rgba(20,241,149,.4)}
+.wallet-btn.connected:hover{background:var(--bg-card)}
+.wb-dot{width:7px;height:7px;border-radius:50%;background:rgba(8,11,20,.5)}
+.wallet-btn.connected .wb-dot{background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 2s infinite}
+
+/* ---- hero ---- */
+.hero{padding:78px 0 40px;position:relative}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sol);border:1px solid rgba(20,241,149,.3);background:rgba(20,241,149,.05);padding:6px 12px;border-radius:100px;margin-bottom:26px}
+.eyebrow .live{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 1.6s infinite}
+h1{font-size:clamp(38px,6vw,72px);line-height:.98;font-weight:900;letter-spacing:-.035em;margin-bottom:24px}
+h1 .stroke{color:transparent;-webkit-text-stroke:1.4px var(--ink-dim)}
+h1 .chain{position:relative;color:var(--sol);white-space:nowrap}
+.lede{font-size:clamp(16px,2.2vw,20px);color:var(--ink-dim);max-width:620px;margin-bottom:14px;font-weight:400}
+.lede strong{color:var(--ink);font-weight:600}
+.creed{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-faint);margin-bottom:38px}
+.creed b{color:var(--sol)}
+
+/* ---- stat strip ---- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg-raised);margin-bottom:14px}
+.stat{padding:22px 24px;border-right:1px solid var(--line);position:relative}
+.stat:last-child{border-right:none}
+.stat .k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px}
+.stat .v{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.stat .v.sol{color:var(--sol)}
+.stat .sub{font-size:11px;color:var(--ink-faint);margin-top:7px}
+.disclaim{font-size:11.5px;color:var(--ink-faint);text-align:center;margin-bottom:10px}
+
+/* ---- section header ---- */
+.sec{padding:44px 0 20px}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;gap:20px;flex-wrap:wrap}
+.sec-head h2{font-size:13px;font-family:'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);font-weight:500;display:flex;align-items:center;gap:10px}
+.sec-head h2::before{content:"";width:22px;height:1px;background:var(--line-bright)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.chip{width:8px;height:8px;border-radius:2px}
+.chip.verified{background:var(--sol)}
+.chip.high{background:var(--amber)}
+.chip.labeled{background:var(--cyan)}
+
+/* ---- company cards ---- */
+.companies{display:flex;flex-direction:column;gap:16px}
+.co{border:1px solid var(--line);border-radius:14px;background:var(--bg-card);overflow:hidden;transition:border-color .2s}
+.co:hover{border-color:var(--line-bright)}
+.co-top{display:grid;grid-template-columns:1fr auto;gap:20px;padding:22px 24px;cursor:pointer;align-items:center}
+.co-id{display:flex;align-items:center;gap:16px;min-width:0}
+.rank{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);font-weight:700;width:24px;flex-shrink:0}
+.co-name{min-width:0}
+.co-name .nm{font-size:20px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ticker{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--ink-dim);border:1px solid var(--line-bright);padding:2px 7px;border-radius:4px;letter-spacing:.05em}
+.co-name .meta{font-size:12.5px;color:var(--ink-faint);margin-top:5px;display:flex;gap:14px;flex-wrap:wrap}
+.co-name .meta b{color:var(--ink-dim);font-weight:500}
+.co-fig{text-align:right;display:flex;align-items:center;gap:22px}
+.co-fig .amt{font-family:'JetBrains Mono',monospace}
+.co-fig .amt .n{font-size:26px;font-weight:700;color:var(--sol);letter-spacing:-.02em;line-height:1}
+.co-fig .amt .u{font-size:11px;color:var(--ink-faint);margin-top:5px;letter-spacing:.05em}
+.exp{width:32px;height:32px;border:1px solid var(--line-bright);border-radius:8px;display:grid;place-items:center;color:var(--ink-dim);transition:all .2s;flex-shrink:0}
+.exp svg{width:14px;height:14px;transition:transform .25s}
+.co.open .exp{background:var(--sol);color:var(--bg);border-color:var(--sol)}
+.co.open .exp svg{transform:rotate(180deg)}
+
+/* badges */
+.src-badge{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px}
+.src-badge.independent{color:var(--amber);background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.28)}
+.src-badge.labeled{color:var(--cyan);background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.28)}
+
+/* expandable body */
+.co-body{display:none;border-top:1px solid var(--line);padding:0}
+.co.open .co-body{display:block;animation:slidedown .3s ease}
+@keyframes slidedown{from{opacity:0}to{opacity:1}}
+.co-summary{padding:20px 24px;color:var(--ink-dim);font-size:14px;border-bottom:1px solid var(--line);background:var(--bg-raised)}
+.co-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:0}
+@media(max-width:780px){.co-grid{grid-template-columns:1fr}}
+.panel{padding:20px 24px}
+.panel.left{border-right:1px solid var(--line)}
+@media(max-width:780px){.panel.left{border-right:none;border-bottom:1px solid var(--line)}}
+.panel h4{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.panel h4 .count{color:var(--ink-dim)}
+
+/* wallet rows */
+.wallets{display:flex;flex-direction:column;gap:7px}
+.w{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;transition:border-color .15s}
+.w:hover{border-color:var(--line-bright)}
+.w-main{min-width:0}
+.w-addr{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.w-addr .a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy{background:none;border:none;color:var(--ink-faint);cursor:pointer;padding:2px;display:grid;place-items:center;flex-shrink:0;transition:color .15s}
+.copy:hover{color:var(--sol)}
+.copy svg{width:13px;height:13px}
+.w-type{font-size:11px;color:var(--ink-faint);margin-top:3px}
+.w-bal{font-family:'JetBrains Mono',monospace;text-align:right;flex-shrink:0}
+.w-bal .b{font-size:13px;font-weight:700;color:var(--ink)}
+.w-bal .b.loading{color:var(--ink-faint);font-weight:400}
+.w-bal .b.err{color:var(--ink-faint);font-size:11px}
+.w-bal .l{font-size:9px;color:var(--ink-faint);letter-spacing:.08em}
+.wv{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.wv.verified{background:var(--sol);box-shadow:0 0 6px var(--sol)}
+.wv.high{background:var(--amber)}
+
+/* meta panel */
+.kv{display:flex;flex-direction:column;gap:13px}
+.kv .row{display:flex;flex-direction:column;gap:5px}
+.kv .row .lbl{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+.kv .row .val{font-size:13px;color:var(--ink-dim)}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:11px;padding:3px 9px;border-radius:5px;background:var(--bg);border:1px solid var(--line-bright);color:var(--ink-dim);font-family:'JetBrains Mono',monospace}
+.pill.val{border-color:rgba(153,69,255,.4);color:#c4a0ff;background:rgba(153,69,255,.08)}
+.tl{display:flex;flex-direction:column;gap:0;margin-top:4px}
+.tl .e{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:7px 0;border-left:1px solid var(--line-bright);padding-left:14px;margin-left:4px;position:relative}
+.tl .e::before{content:"";position:absolute;left:-4px;top:12px;width:7px;height:7px;border-radius:50%;background:var(--bg);border:1.5px solid var(--sol)}
+.tl .e .d{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--sol);white-space:nowrap}
+.tl .e .ev{font-size:12px;color:var(--ink-dim)}
+.srcs{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+.srcs a{font-size:12px;color:var(--cyan);text-decoration:none;display:flex;align-items:center;gap:7px;transition:color .15s}
+.srcs a:hover{color:var(--sol)}
+.srcs a svg{width:11px;height:11px;flex-shrink:0;opacity:.6}
+
+/* methodology placeholder */
+.method-note{font-size:11.5px;color:var(--ink-faint);font-style:italic;padding:10px 12px;border:1px dashed var(--line-bright);border-radius:8px;margin-top:12px}
+
+/* how it works */
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:780px){.how{grid-template-columns:1fr}}
+.step{border:1px solid var(--line);border-radius:12px;padding:24px;background:var(--bg-card)}
+.step .n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sol);font-weight:700;margin-bottom:14px}
+.step h3{font-size:17px;font-weight:700;margin-bottom:9px;letter-spacing:-.01em}
+.step p{font-size:13.5px;color:var(--ink-dim)}
+
+/* footer */
+footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
+.foot{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.foot .brand{margin-bottom:14px}
+.foot p{font-size:12.5px;color:var(--ink-faint);max-width:420px;line-height:1.6}
+.foot .links{display:flex;flex-direction:column;gap:9px}
+.foot .links a{color:var(--ink-dim);text-decoration:none;font-size:13px;transition:color .15s}
+.foot .links a:hover{color:var(--sol)}
+.warn{margin-top:22px;font-size:11px;color:var(--ink-faint);border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--bg-raised);line-height:1.6}
+.warn b{color:var(--ink-dim)}
+
+@media(max-width:780px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stat:nth-child(2){border-right:none}
+  .stat:nth-child(1),.stat:nth-child(2){border-bottom:1px solid var(--line)}
+  .nav-links a:not(.nav-cta){display:none}
+  .co-top{grid-template-columns:1fr;gap:16px}
+  .co-fig{justify-content:space-between}
+  .hero{padding:48px 0 30px}
+  h1{font-size:clamp(30px,9vw,44px)}
+  h1 .chain{white-space:normal}
+}
+
+/* ============ METHODOLOGY (the techniques, in the open) ============ */
+.method-deep{display:flex;flex-direction:column;gap:13px;margin-bottom:30px}
+.md-step{display:grid;grid-template-columns:auto 1fr;gap:20px;padding:22px 24px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px;transition:border-color .2s}
+.md-step:hover{border-color:var(--line-bright)}
+.md-num{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--sol);flex-shrink:0;padding-top:2px;letter-spacing:.02em}
+.md-body h3{font-size:16px;font-weight:700;letter-spacing:-.01em;margin-bottom:7px}
+.md-body p{font-size:13.5px;color:var(--ink-dim);line-height:1.6}
+.md-body .ex{margin-top:11px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-faint);background:var(--bg);border:1px solid var(--line);border-left:2px solid var(--sol);border-radius:7px;padding:10px 13px;line-height:1.6}
+.md-body .ex b{color:var(--ink-dim);font-weight:500}
+.conf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:780px){.conf-grid{grid-template-columns:1fr}}
+.conf-card{padding:18px 20px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px}
+.conf-card .ch{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;margin-bottom:9px}
+.conf-card .ch .chip{width:9px;height:9px;border-radius:2px}
+.conf-card p{font-size:12.5px;color:var(--ink-dim);line-height:1.55}
+
+/* ============ ROADMAP ============ */
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:880px){.roadmap{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.roadmap{grid-template-columns:1fr}}
+.rm-phase{padding:20px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:11px}
+.rm-tag{align-self:flex-start;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:5px}
+.rm-tag.now{color:var(--sol);background:rgba(20,241,149,.1);border:1px solid rgba(20,241,149,.3)}
+.rm-tag.next{color:var(--cyan);background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.3)}
+.rm-tag.soon{color:var(--amber);background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3)}
+.rm-tag.later{color:var(--ink-faint);background:var(--bg-raised);border:1px solid var(--line-bright)}
+.rm-phase h3{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.rm-phase p{font-size:12.5px;color:var(--ink-dim);line-height:1.55}
+.rm-phase .pin{margin-top:auto;padding-top:9px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint)}
+
+/* ============ RESEARCHER LADDER + LEVELS ============ */
+.ranks{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+@media(max-width:880px){.ranks{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.ranks{grid-template-columns:1fr}}
+.rank{padding:16px 14px;background:var(--bg-card);border:1px solid var(--line);border-radius:11px;text-align:center}
+.rank .rl{font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:700;margin-bottom:8px;color:var(--ink-dim)}
+.rank .rn{font-size:13px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px}
+.rank .rx{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);line-height:1.4}
+.rank.owner-rank{border-color:rgba(20,241,149,.35);background:rgba(20,241,149,.05)}
+.rank.owner-rank .rl{color:var(--sol)}
+.lvl-badge{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:4px;border:1px solid var(--line-bright);color:var(--ink-faint);display:inline-flex;align-items:center;gap:5px}
+.lvl-badge.apprentice{color:var(--ink-dim)}
+.lvl-badge.hunter{color:var(--cyan);border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.07)}
+.lvl-badge.detective{color:var(--amber);border-color:rgba(255,176,32,.35);background:rgba(255,176,32,.07)}
+.lvl-badge.chief{color:#c4a0ff;border-color:rgba(153,69,255,.4);background:rgba(153,69,255,.08)}
+.lvl-badge.maintainer{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.08)}
+.xp-bar{height:5px;background:var(--bg);border:1px solid var(--line);border-radius:100px;overflow:hidden;margin-top:9px}
+.xp-fill{height:100%;background:linear-gradient(90deg,var(--sol-deep),var(--sol));border-radius:100px}
+.ladder-note{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-faint);margin-bottom:22px;line-height:1.65}
+.ladder-note b{color:var(--ink-dim);font-weight:500}
+
+/* ============ FIXED FEEDBACK BUTTON ============ */
+.fb-btn{position:fixed;right:18px;bottom:18px;z-index:60;display:inline-flex;align-items:center;gap:8px;background:var(--bg-raised);border:1px solid var(--line-bright);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;padding:10px 15px;border-radius:100px;text-decoration:none;box-shadow:0 6px 22px rgba(0,0,0,.45);transition:all .18s}
+.fb-btn:hover{border-color:var(--sol);color:var(--sol);transform:translateY(-1px)}
+.fb-btn svg{width:14px;height:14px}
+@media(max-width:520px){.fb-btn span{display:none}.fb-btn{padding:11px;right:14px;bottom:14px}}
+
+/* ============ CASE STUDY ============ */
+.cs-block{margin-bottom:26px}
+.cs-h{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:14px;display:flex;align-items:center;gap:10px;font-weight:500}
+.cs-h::before{content:"";width:18px;height:1px;background:var(--line-bright)}
+.cluster-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:880px){.cluster-grid{grid-template-columns:1fr}}
+.cluster{padding:20px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:9px}
+.cl-tag{align-self:flex-start;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sol);background:rgba(20,241,149,.08);border:1px solid rgba(20,241,149,.25);padding:3px 9px;border-radius:5px}
+.cl-title{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.cluster p{font-size:12.5px;color:var(--ink-dim);line-height:1.55}
+.cluster p .mono{color:var(--ink);font-size:11.5px}
+.cluster p b{color:var(--sol);font-weight:700}
+.cl-proofs{display:flex;flex-direction:column;gap:6px;margin-top:auto;padding-top:6px}
+.cl-proofs a{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--cyan);text-decoration:none;transition:color .15s}
+.cl-proofs a:hover{color:var(--sol)}
+.cs-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+.cs-table{width:100%;border-collapse:collapse;font-size:13px;min-width:460px}
+.cs-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;padding:13px 16px;background:var(--bg-raised);border-bottom:1px solid var(--line)}
+.cs-table td{padding:12px 16px;border-bottom:1px solid var(--line);color:var(--ink-dim)}
+.cs-table tbody tr:hover{background:var(--bg-raised)}
+.cs-table td.num{font-family:'JetBrains Mono',monospace;color:var(--sol);font-weight:700;text-align:right}
+.cs-table a.mono{color:var(--cyan);text-decoration:none}
+.cs-table a.mono:hover{color:var(--sol)}
+.cs-table tfoot td{font-weight:700;color:var(--ink);background:var(--bg-raised);border-bottom:none}
+.cs-table tfoot td.num{color:var(--sol)}
+</style>
+</head>
+<body>
+<div class="backdrop"></div>
+<div class="glow"></div>
+
+<header>
+  <div class="bar">
+    <div class="brand">
+      <span class="dot"></span>
+      SOLANA TREASURY WATCH
+      <span class="tag">Beta</span>
+    </div>
+    <nav class="nav-links">
+      <a href="#registry">Registry</a>
+      <a href="#community">Community</a>
+      <a href="#methodology">Method</a>
+      <a href="#case-study">Case Study</a>
+      <button class="wallet-btn" id="walletBtn" onclick="toggleWallet()">
+        <span class="wb-dot"></span><span id="wbText">Connect Wallet</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<div class="glow"></div>
+
+<section class="hero">
+  <div class="wrap">
+    <span class="eyebrow"><span class="live"></span>Live on-chain registry</span>
+    <h1>
+      Public companies say<br>
+      they hold <span class="stroke">SOL.</span><br>
+      <span class="chain">We show the wallets.</span>
+    </h1>
+    <p class="lede">An open registry of <strong>institutional Solana treasuries</strong>, traced wallet-by-wallet through on-chain forensics — funding sources, custody controllers, and validator-level staking.</p>
+    <p class="creed">// <b>don't trust the filing</b> — verify the chain</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="k">Companies tracked</div>
+        <div class="v" id="s-co">3</div>
+        <div class="sub">public, exchange-listed</div>
+      </div>
+      <div class="stat">
+        <div class="k">Wallets attributed</div>
+        <div class="v" id="s-wal">—</div>
+        <div class="sub">across all entities</div>
+      </div>
+      <div class="stat">
+        <div class="k">Declared SOL</div>
+        <div class="v sol" id="s-sol">—</div>
+        <div class="sub">per company disclosures</div>
+      </div>
+      <div class="stat">
+        <div class="k">Est. USD value</div>
+        <div class="v" id="s-usd">—</div>
+        <div class="sub" id="s-price">at live SOL price</div>
+      </div>
+    </div>
+    <p class="disclaim">Declared figures come from company filings &amp; press releases. Live wallet balances are fetched directly from the Solana chain and may differ from declared totals — that gap is exactly what this registry surfaces.</p>
+  </div>
+</section>
+
+<section class="sec" id="registry">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Treasury Registry</h2>
+      <div class="legend">
+        <span><span class="chip verified"></span>Verified</span>
+        <span><span class="chip high"></span>High confidence</span>
+        <span><span class="chip labeled"></span>Publicly labeled</span>
+      </div>
+    </div>
+    <div class="companies" id="companies"></div>
+  </div>
+</section>
+
+<section class="sec" id="how">
+  <div class="wrap">
+    <div class="sec-head"><h2>How attribution works</h2></div>
+    <div class="how">
+      <div class="step">
+        <div class="n">01 / DISCLOSE</div>
+        <h3>Start with the filing</h3>
+        <p>Every entry begins from a public source — an SEC filing or press release stating a SOL acquisition, a custody arrangement, or a staking deal, with dates and amounts.</p>
+      </div>
+      <div class="step">
+        <div class="n">02 / TRACE</div>
+        <h3>Follow the chain</h3>
+        <p>On-chain flows are matched to the disclosure: funding timing, exchange inflows (FalconX, Coinbase Prime), validator staking, and custody controllers — until the wallets line up.</p>
+      </div>
+      <div class="step">
+        <div class="n">03 / RATE</div>
+        <h3>Label the confidence</h3>
+        <p>Nothing is presented as absolute. Each wallet carries a confidence level — verified, high, or publicly labeled — so you can judge the evidence yourself.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="methodology">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Methodology — the techniques, in the open</h2>
+      <div class="legend">
+        <span class="mono" style="color:var(--ink-faint)">no black boxes · reproduce every step yourself</span>
+      </div>
+    </div>
+
+    <div class="comm-intro">
+      <p>Wallet attribution can look like magic. It isn't. It's a repeatable chain of evidence anyone can follow with a block explorer and patience. Here's the exact method behind every entry on this page — so you can check our work, or run your own.</p>
+    </div>
+
+    <div class="method-deep">
+      <div class="md-step">
+        <div class="md-num">01</div>
+        <div class="md-body">
+          <h3>Anchor on a disclosure</h3>
+          <p>Every trace starts off-chain. An SEC 8-K, an 8-K/A, or a press release that states a SOL purchase, a custody arrangement, or a staking deal — with a date and an amount. That gives you a <i>when</i> and a <i>how much</i> to hunt for on the chain.</p>
+          <div class="ex"><b>Example —</b> "Helius (HSDT) begins purchasing SOL, 760,190 SOL" on 2025-09-22. Now you know the rough size and window to look for.</div>
+        </div>
+      </div>
+      <div class="md-step">
+        <div class="md-num">02</div>
+        <div class="md-body">
+          <h3>Match the funding flow</h3>
+          <p>Find on-chain inflows whose <b>timing and size</b> line up with the disclosure. A treasury buying hundreds of thousands of SOL leaves a footprint: large transfers out of an exchange or OTC desk (Coinbase Prime, FalconX) into fresh addresses, clustered around the announced date.</p>
+          <div class="ex"><b>Signal —</b> a 1M+ SOL transfer arriving directly from a Solana Foundation non-circulating supply wallet is about as strong as on-chain evidence gets.</div>
+        </div>
+      </div>
+      <div class="md-step">
+        <div class="md-num">03</div>
+        <div class="md-body">
+          <h3>Fingerprint the custodian</h3>
+          <p>Custodians leave recognizable on-chain patterns — deposit-address structures, program interactions, and stake-authority layouts that repeat across their clients. Matching those patterns tells you <b>who controls the keys</b>, not just where the coins sit.</p>
+          <div class="ex"><b>Tells —</b> Coinbase Prime, Fireblocks, Anchorage and BitGo each route and stake differently. The plumbing gives them away.</div>
+        </div>
+      </div>
+      <div class="md-step">
+        <div class="md-num">04</div>
+        <div class="md-body">
+          <h3>Cluster the stake &amp; deposit accounts</h3>
+          <p>Follow each stake account back to its <b>stake authority</b> and <b>withdraw authority</b>; group deposit addresses that share a controller. One confirmed wallet expands into the full set this way — custody wallets, stake accounts, and the validators they delegate to.</p>
+          <div class="ex"><b>Method —</b> shared authorities and repeated counterparties turn a single address into a mapped treasury.</div>
+        </div>
+      </div>
+      <div class="md-step">
+        <div class="md-num">05</div>
+        <div class="md-body">
+          <h3>Cross-validate before you label</h3>
+          <p>Never publish on a single signal. Require at least <b>two independent lines</b> — say, a timing match plus a custodian fingerprint plus a corroborating filing — before attributing an address. Then assign a <b>confidence level</b>, not a verdict.</p>
+          <div class="ex"><b>Rule —</b> if it only checks one box, it stays in your notes, not on the registry.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="conf-grid">
+      <div class="conf-card">
+        <div class="ch"><span class="chip verified"></span>Verified</div>
+        <p>A definitive on-chain link — a direct transfer from a known entity or Foundation wallet, or a transaction the entity itself signed. The strongest tier.</p>
+      </div>
+      <div class="conf-card">
+        <div class="ch"><span class="chip high"></span>High confidence</div>
+        <p>Strong evidentiary clustering — timing, size, custodian fingerprint and disclosure all converge — but no single cryptographic proof of ownership.</p>
+      </div>
+      <div class="conf-card">
+        <div class="ch"><span class="chip labeled"></span>Publicly labeled</div>
+        <p>The entity or its custodian has publicly disclosed the address. We relay it and run an independent sanity check, but the source is their statement.</p>
+      </div>
+    </div>
+
+    <div class="warn">
+      <b>Where this method stops.</b> Clustering is probabilistic. "High confidence" means the evidence strongly converges — not that ownership is legally proven. Every attribution here can be challenged with better evidence, and that's the point of doing it in the open: a wrong call is visible and fixable, not buried in a private dataset.
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="case-study">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Case Study — Sharps Technology</h2>
+      <div class="legend"><span class="mono" style="color:var(--ink-faint)">the method, applied to a real treasury</span></div>
+    </div>
+
+    <div class="comm-intro" style="max-width:840px">
+      <p>Sharps Technology (NASDAQ: STSS) declared a ~2,000,000 SOL treasury. Starting only from its public filings, the chain led to <strong>1,253,407 SOL across the five wallets below</strong> — funded through FalconX, held under Coinbase Prime Custody, and staked with Jupiter, Chorus One and Anchorage. These are the same addresses listed in the Sharps entry above; here's how they were found. <span class="mono" style="color:var(--ink-faint)">(Declared 2M vs ~1.25M traced so far — that gap is exactly what a registry like this surfaces.)</span></p>
+    </div>
+
+    <div class="cs-block">
+      <div class="cs-h mono">01 · The disclosures we anchored on</div>
+      <div class="tl">
+        <div class="e"><span class="d">2025-08-25</span><span class="ev">$400M+ private placement announced (ParaFi, Pantera, FalconX, RockawayX…)</span></div>
+        <div class="e"><span class="d">2025-08-28</span><span class="ev">Placement closes, treasury strategy launches → wallets must be funded on/after this date</span></div>
+        <div class="e"><span class="d">2025-09-02</span><span class="ev">2M+ SOL acquisition announced → accumulation window is Aug 28 → early Oct</span></div>
+        <div class="e"><span class="d">2025-09-23</span><span class="ev">Jupiter staking partnership → wallets should show Jupiter staking</span></div>
+        <div class="e"><span class="d">2025-10-09</span><span class="ev">Coinbase expansion → wallets should interact with Coinbase Prime Custody</span></div>
+      </div>
+    </div>
+
+    <div class="cs-block">
+      <div class="cs-h mono">02 · Following the money — three clusters</div>
+      <div class="cluster-grid">
+        <div class="cluster">
+          <div class="cl-tag">Cluster A</div>
+          <div class="cl-title">FalconX inflow → Coinbase custody → Jupiter</div>
+          <p>Wallet <span class="mono">32pFK…uaws</span> received <b>341,173 SOL</b> from FalconX (Aug 30 – Sep 1), routed through Coinbase Prime Custody, then staked on Jupiter. Consolidated into <span class="mono">72aSN…kX5C</span>.</p>
+          <div class="cl-proofs">
+            <a href="https://intel.arkm.com/explorer/tx/k1g1qQRzaykHiwoZeNxwbt6esMEbNS2pqeEXXiZtw3PtyhLnggCT9z6A56F7H8Bovc8VCZV9gF6Nny1RaKzA2LX" target="_blank" rel="noopener">↗ 230K SOL FalconX inflow</a>
+            <a href="https://intel.arkm.com/explorer/tx/3f72LPordFugdt4nywq3maZPpQDuVG9zhF6DaDXg3WkMkzDNLQb8bPcVuP35fuGbtaEjUhb4zwfamfPPpnK1ADJK" target="_blank" rel="noopener">↗ stake deployment</a>
+          </div>
+        </div>
+        <div class="cluster">
+          <div class="cl-tag">Cluster B</div>
+          <div class="cl-title">Secondary accumulation, same fingerprints</div>
+          <p>Wallet <span class="mono">9i8p3…2zgV</span> took <b>270K+ SOL</b> from FalconX (Sep 1–5), staked via the same Coinbase Prime Custody wallet on Jupiter. Holdings under <span class="mono">2GyX8…fT1aX</span>.</p>
+          <div class="cl-proofs">
+            <a href="https://intel.arkm.com/explorer/tx/g7i1bGENKGVZ4SDS8Zbnn43tJ9JXhy487MaEfyqitaUU1EksjA7vCU8Ge74a3pBKTT5fCDf4UV7uX14KGtKR1j5" target="_blank" rel="noopener">↗ Jupiter stake proof</a>
+          </div>
+        </div>
+        <div class="cluster">
+          <div class="cl-tag">Cluster C</div>
+          <div class="cl-title">Linked group, Chorus One + Anchorage</div>
+          <p>Wallets <span class="mono">DGVxn…zCoX</span> and <span class="mono">4vvMe…SHM5</span> hold <b>507K SOL</b> staked with Chorus One and Anchorage — tied to Cluster A by a direct transfer to <span class="mono">72aSN…kX5C</span>.</p>
+          <div class="cl-proofs">
+            <a href="https://intel.arkm.com/explorer/tx/3qr19DGUYtV5cSr5WMUsSijHpMUSFGExnL1B2mCGTfXJc88QDmV18eppwZBNRaEcuQE3mEZqMhc9btuM48ctXMdC" target="_blank" rel="noopener">↗ inter-wallet link</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cs-block">
+      <div class="cs-h mono">03 · The identified treasury — 1,253,407 SOL</div>
+      <div class="cs-table-wrap">
+        <table class="cs-table">
+          <thead><tr><th>Wallet</th><th>Balance (SOL)</th><th>Custody / Validator</th></tr></thead>
+          <tbody>
+            <tr><td><a class="mono" href="https://solscan.io/account/HHSNLApE2Txh6U2p2QsmfocE2fzoBk9fY5Vir9ndHM23" target="_blank" rel="noopener">HHSNL…HM23</a></td><td class="num">450,537</td><td>Coinbase Prime → Jupiter</td></tr>
+            <tr><td><a class="mono" href="https://solscan.io/account/5tfHZEKdQFTEfYCNoGYbV8Sq6vfmCS83sVADFUSrTBE" target="_blank" rel="noopener">5tfHZ…RTBE</a></td><td class="num">202,580</td><td>Coinbase Prime → Jupiter</td></tr>
+            <tr><td><a class="mono" href="https://solscan.io/account/72aSNbcPea1QN7NbxmEuQqDmBVowZpvFi1AvNdUekX5C" target="_blank" rel="noopener">72aSN…kX5C</a></td><td class="num">93,191</td><td>Jupiter</td></tr>
+            <tr><td><a class="mono" href="https://solscan.io/account/DGVxn3q4TNFvDUXDHzM8gSTcYDNaqNmZ1vBkTiU4zCoX" target="_blank" rel="noopener">DGVxn…zCoX</a></td><td class="num">201,270</td><td>Chorus One + Anchorage</td></tr>
+            <tr><td><a class="mono" href="https://solscan.io/account/4vvMe3mYNHrNb3rwZiqCWh3QCbTi6DaLN2NHbDxgSHM5" target="_blank" rel="noopener">4vvMe…SHM5</a></td><td class="num">305,829</td><td>Anchorage</td></tr>
+          </tbody>
+          <tfoot><tr><td>Total identified</td><td class="num">1,253,407</td><td>declared: 2,000,000</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="warn">
+      <b>Why this holds up.</b> Assets moved under Coinbase Prime Custody control two days before the Oct 9 Coinbase announcement, and Jupiter staking appeared days before the Sep 23 partnership — on-chain behavior that pre-empts the public reveal. Combined with matching funding timelines, FalconX inflows, shared custody controllers and inter-wallet transfers, the convergence makes coincidental overlap highly unlikely. Still probabilistic, not legal proof — but a robust, independently verifiable attribution.
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="community">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Community Intelligence</h2>
+      <div class="legend">
+        <span class="mono" style="color:var(--ink-faint)">decentralized · evidence-bound · donation-driven</span>
+      </div>
+    </div>
+
+    <div class="comm-intro">
+      <p>This registry isn't a closed list — it's an <strong>open intelligence network</strong>. Anyone can request a fund's wallets or submit research. Every submission must carry <strong>both on-chain and off-chain proof</strong>, and is reviewed by recognized analysts before it's published. Trust is earned in the open.</p>
+    </div>
+
+    <div class="comm-tabs">
+      <button class="ctab active" onclick="switchTab(this,'tab-bounties')">⊹ Bounty Board</button>
+      <button class="ctab" onclick="switchTab(this,'tab-requests')">⌖ Wallet Requests</button>
+      <button class="ctab" onclick="switchTab(this,'tab-submit')">⊕ Submit Research</button>
+      <button class="ctab" onclick="switchTab(this,'tab-analysts')">✦ Analysts</button>
+    </div>
+
+    <!-- BOUNTY BOARD -->
+    <div class="tab-panel active" id="tab-bounties">
+      <div class="panel-bar">
+        <div class="pb-title">Open Bounties <span class="mono dim">— boost to signal demand for a wallet hunt (on-chain)</span></div>
+        <button class="btn-ghost" onclick="alert('Posting a bounty will be enabled with the on-chain escrow release (Phase 2). For now, reach out to coordinate a bounty manually.')">+ Post Bounty</button>
+      </div>
+      <div class="bounty-list">
+        <div class="bounty">
+          <div class="b-left">
+            <div class="b-target">Galaxy Digital — SOL treasury wallets</div>
+            <div class="b-desc">Identify and attribute Galaxy's on-chain Solana holdings. Must include exchange-inflow trace + custody controller + a corroborating public disclosure.</div>
+            <div class="b-meta"><span class="mono">requested by</span> <span class="b-who">0x…anon</span> · <span class="mono">open 3d</span></div>
+          </div>
+          <div class="b-right">
+            <div class="b-reward"><span class="n">5</span><span class="u">SOL</span></div>
+            <div class="b-stakers mono">3 backers</div>
+            <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
+          </div>
+        </div>
+        <div class="bounty">
+          <div class="b-left">
+            <div class="b-target">DeFi Development Corp — full wallet set</div>
+            <div class="b-desc">Known to hold ~2.2M SOL. Map all custody + stake accounts with validator-level breakdown and confidence ratings per address.</div>
+            <div class="b-meta"><span class="mono">requested by</span> <span class="b-who">@solwatcher</span> · <span class="mono">open 6d</span></div>
+          </div>
+          <div class="b-right">
+            <div class="b-reward"><span class="n">3</span><span class="u">SOL</span></div>
+            <div class="b-stakers mono">2 backers</div>
+            <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
+          </div>
+        </div>
+        <div class="bounty dim-bounty">
+          <div class="b-left">
+            <div class="b-target">SOL Strategies (HODL) — verification</div>
+            <div class="b-desc">Wallets publicly labeled. Bounty is to independently verify each address with a documented methodology and rate confidence.</div>
+            <div class="b-meta"><span class="mono">requested by</span> <span class="b-who">@onchaindd</span> · <span class="mono">open 9d</span></div>
+          </div>
+          <div class="b-right">
+            <div class="b-reward"><span class="n">2</span><span class="u">SOL</span></div>
+            <div class="b-stakers mono">1 backer</div>
+            <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
+          </div>
+        </div>
+      </div>
+      <div class="phase-note">⛓ <b>Phase 2:</b> bounty rewards will be held in an on-chain escrow and released automatically to the analyst whose report is approved. Today, boosting signals demand and bounties are settled by donation between participants.</div>
+    </div>
+
+    <!-- WALLET REQUESTS -->
+    <div class="tab-panel" id="tab-requests">
+      <div class="panel-bar">
+        <div class="pb-title">Wallet Requests <span class="mono dim">— ask the community to trace a fund or company</span></div>
+        <button class="btn-ghost" onclick="document.getElementById('req-form').scrollIntoView({behavior:'smooth'})">+ New Request</button>
+      </div>
+      <div class="req-list">
+        <div class="req"><div class="req-ic">⌖</div><div class="req-body"><div class="req-name">Pantera Capital — SOL positions</div><div class="req-sub mono">12 upvotes · 1 draft in review</div></div><button class="up" onclick="upvoteReq(this)">▲ <span>12</span></button></div>
+        <div class="req"><div class="req-ic">⌖</div><div class="req-body"><div class="req-name">Jump Trading — Solana custody wallets</div><div class="req-sub mono">9 upvotes · open</div></div><button class="up" onclick="upvoteReq(this)">▲ <span>9</span></button></div>
+        <div class="req"><div class="req-ic">⌖</div><div class="req-body"><div class="req-name">VanEck SOL ETF — on-chain holdings</div><div class="req-sub mono">7 upvotes · open</div></div><button class="up" onclick="upvoteReq(this)">▲ <span>7</span></button></div>
+      </div>
+      <div class="mini-form" id="req-form">
+        <div class="mf-title mono">Request a wallet trace</div>
+        <div class="mf-row">
+          <input type="text" placeholder="Fund / company name (e.g. Pantera Capital)" id="rq-name">
+          <input type="text" placeholder="Any hint — ticker, filing, known amount (optional)" id="rq-hint">
+        </div>
+        <button class="btn-fill" onclick="submitRequest()">Submit Request</button>
+        <div class="mf-note">Requests are public. No wallet connection needed to ask.</div>
+      </div>
+    </div>
+
+    <!-- SUBMIT RESEARCH -->
+    <div class="tab-panel" id="tab-submit">
+      <div class="panel-bar">
+        <div class="pb-title">Submit Research <span class="mono dim">— contribute an attribution report</span></div>
+      </div>
+      <div class="submit-grid">
+        <div class="rules">
+          <div class="rules-title mono">Submission rules</div>
+          <ul class="rule-list">
+            <li><span class="rk">01</span> Every claim needs <b>on-chain proof</b> — transaction hashes, addresses, flows.</li>
+            <li><span class="rk">02</span> Plus <b>off-chain corroboration</b> — SEC filing, press release, or official disclosure.</li>
+            <li><span class="rk">03</span> State a <b>confidence level</b> per wallet. Never present clustering as certainty.</li>
+            <li><span class="rk">04</span> Reviewed by <b>recognized analysts</b> and the maintainer before publishing.</li>
+            <li><span class="rk">05</span> Approved reports are credited to you, on-chain-verifiable, forever public.</li>
+          </ul>
+        </div>
+        <div class="mini-form" style="margin-top:0">
+          <div class="mf-title mono">New report</div>
+          <input type="text" placeholder="Subject company / fund" id="sub-co" style="margin-bottom:10px">
+          <textarea placeholder="Summary of attribution + key evidence" id="sub-sum" rows="3"></textarea>
+          <div class="mf-row" style="margin-top:10px">
+            <input type="text" placeholder="On-chain proof link (Solscan / explorer)" id="sub-onchain">
+            <input type="text" placeholder="Off-chain proof link (SEC / press)" id="sub-offchain">
+          </div>
+          <button class="btn-fill" onclick="submitResearch()" style="margin-top:12px">Submit for Review</button>
+          <div class="mf-note">Goes into the review queue. You'll be credited if approved.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYSTS -->
+    <div class="tab-panel" id="tab-analysts">
+      <div class="panel-bar">
+        <div class="pb-title">Researcher Ladder <span class="mono dim">— reputation is earned in the open, not bought</span></div>
+        <a class="btn-ghost" data-mailto data-subject="STW — analyst application" href="#">✦ Apply to become an analyst</a>
+      </div>
+
+      <div class="ranks">
+        <div class="rank"><div class="rl">I</div><div class="rn">Apprentice</div><div class="rx">sign up · 0 XP</div></div>
+        <div class="rank"><div class="rl">II</div><div class="rn">Bounty Hunter</div><div class="rx">first approved reports</div></div>
+        <div class="rank"><div class="rl">III</div><div class="rn">Detective</div><div class="rx">consistent, sourced work</div></div>
+        <div class="rank"><div class="rl">IV</div><div class="rn">Chief Detective</div><div class="rx">trusted reviewer</div></div>
+        <div class="rank owner-rank"><div class="rl">◆</div><div class="rn">Maintainer</div><div class="rx">holds the final seal</div></div>
+      </div>
+
+      <p class="ladder-note">Sign up with email and you start as an <b>Apprentice</b>. Every report you ship that gets approved — and every <b>boost</b> the community casts on it — adds XP. Volume alone doesn't move you: <b>quality × accepted submissions</b> does. Climb the ladder, earn the seal.</p>
+
+      <div class="analyst-grid">
+        <div class="analyst">
+          <div class="av">A</div>
+          <div class="an-body"><div class="an-name">Maintainer <span class="lvl-badge maintainer">◆ Maintainer</span></div><div class="an-stat mono">final approve / reject · 38 wallets published</div></div>
+        </div>
+        <div class="analyst">
+          <div class="av">?</div>
+          <div class="an-body">
+            <div class="an-name">Your profile <span class="lvl-badge apprentice">I · Apprentice</span></div>
+            <div class="an-stat mono">sign up to claim this seat · 0 XP</div>
+            <div class="xp-bar"><div class="xp-fill" style="width:6%"></div></div>
+          </div>
+        </div>
+        <div class="analyst">
+          <div class="av">✦</div>
+          <div class="an-body">
+            <div class="an-name">Open seat <span class="lvl-badge hunter">II+ · earned</span></div>
+            <div class="an-stat mono">ship approved reports to climb</div>
+            <div class="xp-bar"><div class="xp-fill" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="vote-explain">
+        <div class="ve-title mono">How report scoring works</div>
+        <div class="ve-row">
+          <div class="ve-item"><div class="ve-ic up-ic">▲</div><div><b>Upvote</b><span>Recognized analysts vouch for evidence quality.</span></div></div>
+          <div class="ve-item"><div class="ve-ic dn-ic">▼</div><div><b>Downvote</b><span>Flag weak attribution or missing proof.</span></div></div>
+          <div class="ve-item"><div class="ve-ic ok-ic">✓</div><div><b>Maintainer seal</b><span>Final approval before a report goes public.</span></div></div>
+        </div>
+        <div class="mf-note" style="margin-top:14px;text-align:center">Only recognized analysts and the maintainer can approve or reject. Anyone can read every vote — scoring happens in the open.</div>
+      </div>
+
+      <div class="review-queue">
+        <div class="rq-head mono">Review queue — vote on-chain</div>
+        <div class="report-card">
+          <div class="rc-top">
+            <div>
+              <div class="rc-co">DeFi Development Corp <span class="ticker">NASDAQ: DFDV</span></div>
+              <div class="rc-by mono">submitted by <span style="color:var(--cyan)">@onchaindd</span> · pending review</div>
+            </div>
+            <div class="rc-score">
+              <button class="vote-up" onclick="scoreReport(this,1)">▲ <span>4</span></button>
+              <button class="vote-dn" onclick="scoreReport(this,-1)">▼ <span>0</span></button>
+            </div>
+          </div>
+          <div class="rc-sum">Attributes 2.18M SOL across 9 addresses. Coinbase Prime custody confirmed, staking split between two validators. Includes SEC 8-K + on-chain inflow trace.</div>
+          <div class="rc-proof">
+            <span class="proof-tag onchain">⛓ on-chain proof attached</span>
+            <span class="proof-tag offchain">▤ SEC filing attached</span>
+            <span class="proof-tag conf">◑ confidence: high</span>
+          </div>
+        </div>
+        <div class="mf-note" style="margin-top:12px">Each score is a verifiable on-chain action — a signed memo transaction, with no fee paid to us (only the standard ~0.000005 SOL network fee). That keeps votes real and attributable instead of free to farm. The maintainer casts the final seal.</div>
+      </div>
+      <div class="phase-note">⛓ <b>Phase 2:</b> for now, XP and rank are tracked by the maintainer. Next, reputation moves on-chain — a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="roadmap">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Where this goes</h2>
+      <div class="legend">
+        <span class="mono" style="color:var(--ink-faint)">ship the registry first · grow it in the open</span>
+      </div>
+    </div>
+    <div class="roadmap">
+      <div class="rm-phase">
+        <span class="rm-tag now">Live now</span>
+        <h3>Treasury registry</h3>
+        <p>Public-company SOL treasuries, traced wallet-by-wallet, with live balances, public sources, and a confidence level on every address.</p>
+        <div class="pin">// you're looking at it</div>
+      </div>
+      <div class="rm-phase">
+        <span class="rm-tag next">Next</span>
+        <h3>Coverage &amp; open source</h3>
+        <p>More entities added, the full codebase and dataset opened on GitHub, and the Weekly Brief wired up so movements land in your inbox.</p>
+        <div class="pin">// expand + open the repo</div>
+      </div>
+      <div class="rm-phase">
+        <span class="rm-tag soon">Soon</span>
+        <h3>Community intelligence</h3>
+        <p>Anyone can request an investigation; volunteer researchers pick it up. Every report is open-source and written <i>with</i> its methodology — so the technique spreads, not just the result.</p>
+        <div class="pin">// the network forms</div>
+      </div>
+      <div class="rm-phase">
+        <span class="rm-tag later">Later</span>
+        <h3>On-chain trust</h3>
+        <p>Bounties held in on-chain escrow and released on approval, plus researcher reputation that lives on-chain — portable, verifiable, owned by the researcher.</p>
+        <div class="pin">// escrow + reputation</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="newsletter">
+  <div class="wrap">
+    <div class="sec-head"><h2>Weekly Brief</h2></div>
+    <div style="border:1px solid var(--line);border-radius:14px;background:var(--bg-card);padding:34px;display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:center">
+      <div style="max-width:460px">
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px">Institutional SOL Movements</div>
+        <p style="color:var(--ink-dim);font-size:14px">A free weekly read on what corporate Solana treasuries did on-chain: new acquisitions, stake shifts, custody moves, and freshly attributed wallets. No noise.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input type="email" id="nl-email" placeholder="you@email.com" style="background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;padding:12px 16px;color:var(--ink);font-size:14px;font-family:'JetBrains Mono',monospace;min-width:240px;outline:none" onfocus="this.style.borderColor='var(--sol)'" onblur="this.style.borderColor='var(--line-bright)'">
+          <button onclick="subscribeNewsletter()" style="background:var(--sol);color:var(--bg);border:none;border-radius:8px;padding:12px 22px;font-weight:700;font-size:14px;cursor:pointer;font-family:'Archivo',sans-serif">Subscribe</button>
+        </div>
+        <div class="mono" style="font-size:11px;color:var(--ink-faint)">No email? Connecting your wallet is enough to take part — that's your identity here.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <div class="brand"><span class="dot"></span>SOLANA TREASURY WATCH</div>
+        <p>An open public good for the Solana ecosystem. Every wallet attribution is traceable, sourced, and confidence-rated — built so anyone can verify institutional stake concentration for themselves.</p>
+        <div class="warn">
+          <b>Disclaimer.</b> On-chain attribution is inherently probabilistic. Wallets marked "high confidence" represent strong evidentiary clustering, not legal certainty. This is research, not financial advice. Always verify independently before acting.
+        </div>
+      </div>
+      <div class="links">
+        <a href="#registry">Registry</a>
+        <a href="#methodology">Methodology</a>
+        <a href="#case-study">Case Study</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#newsletter">Weekly Brief</a>
+        <a href="#" onclick="copyContact(event)">Feedback</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- floating feedback button — opens an email to the maintainer -->
+<a class="fb-btn" href="#" onclick="copyContact(event)" title="Copy contact email">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  <span>Feedback</span>
+</a>
+
+<!-- Company + wallet data lives in data.js — edit that file to update the registry -->
+<script src="data.js"></script>
+<script>
+// RPC endpoints — Helius (fast & reliable, primary), public RPC as automatic fallback.
+// NOTE: this key is visible in the page source — that's unavoidable for a static
+// site. Protect it by locking allowed domains in your Helius dashboard.
+const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=6cb1f3a8-f0cc-404b-a403-37afd1f3f427";
+const PUBLIC_RPC = "https://api.mainnet-beta.solana.com";
+const SOL_RPC = HELIUS_RPC; // primary for balance reads
+
+// getBalance with automatic fallback: try Helius first, then the public RPC.
+async function rpcGetBalance(addr){
+  const body = JSON.stringify({jsonrpc:"2.0",id:1,method:"getBalance",params:[addr]});
+  for(const url of [HELIUS_RPC, PUBLIC_RPC]){
+    try{
+      const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body});
+      const j = await res.json();
+      if(j && j.result && typeof j.result.value === 'number') return j.result.value;
+    }catch(e){ /* fall through to next endpoint */ }
+  }
+  throw new Error('balance unavailable');
+}
+const fmt = n => n>=1e6 ? (n/1e6).toFixed(2)+"M" : n>=1e3 ? (n/1e3).toFixed(1)+"K" : n.toLocaleString();
+const fmtFull = n => Math.round(n).toLocaleString();
+const short = a => a.slice(0,4)+"…"+a.slice(-4);
+
+let SOL_PRICE = 0;
+
+function render(){
+  const host = document.getElementById('companies');
+  let totalWallets=0, totalDeclared=0;
+
+  const DATA = window.TREASURY_DATA;
+  if(!DATA || !DATA.companies){
+    host.innerHTML = '<div class="method-note" style="text-align:center;padding:28px">Company data (<b>data.js</b>) didn\'t load. Make sure <b>data.js</b> is deployed in the same folder as index.html.</div>';
+    return;
+  }
+
+  DATA.companies.forEach((c,i)=>{
+    totalWallets += c.wallets.length;
+    totalDeclared += c.declaredSOL;
+
+    const walletRows = c.wallets.map(w=>{
+      const conf = w.confidence || (c.confidence==='high'?'high':'');
+      const dot = conf ? `<span class="wv ${conf}"></span>` : '';
+      return `<div class="w">
+        <div class="w-main">
+          <div class="w-addr">${dot}<span class="a">${w.addr}</span>
+            <button class="copy" onclick="copyAddr(this,'${w.addr}')" title="Copy address">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+          <div class="w-type">${w.type}</div>
+        </div>
+        <div class="w-bal">
+          <div class="b loading" data-addr="${w.addr}">····</div>
+          <div class="l">SOL</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const sourceRows = (c.sources&&c.sources.length)
+      ? c.sources.map(s=>`<a href="${s.url}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>${s.label}</a>`).join('')
+      : `<div class="method-note">Source links to be added.</div>`;
+
+    const timelineRows = c.timeline.map(t=>`<div class="e"><span class="d">${t.date}</span><span class="ev">${t.event}</span></div>`).join('');
+
+    const valPills = c.validators.length
+      ? `<div class="row"><span class="lbl">Validators</span><div class="pills">${c.validators.map(v=>`<span class="pill val">${v}</span>`).join('')}</div></div>` : '';
+
+    const card = document.createElement('div');
+    card.className='co';
+    card.innerHTML = `
+      <div class="co-top" onclick="toggleCo(this)">
+        <div class="co-id">
+          <span class="rank">#${String(i+1).padStart(2,'0')}</span>
+          <div class="co-name">
+            <div class="nm">${c.name}<span class="ticker">${c.exchange}: ${c.ticker}</span>
+              <span class="src-badge ${c.source}">${c.source==='independent'?'◆ Independent analysis':'◇ Publicly labeled'}</span>
+            </div>
+            <div class="meta">
+              <span><b>${c.wallets.length}</b> wallets</span>
+              <span><b>${c.custodians.join(' · ')}</b></span>
+              ${c.avgCost?`<span>avg <b>$${c.avgCost}</b>/SOL</span>`:''}
+            </div>
+          </div>
+        </div>
+        <div class="co-fig">
+          <div class="amt">
+            <div class="n">${fmt(c.declaredSOL)}</div>
+            <div class="u">SOL DECLARED</div>
+          </div>
+          <div class="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></div>
+        </div>
+      </div>
+      <div class="co-body">
+        <div class="co-summary">${c.summary}</div>
+        <div class="co-grid">
+          <div class="panel left">
+            <h4>Attributed wallets <span class="count">${c.wallets.length} addresses · live balances</span></h4>
+            <div class="wallets">${walletRows}</div>
+            <div class="method-note">Full attribution methodology for this entity will be published here.</div>
+          </div>
+          <div class="panel">
+            <h4>Profile</h4>
+            <div class="kv">
+              <div class="row"><span class="lbl">Custodians</span><div class="pills">${c.custodians.map(x=>`<span class="pill">${x}</span>`).join('')}</div></div>
+              ${valPills}
+              <div class="row"><span class="lbl">Acquisition timeline</span><div class="tl">${timelineRows}</div></div>
+              <div class="row"><span class="lbl">Public sources</span><div class="srcs">${sourceRows}</div></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    host.appendChild(card);
+  });
+
+  document.getElementById('s-wal').textContent = totalWallets;
+  document.getElementById('s-sol').textContent = fmt(totalDeclared);
+  window.__declared = totalDeclared;
+}
+
+function toggleCo(el){
+  const card = el.closest('.co');
+  const wasOpen = card.classList.contains('open');
+  card.classList.toggle('open');
+  if(!wasOpen) loadBalances(card);
+}
+
+function copyAddr(btn,addr){
+  navigator.clipboard.writeText(addr).then(()=>{
+    const orig = btn.innerHTML;
+    btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#14f195" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>';
+    setTimeout(()=>btn.innerHTML=orig,1200);
+  });
+}
+
+// fetch live balances for a card's wallets via Solana RPC
+async function loadBalances(card){
+  const els = card.querySelectorAll('.w-bal .b[data-addr]');
+  for(const el of els){
+    if(el.dataset.done) continue;
+    const addr = el.dataset.addr;
+    try{
+      const lamports = await rpcGetBalance(addr);
+      const sol = lamports/1e9;
+      el.classList.remove('loading');
+      el.textContent = sol>=1000?fmt(sol):sol.toFixed(2);
+      el.dataset.done="1";
+    }catch(e){
+      el.classList.remove('loading');el.classList.add('err');
+      el.textContent='—';
+      el.dataset.done="1";
+    }
+    await new Promise(r=>setTimeout(r,90));
+  }
+}
+
+// live SOL price for the USD stat
+async function loadPrice(){
+  try{
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+    const j = await r.json();
+    SOL_PRICE = j.solana.usd;
+    document.getElementById('s-price').textContent = `at $${SOL_PRICE.toLocaleString()} / SOL`;
+    if(window.__declared){
+      document.getElementById('s-usd').textContent = '$'+fmt(window.__declared*SOL_PRICE);
+    }
+  }catch(e){
+    document.getElementById('s-usd').textContent='—';
+    document.getElementById('s-price').textContent='price unavailable';
+  }
+}
+
+// ====================================================================
+//  WALLET / dAPP LAYER — Phantom connect + on-chain memo vote
+// ====================================================================
+
+// ── CONTACT ─────────────────────────────────────────────────────────
+// Feedback uses this address (click-to-copy). Keep it current.
+const CONTACT_EMAIL = "aksusarya@proton.me";
+
+// ── NEWSLETTER ──────────────────────────────────────────────────────
+// Direct, inline signup (no mail app). Create a free form at formspree.io,
+// then paste your endpoint here (looks like https://formspree.io/f/abcdwxyz).
+// Until it's set, the form politely says signups open soon.
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID";
+
+// On-chain votes are written as a Solana Memo transaction — a real,
+// verifiable signed action that pays NO ONE (only the ~0.000005 SOL
+// network fee). This site collects nothing.
+const MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
+
+let walletPubkey = null;                 // connected wallet address (string)
+
+function getProvider(){
+  // Phantom injects window.solana
+  if(window.solana && window.solana.isPhantom) return window.solana;
+  return null;
+}
+
+async function toggleWallet(){
+  const prov = getProvider();
+  if(!prov){
+    alert("Phantom wallet not found.\n\nInstall it from phantom.app, then refresh this page to connect.");
+    window.open("https://phantom.app/","_blank");
+    return;
+  }
+  if(walletPubkey){
+    // disconnect
+    try{ await prov.disconnect(); }catch(e){}
+    walletPubkey = null;
+    updateWalletUI();
+    return;
+  }
+  try{
+    const resp = await prov.connect();
+    walletPubkey = resp.publicKey.toString();
+    updateWalletUI();
+  }catch(e){
+    // user rejected
+  }
+}
+
+function updateWalletUI(){
+  const btn = document.getElementById('walletBtn');
+  const txt = document.getElementById('wbText');
+  if(walletPubkey){
+    btn.classList.add('connected');
+    txt.textContent = walletPubkey.slice(0,4)+"…"+walletPubkey.slice(-4);
+  }else{
+    btn.classList.remove('connected');
+    txt.textContent = "Connect Wallet";
+  }
+}
+
+// Build + send a Memo transaction as a verifiable on-chain "signed vote".
+// No transfer, no recipient — only the standard network fee applies.
+// Returns the transaction signature on success, throws on failure.
+async function castOnchainVote(memoText){
+  const prov = getProvider();
+  if(!prov || !walletPubkey) throw new Error("not connected");
+  const { Connection, PublicKey, Transaction, TransactionInstruction } = solanaWeb3;
+  const fromPub = new PublicKey(walletPubkey);
+
+  // SPL Memo instruction: the connected wallet signs, the memo text is the payload.
+  const ix = new TransactionInstruction({
+    keys: [{ pubkey: fromPub, isSigner: true, isWritable: false }],
+    programId: new PublicKey(MEMO_PROGRAM_ID),
+    data: new TextEncoder().encode(memoText)
+  });
+
+  const tx = new Transaction().add(ix);
+  tx.feePayer = fromPub;
+
+  // Fetch a recent blockhash, trying Helius then the public RPC.
+  let blockhash = null;
+  for(const url of [HELIUS_RPC, PUBLIC_RPC]){
+    try{ const r = await new Connection(url, "confirmed").getLatestBlockhash(); if(r && r.blockhash){ blockhash = r.blockhash; break; } }catch(e){ /* try next */ }
+  }
+  if(!blockhash) throw new Error("could not reach the Solana network — try again in a moment");
+  tx.recentBlockhash = blockhash;
+
+  const signed = await prov.signAndSendTransaction(tx);  // Phantom signs + sends
+  return signed.signature;
+}
+
+// Wrapper used by vote/boost buttons: ensure wallet, send the memo tx, then run the UI action.
+async function withOnchainVote(actionLabel, memoText, onSuccess){
+  if(!walletPubkey){
+    const ok = confirm(`"${actionLabel}" is recorded as a real on-chain action.\n\nConnect your Phantom wallet to sign it. No money is paid to anyone — only the standard Solana network fee (~0.000005 SOL).`);
+    if(ok) await toggleWallet();
+    if(!walletPubkey) return;
+  }
+  try{
+    const sig = await castOnchainVote(memoText);
+    onSuccess(sig);
+  }catch(e){
+    const msg = String((e && e.message) || e || "");
+    if(msg.includes("Buffer")){
+      alert("Couldn't build the transaction in this browser. Hard-refresh the page (Ctrl/Cmd + Shift + R) and try again. If it keeps failing, update your wallet extension.");
+    }else{
+      alert("Vote not completed: " + (msg || "the transaction was cancelled."));
+    }
+  }
+}
+
+// Point every [data-mailto] element at the contact address.
+function wireContactLinks(){
+  document.querySelectorAll('[data-mailto]').forEach(a=>{
+    const subj = encodeURIComponent(a.getAttribute('data-subject') || "Solana Treasury Watch");
+    a.setAttribute('href', "mailto:" + CONTACT_EMAIL + "?subject=" + subj);
+  });
+}
+
+// auto-reconnect if Phantom already trusted this site
+window.addEventListener('load', async ()=>{
+  wireContactLinks();
+  const prov = getProvider();
+  if(prov){
+    try{
+      const resp = await prov.connect({ onlyIfTrusted:true });
+      walletPubkey = resp.publicKey.toString();
+      updateWalletUI();
+    }catch(e){ /* not previously connected */ }
+    prov.on && prov.on('disconnect', ()=>{ walletPubkey=null; updateWalletUI(); });
+  }
+});
+
+render();
+loadPrice();
+
+// ---- community interactions ----
+function switchTab(btn, id){
+  document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+
+function stakeBoost(btn){
+  const target = (btn.closest('.bounty')||document).querySelector('.b-target');
+  const memo = "STW boost — signal demand: " + ((target && target.textContent.trim().slice(0,80)) || "wallet hunt");
+  withOnchainVote("Boost", memo, (sig)=>{
+    const stakersEl = btn.parentElement.querySelector('.b-stakers');
+    let n = parseInt(stakersEl.textContent) || 0;
+    stakersEl.textContent = (n+1)+" backers";
+    btn.textContent = "✓ Boosted";
+    btn.style.background = "var(--sol)";
+    btn.style.color = "var(--bg)";
+    btn.disabled = true;
+    if(sig){
+      const note = document.createElement('div');
+      note.className = "mono";
+      note.style.cssText = "font-size:9px;color:var(--sol);margin-top:4px";
+      note.innerHTML = `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener" style="color:var(--sol);text-decoration:none">↗ on-chain ✓</a>`;
+      btn.parentElement.appendChild(note);
+    }
+  });
+}
+
+function upvoteReq(btn){
+  // requests are free to upvote (no fee) — only report scoring & boosting cost a fee
+  const span = btn.querySelector('span');
+  let n = parseInt(span.textContent);
+  if(btn.dataset.voted){ span.textContent = n-1; btn.dataset.voted=""; btn.style.color=""; btn.style.borderColor=""; }
+  else { span.textContent = n+1; btn.dataset.voted="1"; btn.style.color="var(--sol)"; btn.style.borderColor="var(--sol)"; }
+}
+
+function scoreReport(btn, dir){
+  const label = dir>0 ? "Upvote" : "Downvote";
+  const co = (btn.closest('.report-card')||document).querySelector('.rc-co');
+  const memo = "STW report " + (dir>0?"upvote":"downvote") + ": " + ((co && co.textContent.trim().slice(0,80)) || "attribution review");
+  withOnchainVote(label, memo, (sig)=>{
+    const span = btn.querySelector('span');
+    let n = parseInt(span.textContent);
+    span.textContent = n+1;
+    btn.style.opacity = "1";
+    btn.disabled = true;
+    // one vote per wallet (UI): dim the opposite button
+    const sib = btn.parentElement.querySelectorAll('button');
+    sib.forEach(b=>{ if(b!==btn) b.disabled=true; });
+    if(sig){
+      btn.title = "Recorded on-chain";
+      const row = btn.closest('.rc-score');
+      if(row && !row.querySelector('.tx-link')){
+        const note = document.createElement('a');
+        note.className = "tx-link mono";
+        note.href = "https://solscan.io/tx/"+sig;
+        note.target = "_blank"; note.rel = "noopener";
+        note.style.cssText = "font-size:9px;color:var(--sol);text-decoration:none;align-self:center";
+        note.textContent = "↗ ✓";
+        row.appendChild(note);
+      }
+    }
+  });
+}
+
+function submitRequest(){
+  const name = document.getElementById('rq-name').value.trim();
+  if(!name){ alert("Add a fund or company name to request a trace."); return; }
+  alert(`Request submitted: "${name}"\n\nIt will appear publicly once the backend is wired up. Saving requests on-chain/off-chain is part of the build roadmap.`);
+  document.getElementById('rq-name').value=""; document.getElementById('rq-hint').value="";
+}
+
+function submitResearch(){
+  const co = document.getElementById('sub-co').value.trim();
+  const on = document.getElementById('sub-onchain').value.trim();
+  const off = document.getElementById('sub-offchain').value.trim();
+  if(!co){ alert("Name the subject company or fund."); return; }
+  if(!on || !off){ alert("A submission needs BOTH on-chain proof AND off-chain corroboration. Both links are required."); return; }
+  alert(`Report on "${co}" queued for review.\n\nRecognized analysts + the maintainer will evaluate the evidence before it's published. You'll be credited if approved.`);
+  ['sub-co','sub-sum','sub-onchain','sub-offchain'].forEach(id=>document.getElementById(id).value="");
+}
+
+// Direct inline subscribe — posts to Formspree, never opens a mail app.
+async function subscribeNewsletter(){
+  const el = document.getElementById('nl-email');
+  const email = (el && el.value.trim()) || "";
+  if(!email || email.indexOf('@') < 1){ showToast("Enter a valid email to subscribe."); return; }
+  if(FORMSPREE_ENDPOINT.indexOf("YOUR_FORM_ID") !== -1){
+    showToast("Newsletter signups open shortly — almost there.");
+    return;
+  }
+  try{
+    const res = await fetch(FORMSPREE_ENDPOINT, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Accept":"application/json" },
+      body: JSON.stringify({ email: email, list: "Weekly Brief" })
+    });
+    if(res.ok){ if(el) el.value=""; showToast("✓ You're on the list — thanks!"); }
+    else { showToast("Couldn't subscribe right now — please try again later."); }
+  }catch(e){ showToast("Couldn't subscribe right now — please try again later."); }
+}
+
+// Copy the contact email to the clipboard (used by the Feedback links).
+function copyContact(e){
+  if(e && e.preventDefault) e.preventDefault();
+  try{ navigator.clipboard.writeText(CONTACT_EMAIL); }catch(_){}
+  showToast("Contact email copied: " + CONTACT_EMAIL);
+}
+
+// Small transient toast notification.
+function showToast(msg){
+  let t = document.getElementById('stw-toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'stw-toast';
+    t.style.cssText = "position:fixed;left:50%;bottom:74px;transform:translateX(-50%);z-index:80;background:var(--bg-raised);border:1px solid var(--sol);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 16px;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center";
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = "1";
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>{ t.style.opacity = "0"; }, 2600);
+}
+</script>
+</body>
+</html>
