@@ -212,5 +212,54 @@ window.CASE_STUDIES = [
       { addr: "4vvMe3mYNHrNb3rwZiqCWh3QCbTi6DaLN2NHbDxgSHM5", short: "4vvMe…SHM5", balance: "305,829", validator: "Anchorage" }
     ],
     note: "Why this holds up. Assets moved under Coinbase Prime Custody control two days before the Oct 9 Coinbase announcement, and Jupiter staking appeared days before the Sep 23 partnership — on-chain behavior that pre-empts the public reveal. Combined with matching funding timelines, FalconX inflows, shared custody controllers and inter-wallet transfers, the convergence makes coincidental overlap highly unlikely. Still probabilistic, not legal proof — but a robust, independently verifiable attribution."
+  },
+  {
+    id: "solana-company",
+    company: "Solana Company",
+    ticker: "HSDT",
+    exchange: "NASDAQ",
+    author: "aksusarya",
+    declaredSOL: 2300000,
+    identifiedSOL: 3000000,
+    headlineValue: "1M+",
+    headlineLabel: "DIRECT FROM FOUNDATION",
+    summary: "999,999 SOL received directly from a Solana Foundation supply wallet — one day before the discount deal was public. Plus dual-validator (Helius + Twinstake) staking and a Coinbase-funded deposit cluster. Declared 2.3M.",
+    intro: "Solana Company (NASDAQ: HSDT, formerly Helius Medical) declared 2,300,000 SOL. The standout finding: wallet 7kBQy…kVEY received 999,999 SOL directly from a Solana Foundation non-circulating-supply wallet — one day before the discount agreement was even announced. These wallets expand on the Solana Company entry above; here is the full trace.",
+    timeline: [
+      { date: "2025-09-18", event: "$500M PIPE completed → wallets must be funded on/after this date" },
+      { date: "2025-09-22", event: "First SOL purchase announced (760,190 SOL at ~$231)" },
+      { date: "2025-09-29", event: "Renamed Solana Company + discount-purchase agreement (LOI) with the Solana Foundation" },
+      { date: "2025-10-06", event: "2.2M+ SOL holdings, average cost $232.50" },
+      { date: "2025-10-10", event: "Coinbase, BitGo and Anchorage Digital added as custodians" },
+      { date: "2025-10-23", event: "Helius, Anchorage and Twinstake staking services" },
+      { date: "2025-10-29", event: "2.3M SOL confirmed, ~7.03% APY, $15M cash/stablecoins" }
+    ],
+    clusters: [
+      { tag: "Cluster A", title: "Dual-validator wallet (Helius + Twinstake)",
+        body: "9ggSj…QCe3 staked to BOTH Helius and Twinstake — first transfer 19 Sep (right after the 18 Sep PIPE), funded from Coinbase Prime and FalconX. Its Twinstake stake landed one day before the 23 Oct validator deal. ~$8M USDC also passed through, matching the disclosed $15M cash.",
+        proofs: [
+          { label: "↗ first transfer (19 Sep)", url: "https://intel.arkm.com/explorer/tx/KAAXeCotaFSdQqidJLBTyrma3wog1bHh7xDXxNiYXEzaCy1VpcDXHXkaDj6qGZ9bS2UVR3CiM4jVg3sZYt1H4si" },
+          { label: "↗ 227K SOL from Coinbase Prime", url: "https://intel.arkm.com/explorer/tx/5kiM7Za5w5TUr9NdR1QPjfNcKRT7JGhNTwbmZT3RutNwJZF4wqVBhKcveWkED61gU432h2pqJM6hod6Y1dibJbXB" },
+          { label: "↗ Twinstake stake", url: "https://intel.arkm.com/explorer/tx/33dErAdt42MLR7QvVPEgs8YbMwFzNJ6ZN9J5Rxn4Z3RuMLRg9ciNniEZuyauQRJ8bWoEgwSgxUccgWvi5R3T38Hx" }
+        ] },
+      { tag: "Cluster B", title: "The Solana Foundation transfer",
+        body: "7kBQy…kVEY received 999,999 SOL (part of a 1,382,655 SOL move) straight from a Foundation non-circulating-supply wallet, co-signed by the Genesis community-allocation vault — one day before the 29 Sep agreement. 1,405,425 SOL staked from it, ~460K to Helius.",
+        proofs: [
+          { label: "↗ 1.38M / 999,999 SOL from Foundation", url: "https://intel.arkm.com/explorer/tx/MihnmxENnMhVYtXfrA6Cj4T3TxwDKJeCK2MLi7hMa2tgKvF7fZqxw4jtTDHkymLAhfsGmdGkkNGy7rwGiS2CUTi" },
+          { label: "↗ Foundation transfer", url: "https://intel.arkm.com/explorer/tx/4DKFMKzJzzYgfS1RSbe4jHe41drUMnWiC1TcJZSXCZXhHuo6Xs6kDoPUwHFVj4q65aae3QcETNLUsb3zPXb7uK6a" }
+        ] },
+      { tag: "Cluster C", title: "Coinbase-funded deposit cluster",
+        body: "BsnX, 98k8, Nw5T, AMTd and BPA6 were opened with 0.05 SOL each via Coinbase on 23 Sep and feed the same deposit address as 9ggSj — with a tell-tale sequential fingerprint (0.049 / 0.051 / 0.052 / 0.053 …) at near-identical timestamps.",
+        proofs: [
+          { label: "↗ 0.05 SOL wallet open (23 Sep)", url: "https://intel.arkm.com/explorer/tx/ncfmT8rHzCJVTfJcJ11riqXrHBfvLat8SDjJHWK7NyN8Tq9ZNfVFJa1fzjvnmQfMXNF2y5KN81JUtUVdhnDctsm" }
+        ] }
+    ],
+    holdings: [
+      { addr: "7kBQy7e14gW4CJ9BNBHhrxoHFtBthBmZyUWcuSCKkVEY", short: "7kBQy…kVEY", balance: "1,382,655", validator: "Foundation transfer → Helius" },
+      { addr: "9ggSjgTeNnvSGQYmMQJ1TwjiRmUFGCFfdUG54Gg2QCe3", short: "9ggSj…QCe3", balance: "573,305", validator: "Helius + Twinstake" },
+      { addr: "DAtyhwj3AExisi2FS3Jw4ZU4Pq5PvATJ6fHzgsadzMHF", short: "DAtyh…zMHF", balance: "300,000", validator: "Helius stake account" }
+    ],
+    footer: "On-chain footprint ≈ 3,000,000 SOL — exceeds the 2,300,000 declared because some addresses are commingled Anchorage custody or Foundation escrow. The 999,999 SOL direct from the Foundation is the definitive link.",
+    note: "Why this holds up. The 999,999 SOL came straight from a Foundation non-circulating-supply wallet, co-signed by the Genesis community-allocation vault — keys only the Foundation controls — and landed one day before the discount agreement was public. Add dual-validator staking that matches the disclosed Helius/Twinstake deal, Coinbase Prime + FalconX funding, and a deposit cluster with sequential 0.05-SOL fingerprints, and coincidence is effectively ruled out. The aggregate footprint exceeds the declared 2.3M because some addresses are commingled custody or Foundation escrow — still probabilistic, but about as strong as on-chain attribution gets."
   }
 ];

@@ -461,7 +461,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
       they hold <span class="stroke">SOL.</span><br>
       <span class="chain">We show the wallets.</span>
     </h1>
-    <p class="lede">An open registry of <strong>institutional Solana treasuries</strong>, traced wallet-by-wallet through on-chain forensics — funding sources, custody controllers, and validator-level staking.</p>
+    <p class="lede">An open registry of <strong>institutional Solana treasuries</strong>, each wallet mapped through <strong>original on-chain forensics</strong> — funding sources, custody controllers, and validator-level staking, traced first-hand.</p>
     <p class="creed">// <b>don't trust the filing</b> — verify the chain</p>
 
     <div class="stats">
@@ -681,7 +681,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
           </div>
         </div>
       </div>
-      <div class="phase-note">⛓ <b>Phase 2:</b> bounty rewards will be held in an on-chain escrow and released automatically to the analyst whose report is approved. Today, boosting signals demand and bounties are settled by donation between participants.</div>
+      <div class="phase-note">⛓ <b>Phase 2:</b> anyone will be able to back a bounty with a tip — pooled in an on-chain escrow and released automatically to the analyst whose report is approved. A bounty funded by the whole community, not a single buyer. Today, boosting signals demand and bounties are settled by donation between participants.</div>
     </div>
 
     <!-- WALLET REQUESTS -->
@@ -836,7 +836,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
       <div class="rm-phase">
         <span class="rm-tag soon">Soon</span>
         <h3>Community intelligence</h3>
-        <p>Anyone can request an investigation; volunteer researchers pick it up. Every report is open-source and written <i>with</i> its methodology — so the technique spreads, not just the result.</p>
+        <p>Anyone can open a request — and anyone can back it with a tip. A bounty the whole community funds, not a single buyer (the way it works elsewhere). Volunteer researchers pick it up, and every report is open-source and written <i>with</i> its methodology — so the technique spreads, not just the result.</p>
         <div class="pin">// the network forms</div>
       </div>
       <div class="rm-phase">
@@ -974,7 +974,7 @@ function render(){
           <span class="rank">#${String(i+1).padStart(2,'0')}</span>
           <div class="co-name">
             <div class="nm">${c.name}<span class="ticker">${c.exchange}: ${c.ticker}</span>
-              <span class="src-badge ${c.source}">${c.source==='independent'?'◆ Independent analysis':'◇ Publicly labeled'}</span>
+              <span class="src-badge ${c.source}">${c.source==='independent'?'◆ Original attribution':'◇ Publicly labeled'}</span>
             </div>
             <div class="meta">
               <span><b>${c.wallets.length}</b> wallets</span>
@@ -1230,7 +1230,8 @@ function renderCaseStudies(){
         <div class="cl-proofs">${cl.proofs.map(p=>`<a href="${p.url}" target="_blank" rel="noopener">${p.label}</a>`).join('')}</div>
       </div>`).join('');
     const rows = cs.holdings.map(h=>`<tr><td><a class="mono" href="https://solscan.io/account/${h.addr}" target="_blank" rel="noopener">${h.short}</a></td><td class="num">${h.balance}</td><td>${h.validator}</td></tr>`).join('');
-    const tracedM = cs.identifiedSOL>=1e6 ? (cs.identifiedSOL/1e6).toFixed(2)+'M' : Math.round(cs.identifiedSOL).toLocaleString();
+    const headVal = cs.headlineValue || (cs.identifiedSOL>=1e6 ? (cs.identifiedSOL/1e6).toFixed(2)+'M' : Math.round(cs.identifiedSOL).toLocaleString());
+    const headLabel = cs.headlineLabel || "SOL TRACED";
     const noteParts = (cs.note||'').split('. ');
     const noteLead = noteParts.shift()||'';
     const noteRest = noteParts.join('. ');
@@ -1244,7 +1245,7 @@ function renderCaseStudies(){
           </div>
         </div>
         <div class="co-fig">
-          <div class="amt"><div class="n">${tracedM}</div><div class="u">SOL TRACED</div></div>
+          <div class="amt"><div class="n">${headVal}</div><div class="u">${headLabel}</div></div>
           <div class="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></div>
         </div>
       </div>
@@ -1257,7 +1258,7 @@ function renderCaseStudies(){
             <div class="cs-table-wrap"><table class="cs-table">
               <thead><tr><th>Wallet</th><th>Balance (SOL)</th><th>Custody / Validator</th></tr></thead>
               <tbody>${rows}</tbody>
-              <tfoot><tr><td>Total identified</td><td class="num">${cs.identifiedSOL.toLocaleString()}</td><td>declared: ${cs.declaredSOL.toLocaleString()}</td></tr></tfoot>
+              <tfoot>${cs.footer ? `<tr><td colspan="3" style="color:var(--ink-dim);line-height:1.5">${cs.footer}</td></tr>` : `<tr><td>Total identified</td><td class="num">${cs.identifiedSOL.toLocaleString()}</td><td>declared: ${cs.declaredSOL.toLocaleString()}</td></tr>`}</tfoot>
             </table></div>
           </div>
           <div class="warn"><b>${noteLead}.</b> ${noteRest}</div>
