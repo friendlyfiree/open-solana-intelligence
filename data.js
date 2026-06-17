@@ -1,5 +1,5 @@
 /* ============================================================
-   Solana Treasury Watch — COMPANY DATA
+   Open Solana Intelligence — REGISTRY DATA
    ============================================================
    All company + wallet data lives HERE, separate from the app
    code on purpose: editing this file can never break how the

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Solana Treasury Watch — On-Chain Verified Institutional Holdings</title>
-<meta name="description" content="An open, on-chain-verified registry of public-company Solana treasuries. Don't trust the filing — verify the chain.">
+<title>Open Solana Intelligence — On-Chain Verified Institutional Activity</title>
+<meta name="description" content="Open, on-chain-verified intelligence on institutional Solana activity — public companies, ETFs, foundations, VCs, DAOs, validators, and custodians. Don't trust the filing — verify the chain.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -436,15 +436,15 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
 .vtab .vi{font-size:12px;opacity:.55;transition:opacity .15s}
 .vtab .vc{font-size:10px;font-weight:700;color:var(--ink-dim);background:var(--bg-raised);border:1px solid var(--line);border-radius:20px;padding:1px 7px;min-width:18px;text-align:center;transition:all .15s}
 body[data-view="registry"] .vtab[data-view="registry"],
-body[data-view="method"]   .vtab[data-view="method"],
-body[data-view="cases"]    .vtab[data-view="cases"],
+body[data-view="research"]   .vtab[data-view="research"],
+body[data-view="research"]    .vtab[data-view="research"],
 body[data-view="community"] .vtab[data-view="community"]{color:var(--sol);border-bottom-color:var(--sol)}
 body[data-view="registry"] .vtab[data-view="registry"] .vi,
-body[data-view="method"]   .vtab[data-view="method"] .vi,
-body[data-view="cases"]    .vtab[data-view="cases"] .vi,
+body[data-view="research"]   .vtab[data-view="research"] .vi,
+body[data-view="research"]    .vtab[data-view="research"] .vi,
 body[data-view="community"] .vtab[data-view="community"] .vi{opacity:1}
 body[data-view="registry"] .vtab[data-view="registry"] .vc,
-body[data-view="cases"]    .vtab[data-view="cases"] .vc{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.08)}
+body[data-view="research"]    .vtab[data-view="research"] .vc{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.08)}
 @media(max-width:560px){
   .vtab{padding:12px 12px;font-size:12px;gap:6px}
   .vtab .vi{display:none}
@@ -454,8 +454,8 @@ body[data-view="cases"]    .vtab[data-view="cases"] .vc{color:var(--sol);border-
 /* view panels */
 section[data-view]{display:none;scroll-margin-top:122px}
 body[data-view="registry"] section[data-view="registry"],
-body[data-view="method"]   section[data-view="method"],
-body[data-view="cases"]    section[data-view="cases"],
+body[data-view="research"]   section[data-view="research"],
+body[data-view="research"]    section[data-view="research"],
 body[data-view="community"] section[data-view="community"]{display:block}
 </style>
 </head>
@@ -467,7 +467,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
   <div class="bar">
     <div class="brand">
       <span class="dot"></span>
-      SOLANA TREASURY WATCH
+      OPEN SOLANA INTELLIGENCE
       <span class="tag">Beta</span>
     </div>
     <nav class="nav-links">
@@ -482,20 +482,20 @@ body[data-view="community"] section[data-view="community"]{display:block}
 
 <section class="hero">
   <div class="wrap">
-    <span class="eyebrow"><span class="live"></span>Live on-chain registry</span>
+    <span class="eyebrow"><span class="live"></span>Open on-chain intelligence</span>
     <h1>
-      Public companies say<br>
+      Institutions say<br>
       they hold <span class="stroke">SOL.</span><br>
       <span class="chain">We show the wallets.</span>
     </h1>
-    <p class="lede">An open registry of <strong>institutional Solana treasuries</strong>, each wallet mapped through <strong>original on-chain forensics</strong> — funding sources, custody controllers, and validator-level staking, traced first-hand.</p>
+    <p class="lede">Open intelligence on <strong>institutional Solana activity</strong> — public companies, ETFs, foundations, VCs, DAOs, validators, liquid-staking protocols, and custodians. Wallets mapped through <strong>original on-chain forensics</strong>: funding sources, custody controllers, and validator-level staking.</p>
     <p class="creed">// <b>don't trust the filing</b> — verify the chain</p>
 
     <div class="stats">
       <div class="stat">
-        <div class="k">Companies tracked</div>
+        <div class="k">Entities tracked</div>
         <div class="v" id="s-co">3</div>
-        <div class="sub">public, exchange-listed</div>
+        <div class="sub">institutions &amp; protocols</div>
       </div>
       <div class="stat">
         <div class="k">Wallets attributed</div>
@@ -505,7 +505,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
       <div class="stat">
         <div class="k">Declared SOL</div>
         <div class="v sol" id="s-sol">—</div>
-        <div class="sub">per company disclosures</div>
+        <div class="sub">per entity disclosures</div>
       </div>
       <div class="stat">
         <div class="k">Est. USD value</div>
@@ -520,8 +520,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
 <div id="viewbar">
   <div class="viewtabs" role="tablist" aria-label="Sections">
     <button class="vtab" data-view="registry" role="tab" onclick="showView('registry')"><span class="vi" aria-hidden="true">◆</span>Registry<span class="vc" id="vc-co">3</span></button>
-    <button class="vtab" data-view="method" role="tab" onclick="showView('method')"><span class="vi" aria-hidden="true">⊹</span>Methodology</button>
-    <button class="vtab" data-view="cases" role="tab" onclick="showView('cases')"><span class="vi" aria-hidden="true">⛓</span>Case Studies<span class="vc" id="vc-cases">2</span></button>
+    <button class="vtab" data-view="research" role="tab" onclick="showView('research')"><span class="vi" aria-hidden="true">⛓</span>Investigations<span class="vc" id="vc-cases">2</span></button>
     <button class="vtab" data-view="community" role="tab" onclick="showView('community')"><span class="vi" aria-hidden="true">✦</span>Community</button>
   </div>
 </div>
@@ -540,7 +539,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
   </div>
 </section>
 
-<section class="sec" id="how" data-view="method">
+<section class="sec" id="how" data-view="research">
   <div class="wrap">
     <div class="sec-head"><h2>How attribution works</h2></div>
     <div class="how">
@@ -563,7 +562,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
   </div>
 </section>
 
-<section class="sec" id="methodology" data-view="method">
+<section class="sec" id="methodology" data-view="research">
   <div class="wrap">
     <div class="sec-head">
       <h2>Methodology — the techniques, in the open</h2>
@@ -640,7 +639,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
   </div>
 </section>
 
-<section class="sec" id="case-studies" data-view="cases">
+<section class="sec" id="case-studies" data-view="research">
   <div class="wrap">
     <div class="sec-head">
       <h2>Case Studies</h2>
@@ -734,7 +733,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
           <input type="text" placeholder="Any hint — ticker, filing, known amount (optional)" id="rq-hint">
         </div>
         <button class="btn-fill" onclick="submitRequest()">Submit Request</button>
-        <div class="mf-note">Sent to the maintainer for triage. Upvotes are a local demand signal until the Phase 2 backend tallies them across everyone. No wallet connection needed to ask.</div>
+        <div class="mf-note">New requests go to the maintainer and appear on the board once approved. Upvotes are shared across everyone. No wallet connection needed to ask.</div>
       </div>
     </div>
 
@@ -898,7 +897,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
   <div class="wrap">
     <div class="foot">
       <div>
-        <div class="brand"><span class="dot"></span>SOLANA TREASURY WATCH</div>
+        <div class="brand"><span class="dot"></span>OPEN SOLANA INTELLIGENCE</div>
         <p>An open public good for the Solana ecosystem. Every wallet attribution is traceable, sourced, and confidence-rated — built so anyone can verify institutional stake concentration for themselves.</p>
         <div class="warn">
           <b>Disclaimer.</b> On-chain attribution is inherently probabilistic. Wallets marked "high confidence" represent strong evidentiary clustering, not legal certainty. This is research, not financial advice. Always verify independently before acting.
@@ -1252,7 +1251,7 @@ async function withOnchainVote(actionLabel, memoText, onSuccess){
 // Point every [data-mailto] element at the contact address.
 function wireContactLinks(){
   document.querySelectorAll('[data-mailto]').forEach(a=>{
-    const subj = encodeURIComponent(a.getAttribute('data-subject') || "Solana Treasury Watch");
+    const subj = encodeURIComponent(a.getAttribute('data-subject') || "Open Solana Intelligence");
     a.setAttribute('href', "mailto:" + CONTACT_EMAIL + "?subject=" + subj);
   });
 }
@@ -1338,7 +1337,7 @@ function renderCaseStudies(){
 }
 // ---- community interactions ----
 // ---- top-level view tabs ----
-const VIEW_OF = { registry:'registry', how:'method', methodology:'method', 'case-studies':'cases', community:'community', roadmap:'community', newsletter:'community' };
+const VIEW_OF = { registry:'registry', how:'research', methodology:'research', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
   document.body.dataset.view = v;
   const bar = document.getElementById('viewbar');
@@ -1367,7 +1366,7 @@ function switchTab(btn, id){
 
 function stakeBoost(btn){
   const target = (btn.closest('.bounty')||document).querySelector('.b-target');
-  const memo = "STW boost — signal demand: " + ((target && target.textContent.trim().slice(0,80)) || "wallet hunt");
+  const memo = "OSI boost — signal demand: " + ((target && target.textContent.trim().slice(0,80)) || "wallet hunt");
   withOnchainVote("Boost", memo, (sig)=>{
     const numEl = btn.parentElement.querySelector('.b-reward .n');
     if(numEl){ let n = parseInt(numEl.textContent) || 0; numEl.textContent = (n+1); }
@@ -1400,7 +1399,7 @@ async function upvoteReq(btn){
       if(wasVoted) await supaDelete('request_votes?request_id=eq.' + encodeURIComponent(id) + '&voter=eq.' + encodeURIComponent(voterId()));
       else await supaPost('request_votes', { request_id: id, voter: voterId() });
       hydrateRequestsFromSupabase();
-    }catch(e){ console.warn('STW: vote sync failed.', e); }
+    }catch(e){ console.warn('OSI: vote sync failed.', e); }
   }
 }
 
@@ -1435,7 +1434,7 @@ function localRequestsModel(){
 async function hydrateRequestsFromSupabase(){
   try{
     const [dbReqs, dbVotes] = await Promise.all([
-      supaGet('requests?select=id,name&order=created_at.asc'),
+      supaGet('requests?select=id,name&approved=eq.true&order=created_at.asc'),
       supaGet('request_votes?select=request_id')
     ]);
     const counts = {}; (dbVotes || []).forEach(v => { counts[v.request_id] = (counts[v.request_id] || 0) + 1; });
@@ -1443,14 +1442,19 @@ async function hydrateRequestsFromSupabase(){
     const seen = new Set(); const merged = [];
     REQUESTS.concat((dbReqs || []).map(r => ({ id: r.id, name: r.name, sub: 'community request' })))
       .forEach(r => { if(!seen.has(r.id)){ seen.add(r.id); merged.push(r); } });
-    renderRequestsFrom(merged.map(r => ({ id: r.id, name: r.name, sub: r.sub, count: counts[r.id] || 0, voted: !!myVotes[r.id] })));
-  }catch(e){ console.warn('STW: global board unavailable — showing local view.', e); }
+    // show the submitter their own not-yet-approved requests (visible only to them)
+    const have = new Set(merged.map(r => r.id));
+    const localPending = (lsGet('stw_requests', []) || []).filter(r => !have.has(r.id));
+    const model = merged.map(r => ({ id: r.id, name: r.name, sub: r.sub, count: counts[r.id] || 0, voted: !!myVotes[r.id] }))
+      .concat(localPending.map(r => ({ id: r.id, name: r.name, sub: '⏳ awaiting maintainer approval', count: 0, voted: false })));
+    renderRequestsFrom(model);
+  }catch(e){ console.warn('OSI: global board unavailable — showing local view.', e); }
 }
 
 function scoreReport(btn, dir){
   const label = dir>0 ? "Upvote" : "Downvote";
   const co = (btn.closest('.report-card')||document).querySelector('.rc-co');
-  const memo = "STW report " + (dir>0?"upvote":"downvote") + ": " + ((co && co.textContent.trim().slice(0,80)) || "attribution review");
+  const memo = "OSI report " + (dir>0?"upvote":"downvote") + ": " + ((co && co.textContent.trim().slice(0,80)) || "attribution review");
   withOnchainVote(label, memo, (sig)=>{
     const span = btn.querySelector('span');
     let n = parseInt(span.textContent);
@@ -1482,23 +1486,24 @@ async function submitRequest(){
   if(!name){ showToast("Add a fund or company name to request a trace."); return; }
   const id = 'req_' + Date.now();
   const label = hint ? (name + ' — ' + hint) : name;
-  // save locally so it shows instantly (deduped by id against the backend)
+  // save locally so the submitter sees it right away (deduped by id vs backend)
   const userReqs = lsGet('stw_requests', []);
-  userReqs.push({ id, name: label, sub: 'requested here · community demand signal', base: 0 });
+  userReqs.push({ id, name: label, sub: SUPA_ON ? '⏳ awaiting maintainer approval' : 'requested here · community demand signal', base: 0 });
   lsSet('stw_requests', userReqs);
   renderRequests();
   document.getElementById('rq-name').value = ''; document.getElementById('rq-hint').value = '';
-  // publish to the shared board if a global backend is configured
-  if(SUPA_ON){ try{ await supaPost('requests', { id, name: label }); hydrateRequestsFromSupabase(); }catch(e){ console.warn('STW: request publish failed.', e); } }
-  // always email the maintainer for triage
+  // submit to the shared board as PENDING (not public until a maintainer approves)
+  if(SUPA_ON){ try{ await supaPost('requests', { id, name: label, approved: false }); hydrateRequestsFromSupabase(); }catch(e){ console.warn('OSI: request publish failed.', e); } }
+  // always email the maintainer for triage / approval
+  const okMsg = SUPA_ON ? '✓ Sent for review — it goes public once a maintainer approves.' : '✓ Request added and sent to the maintainer.';
   try{
     const res = await fetch(FORMSPREE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ _subject: 'STW — Wallet Request: ' + name, type: 'wallet-request', company: name, hint: hint || '(none)' })
+      body: JSON.stringify({ _subject: 'OSI — Wallet Request: ' + name, type: 'wallet-request', company: name, hint: hint || '(none)' })
     });
-    showToast(res.ok ? '✓ Request added and sent to the maintainer.' : '✓ Added — could not reach the maintainer; try again later.');
-  }catch(e){ showToast('✓ Added — could not reach the maintainer; try again later.'); }
+    showToast(res.ok ? okMsg : '✓ Saved — could not reach the maintainer; try again later.');
+  }catch(e){ showToast('✓ Saved — could not reach the maintainer; try again later.'); }
 }
 
 async function submitResearch(){
@@ -1510,7 +1515,7 @@ async function submitResearch(){
   if(!on || !off){ showToast("A report needs BOTH an on-chain proof link AND off-chain corroboration."); return; }
   // 1) add it to the review queue as a pending report (saved on this device)
   const reports = lsGet('stw_reports', []);
-  reports.unshift({ id: 'rep_' + Date.now(), company: co, summary: sum || 'No summary provided.', onchain: on, offchain: off, up: 0, dn: 0 });
+  reports.unshift({ id: 'rep_' + Date.now(), company: co, summary: sum || 'No summary provided.', onchain: on, offchain: off, wallet: walletPubkey || '', up: 0, dn: 0 });
   lsSet('stw_reports', reports);
   renderReviewQueue();
   ['sub-co','sub-sum','sub-onchain','sub-offchain'].forEach(id=>document.getElementById(id).value='');
@@ -1519,7 +1524,7 @@ async function submitResearch(){
     await fetch(FORMSPREE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ _subject: 'STW — Research Submission: ' + co, type: 'research-submission', company: co, summary: sum || '(none)', onchain_proof: on, offchain_proof: off })
+      body: JSON.stringify({ _subject: 'OSI — Research Submission: ' + co, type: 'research-submission', company: co, summary: sum || '(none)', onchain_proof: on, offchain_proof: off })
     });
   }catch(e){}
   // 3) take the user to the queue so they see it land as pending
@@ -1540,9 +1545,10 @@ function renderReviewQueue(){
     const onP = onUrl ? `<a class="proof-tag onchain" href="${escapeHtml(onUrl)}" target="_blank" rel="noopener">⛓ on-chain proof ↗</a>` : `<span class="proof-tag onchain">⛓ on-chain proof attached</span>`;
     const offP = offUrl ? `<a class="proof-tag offchain" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">▤ off-chain proof ↗</a>` : `<span class="proof-tag offchain">▤ SEC filing attached</span>`;
     const tick = r.ticker ? `<span class="ticker">${escapeHtml(r.ticker)}</span>` : '';
+    const who = r.wallet ? short(r.wallet) : 'you';
     const by = r.example
       ? `<span style="color:var(--amber)">example</span> · illustrates how scoring works`
-      : `submitted by <span style="color:var(--cyan)">you</span> · pending review`;
+      : `submitted by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span> · pending review`;
     return `<div class="report-card" style="margin-bottom:11px">
       <div class="rc-top">
         <div>
@@ -1580,7 +1586,7 @@ async function submitAnalystApplication(){
     const res = await fetch(FORMSPREE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ _subject: 'STW — Analyst Application: ' + handle, type: 'analyst-application', telegram: tg || '(none)', twitter: tw || '(none)', website: web || '(none)' })
+      body: JSON.stringify({ _subject: 'OSI — Analyst Application: ' + handle, type: 'analyst-application', telegram: tg || '(none)', twitter: tw || '(none)', website: web || '(none)' })
     });
     if(res.ok){
       ['an-tg','an-tw','an-web'].forEach(id=>document.getElementById(id).value='');
