@@ -28,6 +28,7 @@
   --amber:#ffb020;
   --cyan:#22d3ee;
   --red:#ff5470;
+  --sb:252px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -195,11 +196,50 @@ header{
 .wb-dot{width:7px;height:7px;border-radius:50%;background:rgba(8,11,20,.5)}
 .wallet-btn.connected .wb-dot{background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 2s infinite}
 
+/* ===== APP SHELL — left sidebar nav ===== */
+body{padding-left:var(--sb)}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sb);z-index:60;display:flex;flex-direction:column;background:rgba(9,12,20,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-right:1px solid var(--line);padding:20px 14px}
+.sb-brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+.sb-brand .dot{width:9px;height:9px;border-radius:50%;background:var(--sol);box-shadow:0 0 14px var(--sol);animation:pulse 2.4s ease-in-out infinite;flex-shrink:0}
+.sb-name{font-weight:800;font-size:13.5px;letter-spacing:-.02em;line-height:1.15}
+.sb-tag{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-faint);letter-spacing:.04em;margin-top:3px;text-transform:uppercase}
+.sb-nav{display:flex;flex-direction:column;gap:3px}
+.sb-item{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;border-radius:9px;padding:11px 12px;color:var(--ink-dim);font-family:'Archivo',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:background .14s,color .14s;letter-spacing:-.01em}
+.sb-item:hover{background:var(--bg-raised);color:var(--ink)}
+.sb-item .sb-ic{font-size:14px;width:20px;text-align:center;opacity:.85;flex-shrink:0}
+.sb-item .sb-c{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--ink-dim);background:var(--bg-raised);border:1px solid var(--line);border-radius:20px;padding:1px 7px;min-width:18px;text-align:center}
+body[data-view="registry"] .sb-item[data-view="registry"],
+body[data-view="research"] .sb-item[data-view="research"],
+body[data-view="community"] .sb-item[data-view="community"]{background:rgba(20,241,149,.1);color:var(--sol);box-shadow:inset 3px 0 0 var(--sol)}
+body[data-view="registry"] .sb-item[data-view="registry"] .sb-c,
+body[data-view="research"] .sb-item[data-view="research"] .sb-c,
+body[data-view="community"] .sb-item[data-view="community"] .sb-c{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.08)}
+.sb-foot{margin-top:auto;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.sb-foot .wallet-btn{width:100%;justify-content:center}
+.sb-mini{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);line-height:1.45;text-align:center}
+.sb-mini b{color:var(--sol)}
+@media(max-width:900px){
+  body{padding-left:0}
+  .sidebar{position:sticky;top:0;left:0;right:0;bottom:auto;width:auto;flex-direction:row;align-items:center;height:auto;padding:9px 12px;border-right:none;border-bottom:1px solid var(--line);gap:8px;overflow-x:auto;scrollbar-width:none}
+  .sidebar::-webkit-scrollbar{display:none}
+  .sb-brand{border-bottom:none;margin:0;padding:0 4px 0 2px;flex-shrink:0}
+  .sb-brand .sb-id{display:none}
+  .sb-nav{flex-direction:row;gap:2px;flex-shrink:0}
+  .sb-item{padding:8px 12px;white-space:nowrap;font-size:13px}
+  .sb-item .sb-c{display:none}
+  body[data-view="registry"] .sb-item[data-view="registry"],
+  body[data-view="research"] .sb-item[data-view="research"],
+  body[data-view="community"] .sb-item[data-view="community"]{box-shadow:inset 0 -2px 0 var(--sol)}
+  .sb-foot{margin:0 0 0 auto;padding:0;border-top:none;flex-direction:row;flex-shrink:0}
+  .sb-foot .sb-mini{display:none}
+  .sb-foot .wallet-btn{width:auto;padding:7px 12px;font-size:12px}
+}
+
 /* ---- hero ---- */
-.hero{padding:78px 0 40px;position:relative}
+.hero{padding:46px 0 34px;position:relative}
 .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sol);border:1px solid rgba(20,241,149,.3);background:rgba(20,241,149,.05);padding:6px 12px;border-radius:100px;margin-bottom:26px}
 .eyebrow .live{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 1.6s infinite}
-h1{font-size:clamp(38px,6vw,72px);line-height:.98;font-weight:900;letter-spacing:-.035em;margin-bottom:24px}
+h1{font-size:clamp(30px,4.6vw,52px);line-height:1.02;font-weight:900;letter-spacing:-.035em;margin-bottom:22px}
 h1 .stroke{color:transparent;-webkit-text-stroke:1.4px var(--ink-dim)}
 h1 .chain{position:relative;color:var(--sol);white-space:nowrap}
 .lede{font-size:clamp(16px,2.2vw,20px);color:var(--ink-dim);max-width:620px;margin-bottom:14px;font-weight:400}
@@ -452,7 +492,7 @@ body[data-view="research"]    .vtab[data-view="research"] .vc{color:var(--sol);b
   #viewbar::after{content:"";position:absolute;top:0;right:0;height:100%;width:26px;pointer-events:none;background:linear-gradient(90deg,rgba(8,11,20,0),rgba(8,11,20,.82))}
 }
 /* view panels */
-section[data-view]{display:none;scroll-margin-top:122px}
+section[data-view]{display:none;scroll-margin-top:80px}
 body[data-view="registry"] section[data-view="registry"],
 body[data-view="research"]   section[data-view="research"],
 body[data-view="research"]    section[data-view="research"],
@@ -463,24 +503,28 @@ body[data-view="community"] section[data-view="community"]{display:block}
 <div class="backdrop"></div>
 <div class="glow"></div>
 
-<header>
-  <div class="bar">
-    <div class="brand">
-      <span class="dot"></span>
-      OPEN SOLANA INTELLIGENCE
-      <span class="tag">Beta</span>
+<aside class="sidebar">
+  <div class="sb-brand">
+    <span class="dot"></span>
+    <div class="sb-id">
+      <div class="sb-name">Open Solana Intelligence</div>
+      <div class="sb-tag">on-chain intelligence</div>
     </div>
-    <nav class="nav-links">
-      <button class="wallet-btn" id="walletBtn" onclick="toggleWallet()">
-        <span class="wb-dot"></span><span id="wbText">Connect Wallet</span>
-      </button>
-    </nav>
   </div>
-</header>
+  <nav class="sb-nav" role="tablist" aria-label="Sections">
+    <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span class="sb-ic">▣</span><span>Registry</span><span class="sb-c" id="vc-co">3</span></button>
+    <button class="sb-item" data-view="research" role="tab" onclick="showView('research')"><span class="sb-ic">🕵️</span><span>Investigations</span><span class="sb-c" id="vc-cases">2</span></button>
+    <button class="sb-item" data-view="community" role="tab" onclick="showView('community')"><span class="sb-ic">✦</span><span>Community</span></button>
+  </nav>
+  <div class="sb-foot">
+    <button class="wallet-btn" id="walletBtn" onclick="toggleWallet()"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
+    <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
+  </div>
+</aside>
 
 <div class="glow"></div>
 
-<section class="hero">
+<section class="hero" data-view="registry">
   <div class="wrap">
     <span class="eyebrow"><span class="live"></span>Open on-chain intelligence</span>
     <h1>
@@ -517,18 +561,10 @@ body[data-view="community"] section[data-view="community"]{display:block}
   </div>
 </section>
 
-<div id="viewbar">
-  <div class="viewtabs" role="tablist" aria-label="Sections">
-    <button class="vtab" data-view="registry" role="tab" onclick="showView('registry')"><span class="vi" aria-hidden="true">◆</span>Registry<span class="vc" id="vc-co">3</span></button>
-    <button class="vtab" data-view="research" role="tab" onclick="showView('research')"><span class="vi" aria-hidden="true">⛓</span>Investigations<span class="vc" id="vc-cases">2</span></button>
-    <button class="vtab" data-view="community" role="tab" onclick="showView('community')"><span class="vi" aria-hidden="true">✦</span>Community</button>
-  </div>
-</div>
-
 <section class="sec" id="registry" data-view="registry">
   <div class="wrap">
     <div class="sec-head">
-      <h2>Treasury Registry</h2>
+      <h2>🛰️ Entity Registry</h2>
       <div class="legend">
         <span><span class="chip verified"></span>Verified</span>
         <span><span class="chip high"></span>High confidence</span>
@@ -565,7 +601,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
 <section class="sec" id="methodology" data-view="research">
   <div class="wrap">
     <div class="sec-head">
-      <h2>Methodology — the techniques, in the open</h2>
+      <h2>🔬 Methodology — the techniques, in the open</h2>
       <div class="legend">
         <span class="mono" style="color:var(--ink-faint)">no black boxes · reproduce every step yourself</span>
       </div>
@@ -642,7 +678,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
 <section class="sec" id="case-studies" data-view="research">
   <div class="wrap">
     <div class="sec-head">
-      <h2>Case Studies</h2>
+      <h2>🕵️ Case Studies</h2>
       <div class="legend"><span class="mono" style="color:var(--ink-faint)">the method, applied to real treasuries · tap to expand</span></div>
     </div>
     <div class="comm-intro" style="max-width:840px">
@@ -655,7 +691,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
 <section class="sec" id="community" data-view="community">
   <div class="wrap">
     <div class="sec-head">
-      <h2>Community Intelligence</h2>
+      <h2>🌐 Community Intelligence</h2>
       <div class="legend">
         <span class="mono" style="color:var(--ink-faint)">decentralized · evidence-bound · donation-driven</span>
       </div>
@@ -675,7 +711,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <!-- BOUNTY BOARD -->
     <div class="tab-panel active" id="tab-bounties">
       <div class="panel-bar">
-        <div class="pb-title">Open Bounties <span class="mono dim">— boost to signal demand for a wallet hunt (on-chain)</span></div>
+        <div class="pb-title">🎯 Open Bounties <span class="mono dim">— boost to signal demand for a wallet hunt (on-chain)</span></div>
         <button class="btn-ghost" onclick="alert('Posting a bounty will be enabled with the on-chain escrow release (Phase 2). For now, reach out to coordinate a bounty manually.')">+ Post Bounty</button>
       </div>
       <div class="bounty-list">
@@ -722,7 +758,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <!-- WALLET REQUESTS -->
     <div class="tab-panel" id="tab-requests">
       <div class="panel-bar">
-        <div class="pb-title">Wallet Requests <span class="mono dim">— ask the community to trace a fund or company</span></div>
+        <div class="pb-title">📡 Wallet Requests <span class="mono dim">— ask the community to trace a fund or company</span></div>
         <button class="btn-ghost" onclick="document.getElementById('req-form').scrollIntoView({behavior:'smooth'})">+ New Request</button>
       </div>
       <div class="req-list" id="req-list"></div>
@@ -740,7 +776,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <!-- SUBMIT RESEARCH -->
     <div class="tab-panel" id="tab-submit">
       <div class="panel-bar">
-        <div class="pb-title">Submit Research <span class="mono dim">— contribute an attribution report</span></div>
+        <div class="pb-title">📝 Submit Research <span class="mono dim">— contribute an attribution report</span></div>
       </div>
       <div class="submit-grid">
         <div class="rules">
@@ -770,7 +806,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <!-- ANALYSTS -->
     <div class="tab-panel" id="tab-analysts">
       <div class="panel-bar">
-        <div class="pb-title">Researcher Ladder <span class="mono dim">— reputation is earned in the open, not bought</span></div>
+        <div class="pb-title">🏅 Researcher Ladder <span class="mono dim">— reputation is earned in the open, not bought</span></div>
         <button class="btn-ghost" onclick="document.getElementById('analyst-form').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('an-tg').focus()">✦ Apply to become an analyst</button>
       </div>
 
@@ -1340,8 +1376,7 @@ function renderCaseStudies(){
 const VIEW_OF = { registry:'registry', how:'research', methodology:'research', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
   document.body.dataset.view = v;
-  const bar = document.getElementById('viewbar');
-  if(bar) bar.scrollIntoView({ behavior:'smooth', block:'start' });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function goSection(id){
   document.body.dataset.view = VIEW_OF[id] || 'registry';
