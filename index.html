@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Open Solana Intelligence — On-Chain Verified Institutional Activity</title>
-<meta name="description" content="Open, on-chain-verified intelligence on institutional Solana activity — public companies, ETFs, foundations, VCs, DAOs, validators, and custodians. Don't trust the filing — verify the chain.">
+<title>Open Solana Intelligence, On-Chain Verified Institutional Activity</title>
+<meta name="description" content="Open, on-chain-verified intelligence on institutional Solana activity, public companies, ETFs, foundations, VCs, DAOs, validators, and custodians. Don't trust the filing, verify the chain.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<!-- Buffer polyfill — web3.js needs a global Buffer when building transactions in the browser. Must load before web3.js. -->
+<!-- Buffer polyfill, web3.js needs a global Buffer when building transactions in the browser. Must load before web3.js. -->
 <script src="https://bundle.run/buffer@6.0.3"></script>
 <script>try{ if(!window.Buffer && window.buffer && window.buffer.Buffer){ window.Buffer = window.buffer.Buffer; } }catch(e){}</script>
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
@@ -196,9 +196,9 @@ header{
 .wb-dot{width:7px;height:7px;border-radius:50%;background:rgba(8,11,20,.5)}
 .wallet-btn.connected .wb-dot{background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 2s infinite}
 
-/* ===== APP SHELL — left sidebar nav ===== */
+/* ===== APP SHELL, left sidebar nav ===== */
 body{padding-left:var(--sb)}
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sb);z-index:60;display:flex;flex-direction:column;background:rgba(9,12,20,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-right:1px solid var(--line);padding:20px 14px}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sb);z-index:60;display:flex;flex-direction:column;background:rgba(9,12,20,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-right:1px solid var(--line);padding:20px 14px;overflow-y:auto}
 .sb-brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;margin-bottom:12px;border-bottom:1px solid var(--line)}
 .sb-brand .dot{width:9px;height:9px;border-radius:50%;background:var(--sol);box-shadow:0 0 14px var(--sol);animation:pulse 2.4s ease-in-out infinite;flex-shrink:0}
 .sb-name{font-weight:800;font-size:13.5px;letter-spacing:-.02em;line-height:1.15}
@@ -210,6 +210,7 @@ body{padding-left:var(--sb)}
 .sb-item .sb-c{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--ink-dim);background:var(--bg-raised);border:1px solid var(--line);border-radius:20px;padding:1px 7px;min-width:18px;text-align:center}
 body[data-view="registry"] .sb-item[data-view="registry"],
 body[data-view="research"] .sb-item[data-view="research"],
+body[data-view="methodology"] .sb-item[data-view="methodology"],
 body[data-view="community"] .sb-item[data-view="community"]{background:rgba(20,241,149,.1);color:var(--sol);box-shadow:inset 3px 0 0 var(--sol)}
 body[data-view="registry"] .sb-item[data-view="registry"] .sb-c,
 body[data-view="research"] .sb-item[data-view="research"] .sb-c,
@@ -233,6 +234,32 @@ body[data-view="community"] .sb-item[data-view="community"] .sb-c{color:var(--so
   .sb-foot{margin:0 0 0 auto;padding:0;border-top:none;flex-direction:row;flex-shrink:0}
   .sb-foot .sb-mini{display:none}
   .sb-foot .wallet-btn{width:auto;padding:7px 12px;font-size:12px}
+}
+
+/* community sub-nav, expands under Community */
+.sb-subnav{display:none;flex-direction:column;gap:1px;margin:3px 0 5px 13px;padding-left:11px;border-left:1px solid var(--line)}
+body[data-view="community"] .sb-subnav{display:flex}
+.sb-sub{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;border-radius:7px;padding:8px 10px;color:var(--ink-dim);font-family:'Archivo',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;transition:background .14s,color .14s}
+.sb-sub:hover{background:var(--bg-raised);color:var(--ink)}
+.sb-sub .sb-ic{font-size:12px;width:15px;text-align:center;opacity:.7}
+body[data-sub="tab-bounties"] .sb-sub[data-sub="tab-bounties"],
+body[data-sub="tab-requests"] .sb-sub[data-sub="tab-requests"],
+body[data-sub="tab-submit"] .sb-sub[data-sub="tab-submit"],
+body[data-sub="tab-analysts"] .sb-sub[data-sub="tab-analysts"]{color:var(--sol);background:rgba(20,241,149,.08)}
+/* sidebar leaderboard */
+.sb-board{margin:14px 4px 4px;padding:13px 12px;background:var(--bg-raised);border:1px solid var(--line);border-radius:11px}
+.sb-board-h{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:9px}
+.sb-rank{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px}
+.sb-rank .sb-rk{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);width:13px}
+.sb-rank .sb-rn{font-weight:600;color:var(--ink)}
+.sb-rank.empty .sb-rn{color:var(--ink-faint);font-weight:400;font-style:italic}
+.sb-rank .sb-rp{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--sol)}
+.sb-rank.empty .sb-rp{color:var(--ink-faint)}
+.sb-board-cta{width:100%;margin-top:9px;background:none;border:1px solid var(--line-bright);border-radius:7px;padding:7px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:10.5px;cursor:pointer;transition:color .14s,border-color .14s}
+.sb-board-cta:hover{color:var(--sol);border-color:rgba(20,241,149,.4)}
+@media(max-width:900px){
+  body[data-view="community"] .sb-subnav{display:none}
+  .sb-board{display:none}
 }
 
 /* ---- hero ---- */
@@ -496,10 +523,11 @@ section[data-view]{display:none;scroll-margin-top:80px}
 body[data-view="registry"] section[data-view="registry"],
 body[data-view="research"]   section[data-view="research"],
 body[data-view="research"]    section[data-view="research"],
+body[data-view="methodology"] section[data-view="methodology"],
 body[data-view="community"] section[data-view="community"]{display:block}
 </style>
 </head>
-<body data-view="registry">
+<body data-view="registry" data-sub="tab-bounties">
 <div class="backdrop"></div>
 <div class="glow"></div>
 
@@ -514,8 +542,22 @@ body[data-view="community"] section[data-view="community"]{display:block}
   <nav class="sb-nav" role="tablist" aria-label="Sections">
     <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span class="sb-ic">▣</span><span>Registry</span><span class="sb-c" id="vc-co">3</span></button>
     <button class="sb-item" data-view="research" role="tab" onclick="showView('research')"><span class="sb-ic">🕵️</span><span>Investigations</span><span class="sb-c" id="vc-cases">2</span></button>
+    <button class="sb-item" data-view="methodology" role="tab" onclick="showView('methodology')"><span class="sb-ic">🔬</span><span>Methodology</span></button>
     <button class="sb-item" data-view="community" role="tab" onclick="showView('community')"><span class="sb-ic">✦</span><span>Community</span></button>
+    <div class="sb-subnav">
+      <button class="sb-sub" data-sub="tab-bounties" onclick="goCommunity('tab-bounties')"><span class="sb-ic">⊹</span>Bounty Board</button>
+      <button class="sb-sub" data-sub="tab-requests" onclick="goCommunity('tab-requests')"><span class="sb-ic">⌖</span>Wallet Requests</button>
+      <button class="sb-sub" data-sub="tab-submit" onclick="goCommunity('tab-submit')"><span class="sb-ic">⊕</span>Submit Research</button>
+      <button class="sb-sub" data-sub="tab-analysts" onclick="goCommunity('tab-analysts')"><span class="sb-ic">✦</span>Analysts</button>
+    </div>
   </nav>
+  <div class="sb-board">
+    <div class="sb-board-h mono">🏆 Top Researchers</div>
+    <div class="sb-rank"><span class="sb-rk">1</span><span class="sb-rn">aksusarya</span><span class="sb-rp" id="lb-founder">founder</span></div>
+    <div class="sb-rank empty"><span class="sb-rk">2</span><span class="sb-rn">open seat</span><span class="sb-rp">-</span></div>
+    <div class="sb-rank empty"><span class="sb-rk">3</span><span class="sb-rn">open seat</span><span class="sb-rp">-</span></div>
+    <button class="sb-board-cta" onclick="goCommunity('tab-analysts')">Join the ladder →</button>
+  </div>
   <div class="sb-foot">
     <button class="wallet-btn" id="walletBtn" onclick="toggleWallet()"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
@@ -532,8 +574,8 @@ body[data-view="community"] section[data-view="community"]{display:block}
       they hold <span class="stroke">SOL.</span><br>
       <span class="chain">We show the wallets.</span>
     </h1>
-    <p class="lede">Open intelligence on <strong>institutional Solana activity</strong> — public companies, ETFs, foundations, VCs, DAOs, validators, liquid-staking protocols, and custodians. Wallets mapped through <strong>original on-chain forensics</strong>: funding sources, custody controllers, and validator-level staking.</p>
-    <p class="creed">// <b>don't trust the filing</b> — verify the chain</p>
+    <p class="lede">Open intelligence on <strong>institutional Solana activity</strong>: public companies, ETFs, foundations, VCs, DAOs, validators, liquid-staking protocols, and custodians. Wallets mapped through <strong>original on-chain forensics</strong>: funding sources, custody controllers, and validator-level staking.</p>
+    <p class="creed">// <b>don't trust the filing</b>, verify the chain</p>
 
     <div class="stats">
       <div class="stat">
@@ -543,21 +585,21 @@ body[data-view="community"] section[data-view="community"]{display:block}
       </div>
       <div class="stat">
         <div class="k">Wallets attributed</div>
-        <div class="v" id="s-wal">—</div>
+        <div class="v" id="s-wal">-</div>
         <div class="sub">across all entities</div>
       </div>
       <div class="stat">
         <div class="k">Declared SOL</div>
-        <div class="v sol" id="s-sol">—</div>
+        <div class="v sol" id="s-sol">-</div>
         <div class="sub">per entity disclosures</div>
       </div>
       <div class="stat">
         <div class="k">Est. USD value</div>
-        <div class="v" id="s-usd">—</div>
+        <div class="v" id="s-usd">-</div>
         <div class="sub" id="s-price">at live SOL price</div>
       </div>
     </div>
-    <p class="disclaim">Declared figures come from company filings &amp; press releases. Live wallet balances are fetched directly from the Solana chain and may differ from declared totals — that gap is exactly what this registry surfaces.</p>
+    <p class="disclaim">Declared figures come from company filings &amp; press releases. Live wallet balances are fetched directly from the Solana chain and may differ from declared totals, that gap is exactly what this registry surfaces.</p>
   </div>
 </section>
 
@@ -575,40 +617,40 @@ body[data-view="community"] section[data-view="community"]{display:block}
   </div>
 </section>
 
-<section class="sec" id="how" data-view="research">
+<section class="sec" id="how" data-view="methodology">
   <div class="wrap">
     <div class="sec-head"><h2>How attribution works</h2></div>
     <div class="how">
       <div class="step">
         <div class="n">01 / DISCLOSE</div>
         <h3>Start with the filing</h3>
-        <p>Every entry begins from a public source — an SEC filing or press release stating a SOL acquisition, a custody arrangement, or a staking deal, with dates and amounts.</p>
+        <p>Every entry begins from a public source, an SEC filing or press release stating a SOL acquisition, a custody arrangement, or a staking deal, with dates and amounts.</p>
       </div>
       <div class="step">
         <div class="n">02 / TRACE</div>
         <h3>Follow the chain</h3>
-        <p>On-chain flows are matched to the disclosure: funding timing, exchange inflows (FalconX, Coinbase Prime), validator staking, and custody controllers — until the wallets line up.</p>
+        <p>On-chain flows are matched to the disclosure: funding timing, exchange inflows (FalconX, Coinbase Prime), validator staking, and custody controllers, until the wallets line up.</p>
       </div>
       <div class="step">
         <div class="n">03 / RATE</div>
         <h3>Label the confidence</h3>
-        <p>Nothing is presented as absolute. Each wallet carries a confidence level — verified, high, or publicly labeled — so you can judge the evidence yourself.</p>
+        <p>Nothing is presented as absolute. Each wallet carries a confidence level, verified, high, or publicly labeled, so you can judge the evidence yourself.</p>
       </div>
     </div>
   </div>
 </section>
 
-<section class="sec" id="methodology" data-view="research">
+<section class="sec" id="methodology" data-view="methodology">
   <div class="wrap">
     <div class="sec-head">
-      <h2>🔬 Methodology — the techniques, in the open</h2>
+      <h2>🔬 Methodology, in the open</h2>
       <div class="legend">
         <span class="mono" style="color:var(--ink-faint)">no black boxes · reproduce every step yourself</span>
       </div>
     </div>
 
     <div class="comm-intro">
-      <p>Wallet attribution can look like magic. It isn't. It's a repeatable chain of evidence anyone can follow with a block explorer and patience. Here's the exact method behind every entry on this page — so you can check our work, or run your own.</p>
+      <p>Wallet attribution can look like magic. It isn't. It's a repeatable chain of evidence anyone can follow with a block explorer and patience. Here's the exact method behind every entry on this page, so you can check our work, or run your own.</p>
     </div>
 
     <div class="method-deep">
@@ -616,8 +658,8 @@ body[data-view="community"] section[data-view="community"]{display:block}
         <div class="md-num">01</div>
         <div class="md-body">
           <h3>Anchor on a disclosure</h3>
-          <p>Every trace starts off-chain. An SEC 8-K, an 8-K/A, or a press release that states a SOL purchase, a custody arrangement, or a staking deal — with a date and an amount. That gives you a <i>when</i> and a <i>how much</i> to hunt for on the chain.</p>
-          <div class="ex"><b>Example —</b> "Helius (HSDT) begins purchasing SOL, 760,190 SOL" on 2025-09-22. Now you know the rough size and window to look for.</div>
+          <p>Every trace starts off-chain. An SEC 8-K, an 8-K/A, or a press release that states a SOL purchase, a custody arrangement, or a staking deal, with a date and an amount. That gives you a <i>when</i> and a <i>how much</i> to hunt for on the chain.</p>
+          <div class="ex"><b>Example -</b> "Helius (HSDT) begins purchasing SOL, 760,190 SOL" on 2025-09-22. Now you know the rough size and window to look for.</div>
         </div>
       </div>
       <div class="md-step">
@@ -625,31 +667,31 @@ body[data-view="community"] section[data-view="community"]{display:block}
         <div class="md-body">
           <h3>Match the funding flow</h3>
           <p>Find on-chain inflows whose <b>timing and size</b> line up with the disclosure. A treasury buying hundreds of thousands of SOL leaves a footprint: large transfers out of an exchange or OTC desk (Coinbase Prime, FalconX) into fresh addresses, clustered around the announced date.</p>
-          <div class="ex"><b>Signal —</b> a 1M+ SOL transfer arriving directly from a Solana Foundation non-circulating supply wallet is about as strong as on-chain evidence gets.</div>
+          <div class="ex"><b>Signal -</b> a 1M+ SOL transfer arriving directly from a Solana Foundation non-circulating supply wallet is about as strong as on-chain evidence gets.</div>
         </div>
       </div>
       <div class="md-step">
         <div class="md-num">03</div>
         <div class="md-body">
           <h3>Fingerprint the custodian</h3>
-          <p>Custodians leave recognizable on-chain patterns — deposit-address structures, program interactions, and stake-authority layouts that repeat across their clients. Matching those patterns tells you <b>who controls the keys</b>, not just where the coins sit.</p>
-          <div class="ex"><b>Tells —</b> Coinbase Prime, Fireblocks, Anchorage and BitGo each route and stake differently. The plumbing gives them away.</div>
+          <p>Custodians leave recognizable on-chain patterns, deposit-address structures, program interactions, and stake-authority layouts that repeat across their clients. Matching those patterns tells you <b>who controls the keys</b>, not just where the coins sit.</p>
+          <div class="ex"><b>Tells -</b> Coinbase Prime, Fireblocks, Anchorage and BitGo each route and stake differently. The plumbing gives them away.</div>
         </div>
       </div>
       <div class="md-step">
         <div class="md-num">04</div>
         <div class="md-body">
           <h3>Cluster the stake &amp; deposit accounts</h3>
-          <p>Follow each stake account back to its <b>stake authority</b> and <b>withdraw authority</b>; group deposit addresses that share a controller. One confirmed wallet expands into the full set this way — custody wallets, stake accounts, and the validators they delegate to.</p>
-          <div class="ex"><b>Method —</b> shared authorities and repeated counterparties turn a single address into a mapped treasury.</div>
+          <p>Follow each stake account back to its <b>stake authority</b> and <b>withdraw authority</b>; group deposit addresses that share a controller. One confirmed wallet expands into the full set this way, custody wallets, stake accounts, and the validators they delegate to.</p>
+          <div class="ex"><b>Method -</b> shared authorities and repeated counterparties turn a single address into a mapped treasury.</div>
         </div>
       </div>
       <div class="md-step">
         <div class="md-num">05</div>
         <div class="md-body">
           <h3>Cross-validate before you label</h3>
-          <p>Never publish on a single signal. Require at least <b>two independent lines</b> — say, a timing match plus a custodian fingerprint plus a corroborating filing — before attributing an address. Then assign a <b>confidence level</b>, not a verdict.</p>
-          <div class="ex"><b>Rule —</b> if it only checks one box, it stays in your notes, not on the registry.</div>
+          <p>Never publish on a single signal. Require at least <b>two independent lines</b>, say, a timing match plus a custodian fingerprint plus a corroborating filing, before attributing an address. Then assign a <b>confidence level</b>, not a verdict.</p>
+          <div class="ex"><b>Rule -</b> if it only checks one box, it stays in your notes, not on the registry.</div>
         </div>
       </div>
     </div>
@@ -657,11 +699,11 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <div class="conf-grid">
       <div class="conf-card">
         <div class="ch"><span class="chip verified"></span>Verified</div>
-        <p>A definitive on-chain link — a direct transfer from a known entity or Foundation wallet, or a transaction the entity itself signed. The strongest tier.</p>
+        <p>A definitive on-chain link, a direct transfer from a known entity or Foundation wallet, or a transaction the entity itself signed. The strongest tier.</p>
       </div>
       <div class="conf-card">
         <div class="ch"><span class="chip high"></span>High confidence</div>
-        <p>Strong evidentiary clustering — timing, size, custodian fingerprint and disclosure all converge — but no single cryptographic proof of ownership.</p>
+        <p>Strong evidentiary clustering, timing, size, custodian fingerprint and disclosure all converge, but no single cryptographic proof of ownership.</p>
       </div>
       <div class="conf-card">
         <div class="ch"><span class="chip labeled"></span>Publicly labeled</div>
@@ -670,7 +712,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
     </div>
 
     <div class="warn">
-      <b>Where this method stops.</b> Clustering is probabilistic. "High confidence" means the evidence strongly converges — not that ownership is legally proven. Every attribution here can be challenged with better evidence, and that's the point of doing it in the open: a wrong call is visible and fixable, not buried in a private dataset.
+      <b>Where this method stops.</b> Clustering is probabilistic. "High confidence" means the evidence strongly converges, not that ownership is legally proven. Every attribution here can be challenged with better evidence, and that's the point of doing it in the open: a wrong call is visible and fixable, not buried in a private dataset.
     </div>
   </div>
 </section>
@@ -682,7 +724,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
       <div class="legend"><span class="mono" style="color:var(--ink-faint)">the method, applied to real treasuries · tap to expand</span></div>
     </div>
     <div class="comm-intro" style="max-width:840px">
-      <p>Worked forensic reports — each starts from a company's public filings and ends at the wallets, with the on-chain evidence laid out. Tap a report to open the full trace.</p>
+      <p>Worked forensic reports, each starts from a company's public filings and ends at the wallets, with the on-chain evidence laid out. Tap a report to open the full trace.</p>
     </div>
     <div class="companies" id="case-studies-list"></div>
   </div>
@@ -698,7 +740,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
     </div>
 
     <div class="comm-intro">
-      <p>This registry isn't a closed list — it's an <strong>open intelligence network</strong>. Anyone can request a fund's wallets or submit research. Every submission must carry <strong>both on-chain and off-chain proof</strong>, and is reviewed by recognized analysts before it's published. Trust is earned in the open.</p>
+      <p>This registry isn't a closed list, it's an <strong>open intelligence network</strong>. Anyone can request a fund's wallets or submit research. Every submission must carry <strong>both on-chain and off-chain proof</strong>, and is reviewed by recognized analysts before it's published. Trust is earned in the open.</p>
     </div>
 
     <div class="comm-tabs">
@@ -711,13 +753,13 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <!-- BOUNTY BOARD -->
     <div class="tab-panel active" id="tab-bounties">
       <div class="panel-bar">
-        <div class="pb-title">🎯 Open Bounties <span class="mono dim">— boost to signal demand for a wallet hunt (on-chain)</span></div>
+        <div class="pb-title">🎯 Open Bounties <span class="mono dim">· boost to signal demand for a wallet hunt (on-chain)</span></div>
         <button class="btn-ghost" onclick="alert('Posting a bounty will be enabled with the on-chain escrow release (Phase 2). For now, reach out to coordinate a bounty manually.')">+ Post Bounty</button>
       </div>
       <div class="bounty-list">
         <div class="bounty">
           <div class="b-left">
-            <div class="b-target">Galaxy Digital — SOL treasury wallets</div>
+            <div class="b-target">Galaxy Digital, SOL treasury wallets</div>
             <div class="b-desc">Identify and attribute Galaxy's on-chain Solana holdings. Must include exchange-inflow trace + custody controller + a corroborating public disclosure.</div>
             <div class="b-meta"><span class="mono">curated by maintainer</span> · <span class="mono">open</span></div>
           </div>
@@ -729,7 +771,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
         </div>
         <div class="bounty">
           <div class="b-left">
-            <div class="b-target">DeFi Development Corp — full wallet set</div>
+            <div class="b-target">DeFi Development Corp, full wallet set</div>
             <div class="b-desc">Known to hold ~2.2M SOL. Map all custody + stake accounts with validator-level breakdown and confidence ratings per address.</div>
             <div class="b-meta"><span class="mono">curated by maintainer</span> · <span class="mono">open</span></div>
           </div>
@@ -741,7 +783,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
         </div>
         <div class="bounty dim-bounty">
           <div class="b-left">
-            <div class="b-target">SOL Strategies (HODL) — verification</div>
+            <div class="b-target">SOL Strategies (HODL), verification</div>
             <div class="b-desc">Wallets publicly labeled. Bounty is to independently verify each address with a documented methodology and rate confidence.</div>
             <div class="b-meta"><span class="mono">curated by maintainer</span> · <span class="mono">open</span></div>
           </div>
@@ -752,13 +794,13 @@ body[data-view="community"] section[data-view="community"]{display:block}
           </div>
         </div>
       </div>
-      <div class="phase-note">⛓ <b>Phase 2:</b> anyone will be able to back a bounty with a tip — pooled in an on-chain escrow and released automatically to the analyst whose report is approved. A bounty funded by the whole community, not a single buyer. Today, boosting signals demand and bounties are settled by donation between participants.</div>
+      <div class="phase-note">⛓ <b>Phase 2:</b> anyone will be able to back a bounty with a tip, pooled in an on-chain escrow and released automatically to the analyst whose report is approved. A bounty funded by the whole community, not a single buyer. Today, boosting signals demand and bounties are settled by donation between participants.</div>
     </div>
 
     <!-- WALLET REQUESTS -->
     <div class="tab-panel" id="tab-requests">
       <div class="panel-bar">
-        <div class="pb-title">📡 Wallet Requests <span class="mono dim">— ask the community to trace a fund or company</span></div>
+        <div class="pb-title">📡 Wallet Requests <span class="mono dim">· ask the community to trace a fund or company</span></div>
         <button class="btn-ghost" onclick="document.getElementById('req-form').scrollIntoView({behavior:'smooth'})">+ New Request</button>
       </div>
       <div class="req-list" id="req-list"></div>
@@ -766,7 +808,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
         <div class="mf-title mono">Request a wallet trace</div>
         <div class="mf-row">
           <input type="text" placeholder="Fund / company name (e.g. Pantera Capital)" id="rq-name">
-          <input type="text" placeholder="Any hint — ticker, filing, known amount (optional)" id="rq-hint">
+          <input type="text" placeholder="Any hint, ticker, filing, known amount (optional)" id="rq-hint">
         </div>
         <button class="btn-fill" onclick="submitRequest()">Submit Request</button>
         <div class="mf-note">New requests go to the maintainer and appear on the board once approved. Upvotes are shared across everyone. No wallet connection needed to ask.</div>
@@ -776,14 +818,14 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <!-- SUBMIT RESEARCH -->
     <div class="tab-panel" id="tab-submit">
       <div class="panel-bar">
-        <div class="pb-title">📝 Submit Research <span class="mono dim">— contribute an attribution report</span></div>
+        <div class="pb-title">📝 Submit Research <span class="mono dim">· contribute an attribution report</span></div>
       </div>
       <div class="submit-grid">
         <div class="rules">
           <div class="rules-title mono">Submission rules</div>
           <ul class="rule-list">
-            <li><span class="rk">01</span> Every claim needs <b>on-chain proof</b> — transaction hashes, addresses, flows.</li>
-            <li><span class="rk">02</span> Plus <b>off-chain corroboration</b> — SEC filing, press release, or official disclosure.</li>
+            <li><span class="rk">01</span> Every claim needs <b>on-chain proof</b>, transaction hashes, addresses, flows.</li>
+            <li><span class="rk">02</span> Plus <b>off-chain corroboration</b>, SEC filing, press release, or official disclosure.</li>
             <li><span class="rk">03</span> State a <b>confidence level</b> per wallet. Never present clustering as certainty.</li>
             <li><span class="rk">04</span> Reviewed by <b>recognized analysts</b> and the maintainer before publishing.</li>
             <li><span class="rk">05</span> Approved reports are credited to you, on-chain-verifiable, forever public.</li>
@@ -806,7 +848,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <!-- ANALYSTS -->
     <div class="tab-panel" id="tab-analysts">
       <div class="panel-bar">
-        <div class="pb-title">🏅 Researcher Ladder <span class="mono dim">— reputation is earned in the open, not bought</span></div>
+        <div class="pb-title">🏅 Researcher Ladder <span class="mono dim">· reputation is earned in the open, not bought</span></div>
         <button class="btn-ghost" onclick="document.getElementById('analyst-form').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('an-tg').focus()">✦ Apply to become an analyst</button>
       </div>
 
@@ -816,9 +858,9 @@ body[data-view="community"] section[data-view="community"]{display:block}
           <input type="text" placeholder="Telegram username (e.g. @you)" id="an-tg">
           <input type="text" placeholder="X / Twitter username (e.g. @you)" id="an-tw">
         </div>
-        <input type="text" placeholder="Website or proof of work — a report, thread, or dashboard (optional)" id="an-web" style="margin-top:10px">
+        <input type="text" placeholder="Website or proof of work, a report, thread, or dashboard (optional)" id="an-web" style="margin-top:10px">
         <button class="btn-fill" onclick="submitAnalystApplication()" style="margin-top:12px">Send application</button>
-        <div class="mf-note">Share at least one handle so the maintainer can reach you. Applications are reviewed by hand — you'll get a reply.</div>
+        <div class="mf-note">Share at least one handle so the maintainer can reach you. Applications are reviewed by hand, you'll get a reply.</div>
       </div>
 
       <div class="ranks">
@@ -829,7 +871,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
         <div class="rank owner-rank"><div class="rl">◆</div><div class="rn">Maintainer</div><div class="rx">holds the final seal</div></div>
       </div>
 
-      <p class="ladder-note">Sign up with email and you start as an <b>Apprentice</b>. Every report you ship that gets approved — and every <b>boost</b> the community casts on it — adds XP. Volume alone doesn't move you: <b>quality × accepted submissions</b> does. Climb the ladder, earn the seal.</p>
+      <p class="ladder-note">Sign up with email and you start as an <b>Apprentice</b>. Every report you ship that gets approved, and every <b>boost</b> the community casts on it, adds XP. Volume alone doesn't move you: <b>quality × accepted submissions</b> does. Climb the ladder, earn the seal.</p>
 
       <div class="analyst-grid">
         <div class="analyst">
@@ -860,15 +902,15 @@ body[data-view="community"] section[data-view="community"]{display:block}
           <div class="ve-item"><div class="ve-ic dn-ic">▼</div><div><b>Downvote</b><span>Flag weak attribution or missing proof.</span></div></div>
           <div class="ve-item"><div class="ve-ic ok-ic">✓</div><div><b>Maintainer seal</b><span>Final approval before a report goes public.</span></div></div>
         </div>
-        <div class="mf-note" style="margin-top:14px;text-align:center">Only recognized analysts and the maintainer can approve or reject. Anyone can read every vote — scoring happens in the open.</div>
+        <div class="mf-note" style="margin-top:14px;text-align:center">Only recognized analysts and the maintainer can approve or reject. Anyone can read every vote, scoring happens in the open.</div>
       </div>
 
       <div class="review-queue">
-        <div class="rq-head mono">Review queue — vote on-chain</div>
+        <div class="rq-head mono">Review queue, vote on-chain</div>
         <div id="review-list"></div>
-        <div class="mf-note" style="margin-top:12px">Each score is a verifiable on-chain action — a signed memo transaction, with no fee paid to us (only the standard ~0.000005 SOL network fee). That keeps votes real and attributable instead of free to farm. The maintainer casts the final seal.</div>
+        <div class="mf-note" style="margin-top:12px">Each score is a verifiable on-chain action, a signed memo transaction, with no fee paid to us (only the standard ~0.000005 SOL network fee). That keeps votes real and attributable instead of free to farm. The maintainer casts the final seal.</div>
       </div>
-      <div class="phase-note">⛓ <b>Phase 2:</b> for now, XP and rank are tracked by the maintainer. Next, reputation moves on-chain — a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
+      <div class="phase-note">⛓ <b>Phase 2:</b> for now, XP and rank are tracked by the maintainer. Next, reputation moves on-chain, a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
     </div>
   </div>
 </section>
@@ -897,13 +939,13 @@ body[data-view="community"] section[data-view="community"]{display:block}
       <div class="rm-phase">
         <span class="rm-tag soon">Soon</span>
         <h3>Community intelligence</h3>
-        <p>Anyone can open a request — and anyone can back it with a tip. A bounty the whole community funds, not a single buyer (the way it works elsewhere). Volunteer researchers pick it up, and every report is open-source and written <i>with</i> its methodology — so the technique spreads, not just the result.</p>
+        <p>Anyone can open a request, and anyone can back it with a tip. A bounty the whole community funds, not a single buyer (the way it works elsewhere). Volunteer researchers pick it up, and every report is open-source and written <i>with</i> its methodology, so the technique spreads, not just the result.</p>
         <div class="pin">// the network forms</div>
       </div>
       <div class="rm-phase">
         <span class="rm-tag later">Later</span>
         <h3>On-chain trust</h3>
-        <p>Bounties held in on-chain escrow and released on approval, plus researcher reputation that lives on-chain — portable, verifiable, owned by the researcher.</p>
+        <p>Bounties held in on-chain escrow and released on approval, plus researcher reputation that lives on-chain, portable, verifiable, owned by the researcher.</p>
         <div class="pin">// escrow + reputation</div>
       </div>
     </div>
@@ -923,7 +965,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
           <input type="email" id="nl-email" placeholder="you@email.com" style="background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;padding:12px 16px;color:var(--ink);font-size:14px;font-family:'JetBrains Mono',monospace;min-width:240px;outline:none" onfocus="this.style.borderColor='var(--sol)'" onblur="this.style.borderColor='var(--line-bright)'">
           <button onclick="subscribeNewsletter()" style="background:var(--sol);color:var(--bg);border:none;border-radius:8px;padding:12px 22px;font-weight:700;font-size:14px;cursor:pointer;font-family:'Archivo',sans-serif">Subscribe</button>
         </div>
-        <div class="mono" style="font-size:11px;color:var(--ink-faint)">No email? Connecting your wallet is enough to take part — that's your identity here.</div>
+        <div class="mono" style="font-size:11px;color:var(--ink-faint)">No email? Connecting your wallet is enough to take part, that's your identity here.</div>
       </div>
     </div>
   </div>
@@ -934,7 +976,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <div class="foot">
       <div>
         <div class="brand"><span class="dot"></span>OPEN SOLANA INTELLIGENCE</div>
-        <p>An open public good for the Solana ecosystem. Every wallet attribution is traceable, sourced, and confidence-rated — built so anyone can verify institutional stake concentration for themselves.</p>
+        <p>An open public good for the Solana ecosystem. Every wallet attribution is traceable, sourced, and confidence-rated, built so anyone can verify institutional stake concentration for themselves.</p>
         <div class="warn">
           <b>Disclaimer.</b> On-chain attribution is inherently probabilistic. Wallets marked "high confidence" represent strong evidentiary clustering, not legal certainty. This is research, not financial advice. Always verify independently before acting.
         </div>
@@ -951,17 +993,17 @@ body[data-view="community"] section[data-view="community"]{display:block}
   </div>
 </footer>
 
-<!-- floating feedback button — opens an email to the maintainer -->
+<!-- floating feedback button, opens an email to the maintainer -->
 <a class="fb-btn" href="#" onclick="copyContact(event)" title="Copy contact email">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
   <span>Feedback</span>
 </a>
 
-<!-- Company + wallet data lives in data.js — edit that file to update the registry -->
+<!-- Company + wallet data lives in data.js, edit that file to update the registry -->
 <script src="data.js"></script>
 <script>
-// RPC endpoints — Helius (fast & reliable, primary), public RPC as automatic fallback.
-// NOTE: this key is visible in the page source — that's unavoidable for a static
+// RPC endpoints, Helius (fast & reliable, primary), public RPC as automatic fallback.
+// NOTE: this key is visible in the page source, that's unavoidable for a static
 // site. Protect it by locking allowed domains in your Helius dashboard.
 const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=6cb1f3a8-f0cc-404b-a403-37afd1f3f427";
 const PUBLIC_RPC = "https://api.mainnet-beta.solana.com";
@@ -1108,7 +1150,7 @@ async function loadBalances(card){
       el.dataset.done="1";
     }catch(e){
       el.classList.remove('loading');el.classList.add('err');
-      el.textContent='—';
+      el.textContent='-';
       el.dataset.done="1";
     }
     await new Promise(r=>setTimeout(r,90));
@@ -1126,13 +1168,13 @@ async function loadPrice(){
       document.getElementById('s-usd').textContent = '$'+fmt(window.__declared*SOL_PRICE);
     }
   }catch(e){
-    document.getElementById('s-usd').textContent='—';
+    document.getElementById('s-usd').textContent='-';
     document.getElementById('s-price').textContent='price unavailable';
   }
 }
 
 // ====================================================================
-//  WALLET / dAPP LAYER — Phantom connect + on-chain memo vote
+//  WALLET / dAPP LAYER, Phantom connect + on-chain memo vote
 // ====================================================================
 
 // ── CONTACT ─────────────────────────────────────────────────────────
@@ -1145,7 +1187,7 @@ const CONTACT_EMAIL = "aksusarya@proton.me";
 // Until it's set, the form politely says signups open soon.
 const FORMSPREE_ENDPOINT = "https://formspree.io/f/mgobqzyy";
 
-// On-chain votes are written as a Solana Memo transaction — a real,
+// On-chain votes are written as a Solana Memo transaction, a real,
 // verifiable signed action that pays NO ONE (only the ~0.000005 SOL
 // network fee). This site collects nothing.
 const MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
@@ -1157,9 +1199,9 @@ const MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 // the maintainer via Formspree AND saved on this device so they show up and
 // can be voted on. Global, cross-device tallying is the Phase 2 backend.
 const REQUESTS = [
-  { id: "upexi",     name: "Upexi — SOL treasury wallets",                  sub: "open · community demand signal", base: 0 },
-  { id: "yueda",     name: "Yueda Digital Holdings — SOL custody wallets",  sub: "open · community demand signal", base: 0 },
-  { id: "classover", name: "Classover Holdings — SOL positions",            sub: "open · community demand signal", base: 0 }
+  { id: "upexi",     name: "Upexi, SOL treasury wallets",                  sub: "open · community demand signal", base: 0 },
+  { id: "yueda",     name: "Yueda Digital Holdings, SOL custody wallets",  sub: "open · community demand signal", base: 0 },
+  { id: "classover", name: "Classover Holdings, SOL positions",            sub: "open · community demand signal", base: 0 }
 ];
 function lsGet(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
 function lsSet(k, val){ try{ localStorage.setItem(k, JSON.stringify(val)); }catch(e){} }
@@ -1170,7 +1212,7 @@ function safeUrl(u){ u = String(u || '').trim(); return /^https?:\/\//i.test(u) 
 function voterId(){ let v = lsGet('stw_voter', null); if(!v){ v = 'v_' + Math.random().toString(36).slice(2) + Date.now().toString(36); lsSet('stw_voter', v); } return v; }
 
 // ── OPTIONAL GLOBAL BACKEND (Supabase) ──────────────────────────────
-// Leave BOTH blank → the boards run on local storage (per-browser — the
+// Leave BOTH blank → the boards run on local storage (per-browser, the
 // honest default). Fill them in (Supabase dashboard → Settings → API) to
 // make Wallet Requests + their upvotes GLOBAL, shared across every visitor.
 // Run the setup SQL first. Any failure falls back to local automatically.
@@ -1182,10 +1224,10 @@ async function supaGet(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' +
 async function supaPost(table, row){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + table, { method: 'POST', headers: supaHeaders({ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if(!r.ok && r.status !== 409) throw new Error('supa post ' + r.status); return true; }
 async function supaDelete(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { method: 'DELETE', headers: supaHeaders() }); if(!r.ok) throw new Error('supa del ' + r.status); return true; }
 
-// review queue seed — one clearly-labelled example so the scoring UI stays
+// review queue seed, one clearly-labelled example so the scoring UI stays
 // demonstrable; real submissions render above it as "pending review".
 const REPORTS_SEED = [
-  { id: 'example', company: 'Example — DeFi Development Corp', ticker: 'NASDAQ: DFDV', example: true,
+  { id: 'example', company: 'Example, DeFi Development Corp', ticker: 'NASDAQ: DFDV', example: true,
     summary: 'Sample card showing what a submitted report looks like: attributes 2.18M SOL across 9 addresses, Coinbase Prime custody, two-validator staking, with an SEC 8-K and an on-chain inflow trace. Submit your own above and it lands here as pending.',
     onchain: '', offchain: '', up: 0, dn: 0 }
 ];
@@ -1234,7 +1276,7 @@ function updateWalletUI(){
 }
 
 // Build + send a Memo transaction as a verifiable on-chain "signed vote".
-// No transfer, no recipient — only the standard network fee applies.
+// No transfer, no recipient, only the standard network fee applies.
 // Returns the transaction signature on success, throws on failure.
 async function castOnchainVote(memoText){
   const prov = getProvider();
@@ -1257,7 +1299,7 @@ async function castOnchainVote(memoText){
   for(const url of [HELIUS_RPC, PUBLIC_RPC]){
     try{ const r = await new Connection(url, "confirmed").getLatestBlockhash(); if(r && r.blockhash){ blockhash = r.blockhash; break; } }catch(e){ /* try next */ }
   }
-  if(!blockhash) throw new Error("could not reach the Solana network — try again in a moment");
+  if(!blockhash) throw new Error("could not reach the Solana network, try again in a moment");
   tx.recentBlockhash = blockhash;
 
   const signed = await prov.signAndSendTransaction(tx);  // Phantom signs + sends
@@ -1267,7 +1309,7 @@ async function castOnchainVote(memoText){
 // Wrapper used by vote/boost buttons: ensure wallet, send the memo tx, then run the UI action.
 async function withOnchainVote(actionLabel, memoText, onSuccess){
   if(!walletPubkey){
-    const ok = confirm(`"${actionLabel}" is recorded as a real on-chain action.\n\nConnect your Phantom wallet to sign it. No money is paid to anyone — only the standard Solana network fee (~0.000005 SOL).`);
+    const ok = confirm(`"${actionLabel}" is recorded as a real on-chain action.\n\nConnect your Phantom wallet to sign it. No money is paid to anyone, only the standard Solana network fee (~0.000005 SOL).`);
     if(ok) await toggleWallet();
     if(!walletPubkey) return;
   }
@@ -1358,7 +1400,7 @@ function renderCaseStudies(){
           <div class="comm-intro" style="max-width:840px;margin-bottom:20px"><p>${cs.intro}</p></div>
           <div class="cs-block"><div class="cs-h mono">01 · The disclosures we anchored on</div><div class="tl">${timeline}</div></div>
           <div class="cs-block"><div class="cs-h mono">02 · Following the money</div><div class="cluster-grid">${clusters}</div></div>
-          <div class="cs-block"><div class="cs-h mono">03 · The identified treasury — ${cs.identifiedSOL.toLocaleString()} SOL</div>
+          <div class="cs-block"><div class="cs-h mono">03 · The identified treasury, ${cs.identifiedSOL.toLocaleString()} SOL</div>
             <div class="cs-table-wrap"><table class="cs-table">
               <thead><tr><th>Wallet</th><th>Balance (SOL)</th><th>Custody / Validator</th></tr></thead>
               <tbody>${rows}</tbody>
@@ -1373,7 +1415,7 @@ function renderCaseStudies(){
 }
 // ---- community interactions ----
 // ---- top-level view tabs ----
-const VIEW_OF = { registry:'registry', how:'research', methodology:'research', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
+const VIEW_OF = { registry:'registry', how:'methodology', methodology:'methodology', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
   document.body.dataset.view = v;
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1389,6 +1431,7 @@ function syncTabCounts(){
     const cs = window.CASE_STUDIES ? window.CASE_STUDIES.length : null;
     const a = document.getElementById('vc-co'); if(a && co!=null) a.textContent = co;
     const b = document.getElementById('vc-cases'); if(b && cs!=null) b.textContent = cs;
+    const lf = document.getElementById('lb-founder'); if(lf && cs!=null) lf.textContent = cs + ' published';
   }catch(e){}
 }
 
@@ -1397,11 +1440,12 @@ function switchTab(btn, id){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(id).classList.add('active');
+  document.body.dataset.sub = id;
 }
 
 function stakeBoost(btn){
   const target = (btn.closest('.bounty')||document).querySelector('.b-target');
-  const memo = "OSI boost — signal demand: " + ((target && target.textContent.trim().slice(0,80)) || "wallet hunt");
+  const memo = "OSI boost, signal demand: " + ((target && target.textContent.trim().slice(0,80)) || "wallet hunt");
   withOnchainVote("Boost", memo, (sig)=>{
     const numEl = btn.parentElement.querySelector('.b-reward .n');
     if(numEl){ let n = parseInt(numEl.textContent) || 0; numEl.textContent = (n+1); }
@@ -1483,7 +1527,7 @@ async function hydrateRequestsFromSupabase(){
     const model = merged.map(r => ({ id: r.id, name: r.name, sub: r.sub, count: counts[r.id] || 0, voted: !!myVotes[r.id] }))
       .concat(localPending.map(r => ({ id: r.id, name: r.name, sub: '⏳ awaiting maintainer approval', count: 0, voted: false })));
     renderRequestsFrom(model);
-  }catch(e){ console.warn('OSI: global board unavailable — showing local view.', e); }
+  }catch(e){ console.warn('OSI: global board unavailable, showing local view.', e); }
 }
 
 function scoreReport(btn, dir){
@@ -1520,7 +1564,7 @@ async function submitRequest(){
   const hint = (document.getElementById('rq-hint').value || '').trim();
   if(!name){ showToast("Add a fund or company name to request a trace."); return; }
   const id = 'req_' + Date.now();
-  const label = hint ? (name + ' — ' + hint) : name;
+  const label = hint ? (name + ', ' + hint) : name;
   // save locally so the submitter sees it right away (deduped by id vs backend)
   const userReqs = lsGet('stw_requests', []);
   userReqs.push({ id, name: label, sub: SUPA_ON ? '⏳ awaiting maintainer approval' : 'requested here · community demand signal', base: 0 });
@@ -1530,15 +1574,15 @@ async function submitRequest(){
   // submit to the shared board as PENDING (not public until a maintainer approves)
   if(SUPA_ON){ try{ await supaPost('requests', { id, name: label, approved: false }); hydrateRequestsFromSupabase(); }catch(e){ console.warn('OSI: request publish failed.', e); } }
   // always email the maintainer for triage / approval
-  const okMsg = SUPA_ON ? '✓ Sent for review — it goes public once a maintainer approves.' : '✓ Request added and sent to the maintainer.';
+  const okMsg = SUPA_ON ? '✓ Sent for review, it goes public once a maintainer approves.' : '✓ Request added and sent to the maintainer.';
   try{
     const res = await fetch(FORMSPREE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ _subject: 'OSI — Wallet Request: ' + name, type: 'wallet-request', company: name, hint: hint || '(none)' })
+      body: JSON.stringify({ _subject: 'OSI, Wallet Request: ' + name, type: 'wallet-request', company: name, hint: hint || '(none)' })
     });
-    showToast(res.ok ? okMsg : '✓ Saved — could not reach the maintainer; try again later.');
-  }catch(e){ showToast('✓ Saved — could not reach the maintainer; try again later.'); }
+    showToast(res.ok ? okMsg : '✓ Saved, could not reach the maintainer; try again later.');
+  }catch(e){ showToast('✓ Saved, could not reach the maintainer; try again later.'); }
 }
 
 async function submitResearch(){
@@ -1559,13 +1603,13 @@ async function submitResearch(){
     await fetch(FORMSPREE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ _subject: 'OSI — Research Submission: ' + co, type: 'research-submission', company: co, summary: sum || '(none)', onchain_proof: on, offchain_proof: off })
+      body: JSON.stringify({ _subject: 'OSI, Research Submission: ' + co, type: 'research-submission', company: co, summary: sum || '(none)', onchain_proof: on, offchain_proof: off })
     });
   }catch(e){}
   // 3) take the user to the queue so they see it land as pending
   openCommunityTab('tab-analysts');
   const q = document.getElementById('review-list'); if(q) q.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  showToast('✓ Submitted for review — added as pending and sent to the maintainer.');
+  showToast('✓ Submitted for review, added as pending and sent to the maintainer.');
 }
 
 // Render the review queue: this visitor's pending submissions first, then a
@@ -1607,9 +1651,16 @@ function openCommunityTab(id){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   const panel = document.getElementById(id); if(panel) panel.classList.add('active');
   document.querySelectorAll('.ctab').forEach(b=>{ if((b.getAttribute('onclick') || '').indexOf("'" + id + "'") !== -1) b.classList.add('active'); });
+  document.body.dataset.sub = id;
 }
 
-// Analyst application — sends Telegram / X handles + optional proof to the
+// sidebar → jump straight to a Community sub-tab (and switch into Community view)
+function goCommunity(id){
+  showView('community');
+  openCommunityTab(id);
+}
+
+// Analyst application, sends Telegram / X handles + optional proof to the
 // maintainer via Formspree. No mail client opens, no page jump.
 async function submitAnalystApplication(){
   const tg  = (document.getElementById('an-tg').value || '').trim();
@@ -1621,24 +1672,24 @@ async function submitAnalystApplication(){
     const res = await fetch(FORMSPREE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ _subject: 'OSI — Analyst Application: ' + handle, type: 'analyst-application', telegram: tg || '(none)', twitter: tw || '(none)', website: web || '(none)' })
+      body: JSON.stringify({ _subject: 'OSI, Analyst Application: ' + handle, type: 'analyst-application', telegram: tg || '(none)', twitter: tw || '(none)', website: web || '(none)' })
     });
     if(res.ok){
       ['an-tg','an-tw','an-web'].forEach(id=>document.getElementById(id).value='');
-      showToast('✓ Application sent — the maintainer will get back to you.');
+      showToast('✓ Application sent, the maintainer will get back to you.');
     } else {
-      showToast('Could not send right now — please try again later.');
+      showToast('Could not send right now, please try again later.');
     }
-  }catch(e){ showToast('Could not send right now — please try again later.'); }
+  }catch(e){ showToast('Could not send right now, please try again later.'); }
 }
 
-// Direct inline subscribe — posts to Formspree, never opens a mail app.
+// Direct inline subscribe, posts to Formspree, never opens a mail app.
 async function subscribeNewsletter(){
   const el = document.getElementById('nl-email');
   const email = (el && el.value.trim()) || "";
   if(!email || email.indexOf('@') < 1){ showToast("Enter a valid email to subscribe."); return; }
   if(FORMSPREE_ENDPOINT.indexOf("YOUR_FORM_ID") !== -1){
-    showToast("Newsletter signups open shortly — almost there.");
+    showToast("Newsletter signups open shortly, almost there.");
     return;
   }
   try{
@@ -1647,9 +1698,9 @@ async function subscribeNewsletter(){
       headers:{ "Content-Type":"application/json", "Accept":"application/json" },
       body: JSON.stringify({ email: email, list: "Weekly Brief" })
     });
-    if(res.ok){ if(el) el.value=""; showToast("✓ You're on the list — thanks!"); }
-    else { showToast("Couldn't subscribe right now — please try again later."); }
-  }catch(e){ showToast("Couldn't subscribe right now — please try again later."); }
+    if(res.ok){ if(el) el.value=""; showToast("✓ You're on the list, thanks!"); }
+    else { showToast("Couldn't subscribe right now, please try again later."); }
+  }catch(e){ showToast("Couldn't subscribe right now, please try again later."); }
 }
 
 // Copy the contact email to the clipboard (used by the Feedback links).
