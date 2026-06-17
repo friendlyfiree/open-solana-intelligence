@@ -1139,8 +1139,8 @@ function voterId(){ let v = lsGet('stw_voter', null); if(!v){ v = 'v_' + Math.ra
 // honest default). Fill them in (Supabase dashboard → Settings → API) to
 // make Wallet Requests + their upvotes GLOBAL, shared across every visitor.
 // Run the setup SQL first. Any failure falls back to local automatically.
-const SUPABASE_URL = "";        // e.g. https://YOURPROJECT.supabase.co
-const SUPABASE_ANON_KEY = "";   // the public "anon" key (safe to expose)
+const SUPABASE_URL = "https://afibxpniwfnavdobecrn.supabase.co";        // e.g. https://YOURPROJECT.supabase.co
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmaWJ4cG5pd2ZuYXZkb2JlY3JuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODEzNjcsImV4cCI6MjA5NzI1NzM2N30.GoliRN3wYwl6I7UreUiQM8ulCYYNPJF2Dy6joRlavNs";   // the public "anon" key (safe to expose)
 const SUPA_ON = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 function supaHeaders(extra){ return Object.assign({ apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, extra || {}); }
 async function supaGet(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: supaHeaders() }); if(!r.ok) throw new Error('supa get ' + r.status); return r.json(); }
