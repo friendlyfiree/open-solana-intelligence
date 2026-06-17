@@ -684,11 +684,11 @@ body[data-view="community"] section[data-view="community"]{display:block}
           <div class="b-left">
             <div class="b-target">Galaxy Digital — SOL treasury wallets</div>
             <div class="b-desc">Identify and attribute Galaxy's on-chain Solana holdings. Must include exchange-inflow trace + custody controller + a corroborating public disclosure.</div>
-            <div class="b-meta"><span class="mono">requested by</span> <span class="b-who">0x…anon</span> · <span class="mono">open 3d</span></div>
+            <div class="b-meta"><span class="mono">curated by maintainer</span> · <span class="mono">open</span></div>
           </div>
           <div class="b-right">
-            <div class="b-reward"><span class="n">5</span><span class="u">SOL</span></div>
-            <div class="b-stakers mono">0 backers</div>
+            <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
+            <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
           </div>
         </div>
@@ -696,11 +696,11 @@ body[data-view="community"] section[data-view="community"]{display:block}
           <div class="b-left">
             <div class="b-target">DeFi Development Corp — full wallet set</div>
             <div class="b-desc">Known to hold ~2.2M SOL. Map all custody + stake accounts with validator-level breakdown and confidence ratings per address.</div>
-            <div class="b-meta"><span class="mono">requested by</span> <span class="b-who">@solwatcher</span> · <span class="mono">open 6d</span></div>
+            <div class="b-meta"><span class="mono">curated by maintainer</span> · <span class="mono">open</span></div>
           </div>
           <div class="b-right">
-            <div class="b-reward"><span class="n">3</span><span class="u">SOL</span></div>
-            <div class="b-stakers mono">0 backers</div>
+            <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
+            <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
           </div>
         </div>
@@ -708,11 +708,11 @@ body[data-view="community"] section[data-view="community"]{display:block}
           <div class="b-left">
             <div class="b-target">SOL Strategies (HODL) — verification</div>
             <div class="b-desc">Wallets publicly labeled. Bounty is to independently verify each address with a documented methodology and rate confidence.</div>
-            <div class="b-meta"><span class="mono">requested by</span> <span class="b-who">@onchaindd</span> · <span class="mono">open 9d</span></div>
+            <div class="b-meta"><span class="mono">curated by maintainer</span> · <span class="mono">open</span></div>
           </div>
           <div class="b-right">
-            <div class="b-reward"><span class="n">2</span><span class="u">SOL</span></div>
-            <div class="b-stakers mono">0 backers</div>
+            <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
+            <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
           </div>
         </div>
@@ -830,24 +830,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
 
       <div class="review-queue">
         <div class="rq-head mono">Review queue — vote on-chain</div>
-        <div class="report-card">
-          <div class="rc-top">
-            <div>
-              <div class="rc-co">DeFi Development Corp <span class="ticker">NASDAQ: DFDV</span></div>
-              <div class="rc-by mono">submitted by <span style="color:var(--cyan)">@onchaindd</span> · pending review</div>
-            </div>
-            <div class="rc-score">
-              <button class="vote-up" onclick="scoreReport(this,1)">▲ <span>4</span></button>
-              <button class="vote-dn" onclick="scoreReport(this,-1)">▼ <span>0</span></button>
-            </div>
-          </div>
-          <div class="rc-sum">Attributes 2.18M SOL across 9 addresses. Coinbase Prime custody confirmed, staking split between two validators. Includes SEC 8-K + on-chain inflow trace.</div>
-          <div class="rc-proof">
-            <span class="proof-tag onchain">⛓ on-chain proof attached</span>
-            <span class="proof-tag offchain">▤ SEC filing attached</span>
-            <span class="proof-tag conf">◑ confidence: high</span>
-          </div>
-        </div>
+        <div id="review-list"></div>
         <div class="mf-note" style="margin-top:12px">Each score is a verifiable on-chain action — a signed memo transaction, with no fee paid to us (only the standard ~0.000005 SOL network fee). That keeps votes real and attributable instead of free to farm. The maintainer casts the final seal.</div>
       </div>
       <div class="phase-note">⛓ <b>Phase 2:</b> for now, XP and rank are tracked by the maintainer. Next, reputation moves on-chain — a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
@@ -1146,6 +1129,31 @@ const REQUESTS = [
 function lsGet(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
 function lsSet(k, val){ try{ localStorage.setItem(k, JSON.stringify(val)); }catch(e){} }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function safeUrl(u){ u = String(u || '').trim(); return /^https?:\/\//i.test(u) ? u : ''; }
+
+// a stable per-browser id so one browser counts as one vote
+function voterId(){ let v = lsGet('stw_voter', null); if(!v){ v = 'v_' + Math.random().toString(36).slice(2) + Date.now().toString(36); lsSet('stw_voter', v); } return v; }
+
+// ── OPTIONAL GLOBAL BACKEND (Supabase) ──────────────────────────────
+// Leave BOTH blank → the boards run on local storage (per-browser — the
+// honest default). Fill them in (Supabase dashboard → Settings → API) to
+// make Wallet Requests + their upvotes GLOBAL, shared across every visitor.
+// Run the setup SQL first. Any failure falls back to local automatically.
+const SUPABASE_URL = "";        // e.g. https://YOURPROJECT.supabase.co
+const SUPABASE_ANON_KEY = "";   // the public "anon" key (safe to expose)
+const SUPA_ON = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+function supaHeaders(extra){ return Object.assign({ apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, extra || {}); }
+async function supaGet(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: supaHeaders() }); if(!r.ok) throw new Error('supa get ' + r.status); return r.json(); }
+async function supaPost(table, row){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + table, { method: 'POST', headers: supaHeaders({ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if(!r.ok && r.status !== 409) throw new Error('supa post ' + r.status); return true; }
+async function supaDelete(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { method: 'DELETE', headers: supaHeaders() }); if(!r.ok) throw new Error('supa del ' + r.status); return true; }
+
+// review queue seed — one clearly-labelled example so the scoring UI stays
+// demonstrable; real submissions render above it as "pending review".
+const REPORTS_SEED = [
+  { id: 'example', company: 'Example — DeFi Development Corp', ticker: 'NASDAQ: DFDV', example: true,
+    summary: 'Sample card showing what a submitted report looks like: attributes 2.18M SOL across 9 addresses, Coinbase Prime custody, two-validator staking, with an SEC 8-K and an on-chain inflow trace. Submit your own above and it lands here as pending.',
+    onchain: '', offchain: '', up: 0, dn: 0 }
+];
 
 let walletPubkey = null;                 // connected wallet address (string)
 
@@ -1267,6 +1275,7 @@ render();
 renderCaseStudies();
 syncTabCounts();
 renderRequests();
+renderReviewQueue();
 loadPrice();
 
 // ---- case studies (data-driven, collapsible) ----
@@ -1360,9 +1369,8 @@ function stakeBoost(btn){
   const target = (btn.closest('.bounty')||document).querySelector('.b-target');
   const memo = "STW boost — signal demand: " + ((target && target.textContent.trim().slice(0,80)) || "wallet hunt");
   withOnchainVote("Boost", memo, (sig)=>{
-    const stakersEl = btn.parentElement.querySelector('.b-stakers');
-    let n = parseInt(stakersEl.textContent) || 0;
-    stakersEl.textContent = (n+1)+" backers";
+    const numEl = btn.parentElement.querySelector('.b-reward .n');
+    if(numEl){ let n = parseInt(numEl.textContent) || 0; numEl.textContent = (n+1); }
     btn.textContent = "✓ Boosted";
     btn.style.background = "var(--sol)";
     btn.style.color = "var(--bg)";
@@ -1377,39 +1385,66 @@ function stakeBoost(btn){
   });
 }
 
-function upvoteReq(btn){
-  // free to upvote (no fee). One vote per request per browser, persisted
-  // locally until the Phase 2 backend aggregates votes across everyone.
+async function upvoteReq(btn){
   const id = btn.dataset.id;
   if(!id) return;
+  // optimistic local toggle (drives the highlight and the local-only mode)
   const votes = lsGet('stw_votes', {});
-  if(votes[id]) delete votes[id]; else votes[id] = true;
+  const wasVoted = !!votes[id];
+  if(wasVoted) delete votes[id]; else votes[id] = true;
   lsSet('stw_votes', votes);
   renderRequests();
+  // sync to the global backend if configured (DB dedups one vote per browser)
+  if(SUPA_ON){
+    try{
+      if(wasVoted) await supaDelete('request_votes?request_id=eq.' + encodeURIComponent(id) + '&voter=eq.' + encodeURIComponent(voterId()));
+      else await supaPost('request_votes', { request_id: id, voter: voterId() });
+      hydrateRequestsFromSupabase();
+    }catch(e){ console.warn('STW: vote sync failed.', e); }
+  }
 }
 
-// Render the request board from the seed list + any requests this visitor
-// submitted (saved locally). The count shown is the honest base plus the
-// visitor's own upvote — the only increment a backend-less site can prove.
+// Render the board from local data first (instant + resilient), then, if a
+// global backend is configured, enrich it with everyone's requests + votes.
 function renderRequests(){
-  const host = document.getElementById('req-list');
-  if(!host) return;
-  const userReqs = lsGet('stw_requests', []);
-  const votes = lsGet('stw_votes', {});
-  const all = REQUESTS.concat(Array.isArray(userReqs) ? userReqs : []);
-  host.innerHTML = all.map(r=>{
-    const voted = !!votes[r.id];
-    const count = (r.base || 0) + (voted ? 1 : 0);
-    const voteStyle = voted ? 'color:var(--sol);border-color:var(--sol)' : '';
-    return `<div class="req">
+  renderRequestsFrom(localRequestsModel());
+  if(SUPA_ON) hydrateRequestsFromSupabase();
+}
+function reqRowHtml(r){
+  const voteStyle = r.voted ? 'color:var(--sol);border-color:var(--sol)' : '';
+  return `<div class="req">
       <div class="req-ic">⌖</div>
       <div class="req-body">
         <div class="req-name">${escapeHtml(r.name)}</div>
         <div class="req-sub mono">${escapeHtml(r.sub || 'open · community demand signal')}</div>
       </div>
-      <button class="up" data-id="${escapeHtml(r.id)}" onclick="upvoteReq(this)" style="${voteStyle}">▲ <span>${count}</span></button>
+      <button class="up" data-id="${escapeHtml(r.id)}" onclick="upvoteReq(this)" style="${voteStyle}">▲ <span>${r.count}</span></button>
     </div>`;
-  }).join('');
+}
+function renderRequestsFrom(model){
+  const host = document.getElementById('req-list');
+  if(!host) return;
+  host.innerHTML = model.map(reqRowHtml).join('');
+}
+function localRequestsModel(){
+  const userReqs = lsGet('stw_requests', []);
+  const votes = lsGet('stw_votes', {});
+  const list = REQUESTS.concat(Array.isArray(userReqs) ? userReqs : []);
+  return list.map(r => ({ id: r.id, name: r.name, sub: r.sub, count: (r.base || 0) + (votes[r.id] ? 1 : 0), voted: !!votes[r.id] }));
+}
+async function hydrateRequestsFromSupabase(){
+  try{
+    const [dbReqs, dbVotes] = await Promise.all([
+      supaGet('requests?select=id,name&order=created_at.asc'),
+      supaGet('request_votes?select=request_id')
+    ]);
+    const counts = {}; (dbVotes || []).forEach(v => { counts[v.request_id] = (counts[v.request_id] || 0) + 1; });
+    const myVotes = lsGet('stw_votes', {});
+    const seen = new Set(); const merged = [];
+    REQUESTS.concat((dbReqs || []).map(r => ({ id: r.id, name: r.name, sub: 'community request' })))
+      .forEach(r => { if(!seen.has(r.id)){ seen.add(r.id); merged.push(r); } });
+    renderRequestsFrom(merged.map(r => ({ id: r.id, name: r.name, sub: r.sub, count: counts[r.id] || 0, voted: !!myVotes[r.id] })));
+  }catch(e){ console.warn('STW: global board unavailable — showing local view.', e); }
 }
 
 function scoreReport(btn, dir){
@@ -1445,31 +1480,92 @@ async function submitRequest(){
   const name = (document.getElementById('rq-name').value || '').trim();
   const hint = (document.getElementById('rq-hint').value || '').trim();
   if(!name){ showToast("Add a fund or company name to request a trace."); return; }
-  // 1) save on this device so it appears on the board and can be voted on
+  const id = 'req_' + Date.now();
+  const label = hint ? (name + ' — ' + hint) : name;
+  // save locally so it shows instantly (deduped by id against the backend)
   const userReqs = lsGet('stw_requests', []);
-  userReqs.push({ id: 'req_' + Date.now(), name: hint ? (name + ' — ' + hint) : name, sub: 'requested here · community demand signal', base: 0 });
+  userReqs.push({ id, name: label, sub: 'requested here · community demand signal', base: 0 });
   lsSet('stw_requests', userReqs);
   renderRequests();
   document.getElementById('rq-name').value = ''; document.getElementById('rq-hint').value = '';
-  // 2) send it to the maintainer for triage (real intake via Formspree)
+  // publish to the shared board if a global backend is configured
+  if(SUPA_ON){ try{ await supaPost('requests', { id, name: label }); hydrateRequestsFromSupabase(); }catch(e){ console.warn('STW: request publish failed.', e); } }
+  // always email the maintainer for triage
   try{
     const res = await fetch(FORMSPREE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ _subject: 'STW — Wallet Request: ' + name, type: 'wallet-request', company: name, hint: hint || '(none)' })
     });
-    showToast(res.ok ? '✓ Request added and sent to the maintainer.' : '✓ Added here — could not reach the maintainer; try again later.');
-  }catch(e){ showToast('✓ Added here — could not reach the maintainer; try again later.'); }
+    showToast(res.ok ? '✓ Request added and sent to the maintainer.' : '✓ Added — could not reach the maintainer; try again later.');
+  }catch(e){ showToast('✓ Added — could not reach the maintainer; try again later.'); }
 }
 
-function submitResearch(){
-  const co = document.getElementById('sub-co').value.trim();
-  const on = document.getElementById('sub-onchain').value.trim();
-  const off = document.getElementById('sub-offchain').value.trim();
-  if(!co){ alert("Name the subject company or fund."); return; }
-  if(!on || !off){ alert("A submission needs BOTH on-chain proof AND off-chain corroboration. Both links are required."); return; }
-  alert(`Report on "${co}" queued for review.\n\nRecognized analysts + the maintainer will evaluate the evidence before it's published. You'll be credited if approved.`);
-  ['sub-co','sub-sum','sub-onchain','sub-offchain'].forEach(id=>document.getElementById(id).value="");
+async function submitResearch(){
+  const co  = (document.getElementById('sub-co').value || '').trim();
+  const sum = (document.getElementById('sub-sum').value || '').trim();
+  const on  = (document.getElementById('sub-onchain').value || '').trim();
+  const off = (document.getElementById('sub-offchain').value || '').trim();
+  if(!co){ showToast("Name the subject company or fund."); return; }
+  if(!on || !off){ showToast("A report needs BOTH an on-chain proof link AND off-chain corroboration."); return; }
+  // 1) add it to the review queue as a pending report (saved on this device)
+  const reports = lsGet('stw_reports', []);
+  reports.unshift({ id: 'rep_' + Date.now(), company: co, summary: sum || 'No summary provided.', onchain: on, offchain: off, up: 0, dn: 0 });
+  lsSet('stw_reports', reports);
+  renderReviewQueue();
+  ['sub-co','sub-sum','sub-onchain','sub-offchain'].forEach(id=>document.getElementById(id).value='');
+  // 2) email the maintainer for review (real intake)
+  try{
+    await fetch(FORMSPREE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ _subject: 'STW — Research Submission: ' + co, type: 'research-submission', company: co, summary: sum || '(none)', onchain_proof: on, offchain_proof: off })
+    });
+  }catch(e){}
+  // 3) take the user to the queue so they see it land as pending
+  openCommunityTab('tab-analysts');
+  const q = document.getElementById('review-list'); if(q) q.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  showToast('✓ Submitted for review — added as pending and sent to the maintainer.');
+}
+
+// Render the review queue: this visitor's pending submissions first, then a
+// clearly-labelled example so the scoring UI stays demonstrable.
+function renderReviewQueue(){
+  const host = document.getElementById('review-list');
+  if(!host) return;
+  const userReports = lsGet('stw_reports', []);
+  const all = (Array.isArray(userReports) ? userReports : []).concat(REPORTS_SEED);
+  host.innerHTML = all.map(r=>{
+    const onUrl = safeUrl(r.onchain), offUrl = safeUrl(r.offchain);
+    const onP = onUrl ? `<a class="proof-tag onchain" href="${escapeHtml(onUrl)}" target="_blank" rel="noopener">⛓ on-chain proof ↗</a>` : `<span class="proof-tag onchain">⛓ on-chain proof attached</span>`;
+    const offP = offUrl ? `<a class="proof-tag offchain" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">▤ off-chain proof ↗</a>` : `<span class="proof-tag offchain">▤ SEC filing attached</span>`;
+    const tick = r.ticker ? `<span class="ticker">${escapeHtml(r.ticker)}</span>` : '';
+    const by = r.example
+      ? `<span style="color:var(--amber)">example</span> · illustrates how scoring works`
+      : `submitted by <span style="color:var(--cyan)">you</span> · pending review`;
+    return `<div class="report-card" style="margin-bottom:11px">
+      <div class="rc-top">
+        <div>
+          <div class="rc-co">${escapeHtml(r.company)} ${tick}</div>
+          <div class="rc-by mono">${by}</div>
+        </div>
+        <div class="rc-score">
+          <button class="vote-up" onclick="scoreReport(this,1)">▲ <span>${r.up || 0}</span></button>
+          <button class="vote-dn" onclick="scoreReport(this,-1)">▼ <span>${r.dn || 0}</span></button>
+        </div>
+      </div>
+      <div class="rc-sum">${escapeHtml(r.summary)}</div>
+      <div class="rc-proof">${onP}${offP}<span class="proof-tag conf">◑ pending verification</span></div>
+    </div>`;
+  }).join('');
+}
+
+// Activate a community sub-tab by id (used after submitting research).
+function openCommunityTab(id){
+  document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  const panel = document.getElementById(id); if(panel) panel.classList.add('active');
+  document.querySelectorAll('.ctab').forEach(b=>{ if((b.getAttribute('onclick') || '').indexOf("'" + id + "'") !== -1) b.classList.add('active'); });
 }
 
 // Analyst application — sends Telegram / X handles + optional proof to the
