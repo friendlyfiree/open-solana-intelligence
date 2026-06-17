@@ -38,11 +38,11 @@ window.TREASURY_DATA = {
       exchange: "NASDAQ",
       declaredSOL: 6900000,
       avgCost: null,
-      source: "independent",
+      source: "community",
       confidence: "high",
       custodians: ["Coinbase Prime", "Fireblocks"],
       validators: [],
-      summary: "The largest publicly-traded Solana treasury. 24 identified addresses across Coinbase Prime and Fireblocks custody, plus dedicated stake accounts.",
+      summary: "The largest publicly-traded Solana treasury. 25 identified addresses across Coinbase Prime and Fireblocks custody, plus dedicated stake accounts. This wallet set is community-aggregated and cross-checked — not first-party attribution by this project.",
       timeline: [
         { date: "2025-09", event: "Treasury strategy established via PIPE financing" },
         { date: "2025-09", event: "Bulk SOL accumulation begins" }

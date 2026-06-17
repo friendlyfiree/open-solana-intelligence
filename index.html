@@ -254,6 +254,7 @@ h1 .chain{position:relative;color:var(--sol);white-space:nowrap}
 .src-badge{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px}
 .src-badge.independent{color:var(--amber);background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.28)}
 .src-badge.labeled{color:var(--cyan);background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.28)}
+.src-badge.community{color:var(--violet);background:rgba(153,69,255,.12);border:1px solid rgba(153,69,255,.32)}
 
 /* expandable body */
 .co-body{display:none;border-top:1px solid var(--line);padding:0}
@@ -687,7 +688,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
           </div>
           <div class="b-right">
             <div class="b-reward"><span class="n">5</span><span class="u">SOL</span></div>
-            <div class="b-stakers mono">3 backers</div>
+            <div class="b-stakers mono">0 backers</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
           </div>
         </div>
@@ -699,7 +700,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
           </div>
           <div class="b-right">
             <div class="b-reward"><span class="n">3</span><span class="u">SOL</span></div>
-            <div class="b-stakers mono">2 backers</div>
+            <div class="b-stakers mono">0 backers</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
           </div>
         </div>
@@ -711,7 +712,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
           </div>
           <div class="b-right">
             <div class="b-reward"><span class="n">2</span><span class="u">SOL</span></div>
-            <div class="b-stakers mono">1 backer</div>
+            <div class="b-stakers mono">0 backers</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
           </div>
         </div>
@@ -725,11 +726,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
         <div class="pb-title">Wallet Requests <span class="mono dim">— ask the community to trace a fund or company</span></div>
         <button class="btn-ghost" onclick="document.getElementById('req-form').scrollIntoView({behavior:'smooth'})">+ New Request</button>
       </div>
-      <div class="req-list">
-        <div class="req"><div class="req-ic">⌖</div><div class="req-body"><div class="req-name">Pantera Capital — SOL positions</div><div class="req-sub mono">12 upvotes · 1 draft in review</div></div><button class="up" onclick="upvoteReq(this)">▲ <span>12</span></button></div>
-        <div class="req"><div class="req-ic">⌖</div><div class="req-body"><div class="req-name">Jump Trading — Solana custody wallets</div><div class="req-sub mono">9 upvotes · open</div></div><button class="up" onclick="upvoteReq(this)">▲ <span>9</span></button></div>
-        <div class="req"><div class="req-ic">⌖</div><div class="req-body"><div class="req-name">VanEck SOL ETF — on-chain holdings</div><div class="req-sub mono">7 upvotes · open</div></div><button class="up" onclick="upvoteReq(this)">▲ <span>7</span></button></div>
-      </div>
+      <div class="req-list" id="req-list"></div>
       <div class="mini-form" id="req-form">
         <div class="mf-title mono">Request a wallet trace</div>
         <div class="mf-row">
@@ -737,7 +734,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
           <input type="text" placeholder="Any hint — ticker, filing, known amount (optional)" id="rq-hint">
         </div>
         <button class="btn-fill" onclick="submitRequest()">Submit Request</button>
-        <div class="mf-note">Requests are public. No wallet connection needed to ask.</div>
+        <div class="mf-note">Sent to the maintainer for triage. Upvotes are a local demand signal until the Phase 2 backend tallies them across everyone. No wallet connection needed to ask.</div>
       </div>
     </div>
 
@@ -775,7 +772,18 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <div class="tab-panel" id="tab-analysts">
       <div class="panel-bar">
         <div class="pb-title">Researcher Ladder <span class="mono dim">— reputation is earned in the open, not bought</span></div>
-        <a class="btn-ghost" data-mailto data-subject="STW — analyst application" href="#">✦ Apply to become an analyst</a>
+        <button class="btn-ghost" onclick="document.getElementById('analyst-form').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('an-tg').focus()">✦ Apply to become an analyst</button>
+      </div>
+
+      <div class="mini-form" id="analyst-form" style="margin-top:0;margin-bottom:22px">
+        <div class="mf-title mono">Apply to become an analyst</div>
+        <div class="mf-row">
+          <input type="text" placeholder="Telegram username (e.g. @you)" id="an-tg">
+          <input type="text" placeholder="X / Twitter username (e.g. @you)" id="an-tw">
+        </div>
+        <input type="text" placeholder="Website or proof of work — a report, thread, or dashboard (optional)" id="an-web" style="margin-top:10px">
+        <button class="btn-fill" onclick="submitAnalystApplication()" style="margin-top:12px">Send application</button>
+        <div class="mf-note">Share at least one handle so the maintainer can reach you. Applications are reviewed by hand — you'll get a reply.</div>
       </div>
 
       <div class="ranks">
@@ -1009,7 +1017,7 @@ function render(){
           <span class="rank">#${String(i+1).padStart(2,'0')}</span>
           <div class="co-name">
             <div class="nm">${c.name}<span class="ticker">${c.exchange}: ${c.ticker}</span>
-              <span class="src-badge ${c.source}">${c.source==='independent'?'◆ Original attribution':'◇ Publicly labeled'}</span>
+              <span class="src-badge ${c.source}">${c.source==='independent'?'◆ Original attribution':(c.source==='community'?'◈ Community-sourced':'◇ Publicly labeled')}</span>
             </div>
             <div class="meta">
               <span><b>${c.wallets.length}</b> wallets</span>
@@ -1123,6 +1131,21 @@ const FORMSPREE_ENDPOINT = "https://formspree.io/f/mgobqzyy";
 // verifiable signed action that pays NO ONE (only the ~0.000005 SOL
 // network fee). This site collects nothing.
 const MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
+
+// ── WALLET REQUESTS (community demand board) ────────────────────────
+// Seed requests the project wants traced. Vote tallies start honest (0):
+// there is no backend yet, so the only real increment we can show is the
+// visitor's own upvote (kept in this browser). New requests are emailed to
+// the maintainer via Formspree AND saved on this device so they show up and
+// can be voted on. Global, cross-device tallying is the Phase 2 backend.
+const REQUESTS = [
+  { id: "upexi",     name: "Upexi — SOL treasury wallets",                  sub: "open · community demand signal", base: 0 },
+  { id: "yueda",     name: "Yueda Digital Holdings — SOL custody wallets",  sub: "open · community demand signal", base: 0 },
+  { id: "classover", name: "Classover Holdings — SOL positions",            sub: "open · community demand signal", base: 0 }
+];
+function lsGet(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
+function lsSet(k, val){ try{ localStorage.setItem(k, JSON.stringify(val)); }catch(e){} }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 let walletPubkey = null;                 // connected wallet address (string)
 
@@ -1243,6 +1266,7 @@ window.addEventListener('load', async ()=>{
 render();
 renderCaseStudies();
 syncTabCounts();
+renderRequests();
 loadPrice();
 
 // ---- case studies (data-driven, collapsible) ----
@@ -1354,11 +1378,38 @@ function stakeBoost(btn){
 }
 
 function upvoteReq(btn){
-  // requests are free to upvote (no fee) — only report scoring & boosting cost a fee
-  const span = btn.querySelector('span');
-  let n = parseInt(span.textContent);
-  if(btn.dataset.voted){ span.textContent = n-1; btn.dataset.voted=""; btn.style.color=""; btn.style.borderColor=""; }
-  else { span.textContent = n+1; btn.dataset.voted="1"; btn.style.color="var(--sol)"; btn.style.borderColor="var(--sol)"; }
+  // free to upvote (no fee). One vote per request per browser, persisted
+  // locally until the Phase 2 backend aggregates votes across everyone.
+  const id = btn.dataset.id;
+  if(!id) return;
+  const votes = lsGet('stw_votes', {});
+  if(votes[id]) delete votes[id]; else votes[id] = true;
+  lsSet('stw_votes', votes);
+  renderRequests();
+}
+
+// Render the request board from the seed list + any requests this visitor
+// submitted (saved locally). The count shown is the honest base plus the
+// visitor's own upvote — the only increment a backend-less site can prove.
+function renderRequests(){
+  const host = document.getElementById('req-list');
+  if(!host) return;
+  const userReqs = lsGet('stw_requests', []);
+  const votes = lsGet('stw_votes', {});
+  const all = REQUESTS.concat(Array.isArray(userReqs) ? userReqs : []);
+  host.innerHTML = all.map(r=>{
+    const voted = !!votes[r.id];
+    const count = (r.base || 0) + (voted ? 1 : 0);
+    const voteStyle = voted ? 'color:var(--sol);border-color:var(--sol)' : '';
+    return `<div class="req">
+      <div class="req-ic">⌖</div>
+      <div class="req-body">
+        <div class="req-name">${escapeHtml(r.name)}</div>
+        <div class="req-sub mono">${escapeHtml(r.sub || 'open · community demand signal')}</div>
+      </div>
+      <button class="up" data-id="${escapeHtml(r.id)}" onclick="upvoteReq(this)" style="${voteStyle}">▲ <span>${count}</span></button>
+    </div>`;
+  }).join('');
 }
 
 function scoreReport(btn, dir){
@@ -1390,11 +1441,25 @@ function scoreReport(btn, dir){
   });
 }
 
-function submitRequest(){
-  const name = document.getElementById('rq-name').value.trim();
-  if(!name){ alert("Add a fund or company name to request a trace."); return; }
-  alert(`Request submitted: "${name}"\n\nIt will appear publicly once the backend is wired up. Saving requests on-chain/off-chain is part of the build roadmap.`);
-  document.getElementById('rq-name').value=""; document.getElementById('rq-hint').value="";
+async function submitRequest(){
+  const name = (document.getElementById('rq-name').value || '').trim();
+  const hint = (document.getElementById('rq-hint').value || '').trim();
+  if(!name){ showToast("Add a fund or company name to request a trace."); return; }
+  // 1) save on this device so it appears on the board and can be voted on
+  const userReqs = lsGet('stw_requests', []);
+  userReqs.push({ id: 'req_' + Date.now(), name: hint ? (name + ' — ' + hint) : name, sub: 'requested here · community demand signal', base: 0 });
+  lsSet('stw_requests', userReqs);
+  renderRequests();
+  document.getElementById('rq-name').value = ''; document.getElementById('rq-hint').value = '';
+  // 2) send it to the maintainer for triage (real intake via Formspree)
+  try{
+    const res = await fetch(FORMSPREE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ _subject: 'STW — Wallet Request: ' + name, type: 'wallet-request', company: name, hint: hint || '(none)' })
+    });
+    showToast(res.ok ? '✓ Request added and sent to the maintainer.' : '✓ Added here — could not reach the maintainer; try again later.');
+  }catch(e){ showToast('✓ Added here — could not reach the maintainer; try again later.'); }
 }
 
 function submitResearch(){
@@ -1405,6 +1470,29 @@ function submitResearch(){
   if(!on || !off){ alert("A submission needs BOTH on-chain proof AND off-chain corroboration. Both links are required."); return; }
   alert(`Report on "${co}" queued for review.\n\nRecognized analysts + the maintainer will evaluate the evidence before it's published. You'll be credited if approved.`);
   ['sub-co','sub-sum','sub-onchain','sub-offchain'].forEach(id=>document.getElementById(id).value="");
+}
+
+// Analyst application — sends Telegram / X handles + optional proof to the
+// maintainer via Formspree. No mail client opens, no page jump.
+async function submitAnalystApplication(){
+  const tg  = (document.getElementById('an-tg').value || '').trim();
+  const tw  = (document.getElementById('an-tw').value || '').trim();
+  const web = (document.getElementById('an-web').value || '').trim();
+  if(!tg && !tw){ showToast("Add your Telegram or X username so the maintainer can reach you."); return; }
+  const handle = tg || tw;
+  try{
+    const res = await fetch(FORMSPREE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ _subject: 'STW — Analyst Application: ' + handle, type: 'analyst-application', telegram: tg || '(none)', twitter: tw || '(none)', website: web || '(none)' })
+    });
+    if(res.ok){
+      ['an-tg','an-tw','an-web'].forEach(id=>document.getElementById(id).value='');
+      showToast('✓ Application sent — the maintainer will get back to you.');
+    } else {
+      showToast('Could not send right now — please try again later.');
+    }
+  }catch(e){ showToast('Could not send right now — please try again later.'); }
 }
 
 // Direct inline subscribe — posts to Formspree, never opens a mail app.
