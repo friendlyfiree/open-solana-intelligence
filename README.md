@@ -6,7 +6,7 @@ Open, on-chain-verified intelligence on institutional Solana activity. Every wal
 
 > `// don't trust the filing, verify the chain`
 
-**Live:** https://solana-treasury-watch.vercel.app &nbsp;·&nbsp; **Repo:** https://github.com/friendlyfiree/solana-treasury-watch
+**Live:** https://solana-treasury-watch-wald.vercel.app/ &nbsp;·&nbsp; **Repo:** https://github.com/friendlyfiree/solana-treasury-watch
 
 ![Open Solana Intelligence](preview.png)
 
