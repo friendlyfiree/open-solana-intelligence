@@ -99,6 +99,18 @@ body{
 .btn-apply{background:rgba(153,69,255,.12);border:1px solid rgba(153,69,255,.4);color:#b98cff;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;padding:6px 14px;border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap}
 .btn-apply:hover{background:#9945ff;color:#fff;border-color:#9945ff}
 .btn-apply:disabled,.btn-stake:disabled{cursor:default;opacity:1}
+/* apply modal + published reports */
+.modal-overlay{position:fixed;inset:0;background:rgba(4,7,16,.8);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:3000;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg-card);border:1px solid var(--line-bright);border-radius:14px;max-width:540px;width:100%;padding:26px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,.65)}
+.modal-x{position:absolute;top:11px;right:15px;background:none;border:none;color:var(--ink-dim);font-size:25px;cursor:pointer;line-height:1;padding:0}
+.modal-x:hover{color:var(--ink)}
+.modal-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:20px;color:var(--ink);letter-spacing:-.01em}
+.modal-sub{font-size:12px;color:var(--violet);margin-top:4px}
+.apply-wallet{font-size:11.5px;color:var(--ink-dim);padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.02)}
+.apply-wallet.connected{color:var(--sol);border-color:rgba(20,241,149,.35);background:rgba(20,241,149,.05)}
+.rc-bounty{display:inline-block;margin-top:5px;font-size:10px;color:var(--violet);background:rgba(153,69,255,.1);border:1px solid rgba(153,69,255,.25);padding:2px 7px;border-radius:5px}
+.report-card.approved{border-color:rgba(20,241,149,.35)}
 .phase-note{margin-top:16px;font-size:12px;color:var(--ink-faint);background:var(--bg-raised);border:1px solid var(--line);border-left:2px solid var(--violet);border-radius:8px;padding:13px 16px;line-height:1.6}
 .phase-note b{color:#c4a0ff}
 
@@ -770,7 +782,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
             <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
             <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
-            <button class="btn-apply" onclick="applyBounty(this)">✦ Apply</button>
+            <button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>
           </div>
         </div>
         <div class="bounty" data-bid="dfdv">
@@ -783,7 +795,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
             <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
             <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
-            <button class="btn-apply" onclick="applyBounty(this)">✦ Apply</button>
+            <button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>
           </div>
         </div>
         <div class="bounty dim-bounty" data-bid="solstrategies">
@@ -796,7 +808,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
             <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
             <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
-            <button class="btn-apply" onclick="applyBounty(this)">✦ Apply</button>
+            <button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>
           </div>
         </div>
       </div>
@@ -1006,6 +1018,23 @@ body[data-view="community"] section[data-view="community"]{display:block}
 </a>
 
 <!-- Company + wallet data lives in data.js, edit that file to update the registry -->
+<div class="modal-overlay" id="apply-modal" onclick="if(event.target===this)closeApplyModal()">
+  <div class="modal">
+    <button class="modal-x" onclick="closeApplyModal()" aria-label="Close">×</button>
+    <div class="modal-title">✦ Apply to this bounty</div>
+    <div class="modal-sub mono" id="apply-bounty-name">bounty</div>
+    <div class="mini-form" style="margin-top:16px">
+      <div class="apply-wallet mono" id="apply-wallet-row">Connect your wallet to sign this application.</div>
+      <textarea placeholder="Your attribution report: wallets, the evidence trail, and a confidence level per address" id="apply-report" rows="4" style="margin-top:11px"></textarea>
+      <div class="mf-row" style="margin-top:10px">
+        <input type="text" placeholder="On-chain proof link (Solscan / explorer)" id="apply-onchain">
+        <input type="text" placeholder="Off-chain proof (SEC / press), optional" id="apply-offchain">
+      </div>
+      <button class="btn-fill" onclick="submitBountyReport()" style="margin-top:13px">✦ Sign &amp; Submit on-chain</button>
+      <div class="mf-note">Your wallet signs the submission, then it lands in the review queue as pending. It goes public once a maintainer approves it.</div>
+    </div>
+  </div>
+</div>
 <script src="data.js"></script>
 <script>
 // RPC endpoints, Helius (fast & reliable, primary), public RPC as automatic fallback.
@@ -1279,6 +1308,7 @@ function updateWalletUI(){
     btn.classList.remove('connected');
     txt.textContent = "Connect Wallet";
   }
+  if(typeof refreshApplyWalletRow === 'function') refreshApplyWalletRow();
 }
 
 // Build + send a Memo transaction as a verifiable on-chain "signed vote".
@@ -1506,23 +1536,53 @@ function markAppliedUI(card, sig){
   }
 }
 
-// Apply to work a bounty: a wallet-signed on-chain attestation, plus an email
-// to the maintainer so they can reach the applicant. Identity = the wallet.
-function applyBounty(btn){
+// ---- Apply to a bounty: open a report form, sign it with the wallet, file it
+// as a pending report that goes public once a maintainer approves. ----
+let applyCtx = { bid: '', target: '' };
+
+function openApplyModal(btn){
   const card = btn.closest('.bounty'); if(!card) return;
-  const bid = card.dataset.bid;
-  const target = bountyTargetText(card);
-  const memo = "OSI bounty application: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
-  withOnchainVote("Apply", memo, async (sig)=>{
-    if(bid){ const mine = lsGet('stw_applied', {}); mine[bid] = true; lsSet('stw_applied', mine); }
-    markAppliedUI(card, sig);
-    showToast("✓ Application signed on-chain and sent to the maintainer.");
-    try{
-      await fetch(FORMSPREE_ENDPOINT, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ _subject: 'OSI, Bounty Application: ' + target, type: 'bounty-application', bounty: target, wallet: walletPubkey || '(not provided)', tx: sig || '(none)' })
-      });
-    }catch(e){ /* the on-chain memo already records it; the email is best-effort */ }
+  applyCtx = { bid: card.dataset.bid, target: bountyTargetText(card) };
+  const nm = document.getElementById('apply-bounty-name'); if(nm) nm.textContent = '🎯 ' + applyCtx.target;
+  ['apply-report','apply-onchain','apply-offchain'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  refreshApplyWalletRow();
+  const m = document.getElementById('apply-modal'); if(m) m.classList.add('open');
+}
+function closeApplyModal(){ const m = document.getElementById('apply-modal'); if(m) m.classList.remove('open'); }
+
+// Keep the modal's wallet line in sync with the connection state.
+function refreshApplyWalletRow(){
+  const row = document.getElementById('apply-wallet-row'); if(!row) return;
+  if(walletPubkey){ row.textContent = '◆ Signing as ' + short(walletPubkey); row.classList.add('connected'); }
+  else { row.innerHTML = 'Connect your wallet to sign this application. <a href="#" onclick="toggleWallet();return false;" style="color:var(--sol);text-decoration:none">Connect →</a>'; row.classList.remove('connected'); }
+}
+
+async function submitBountyReport(){
+  const report = (document.getElementById('apply-report').value || '').trim();
+  const on  = (document.getElementById('apply-onchain').value || '').trim();
+  const off = (document.getElementById('apply-offchain').value || '').trim();
+  if(!report){ showToast("Write your attribution report before submitting."); return; }
+  if(!on){ showToast("Add at least an on-chain proof link (Solscan / explorer)."); return; }
+  const target = applyCtx.target, bid = applyCtx.bid;
+  const memo = "OSI bounty report: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
+  withOnchainVote("Submit report", memo, async (sig)=>{
+    const id = 'rep_' + Date.now();
+    // 1) local pending, so the submitter sees it immediately (tied to their wallet)
+    const reports = lsGet('stw_reports', []);
+    reports.unshift({ id, bounty: target, company: target, summary: report, onchain: on, offchain: off, wallet: walletPubkey || '', tx: sig || '', up: 0, dn: 0 });
+    lsSet('stw_reports', reports);
+    // 2) mark the bounty as applied (persists across refresh)
+    if(bid){ const mine = lsGet('stw_applied', {}); mine[bid] = true; lsSet('stw_applied', mine); const c = document.querySelector('.bounty[data-bid="' + bid + '"]'); if(c) markAppliedUI(c, sig); }
+    // 3) global pending via Supabase, public only after a maintainer approves
+    if(SUPA_ON){ try{ await supaPost('reports', { id, bounty: target, company: target, wallet: walletPubkey || '', summary: report, onchain: on, offchain: off, tx: sig || '', approved: false }); }catch(e){ console.warn('OSI: report publish failed.', e); } }
+    // 4) email the maintainer for approval
+    try{ await fetch(FORMSPREE_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ _subject: 'OSI, Bounty Report: ' + target, type: 'bounty-report', bounty: target, wallet: walletPubkey || '(none)', summary: report, onchain_proof: on, offchain_proof: off || '(none)', tx: sig || '(none)' }) }); }catch(e){}
+    // 5) close + take them to the queue to see it land as pending
+    closeApplyModal();
+    renderReviewQueue();
+    openCommunityTab('tab-analysts');
+    const q = document.getElementById('review-list'); if(q) q.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast("✓ Report signed on-chain and submitted, pending maintainer approval.");
   });
 }
 
@@ -1690,27 +1750,27 @@ async function submitResearch(){
   showToast('✓ Submitted for review, added as pending and sent to the maintainer.');
 }
 
-// Render the review queue: this visitor's pending submissions first, then a
-// clearly-labelled example so the scoring UI stays demonstrable.
-function renderReviewQueue(){
-  const host = document.getElementById('review-list');
-  if(!host) return;
-  const userReports = lsGet('stw_reports', []);
-  const all = (Array.isArray(userReports) ? userReports : []).concat(REPORTS_SEED);
-  host.innerHTML = all.map(r=>{
-    const onUrl = safeUrl(r.onchain), offUrl = safeUrl(r.offchain);
-    const onP = onUrl ? `<a class="proof-tag onchain" href="${escapeHtml(onUrl)}" target="_blank" rel="noopener">⛓ on-chain proof ↗</a>` : `<span class="proof-tag onchain">⛓ on-chain proof attached</span>`;
-    const offP = offUrl ? `<a class="proof-tag offchain" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">▤ off-chain proof ↗</a>` : `<span class="proof-tag offchain">▤ SEC filing attached</span>`;
-    const tick = r.ticker ? `<span class="ticker">${escapeHtml(r.ticker)}</span>` : '';
-    const who = r.wallet ? short(r.wallet) : 'you';
-    const by = r.example
-      ? `<span style="color:var(--amber)">example</span> · illustrates how scoring works`
-      : `submitted by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span> · pending review`;
-    return `<div class="report-card" style="margin-bottom:11px">
+// One report card. Three states: the seed example, a pending submission
+// (local, or in Supabase awaiting approval), and an approved report a
+// maintainer has published for everyone.
+function reportCardHtml(r){
+  const onUrl = safeUrl(r.onchain), offUrl = safeUrl(r.offchain);
+  const onP = onUrl ? `<a class="proof-tag onchain" href="${escapeHtml(onUrl)}" target="_blank" rel="noopener">⛓ on-chain proof ↗</a>` : `<span class="proof-tag onchain">⛓ on-chain proof attached</span>`;
+  const offP = offUrl ? `<a class="proof-tag offchain" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">▤ off-chain proof ↗</a>` : `<span class="proof-tag offchain">▤ SEC filing attached</span>`;
+  const tick = r.ticker ? `<span class="ticker">${escapeHtml(r.ticker)}</span>` : '';
+  const who = r.wallet ? short(r.wallet) : 'you';
+  const txLink = r.tx ? ` <a class="mono" href="https://solscan.io/tx/${escapeHtml(r.tx)}" target="_blank" rel="noopener" style="color:var(--sol);text-decoration:none;font-size:9px">↗ signed ✓</a>` : '';
+  const bountyTag = r.bounty ? `<div class="rc-bounty mono">🎯 ${escapeHtml(r.bounty)}</div>` : '';
+  let by, conf;
+  if(r.example){ by = `<span style="color:var(--amber)">example</span> · illustrates how scoring works`; conf = '◑ pending verification'; }
+  else if(r.approved){ by = `by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span> · <span style="color:var(--sol)">◆ approved by maintainer</span>`; conf = '✓ published'; }
+  else { by = `by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span> · ⏳ pending review`; conf = '◑ pending verification'; }
+  return `<div class="report-card${r.approved ? ' approved' : ''}" style="margin-bottom:11px">
       <div class="rc-top">
         <div>
           <div class="rc-co">${escapeHtml(r.company)} ${tick}</div>
-          <div class="rc-by mono">${by}</div>
+          <div class="rc-by mono">${by}${txLink}</div>
+          ${bountyTag}
         </div>
         <div class="rc-score">
           <button class="vote-up" onclick="scoreReport(this,1)">▲ <span>${r.up || 0}</span></button>
@@ -1718,9 +1778,33 @@ function renderReviewQueue(){
         </div>
       </div>
       <div class="rc-sum">${escapeHtml(r.summary)}</div>
-      <div class="rc-proof">${onP}${offP}<span class="proof-tag conf">◑ pending verification</span></div>
+      <div class="rc-proof">${onP}${offP}<span class="proof-tag conf">${conf}</span></div>
     </div>`;
-  }).join('');
+}
+
+// Render the review queue: this visitor's pending submissions + the example,
+// then, if a backend is configured, everyone's maintainer-approved reports.
+function renderReviewQueue(){
+  const host = document.getElementById('review-list');
+  if(!host) return;
+  const userReports = lsGet('stw_reports', []);
+  const all = (Array.isArray(userReports) ? userReports : []).concat(REPORTS_SEED);
+  host.innerHTML = all.map(reportCardHtml).join('');
+  if(SUPA_ON) hydrateReportsFromSupabase();
+}
+
+// Pull maintainer-approved reports from the shared backend so every visitor
+// sees them; the submitter still sees their own not-yet-approved reports.
+async function hydrateReportsFromSupabase(){
+  try{
+    const dbReports = await supaGet('reports?select=id,bounty,company,wallet,summary,onchain,offchain,tx&approved=eq.true&order=created_at.desc');
+    const approved = (dbReports || []).map(r => Object.assign({}, r, { approved: true }));
+    const approvedIds = new Set(approved.map(r => r.id));
+    const localPending = (lsGet('stw_reports', []) || []).filter(r => !approvedIds.has(r.id));
+    const host = document.getElementById('review-list');
+    if(!host) return;
+    host.innerHTML = approved.concat(localPending).concat(REPORTS_SEED).map(reportCardHtml).join('');
+  }catch(e){ console.warn('OSI: published reports unavailable, showing local view.', e); }
 }
 
 // Activate a community sub-tab by id (used after submitting research).
