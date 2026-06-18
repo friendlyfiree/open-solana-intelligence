@@ -96,6 +96,9 @@ body{
 .b-stakers{font-size:10.5px;color:var(--ink-faint)}
 .btn-stake{background:rgba(20,241,149,.1);border:1px solid rgba(20,241,149,.3);color:var(--sol);font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;padding:6px 14px;border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap}
 .btn-stake:hover{background:var(--sol);color:var(--bg)}
+.btn-apply{background:rgba(153,69,255,.12);border:1px solid rgba(153,69,255,.4);color:#b98cff;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;padding:6px 14px;border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-apply:hover{background:#9945ff;color:#fff;border-color:#9945ff}
+.btn-apply:disabled,.btn-stake:disabled{cursor:default;opacity:1}
 .phase-note{margin-top:16px;font-size:12px;color:var(--ink-faint);background:var(--bg-raised);border:1px solid var(--line);border-left:2px solid var(--violet);border-radius:8px;padding:13px 16px;line-height:1.6}
 .phase-note b{color:#c4a0ff}
 
@@ -754,10 +757,10 @@ body[data-view="community"] section[data-view="community"]{display:block}
     <div class="tab-panel active" id="tab-bounties">
       <div class="panel-bar">
         <div class="pb-title">🎯 Open Bounties <span class="mono dim">· boost to signal demand for a wallet hunt (on-chain)</span></div>
-        <button class="btn-ghost" onclick="alert('Posting a bounty will be enabled with the on-chain escrow release (Phase 2). For now, reach out to coordinate a bounty manually.')">+ Post Bounty</button>
+        <button class="btn-ghost" onclick="alert('Posting a bounty will be enabled with the on-chain escrow release (Phase 2). For now, reach out to coordinate a bounty manually: aksusarya@proton.me')">+ Post Bounty</button>
       </div>
       <div class="bounty-list">
-        <div class="bounty">
+        <div class="bounty" data-bid="galaxy">
           <div class="b-left">
             <div class="b-target">Galaxy Digital, SOL treasury wallets</div>
             <div class="b-desc">Identify and attribute Galaxy's on-chain Solana holdings. Must include exchange-inflow trace + custody controller + a corroborating public disclosure.</div>
@@ -767,9 +770,10 @@ body[data-view="community"] section[data-view="community"]{display:block}
             <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
             <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
+            <button class="btn-apply" onclick="applyBounty(this)">✦ Apply</button>
           </div>
         </div>
-        <div class="bounty">
+        <div class="bounty" data-bid="dfdv">
           <div class="b-left">
             <div class="b-target">DeFi Development Corp, full wallet set</div>
             <div class="b-desc">Known to hold ~2.2M SOL. Map all custody + stake accounts with validator-level breakdown and confidence ratings per address.</div>
@@ -779,9 +783,10 @@ body[data-view="community"] section[data-view="community"]{display:block}
             <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
             <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
+            <button class="btn-apply" onclick="applyBounty(this)">✦ Apply</button>
           </div>
         </div>
-        <div class="bounty dim-bounty">
+        <div class="bounty dim-bounty" data-bid="solstrategies">
           <div class="b-left">
             <div class="b-target">SOL Strategies (HODL), verification</div>
             <div class="b-desc">Wallets publicly labeled. Bounty is to independently verify each address with a documented methodology and rate confidence.</div>
@@ -791,6 +796,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
             <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
             <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
             <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
+            <button class="btn-apply" onclick="applyBounty(this)">✦ Apply</button>
           </div>
         </div>
       </div>
@@ -1353,6 +1359,7 @@ renderCaseStudies();
 syncTabCounts();
 renderRequests();
 renderReviewQueue();
+restoreBountyState();
 loadPrice();
 
 // ---- case studies (data-driven, collapsible) ----
@@ -1443,43 +1450,114 @@ function switchTab(btn, id){
   document.body.dataset.sub = id;
 }
 
+function bountyTargetText(card){ const t = card.querySelector('.b-target'); return (t && t.textContent.trim().slice(0,80)) || "wallet hunt"; }
+
+// Reflect a boosted bounty in the UI (used on click and after a refresh).
+function markBoostedUI(card, sig){
+  const btn = card.querySelector('.btn-stake'); if(!btn) return;
+  btn.textContent = "✓ Boosted"; btn.style.background = "var(--sol)"; btn.style.color = "var(--bg)"; btn.disabled = true;
+  if(sig && !card.querySelector('.boost-tx')){
+    const note = document.createElement('div'); note.className = "boost-tx mono";
+    note.style.cssText = "font-size:9px;color:var(--sol);margin-top:4px";
+    note.innerHTML = `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener" style="color:var(--sol);text-decoration:none">↗ on-chain ✓</a>`;
+    btn.parentElement.appendChild(note);
+  }
+}
+
+// Boost = a real on-chain memo signalling demand. Persists across refresh
+// (local fallback always; global + deduped per browser when Supabase is on).
 function stakeBoost(btn){
-  const target = (btn.closest('.bounty')||document).querySelector('.b-target');
-  const memo = "OSI boost, signal demand: " + ((target && target.textContent.trim().slice(0,80)) || "wallet hunt");
-  withOnchainVote("Boost", memo, (sig)=>{
-    const numEl = btn.parentElement.querySelector('.b-reward .n');
-    if(numEl){ let n = parseInt(numEl.textContent) || 0; numEl.textContent = (n+1); }
-    btn.textContent = "✓ Boosted";
-    btn.style.background = "var(--sol)";
-    btn.style.color = "var(--bg)";
-    btn.disabled = true;
-    if(sig){
-      const note = document.createElement('div');
-      note.className = "mono";
-      note.style.cssText = "font-size:9px;color:var(--sol);margin-top:4px";
-      note.innerHTML = `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener" style="color:var(--sol);text-decoration:none">↗ on-chain ✓</a>`;
-      btn.parentElement.appendChild(note);
-    }
+  const card = btn.closest('.bounty'); if(!card) return;
+  const bid = card.dataset.bid;
+  const memo = "OSI boost, signal demand: " + bountyTargetText(card);
+  withOnchainVote("Boost", memo, async (sig)=>{
+    const numEl = card.querySelector('.b-reward .n');
+    if(numEl){ numEl.textContent = (parseInt(numEl.textContent) || 0) + 1; }
+    if(bid){ const mine = lsGet('stw_boosted', {}); mine[bid] = true; lsSet('stw_boosted', mine); }
+    markBoostedUI(card, sig);
+    if(SUPA_ON && bid){ try{ await supaPost('bounty_boosts', { bounty_id: bid, voter: voterId() }); hydrateBoosts(); }catch(e){ console.warn('OSI: boost sync failed.', e); } }
   });
+}
+
+// Pull the global boost totals when a backend is configured (never less than
+// this browser's own boost, so a just-cast boost never visually drops to zero).
+async function hydrateBoosts(){
+  if(!SUPA_ON) return;
+  try{
+    const rows = await supaGet('bounty_boosts?select=bounty_id');
+    const counts = {}; (rows || []).forEach(r => { counts[r.bounty_id] = (counts[r.bounty_id] || 0) + 1; });
+    const mine = lsGet('stw_boosted', {});
+    document.querySelectorAll('.bounty[data-bid]').forEach(card => {
+      const n = card.querySelector('.b-reward .n'); if(!n) return;
+      n.textContent = Math.max(counts[card.dataset.bid] || 0, mine[card.dataset.bid] ? 1 : 0);
+    });
+  }catch(e){ console.warn('OSI: boost counts unavailable, showing local view.', e); }
+}
+
+// Reflect an applied bounty in the UI (used on click and after a refresh).
+function markAppliedUI(card, sig){
+  const btn = card.querySelector('.btn-apply'); if(!btn) return;
+  btn.textContent = "✓ Applied"; btn.style.background = "#9945ff"; btn.style.color = "#fff"; btn.style.borderColor = "#9945ff"; btn.disabled = true;
+  if(sig && !card.querySelector('.apply-tx')){
+    const note = document.createElement('div'); note.className = "apply-tx mono";
+    note.style.cssText = "font-size:9px;color:#b98cff;margin-top:4px";
+    note.innerHTML = `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener" style="color:#b98cff;text-decoration:none">↗ application on-chain ✓</a>`;
+    btn.parentElement.appendChild(note);
+  }
+}
+
+// Apply to work a bounty: a wallet-signed on-chain attestation, plus an email
+// to the maintainer so they can reach the applicant. Identity = the wallet.
+function applyBounty(btn){
+  const card = btn.closest('.bounty'); if(!card) return;
+  const bid = card.dataset.bid;
+  const target = bountyTargetText(card);
+  const memo = "OSI bounty application: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
+  withOnchainVote("Apply", memo, async (sig)=>{
+    if(bid){ const mine = lsGet('stw_applied', {}); mine[bid] = true; lsSet('stw_applied', mine); }
+    markAppliedUI(card, sig);
+    showToast("✓ Application signed on-chain and sent to the maintainer.");
+    try{
+      await fetch(FORMSPREE_ENDPOINT, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ _subject: 'OSI, Bounty Application: ' + target, type: 'bounty-application', bounty: target, wallet: walletPubkey || '(not provided)', tx: sig || '(none)' })
+      });
+    }catch(e){ /* the on-chain memo already records it; the email is best-effort */ }
+  });
+}
+
+// On load, restore this browser's boosted/applied bounties + global counts.
+function restoreBountyState(){
+  const boosted = lsGet('stw_boosted', {}); const applied = lsGet('stw_applied', {});
+  document.querySelectorAll('.bounty[data-bid]').forEach(card => {
+    const bid = card.dataset.bid;
+    if(boosted[bid]){
+      const n = card.querySelector('.b-reward .n'); if(n){ n.textContent = (parseInt(n.textContent) || 0) + 1; }
+      markBoostedUI(card, null);
+    }
+    if(applied[bid]) markAppliedUI(card, null);
+  });
+  hydrateBoosts(); // global totals override the local fallback when configured
 }
 
 async function upvoteReq(btn){
   const id = btn.dataset.id;
   if(!id) return;
-  // optimistic local toggle (drives the highlight and the local-only mode)
   const votes = lsGet('stw_votes', {});
   const wasVoted = !!votes[id];
-  if(wasVoted) delete votes[id]; else votes[id] = true;
-  lsSet('stw_votes', votes);
-  renderRequests();
-  // sync to the global backend if configured (DB dedups one vote per browser)
-  if(SUPA_ON){
-    try{
-      if(wasVoted) await supaDelete('request_votes?request_id=eq.' + encodeURIComponent(id) + '&voter=eq.' + encodeURIComponent(voterId()));
-      else await supaPost('request_votes', { request_id: id, voter: voterId() });
-      hydrateRequestsFromSupabase();
-    }catch(e){ console.warn('OSI: vote sync failed.', e); }
+  // Un-voting is free (no signature). Casting an upvote is a real on-chain action.
+  if(wasVoted){
+    delete votes[id]; lsSet('stw_votes', votes); renderRequests();
+    if(SUPA_ON){ try{ await supaDelete('request_votes?request_id=eq.' + encodeURIComponent(id) + '&voter=eq.' + encodeURIComponent(voterId())); hydrateRequestsFromSupabase(); }catch(e){ console.warn('OSI: vote sync failed.', e); } }
+    return;
   }
+  const nameEl = btn.closest('.req') ? btn.closest('.req').querySelector('.req-name') : null;
+  const memo = "OSI wallet-request upvote: " + ((nameEl && nameEl.textContent.trim().slice(0,80)) || id);
+  withOnchainVote("Upvote", memo, async (sig)=>{
+    const v = lsGet('stw_votes', {}); v[id] = true; lsSet('stw_votes', v);
+    renderRequests();
+    if(SUPA_ON){ try{ await supaPost('request_votes', { request_id: id, voter: voterId() }); hydrateRequestsFromSupabase(); }catch(e){ console.warn('OSI: vote sync failed.', e); } }
+  });
 }
 
 // Render the board from local data first (instant + resilient), then, if a
@@ -1524,7 +1602,7 @@ async function hydrateRequestsFromSupabase(){
     // show the submitter their own not-yet-approved requests (visible only to them)
     const have = new Set(merged.map(r => r.id));
     const localPending = (lsGet('stw_requests', []) || []).filter(r => !have.has(r.id));
-    const model = merged.map(r => ({ id: r.id, name: r.name, sub: r.sub, count: counts[r.id] || 0, voted: !!myVotes[r.id] }))
+    const model = merged.map(r => ({ id: r.id, name: r.name, sub: r.sub, count: Math.max(counts[r.id] || 0, myVotes[r.id] ? 1 : 0), voted: !!myVotes[r.id] }))
       .concat(localPending.map(r => ({ id: r.id, name: r.name, sub: '⏳ awaiting maintainer approval', count: 0, voted: false })));
     renderRequestsFrom(model);
   }catch(e){ console.warn('OSI: global board unavailable, showing local view.', e); }
