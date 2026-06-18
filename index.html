@@ -1217,11 +1217,24 @@ async function loadPrice(){
 const CONTACT_EMAIL = "aksusarya@proton.me";
 
 // ── NEWSLETTER ──────────────────────────────────────────────────────
-// Direct, inline form delivery via FormSubmit (free, no account, no submission
-// limit). The first submission triggers a one-time activation email, click it
-// once to go live. To use a different inbox, change the address below.
-// Until it's set, the form politely says signups open soon.
-const FORMSPREE_ENDPOINT = "https://formsubmit.co/ajax/aksusarya@proton.me";
+// All form submissions (requests, reports, applications, newsletter) are
+// delivered through Web3Forms. Paste your free access key below (get one at
+// web3forms.com). Submissions arrive at the email tied to that key.
+// Until it's set, the forms politely say signups open soon.
+const WEB3FORMS_KEY = "e8e7134b-bc86-483f-add9-8f735d686a2f";
+
+// Single delivery helper: injects the access key, maps the subject, and posts
+// to Web3Forms. Returns the fetch response so callers can check res.ok.
+async function sendForm(fields){
+  if(!WEB3FORMS_KEY || WEB3FORMS_KEY.indexOf("PASTE_YOUR") !== -1){ return { ok: false }; }
+  const payload = Object.assign({ access_key: WEB3FORMS_KEY }, fields);
+  if(payload._subject && !payload.subject){ payload.subject = payload._subject; }
+  return fetch("https://api.web3forms.com/submit", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
 
 // On-chain votes are written as a Solana Memo transaction, a real,
 // verifiable signed action that pays NO ONE (only the ~0.000005 SOL
@@ -1577,7 +1590,7 @@ async function submitBountyReport(){
     // 3) global pending via Supabase, public only after a maintainer approves
     if(SUPA_ON){ try{ await supaPost('reports', { id, bounty: target, company: target, wallet: walletPubkey || '', summary: report, onchain: on, offchain: off, tx: sig || '', approved: false }); }catch(e){ console.warn('OSI: report publish failed.', e); } }
     // 4) email the maintainer for approval
-    try{ await fetch(FORMSPREE_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ _subject: 'OSI, Bounty Report: ' + target, type: 'bounty-report', bounty: target, wallet: walletPubkey || '(none)', summary: report, onchain_proof: on, offchain_proof: off || '(none)', tx: sig || '(none)' }) }); }catch(e){}
+    try{ await sendForm({ _subject: 'OSI, Bounty Report: ' + target, type: 'bounty-report', bounty: target, wallet: walletPubkey || '(none)', summary: report, onchain_proof: on, offchain_proof: off || '(none)', tx: sig || '(none)' }); }catch(e){}
     // 5) close + take them to the queue to see it land as pending
     closeApplyModal();
     renderReviewQueue();
@@ -1715,11 +1728,7 @@ async function submitRequest(){
   // always email the maintainer for triage / approval
   const okMsg = SUPA_ON ? '✓ Sent for review, it goes public once a maintainer approves.' : '✓ Request added and sent to the maintainer.';
   try{
-    const res = await fetch(FORMSPREE_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ _subject: 'OSI, Wallet Request: ' + name, type: 'wallet-request', company: name, hint: hint || '(none)' })
-    });
+    const res = await sendForm({ _subject: 'OSI, Wallet Request: ' + name, type: 'wallet-request', company: name, hint: hint || '(none)' });
     showToast(res.ok ? okMsg : '✓ Saved, could not reach the maintainer; try again later.');
   }catch(e){ showToast('✓ Saved, could not reach the maintainer; try again later.'); }
 }
@@ -1739,11 +1748,7 @@ async function submitResearch(){
   ['sub-co','sub-sum','sub-onchain','sub-offchain'].forEach(id=>document.getElementById(id).value='');
   // 2) email the maintainer for review (real intake)
   try{
-    await fetch(FORMSPREE_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ _subject: 'OSI, Research Submission: ' + co, type: 'research-submission', company: co, summary: sum || '(none)', onchain_proof: on, offchain_proof: off })
-    });
+    await sendForm({ _subject: 'OSI, Research Submission: ' + co, type: 'research-submission', company: co, summary: sum || '(none)', onchain_proof: on, offchain_proof: off });
   }catch(e){}
   // 3) take the user to the queue so they see it land as pending
   openCommunityTab('tab-analysts');
@@ -1832,11 +1837,7 @@ async function submitAnalystApplication(){
   if(!tg && !tw){ showToast("Add your Telegram or X username so the maintainer can reach you."); return; }
   const handle = tg || tw;
   try{
-    const res = await fetch(FORMSPREE_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ _subject: 'OSI, Analyst Application: ' + handle, type: 'analyst-application', telegram: tg || '(none)', twitter: tw || '(none)', website: web || '(none)' })
-    });
+    const res = await sendForm({ _subject: 'OSI, Analyst Application: ' + handle, type: 'analyst-application', telegram: tg || '(none)', twitter: tw || '(none)', website: web || '(none)' });
     if(res.ok){
       ['an-tg','an-tw','an-web'].forEach(id=>document.getElementById(id).value='');
       showToast('✓ Application sent, the maintainer will get back to you.');
@@ -1851,16 +1852,12 @@ async function subscribeNewsletter(){
   const el = document.getElementById('nl-email');
   const email = (el && el.value.trim()) || "";
   if(!email || email.indexOf('@') < 1){ showToast("Enter a valid email to subscribe."); return; }
-  if(FORMSPREE_ENDPOINT.indexOf("YOUR_FORM_ID") !== -1){
+  if(!WEB3FORMS_KEY || WEB3FORMS_KEY.indexOf("PASTE_YOUR") !== -1){
     showToast("Newsletter signups open shortly, almost there.");
     return;
   }
   try{
-    const res = await fetch(FORMSPREE_ENDPOINT, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json", "Accept":"application/json" },
-      body: JSON.stringify({ email: email, list: "Weekly Brief" })
-    });
+    const res = await sendForm({ email: email, list: "Weekly Brief", _subject: "OSI, Newsletter Signup" });
     if(res.ok){ if(el) el.value=""; showToast("✓ You're on the list, thanks!"); }
     else { showToast("Couldn't subscribe right now, please try again later."); }
   }catch(e){ showToast("Couldn't subscribe right now, please try again later."); }
