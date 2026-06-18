@@ -1217,10 +1217,11 @@ async function loadPrice(){
 const CONTACT_EMAIL = "aksusarya@proton.me";
 
 // ── NEWSLETTER ──────────────────────────────────────────────────────
-// Direct, inline signup (no mail app). Create a free form at formspree.io,
-// then paste your endpoint here (looks like https://formspree.io/f/abcdwxyz).
+// Direct, inline form delivery via FormSubmit (free, no account, no submission
+// limit). The first submission triggers a one-time activation email, click it
+// once to go live. To use a different inbox, change the address below.
 // Until it's set, the form politely says signups open soon.
-const FORMSPREE_ENDPOINT = "https://formspree.io/f/mgobqzyy";
+const FORMSPREE_ENDPOINT = "https://formsubmit.co/ajax/aksusarya@proton.me";
 
 // On-chain votes are written as a Solana Memo transaction, a real,
 // verifiable signed action that pays NO ONE (only the ~0.000005 SOL
