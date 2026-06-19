@@ -620,7 +620,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 <div class="glow"></div>
 
 <aside class="sidebar">
-  <div class="sb-brand">
+  <div class="sb-brand" onclick="showView('registry')" role="button" tabindex="0" title="Home" style="cursor:pointer">
     <span class="dot"></span>
     <div class="sb-id">
       <div class="sb-name">Open Solana Intelligence</div>
@@ -649,7 +649,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
   <div class="sb-foot">
     <button class="adm-lock" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">🔒</button>
-    <button class="wallet-btn" id="walletBtn" onclick="toggleWallet()"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
+    <button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, or open your profile"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -691,6 +691,43 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     </div>
     <p class="disclaim">Declared figures come from company filings &amp; press releases. Live wallet balances are fetched directly from the Solana chain and may differ from declared totals, that gap is exactly what this registry surfaces.</p>
   </div>
+</section>
+
+<section class="sec" data-view="registry" id="latest-intel-sec">
+<style>
+#latest-intel-sec{padding-top:6px}
+@keyframes li-sweep{0%,100%{transform:translateX(-110%)}50%{transform:translateX(110%)}}
+.li-feat{position:relative;border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:linear-gradient(115deg,var(--bg-card),var(--bg));padding:28px;display:grid;grid-template-columns:1fr auto;gap:26px;align-items:center;overflow:hidden}
+.li-feat::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(20,241,149,.03),transparent);transform:translateX(-110%);animation:li-sweep 8s ease-in-out infinite;pointer-events:none}
+.li-tag{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--sol);position:relative;z-index:1}
+.li-tag i{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 1.8s infinite}
+.li-tag .date{color:var(--ink-faint)}
+.li-co{font-family:'Archivo',sans-serif;font-weight:900;font-size:clamp(20px,2.6vw,30px);letter-spacing:-.02em;margin:13px 0 0;line-height:1.1;position:relative;z-index:1}
+.li-co .tk{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);letter-spacing:.06em;margin-left:11px;font-weight:500}
+.li-find{font-size:14px;color:var(--ink-dim);line-height:1.6;margin-top:12px;max-width:580px;position:relative;z-index:1}
+.li-by{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);letter-spacing:.12em;margin-top:13px;position:relative;z-index:1}
+.li-read{margin-top:18px;display:inline-flex;align-items:center;gap:8px;background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:11px 17px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.08em;cursor:pointer;position:relative;z-index:1}
+.li-read:hover{background:var(--sol-deep)}
+.li-stat{text-align:right;border-left:1px solid var(--line);padding-left:26px;position:relative;z-index:1}
+.li-stat .n{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;color:var(--ink);line-height:1}
+.li-stat .l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-faint);margin-top:6px}
+.li-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.li-card{border:1px solid var(--line);border-left:2px solid var(--line-bright);background:var(--bg-card);padding:16px;cursor:pointer;transition:border-color .15s}
+.li-card:hover{border-left-color:var(--sol)}
+.li-t2{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--ink-faint)}
+.li-nm2{font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;margin-top:8px;letter-spacing:-.01em}
+.li-fd{font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin-top:7px}
+.li-rd{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sol);margin-top:10px;letter-spacing:.08em}
+@media(max-width:720px){.li-feat{grid-template-columns:1fr;padding:22px}.li-stat{border-left:0;border-top:1px solid var(--line);padding-left:0;padding-top:16px;text-align:left}.li-row{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){.li-feat::after{animation:none}.li-tag i{animation:none}}
+</style>
+<div class="wrap">
+  <div class="sec-head">
+    <h2>🗞️ Latest Intelligence</h2>
+    <div class="legend"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--ink-faint)">newly published, straight from the registry</span></div>
+  </div>
+  <div id="latest-intel"></div>
+</div>
 </section>
 
 <section class="sec" id="registry" data-view="registry">
@@ -774,6 +811,57 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div id="admQueue"><div class="adm-muted">Loading...</div></div>
   </div>
 </div></div>
+</section>
+
+<section class="sec" data-view="profile" id="profile-view">
+<style>
+#profile-view .wrap{max-width:1080px}
+.pf-gate{text-align:center;max-width:520px;margin:36px auto;border:1px solid var(--line);border-top:2px solid var(--violet);background:var(--bg-card);padding:40px 28px}
+.pf-gate-ic{font-size:30px;color:var(--violet)}
+.pf-gate-h{font-family:'Archivo',sans-serif;font-weight:900;font-size:22px;margin-top:12px}
+.pf-gate-p{font-size:13px;color:var(--ink-dim);line-height:1.65;margin:12px 0 22px}
+.pf-head{display:flex;align-items:center;gap:18px;border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:linear-gradient(115deg,var(--bg-card),var(--bg));padding:20px 22px}
+.pf-ava{flex-shrink:0;line-height:0}
+.pf-id{flex:1;min-width:0}
+.pf-name{font-family:'Archivo',sans-serif;font-weight:900;font-size:20px;letter-spacing:-.01em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pf-clear{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.12em;padding:3px 8px;border-radius:2px;text-transform:uppercase}
+.pf-l1{background:rgba(148,163,184,.14);color:#cbd5e1;border:1px solid rgba(148,163,184,.3)}
+.pf-l2{background:rgba(34,211,238,.12);color:var(--cyan);border:1px solid rgba(34,211,238,.35)}
+.pf-l3{background:rgba(153,69,255,.14);color:#b98cff;border:1px solid rgba(153,69,255,.4)}
+.pf-l4{background:rgba(20,241,149,.12);color:var(--sol);border:1px solid rgba(20,241,149,.4)}
+.pf-addr{font-size:11px;color:var(--ink-faint);margin-top:7px;cursor:pointer;word-break:break-all;display:inline-flex;align-items:center;gap:8px}
+.pf-addr:hover{color:var(--ink-dim)}
+.pf-copy{font-size:8px;letter-spacing:.12em;border:1px solid var(--line);border-radius:2px;padding:1px 5px;text-transform:uppercase}
+.pf-dc{background:transparent;border:1px solid var(--line-bright);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:8px 14px;border-radius:2px;cursor:pointer;flex-shrink:0}
+.pf-dc:hover{border-color:var(--red);color:var(--red)}
+.pf-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+.pf-stat{border:1px solid var(--line);background:var(--bg-card);padding:16px}
+.pf-stat .n{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;color:var(--ink);line-height:1}
+.pf-stat .l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--ink-faint);margin-top:7px;text-transform:uppercase}
+.pf-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.pf-col{border:1px solid var(--line);background:var(--bg-card);padding:16px}
+.pf-h{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--ink-dim);text-transform:uppercase;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.pf-item{border-left:2px solid var(--line-bright);padding:10px 12px;margin-bottom:8px;background:var(--bg)}
+.pf-item:last-child{margin-bottom:0}
+.pf-mini{padding:8px 12px}
+.pf-it-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pf-it-t{font-family:'Archivo',sans-serif;font-weight:700;font-size:13px}
+.pf-it-s{font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin-top:5px}
+.pf-it-m{font-size:9px;color:var(--ink-faint);margin-top:7px;letter-spacing:.04em}
+.pf-tx{color:#b98cff;text-decoration:none}
+.pf-badge{font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:2px;white-space:nowrap;flex-shrink:0}
+.pf-badge.pub{background:rgba(20,241,149,.12);color:var(--sol);border:1px solid rgba(20,241,149,.35)}
+.pf-badge.pend{background:rgba(255,176,32,.1);color:var(--amber);border:1px solid rgba(255,176,32,.3)}
+.pf-empty{font-size:11.5px;color:var(--ink-faint);font-style:italic;padding:6px 0;line-height:1.5}
+.pf-settings{border:1px solid var(--line);background:var(--bg-card);padding:18px;margin-top:12px}
+.pf-lab{display:block;font-size:12px;color:var(--ink-dim);margin-bottom:8px;font-weight:600}
+.pf-hint{font-size:9px;color:var(--ink-faint);font-weight:400}
+.pf-in{width:100%;max-width:360px;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 12px;box-sizing:border-box}
+.pf-in:focus{outline:none;border-color:var(--sol)}
+.pf-set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);flex-wrap:wrap}
+@media(max-width:760px){.pf-stats{grid-template-columns:1fr 1fr}.pf-grid{grid-template-columns:1fr}.pf-head{flex-wrap:wrap}}
+</style>
+  <div class="wrap"><div id="profile-body"></div></div>
 </section>
 
 <section class="sec" data-view="graph" id="graph-view">
@@ -998,7 +1086,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div class="tab-panel active" id="tab-bounties">
       <div class="panel-bar">
         <div class="pb-title">🎯 Open Bounties <span class="mono dim">· boost to signal demand for a wallet hunt (on-chain)</span></div>
-        <button class="btn-ghost" onclick="alert('Posting a bounty will be enabled with the on-chain escrow release (Phase 2). For now, reach out to coordinate a bounty manually: aksusarya@proton.me')">+ Post Bounty</button>
+        <button class="btn-ghost" onclick="var f=document.getElementById('bounty-form');if(f)f.scrollIntoView({behavior:'smooth'});var t=document.getElementById('bf-target');if(t)t.focus()">+ Open Bounty</button>
       </div>
       <div class="bounty-list">
         <div class="bounty" data-bid="galaxy">
@@ -1041,7 +1129,34 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
           </div>
         </div>
       </div>
+      <div class="bounty-list" id="dyn-bounties"></div>
       <div class="phase-note">⛓ <b>Phase 2:</b> anyone will be able to back a bounty with a tip, pooled in an on-chain escrow and released automatically to the analyst whose report is approved. A bounty funded by the whole community, not a single buyer. Today, boosting signals demand and bounties are settled by donation between participants.</div>
+      <div class="bounty-create" id="bounty-form">
+      <style>
+      .bounty-create{margin-top:14px;border:1px solid var(--line);border-left:2px solid var(--violet);background:var(--bg-card);padding:20px}
+      .bc-h{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.01em}
+      .bc-sub{font-size:12.5px;color:var(--ink-faint);line-height:1.55;margin:7px 0 15px;max-width:640px}
+      .bc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+      .bc-in{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:11px 12px;box-sizing:border-box}
+      .bc-in::placeholder{color:var(--ink-faint)}
+      .bc-in:focus{outline:none;border-color:var(--violet)}
+      .bc-ta{min-height:88px;resize:vertical;line-height:1.5;font-family:'JetBrains Mono',monospace}
+      .bc-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;flex-wrap:wrap}
+      .bc-note{font-size:10px;color:var(--ink-faint)}
+      @media(max-width:640px){.bc-grid{grid-template-columns:1fr}}
+      </style>
+        <div class="bc-h">⊹ Open a bounty</div>
+        <p class="bc-sub">Propose a wallet hunt for the community. After a quick maintainer review it goes live on the board above, where anyone can boost it to signal demand or apply with a report.</p>
+        <div class="bc-grid">
+          <input id="bf-target" class="bc-in" placeholder="Target  ·  e.g. Galaxy Digital, SOL treasury wallets">
+          <input id="bf-reward" class="bc-in" placeholder="Incentive (optional)  ·  e.g. community-funded, 5 SOL pledged">
+        </div>
+        <textarea id="bf-detail" class="bc-in bc-ta" placeholder="What must the report prove?  ·  exchange-inflow trace, custody controller, corroborating public disclosure, confidence rating per address…"></textarea>
+        <div class="bc-foot">
+          <span class="bc-note mono">No fee to propose. Boosting and applying are the on-chain actions.</span>
+          <button class="btn-fill" onclick="submitBounty()">Submit bounty for review →</button>
+        </div>
+      </div>
     </div>
 
     <!-- WALLET REQUESTS -->
@@ -1873,39 +1988,50 @@ async function admRefresh(){
   try{
     const reports = await supaGet('reports?select=*&order=created_at.desc');
     let requests=[]; try{ requests = await supaGet('requests?select=*&order=created_at.desc'); }catch(_){}
-    host.innerHTML = admRender(reports||[], requests||[]);
+    let bounties=[]; try{ bounties = await supaGet('bounties?select=*&order=created_at.desc'); }catch(_){}
+    host.innerHTML = admRender(reports||[], requests||[], bounties||[]);
   }catch(e){
     host.innerHTML='<div class="adm-err">Could not load the queue ('+admEsc(e.message)+').<br><br>Most likely the admin SQL policies have not been run yet, or this account is not the maintainer. Run osi_admin_setup.sql in the Supabase SQL Editor, then refresh.</div>';
   }
 }
 function admItem(kind, table, r){
   const approved = !!r.approved;
-  const title = kind==='report' ? admEsc(r.company || r.bounty || r.id) : admEsc(r.name || r.id);
+  const title = kind==='report' ? admEsc(r.company || r.bounty || r.id) : (kind==='bounty' ? admEsc(r.target || r.title || r.id) : admEsc(r.name || r.id));
   const sub = kind==='report'
     ? admEsc((r.wallet ? ('wallet ' + String(r.wallet).slice(0,12) + '...  ') : '') + String(r.summary||'').slice(0,160))
-    : 'wallet investigation request';
+    : (kind==='bounty' ? admEsc('bounty proposal \u00b7 ' + String(r.detail||'').slice(0,150)) : 'wallet investigation request');
   const id = admEsc(r.id);
   const acts = approved
     ? '<button class="adm-b warn" onclick="admSet(\''+table+'\',\''+id+'\',false)">Unpublish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Delete</button>'
     : '<button class="adm-b ok" onclick="admSet(\''+table+'\',\''+id+'\',true)">Approve &amp; publish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Reject</button>';
   return '<div class="adm-row"><div class="adm-meta"><div class="adm-t">'+title+'<span class="adm-kind">'+kind+'</span></div><div class="adm-s">'+sub+'</div></div><div class="adm-acts">'+acts+'</div></div>';
 }
-function admRender(reports, requests){
+function admRender(reports, requests, bounties){
   const pend=[], pub=[];
   reports.forEach(function(r){ (r.approved?pub:pend).push(admItem('report','reports',r)); });
   requests.forEach(function(r){ (r.approved?pub:pend).push(admItem('request','requests',r)); });
+  (bounties||[]).forEach(function(r){ (r.approved?pub:pend).push(admItem('bounty','bounties',r)); });
   let h='';
   h+='<div class="adm-sec"><div class="adm-h">PENDING REVIEW <span>'+pend.length+'</span></div>'+(pend.length?pend.join(''):'<div class="adm-muted">Nothing waiting. Clear desk.</div>')+'</div>';
   h+='<div class="adm-sec"><div class="adm-h">PUBLISHED <span>'+pub.length+'</span></div>'+(pub.length?pub.join(''):'<div class="adm-muted">Nothing published yet.</div>')+'</div>';
   return h;
 }
+function admReflow(){
+  // After a moderation action, refresh every public-facing view so an approval
+  // (or removal) is reflected live across the whole site, not just the queue.
+  try{ if(typeof renderRequests==='function') renderRequests(); }catch(_){}
+  try{ if(typeof hydrateRequestsFromSupabase==='function') hydrateRequestsFromSupabase(); }catch(_){}
+  try{ if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); }catch(_){}
+  try{ if(typeof hydrateLatestIntel==='function') hydrateLatestIntel(); }catch(_){}
+  try{ if(typeof hydrateBounties==='function') hydrateBounties(); }catch(_){}
+}
 async function admSet(table, id, approved){
-  try{ await supaPatch(table+'?id=eq.'+encodeURIComponent(id), { approved: approved }); showToast(approved?'Published. Now public for everyone.':'Unpublished.'); admRefresh(); if(typeof renderRequests==='function') renderRequests(); }
+  try{ await supaPatch(table+'?id=eq.'+encodeURIComponent(id), { approved: approved }); showToast(approved?'Published. Now public for everyone.':'Unpublished.'); admRefresh(); admReflow(); }
   catch(e){ showToast('Action failed: '+e.message); }
 }
 async function admDel(table, id){
   if(!confirm('Delete this permanently? This cannot be undone.')) return;
-  try{ await supaDelete(table+'?id=eq.'+encodeURIComponent(id)); showToast('Deleted.'); admRefresh(); if(typeof renderRequests==='function') renderRequests(); }
+  try{ await supaDelete(table+'?id=eq.'+encodeURIComponent(id)); showToast('Deleted.'); admRefresh(); admReflow(); }
   catch(e){ showToast('Delete failed: '+e.message); }
 }
 document.addEventListener('DOMContentLoaded', function(){ if(location.hash==='#admin'){ try{ showView('admin'); }catch(_){} } });
@@ -1946,6 +2072,7 @@ async function toggleWallet(){
     const resp = await prov.connect();
     walletPubkey = resp.publicKey.toString();
     updateWalletUI();
+    if(typeof showToast==='function') showToast('Connected \u2713  Open your profile from the wallet button.');
   }catch(e){
     // user rejected
   }
@@ -1962,6 +2089,7 @@ function updateWalletUI(){
     txt.textContent = "Connect Wallet";
   }
   if(typeof refreshApplyWalletRow === 'function') refreshApplyWalletRow();
+  if(document.body.dataset.view==='profile' && typeof renderProfile==='function') renderProfile();
 }
 
 // Build + send a Memo transaction as a verifiable on-chain "signed vote".
@@ -2039,14 +2167,73 @@ window.addEventListener('load', async ()=>{
 
 render();
 renderCaseStudies();
+hydrateLatestIntel();
 syncTabCounts();
 renderRequests();
 renderReviewQueue();
 restoreBountyState();
+hydrateBounties();
 loadPrice();
 
 // ---- case studies (data-driven, collapsible) ----
 function toggleCase(el){ el.closest('.co').classList.toggle('open'); }
+
+// ---- Latest Intelligence: front-page showcase of newly published reports ----
+function liCover(item, featured){
+  const date = item.date ? new Date(item.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : 'CASE FILE';
+  let traced = null;
+  if(item.traced){ traced = item.traced>=1e6 ? (item.traced/1e6).toFixed(2)+'M' : Math.round(item.traced).toLocaleString(); }
+  let oc;
+  if(item.kind==='case'){ oc = "openReport('case','"+item.id+"')"; }
+  else { const u=safeUrl(item.onchain); oc = u ? ("window.open('"+u+"','_blank')") : "showView('research')"; }
+  if(featured){
+    return '<div class="li-feat">'
+      + '<div>'
+      + '<div class="li-tag"><i></i>PUBLISHED<span class="date"> &middot; '+date+'</span></div>'
+      + '<div class="li-co">'+escapeHtml(item.company)+(item.ticker?'<span class="tk">'+escapeHtml(item.ticker)+'</span>':'')+'</div>'
+      + '<div class="li-find">'+escapeHtml(item.summary||'')+'</div>'
+      + '<div class="li-by">FILED BY '+escapeHtml(String(item.author||'community')).toUpperCase()+'</div>'
+      + '<button class="li-read" onclick="'+oc+'">READ THE FULL REPORT →</button>'
+      + '</div>'
+      + (traced ? '<div class="li-stat"><div class="n">'+traced+'</div><div class="l">SOL TRACED</div></div>' : '')
+      + '</div>';
+  }
+  return '<div class="li-card" onclick="'+oc+'">'
+    + '<div class="li-t2">PUBLISHED &middot; '+date+'</div>'
+    + '<div class="li-nm2">'+escapeHtml(item.company)+'</div>'
+    + '<div class="li-fd">'+escapeHtml(String(item.summary||'').slice(0,110))+'</div>'
+    + '<div class="li-rd">READ →</div>'
+    + '</div>';
+}
+function renderLatestIntel(reports){
+  const host=document.getElementById('latest-intel'); if(!host) return;
+  const cases=(window.CASE_STUDIES||[]).map(function(c){ return { kind:'case', id:c.id, company:c.company, ticker:(c.exchange?c.exchange+': ':'')+c.ticker, summary:c.summary, author:c.author, traced:c.identifiedSOL, date:null }; });
+  const items=(reports||[]).concat(cases);
+  const sec=document.getElementById('latest-intel-sec');
+  if(!items.length){ host.innerHTML=''; if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='';
+  const top=items[0], rest=items.slice(1,4);
+  host.innerHTML = liCover(top,true) + (rest.length ? '<div class="li-row">'+rest.map(function(r){return liCover(r,false);}).join('')+'</div>' : '');
+}
+async function hydrateLatestIntel(){
+  renderLatestIntel([]); // show the flagship case studies right away
+  if(!SUPA_ON) return;
+  try{
+    const db = await supaGet('reports?select=company,summary,onchain,tx,created_at&approved=eq.true&order=created_at.desc&limit=6');
+    const reps = (db||[]).filter(function(r){ return r.company || r.summary; }).map(function(r){ return { kind:'report', company:r.company||'Community report', ticker:'', summary:r.summary||'', author:'community', traced:null, date:r.created_at, onchain:r.onchain }; });
+    renderLatestIntel(reps);
+  }catch(e){ /* keep the case-study view on failure */ }
+}
+function openReport(kind, id){
+  if(kind==='case'){
+    showView('research');
+    setTimeout(function(){
+      const el=document.getElementById('case-'+id);
+      if(el){ el.classList.add('open'); el.scrollIntoView({behavior:'smooth',block:'center'}); }
+      else { const l=document.getElementById('case-studies-list'); if(l) l.scrollIntoView({behavior:'smooth',block:'start'}); }
+    },140);
+  }
+}
 
 function renderCaseStudies(){
   const host = document.getElementById('case-studies-list');
@@ -2072,7 +2259,7 @@ function renderCaseStudies(){
     const noteLead = noteParts.shift()||'';
     const noteRest = noteParts.join('. ');
     return `
-    <div class="co cs-card">
+    <div class="co cs-card" id="case-${cs.id}">
       <div class="co-top" onclick="toggleCase(this)">
         <div class="co-id">
           <div class="co-name">
@@ -2110,8 +2297,136 @@ function showView(v){
   document.body.dataset.view = v;
   if(v==='graph'){ if(window.__initGraph) window.__initGraph(); }
   else if(window.__graphHide){ window.__graphHide(); }
+  if(v==='profile'){ renderProfile(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+// ===== Wallet profile: a personal console for the connected wallet =====
+function walletButtonClick(){
+  if(walletPubkey){ showView('profile'); }
+  else { toggleWallet(); }
+}
+async function disconnectWallet(){
+  const prov = getProvider();
+  try{ if(prov) await prov.disconnect(); }catch(e){}
+  walletPubkey = null;
+  updateWalletUI();
+  showView('registry');
+  showToast('Wallet disconnected.');
+}
+function pfHash(str){ let h=0; str=String(str); for(let i=0;i<str.length;i++){ h=(h<<5)-h+str.charCodeAt(i); h|=0; } return Math.abs(h); }
+function pfIdenticon(addr, size){
+  const h=pfHash(addr); const hue=h%360; const hue2=(Math.floor(h/7))%360; const n=5; const cell=size/n; const cells=[];
+  for(let y=0;y<n;y++){ for(let x=0;x<3;x++){ if(((h>>(y*3+x))&1)===1){ cells.push([x,y]); if(x!==n-1-x) cells.push([n-1-x,y]); } } }
+  const rects=cells.map(function(c){ return '<rect x="'+(c[0]*cell)+'" y="'+(c[1]*cell)+'" width="'+cell+'" height="'+cell+'"/>'; }).join('');
+  return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="border-radius:5px;background:hsl('+hue2+',26%,12%)"><g fill="hsl('+hue+',70%,56%)">'+rects+'</g></svg>';
+}
+function pfClearance(n){
+  if(n>=6) return { name:'Chief Detective', cls:'pf-l4' };
+  if(n>=3) return { name:'Detective', cls:'pf-l3' };
+  if(n>=1) return { name:'Bounty Hunter', cls:'pf-l2' };
+  return { name:'Apprentice', cls:'pf-l1' };
+}
+function pfStatus(id, pubIds){ return pubIds[id] ? '<span class="pf-badge pub">\u2713 Published</span>' : '<span class="pf-badge pend">\u23f3 Pending review</span>'; }
+function pfDate(ts){ try{ return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return ''; } }
+function pfTx(tx){ return tx ? ' \u00b7 <a class="pf-tx" href="https://solscan.io/tx/'+encodeURIComponent(tx)+'" target="_blank" rel="noopener">on-chain \u2197</a>' : ''; }
+
+function pfGate(){
+  return '<div class="pf-gate">'
+    +'<div class="pf-gate-ic">\u25c6</div>'
+    +'<div class="pf-gate-h">Your analyst console</div>'
+    +'<p class="pf-gate-p">Connect your Phantom wallet to open your profile. Your wallet is your identity here: every report you file, every bounty you open, and every boost you cast is signed by it. This is the foundation of on-chain reputation (Phase 2).</p>'
+    +'<button class="btn-fill" onclick="toggleWallet()">Connect Phantom \u2192</button>'
+    +'</div>';
+}
+function pfReports(reports, pubIds){
+  if(!reports.length) return '<div class="pf-empty">No reports filed yet. Apply to a bounty or submit research and it lands here.</div>';
+  return reports.map(function(r){
+    const title=escapeHtml(r.company||r.bounty||'Attribution report');
+    const sum=escapeHtml(String(r.summary||'').slice(0,160));
+    return '<div class="pf-item"><div class="pf-it-top"><div class="pf-it-t">'+title+'</div>'+pfStatus(r.id,pubIds)+'</div>'
+      +'<div class="pf-it-s">'+sum+'</div>'
+      +'<div class="pf-it-m mono">'+pfDate(parseInt(String(r.id).replace(/\D/g,''))||Date.now())+pfTx(r.tx)+'</div></div>';
+  }).join('');
+}
+function pfBounties(bounties, pubIds){
+  if(!bounties.length) return '<div class="pf-empty">No bounties opened yet. Use "+ Open Bounty" on the board to propose a wallet hunt.</div>';
+  return bounties.map(function(b){
+    const title=escapeHtml(b.target||b.title||'Bounty');
+    const det=escapeHtml(String(b.detail||'').slice(0,150));
+    return '<div class="pf-item"><div class="pf-it-top"><div class="pf-it-t">'+title+'</div>'+pfStatus(b.id,pubIds)+'</div>'
+      +'<div class="pf-it-s">'+det+'</div></div>';
+  }).join('');
+}
+function pfBoosts(boosted){
+  const ids=Object.keys(boosted||{}); if(!ids.length) return '<div class="pf-empty">No boosts yet. Boost a bounty to signal demand for a wallet hunt.</div>';
+  return ids.map(function(bid){
+    const v=boosted[bid]; let nm=(v&&v.name)?v.name:null;
+    if(!nm){ const c=document.querySelector('.bounty[data-bid="'+bid+'"] .b-target'); nm=c?c.textContent.trim():bid; }
+    const tx=(v&&v.tx)?v.tx:null;
+    return '<div class="pf-item pf-mini"><div class="pf-it-t">\u2191 '+escapeHtml(nm)+'</div><div class="pf-it-m mono">boosted'+pfTx(tx)+'</div></div>';
+  }).join('');
+}
+function pfRequests(requests){
+  if(!requests.length) return '<div class="pf-empty">No wallet requests yet.</div>';
+  return requests.map(function(r){
+    return '<div class="pf-item pf-mini"><div class="pf-it-t">\u2316 '+escapeHtml(r.name||'request')+'</div><div class="pf-it-m mono">'+escapeHtml(r.sub||'requested')+'</div></div>';
+  }).join('');
+}
+function pfShell(addr, name, reports, bounties, boosted, requests, pubIds){
+  const cl=pfClearance(reports.length+bounties.length);
+  const nBoost=Object.keys(boosted||{}).length;
+  const display = name ? escapeHtml(name) : short(addr);
+  return ''
+  +'<div class="pf-head">'
+    +'<div class="pf-ava">'+pfIdenticon(addr,64)+'</div>'
+    +'<div class="pf-id">'
+      +'<div class="pf-name">'+display+' <span class="pf-clear '+cl.cls+'">'+cl.name+'</span></div>'
+      +'<div class="pf-addr mono" title="Click to copy" onclick="pfCopy(\''+addr+'\')">'+escapeHtml(addr)+' <span class="pf-copy">copy</span></div>'
+    +'</div>'
+    +'<button class="pf-dc" onclick="disconnectWallet()">Disconnect</button>'
+  +'</div>'
+  +'<div class="pf-stats">'
+    +'<div class="pf-stat"><div class="n">'+reports.length+'</div><div class="l">Reports filed</div></div>'
+    +'<div class="pf-stat"><div class="n">'+bounties.length+'</div><div class="l">Bounties opened</div></div>'
+    +'<div class="pf-stat"><div class="n">'+nBoost+'</div><div class="l">Boosts cast</div></div>'
+    +'<div class="pf-stat"><div class="n">'+requests.length+'</div><div class="l">Requests</div></div>'
+  +'</div>'
+  +'<div class="pf-grid">'
+    +'<div class="pf-col"><div class="pf-h">My Reports</div>'+pfReports(reports,pubIds)+'</div>'
+    +'<div class="pf-col"><div class="pf-h">My Bounties</div>'+pfBounties(bounties,pubIds)+'</div>'
+    +'<div class="pf-col"><div class="pf-h">My Boosts</div>'+pfBoosts(boosted)+'</div>'
+    +'<div class="pf-col"><div class="pf-h">My Requests</div>'+pfRequests(requests)+'</div>'
+  +'</div>'
+  +'<div class="pf-settings">'
+    +'<div class="pf-h">Profile settings</div>'
+    +'<label class="pf-lab">Display name <span class="pf-hint mono">shown instead of your address, stored on this device</span></label>'
+    +'<input class="pf-in" id="pf-name" value="'+(name?escapeHtml(name):'')+'" placeholder="e.g. aksusarya" oninput="lsSet(\'stw_profile_name\', this.value); pfLiveName(this.value)">'
+    +'<div class="pf-set-row"><span class="pf-hint mono">Signed in with Phantom \u00b7 '+short(addr)+'</span><button class="pf-dc" onclick="disconnectWallet()">Disconnect wallet</button></div>'
+  +'</div>';
+}
+function pfLiveName(v){ const el=document.querySelector('.pf-name'); if(el && el.firstChild){ el.firstChild.textContent=(v || (walletPubkey?short(walletPubkey):'')) + ' '; } }
+function pfCopy(a){ try{ navigator.clipboard.writeText(a); showToast('Address copied.'); }catch(e){} }
+async function renderProfile(){
+  const host=document.getElementById('profile-body'); if(!host) return;
+  if(!walletPubkey){ host.innerHTML=pfGate(); return; }
+  const addr=walletPubkey;
+  const reports=lsGet('stw_reports',[]);
+  const bounties=lsGet('stw_bounties',[]);
+  const boosted=lsGet('stw_boosted',{});
+  const requests=lsGet('stw_requests',[]);
+  const name=lsGet('stw_profile_name','');
+  host.innerHTML=pfShell(addr,name,reports,bounties,boosted,requests,{});
+  if(SUPA_ON){
+    try{
+      const pr=await supaGet('reports?select=id&wallet=eq.'+encodeURIComponent(addr)+'&approved=eq.true');
+      const pb=await supaGet('bounties?select=id&created_by=eq.'+encodeURIComponent(addr)+'&approved=eq.true');
+      const pubIds={}; (pr||[]).forEach(function(x){ pubIds[x.id]=1; }); (pb||[]).forEach(function(x){ pubIds[x.id]=1; });
+      const name2=lsGet('stw_profile_name', name);
+      if(document.body.dataset.view==='profile' && walletPubkey===addr){ host.innerHTML=pfShell(addr,name2,reports,bounties,boosted,requests,pubIds); }
+    }catch(e){}
+  }
+}
+
 function goSection(id){
   document.body.dataset.view = VIEW_OF[id] || 'registry';
   requestAnimationFrame(()=>{ const el = document.getElementById(id); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' }); });
@@ -2158,7 +2473,7 @@ function stakeBoost(btn){
   withOnchainVote("Boost", memo, async (sig)=>{
     const numEl = card.querySelector('.b-reward .n');
     if(numEl){ numEl.textContent = (parseInt(numEl.textContent) || 0) + 1; }
-    if(bid){ const mine = lsGet('stw_boosted', {}); mine[bid] = true; lsSet('stw_boosted', mine); }
+    if(bid){ const mine = lsGet('stw_boosted', {}); mine[bid] = { name: bountyTargetText(card), tx: sig, ts: Date.now() }; lsSet('stw_boosted', mine); }
     markBoostedUI(card, sig);
     if(SUPA_ON && bid){ try{ await supaPost('bounty_boosts', { bounty_id: bid, voter: voterId() }); hydrateBoosts(); }catch(e){ console.warn('OSI: boost sync failed.', e); } }
   });
@@ -2177,6 +2492,54 @@ async function hydrateBoosts(){
       n.textContent = Math.max(counts[card.dataset.bid] || 0, mine[card.dataset.bid] ? 1 : 0);
     });
   }catch(e){ console.warn('OSI: boost counts unavailable, showing local view.', e); }
+}
+
+// ---- Community bounties: anyone can PROPOSE a wallet hunt (public after approval) ----
+async function submitBounty(){
+  const target=(document.getElementById('bf-target').value||'').trim();
+  const detail=(document.getElementById('bf-detail').value||'').trim();
+  const reward=(document.getElementById('bf-reward').value||'').trim();
+  if(!target){ showToast("Name the target of the bounty (a company or wallet set)."); return; }
+  if(!detail){ showToast("Describe what the bounty needs proven (trace, custody, corroboration)."); return; }
+  const id='bnt_'+Date.now();
+  const mine=lsGet('stw_bounties',[]); mine.unshift({ id, target, detail, reward, sub: SUPA_ON?'\u23f3 awaiting maintainer approval':'proposed here' }); lsSet('stw_bounties',mine);
+  ['bf-target','bf-detail','bf-reward'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
+  if(SUPA_ON){ try{ await supaPost('bounties',{ id, title:target, target, detail, reward, created_by: walletPubkey||'', approved:false }); hydrateBounties(); }catch(e){ console.warn('OSI: bounty publish failed.',e); } }
+  try{ await sendForm({ _subject:'OSI, New Bounty: '+target, type:'bounty-proposal', target, detail, reward: reward||'(none)', by: walletPubkey||'(none)' }); }catch(e){}
+  showToast(SUPA_ON?'\u2713 Bounty submitted, it goes live on the board once a maintainer approves.':'\u2713 Bounty proposed and sent to the maintainer.');
+}
+function bountyCardHtml(b){
+  const target=escapeHtml(b.target||b.title||'wallet hunt');
+  const detail=escapeHtml(b.detail||'Community-proposed wallet hunt.');
+  const reward=b.reward?escapeHtml(b.reward):'community-funded \u00b7 Phase 2 escrow';
+  const id=escapeHtml(b.id);
+  return '<div class="bounty" data-bid="'+id+'">'
+    +'<div class="b-left">'
+    +'<div class="b-target">'+target+'</div>'
+    +'<div class="b-desc">'+detail+'</div>'
+    +'<div class="b-meta"><span class="mono">community-proposed</span> \u00b7 <span class="mono">open</span></div>'
+    +'</div>'
+    +'<div class="b-right">'
+    +'<div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>'
+    +'<div class="b-stakers mono">'+reward+'</div>'
+    +'<button class="btn-stake" onclick="stakeBoost(this)">\u2191 Boost</button>'
+    +'<button class="btn-apply" onclick="openApplyModal(this)">\u2726 Apply</button>'
+    +'</div>'
+    +'</div>';
+}
+async function hydrateBounties(){
+  if(!SUPA_ON) return;
+  const host=document.getElementById('dyn-bounties'); if(!host) return;
+  try{
+    const rows=await supaGet('bounties?select=*&approved=eq.true&order=created_at.desc');
+    host.innerHTML=(rows||[]).map(function(b){ return bountyCardHtml(b); }).join('');
+    const boosted=lsGet('stw_boosted',{}), applied=lsGet('stw_applied',{});
+    host.querySelectorAll('.bounty[data-bid]').forEach(function(card){
+      if(boosted[card.dataset.bid]) markBoostedUI(card,null);
+      if(applied[card.dataset.bid]) markAppliedUI(card,null);
+    });
+    hydrateBoosts();
+  }catch(e){ console.warn('OSI: community bounties unavailable.',e); }
 }
 
 // Reflect an applied bounty in the UI (used on click and after a refresh).
