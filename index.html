@@ -566,6 +566,8 @@ body[data-view="community"] .sb-item[data-view="community"]{
 .sb-foot{margin:0 0 0 auto;padding:0;border-top:none;flex-direction:row;align-items:center;gap:10px;flex-shrink:0}
 .sb-foot .sb-mini{display:none}
 .sb-foot .wallet-btn{width:auto;padding:7px 13px}
+.adm-lock{background:none;border:1px solid var(--line);border-radius:2px;color:var(--ink-faint);font-size:11px;line-height:1;padding:7px 9px;cursor:pointer;flex-shrink:0}
+.adm-lock:hover{color:var(--ink-dim);border-color:var(--line-bright)}
 
 /* ===== GRAPH (Network) VIEW ===== */
 section[data-view="graph"]{display:none}
@@ -605,6 +607,12 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .src-badge{border-radius:2px;letter-spacing:.1em}
 .co-summary{background:transparent}
 .rank{letter-spacing:.05em}
+
+/* shared component polish: sharp lines platform-wide */
+.btn-fill{border-radius:3px}
+.btn-ghost{border-radius:3px}
+.bounty{border-radius:0;border-left:2px solid var(--line-bright)}
+.bounty:hover{border-color:var(--line-bright);border-left-color:var(--sol)}
 </style>
 </head>
 <body data-view="registry" data-sub="tab-bounties">
@@ -640,6 +648,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     <button class="sb-board-cta" onclick="goCommunity('tab-analysts')">Join the ladder →</button>
   </div>
   <div class="sb-foot">
+    <button class="adm-lock" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">🔒</button>
     <button class="wallet-btn" id="walletBtn" onclick="toggleWallet()"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
@@ -696,6 +705,75 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     </div>
     <div class="companies" id="companies"></div>
   </div>
+</section>
+
+<section class="sec" data-view="admin" id="admin-view">
+<style>
+body[data-view="admin"] section[data-view="admin"]{display:block}
+#admin-view{padding-top:34px}
+.adm-wrap{max-width:780px;margin:0 auto}
+.adm-top{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:24px;flex-wrap:wrap}
+.adm-title{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.2em;color:var(--ink-dim)}
+.adm-title b{color:var(--ink);font-weight:700}
+.adm-clr{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:2px;padding:4px 9px}
+.adm-card{border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:var(--bg-card);padding:26px;max-width:430px}
+.adm-card h3{font-family:'Archivo',sans-serif;font-size:18px;font-weight:800;margin:0 0 5px}
+.adm-card p{font-size:12.5px;color:var(--ink-faint);margin:0 0 18px;line-height:1.5}
+.adm-field{display:block;margin-bottom:13px}
+.adm-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--ink-faint);margin-bottom:6px}
+.adm-field input{width:100%;background:var(--bg);border:1px solid var(--line-bright);border-radius:2px;padding:11px 12px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px;outline:0}
+.adm-field input:focus{border-color:rgba(20,241,149,.5)}
+.adm-go{width:100%;margin-top:6px;background:var(--sol);color:var(--bg);border:0;border-radius:2px;padding:12px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.1em;cursor:pointer}
+.adm-go:hover{background:var(--sol-deep)}
+.adm-msg{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);margin-top:13px;min-height:14px;line-height:1.4}
+.adm-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.adm-who{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);letter-spacing:.08em}
+.adm-who b{color:var(--sol)}
+.adm-out{background:none;border:1px solid var(--line-bright);border-radius:2px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;padding:7px 12px;cursor:pointer}
+.adm-out:hover{color:var(--ink);border-color:var(--ink-faint)}
+.adm-sec{margin-bottom:26px}
+.adm-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-faint);border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:11px;display:flex;align-items:center;gap:9px}
+.adm-h span{color:var(--sol);font-weight:700}
+.adm-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 16px;border:1px solid var(--line);border-left:2px solid var(--line-bright);background:var(--bg-card);margin-bottom:8px}
+.adm-meta{min-width:0}
+.adm-t{font-size:14px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.adm-kind{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);border:1px solid var(--line-bright);border-radius:2px;padding:2px 6px}
+.adm-s{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);margin-top:5px;word-break:break-word;line-height:1.45}
+.adm-acts{display:flex;gap:7px;flex-shrink:0}
+.adm-b{border:1px solid var(--line-bright);border-radius:2px;background:none;font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 11px;cursor:pointer;white-space:nowrap;color:var(--ink-dim)}
+.adm-b.ok{border-color:rgba(20,241,149,.5);color:var(--sol)}
+.adm-b.ok:hover{background:var(--sol);color:var(--bg)}
+.adm-b.warn{border-color:rgba(255,176,32,.4);color:var(--amber)}
+.adm-b.warn:hover{background:var(--amber);color:var(--bg)}
+.adm-b.del{border-color:rgba(255,84,112,.4);color:var(--red)}
+.adm-b.del:hover{background:var(--red);color:#fff}
+.adm-muted{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-faint);padding:10px 2px}
+.adm-err{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:2px;padding:14px;line-height:1.55;background:rgba(255,176,32,.05)}
+@media(max-width:620px){ .adm-row{flex-direction:column;align-items:stretch} .adm-acts{justify-content:flex-end} }
+</style>
+<div class="wrap"><div class="adm-wrap">
+  <div class="adm-top">
+    <div class="adm-title">MODERATION CONSOLE // <b>OSI</b></div>
+    <div class="adm-clr">MAINTAINER ONLY</div>
+  </div>
+  <div id="admLogin">
+    <div class="adm-card">
+      <h3>Maintainer sign in</h3>
+      <p>Sign in with the OSI maintainer account to review community submissions and publish them to everyone.</p>
+      <div class="adm-field"><label>EMAIL</label><input id="admEmail" type="email" autocomplete="username" placeholder="you@example.com"></div>
+      <div class="adm-field"><label>PASSWORD</label><input id="admPw" type="password" autocomplete="current-password" placeholder="password"></div>
+      <button class="adm-go" onclick="admLogin()">SIGN IN</button>
+      <div class="adm-msg" id="admMsg"></div>
+    </div>
+  </div>
+  <div id="admPanel" style="display:none">
+    <div class="adm-bar">
+      <div class="adm-who">SIGNED IN &middot; <b id="admWho"></b></div>
+      <div style="display:flex;gap:8px"><button class="adm-out" onclick="admRefresh()">Refresh</button><button class="adm-out" onclick="admLogout()">Sign out</button></div>
+    </div>
+    <div id="admQueue"><div class="adm-muted">Loading...</div></div>
+  </div>
+</div></div>
 </section>
 
 <section class="sec" data-view="graph" id="graph-view">
@@ -1436,6 +1514,84 @@ function supaHeaders(extra){
 async function supaGet(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: supaHeaders() }); if(!r.ok) throw new Error('supa get ' + r.status); return r.json(); }
 async function supaPost(table, row){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + table, { method: 'POST', headers: supaHeaders({ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if(!r.ok && r.status !== 409) throw new Error('supa post ' + r.status); return true; }
 async function supaDelete(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { method: 'DELETE', headers: supaHeaders() }); if(!r.ok) throw new Error('supa del ' + r.status); return true; }
+async function supaPatch(path, row){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { method:'PATCH', headers: supaHeaders({ Prefer:'return=minimal' }), body: JSON.stringify(row) }); if(!r.ok) throw new Error('supa patch ' + r.status); return true; }
+async function supaSignIn(email, password){
+  const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', { method:'POST', headers:{ apikey: SUPABASE_ANON_KEY, 'Content-Type':'application/json' }, body: JSON.stringify({ email: email, password: password }) });
+  let data = {}; try{ data = await r.json(); }catch(_){}
+  if(!r.ok || !data.access_token) throw new Error(data.error_description || data.msg || ('sign-in failed (' + r.status + ')'));
+  SUPA_AUTH_TOKEN = data.access_token; return data;
+}
+function supaSignOut(){ SUPA_AUTH_TOKEN = null; }
+
+// ---- Maintainer moderation console (open with the lock icon, or the #admin URL) ----
+function admEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function admOpen(){ showView('admin'); }
+async function admLogin(){
+  const email=(document.getElementById('admEmail').value||'').trim();
+  const pw=document.getElementById('admPw').value||'';
+  const msg=document.getElementById('admMsg');
+  if(!SUPA_ON){ msg.textContent='Supabase is not configured yet (check config.js).'; return; }
+  if(!email || !pw){ msg.textContent='Enter the maintainer email and password.'; return; }
+  msg.textContent='Signing in...';
+  try{
+    await supaSignIn(email, pw);
+    msg.textContent='';
+    document.getElementById('admLogin').style.display='none';
+    document.getElementById('admPanel').style.display='block';
+    document.getElementById('admWho').textContent=email;
+    admRefresh();
+  }catch(e){ msg.textContent='Sign-in failed: '+e.message; }
+}
+function admLogout(){
+  supaSignOut();
+  document.getElementById('admPanel').style.display='none';
+  document.getElementById('admLogin').style.display='block';
+  const pw=document.getElementById('admPw'); if(pw) pw.value='';
+}
+async function admRefresh(){
+  const host=document.getElementById('admQueue');
+  host.innerHTML='<div class="adm-muted">Loading queue...</div>';
+  try{
+    const reports = await supaGet('reports?select=*&order=created_at.desc');
+    let requests=[]; try{ requests = await supaGet('requests?select=*&order=created_at.desc'); }catch(_){}
+    host.innerHTML = admRender(reports||[], requests||[]);
+  }catch(e){
+    host.innerHTML='<div class="adm-err">Could not load the queue ('+admEsc(e.message)+').<br><br>Most likely the admin SQL policies have not been run yet, or this account is not the maintainer. Run osi_admin_setup.sql in the Supabase SQL Editor, then refresh.</div>';
+  }
+}
+function admItem(kind, table, r){
+  const approved = !!r.approved;
+  const title = kind==='report' ? admEsc(r.company || r.bounty || r.id) : admEsc(r.name || r.id);
+  const sub = kind==='report'
+    ? admEsc((r.wallet ? ('wallet ' + String(r.wallet).slice(0,12) + '...  ') : '') + String(r.summary||'').slice(0,160))
+    : 'wallet investigation request';
+  const id = admEsc(r.id);
+  const acts = approved
+    ? '<button class="adm-b warn" onclick="admSet(\''+table+'\',\''+id+'\',false)">Unpublish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Delete</button>'
+    : '<button class="adm-b ok" onclick="admSet(\''+table+'\',\''+id+'\',true)">Approve &amp; publish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Reject</button>';
+  return '<div class="adm-row"><div class="adm-meta"><div class="adm-t">'+title+'<span class="adm-kind">'+kind+'</span></div><div class="adm-s">'+sub+'</div></div><div class="adm-acts">'+acts+'</div></div>';
+}
+function admRender(reports, requests){
+  const pend=[], pub=[];
+  reports.forEach(function(r){ (r.approved?pub:pend).push(admItem('report','reports',r)); });
+  requests.forEach(function(r){ (r.approved?pub:pend).push(admItem('request','requests',r)); });
+  let h='';
+  h+='<div class="adm-sec"><div class="adm-h">PENDING REVIEW <span>'+pend.length+'</span></div>'+(pend.length?pend.join(''):'<div class="adm-muted">Nothing waiting. Clear desk.</div>')+'</div>';
+  h+='<div class="adm-sec"><div class="adm-h">PUBLISHED <span>'+pub.length+'</span></div>'+(pub.length?pub.join(''):'<div class="adm-muted">Nothing published yet.</div>')+'</div>';
+  return h;
+}
+async function admSet(table, id, approved){
+  try{ await supaPatch(table+'?id=eq.'+encodeURIComponent(id), { approved: approved }); showToast(approved?'Published. Now public for everyone.':'Unpublished.'); admRefresh(); if(typeof renderRequests==='function') renderRequests(); }
+  catch(e){ showToast('Action failed: '+e.message); }
+}
+async function admDel(table, id){
+  if(!confirm('Delete this permanently? This cannot be undone.')) return;
+  try{ await supaDelete(table+'?id=eq.'+encodeURIComponent(id)); showToast('Deleted.'); admRefresh(); if(typeof renderRequests==='function') renderRequests(); }
+  catch(e){ showToast('Delete failed: '+e.message); }
+}
+document.addEventListener('DOMContentLoaded', function(){ if(location.hash==='#admin'){ try{ showView('admin'); }catch(_){} } });
+window.addEventListener('hashchange', function(){ if(location.hash==='#admin'){ try{ showView('admin'); }catch(_){} } });
+
 
 // review queue seed, one clearly-labelled example so the scoring UI stays
 // demonstrable; real submissions render above it as "pending review".
