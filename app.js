@@ -594,13 +594,21 @@ async function hydrateBoosts(){
 // Reflect an applied bounty in the UI (used on click and after a refresh).
 function markAppliedUI(card, sig){
   const btn = card.querySelector('.btn-apply'); if(!btn) return;
-  btn.textContent = "✓ Applied"; btn.style.background = "#9945ff"; btn.style.color = "#fff"; btn.style.borderColor = "#9945ff"; btn.disabled = true;
+  // applied, but keep it clickable so a researcher can file more than one report
+  btn.textContent = "✦ Apply again"; btn.disabled = false;
   if(sig && !card.querySelector('.apply-tx')){
     const note = document.createElement('div'); note.className = "apply-tx mono";
     note.style.cssText = "font-size:9px;color:#b98cff;margin-top:4px";
     note.innerHTML = `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener" style="color:#b98cff;text-decoration:none">↗ application on-chain ✓</a>`;
     btn.parentElement.appendChild(note);
   }
+}
+// Clear this browser's local draft submissions + applied marks (e.g. test data).
+function clearMyDrafts(){
+  lsSet('stw_reports', []); lsSet('stw_applied', {});
+  renderReviewQueue();
+  document.querySelectorAll('.bounty[data-bid] .btn-apply').forEach(function(b){ b.disabled=false; b.textContent='✦ Apply'; const tx=b.parentElement.querySelector('.apply-tx'); if(tx) tx.remove(); });
+  showToast('Your local drafts were cleared from this device.');
 }
 
 // ---- Apply to a bounty: open a report form, sign it with the wallet, file it

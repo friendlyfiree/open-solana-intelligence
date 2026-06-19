@@ -1094,70 +1094,113 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 
     <!-- ANALYSTS -->
     <div class="tab-panel" id="tab-analysts">
-      <div class="panel-bar">
-        <div class="pb-title">🏅 Researcher Ladder <span class="mono dim">· reputation is earned in the open, not bought</span></div>
-        <button class="btn-ghost" onclick="document.getElementById('analyst-form').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('an-tg').focus()">✦ Apply to become an analyst</button>
-      </div>
+<style>
+.rec-hero{position:relative;border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:linear-gradient(120deg,var(--bg-card),var(--bg));padding:30px 28px;overflow:hidden}
+.rec-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(20,241,149,.045),transparent);transform:translateX(-100%);animation:rec-sweep 7s ease-in-out infinite;pointer-events:none}
+@keyframes rec-sweep{0%,100%{transform:translateX(-110%)}50%{transform:translateX(110%)}}
+.rec-ey{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;color:var(--sol)}
+.rec-ey i{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 1.6s infinite}
+.rec-h{font-family:'Archivo',sans-serif;font-size:clamp(24px,3.4vw,36px);font-weight:900;letter-spacing:-.02em;margin:14px 0 11px;line-height:1.05;max-width:620px}
+.rec-h span{color:var(--sol)}
+.rec-sub{font-size:14px;color:var(--ink-dim);max-width:580px;line-height:1.6}
+.rec-sub b{color:var(--ink)}
+.rec-stats{display:flex;gap:30px;margin-top:24px;flex-wrap:wrap}
+.rec-stat .n{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--ink);line-height:1}
+.rec-stat .l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--ink-faint);margin-top:5px}
+.rec-cta{margin-top:26px;display:inline-flex;align-items:center;gap:9px;background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:13px 20px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.1em;cursor:pointer}
+.rec-cta:hover{background:var(--sol-deep)}
+.rec-sec-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-faint);margin:36px 0 14px;display:flex;align-items:center;gap:10px}
+.rec-sec-h::before{content:"";width:22px;height:1px;background:var(--line-bright)}
+.rec-ladder{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:1px solid var(--line)}
+.rec-rung{position:relative;padding:18px 16px;border-right:1px solid var(--line);transition:background .15s}
+.rec-rung:last-child{border-right:0}
+.rec-rung .lv{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--ink-faint)}
+.rec-rung .nm{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;margin-top:9px;letter-spacing:-.01em}
+.rec-rung .rq{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);margin-top:7px;line-height:1.5}
+.rec-rung:hover{background:rgba(20,241,149,.04)}
+.rec-rung.seal{background:rgba(153,69,255,.06);border-left:2px solid var(--violet)}
+.rec-rung.seal .nm{color:#c6a0ff}
+.rec-rung.seal .lv{color:#9d7bd1}
+.rec-rung.seal:hover{background:rgba(153,69,255,.1)}
+.rec-apply{border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:var(--bg-card);padding:26px}
+.rec-apply h3{font-family:'Archivo',sans-serif;font-weight:800;font-size:19px;margin:0 0 5px}
+.rec-apply .lead{font-size:12.5px;color:var(--ink-faint);margin:0 0 18px;line-height:1.5}
+.rec-frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rec-apply input{width:100%;background:var(--bg);border:1px solid var(--line-bright);border-radius:2px;padding:11px 12px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px;outline:0}
+.rec-apply input:focus{border-color:rgba(20,241,149,.5)}
+.rec-apply .full{margin-top:12px}
+.rec-go{margin-top:15px;background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:12px 18px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.1em;cursor:pointer}
+.rec-go:hover{background:var(--sol-deep)}
+.rec-note{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);margin-top:12px;line-height:1.55}
+.rec-note b{color:var(--ink-dim)}
+.rec-craft{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.rec-card{border:1px solid var(--line);border-left:2px solid var(--line-bright);padding:16px;background:var(--bg-card)}
+.rec-card .ic{font-size:15px;line-height:1}
+.rec-card .t{font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;margin-top:9px}
+.rec-card .d{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);margin-top:7px;line-height:1.5}
+.rec-card.up{border-left-color:var(--sol)}
+.rec-card.dn{border-left-color:var(--red)}
+.rec-card.seal{border-left-color:var(--violet)}
+.rec-floor-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:36px 0 12px;flex-wrap:wrap}
+.rec-floor-h .ttl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-faint);display:flex;align-items:center;gap:10px}
+.rec-floor-h .ttl::before{content:"";width:22px;height:1px;background:var(--line-bright)}
+.rec-clear{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);background:none;border:1px solid var(--line);border-radius:2px;padding:6px 11px;cursor:pointer}
+.rec-clear:hover{color:var(--ink-dim);border-color:var(--line-bright)}
+.rec-phase{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);border:1px dashed var(--line-bright);border-radius:2px;padding:13px 15px;margin-top:18px;line-height:1.55}
+.rec-phase b{color:var(--cyan)}
+@media(max-width:720px){.rec-ladder{grid-template-columns:repeat(2,1fr)}.rec-rung{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.rec-craft{grid-template-columns:1fr}.rec-frow{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){.rec-hero::after{animation:none}.rec-ey i{animation:none}}
+</style>
 
-      <div class="mini-form" id="analyst-form" style="margin-top:0;margin-bottom:22px">
-        <div class="mf-title mono">Apply to become an analyst</div>
-        <div class="mf-row">
-          <input type="text" placeholder="Telegram username (e.g. @you)" id="an-tg">
-          <input type="text" placeholder="X / Twitter username (e.g. @you)" id="an-tw">
-        </div>
-        <input type="text" placeholder="Website or proof of work, a report, thread, or dashboard (optional)" id="an-web" style="margin-top:10px">
-        <button class="btn-fill" onclick="submitAnalystApplication()" style="margin-top:12px">Send application</button>
-        <div class="mf-note">Share at least one handle so the maintainer can reach you. Applications are reviewed by hand, you'll get a reply.</div>
-      </div>
+<div class="rec-hero">
+  <div class="rec-ey"><i></i>FIELD ANALYST RECRUITMENT // OPEN</div>
+  <div class="rec-h">Trace the money <span>nobody else is tracing.</span></div>
+  <div class="rec-sub">OSI runs on independent on-chain forensics. Bring an attribution the chain can prove and your name goes on the registry: <b>permanent, public, credited to you</b>. Reputation here is earned in the open, never bought.</div>
+  <div class="rec-stats">
+    <div class="rec-stat"><div class="n">38</div><div class="l">WALLETS PUBLISHED</div></div>
+    <div class="rec-stat"><div class="n">3</div><div class="l">ENTITIES MAPPED</div></div>
+    <div class="rec-stat"><div class="n">OPEN</div><div class="l">SEATS ON THE LADDER</div></div>
+  </div>
+  <button class="rec-cta" onclick="document.getElementById('analyst-form').scrollIntoView({behavior:'smooth',block:'center'});var e=document.getElementById('an-tg');if(e)e.focus();">REQUEST CLEARANCE →</button>
+</div>
 
-      <div class="ranks">
-        <div class="rank"><div class="rl">I</div><div class="rn">Apprentice</div><div class="rx">sign up · 0 XP</div></div>
-        <div class="rank"><div class="rl">II</div><div class="rn">Bounty Hunter</div><div class="rx">first approved reports</div></div>
-        <div class="rank"><div class="rl">III</div><div class="rn">Detective</div><div class="rx">consistent, sourced work</div></div>
-        <div class="rank"><div class="rl">IV</div><div class="rn">Chief Detective</div><div class="rx">trusted reviewer</div></div>
-        <div class="rank owner-rank"><div class="rl">◆</div><div class="rn">Maintainer</div><div class="rx">holds the final seal</div></div>
-      </div>
+<div class="rec-sec-h">CLEARANCE LADDER</div>
+<div class="rec-ladder">
+  <div class="rec-rung"><div class="lv">TIER I</div><div class="nm">Apprentice</div><div class="rq">Sign up. Start tracing.</div></div>
+  <div class="rec-rung"><div class="lv">TIER II</div><div class="nm">Bounty Hunter</div><div class="rq">First approved reports.</div></div>
+  <div class="rec-rung"><div class="lv">TIER III</div><div class="nm">Detective</div><div class="rq">Consistent, sourced work.</div></div>
+  <div class="rec-rung"><div class="lv">TIER IV</div><div class="nm">Chief Detective</div><div class="rq">Trusted to review others.</div></div>
+  <div class="rec-rung seal"><div class="lv">◆ SEAL</div><div class="nm">Maintainer</div><div class="rq">Holds the final approval.</div></div>
+</div>
+<p class="rec-note">Volume alone does not move you. <b>Quality multiplied by accepted submissions</b> does. Every report you ship that gets approved, and every boost the community casts on it, adds rank.</p>
 
-      <p class="ladder-note">Sign up with email and you start as an <b>Apprentice</b>. Every report you ship that gets approved, and every <b>boost</b> the community casts on it, adds XP. Volume alone doesn't move you: <b>quality × accepted submissions</b> does. Climb the ladder, earn the seal.</p>
+<div class="rec-sec-h">REQUEST FIELD CREDENTIALS</div>
+<div class="rec-apply" id="analyst-form">
+  <h3>Apply to become an analyst</h3>
+  <div class="lead">Share at least one handle so the maintainer can reach you. Applications are read by hand, you will get a reply.</div>
+  <div class="rec-frow">
+    <input type="text" placeholder="Telegram username (e.g. @you)" id="an-tg">
+    <input type="text" placeholder="X / Twitter username (e.g. @you)" id="an-tw">
+  </div>
+  <input type="text" class="full" placeholder="Proof of work: a report, thread, or dashboard (optional)" id="an-web">
+  <button class="rec-go" onclick="submitAnalystApplication()">SEND APPLICATION</button>
+  <div class="rec-note">No token, no fee, no pay-to-win. Just evidence.</div>
+</div>
 
-      <div class="analyst-grid">
-        <div class="analyst">
-          <div class="av">A</div>
-          <div class="an-body"><div class="an-name">Maintainer <span class="lvl-badge maintainer">◆ Maintainer</span></div><div class="an-stat mono">final approve / reject · 38 wallets published</div></div>
-        </div>
-        <div class="analyst">
-          <div class="av">?</div>
-          <div class="an-body">
-            <div class="an-name">Your profile <span class="lvl-badge apprentice">I · Apprentice</span></div>
-            <div class="an-stat mono">sign up to claim this seat · 0 XP</div>
-            <div class="xp-bar"><div class="xp-fill" style="width:6%"></div></div>
-          </div>
-        </div>
-        <div class="analyst">
-          <div class="av">✦</div>
-          <div class="an-body">
-            <div class="an-name">Open seat <span class="lvl-badge hunter">II+ · earned</span></div>
-            <div class="an-stat mono">ship approved reports to climb</div>
-            <div class="xp-bar"><div class="xp-fill" style="width:0%"></div></div>
-          </div>
-        </div>
-      </div>
-      <div class="vote-explain">
-        <div class="ve-title mono">How report scoring works</div>
-        <div class="ve-row">
-          <div class="ve-item"><div class="ve-ic up-ic">▲</div><div><b>Upvote</b><span>Recognized analysts vouch for evidence quality.</span></div></div>
-          <div class="ve-item"><div class="ve-ic dn-ic">▼</div><div><b>Downvote</b><span>Flag weak attribution or missing proof.</span></div></div>
-          <div class="ve-item"><div class="ve-ic ok-ic">✓</div><div><b>Maintainer seal</b><span>Final approval before a report goes public.</span></div></div>
-        </div>
-        <div class="mf-note" style="margin-top:14px;text-align:center">Only recognized analysts and the maintainer can approve or reject. Anyone can read every vote, scoring happens in the open.</div>
-      </div>
+<div class="rec-sec-h">THE TRADECRAFT // HOW SCORING WORKS</div>
+<div class="rec-craft">
+  <div class="rec-card up"><div class="ic" style="color:var(--sol)">▲</div><div class="t">Upvote</div><div class="d">Recognized analysts vouch for the evidence quality of a report.</div></div>
+  <div class="rec-card dn"><div class="ic" style="color:var(--red)">▼</div><div class="t">Downvote</div><div class="d">Flag weak attribution or missing proof. Clustering is never certainty.</div></div>
+  <div class="rec-card seal"><div class="ic" style="color:var(--violet)">✓</div><div class="t">Maintainer seal</div><div class="d">Final approval before a report goes public on the registry.</div></div>
+</div>
+<p class="rec-note">Every score is a signed on-chain memo, with no fee to us (only the ~0.000005 SOL network fee). That keeps votes real and attributable instead of free to farm.</p>
 
-      <div class="review-queue">
-        <div class="rq-head mono">Review queue, vote on-chain</div>
-        <div id="review-list"></div>
-        <div class="mf-note" style="margin-top:12px">Each score is a verifiable on-chain action, a signed memo transaction, with no fee paid to us (only the standard ~0.000005 SOL network fee). That keeps votes real and attributable instead of free to farm. The maintainer casts the final seal.</div>
-      </div>
-      <div class="phase-note">⛓ <b>Phase 2:</b> for now, XP and rank are tracked by the maintainer. Next, reputation moves on-chain, a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
+<div class="rec-floor-h">
+  <div class="ttl">REVIEW FLOOR // LIVE CASEWORK</div>
+  <button class="rec-clear" onclick="clearMyDrafts()" title="Remove your local draft submissions from this device">Clear my drafts</button>
+</div>
+<div id="review-list"></div>
+<div class="rec-phase">⛓ <b>Phase 2:</b> reputation moves on-chain, a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
     </div>
   </div>
 </section>
