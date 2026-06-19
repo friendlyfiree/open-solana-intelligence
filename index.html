@@ -580,6 +580,32 @@ body[data-view="graph"]{overflow:hidden}
   .sb-item{padding:8px 10px;font-size:12px}
 }
 </style>
+<style>
+/* ====== REGISTRY / HOME reskin v1: forensic ledger, sharp lines, disciplined green ====== */
+.hero{padding:40px 0 30px;border-bottom:1px solid var(--line)}
+.eyebrow{border-radius:2px;background:transparent;border:1px solid var(--line-bright);color:var(--ink-dim);letter-spacing:.2em;padding:6px 11px;font-size:10px}
+h1 .chain{color:var(--ink)}
+h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2px;background:var(--sol);opacity:.9}
+.creed{letter-spacing:.04em}
+
+.stats{border-radius:0;border-color:var(--line-bright);background:transparent}
+.stat .v{color:var(--ink)}
+.stat .v.sol{color:var(--ink)}
+.stat .k{letter-spacing:.18em}
+
+.companies{gap:10px}
+.co{border-radius:0;background:transparent;border-left:2px solid var(--line-bright)}
+.co:hover{border-color:var(--line-bright);border-left-color:var(--sol)}
+.co.open{border-left-color:var(--sol)}
+.co-top{padding:18px 22px}
+.ticker{border-radius:2px;letter-spacing:.1em;color:var(--ink-dim)}
+.co-fig .amt .n{color:var(--ink)}
+.co-fig .amt .u{letter-spacing:.12em}
+.exp{border-radius:2px}
+.src-badge{border-radius:2px;letter-spacing:.1em}
+.co-summary{background:transparent}
+.rank{letter-spacing:.05em}
+</style>
 </head>
 <body data-view="registry" data-sub="tab-bounties">
 <div class="backdrop"></div>
@@ -2088,7 +2114,7 @@ function showToast(msg){
   function short(a){ return a.slice(0,4)+"\u2026"+a.slice(-4); }
   function ensure(id,label,kind){ if(byId[id]) return byId[id];
     const k=KIND[kind]||KIND.wallet;
-    const n={ id,label,kind, col:k.col, r:k.r||10, x:(Math.random()-.5)*420, y:(Math.random()-.5)*320, vx:0, vy:0, mass:2, pin:false, data:null };
+    const n={ id,label,kind, col:k.col, r:k.r||10, x:(Math.random()-.5)*420, y:(Math.random()-.5)*320, vx:0, vy:0, mass:2, pin:false, ph:Math.random()*6.283, data:null };
     byId[id]=n; nodes.push(n); return n; }
   const infraKind={};
   ENTITIES.forEach(e=>e.custodians.forEach(n=>{ infraKind[n]="custodian"; }));
@@ -2163,7 +2189,7 @@ function showToast(msg){
       if(n.kind==="entity"){
         const rim=n.data.e.source==="community"?"#9945ff":"#14f195";
         ctx.beginPath(); ctx.arc(x,y,n.r,0,7); ctx.fillStyle="#0a1120"; ctx.fill();
-        ctx.lineWidth=2; ctx.strokeStyle=rim; ctx.shadowColor=rim; ctx.shadowBlur=dim?0:14; ctx.stroke(); ctx.shadowBlur=0;
+        ctx.lineWidth=2; ctx.strokeStyle=rim; ctx.shadowColor=rim; ctx.shadowBlur=dim?0:(m?26:14); ctx.stroke(); ctx.shadowBlur=0;
         ctx.beginPath(); ctx.arc(x,y,3.2,0,7); ctx.fillStyle=rim; ctx.fill();
         ctx.globalAlpha=dim?0.2:1;
         ctx.fillStyle="#eaf0ff"; ctx.font="700 12px 'Archivo',sans-serif"; ctx.textAlign="center"; ctx.fillText(n.data.e.ticker,x,y+n.r+15);
@@ -2171,7 +2197,8 @@ function showToast(msg){
       } else {
         const glow=(n===focus)||m;
         ctx.beginPath(); ctx.arc(x,y,n.r,0,7); ctx.fillStyle=n.col;
-        ctx.shadowColor=n.col; ctx.shadowBlur=dim?0:(glow?16:(n.kind==="walletV"?9:5)); ctx.fill(); ctx.shadowBlur=0;
+        ctx.shadowColor=n.col; ctx.shadowBlur=dim?0:(glow?22:(n.kind==="walletV"?9:5)); ctx.fill(); ctx.shadowBlur=0;
+        if(m){ ctx.lineWidth=1.6; ctx.strokeStyle="rgba(20,241,149,.9)"; ctx.stroke(); }
         if(n.kind==="custodian"||n.kind==="validator"||n.kind==="funder"){
           ctx.lineWidth=1.2; ctx.strokeStyle="rgba(255,255,255,.18)"; ctx.stroke();
           if(!dim){ ctx.fillStyle="#8b96b8"; ctx.font="500 9px 'JetBrains Mono',monospace"; ctx.textAlign="center"; ctx.fillText(n.label.toUpperCase(),x,y+n.r+13); } }
@@ -2180,7 +2207,8 @@ function showToast(msg){
     }
   }
   let rafId=0;
-  function loop(){ if(document.body.dataset.view==="graph"){ step(); draw(); } rafId=requestAnimationFrame(loop); }
+  function wander(){ const t=Date.now()/1000; for(const n of nodes){ if(n.pin) continue; n.vx+=Math.cos(t*0.5+n.ph)*0.09; n.vy+=Math.sin(t*0.45+n.ph*1.7)*0.09; } }
+  function loop(){ if(document.body.dataset.view==="graph"){ if(!reduced) wander(); step(); draw(); } rafId=requestAnimationFrame(loop); }
 
   /* ---- interaction ---- */
   function pick(mx,my){ let best=null,bd=22*22;
@@ -2260,7 +2288,8 @@ function showToast(msg){
     if(!stage||!cv) return;
     ctx=cv.getContext("2d"); dossier=document.getElementById("gphDossier");
     inited=true; build(); bind(); measure();
-    if(reduced){ for(let i=0;i<400;i++) step(); draw(); } else { loop(); }
+    if(reduced){ for(let i=0;i<300;i++) step(); }
+    loop();
   }
   window.__initGraph=init;
   window.__graphHide=function(){ if(dossier) dossier.classList.remove("open"); };
