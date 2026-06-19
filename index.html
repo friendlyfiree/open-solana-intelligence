@@ -541,6 +541,45 @@ body[data-view="research"]    section[data-view="research"],
 body[data-view="methodology"] section[data-view="methodology"],
 body[data-view="community"] section[data-view="community"]{display:block}
 </style>
+<style>
+/* ===== PLATFORM TOP BAR (intelligence console) ===== */
+body{padding-left:0;padding-top:54px}
+.sidebar{position:fixed;left:0;right:0;top:0;bottom:auto;width:auto;height:54px;z-index:60;
+  display:flex;flex-direction:row;align-items:center;gap:6px;
+  background:linear-gradient(180deg,rgba(7,11,22,.95),rgba(7,11,22,.82));
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-right:none;border-bottom:1px solid var(--line);padding:0 20px;overflow:visible}
+.sb-brand{padding:0 16px 0 0;margin:0 12px 0 0;border-bottom:none;border-right:1px solid var(--line);flex-shrink:0}
+.sb-brand .sb-name{font-size:13px;letter-spacing:.02em}
+.sb-brand .sb-tag{letter-spacing:.16em}
+.sb-nav{flex-direction:row;gap:2px;flex-shrink:0;align-items:center}
+.sb-item{padding:8px 13px;font-size:13px;white-space:nowrap;border-radius:8px}
+.sb-item .sb-c{margin-left:8px}
+body[data-view="registry"] .sb-item[data-view="registry"],
+body[data-view="research"] .sb-item[data-view="research"],
+body[data-view="methodology"] .sb-item[data-view="methodology"],
+body[data-view="graph"] .sb-item[data-view="graph"],
+body[data-view="community"] .sb-item[data-view="community"]{
+  background:rgba(20,241,149,.08);color:var(--sol);box-shadow:inset 0 -2px 0 var(--sol)}
+.sb-board{display:none!important}
+.sb-subnav{display:none!important}
+.sb-foot{margin:0 0 0 auto;padding:0;border-top:none;flex-direction:row;align-items:center;gap:10px;flex-shrink:0}
+.sb-foot .sb-mini{display:none}
+.sb-foot .wallet-btn{width:auto;padding:7px 13px}
+
+/* ===== GRAPH (Network) VIEW ===== */
+section[data-view="graph"]{display:none}
+body[data-view="graph"] section[data-view="graph"]{display:block}
+body[data-view="graph"]{overflow:hidden}
+#graph-view{padding:0;max-width:none}
+
+@media(max-width:680px){
+  .sb-brand .sb-id{display:none}
+  .sb-brand{padding-right:10px;margin-right:8px}
+  .sb-item .sb-c{display:none}
+  .sb-item{padding:8px 10px;font-size:12px}
+}
+</style>
 </head>
 <body data-view="registry" data-sub="tab-bounties">
 <div class="backdrop"></div>
@@ -556,6 +595,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
   </div>
   <nav class="sb-nav" role="tablist" aria-label="Sections">
     <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span class="sb-ic">▣</span><span>Registry</span><span class="sb-c" id="vc-co">3</span></button>
+    <button class="sb-item" data-view="graph" role="tab" onclick="showView('graph')"><span class="sb-ic">🕸️</span><span>Network</span></button>
     <button class="sb-item" data-view="research" role="tab" onclick="showView('research')"><span class="sb-ic">🕵️</span><span>Investigations</span><span class="sb-c" id="vc-cases">2</span></button>
     <button class="sb-item" data-view="methodology" role="tab" onclick="showView('methodology')"><span class="sb-ic">🔬</span><span>Methodology</span></button>
     <button class="sb-item" data-view="community" role="tab" onclick="showView('community')"><span class="sb-ic">✦</span><span>Community</span></button>
@@ -630,6 +670,91 @@ body[data-view="community"] section[data-view="community"]{display:block}
     </div>
     <div class="companies" id="companies"></div>
   </div>
+</section>
+
+<section class="sec" data-view="graph" id="graph-view">
+<style>
+.gphwrap{position:relative}
+.gph-head{display:flex;align-items:center;gap:16px;padding:13px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.gph-h-id{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--ink-faint)}
+.gph-h-id b{color:var(--sol);font-weight:600}
+.gph-q{display:flex;align-items:center;gap:10px;margin-left:auto;background:var(--bg-card);border:1px solid var(--line-bright);border-radius:10px;padding:9px 13px;min-width:min(380px,60vw)}
+.gph-q:focus-within{border-color:rgba(20,241,149,.45)}
+.gph-q span{font-family:'JetBrains Mono',monospace;color:var(--sol);font-size:11px;font-weight:700;letter-spacing:.08em;white-space:nowrap}
+.gph-q input{flex:1;background:none;border:0;outline:0;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px}
+.gph-q input::placeholder{color:var(--ink-faint)}
+.gph-stage{position:relative;width:100%;height:calc(100vh - 54px - 58px);min-height:460px;overflow:hidden}
+#gphCanvas{position:absolute;inset:0;display:block;cursor:grab}
+#gphCanvas.drag{cursor:grabbing}
+.gph-hint{position:absolute;left:50%;top:13px;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--ink-faint);pointer-events:none;background:rgba(8,12,22,.45);padding:4px 12px;border-radius:20px}
+.gph-legend{position:absolute;left:20px;bottom:18px;display:grid;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--ink-dim);background:rgba(8,12,22,.5);border:1px solid var(--line);border-radius:10px;padding:11px 13px;backdrop-filter:blur(4px);pointer-events:none}
+.gph-legend .t{color:var(--ink-faint);font-size:9px;letter-spacing:.22em;margin-bottom:2px}
+.gph-legend .lg{display:flex;align-items:center;gap:8px}
+.gph-legend .d{width:8px;height:8px;border-radius:50%}
+.gph-coords{position:absolute;right:20px;bottom:18px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--ink-faint);line-height:1.7;pointer-events:none}
+.gph-coords b{color:var(--ink-dim);font-weight:500}
+.gph-tip{position:fixed;z-index:70;pointer-events:none;opacity:0;transition:opacity .12s;background:rgba(8,12,22,.96);border:1px solid var(--line-bright);border-radius:8px;padding:8px 11px;font-family:'JetBrains Mono',monospace;font-size:11px;max-width:250px}
+.gph-tip.on{opacity:1}
+.gph-tip .a{color:var(--ink);word-break:break-all}
+.gph-tip .b{color:var(--ink-faint);font-size:9px;letter-spacing:.1em;margin-top:3px}
+.gph-dossier{position:absolute;top:0;right:0;bottom:0;width:min(400px,92%);background:linear-gradient(180deg,var(--bg-raised),var(--bg));border-left:1px solid var(--line-bright);box-shadow:-30px 0 60px -30px #000;transform:translateX(102%);transition:transform .4s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;z-index:20}
+.gph-dossier.open{transform:translateX(0)}
+.gph-dtop{padding:17px 19px 13px;border-bottom:1px solid var(--line)}
+.gph-dtag{display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;color:var(--ink-faint)}
+.gph-dx{cursor:pointer;color:var(--ink-dim);font-size:15px;border:1px solid var(--line-bright);border-radius:6px;width:24px;height:24px;display:grid;place-items:center;line-height:1}
+.gph-dx:hover{color:var(--ink)}
+.gph-dkind{margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em}
+.gph-dname{font-family:'Archivo',sans-serif;font-weight:800;font-size:22px;margin-top:5px;line-height:1.1;word-break:break-word}
+.gph-dsub{margin-top:5px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim)}
+.gph-dbody{padding:15px 19px 24px;overflow:auto}
+.gph-r{display:flex;justify-content:space-between;gap:14px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}
+.gph-r .k{color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em}
+.gph-r .v{color:var(--ink);text-align:right;word-break:break-word}
+.gph-bar{height:7px;border-radius:6px;background:#16203a;margin-top:9px;overflow:hidden;position:relative}
+.gph-bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--sol-deep),var(--sol))}
+.gph-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.gph-chip{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 9px;border-radius:20px;border:1px solid var(--line-bright);color:var(--ink-dim)}
+.gph-chip.c{border-color:rgba(153,69,255,.4);color:#c6a0ff}
+.gph-chip.v{border-color:rgba(34,211,238,.4);color:#a8eef5}
+.gph-chip.f{border-color:rgba(255,178,74,.4);color:#ffd49a}
+.gph-note{margin-top:13px;font-size:11.5px;line-height:1.6;color:var(--ink-dim)}
+.gph-smoke{margin-top:13px;border:1px solid rgba(255,178,74,.35);border-radius:10px;padding:11px 12px;background:rgba(255,178,74,.06)}
+.gph-smoke .h{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;color:#ffb24a}
+.gph-smoke .b{font-size:12px;color:var(--ink);margin-top:5px;line-height:1.5}
+.gph-cta{margin-top:16px;display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--bg);background:var(--sol);border:0;border-radius:9px;padding:10px 14px;cursor:pointer;font-weight:700}
+.gph-cta:hover{background:var(--sol-deep)}
+@media(max-width:680px){ .gph-q{min-width:0;width:100%;margin:0} .gph-legend{display:none} .gph-stage{height:calc(100vh - 54px - 104px)} }
+</style>
+<div class="gphwrap">
+  <div class="gph-head">
+    <div class="gph-h-id">LINK ANALYSIS // <b>INSTITUTIONAL FLOW</b> // 51 NODES &middot; 53 LINKS</div>
+    <div class="gph-q"><span>QUERY //</span><input id="gphQ" autocomplete="off" spellcheck="false" placeholder="filter: entity, wallet, custodian, validator, funder"></div>
+  </div>
+  <div class="gph-stage" id="gphStage">
+    <canvas id="gphCanvas"></canvas>
+    <div class="gph-hint">drag nodes &middot; click a node for its case file &middot; type to pivot the board</div>
+    <div class="gph-legend">
+      <div class="t">EVIDENCE KEY</div>
+      <div class="lg"><span class="d" style="background:#fff"></span>tracked entity</div>
+      <div class="lg"><span class="d" style="background:var(--sol);box-shadow:0 0 7px var(--sol)"></span>verified link</div>
+      <div class="lg"><span class="d" style="background:#2f6b53"></span>attributed wallet</div>
+      <div class="lg"><span class="d" style="background:var(--violet)"></span>custodian</div>
+      <div class="lg"><span class="d" style="background:var(--cyan)"></span>validator</div>
+      <div class="lg"><span class="d" style="background:#ffb24a"></span>funding source</div>
+    </div>
+    <div class="gph-coords" id="gphCoords">GRID <b id="gphGX">00.00</b> / <b id="gphGY">00.00</b><br><span style="color:var(--sol-deep)">TRACE ACTIVE</span></div>
+    <aside class="gph-dossier" id="gphDossier">
+      <div class="gph-dtop">
+        <div class="gph-dtag"><span>CASE FILE // <span id="gphDId">STANDBY</span></span><span class="gph-dx" id="gphDX">&times;</span></div>
+        <div class="gph-dkind" id="gphDKind"></div>
+        <div class="gph-dname" id="gphDName"></div>
+        <div class="gph-dsub" id="gphDSub"></div>
+      </div>
+      <div class="gph-dbody" id="gphDBody"></div>
+    </aside>
+    <div class="gph-tip" id="gphTip"><div class="a" id="gphTipA"></div><div class="b" id="gphTipB"></div></div>
+  </div>
+</div>
 </section>
 
 <section class="sec" id="how" data-view="methodology">
@@ -1035,6 +1160,7 @@ body[data-view="community"] section[data-view="community"]{display:block}
     </div>
   </div>
 </div>
+<script src="config.js"></script>
 <script src="data.js"></script>
 <script>
 // RPC endpoints, Helius (fast & reliable, primary), public RPC as automatic fallback.
@@ -1265,10 +1391,22 @@ function voterId(){ let v = lsGet('stw_voter', null); if(!v){ v = 'v_' + Math.ra
 // honest default). Fill them in (Supabase dashboard → Settings → API) to
 // make Wallet Requests + their upvotes GLOBAL, shared across every visitor.
 // Run the setup SQL first. Any failure falls back to local automatically.
-const SUPABASE_URL = "https://afibxpniwfnavdobecrn.supabase.co";        // e.g. https://YOURPROJECT.supabase.co
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmaWJ4cG5pd2ZuYXZkb2JlY3JuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODEzNjcsImV4cCI6MjA5NzI1NzM2N30.GoliRN3wYwl6I7UreUiQM8ulCYYNPJF2Dy6joRlavNs";   // the public "anon" key (safe to expose)
+// URL + public key now live in config.js (a tiny file you can edit safely,
+// without ever touching this large file). If config.js is missing, the app
+// quietly runs in local-only mode instead of erroring.
+const SUPABASE_URL = (window.OSI_SUPABASE_URL || "https://afibxpniwfnavdobecrn.supabase.co");
+const SUPABASE_ANON_KEY = (window.OSI_SUPABASE_KEY || "");
 const SUPA_ON = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
-function supaHeaders(extra){ return Object.assign({ apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, extra || {}); }
+let SUPA_AUTH_TOKEN = null;   // set when a maintainer signs in; the public uses null
+function supaHeaders(extra){
+  const h = { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+  // A signed-in maintainer sends their session token on Authorization.
+  // Otherwise a legacy (eyJ...) key also goes on Authorization, but a new
+  // sb_publishable_ key must NOT (the gateway rejects a non-JWT Bearer value).
+  if(SUPA_AUTH_TOKEN) h.Authorization = 'Bearer ' + SUPA_AUTH_TOKEN;
+  else if(/^eyJ/.test(SUPABASE_ANON_KEY)) h.Authorization = 'Bearer ' + SUPABASE_ANON_KEY;
+  return Object.assign(h, extra || {});
+}
 async function supaGet(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: supaHeaders() }); if(!r.ok) throw new Error('supa get ' + r.status); return r.json(); }
 async function supaPost(table, row){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + table, { method: 'POST', headers: supaHeaders({ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if(!r.ok && r.status !== 409) throw new Error('supa post ' + r.status); return true; }
 async function supaDelete(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { method: 'DELETE', headers: supaHeaders() }); if(!r.ok) throw new Error('supa del ' + r.status); return true; }
@@ -1469,6 +1607,8 @@ function renderCaseStudies(){
 const VIEW_OF = { registry:'registry', how:'methodology', methodology:'methodology', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
   document.body.dataset.view = v;
+  if(v==='graph'){ if(window.__initGraph) window.__initGraph(); }
+  else if(window.__graphHide){ window.__graphHide(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function goSection(id){
@@ -1884,6 +2024,248 @@ function showToast(msg){
   clearTimeout(t._hideTimer);
   t._hideTimer = setTimeout(()=>{ t.style.opacity = "0"; }, 2600);
 }
+</script>
+<script>
+(function(){
+  if(window.__graphSetup) return; window.__graphSetup=true;
+
+  /* ---- REAL attribution data (snapshot from the registry, nothing invented) ---- */
+  const ENTITIES=[
+    { id:"forward-industries", name:"Forward Industries", ticker:"FORD", ex:"NASDAQ",
+      declared:6900000, source:"community",
+      custodians:["Coinbase Prime","Fireblocks"], validators:[], funders:[],
+      summary:"The largest public Solana treasury. 25 addresses across Coinbase Prime and Fireblocks custody plus dedicated stake accounts. Community-aggregated and cross-checked, not first-party attribution.",
+      wallets:[
+        ["FYPQEy1hPa5owwLRPrRDDE6AWZKXusufwaCGe72pLXvj","Coinbase Prime"],["7d4ZhfBRamc2szcuHbVGYbuKFNfjZoKeXm2S3JC2uXeP","Coinbase Prime"],
+        ["DrUaDcRmjVhuEoTNExydnVWisu6wwTWoe8f5DVJZJ5Bh","Coinbase Prime"],["96LHAJCo1AaKQKmRXAQ2pWDTRz7v7qWSiSRziEzXPkeR","Coinbase Prime"],
+        ["5tsTE13chYaj2AtakSyfxrMFuGRxLowXLbnpkJk6W3Y","Coinbase Prime"],["HTqfGde83HAGquU9JbfX8CkwaR56AELrrdu4X6aHCk2y","Coinbase Prime"],
+        ["EuHYgyQwp1M1D155jJRtSnpnw8Rf1mTKVFqAWvk4DBeT","Coinbase Prime"],["4PTib8Hv9T6DmtYVNjFKPSd6hTJXVxQ8VSADvTYvxqF1","Coinbase Prime"],
+        ["2RoTFMkfrzryYqkt3feBA5UaxAwvEWkoCzg1NUG8XnFV","Coinbase Prime"],["5wjSnZti7gXdFwMRKSGCx3pTaR111tby33VZ1JYm2c4g","Coinbase Prime"],
+        ["B6dtH1n1n7xCAyneSYM8GJTDdzm4ZHwr3Yt79h1xbiak","Coinbase Prime"],["Gft3xmznZdiMeSDz9m6MpBZCs4Gghk6Vj5pm4HgcsuKb","Fireblocks"],
+        ["5AYVHr45axSVr3Nw314PFcEY87cUG6iPiBbaiDAu5NYp","Fireblocks"],["3sDXAL3ojojK4znGuZJYL4bdMTXd9c5N4nSULAjgQJ6j","Fireblocks"],
+        ["26de9hfRYYCmGrGkYb8z48yDd49UZeXfXei6ms39azzY","Fireblocks"],["9mZyj53THUNMiCSUEzaDSo4oc42XUbbAJzYDwu4YF71U","Stake account"],
+        ["6W72bUKNUcrNhTE13x7PbXuaUDUy8pTkKhofA6JaQ7Fp","Stake account"],["5kuumvgSX6GFgEvWsRw1NXJhggAXKp1TRRXVRfrueifD","Stake account"],
+        ["2rCQCiAWqh5qZU6eLVfmwyk8K1rZaZ6GEabxPMbS2FbT","Stake account"],["ByDgEPVKudwLBHFYYhzq1khCWKHBNQfZVJD1L7gMQkw7","Stake account"],
+        ["HNhYTNCXgaskLRV2Zh6gVmTHSokKj19XcXsEsU2hKMqk","Stake account"],["Eqo5ep3A6A1kng6AybSvG1BExwGp48TbP6HymWupCTe7","Stake account"],
+        ["Foa3XmYxiFRsptJKPovTz8v1Mg4ZdgtHneTxRifK6WrN","Stake account"],["GTw9vw39HEVUJTbzJkstghpNyS3XDSXf6rKfX4QpsPVc","Stake account"],
+        ["4ZB8dPDb6V8cces72dYKQqiyewontUdXqPbFCJ9qQaUr","Fundraise"]
+      ]},
+    { id:"solana-company", name:"Solana Company", ticker:"HSDT", ex:"NASDAQ",
+      declared:2300000, source:"independent",
+      custodians:["Coinbase Prime","Anchorage Digital","BitGo"], validators:["Helius","Twinstake"],
+      funders:["Solana Foundation","FalconX"],
+      summary:"Formerly Helius Medical. A treasury wallet received 999,999 SOL directly from a Solana Foundation non-circulating-supply wallet, one day before the discount agreement was public. Dual-validator staking and a Coinbase-funded deposit cluster.",
+      wallets:[
+        ["7kBQy7e14gW4CJ9BNBHhrxoHFtBthBmZyUWcuSCKkVEY","Primary, Foundation transfer","verified"],
+        ["9ggSjgTeNnvSGQYmMQJ1TwjiRmUFGCFfdUG54Gg2QCe3","Helius + Twinstake stake"],
+        ["BsnXPFsKpXSoHq5LLg2MhEhiyLwbx8h6fbemsm6gKeuo","Shared deposit cluster"],
+        ["98k8sDazxJbdvb6ENaapRmamyZoCDJY5FZjvakMfrL8X","Shared deposit cluster"],
+        ["Nw5Trj8i5jKzuJufc9iNp5azTYtk8pnAc2yhsm6BqRv","Shared deposit cluster"],
+        ["AMTdpu1npRe16Mkr9Wnz8uNyHN7oQ5xSzCcv4tt49zkK","Shared deposit cluster"],
+        ["BPA6SSHNWAVgr4RNxEUQUmMyejS71Jvkv1nF3Lpi8Lqj","Shared deposit cluster"],
+        ["DAtyhwj3AExisi2FS3Jw4ZU4Pq5PvATJ6fHzgsadzMHF","Helius stake (300K SOL)"]
+      ]},
+    { id:"sharps-technology", name:"Sharps Technology", ticker:"STSS", ex:"NASDAQ",
+      declared:2000000, source:"independent",
+      custodians:["Coinbase Prime"], validators:["Jupiter","Chorus One","Anchorage Digital"],
+      funders:["FalconX"],
+      summary:"Raised $400M+ to build a Solana treasury. Six addresses under Coinbase Prime custody, staked across Jupiter, Chorus One and Anchorage. 1,253,407 SOL traced from the filings.",
+      wallets:[
+        ["HHSNLApE2Txh6U2p2QsmfocE2fzoBk9fY5Vir9ndHM23","Coinbase Prime (primary)"],
+        ["5tfHZEKdQFTEfYCNoGYbV8Sq6vfmCS83sVADFUSrTBE","Coinbase Prime, Jupiter"],
+        ["72aSNbcPea1QN7NbxmEuQqDmBVowZpvFi1AvNdUekX5C","Cluster A, Jupiter"],
+        ["DGVxn3q4TNFvDUXDHzM8gSTcYDNaqNmZ1vBkTiU4zCoX","Cluster C, Chorus One / Anchorage"],
+        ["4vvMe3mYNHrNb3rwZiqCWh3QCbTi6DaLN2NHbDxgSHM5","Cluster C, Anchorage"]
+      ]}
+  ];
+  const SMOKING={ wallet:"7kBQy7e14gW4CJ9BNBHhrxoHFtBthBmZyUWcuSCKkVEY", from:"Solana Foundation", amount:"999,999 SOL" };
+  const TRACED={ "sharps-technology":1253407, "solana-company":3000000 };
+
+  /* ---- build nodes + edges ---- */
+  const KIND={ entity:{col:"#eaf0ff",r:0}, wallet:{col:"#2f6b53",r:5}, walletV:{col:"#14f195",r:6.5},
+    custodian:{col:"#9945ff",r:11}, validator:{col:"#22d3ee",r:10}, funder:{col:"#ffb24a",r:11} };
+  const nodes=[], edges=[], byId={};
+  function short(a){ return a.slice(0,4)+"\u2026"+a.slice(-4); }
+  function ensure(id,label,kind){ if(byId[id]) return byId[id];
+    const k=KIND[kind]||KIND.wallet;
+    const n={ id,label,kind, col:k.col, r:k.r||10, x:(Math.random()-.5)*420, y:(Math.random()-.5)*320, vx:0, vy:0, mass:2, pin:false, data:null };
+    byId[id]=n; nodes.push(n); return n; }
+  const infraKind={};
+  ENTITIES.forEach(e=>e.custodians.forEach(n=>{ infraKind[n]="custodian"; }));
+  ENTITIES.forEach(e=>e.funders.forEach(n=>{ if(!infraKind[n]) infraKind[n]="funder"; }));
+  ENTITIES.forEach(e=>e.validators.forEach(n=>{ if(!infraKind[n]) infraKind[n]="validator"; }));
+  const ROLE={ custodian:"Custodian", validator:"Validator", funder:"Funding source" };
+
+  function build(){
+    ENTITIES.forEach((e,i)=>{
+      const en=ensure("E:"+e.id, e.name, "entity");
+      en.r=17+Math.sqrt(e.declared/1e6)*7; en.mass=9; en.data={ type:"entity", e };
+      const ang=-Math.PI/2 + i*(2*Math.PI/ENTITIES.length);
+      en.x=Math.cos(ang)*240; en.y=Math.sin(ang)*150;
+      e.wallets.forEach((w,wi)=>{
+        const ver=w[2]==="verified";
+        const wn=ensure("W:"+w[0], short(w[0]), ver?"walletV":"wallet");
+        wn.mass=1.4; wn.data={ type:"wallet", addr:w[0], wtype:w[1], verified:ver, parent:e };
+        wn.x=en.x+Math.cos(wi)*70+(Math.random()-.5)*40; wn.y=en.y+Math.sin(wi)*70+(Math.random()-.5)*40;
+        edges.push({ a:en, b:wn, col:ver?"rgba(20,241,149,.5)":"rgba(90,120,110,.28)", len:70, w:ver?1.4:0.7 });
+      });
+      e.custodians.forEach(c=>{ const cn=ensure("I:"+c,c,infraKind[c]); cn.data={type:"infra",role:ROLE[infraKind[c]],name:c};
+        edges.push({ a:en, b:cn, col:"rgba(153,69,255,.4)", len:165, w:1.1 }); });
+      e.validators.forEach(v=>{ const vn=ensure("I:"+v,v,infraKind[v]); vn.data={type:"infra",role:ROLE[infraKind[v]],name:v};
+        edges.push({ a:en, b:vn, col:"rgba(34,211,238,.38)", len:160, w:1 }); });
+      e.funders.forEach(f=>{ const fn=ensure("I:"+f,f,infraKind[f]); fn.data={type:"infra",role:ROLE[infraKind[f]],name:f};
+        edges.push({ a:en, b:fn, col:"rgba(255,178,74,.4)", len:175, w:1.1 }); });
+    });
+    const f=byId["I:Solana Foundation"], w=byId["W:"+SMOKING.wallet];
+    if(f&&w) edges.push({ a:f, b:w, col:"rgba(255,178,74,.85)", len:120, w:2.2, special:true });
+  }
+
+  /* ---- canvas, sized to its container ---- */
+  let cv,ctx,stage,dossier,W=0,H=0,DPR=Math.min(window.devicePixelRatio||1,2);
+  function measure(){ if(!stage) return; const r=stage.getBoundingClientRect();
+    W=Math.max(320,r.width); H=Math.max(360,r.height);
+    cv.width=W*DPR; cv.height=H*DPR; cv.style.width=W+"px"; cv.style.height=H+"px"; ctx.setTransform(DPR,0,0,DPR,0,0); }
+  function CX(){ return W/2; } function CY(){ return H*0.52; }
+  function SX(n){ return CX()+n.x; } function SY(n){ return CY()+n.y; }
+
+  /* ---- force sim ---- */
+  const REPULSE=2600, SPRING=0.018, CENTER=0.0022, DAMP=0.9, VMAX=6;
+  let hot=null, q="";
+  const reduced=(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)||false;
+  function step(){
+    for(let i=0;i<nodes.length;i++){ const a=nodes[i];
+      for(let j=i+1;j<nodes.length;j++){ const b=nodes[j];
+        let dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy+0.01; if(d2>120000) continue;
+        const f=Math.min(REPULSE/d2,4), d=Math.sqrt(d2), fx=dx/d*f, fy=dy/d*f;
+        a.vx+=fx/a.mass; a.vy+=fy/a.mass; b.vx-=fx/b.mass; b.vy-=fy/b.mass; } }
+    for(const e of edges){ let dx=e.b.x-e.a.x, dy=e.b.y-e.a.y, d=Math.sqrt(dx*dx+dy*dy)+0.01;
+      const diff=(d-e.len)/d*SPRING, fx=dx*diff, fy=dy*diff;
+      e.a.vx+=fx/e.a.mass; e.a.vy+=fy/e.a.mass; e.b.vx-=fx/e.b.mass; e.b.vy-=fy/e.b.mass; }
+    for(const n of nodes){ n.vx+=(-n.x)*CENTER; n.vy+=(-n.y)*CENTER; n.vx*=DAMP; n.vy*=DAMP;
+      n.vx=Math.max(-VMAX,Math.min(VMAX,n.vx)); n.vy=Math.max(-VMAX,Math.min(VMAX,n.vy));
+      if(!n.pin){ n.x+=n.vx; n.y+=n.vy; } }
+  }
+  function matches(n){ if(!q) return null;
+    const d=n.data, s=(n.label+" "+(d&&(d.wtype||d.name||(d.e&&(d.e.ticker+" "+d.e.name)))||"")).toLowerCase();
+    return s.indexOf(q)>=0; }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const focus=hot, near=new Set();
+    if(focus){ near.add(focus); for(const e of edges){ if(e.a===focus) near.add(e.b); if(e.b===focus) near.add(e.a); } }
+    for(const e of edges){ const x1=SX(e.a),y1=SY(e.a),x2=SX(e.b),y2=SY(e.b);
+      let on=!focus||(near.has(e.a)&&near.has(e.b)); if(q) on=on&&(matches(e.a)||matches(e.b));
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineWidth=e.w; ctx.strokeStyle=on?e.col:"rgba(60,80,120,.07)";
+      if(e.special&&on){ const t=(Math.sin(Date.now()/420)+1)/2; ctx.strokeStyle="rgba(255,178,74,"+(0.5+0.45*t)+")"; ctx.lineWidth=1.6+1.4*t; ctx.shadowColor="rgba(255,178,74,.7)"; ctx.shadowBlur=10; }
+      ctx.stroke(); ctx.shadowBlur=0; }
+    for(const n of nodes){ const x=SX(n),y=SY(n);
+      let m=q?matches(n):null; const dim=(focus&&!near.has(n))||(q&&!m);
+      ctx.globalAlpha=dim?0.16:1;
+      if(n.kind==="entity"){
+        const rim=n.data.e.source==="community"?"#9945ff":"#14f195";
+        ctx.beginPath(); ctx.arc(x,y,n.r,0,7); ctx.fillStyle="#0a1120"; ctx.fill();
+        ctx.lineWidth=2; ctx.strokeStyle=rim; ctx.shadowColor=rim; ctx.shadowBlur=dim?0:14; ctx.stroke(); ctx.shadowBlur=0;
+        ctx.beginPath(); ctx.arc(x,y,3.2,0,7); ctx.fillStyle=rim; ctx.fill();
+        ctx.globalAlpha=dim?0.2:1;
+        ctx.fillStyle="#eaf0ff"; ctx.font="700 12px 'Archivo',sans-serif"; ctx.textAlign="center"; ctx.fillText(n.data.e.ticker,x,y+n.r+15);
+        ctx.fillStyle="#5a6488"; ctx.font="500 8.5px 'JetBrains Mono',monospace"; ctx.fillText((n.data.e.declared/1e6).toFixed(1)+"M DECLARED",x,y+n.r+27);
+      } else {
+        const glow=(n===focus)||m;
+        ctx.beginPath(); ctx.arc(x,y,n.r,0,7); ctx.fillStyle=n.col;
+        ctx.shadowColor=n.col; ctx.shadowBlur=dim?0:(glow?16:(n.kind==="walletV"?9:5)); ctx.fill(); ctx.shadowBlur=0;
+        if(n.kind==="custodian"||n.kind==="validator"||n.kind==="funder"){
+          ctx.lineWidth=1.2; ctx.strokeStyle="rgba(255,255,255,.18)"; ctx.stroke();
+          if(!dim){ ctx.fillStyle="#8b96b8"; ctx.font="500 9px 'JetBrains Mono',monospace"; ctx.textAlign="center"; ctx.fillText(n.label.toUpperCase(),x,y+n.r+13); } }
+      }
+      ctx.globalAlpha=1;
+    }
+  }
+  let rafId=0;
+  function loop(){ if(document.body.dataset.view==="graph"){ step(); draw(); } rafId=requestAnimationFrame(loop); }
+
+  /* ---- interaction ---- */
+  function pick(mx,my){ let best=null,bd=22*22;
+    for(const n of nodes){ const dx=SX(n)-mx, dy=SY(n)-my, d=dx*dx+dy*dy, rr=(n.r+8)*(n.r+8); if(d<rr&&d<bd){ bd=d; best=n; } }
+    return best; }
+  let dragNode=null, downAt=null;
+  function bind(){
+    const tip=document.getElementById("gphTip");
+    cv.addEventListener("mousemove", e=>{
+      const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+      const gx=document.getElementById("gphGX"), gy=document.getElementById("gphGY");
+      if(gx) gx.textContent=((mx-CX())/10).toFixed(2); if(gy) gy.textContent=((my-CY())/10).toFixed(2);
+      if(dragNode){ dragNode.x=mx-CX(); dragNode.y=my-CY(); dragNode.vx=dragNode.vy=0; return; }
+      const n=pick(mx,my); hot=n; cv.style.cursor=n?"pointer":"grab";
+      if(n){ tip.classList.add("on"); tip.style.left=(e.clientX+14)+"px"; tip.style.top=(e.clientY+14)+"px";
+        let a,b; const d=n.data;
+        if(d.type==="entity"){ a=d.e.name+" \u00b7 "+d.e.ticker; b=(d.e.declared/1e6).toFixed(1)+"M SOL DECLARED \u00b7 "+d.e.wallets.length+" WALLETS"; }
+        else if(d.type==="wallet"){ a=d.addr; b=(d.verified?"VERIFIED \u00b7 ":"")+d.wtype.toUpperCase(); }
+        else { a=d.name; b=d.role.toUpperCase(); }
+        document.getElementById("gphTipA").textContent=a; document.getElementById("gphTipB").textContent=b;
+      } else tip.classList.remove("on");
+    });
+    cv.addEventListener("mousedown", e=>{ const r=cv.getBoundingClientRect(); const n=pick(e.clientX-r.left,e.clientY-r.top);
+      downAt={x:e.clientX,y:e.clientY}; if(n){ dragNode=n; n.pin=true; } cv.classList.add("drag"); });
+    window.addEventListener("mouseup", e=>{ cv.classList.remove("drag");
+      if(dragNode){ const moved=downAt&&(Math.abs(e.clientX-downAt.x)+Math.abs(e.clientY-downAt.y))>6; dragNode.pin=false; if(!moved) openDossier(dragNode); dragNode=null; } });
+    cv.addEventListener("touchstart", e=>{ const t=e.touches[0], r=cv.getBoundingClientRect(); const n=pick(t.clientX-r.left,t.clientY-r.top); if(n){ hot=n; openDossier(n); } }, {passive:true});
+    const qi=document.getElementById("gphQ"); if(qi) qi.addEventListener("input", e=>{ q=e.target.value.trim().toLowerCase(); });
+    const dx=document.getElementById("gphDX"); if(dx) dx.addEventListener("click", ()=> dossier.classList.remove("open"));
+    window.addEventListener("resize", ()=>{ if(inited){ measure(); if(reduced) draw(); } });
+  }
+
+  /* ---- dossier ---- */
+  function rows(arr){ return arr.map(r=>'<div class="gph-r"><span class="k">'+r[0]+'</span><span class="v">'+r[1]+'</span></div>').join(''); }
+  function chipBlock(title,arr,cls){ return '<div style="margin-top:13px"><div style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;color:var(--ink-faint);letter-spacing:.18em">'+title+'</div><div class="gph-chips">'+arr.map(a=>'<span class="gph-chip '+cls+'">'+a+'</span>').join('')+'</div></div>'; }
+  function openDossier(n){
+    const d=n.data; let kind,name,sub,idtag,body="";
+    if(d.type==="entity"){ const e=d.e; idtag=e.ticker;
+      kind='<span style="color:'+(e.source==='community'?'var(--violet)':'var(--sol)')+'">'+(e.source==='community'?'\u25c8 COMMUNITY-SOURCED':'\u25c6 ORIGINAL ATTRIBUTION')+'</span>';
+      name=e.name; sub=e.ex+": "+e.ticker;
+      body+=rows([["DECLARED", e.declared.toLocaleString()+" SOL"]]);
+      const tr=TRACED[e.id];
+      if(tr){ const pct=Math.min(100,Math.round(tr/e.declared*100));
+        body+='<div class="gph-r"><span class="k">TRACED ON-CHAIN</span><span class="v">'+tr.toLocaleString()+' SOL</span></div><div class="gph-bar"><i style="width:'+pct+'%"></i></div><div style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;color:var(--ink-faint);letter-spacing:.1em;margin-top:7px">'+pct+'% OF DECLARED ATTRIBUTED</div>'; }
+      body+=rows([["WALLETS MAPPED", e.wallets.length]]);
+      if(e.custodians.length) body+=chipBlock("CUSTODY FINGERPRINT", e.custodians, "c");
+      if(e.validators.length) body+=chipBlock("STAKING", e.validators, "v");
+      if(e.funders.length) body+=chipBlock("FUNDING TRACE", e.funders, "f");
+      body+='<div class="gph-note">'+e.summary+'</div>';
+    } else if(d.type==="wallet"){ idtag=short(d.addr);
+      kind=d.verified?'<span style="color:var(--sol)">\u25c9 VERIFIED ON-CHAIN LINK</span>':'<span style="color:#7fd9b0">\u25cb ATTRIBUTED ADDRESS</span>';
+      name=short(d.addr); sub=d.parent.name+" \u00b7 "+d.parent.ticker;
+      body+='<div class="gph-r"><span class="k">ADDRESS</span><span class="v" style="font-size:10.5px">'+d.addr+'</span></div>';
+      body+=rows([["ROLE", d.wtype],["CONTROLLED BY", d.parent.name],["CONFIDENCE", d.verified?"VERIFIED":"HIGH"]]);
+      if(d.verified) body+='<div class="gph-smoke"><div class="h">\u2316 SMOKING GUN</div><div class="b">Received <b>'+SMOKING.amount+'</b> directly from a <b>Solana Foundation</b> non-circulating-supply wallet, one day before the discount agreement was public.</div></div>';
+      body+='<button class="gph-cta" onclick="window.open(\'https://solscan.io/account/'+d.addr+'\',\'_blank\')">OPEN ON SOLSCAN \u2192</button>';
+    } else { idtag=d.name.slice(0,12).toUpperCase();
+      const c=d.role==="Custodian"?"var(--violet)":d.role==="Validator"?"var(--cyan)":"#ffb24a";
+      kind='<span style="color:'+c+'">'+d.role.toUpperCase()+'</span>'; name=d.name; sub="INSTITUTIONAL INFRASTRUCTURE";
+      const linked=ENTITIES.filter(e=> e.custodians.indexOf(d.name)>=0||e.validators.indexOf(d.name)>=0||e.funders.indexOf(d.name)>=0).map(e=>e.ticker);
+      body+=rows([["APPEARS ACROSS", linked.length+" ENTIT"+(linked.length>1?"IES":"Y")]]);
+      body+=chipBlock("LINKED ENTITIES", linked, d.role==="Custodian"?"c":d.role==="Validator"?"v":"f");
+      body+='<div class="gph-note">'+(linked.length>1?'A shared '+d.role.toLowerCase()+' across multiple treasuries. Common infrastructure is exactly the fingerprint the attribution method clusters on.':'Infrastructure node linked to one tracked entity.')+'</div>';
+    }
+    document.getElementById("gphDId").textContent=idtag;
+    document.getElementById("gphDKind").innerHTML=kind;
+    document.getElementById("gphDName").textContent=name;
+    document.getElementById("gphDSub").textContent=sub;
+    document.getElementById("gphDBody").innerHTML=body;
+    dossier.classList.add("open");
+  }
+
+  /* ---- init (lazy, on first Network view) ---- */
+  let inited=false;
+  function init(){ if(inited) return;
+    stage=document.getElementById("gphStage"); cv=document.getElementById("gphCanvas");
+    if(!stage||!cv) return;
+    ctx=cv.getContext("2d"); dossier=document.getElementById("gphDossier");
+    inited=true; build(); bind(); measure();
+    if(reduced){ for(let i=0;i<400;i++) step(); draw(); } else { loop(); }
+  }
+  window.__initGraph=init;
+  window.__graphHide=function(){ if(dossier) dossier.classList.remove("open"); };
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape" && dossier) dossier.classList.remove("open"); });
+})();
 </script>
 </body>
 </html>
