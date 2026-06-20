@@ -538,7 +538,9 @@ body[data-view="registry"] section[data-view="registry"],
 body[data-view="research"]   section[data-view="research"],
 body[data-view="research"]    section[data-view="research"],
 body[data-view="methodology"] section[data-view="methodology"],
-body[data-view="community"] section[data-view="community"]{display:block}
+body[data-view="community"] section[data-view="community"],
+body[data-view="dat"] section[data-view="dat"],
+body[data-view="profile"] section[data-view="profile"]{display:block}
 </style>
 <style>
 /* ===== PLATFORM TOP BAR (intelligence console) ===== */
@@ -558,6 +560,7 @@ body[data-view="registry"] .sb-item[data-view="registry"],
 body[data-view="research"] .sb-item[data-view="research"],
 body[data-view="methodology"] .sb-item[data-view="methodology"],
 body[data-view="graph"] .sb-item[data-view="graph"],
+body[data-view="dat"] .sb-item[data-view="dat"],
 body[data-view="community"] .sb-item[data-view="community"]{
   background:rgba(20,241,149,.08);color:var(--sol);box-shadow:inset 0 -2px 0 var(--sol)}
 .sb-board{display:none!important}
@@ -660,7 +663,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .wsj-ticker{position:fixed;top:54px;left:0;right:0;height:30px;z-index:55;background:rgba(6,9,16,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line);overflow:hidden;display:flex;align-items:center}
 .wsj-ticker::before{content:"";position:absolute;left:0;top:0;bottom:0;width:60px;z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(6,9,16,.97),transparent)}
 .wsj-ticker::after{content:"";position:absolute;right:0;top:0;bottom:0;width:60px;z-index:2;pointer-events:none;background:linear-gradient(270deg,rgba(6,9,16,.97),transparent)}
-.wsj-track{display:inline-flex;align-items:center;white-space:nowrap;will-change:transform;animation:wsj-scroll 64s linear infinite}
+.wsj-track{display:inline-flex;align-items:center;white-space:nowrap;will-change:transform;animation:wsj-scroll 40s linear infinite}
 .wsj-ticker:hover .wsj-track{animation-play-state:paused}
 @keyframes wsj-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 .tk{display:inline-flex;align-items:center;gap:7px;padding:0 17px;font-family:'JetBrains Mono',monospace;font-size:11px;border-right:1px solid var(--line)}
@@ -672,7 +675,6 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .tk-tre .tk-sym{color:#b98cff}
 .tk-tre .tk-sol{color:var(--ink-dim)}
 .tk-dot{width:5px;height:5px;border-radius:50%;background:var(--sol);box-shadow:0 0 6px var(--sol)}
-@media (prefers-reduced-motion: reduce){.wsj-track{animation:none}}
 
 .reg-layout{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
 .reg-rail{position:sticky;top:100px;border:1px solid var(--line);background:var(--bg-card)}
@@ -2895,12 +2897,15 @@ async function submitBounty(){
   const rewardSol=parseFloat((document.getElementById('bf-reward').value||'').trim())||0;
   if(!target){ showToast("Name the target of the bounty (a company or wallet set)."); return; }
   if(!detail){ showToast("Describe what the bounty needs proven (trace, custody, corroboration)."); return; }
-  const id='bnt_'+Date.now();
-  const mine=lsGet('stw_bounties',[]); mine.unshift({ id, target, detail, reward_sol:rewardSol, sub: SUPA_ON?'\u23f3 awaiting maintainer approval':'proposed here' }); lsSet('stw_bounties',mine);
-  ['bf-target','bf-detail','bf-reward'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
-  if(SUPA_ON){ try{ await supaPost('bounties',{ id, title:target, target, detail, reward_sol:rewardSol, created_by: walletPubkey||'', approved:false }); hydrateBounties(); }catch(e){ console.warn('OSI: bounty publish failed.',e); } }
-  try{ await sendForm({ _subject:'OSI, New Bounty: '+target, type:'bounty-proposal', target, detail, reward: rewardSol?rewardSol+' SOL':'(none)', by: walletPubkey||'(none)' }); }catch(e){}
-  showToast(SUPA_ON?'\u2713 Bounty submitted, it goes live on the board once a maintainer approves.':'\u2713 Bounty proposed and sent to the maintainer.');
+  const memo = "OSI new bounty: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
+  withOnchainVote("Open bounty", memo, async (sig)=>{
+    const id='bnt_'+Date.now();
+    const mine=lsGet('stw_bounties',[]); mine.unshift({ id, target, detail, reward_sol:rewardSol, tx: sig||'', sub: SUPA_ON?'\u23f3 awaiting maintainer approval':'proposed here' }); lsSet('stw_bounties',mine);
+    ['bf-target','bf-detail','bf-reward'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
+    if(SUPA_ON){ try{ await supaPost('bounties',{ id, title:target, target, detail, reward_sol:rewardSol, created_by: walletPubkey||'', approved:false }); hydrateBounties(); }catch(e){ console.warn('OSI: bounty publish failed.',e); } }
+    try{ await sendForm({ _subject:'OSI, New Bounty: '+target, type:'bounty-proposal', target, detail, reward: rewardSol?rewardSol+' SOL':'(none)', by: walletPubkey||'(none)', tx: sig||'(none)' }); }catch(e){}
+    showToast(SUPA_ON?'\u2713 Bounty signed on-chain and submitted, it goes live once a maintainer approves.':'\u2713 Bounty proposed and sent to the maintainer.');
+  });
 }
 function bountyCardHtml(b){
   const target=escapeHtml(b.target||b.title||'wallet hunt');
@@ -3465,8 +3470,8 @@ function showToast(msg){
     }
   }
   let rafId=0;
-  function wander(){ const t=Date.now()/1000; for(const n of nodes){ if(n.pin) continue; n.vx+=Math.cos(t*0.5+n.ph)*0.09; n.vy+=Math.sin(t*0.45+n.ph*1.7)*0.09; } }
-  function loop(){ if(document.body.dataset.view==="graph"){ if(!reduced) wander(); step(); draw(); } rafId=requestAnimationFrame(loop); }
+  function wander(){ const t=Date.now()/1000; for(const n of nodes){ if(n.pin) continue; n.vx+=Math.cos(t*0.5+n.ph)*0.12; n.vy+=Math.sin(t*0.45+n.ph*1.7)*0.12; } }
+  function loop(){ if(document.body.dataset.view==="graph"){ wander(); step(); draw(); } rafId=requestAnimationFrame(loop); }
 
   /* ---- interaction ---- */
   function pick(mx,my){ let best=null,bd=22*22;
