@@ -966,6 +966,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
       </div>
     </div>
 
+    <div class="fo-search-wrap"><input class="fo-search" id="fo-search" placeholder="⌕ Search cases by company or keyword…" oninput="fieldSearch(this.value)"></div>
     <div class="fo-controls">
       <div class="fo-filters" id="fo-filters">
         <button class="fo-fil active" data-f="open" onclick="fieldFilter('open')">Open</button>
@@ -1230,7 +1231,29 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .pf-in{width:100%;max-width:360px;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 12px;box-sizing:border-box}
 .pf-in:focus{outline:none;border-color:var(--sol)}
 .pf-set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);flex-wrap:wrap}
-@media(max-width:760px){.pf-stats{grid-template-columns:1fr 1fr}.pf-grid{grid-template-columns:1fr}.pf-head{flex-wrap:wrap}}
+.pf-hero{position:relative;border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:linear-gradient(115deg,var(--bg-card),var(--bg));padding:22px 24px}
+.pf-hero-top{display:flex;align-items:center;gap:18px}
+.pf-ava{flex-shrink:0;line-height:0;border-radius:8px;box-shadow:0 0 0 1px var(--line-bright),0 0 22px rgba(20,241,149,.12)}
+.pf-since{font-size:10.5px;color:var(--ink-faint);margin-top:7px}
+.pf-l3{background:rgba(153,69,255,.14);color:var(--violet);border:1px solid rgba(153,69,255,.4)}
+.pf-l4{background:rgba(255,176,32,.14);color:var(--amber);border:1px solid rgba(255,176,32,.45)}
+.pf-xp{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.pf-xp-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:9px}
+.pf-xp-n{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:var(--ink)}
+.pf-xp-u{font-size:12px;color:var(--sol);font-weight:700}
+.pf-xp-next{font-size:10.5px;color:var(--ink-faint)}
+.pf-xp-track{height:7px;background:var(--bg);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.pf-xp-bar{height:100%;background:linear-gradient(90deg,var(--sol-deep),var(--sol));transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.pf-dc{position:absolute;top:18px;right:20px;background:transparent;border:1px solid var(--line-bright);color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:7px 12px;border-radius:2px;cursor:pointer;transition:all .13s}
+.pf-dc:hover{border-color:var(--red);color:var(--red)}
+.pf-dc.sm{position:static;font-size:10px;padding:7px 11px}
+.pf-h-c{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);font-weight:400;margin-left:7px}
+.pf-col-wide{grid-column:1/-1}
+.pf-set-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px}
+.pf-field{min-width:0}
+.pf-opt{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-faint);letter-spacing:.06em;text-transform:uppercase;margin-left:6px}
+.wb-ava{display:inline-flex;line-height:0;margin-right:7px;border-radius:4px;overflow:hidden}
+@media(max-width:760px){.pf-stats{grid-template-columns:1fr 1fr}.pf-grid{grid-template-columns:1fr}.pf-head{flex-wrap:wrap}.pf-hero-top{flex-wrap:wrap}.pf-set-grid{grid-template-columns:1fr}.pf-dc{position:static;margin-bottom:10px;display:inline-block}}
 </style>
   <div class="wrap"><div id="profile-body"></div></div>
 </section>
@@ -2022,6 +2045,38 @@ window.CASE_STUDIES = [
 ];
 </script>
 <script>
+// ===== Admin: edit a bounty (target, brief, reward, logo) =====
+function admEditBounty(id){
+  const b = (window.__admBounties||[]).find(function(x){ return String(x.id)===String(id); });
+  if(!b){ showToast('Bounty not found, hit Refresh and try again.'); return; }
+  document.getElementById('aeb-id').value = b.id;
+  document.getElementById('aeb-target').value = b.target || b.title || '';
+  document.getElementById('aeb-detail').value = b.detail || '';
+  document.getElementById('aeb-reward').value = (b.reward_sol!=null ? b.reward_sol : '');
+  document.getElementById('aeb-image').value = b.image || '';
+  clearPickedFile('aeb');
+  const prev=document.getElementById('aeb-file-prev'); if(prev) prev.innerHTML = b.image ? '<img src="'+escapeHtml(b.image)+'" alt="">' : '';
+  const msg=document.getElementById('aeb-msg'); if(msg) msg.textContent='';
+  document.getElementById('adm-edit-modal').classList.add('open');
+}
+function admCloseEdit(){ const m=document.getElementById('adm-edit-modal'); if(m) m.classList.remove('open'); }
+async function admSaveBounty(){
+  const id = document.getElementById('aeb-id').value;
+  const target = (document.getElementById('aeb-target').value||'').trim();
+  const detail = (document.getElementById('aeb-detail').value||'').trim();
+  let reward = parseFloat((document.getElementById('aeb-reward').value||'').trim()); if(isNaN(reward) || reward<0) reward=0; if(reward>2) reward=2;
+  let image = (document.getElementById('aeb-image').value||'').trim();
+  const msg = document.getElementById('aeb-msg');
+  if(!target){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Target cannot be empty.'; } return; }
+  if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
+  try{
+    try{ const up = await uploadPicked('aeb'); if(up) image = up; }catch(e){ if(msg) msg.textContent='Logo upload failed, saving the rest\u2026'; }
+    await supaPatch('bounties?id=eq.'+encodeURIComponent(id), { target:target, title:target, detail:detail, reward_sol:reward, image:(image||null) });
+    if(msg){ msg.style.color='var(--sol)'; msg.textContent='\u2713 Saved.'; }
+    admCloseEdit(); admRefresh(); admReflow();
+  }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Save failed: '+((e&&e.message)||e); } }
+}
+
 // ===== Support / payout wallet (maintainer-set, stored globally in Supabase) =====
 let OSI_SUPPORT_WALLET = '';
 function isSolAddr(a){ a = String(a || '').trim(); return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a); }
@@ -2281,23 +2336,39 @@ function attachmentTag(url){
 // ===== THE FIELD OFFICE: the bounty operations hub =====
 // Curated launch cases (real untraced DAT targets). Also a fallback when Supabase
 // is unavailable. User-filed cases come from Supabase and merge in by id.
+// Curated launch cases (real Solana corporate-treasury watchlist targets, with planned SOL rewards).
+// These are seeded into Supabase (where the maintainer manages them); this array is the offline
+// fallback shown only if Supabase is unreachable.
 const FIELD_SEED = [
-  { id:'seed_galaxy', target:'Galaxy Digital, SOL treasury wallets', detail:'Galaxy holds a sizeable SOL position, but its on-chain custody and stake layout are not mapped. Trace the inflows, fingerprint the custodian, and cluster the stake accounts.', reward_sol:0, created_at:'2026-02-03T00:00:00Z' },
-  { id:'seed_upexi',  target:'Upexi (UPXI), 2M+ SOL declared',       detail:'Upexi declares roughly 2,000,518 SOL. Independently verify it: find the funding flow, the custodian fingerprint, and confirm the address set against the disclosure.', reward_sol:0, created_at:'2026-02-02T00:00:00Z' },
-  { id:'seed_dfdv',   target:'DeFi Development Corp (DFDV)',          detail:'DFDV declares about 2.29M SOL across its treasury. Map the validators it delegates to and the custody controller, and corroborate against public filings.', reward_sol:0, created_at:'2026-02-01T00:00:00Z' }
+  { id:'seed_galaxy',     target:'Galaxy Digital, SOL treasury wallets',          reward_sol:2,   detail:'Galaxy holds a sizeable SOL position, but its on-chain custody and stake layout are not mapped. Trace the inflows, fingerprint the custodian, and cluster the stake accounts.', created_at:'2026-02-20T00:00:00Z' },
+  { id:'seed_upexi',      target:'Upexi (UPXI), SOL treasury',                     reward_sol:1.5, detail:'Upexi declares a large SOL treasury. Independently verify it: find the funding flow, the custodian fingerprint, and confirm the address set against the disclosure.', created_at:'2026-02-19T00:00:00Z' },
+  { id:'seed_dfdv',       target:'DeFi Development Corp (DFDV)',                    reward_sol:1.5, detail:'DFDV declares a multi-million SOL treasury. Map the validators it delegates to and the custody controller, and corroborate against public filings.', created_at:'2026-02-18T00:00:00Z' },
+  { id:'seed_yueda',      target:'Yueda Digital Holding (YDKG)',                   reward_sol:1.5, detail:'Yueda Digital Holding appears on the Solana corporate-treasury watchlist. Verify and trace: does it hold SOL on-chain, how much, through which custodian and validators, and does the chain match its disclosures?', created_at:'2026-02-17T00:00:00Z' },
+  { id:'seed_phoenix',    target:'Phoenix Group PLC (PHX.AD)',                     reward_sol:2,   detail:'Phoenix Group (Abu Dhabi listed) is reported to have Solana exposure. Confirm on-chain: locate the wallets, size the position, identify the custodian and validators, and corroborate with filings.', created_at:'2026-02-16T00:00:00Z' },
+  { id:'seed_classover',  target:'Classover Holdings (KIDZ)',                      reward_sol:1.5, detail:'Classover Holdings announced a Solana treasury strategy. Trace the funding flow into SOL, fingerprint the custodian, and confirm the on-chain holdings against the announcement.', created_at:'2026-02-15T00:00:00Z' },
+  { id:'seed_wize',       target:'WIZE Inc (formerly Mobcast Holdings)',          reward_sol:1,   detail:'WIZE Inc, formerly Mobcast Holdings, is on the Solana-treasury watchlist. Establish whether it holds SOL on-chain, through which rails, and reconcile with disclosures.', created_at:'2026-02-14T00:00:00Z' },
+  { id:'seed_solai',      target:'SOLAI Limited (formerly BIT Mining)',           reward_sol:1.5, detail:'SOLAI Limited, formerly BIT Mining, rebranded toward Solana. Trace any SOL treasury on-chain: funding, custodian, validators, and confirm the address set against filings.', created_at:'2026-02-13T00:00:00Z' },
+  { id:'seed_torrent',    target:'Torrent Capital (TORR.V)',                       reward_sol:1,   detail:'Torrent Capital (TSXV) is reported to hold digital assets including SOL. Verify on-chain, size the Solana position, and identify the custody controller.', created_at:'2026-02-12T00:00:00Z' },
+  { id:'seed_digitalx',   target:'DigitalX (DCC.AX)',                             reward_sol:1.5, detail:'DigitalX (ASX listed) holds digital-asset treasuries. Determine its Solana on-chain footprint: wallets, size, custodian, validators, and reconcile with its reports.', created_at:'2026-02-11T00:00:00Z' },
+  { id:'seed_exodus',     target:'Exodus Movement (EXOD)',                         reward_sol:2,   detail:'Exodus Movement (NYSE American) is a crypto wallet company with treasury holdings. Map any corporate SOL position on-chain, the custody arrangement, and corroborate with filings.', created_at:'2026-02-10T00:00:00Z' },
+  { id:'seed_brooker',    target:'The Brooker Group (BTC.BK)',                     reward_sol:1,   detail:'The Brooker Group (Thailand listed) announced digital-asset investments. Trace any Solana treasury on-chain: funding flow, custodian, and confirm against disclosures.', created_at:'2026-02-09T00:00:00Z' },
+  { id:'seed_devvstream', target:'DevvStream (DEVS)',                             reward_sol:1,   detail:'DevvStream is reported to have adopted a digital-asset treasury approach. Establish its Solana on-chain holdings, the rails used, and reconcile with public statements.', created_at:'2026-02-08T00:00:00Z' },
+  { id:'seed_lion',       target:'Lion Group Holding (LGHL)',                      reward_sol:1.5, detail:'Lion Group Holding (Nasdaq) announced a major Solana-centric treasury. Trace the inflows into SOL, fingerprint the custodian and validators, and confirm the on-chain size against filings.', created_at:'2026-02-07T00:00:00Z' }
 ];
-let fieldState = { filter:'open', sort:'reward', data:[] };
+let fieldState = { filter:'open', sort:'reward', q:'', data:[] };
 
 async function renderFieldOffice(){
   if(!document.getElementById('field-cases')) return;
-  let list = FIELD_SEED.map(function(s){ return Object.assign({}, s); });
+  let list = [];
   if(SUPA_ON){
     try{
       const rows = await supaGet('bounties?select=*&approved=eq.true&order=created_at.desc');
-      const byId = {}; list.forEach(function(b){ byId[b.id]=b; });
-      (rows||[]).forEach(function(r){ byId[r.id]=r; });
-      list = Object.keys(byId).map(function(k){ return byId[k]; });
-    }catch(e){ /* keep curated seeds */ }
+      list = rows || [];
+    }catch(e){
+      list = FIELD_SEED.slice();   // network failure: fall back so the board is never blank
+    }
+  } else {
+    list = FIELD_SEED.slice();
   }
   fieldState.data = list;
   drawFieldOffice();
@@ -2306,6 +2377,8 @@ function drawFieldOffice(){
   const host=document.getElementById('field-cases'); if(!host) return;
   fieldStats(fieldState.data);
   let list = fieldState.data.slice();
+  const q = (fieldState.q||'').trim().toLowerCase();
+  if(q){ list = list.filter(function(b){ return ((b.target||b.title||'')+' '+(b.detail||'')).toLowerCase().indexOf(q)!==-1; }); }
   if(fieldState.filter==='open') list = list.filter(function(b){ return !b.winner_wallet; });
   else if(fieldState.filter==='resolved') list = list.filter(function(b){ return !!b.winner_wallet; });
   if(fieldState.sort==='reward') list.sort(function(a,b){ return (parseFloat(b.reward_sol)||0)-(parseFloat(a.reward_sol)||0); });
@@ -2313,7 +2386,8 @@ function drawFieldOffice(){
   else if(fieldState.sort==='boosts') list.sort(function(a,b){ return (((window.boostCounts||{})[b.id])||0)-(((window.boostCounts||{})[a.id])||0); });
   if(!list.length){
     const w = fieldState.filter==='resolved' ? 'closed' : (fieldState.filter==='open' ? 'open' : '');
-    host.innerHTML='<div class="fo-empty"><div class="fo-empty-h">No '+w+' cases right now</div><p>Be the first to file one. Name a target nobody has traced and let the community hunt it.</p><button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button></div>';
+    const why = q ? 'No cases match your search.' : ('No '+w+' cases right now.');
+    host.innerHTML='<div class="fo-empty"><div class="fo-empty-h">'+why+'</div><p>Be the first to file one. Name a target nobody has traced and let the community hunt it.</p><button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button></div>';
     return;
   }
   host.innerHTML = list.map(function(b,i){ return fieldCaseCard(b,i); }).join('');
@@ -2324,6 +2398,8 @@ function drawFieldOffice(){
   });
   hydrateBoosts();
 }
+function fieldSearch(v){ fieldState.q = v||''; drawFieldOffice(); }
+
 function fieldCaseCard(b, i){
   const id = escapeHtml(b.id);
   const target = escapeHtml(b.target || b.title || 'wallet hunt');
@@ -2761,6 +2837,7 @@ async function admRefresh(){
     const reports = await supaGet('reports?select=*&order=created_at.desc');
     let requests=[]; try{ requests = await supaGet('requests?select=*&order=created_at.desc'); }catch(_){}
     let bounties=[]; try{ bounties = await supaGet('bounties?select=*&order=created_at.desc'); }catch(_){}
+    window.__admBounties = bounties || [];
     host.innerHTML = admRender(reports||[], requests||[], bounties||[]);
   }catch(e){
     host.innerHTML='<div class="adm-err">Could not load the queue ('+admEsc(e.message)+').<br><br>Most likely the admin SQL policies have not been run yet, or this account is not the maintainer. Run osi_admin_setup.sql in the Supabase SQL Editor, then refresh.</div>';
@@ -2777,7 +2854,7 @@ function admItem(kind, table, r){
     ? '<button class="adm-b warn" onclick="admSet(\''+table+'\',\''+id+'\',false)">Unpublish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Delete</button>'
     : '<button class="adm-b ok" onclick="admSet(\''+table+'\',\''+id+'\',true)">Approve &amp; publish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Reject</button>';
   let extra='';
-  if(kind==='bounty' && approved){ extra = r.winner_wallet ? '<button class="adm-b" onclick="admResolveBounty(\''+id+'\')">Change winner</button>' : '<button class="adm-b ok" onclick="admResolveBounty(\''+id+'\')">Set winner</button>'; }
+  if(kind==='bounty'){ extra = '<button class="adm-b" onclick="admEditBounty(\''+id+'\')">Edit</button>'; if(approved){ extra += r.winner_wallet ? '<button class="adm-b" onclick="admResolveBounty(\''+id+'\')">Change winner</button>' : '<button class="adm-b ok" onclick="admResolveBounty(\''+id+'\')">Set winner</button>'; } }
   return '<div class="adm-row"><div class="adm-meta"><div class="adm-t">'+title+'<span class="adm-kind">'+kind+'</span></div><div class="adm-s">'+sub+'</div></div><div class="adm-acts">'+acts+extra+'</div></div>';
 }
 function admRender(reports, requests, bounties){
@@ -2874,17 +2951,24 @@ async function toggleWallet(){
 function updateWalletUI(){
   const btn = document.getElementById('walletBtn');
   const txt = document.getElementById('wbText');
+  if(!btn || !txt) return;
   if(walletPubkey){
     btn.classList.add('connected');
-    txt.textContent = walletPubkey.slice(0,4)+"…"+walletPubkey.slice(-4);
-  }else{
+    const nm = lsGet('stw_profile_name','');
+    txt.textContent = nm ? nm : (walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
+    let av = document.getElementById('wbAva');
+    if(!av){ av=document.createElement('span'); av.id='wbAva'; av.className='wb-ava'; btn.insertBefore(av, btn.firstChild); }
+    av.innerHTML = pfIdenticon(walletPubkey, 18);
+    const dot = btn.querySelector('.wb-dot'); if(dot) dot.style.display='none';
+  } else {
     btn.classList.remove('connected');
     txt.textContent = "Connect Wallet";
+    const av = document.getElementById('wbAva'); if(av) av.remove();
+    const dot = btn.querySelector('.wb-dot'); if(dot) dot.style.display='';
   }
   if(typeof refreshApplyWalletRow === 'function') refreshApplyWalletRow();
   if(document.body.dataset.view==='profile' && typeof renderProfile==='function') renderProfile();
 }
-
 // Build + send a Memo transaction as a verifiable on-chain "signed vote".
 // No transfer, no recipient, only the standard network fee applies.
 // Returns the transaction signature on success, throws on failure.
@@ -3175,57 +3259,110 @@ function pfRequests(requests){
     return '<div class="pf-item pf-mini"><div class="pf-it-t">\u2316 '+escapeHtml(r.name||'request')+'</div><div class="pf-it-m mono">'+escapeHtml(r.sub||'requested')+'</div></div>';
   }).join('');
 }
-function pfShell(addr, name, reports, bounties, boosted, requests, pubIds){
-  const cl=pfClearance(reports.length+bounties.length);
-  const nBoost=Object.keys(boosted||{}).length;
+// ===== XP / reputation =====
+const PF_RANKS = [
+  { name:'Apprentice',         cls:'pf-l1', min:0 },
+  { name:'Field Analyst',      cls:'pf-l2', min:60 },
+  { name:'Detective',          cls:'pf-l3', min:180 },
+  { name:'Chief Investigator', cls:'pf-l4', min:400 }
+];
+function pfApproved(reports, bounties, pubIds){
+  let a=0; reports.forEach(function(x){ if(pubIds[x.id]) a++; }); bounties.forEach(function(x){ if(pubIds[x.id]) a++; }); return a;
+}
+function pfXP(reports, bounties, boosted, pubIds){
+  const r=reports.length, b=bounties.length, bo=Object.keys(boosted||{}).length;
+  return r*10 + b*15 + bo*4 + pfApproved(reports,bounties,pubIds)*30;
+}
+function pfRank(xp){
+  let idx=0; for(let i=0;i<PF_RANKS.length;i++){ if(xp>=PF_RANKS[i].min) idx=i; }
+  const cur=PF_RANKS[idx], next=PF_RANKS[idx+1]||null;
+  const pct = next ? Math.max(4, Math.min(100, Math.round((xp-cur.min)/(next.min-cur.min)*100))) : 100;
+  return { cur:cur, next:next, pct:pct };
+}
+function pfMonth(ts){ try{ return new Date(ts).toLocaleDateString('en-US',{month:'short',year:'numeric'}); }catch(e){ return 'recently'; } }
+
+// name: live local + debounced sync to the wallet's profile row
+let _pfNameT=null;
+function pfSaveName(v){
+  lsSet('stw_profile_name', v); pfLiveName(v);
+  const av=document.getElementById('wbAva'); const wt=document.getElementById('wbText'); if(wt && walletPubkey) wt.textContent = v ? v : (walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
+  if(SUPA_ON && walletPubkey){ clearTimeout(_pfNameT); _pfNameT=setTimeout(function(){ supaUpsertProfile(walletPubkey, v).catch(function(){}); }, 800); }
+}
+async function supaUpsertProfile(addr, name){
+  await fetch(SUPABASE_URL + '/rest/v1/profiles', {
+    method:'POST', headers: supaHeaders({ Prefer:'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify({ wallet:addr, name:name, updated_at:new Date().toISOString() })
+  });
+}
+
+function pfShell(addr, name, email, joined, reports, bounties, boosted, pubIds){
   const display = name ? escapeHtml(name) : short(addr);
+  const xp = pfXP(reports, bounties, boosted, pubIds);
+  const rk = pfRank(xp);
+  const approved = pfApproved(reports, bounties, pubIds);
+  const nBoost = Object.keys(boosted||{}).length;
   return ''
-  +'<div class="pf-head">'
-    +'<div class="pf-ava">'+pfIdenticon(addr,64)+'</div>'
-    +'<div class="pf-id">'
-      +'<div class="pf-name">'+display+' <span class="pf-clear '+cl.cls+'">'+cl.name+'</span></div>'
-      +'<div class="pf-addr mono" title="Click to copy" onclick="pfCopy(\''+addr+'\')">'+escapeHtml(addr)+' <span class="pf-copy">copy</span></div>'
+  +'<div class="pf-hero">'
+    +'<button class="pf-dc" onclick="disconnectWallet()">\u23fb Disconnect</button>'
+    +'<div class="pf-hero-top">'
+      +'<div class="pf-ava">'+pfIdenticon(addr,72)+'</div>'
+      +'<div class="pf-id">'
+        +'<div class="pf-name">'+display+' <span class="pf-clear '+rk.cur.cls+'">'+rk.cur.name+'</span></div>'
+        +'<div class="pf-addr mono" title="Click to copy" onclick="pfCopy(\''+addr+'\')">'+escapeHtml(addr)+' <span class="pf-copy">copy</span></div>'
+        +'<div class="pf-since mono">\u25c8 Member since '+pfMonth(joined)+'</div>'
+      +'</div>'
     +'</div>'
-    +'<button class="pf-dc" onclick="disconnectWallet()">Disconnect</button>'
+    +'<div class="pf-xp">'
+      +'<div class="pf-xp-top"><span class="pf-xp-n">'+xp+' <span class="pf-xp-u">XP</span></span>'
+        +(rk.next ? ('<span class="pf-xp-next mono">'+(rk.next.min-xp)+' XP to '+rk.next.name+'</span>') : '<span class="pf-xp-next mono">top rank reached \u2605</span>')+'</div>'
+      +'<div class="pf-xp-track"><div class="pf-xp-bar" style="width:'+rk.pct+'%"></div></div>'
+    +'</div>'
   +'</div>'
   +'<div class="pf-stats">'
-    +'<div class="pf-stat"><div class="n">'+reports.length+'</div><div class="l">Reports filed</div></div>'
-    +'<div class="pf-stat"><div class="n">'+bounties.length+'</div><div class="l">Bounties opened</div></div>'
-    +'<div class="pf-stat"><div class="n">'+nBoost+'</div><div class="l">Boosts cast</div></div>'
-    +'<div class="pf-stat"><div class="n">'+requests.length+'</div><div class="l">Requests</div></div>'
+    +'<div class="pf-stat"><div class="n">'+reports.length+'</div><div class="l">Filings</div></div>'
+    +'<div class="pf-stat"><div class="n" style="color:var(--sol)">'+approved+'</div><div class="l">Published</div></div>'
+    +'<div class="pf-stat"><div class="n">'+bounties.length+'</div><div class="l">Bounties</div></div>'
+    +'<div class="pf-stat"><div class="n">'+nBoost+'</div><div class="l">Boosts</div></div>'
   +'</div>'
   +'<div class="pf-grid">'
-    +'<div class="pf-col"><div class="pf-h">My Reports</div>'+pfReports(reports,pubIds)+'</div>'
-    +'<div class="pf-col"><div class="pf-h">My Bounties</div>'+pfBounties(bounties,pubIds)+'</div>'
-    +'<div class="pf-col"><div class="pf-h">My Boosts</div>'+pfBoosts(boosted)+'</div>'
-    +'<div class="pf-col"><div class="pf-h">My Requests</div>'+pfRequests(requests)+'</div>'
+    +'<div class="pf-col"><div class="pf-h">My filings <span class="pf-h-c">'+reports.length+'</span></div>'+pfReports(reports,pubIds)+'</div>'
+    +'<div class="pf-col"><div class="pf-h">My bounties <span class="pf-h-c">'+bounties.length+'</span></div>'+pfBounties(bounties,pubIds)+'</div>'
+    +'<div class="pf-col pf-col-wide"><div class="pf-h">My boosts <span class="pf-h-c">'+nBoost+'</span></div>'+pfBoosts(boosted)+'</div>'
   +'</div>'
   +'<div class="pf-settings">'
-    +'<div class="pf-h">Profile settings</div>'
-    +'<label class="pf-lab">Display name <span class="pf-hint mono">shown instead of your address, stored on this device</span></label>'
-    +'<input class="pf-in" id="pf-name" value="'+(name?escapeHtml(name):'')+'" placeholder="e.g. aksusarya" oninput="lsSet(\'stw_profile_name\', this.value); pfLiveName(this.value)">'
-    +'<div class="pf-set-row"><span class="pf-hint mono">Signed in with Phantom \u00b7 '+short(addr)+'</span><button class="pf-dc" onclick="disconnectWallet()">Disconnect wallet</button></div>'
+    +'<div class="pf-h">Profile</div>'
+    +'<div class="pf-set-grid">'
+      +'<div class="pf-field"><label class="pf-lab">Display name</label>'
+        +'<input class="pf-in" id="pf-name" value="'+(name?escapeHtml(name):'')+'" placeholder="e.g. aksusarya" oninput="pfSaveName(this.value)">'
+        +'<div class="pf-hint mono">Shown instead of your address. Synced to your wallet.</div></div>'
+      +'<div class="pf-field"><label class="pf-lab">Email <span class="pf-opt">optional</span></label>'
+        +'<input class="pf-in" id="pf-email" type="email" value="'+(email?escapeHtml(email):'')+'" placeholder="you@example.com" oninput="lsSet(\'stw_profile_email\', this.value)">'
+        +'<div class="pf-hint mono">Kept on this device, for your own record.</div></div>'
+    +'</div>'
+    +'<div class="pf-set-row"><span class="pf-hint mono">\u25c6 Signed in with Phantom \u00b7 '+short(addr)+'</span><button class="pf-dc sm" onclick="disconnectWallet()">\u23fb Disconnect wallet</button></div>'
   +'</div>';
 }
 function pfLiveName(v){ const el=document.querySelector('.pf-name'); if(el && el.firstChild){ el.firstChild.textContent=(v || (walletPubkey?short(walletPubkey):'')) + ' '; } }
 function pfCopy(a){ try{ navigator.clipboard.writeText(a); showToast('Address copied.'); }catch(e){} }
+
 async function renderProfile(){
   const host=document.getElementById('profile-body'); if(!host) return;
   if(!walletPubkey){ host.innerHTML=pfGate(); return; }
   const addr=walletPubkey;
+  let joined=lsGet('stw_joined',''); if(!joined){ joined=new Date().toISOString(); lsSet('stw_joined',joined); }
   const reports=lsGet('stw_reports',[]);
   const bounties=lsGet('stw_bounties',[]);
   const boosted=lsGet('stw_boosted',{});
-  const requests=lsGet('stw_requests',[]);
-  const name=lsGet('stw_profile_name','');
-  host.innerHTML=pfShell(addr,name,reports,bounties,boosted,requests,{});
+  let name=lsGet('stw_profile_name','');
+  const email=lsGet('stw_profile_email','');
+  host.innerHTML=pfShell(addr,name,email,joined,reports,bounties,boosted,{});
   if(SUPA_ON){
     try{
       const pr=await supaGet('reports?select=id&wallet=eq.'+encodeURIComponent(addr)+'&approved=eq.true');
       const pb=await supaGet('bounties?select=id&created_by=eq.'+encodeURIComponent(addr)+'&approved=eq.true');
       const pubIds={}; (pr||[]).forEach(function(x){ pubIds[x.id]=1; }); (pb||[]).forEach(function(x){ pubIds[x.id]=1; });
-      const name2=lsGet('stw_profile_name', name);
-      if(document.body.dataset.view==='profile' && walletPubkey===addr){ host.innerHTML=pfShell(addr,name2,reports,bounties,boosted,requests,pubIds); }
+      try{ const prof=await supaGet('profiles?select=name&wallet=eq.'+encodeURIComponent(addr)); if(prof&&prof[0]&&prof[0].name){ name=prof[0].name; lsSet('stw_profile_name',name); if(typeof updateWalletUI==='function') updateWalletUI(); } }catch(_){}
+      if(document.body.dataset.view==='profile' && walletPubkey===addr){ host.innerHTML=pfShell(addr,name,email,joined,reports,bounties,boosted,pubIds); }
     }catch(e){}
   }
 }
@@ -4130,5 +4267,47 @@ function showToast(msg){
   document.addEventListener("keydown", e=>{ if(e.key==="Escape" && dossier) dossier.classList.remove("open"); });
 })();
 </script>
+<style>
+.fo-search-wrap{margin-top:6px}
+.fo-search{width:100%;background:var(--bg-card);border:1px solid var(--line);border-radius:3px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:12px 14px;box-sizing:border-box}
+.fo-search::placeholder{color:var(--ink-faint)}
+.fo-search:focus{outline:none;border-color:var(--sol)}
+.adm-edit{position:fixed;inset:0;background:rgba(4,6,12,.82);backdrop-filter:blur(4px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+.adm-edit.open{display:flex}
+.adm-edit-box{position:relative;background:var(--bg-card);border:1px solid var(--line-bright);border-top:2px solid var(--cyan);border-radius:4px;max-width:480px;width:100%;padding:26px;max-height:90vh;overflow:auto}
+.adm-edit-x{position:absolute;top:14px;right:16px;background:transparent;border:0;color:var(--ink-faint);font-size:22px;cursor:pointer;line-height:1}
+.adm-edit-x:hover{color:var(--ink)}
+.adm-edit-h{font-family:'Archivo',sans-serif;font-weight:800;font-size:18px;margin-bottom:6px}
+.aeb-lab{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:var(--ink-faint);text-transform:uppercase;margin:12px 0 6px}
+.aeb-in{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:11px 12px;box-sizing:border-box}
+.aeb-in:focus{outline:none;border-color:var(--cyan)}
+.aeb-ta{min-height:90px;resize:vertical;line-height:1.5}
+.adm-edit-save{width:100%;margin-top:16px;background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:12px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;cursor:pointer}
+.adm-edit-save:hover{background:var(--sol-deep)}
+.aeb-msg{font-size:11px;color:var(--ink-dim);margin-top:10px;min-height:14px}
+</style>
+<div class="adm-edit" id="adm-edit-modal">
+  <div class="adm-edit-box">
+    <button class="adm-edit-x" onclick="admCloseEdit()">×</button>
+    <div class="adm-edit-h">Edit bounty</div>
+    <input type="hidden" id="aeb-id">
+    <label class="aeb-lab">Target</label>
+    <input class="aeb-in" id="aeb-target" placeholder="Company, SOL treasury wallets">
+    <label class="aeb-lab">Brief</label>
+    <textarea class="aeb-in aeb-ta" id="aeb-detail" placeholder="What this case needs proven"></textarea>
+    <label class="aeb-lab">Reward (SOL, max 2)</label>
+    <input class="aeb-in" id="aeb-reward" type="number" step="0.1" min="0" max="2" placeholder="0">
+    <label class="aeb-lab">Logo / image</label>
+    <input class="aeb-in" id="aeb-image" placeholder="Image URL (or upload below)">
+    <div class="file-drop">
+      <input type="file" id="aeb-file" accept="image/*" style="display:none" onchange="onPickFile('aeb')">
+      <button type="button" class="file-btn" onclick="document.getElementById('aeb-file').click()">🖼 Upload a logo</button>
+      <span class="file-name mono" id="aeb-file-name"></span>
+      <div class="file-prev" id="aeb-file-prev"></div>
+    </div>
+    <button class="adm-edit-save" onclick="admSaveBounty()">Save changes</button>
+    <div class="aeb-msg mono" id="aeb-msg"></div>
+  </div>
+</div>
 </body>
 </html>
