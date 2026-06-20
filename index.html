@@ -257,7 +257,6 @@ body[data-view="community"] .sb-subnav{display:flex}
 .sb-sub{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;border-radius:7px;padding:8px 10px;color:var(--ink-dim);font-family:'Archivo',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;transition:background .14s,color .14s}
 .sb-sub:hover{background:var(--bg-raised);color:var(--ink)}
 .sb-sub .sb-ic{font-size:12px;width:15px;text-align:center;opacity:.7}
-body[data-sub="tab-bounties"] .sb-sub[data-sub="tab-bounties"],
 body[data-sub="tab-submit"] .sb-sub[data-sub="tab-submit"],
 body[data-sub="tab-analysts"] .sb-sub[data-sub="tab-analysts"]{color:var(--sol);background:rgba(20,241,149,.08)}
 /* sidebar leaderboard */
@@ -540,6 +539,7 @@ body[data-view="research"]    section[data-view="research"],
 body[data-view="methodology"] section[data-view="methodology"],
 body[data-view="community"] section[data-view="community"],
 body[data-view="dat"] section[data-view="dat"],
+body[data-view="field"] section[data-view="field"],
 body[data-view="profile"] section[data-view="profile"]{display:block}
 </style>
 <style>
@@ -561,6 +561,7 @@ body[data-view="research"] .sb-item[data-view="research"],
 body[data-view="methodology"] .sb-item[data-view="methodology"],
 body[data-view="graph"] .sb-item[data-view="graph"],
 body[data-view="dat"] .sb-item[data-view="dat"],
+body[data-view="field"] .sb-item[data-view="field"],
 body[data-view="community"] .sb-item[data-view="community"]{
   background:rgba(20,241,149,.08);color:var(--sol);box-shadow:inset 0 -2px 0 var(--sol)}
 .sb-board{display:none!important}
@@ -617,7 +618,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .bounty:hover{border-color:var(--line-bright);border-left-color:var(--sol)}
 </style>
 </head>
-<body data-view="registry" data-sub="tab-bounties">
+<body data-view="registry" data-sub="tab-submit">
 <div class="backdrop"></div>
 <div class="glow"></div>
 
@@ -631,13 +632,13 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
   <nav class="sb-nav" role="tablist" aria-label="Sections">
     <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span class="sb-ic">▣</span><span>Registry</span><span class="sb-c" id="vc-co">3</span></button>
+    <button class="sb-item" data-view="field" role="tab" onclick="showView('field')"><span class="sb-ic">🗂</span><span>Field Office</span></button>
     <button class="sb-item" data-view="dat" role="tab" onclick="showView('dat')"><span class="sb-ic">📡</span><span>DAT Watch</span></button>
     <button class="sb-item" data-view="graph" role="tab" onclick="showView('graph')"><span class="sb-ic">🕸️</span><span>Network</span></button>
     <button class="sb-item" data-view="research" role="tab" onclick="showView('research')"><span class="sb-ic">🕵️</span><span>Investigations</span><span class="sb-c" id="vc-cases">2</span></button>
     <button class="sb-item" data-view="methodology" role="tab" onclick="showView('methodology')"><span class="sb-ic">🔬</span><span>Methodology</span></button>
     <button class="sb-item" data-view="community" role="tab" onclick="showView('community')"><span class="sb-ic">✦</span><span>Community</span></button>
     <div class="sb-subnav">
-      <button class="sb-sub" data-sub="tab-bounties" onclick="goCommunity('tab-bounties')"><span class="sb-ic">⊹</span>Bounty Board</button>
       <button class="sb-sub" data-sub="tab-submit" onclick="goCommunity('tab-submit')"><span class="sb-ic">⊕</span>Submit Research</button>
       <button class="sb-sub" data-sub="tab-analysts" onclick="goCommunity('tab-analysts')"><span class="sb-ic">✦</span>Analysts</button>
     </div>
@@ -834,6 +835,132 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
       <div class="legend"><span class="mono" style="color:var(--ink-faint)">every public Solana treasury &middot; and whether we have traced it</span></div>
     </div>
     <div id="dat-body"></div>
+  </div>
+</section>
+
+<section class="sec" data-view="field" id="field-view">
+<style>
+#field-view .wrap{max-width:1140px}
+/* hero */
+.fo-hero{position:relative;border:1px solid var(--line-bright);border-top:2px solid var(--sol);background:
+   linear-gradient(115deg,var(--bg-card),var(--bg)),
+   repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(255,255,255,.012) 23px,rgba(255,255,255,.012) 24px),
+   repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,.012) 23px,rgba(255,255,255,.012) 24px);
+   padding:30px 32px;display:grid;grid-template-columns:1fr auto;gap:30px;align-items:center;overflow:hidden}
+.fo-hero::after{content:"FIELD OFFICE";position:absolute;right:-10px;bottom:-22px;font-family:'Archivo',sans-serif;font-weight:900;font-size:88px;letter-spacing:-.04em;color:rgba(255,255,255,.018);pointer-events:none;white-space:nowrap}
+.fo-eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;color:var(--sol);text-transform:uppercase}
+.fo-live{width:7px;height:7px;border-radius:50%;background:var(--sol);box-shadow:0 0 9px var(--sol);animation:pulse 1.7s infinite}
+.fo-title{font-family:'Archivo',sans-serif;font-weight:900;font-size:clamp(30px,4.6vw,50px);letter-spacing:-.03em;line-height:.98;margin:14px 0 0}
+.fo-sub{font-size:14px;color:var(--ink-dim);line-height:1.65;max-width:560px;margin:14px 0 0}
+.fo-cta{margin-top:20px;background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:13px 20px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.06em;cursor:pointer;transition:background .14s}
+.fo-cta:hover{background:var(--sol-deep)}
+.fo-ops{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);position:relative;z-index:1}
+.fo-op{background:var(--bg-card);padding:16px 20px;min-width:118px}
+.fo-op-n{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:var(--ink);line-height:1}
+.fo-op-n.sol{color:var(--sol)}
+.fo-op-l{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;color:var(--ink-faint);margin-top:7px;text-transform:uppercase}
+/* create form */
+.fo-form{border:1px solid var(--line-bright);border-left:2px solid var(--violet);background:var(--bg-card);padding:24px;margin-top:14px}
+.fo-form-h{font-family:'Archivo',sans-serif;font-weight:800;font-size:16px;letter-spacing:-.01em}
+.fo-form-sub{font-size:12.5px;color:var(--ink-faint);line-height:1.55;margin:7px 0 16px;max-width:660px}
+.fo-grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px}
+.fo-in{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:11px 12px;box-sizing:border-box}
+.fo-in::placeholder{color:var(--ink-faint)}
+.fo-in:focus{outline:none;border-color:var(--violet)}
+.fo-ta{min-height:84px;resize:vertical;line-height:1.5;font-family:'JetBrains Mono',monospace}
+.fo-form-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px;flex-wrap:wrap}
+.fo-form-note{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint)}
+.fo-file-btn{background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:12px 18px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.04em;cursor:pointer}
+.fo-file-btn:hover{background:var(--sol-deep)}
+.fo-cancel{background:transparent;border:1px solid var(--line-bright);color:var(--ink-faint);border-radius:2px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer}
+/* control bar */
+.fo-controls{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:22px 0 14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px}
+.fo-filters,.fo-sorts{display:flex;align-items:center;gap:4px}
+.fo-fil{background:transparent;border:1px solid var(--line);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.04em;padding:8px 15px;border-radius:2px;cursor:pointer;transition:all .13s}
+.fo-fil:hover{border-color:var(--line-bright);color:var(--ink)}
+.fo-fil.active{background:rgba(20,241,149,.1);border-color:var(--sol);color:var(--sol)}
+.fo-sort-l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase;margin-right:6px}
+.fo-sort{background:transparent;border:0;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:6px 9px;cursor:pointer;border-bottom:1px solid transparent}
+.fo-sort:hover{color:var(--ink-dim)}
+.fo-sort.active{color:var(--sol);border-bottom-color:var(--sol)}
+/* case grid */
+.fo-cases{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fo-case{position:relative;display:flex;border:1px solid var(--line);background:var(--bg-card);overflow:hidden;transition:border-color .15s,transform .15s}
+.fo-case:hover{border-color:var(--line-bright);transform:translateY(-2px)}
+.fo-case-stripe{width:3px;flex-shrink:0;background:var(--line-bright)}
+.fo-case.open .fo-case-stripe{background:var(--sol)}
+.fo-case.hot .fo-case-stripe{background:var(--amber)}
+.fo-case.closed .fo-case-stripe{background:var(--ink-faint)}
+.fo-case-body{flex:1;min-width:0;padding:17px 19px}
+.fo-case-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.fo-case-no{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--ink-faint)}
+.fo-case-status{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:2px;display:inline-flex;align-items:center;gap:5px}
+.fo-case-status.open{background:rgba(20,241,149,.1);color:var(--sol);border:1px solid rgba(20,241,149,.3)}
+.fo-case-status.hot{background:rgba(255,176,32,.1);color:var(--amber);border:1px solid rgba(255,176,32,.3)}
+.fo-case-status.closed{background:rgba(148,163,184,.1);color:var(--ink-dim);border:1px solid var(--line-bright)}
+.fo-case-target{font-family:'Archivo',sans-serif;font-weight:800;font-size:17px;letter-spacing:-.01em;line-height:1.2;margin:11px 0 0}
+.fo-case-brief{font-size:12.5px;color:var(--ink-faint);line-height:1.55;margin:8px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fo-case-metrics{display:flex;align-items:flex-end;gap:20px;margin:15px 0 0;padding-top:13px;border-top:1px solid var(--line)}
+.fo-metric{flex-shrink:0}
+.fo-m-n{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--ink);line-height:1}
+.fo-m-n.rew{color:var(--amber)}
+.fo-m-l{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;color:var(--ink-faint);margin-top:5px;text-transform:uppercase}
+.fo-demand{flex:1;min-width:60px}
+.fo-demand-track{height:5px;background:var(--bg);border:1px solid var(--line);border-radius:2px;overflow:hidden;margin-bottom:5px}
+.fo-demand-bar{height:100%;background:linear-gradient(90deg,var(--violet),var(--cyan));width:0;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.fo-demand-l{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;color:var(--ink-faint);text-transform:uppercase}
+.fo-case-actions{display:flex;align-items:center;gap:8px;margin:15px 0 0;flex-wrap:wrap}
+.fo-won{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sol);display:flex;align-items:center;gap:6px}
+.fo-empty{grid-column:1/-1;text-align:center;border:1px dashed var(--line-bright);background:var(--bg-card);padding:46px 24px;color:var(--ink-faint)}
+.fo-empty-h{font-family:'Archivo',sans-serif;font-weight:700;font-size:16px;color:var(--ink-dim);margin-bottom:8px}
+.fo-empty p{font-size:12.5px;line-height:1.6;max-width:360px;margin:0 auto 16px}
+@media (prefers-reduced-motion: reduce){.fo-live{animation:none}}
+@media(max-width:900px){.fo-hero{grid-template-columns:1fr}.fo-ops{grid-template-columns:1fr 1fr}.fo-cases{grid-template-columns:1fr}}
+@media(max-width:560px){.fo-grid2{grid-template-columns:1fr}.fo-hero::after{font-size:54px}}
+</style>
+  <div class="wrap">
+    <div class="fo-hero">
+      <div class="fo-hero-l">
+        <div class="fo-eyebrow"><span class="fo-live"></span>Live ops</div>
+        <h1 class="fo-title">The Field Office</h1>
+        <p class="fo-sub">Open bounties for the wallets nobody else is tracing. Post a case, hunt a target, and reward the analyst who cracks it in SOL, wallet to wallet. This is where a generation of on-chain investigators gets to work.</p>
+        <button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button>
+      </div>
+      <div class="fo-ops" id="field-stats"></div>
+    </div>
+
+    <div class="fo-form" id="field-form" hidden>
+      <div class="fo-form-h">⊹ File a new case</div>
+      <p class="fo-form-sub">Name a target and what needs proving. After a maintainer reviews it, the case goes live on the board where anyone can boost it or apply with a report. Filing is signed with your wallet.</p>
+      <div class="fo-grid2">
+        <input id="bf-target" class="fo-in" placeholder="Target  ·  e.g. Galaxy Digital, SOL treasury wallets">
+        <input id="bf-reward" class="fo-in" type="number" step="0.1" min="0" placeholder="Reward in SOL (optional)  ·  paid to the winner">
+      </div>
+      <textarea id="bf-detail" class="fo-in fo-ta" placeholder="The brief  ·  exchange-inflow trace, custody controller, corroborating disclosure, confidence per address…"></textarea>
+      <div class="fo-form-foot">
+        <span class="fo-form-note">No fee to file. Boosting, applying and rewarding are the on-chain actions.</span>
+        <div style="display:flex;gap:8px">
+          <button class="fo-cancel" onclick="fieldCloseForm()">Cancel</button>
+          <button class="fo-file-btn" onclick="submitBounty()">File the case →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="fo-controls">
+      <div class="fo-filters" id="fo-filters">
+        <button class="fo-fil active" data-f="open" onclick="fieldFilter('open')">Open</button>
+        <button class="fo-fil" data-f="resolved" onclick="fieldFilter('resolved')">Closed</button>
+        <button class="fo-fil" data-f="all" onclick="fieldFilter('all')">All</button>
+      </div>
+      <div class="fo-sorts" id="fo-sorts">
+        <span class="fo-sort-l">sort</span>
+        <button class="fo-sort active" data-s="reward" onclick="fieldSort('reward')">Reward</button>
+        <button class="fo-sort" data-s="boosts" onclick="fieldSort('boosts')">Demand</button>
+        <button class="fo-sort" data-s="newest" onclick="fieldSort('newest')">Newest</button>
+      </div>
+    </div>
+
+    <div class="fo-cases" id="field-cases"></div>
   </div>
 </section>
 
@@ -1172,90 +1299,12 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     </div>
 
     <div class="comm-tabs">
-      <button class="ctab active" onclick="switchTab(this,'tab-bounties')">⊹ Bounty Board</button>
-      <button class="ctab" onclick="switchTab(this,'tab-submit')">⊕ Submit Research</button>
+      <button class="ctab active" onclick="switchTab(this,'tab-submit')">⊕ Submit Research</button>
       <button class="ctab" onclick="switchTab(this,'tab-analysts')">✦ Analysts</button>
     </div>
 
-    <!-- BOUNTY BOARD -->
-    <div class="tab-panel active" id="tab-bounties">
-      <div class="panel-bar">
-        <div class="pb-title">🎯 Open Bounties <span class="mono dim">· boost to signal demand for a wallet hunt (on-chain)</span></div>
-        <button class="btn-ghost" onclick="var f=document.getElementById('bounty-form');if(f)f.scrollIntoView({behavior:'smooth'});var t=document.getElementById('bf-target');if(t)t.focus()">+ Open Bounty</button>
-      </div>
-      <div class="bounty-list">
-        <div class="bounty" data-bid="galaxy">
-          <div class="b-left">
-            <div class="b-target">Galaxy Digital, SOL treasury wallets</div>
-            <div class="b-desc">Identify and attribute Galaxy's on-chain Solana holdings. Must include exchange-inflow trace + custody controller + a corroborating public disclosure.</div>
-            <div class="b-meta"><span class="mono">curated by maintainer</span> · <span class="mono">open</span></div>
-          </div>
-          <div class="b-right">
-            <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
-            <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
-            <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
-            <button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>
-          </div>
-        </div>
-        <div class="bounty" data-bid="dfdv">
-          <div class="b-left">
-            <div class="b-target">DeFi Development Corp, full wallet set</div>
-            <div class="b-desc">Known to hold ~2.2M SOL. Map all custody + stake accounts with validator-level breakdown and confidence ratings per address.</div>
-            <div class="b-meta"><span class="mono">curated by maintainer</span> · <span class="mono">open</span></div>
-          </div>
-          <div class="b-right">
-            <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
-            <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
-            <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
-            <button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>
-          </div>
-        </div>
-        <div class="bounty dim-bounty" data-bid="solstrategies">
-          <div class="b-left">
-            <div class="b-target">SOL Strategies (HODL), verification</div>
-            <div class="b-desc">Wallets publicly labeled. Bounty is to independently verify each address with a documented methodology and rate confidence.</div>
-            <div class="b-meta"><span class="mono">curated by maintainer</span> · <span class="mono">open</span></div>
-          </div>
-          <div class="b-right">
-            <div class="b-reward"><span class="n">0</span><span class="u">boosts</span></div>
-            <div class="b-stakers mono">community-funded · Phase 2 escrow</div>
-            <button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>
-            <button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>
-          </div>
-        </div>
-      </div>
-      <div class="bounty-list" id="dyn-bounties"></div>
-      <div class="phase-note">⛓ <b>Phase 2:</b> anyone will be able to back a bounty with a tip, pooled in an on-chain escrow and released automatically to the analyst whose report is approved. A bounty funded by the whole community, not a single buyer. Today, boosting signals demand and bounties are settled by donation between participants.</div>
-      <div class="bounty-create" id="bounty-form">
-      <style>
-      .bounty-create{margin-top:14px;border:1px solid var(--line);border-left:2px solid var(--violet);background:var(--bg-card);padding:20px}
-      .bc-h{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.01em}
-      .bc-sub{font-size:12.5px;color:var(--ink-faint);line-height:1.55;margin:7px 0 15px;max-width:640px}
-      .bc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-      .bc-in{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:11px 12px;box-sizing:border-box}
-      .bc-in::placeholder{color:var(--ink-faint)}
-      .bc-in:focus{outline:none;border-color:var(--violet)}
-      .bc-ta{min-height:88px;resize:vertical;line-height:1.5;font-family:'JetBrains Mono',monospace}
-      .bc-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;flex-wrap:wrap}
-      .bc-note{font-size:10px;color:var(--ink-faint)}
-      @media(max-width:640px){.bc-grid{grid-template-columns:1fr}}
-      </style>
-        <div class="bc-h">⊹ Open a bounty</div>
-        <p class="bc-sub">Propose a wallet hunt for the community. After a quick maintainer review it goes live on the board above, where anyone can boost it to signal demand or apply with a report.</p>
-        <div class="bc-grid">
-          <input id="bf-target" class="bc-in" placeholder="Target  ·  e.g. Galaxy Digital, SOL treasury wallets">
-          <input id="bf-reward" class="bc-in" type="number" step="0.1" min="0" placeholder="Reward in SOL (optional)  ·  paid directly to the winner">
-        </div>
-        <textarea id="bf-detail" class="bc-in bc-ta" placeholder="What must the report prove?  ·  exchange-inflow trace, custody controller, corroborating public disclosure, confidence rating per address…"></textarea>
-        <div class="bc-foot">
-          <span class="bc-note mono">No fee to propose. Boosting and applying are the on-chain actions.</span>
-          <button class="btn-fill" onclick="submitBounty()">Submit bounty for review →</button>
-        </div>
-      </div>
-    </div>
-
     <!-- WALLET REQUESTS -->
-    <div class="tab-panel" id="tab-submit">
+    <div class="tab-panel active" id="tab-submit">
       <div class="panel-bar">
         <div class="pb-title">📝 Submit Research <span class="mono dim">· contribute an attribution report</span></div>
       </div>
@@ -1833,6 +1882,115 @@ window.CASE_STUDIES = [
 ];
 </script>
 <script>
+// ===== THE FIELD OFFICE: the bounty operations hub =====
+// Curated launch cases (real untraced DAT targets). Also a fallback when Supabase
+// is unavailable. User-filed cases come from Supabase and merge in by id.
+const FIELD_SEED = [
+  { id:'seed_galaxy', target:'Galaxy Digital, SOL treasury wallets', detail:'Galaxy holds a sizeable SOL position, but its on-chain custody and stake layout are not mapped. Trace the inflows, fingerprint the custodian, and cluster the stake accounts.', reward_sol:0, created_at:'2026-02-03T00:00:00Z' },
+  { id:'seed_upexi',  target:'Upexi (UPXI), 2M+ SOL declared',       detail:'Upexi declares roughly 2,000,518 SOL. Independently verify it: find the funding flow, the custodian fingerprint, and confirm the address set against the disclosure.', reward_sol:0, created_at:'2026-02-02T00:00:00Z' },
+  { id:'seed_dfdv',   target:'DeFi Development Corp (DFDV)',          detail:'DFDV declares about 2.29M SOL across its treasury. Map the validators it delegates to and the custody controller, and corroborate against public filings.', reward_sol:0, created_at:'2026-02-01T00:00:00Z' }
+];
+let fieldState = { filter:'open', sort:'reward', data:[] };
+
+async function renderFieldOffice(){
+  if(!document.getElementById('field-cases')) return;
+  let list = FIELD_SEED.map(function(s){ return Object.assign({}, s); });
+  if(SUPA_ON){
+    try{
+      const rows = await supaGet('bounties?select=*&approved=eq.true&order=created_at.desc');
+      const byId = {}; list.forEach(function(b){ byId[b.id]=b; });
+      (rows||[]).forEach(function(r){ byId[r.id]=r; });
+      list = Object.keys(byId).map(function(k){ return byId[k]; });
+    }catch(e){ /* keep curated seeds */ }
+  }
+  fieldState.data = list;
+  drawFieldOffice();
+}
+function drawFieldOffice(){
+  const host=document.getElementById('field-cases'); if(!host) return;
+  fieldStats(fieldState.data);
+  let list = fieldState.data.slice();
+  if(fieldState.filter==='open') list = list.filter(function(b){ return !b.winner_wallet; });
+  else if(fieldState.filter==='resolved') list = list.filter(function(b){ return !!b.winner_wallet; });
+  if(fieldState.sort==='reward') list.sort(function(a,b){ return (parseFloat(b.reward_sol)||0)-(parseFloat(a.reward_sol)||0); });
+  else if(fieldState.sort==='newest') list.sort(function(a,b){ return new Date(b.created_at||0)-new Date(a.created_at||0); });
+  else if(fieldState.sort==='boosts') list.sort(function(a,b){ return (((window.boostCounts||{})[b.id])||0)-(((window.boostCounts||{})[a.id])||0); });
+  if(!list.length){
+    const w = fieldState.filter==='resolved' ? 'closed' : (fieldState.filter==='open' ? 'open' : '');
+    host.innerHTML='<div class="fo-empty"><div class="fo-empty-h">No '+w+' cases right now</div><p>Be the first to file one. Name a target nobody has traced and let the community hunt it.</p><button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button></div>';
+    return;
+  }
+  host.innerHTML = list.map(function(b,i){ return fieldCaseCard(b,i); }).join('');
+  const boosted=lsGet('stw_boosted',{}), applied=lsGet('stw_applied',{});
+  host.querySelectorAll('.bounty[data-bid]').forEach(function(card){
+    if(boosted[card.dataset.bid]) markBoostedUI(card,null);
+    if(applied[card.dataset.bid]) markAppliedUI(card,null);
+  });
+  hydrateBoosts();
+}
+function fieldCaseCard(b, i){
+  const id = escapeHtml(b.id);
+  const target = escapeHtml(b.target || b.title || 'wallet hunt');
+  const brief = escapeHtml(b.detail || 'Community-proposed wallet hunt.');
+  const reward = parseFloat(b.reward_sol) || 0;
+  const resolved = !!b.winner_wallet;
+  const count = ((window.boostCounts||{})[b.id]) || 0;
+  const hot = !resolved && count >= 5;
+  const status = resolved ? 'closed' : (hot ? 'hot' : 'open');
+  const caseNo = 'CASE #' + ((pfHash(String(b.id)) % 9000) + 1000);
+  const statusLabel = resolved ? '✓ CLOSED' : (hot ? '🔥 HOT' : '● OPEN');
+  const demandPct = Math.min(100, count * 12);
+  const rewardCell = reward > 0
+    ? '<div class="fo-m-n rew">◎ '+reward+'</div><div class="fo-m-l">SOL reward</div>'
+    : '<div class="fo-m-n" style="color:var(--ink-dim);font-size:13px">community</div><div class="fo-m-l">funded</div>';
+  let actions;
+  if(resolved){
+    const wl = escapeHtml(b.winner_label || short(b.winner_wallet));
+    const payAmt = reward > 0 ? reward : 0.1;
+    const tlabel = String(b.target||b.title||'this case').replace(/['"\\<>]/g,'').slice(0,60);
+    actions = '<div class="fo-won">🏆 won by '+wl+'</div>'
+      + '<button class="btn-reward" onclick="openTip(\''+b.winner_wallet+'\',\'winner of: '+tlabel+'\','+payAmt+',\'◎ Reward the winner\')">Send reward ◎</button>';
+  } else {
+    actions = '<button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>'
+      + '<button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>';
+  }
+  return '<div class="fo-case bounty '+status+'" data-bid="'+id+'">'
+    + '<div class="fo-case-stripe"></div>'
+    + '<div class="fo-case-body">'
+      + '<div class="fo-case-top"><span class="fo-case-no">'+caseNo+'</span><span class="fo-case-status '+status+'">'+statusLabel+'</span></div>'
+      + '<div class="fo-case-target b-target">'+target+'</div>'
+      + '<div class="fo-case-brief">'+brief+'</div>'
+      + '<div class="fo-case-metrics">'
+        + '<div class="fo-metric">'+rewardCell+'</div>'
+        + '<div class="fo-metric"><div class="fo-m-n b-reward"><span class="n">'+count+'</span></div><div class="fo-m-l">boosts</div></div>'
+        + '<div class="fo-demand"><div class="fo-demand-track"><div class="fo-demand-bar" data-bid="'+id+'" style="width:'+demandPct+'%"></div></div><div class="fo-demand-l">demand</div></div>'
+      + '</div>'
+      + '<div class="fo-case-actions">'+actions+'</div>'
+    + '</div>'
+  + '</div>';
+}
+function fieldStats(list){
+  const host=document.getElementById('field-stats'); if(!host) return;
+  const open = list.filter(function(b){ return !b.winner_wallet; }).length;
+  const closed = list.filter(function(b){ return !!b.winner_wallet; }).length;
+  const pooled = list.reduce(function(s,b){ return s + (parseFloat(b.reward_sol)||0); }, 0);
+  host.innerHTML =
+      '<div class="fo-op"><div class="fo-op-n">'+open+'</div><div class="fo-op-l">Open cases</div></div>'
+    + '<div class="fo-op"><div class="fo-op-n sol">◎ '+pooled+'</div><div class="fo-op-l">SOL in rewards</div></div>'
+    + '<div class="fo-op"><div class="fo-op-n">'+closed+'</div><div class="fo-op-l">Cases closed</div></div>'
+    + '<div class="fo-op"><div class="fo-op-n">'+list.length+'</div><div class="fo-op-l">Total cases</div></div>';
+}
+function fieldUpdateDemand(){
+  document.querySelectorAll('.fo-demand-bar[data-bid]').forEach(function(bar){
+    const c = ((window.boostCounts||{})[bar.dataset.bid]) || 0;
+    bar.style.width = Math.min(100, c*12) + '%';
+  });
+}
+function fieldFilter(f){ fieldState.filter=f; document.querySelectorAll('.fo-fil').forEach(function(b){ b.classList.toggle('active', b.dataset.f===f); }); drawFieldOffice(); }
+function fieldSort(s){ fieldState.sort=s; document.querySelectorAll('.fo-sort').forEach(function(b){ b.classList.toggle('active', b.dataset.s===s); }); drawFieldOffice(); }
+function fieldOpenForm(){ const f=document.getElementById('field-form'); if(f){ f.hidden=false; f.scrollIntoView({behavior:'smooth',block:'center'}); const t=document.getElementById('bf-target'); if(t) t.focus(); } }
+function fieldCloseForm(){ const f=document.getElementById('field-form'); if(f) f.hidden=true; }
+
 // RPC endpoints, Helius (fast & reliable, primary), public RPC as automatic fallback.
 // NOTE: this key is visible in the page source, that's unavoidable for a static
 // site. Protect it by locking allowed domains in your Helius dashboard.
@@ -2257,7 +2415,7 @@ function admReflow(){
   try{ if(typeof hydrateRequestsFromSupabase==='function') hydrateRequestsFromSupabase(); }catch(_){}
   try{ if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); }catch(_){}
   try{ if(typeof hydrateLatestIntel==='function') hydrateLatestIntel(); }catch(_){}
-  try{ if(typeof hydrateBounties==='function') hydrateBounties(); }catch(_){}
+  try{ if(typeof renderFieldOffice==='function') renderFieldOffice(); }catch(_){}
   try{ if(typeof renderActivity==='function') renderActivity(); }catch(_){}
 }
 async function admSet(table, id, approved){
@@ -2407,7 +2565,7 @@ syncTabCounts();
 renderRequests();
 renderReviewQueue();
 restoreBountyState();
-hydrateBounties();
+renderFieldOffice();
 renderTicker();
 renderActivity();
 renderDAT();
@@ -2538,6 +2696,7 @@ function showView(v){
   else if(window.__graphHide){ window.__graphHide(); }
   if(v==='profile'){ renderProfile(); }
   if(v==='dat'){ renderDAT(); }
+  if(v==='field'){ renderFieldOffice(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 // ===== Wallet profile: a personal console for the connected wallet =====
@@ -2885,8 +3044,11 @@ async function hydrateBoosts(){
     const mine = lsGet('stw_boosted', {});
     document.querySelectorAll('.bounty[data-bid]').forEach(card => {
       const n = card.querySelector('.b-reward .n'); if(!n) return;
-      n.textContent = Math.max(counts[card.dataset.bid] || 0, mine[card.dataset.bid] ? 1 : 0);
+      const c = Math.max(counts[card.dataset.bid] || 0, mine[card.dataset.bid] ? 1 : 0);
+      n.textContent = c; counts[card.dataset.bid] = c;
     });
+    window.boostCounts = counts;
+    if(typeof fieldUpdateDemand==='function') fieldUpdateDemand();
   }catch(e){ console.warn('OSI: boost counts unavailable, showing local view.', e); }
 }
 
@@ -2902,8 +3064,9 @@ async function submitBounty(){
     const id='bnt_'+Date.now();
     const mine=lsGet('stw_bounties',[]); mine.unshift({ id, target, detail, reward_sol:rewardSol, tx: sig||'', sub: SUPA_ON?'\u23f3 awaiting maintainer approval':'proposed here' }); lsSet('stw_bounties',mine);
     ['bf-target','bf-detail','bf-reward'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
-    if(SUPA_ON){ try{ await supaPost('bounties',{ id, title:target, target, detail, reward_sol:rewardSol, created_by: walletPubkey||'', approved:false }); hydrateBounties(); }catch(e){ console.warn('OSI: bounty publish failed.',e); } }
+    if(SUPA_ON){ try{ await supaPost('bounties',{ id, title:target, target, detail, reward_sol:rewardSol, created_by: walletPubkey||'', approved:false }); renderFieldOffice(); }catch(e){ console.warn('OSI: bounty publish failed.',e); } }
     try{ await sendForm({ _subject:'OSI, New Bounty: '+target, type:'bounty-proposal', target, detail, reward: rewardSol?rewardSol+' SOL':'(none)', by: walletPubkey||'(none)', tx: sig||'(none)' }); }catch(e){}
+    fieldCloseForm();
     showToast(SUPA_ON?'\u2713 Bounty signed on-chain and submitted, it goes live once a maintainer approves.':'\u2713 Bounty proposed and sent to the maintainer.');
   });
 }
