@@ -1049,6 +1049,19 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .wire-empty p{font-size:12.5px;line-height:1.6;max-width:380px;margin:0 auto 16px}
 @media (prefers-reduced-motion: reduce){.wire-live{animation:none}}
 @media(max-width:620px){.wire-ops{flex-wrap:wrap}.wire-op{min-width:40%}}
+
+.cs-support{margin-top:24px;border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:linear-gradient(120deg,rgba(20,241,149,.05),transparent);padding:20px;border-radius:3px}
+.cs-support-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px}
+.cs-support-s{font-size:12.5px;color:var(--ink-dim);line-height:1.55;margin:7px 0 14px;max-width:560px}
+.cs-support-btn{background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:11px 18px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.03em;cursor:pointer}
+.cs-support-btn:hover{background:var(--sol-deep)}
+.adm-cfg{border:1px solid var(--line-bright);border-left:2px solid var(--cyan);background:var(--bg-card);padding:18px;margin-bottom:16px;border-radius:3px}
+.adm-cfg-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--cyan)}
+.adm-cfg-s{font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin:7px 0 12px;max-width:600px}
+.adm-cfg-row{display:flex;gap:8px;flex-wrap:wrap}
+.adm-cfg-row input{flex:1;min-width:200px;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 12px}
+.adm-cfg-row input:focus{outline:none;border-color:var(--cyan)}
+.adm-cfg-msg{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);margin-top:9px;min-height:14px}
 </style>
   <div class="wrap">
     <div class="wire-hero">
@@ -1155,6 +1168,16 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div class="adm-bar">
       <div class="adm-who">SIGNED IN &middot; <b id="admWho"></b></div>
       <div style="display:flex;gap:8px"><button class="adm-out" onclick="admRefresh()">Refresh</button><button class="adm-out" onclick="admLogout()">Sign out</button></div>
+    </div>
+    <div class="adm-cfg" id="adm-cfg">
+      <div class="adm-cfg-h">SUPPORT / PAYOUT WALLET</div>
+      <div class="adm-cfg-s">The SOL address that receives support on the flagship reports (HSDT, Sharps, and any future case study). Powers the Support buttons and Solana Pay across the site. Set once, change anytime.</div>
+      <div class="adm-cfg-row">
+        <input id="admSupport" placeholder="SOL wallet address">
+        <button class="adm-out" onclick="admUseConnected()">Use connected</button>
+        <button class="adm-go" onclick="admSaveSupport()">Save</button>
+      </div>
+      <div class="adm-cfg-msg" id="admCfgMsg"></div>
     </div>
     <div id="admQueue"><div class="adm-muted">Loading...</div></div>
   </div>
@@ -1999,6 +2022,44 @@ window.CASE_STUDIES = [
 ];
 </script>
 <script>
+// ===== Support / payout wallet (maintainer-set, stored globally in Supabase) =====
+let OSI_SUPPORT_WALLET = '';
+function isSolAddr(a){ a = String(a || '').trim(); return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a); }
+
+async function loadConfig(){
+  if(!SUPA_ON) return;
+  try{
+    const rows = await supaGet('osi_config?key=eq.support_wallet&select=value');
+    if(rows && rows[0] && rows[0].value && isSolAddr(rows[0].value)) OSI_SUPPORT_WALLET = String(rows[0].value).trim();
+  }catch(e){ /* no config yet */ }
+}
+async function supaUpsertConfig(key, value){
+  const r = await fetch(SUPABASE_URL + '/rest/v1/osi_config', {
+    method:'POST',
+    headers: supaHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify({ key: key, value: value, updated_at: new Date().toISOString() })
+  });
+  if(!r.ok && r.status !== 409) throw new Error('config save ' + r.status);
+  return true;
+}
+function admUseConnected(){
+  if(!walletPubkey){ showToast("Connect your wallet first (top right), then click this again."); return; }
+  const el = document.getElementById('admSupport'); if(el) el.value = walletPubkey;
+}
+async function admSaveSupport(){
+  const v = (document.getElementById('admSupport').value || '').trim();
+  const msg = document.getElementById('admCfgMsg');
+  if(v && !isSolAddr(v)){ if(msg){ msg.style.color='var(--red)'; msg.textContent = "That does not look like a valid Solana address."; } return; }
+  if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent = 'Saving…'; }
+  try{
+    await supaUpsertConfig('support_wallet', v);
+    OSI_SUPPORT_WALLET = isSolAddr(v) ? v : '';
+    if(msg){ msg.style.color='var(--sol)'; msg.textContent = OSI_SUPPORT_WALLET ? ('\u2713 Saved. Flagship reports now accept support to ' + short(OSI_SUPPORT_WALLET) + '.') : '\u2713 Cleared. Support buttons are now hidden.'; }
+    try{ renderCaseStudies(); }catch(e){}
+    try{ renderWire(); }catch(e){}
+  }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent = 'Save failed: ' + ((e && e.message) || e); } }
+}
+
 // ===== THE WIRE: open community intelligence, filed without a bounty =====
 let wireState = { sort:'newest', data:[] };
 
@@ -2057,6 +2118,7 @@ function wireCard(d){
   let actions = '<button class="btn-stake" onclick="stakeBoost(this)">↑ Back this</button>';
   if(d.premium && d._case){
     actions += '<button class="wire-read" onclick="openReport(\'case\',\''+d._case+'\')">Read full report →</button>';
+    if(OSI_SUPPORT_WALLET){ const sl=String(d.subject||'').replace(/['\"\\<>]/g,'').slice(0,50); actions += '<button class="wire-support" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\''+escapeHtml(sl)+'\',0.5,\'\\u25ce Support this investigation\')">\u25ce Support investigation</button>'; }
   } else if(d.wallet){
     actions += '<button class="wire-support" onclick="openTip(\''+d.wallet+'\',\''+escapeHtml(short(d.wallet))+'\',0.1,\'\\u25ce Support the analyst\')">\\u25ce Support analyst</button>';
   }
@@ -2682,6 +2744,7 @@ async function admLogin(){
     document.getElementById('admLogin').style.display='none';
     document.getElementById('admPanel').style.display='block';
     document.getElementById('admWho').textContent=email;
+    const su=document.getElementById('admSupport'); if(su) su.value = OSI_SUPPORT_WALLET || '';
     admRefresh();
   }catch(e){ msg.textContent='Sign-in failed: '+e.message; }
 }
@@ -2904,6 +2967,7 @@ renderReviewQueue();
 restoreBountyState();
 renderFieldOffice();
 renderWire();
+loadConfig().then(function(){ try{ renderCaseStudies(); }catch(e){} try{ renderWire(); }catch(e){} });
 renderTicker();
 renderActivity();
 renderDAT();
@@ -3020,6 +3084,7 @@ function renderCaseStudies(){
             </table></div>
           </div>
           <div class="warn"><b>${noteLead}.</b> ${noteRest}</div>
+          ${OSI_SUPPORT_WALLET ? `<div class="cs-support"><div class="cs-support-t">Back this investigation</div><div class="cs-support-s">This report was filed by ${escapeHtml(String(cs.author))}. If it was useful, support the work directly in SOL, one signature in your wallet, or scan with Solana Pay.</div><button class="cs-support-btn" onclick="openTip('${OSI_SUPPORT_WALLET}','${escapeHtml(String(cs.company).replace(/['\"\\<>]/g,''))}',0.5,'\u25ce Support this investigation')">\u25ce Support this investigation</button></div>` : ''}
         </div>
       </div>
     </div>`;
