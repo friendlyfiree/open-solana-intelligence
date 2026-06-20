@@ -917,6 +917,19 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 @media (prefers-reduced-motion: reduce){.fo-live{animation:none}}
 @media(max-width:900px){.fo-hero{grid-template-columns:1fr}.fo-ops{grid-template-columns:1fr 1fr}.fo-cases{grid-template-columns:1fr}}
 @media(max-width:560px){.fo-grid2{grid-template-columns:1fr}.fo-hero::after{font-size:54px}}
+
+.file-drop{margin-top:11px;border:1px dashed var(--line-bright);border-radius:3px;padding:12px 13px;background:var(--bg)}
+.file-btn{background:var(--bg-raised);border:1px solid var(--line-bright);color:var(--ink-dim);border-radius:2px;padding:9px 13px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:all .13s}
+.file-btn:hover{border-color:var(--sol);color:var(--sol)}
+.file-name{font-size:10.5px;color:var(--ink-faint);margin-left:10px}
+.file-prev{margin-top:11px}
+.file-prev img{max-width:100%;max-height:200px;border-radius:4px;border:1px solid var(--line);display:block}
+.file-prev .file-doc{font-size:11px;color:var(--ink-dim);background:var(--bg-raised);border:1px solid var(--line);border-radius:3px;padding:9px 12px;display:inline-block}
+.fo-case-img{margin-bottom:13px;border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+.fo-case-img img{width:100%;max-height:120px;object-fit:cover;display:block}
+.rc-att-wrap{margin:10px 0 2px}
+.rc-att{display:inline-block;border:1px solid var(--line);border-radius:4px;overflow:hidden;max-width:260px}
+.rc-att img{display:block;max-width:100%;max-height:180px;object-fit:cover}
 </style>
   <div class="wrap">
     <div class="fo-hero">
@@ -937,6 +950,12 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
         <input id="bf-reward" class="fo-in" type="number" step="0.1" min="0" placeholder="Reward in SOL (optional)  ·  paid to the winner">
       </div>
       <textarea id="bf-detail" class="fo-in fo-ta" placeholder="The brief  ·  exchange-inflow trace, custody controller, corroborating disclosure, confidence per address…"></textarea>
+      <div class="file-drop" id="bf-file-drop">
+        <input type="file" id="bf-image" accept="image/*" style="display:none" onchange="onPickFile('bf')">
+        <button type="button" class="file-btn" onclick="document.getElementById('bf-image').click()">\uD83D\uDDBC Add an image  ·  logo, chart, screenshot</button>
+        <span class="file-name mono" id="bf-file-name"></span>
+        <div class="file-prev" id="bf-file-prev"></div>
+      </div>
       <div class="fo-form-foot">
         <span class="fo-form-note">No fee to file. Boosting, applying and rewarding are the on-chain actions.</span>
         <div style="display:flex;gap:8px">
@@ -1538,13 +1557,15 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div class="modal-sub mono" id="apply-bounty-name">bounty</div>
     <div class="mini-form" style="margin-top:16px">
       <div class="apply-wallet mono" id="apply-wallet-row">Connect your wallet to sign this application.</div>
-      <textarea placeholder="Your attribution report: wallets, the evidence trail, and a confidence level per address" id="apply-report" rows="4" style="margin-top:11px"></textarea>
-      <div class="mf-row" style="margin-top:10px">
-        <input type="text" placeholder="On-chain proof link (Solscan / explorer)" id="apply-onchain">
-        <input type="text" placeholder="Off-chain proof (SEC / press), optional" id="apply-offchain">
+      <textarea placeholder="Lay out your case: the wallets, the trace, the custodian fingerprint, your confidence per address, and any links you have (Solscan, SEC, press). Everything you found, in your own words." id="apply-report" rows="7" style="margin-top:11px"></textarea>
+      <div class="file-drop" id="apply-file-drop">
+        <input type="file" id="apply-file" accept="image/*,.pdf,.csv,.txt,.json,.xlsx" style="display:none" onchange="onPickFile('apply')">
+        <button type="button" class="file-btn" onclick="document.getElementById('apply-file').click()">\uD83D\uDCCE Attach image or file</button>
+        <span class="file-name mono" id="apply-file-name"></span>
+        <div class="file-prev" id="apply-file-prev"></div>
       </div>
       <button class="btn-fill" onclick="submitBountyReport()" style="margin-top:13px">✦ Sign &amp; Submit on-chain</button>
-      <div class="mf-note">Your wallet signs the submission, then it lands in the review queue as pending. It goes public once a maintainer approves it.</div>
+      <div class="mf-note">Write your findings freely and attach a screenshot or document if you have one. Your wallet signs the submission, then it lands in the review queue, public once a maintainer approves it.</div>
     </div>
   </div>
 </div>
@@ -1882,6 +1903,50 @@ window.CASE_STUDIES = [
 ];
 </script>
 <script>
+// ===== File + image attachments via Supabase Storage =====
+const OSI_BUCKET = 'osi-uploads';
+const _picked = {};   // { apply: File|null, bf: File|null }
+function _fileInput(key){ return document.getElementById(key+'-file') || document.getElementById(key+'-image'); }
+function onPickFile(key){
+  const inp = _fileInput(key);
+  const f = inp && inp.files && inp.files[0];
+  const nameEl = document.getElementById(key+'-file-name');
+  const prevEl = document.getElementById(key+'-file-prev');
+  if(!f){ _picked[key]=null; if(nameEl) nameEl.textContent=''; if(prevEl) prevEl.innerHTML=''; return; }
+  if(f.size > 10*1024*1024){ showToast("That file is over 10MB. Please attach something smaller."); if(inp) inp.value=''; return; }
+  _picked[key]=f;
+  if(nameEl) nameEl.textContent = f.name;
+  if(prevEl){
+    if(/^image\//.test(f.type||'')){ const rd=new FileReader(); rd.onload=function(){ prevEl.innerHTML='<img src="'+rd.result+'" alt="preview">'; }; rd.readAsDataURL(f); }
+    else { prevEl.innerHTML='<div class="file-doc">\uD83D\uDCC4 '+escapeHtml(f.name)+'</div>'; }
+  }
+}
+function clearPickedFile(key){
+  _picked[key]=null;
+  const inp=_fileInput(key); if(inp) inp.value='';
+  const nameEl=document.getElementById(key+'-file-name'); if(nameEl) nameEl.textContent='';
+  const prevEl=document.getElementById(key+'-file-prev'); if(prevEl) prevEl.innerHTML='';
+}
+async function uploadPicked(key){ const f=_picked[key]; if(!f) return ''; return await supaUpload(f); }
+async function supaUpload(file){
+  if(!SUPA_ON || !file) return '';
+  const m = file.name.match(/\.([a-z0-9]+)$/i); const ext = (m ? m[1] : 'bin').toLowerCase();
+  const path = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
+  const res = await fetch(SUPABASE_URL + '/storage/v1/object/' + OSI_BUCKET + '/' + path, {
+    method:'POST',
+    headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + (SUPA_AUTH_TOKEN || SUPABASE_ANON_KEY), 'Content-Type': file.type || 'application/octet-stream', 'x-upsert':'false' },
+    body: file
+  });
+  if(!res.ok) throw new Error('upload ' + res.status);
+  return SUPABASE_URL + '/storage/v1/object/public/' + OSI_BUCKET + '/' + path;
+}
+function attachmentTag(url){
+  const safe = safeUrl(url); if(!safe) return '';
+  const isImg = /\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(safe);
+  if(isImg) return '<a class="rc-att" href="'+escapeHtml(safe)+'" target="_blank" rel="noopener"><img src="'+escapeHtml(safe)+'" alt="evidence" loading="lazy"></a>';
+  return '<a class="proof-tag onchain" href="'+escapeHtml(safe)+'" target="_blank" rel="noopener">\uD83D\uDCCE attachment \u2197</a>';
+}
+
 // ===== THE FIELD OFFICE: the bounty operations hub =====
 // Curated launch cases (real untraced DAT targets). Also a fallback when Supabase
 // is unavailable. User-filed cases come from Supabase and merge in by id.
@@ -1954,9 +2019,11 @@ function fieldCaseCard(b, i){
     actions = '<button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>'
       + '<button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>';
   }
+  const img = b.image ? '<div class="fo-case-img"><img src="'+escapeHtml(b.image)+'" alt="" loading="lazy"></div>' : '';
   return '<div class="fo-case bounty '+status+'" data-bid="'+id+'">'
     + '<div class="fo-case-stripe"></div>'
     + '<div class="fo-case-body">'
+      + img
       + '<div class="fo-case-top"><span class="fo-case-no">'+caseNo+'</span><span class="fo-case-status '+status+'">'+statusLabel+'</span></div>'
       + '<div class="fo-case-target b-target">'+target+'</div>'
       + '<div class="fo-case-brief">'+brief+'</div>'
@@ -3061,11 +3128,15 @@ async function submitBounty(){
   if(!detail){ showToast("Describe what the bounty needs proven (trace, custody, corroboration)."); return; }
   const memo = "OSI new bounty: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
   withOnchainVote("Open bounty", memo, async (sig)=>{
+    let img='';
+    try{ img = await uploadPicked('bf'); }
+    catch(e){ showToast("Image upload failed, filing the case without it."); }
     const id='bnt_'+Date.now();
-    const mine=lsGet('stw_bounties',[]); mine.unshift({ id, target, detail, reward_sol:rewardSol, tx: sig||'', sub: SUPA_ON?'\u23f3 awaiting maintainer approval':'proposed here' }); lsSet('stw_bounties',mine);
+    const mine=lsGet('stw_bounties',[]); mine.unshift({ id, target, detail, reward_sol:rewardSol, image:img, tx: sig||'', sub: SUPA_ON?'\u23f3 awaiting maintainer approval':'proposed here' }); lsSet('stw_bounties',mine);
     ['bf-target','bf-detail','bf-reward'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
-    if(SUPA_ON){ try{ await supaPost('bounties',{ id, title:target, target, detail, reward_sol:rewardSol, created_by: walletPubkey||'', approved:false }); renderFieldOffice(); }catch(e){ console.warn('OSI: bounty publish failed.',e); } }
+    if(SUPA_ON){ try{ const brow = { id, title:target, target, detail, reward_sol:rewardSol, created_by: walletPubkey||'', approved:false }; if(img) brow.image = img; await supaPost('bounties', brow); renderFieldOffice(); }catch(e){ console.warn('OSI: bounty publish failed.',e); } }
     try{ await sendForm({ _subject:'OSI, New Bounty: '+target, type:'bounty-proposal', target, detail, reward: rewardSol?rewardSol+' SOL':'(none)', by: walletPubkey||'(none)', tx: sig||'(none)' }); }catch(e){}
+    clearPickedFile('bf');
     fieldCloseForm();
     showToast(SUPA_ON?'\u2713 Bounty signed on-chain and submitted, it goes live once a maintainer approves.':'\u2713 Bounty proposed and sent to the maintainer.');
   });
@@ -3146,7 +3217,8 @@ function openApplyModal(btn){
   const card = btn.closest('.bounty'); if(!card) return;
   applyCtx = { bid: card.dataset.bid, target: bountyTargetText(card) };
   const nm = document.getElementById('apply-bounty-name'); if(nm) nm.textContent = '🎯 ' + applyCtx.target;
-  ['apply-report','apply-onchain','apply-offchain'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  const rep = document.getElementById('apply-report'); if(rep) rep.value = '';
+  clearPickedFile('apply');
   refreshApplyWalletRow();
   const m = document.getElementById('apply-modal'); if(m) m.classList.add('open');
 }
@@ -3161,33 +3233,28 @@ function refreshApplyWalletRow(){
 
 async function submitBountyReport(){
   const report = (document.getElementById('apply-report').value || '').trim();
-  const on  = (document.getElementById('apply-onchain').value || '').trim();
-  const off = (document.getElementById('apply-offchain').value || '').trim();
-  if(!report){ showToast("Write your attribution report before submitting."); return; }
-  if(!on){ showToast("Add at least an on-chain proof link (Solscan / explorer)."); return; }
+  if(!report){ showToast("Write up your findings before submitting."); return; }
   const target = applyCtx.target, bid = applyCtx.bid;
   const memo = "OSI bounty report: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
   withOnchainVote("Submit report", memo, async (sig)=>{
+    let att = '';
+    try{ att = await uploadPicked('apply'); }
+    catch(e){ showToast("Attachment upload failed, submitting without it."); }
     const id = 'rep_' + Date.now();
-    // 1) local pending, so the submitter sees it immediately (tied to their wallet)
     const reports = lsGet('stw_reports', []);
-    reports.unshift({ id, bounty: target, company: target, summary: report, onchain: on, offchain: off, wallet: walletPubkey || '', tx: sig || '', up: 0, dn: 0 });
+    reports.unshift({ id, bounty: target, company: target, summary: report, onchain: '', offchain: '', attachment: att, wallet: walletPubkey || '', tx: sig || '', up: 0, dn: 0 });
     lsSet('stw_reports', reports);
-    // 2) mark the bounty as applied (persists across refresh)
     if(bid){ const mine = lsGet('stw_applied', {}); mine[bid] = true; lsSet('stw_applied', mine); const c = document.querySelector('.bounty[data-bid="' + bid + '"]'); if(c) markAppliedUI(c, sig); }
-    // 3) global pending via Supabase, public only after a maintainer approves
-    if(SUPA_ON){ try{ await supaPost('reports', { id, bounty: target, company: target, wallet: walletPubkey || '', summary: report, onchain: on, offchain: off, tx: sig || '', approved: false }); }catch(e){ console.warn('OSI: report publish failed.', e); } }
-    // 4) email the maintainer for approval
-    try{ await sendForm({ _subject: 'OSI, Bounty Report: ' + target, type: 'bounty-report', bounty: target, wallet: walletPubkey || '(none)', summary: report, onchain_proof: on, offchain_proof: off || '(none)', tx: sig || '(none)' }); }catch(e){}
-    // 5) close + take them to the queue to see it land as pending
+    if(SUPA_ON){ try{ const row = { id, bounty: target, company: target, wallet: walletPubkey || '', summary: report, onchain: '', offchain: '', tx: sig || '', approved: false }; if(att) row.attachment = att; await supaPost('reports', row); }catch(e){ console.warn('OSI: report publish failed.', e); } }
+    try{ await sendForm({ _subject: 'OSI, Bounty Report: ' + target, type: 'bounty-report', bounty: target, wallet: walletPubkey || '(none)', summary: report, attachment: att || '(none)', tx: sig || '(none)' }); }catch(e){}
+    clearPickedFile('apply');
     closeApplyModal();
     renderReviewQueue();
     openCommunityTab('tab-analysts');
     const q = document.getElementById('review-list'); if(q) q.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    showToast("✓ Report signed on-chain and submitted, pending maintainer approval.");
+    showToast("\u2713 Submission signed on-chain and sent, pending maintainer approval.");
   });
 }
-
 // On load, restore this browser's boosted/applied bounties + global counts.
 function restoreBountyState(){
   const boosted = lsGet('stw_boosted', {}); const applied = lsGet('stw_applied', {});
@@ -3352,8 +3419,9 @@ async function submitResearch(){
 // maintainer has published for everyone.
 function reportCardHtml(r){
   const onUrl = safeUrl(r.onchain), offUrl = safeUrl(r.offchain);
-  const onP = onUrl ? `<a class="proof-tag onchain" href="${escapeHtml(onUrl)}" target="_blank" rel="noopener">⛓ on-chain proof ↗</a>` : `<span class="proof-tag onchain">⛓ on-chain proof attached</span>`;
-  const offP = offUrl ? `<a class="proof-tag offchain" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">▤ off-chain proof ↗</a>` : `<span class="proof-tag offchain">▤ SEC filing attached</span>`;
+  const onP = onUrl ? `<a class="proof-tag onchain" href="${escapeHtml(onUrl)}" target="_blank" rel="noopener">⛓ on-chain proof ↗</a>` : '';
+  const offP = offUrl ? `<a class="proof-tag offchain" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">▤ off-chain proof ↗</a>` : '';
+  const attBlock = r.attachment ? `<div class="rc-att-wrap">${attachmentTag(r.attachment)}</div>` : '';
   const tick = r.ticker ? `<span class="ticker">${escapeHtml(r.ticker)}</span>` : '';
   const who = r.wallet ? short(r.wallet) : 'you';
   const txLink = r.tx ? ` <a class="mono" href="https://solscan.io/tx/${escapeHtml(r.tx)}" target="_blank" rel="noopener" style="color:var(--sol);text-decoration:none;font-size:9px">↗ signed ✓</a>` : '';
@@ -3376,6 +3444,7 @@ function reportCardHtml(r){
         </div>
       </div>
       <div class="rc-sum">${escapeHtml(r.summary)}</div>
+      ${attBlock}
       <div class="rc-proof">${onP}${offP}<span class="proof-tag conf">${conf}</span>${tipBtn}</div>
     </div>`;
 }
