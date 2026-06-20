@@ -257,7 +257,6 @@ body[data-view="community"] .sb-subnav{display:flex}
 .sb-sub{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;border-radius:7px;padding:8px 10px;color:var(--ink-dim);font-family:'Archivo',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;transition:background .14s,color .14s}
 .sb-sub:hover{background:var(--bg-raised);color:var(--ink)}
 .sb-sub .sb-ic{font-size:12px;width:15px;text-align:center;opacity:.7}
-body[data-sub="tab-submit"] .sb-sub[data-sub="tab-submit"],
 body[data-sub="tab-analysts"] .sb-sub[data-sub="tab-analysts"]{color:var(--sol);background:rgba(20,241,149,.08)}
 /* sidebar leaderboard */
 .sb-board{margin:14px 4px 4px;padding:13px 12px;background:var(--bg-raised);border:1px solid var(--line);border-radius:11px}
@@ -540,6 +539,7 @@ body[data-view="methodology"] section[data-view="methodology"],
 body[data-view="community"] section[data-view="community"],
 body[data-view="dat"] section[data-view="dat"],
 body[data-view="field"] section[data-view="field"],
+body[data-view="wire"] section[data-view="wire"],
 body[data-view="profile"] section[data-view="profile"]{display:block}
 </style>
 <style>
@@ -562,6 +562,7 @@ body[data-view="methodology"] .sb-item[data-view="methodology"],
 body[data-view="graph"] .sb-item[data-view="graph"],
 body[data-view="dat"] .sb-item[data-view="dat"],
 body[data-view="field"] .sb-item[data-view="field"],
+body[data-view="wire"] .sb-item[data-view="wire"],
 body[data-view="community"] .sb-item[data-view="community"]{
   background:rgba(20,241,149,.08);color:var(--sol);box-shadow:inset 0 -2px 0 var(--sol)}
 .sb-board{display:none!important}
@@ -618,7 +619,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .bounty:hover{border-color:var(--line-bright);border-left-color:var(--sol)}
 </style>
 </head>
-<body data-view="registry" data-sub="tab-submit">
+<body data-view="registry" data-sub="tab-analysts">
 <div class="backdrop"></div>
 <div class="glow"></div>
 
@@ -633,13 +634,13 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   <nav class="sb-nav" role="tablist" aria-label="Sections">
     <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span class="sb-ic">▣</span><span>Registry</span><span class="sb-c" id="vc-co">3</span></button>
     <button class="sb-item" data-view="field" role="tab" onclick="showView('field')"><span class="sb-ic">🗂</span><span>Field Office</span></button>
+    <button class="sb-item" data-view="wire" role="tab" onclick="showView('wire')"><span class="sb-ic">📰</span><span>The Wire</span></button>
     <button class="sb-item" data-view="dat" role="tab" onclick="showView('dat')"><span class="sb-ic">📡</span><span>DAT Watch</span></button>
     <button class="sb-item" data-view="graph" role="tab" onclick="showView('graph')"><span class="sb-ic">🕸️</span><span>Network</span></button>
     <button class="sb-item" data-view="research" role="tab" onclick="showView('research')"><span class="sb-ic">🕵️</span><span>Investigations</span><span class="sb-c" id="vc-cases">2</span></button>
     <button class="sb-item" data-view="methodology" role="tab" onclick="showView('methodology')"><span class="sb-ic">🔬</span><span>Methodology</span></button>
     <button class="sb-item" data-view="community" role="tab" onclick="showView('community')"><span class="sb-ic">✦</span><span>Community</span></button>
     <div class="sb-subnav">
-      <button class="sb-sub" data-sub="tab-submit" onclick="goCommunity('tab-submit')"><span class="sb-ic">⊕</span>Submit Research</button>
       <button class="sb-sub" data-sub="tab-analysts" onclick="goCommunity('tab-analysts')"><span class="sb-ic">✦</span>Analysts</button>
     </div>
   </nav>
@@ -983,6 +984,114 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
 </section>
 
+<section class="sec" data-view="wire" id="wire-view">
+<style>
+#wire-view .wrap{max-width:920px}
+.wire-hero{position:relative;border:1px solid var(--line-bright);border-top:2px solid var(--cyan);background:
+   linear-gradient(115deg,var(--bg-card),var(--bg)),
+   repeating-linear-gradient(90deg,transparent,transparent 5px,rgba(34,211,238,.018) 5px,rgba(34,211,238,.018) 6px);
+   padding:30px 32px;overflow:hidden}
+.wire-hero::after{content:"";position:absolute;right:24px;top:50%;transform:translateY(-50%);width:88px;height:88px;border:2px solid rgba(34,211,238,.07);border-radius:50%;pointer-events:none}
+.wire-hero::before{content:"";position:absolute;right:50px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:2px solid rgba(34,211,238,.1);border-radius:50%;pointer-events:none}
+.wire-eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;color:var(--cyan);text-transform:uppercase}
+.wire-live{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px var(--cyan);animation:pulse 1.7s infinite}
+.wire-title{font-family:'Archivo',sans-serif;font-weight:900;font-size:clamp(28px,4.2vw,46px);letter-spacing:-.03em;line-height:1;margin:13px 0 0}
+.wire-sub{font-size:14px;color:var(--ink-dim);line-height:1.65;max-width:600px;margin:13px 0 0}
+.wire-ops{display:flex;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:20px;position:relative;z-index:1}
+.wire-op{background:var(--bg-card);padding:13px 18px;flex:1}
+.wire-op-n{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;color:var(--ink);line-height:1}
+.wire-op-n.cy{color:var(--cyan)}
+.wire-op-l{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.11em;color:var(--ink-faint);margin-top:6px;text-transform:uppercase}
+.wire-cta{margin-top:20px;background:var(--cyan);color:var(--bg);border:0;border-radius:3px;padding:13px 20px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.05em;cursor:pointer}
+.wire-cta:hover{filter:brightness(1.1)}
+/* publish form */
+.wire-form{border:1px solid var(--line-bright);border-left:2px solid var(--cyan);background:var(--bg-card);padding:24px;margin-top:14px}
+.wire-form-h{font-family:'Archivo',sans-serif;font-weight:800;font-size:16px}
+.wire-form-sub{font-size:12.5px;color:var(--ink-faint);line-height:1.55;margin:7px 0 16px;max-width:660px}
+.wire-in{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:11px 12px;box-sizing:border-box;margin-bottom:11px}
+.wire-in::placeholder{color:var(--ink-faint)}
+.wire-in:focus{outline:none;border-color:var(--cyan)}
+.wire-ta{min-height:120px;resize:vertical;line-height:1.55}
+.wire-form-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px;flex-wrap:wrap}
+.wire-pub-btn{background:var(--cyan);color:var(--bg);border:0;border-radius:3px;padding:12px 18px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.04em;cursor:pointer}
+.wire-pub-btn:hover{filter:brightness(1.1)}
+/* sort bar */
+.wire-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 0 14px;border-bottom:1px solid var(--line);padding-bottom:13px;flex-wrap:wrap}
+.wire-bar-l{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--ink-faint);text-transform:uppercase}
+.wire-sorts{display:flex;align-items:center;gap:4px}
+.wire-sort{background:transparent;border:0;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:6px 10px;cursor:pointer;border-bottom:1px solid transparent}
+.wire-sort:hover{color:var(--ink-dim)}
+.wire-sort.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+/* feed */
+.wire-feed{display:flex;flex-direction:column;gap:12px}
+.wire-card{position:relative;border:1px solid var(--line);border-left:3px solid var(--cyan);background:var(--bg-card);overflow:hidden;transition:border-color .15s,transform .15s}
+.wire-card:hover{border-color:var(--line-bright);border-left-color:var(--cyan);transform:translateX(2px)}
+.wire-card.premium{border-left-color:var(--violet)}
+.wire-img{max-height:150px;overflow:hidden;border-bottom:1px solid var(--line)}
+.wire-img img{width:100%;max-height:150px;object-fit:cover;display:block}
+.wire-body{padding:19px 22px}
+.wire-top{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.wire-badge{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:2px;background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.3)}
+.wire-badge.premium{background:rgba(153,69,255,.12);color:var(--violet);border-color:rgba(153,69,255,.35)}
+.wire-by{font-size:11px;color:var(--ink-faint)}
+.wire-subject{font-family:'Archivo',sans-serif;font-weight:800;font-size:19px;letter-spacing:-.01em;line-height:1.22;margin:11px 0 0}
+.wire-text{font-size:13px;color:var(--ink-dim);line-height:1.62;margin:9px 0 0}
+.wire-att{margin:12px 0 0}
+.wire-metrics{margin:14px 0 0;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint)}
+.wire-metrics .b-reward{color:var(--cyan);font-weight:700;font-size:14px}
+.wire-actions{display:flex;align-items:center;gap:8px;margin:13px 0 0;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--line)}
+.wire-support{background:transparent;border:1px solid rgba(20,241,149,.4);color:var(--sol);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.03em;padding:8px 14px;border-radius:2px;cursor:pointer}
+.wire-support:hover{background:rgba(20,241,149,.1)}
+.wire-read{background:transparent;border:1px solid rgba(153,69,255,.4);color:var(--violet);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.03em;padding:8px 14px;border-radius:2px;cursor:pointer}
+.wire-read:hover{background:rgba(153,69,255,.1)}
+.wire-empty{text-align:center;border:1px dashed var(--line-bright);background:var(--bg-card);padding:46px 24px;color:var(--ink-faint)}
+.wire-empty-h{font-family:'Archivo',sans-serif;font-weight:700;font-size:16px;color:var(--ink-dim);margin-bottom:8px}
+.wire-empty p{font-size:12.5px;line-height:1.6;max-width:380px;margin:0 auto 16px}
+@media (prefers-reduced-motion: reduce){.wire-live{animation:none}}
+@media(max-width:620px){.wire-ops{flex-wrap:wrap}.wire-op{min-width:40%}}
+</style>
+  <div class="wrap">
+    <div class="wire-hero">
+      <div class="wire-eyebrow"><span class="wire-live"></span>Open intelligence</div>
+      <h1 class="wire-title">The Wire</h1>
+      <p class="wire-sub">Intelligence nobody asked for. Analysts file what they find, on their own initiative, and the community backs the work and supports the analyst directly in SOL. No bounty required, no gatekeeper. If you traced something, put it on the wire.</p>
+      <div class="wire-ops" id="wire-stats"></div>
+      <div><button class="wire-cta" onclick="wireOpenForm()">+ File a dispatch</button></div>
+    </div>
+
+    <div class="wire-form" id="wire-form" hidden>
+      <div class="wire-form-h">⊹ File an intelligence dispatch</div>
+      <p class="wire-form-sub">Publish your own finding, unsolicited. A wallet cluster, a custody link, a funding trail, whatever you traced. After a maintainer reviews it, it goes live on the wire where the community can back it and support you directly. Filing is signed with your wallet.</p>
+      <input id="wire-subject-in" class="wire-in" placeholder="Subject  ·  the entity, fund, or wallet set this dispatch concerns">
+      <textarea id="wire-body-in" class="wire-in wire-ta" placeholder="Your dispatch  ·  the wallets, the trace, the custodian, your confidence per address, and any links (Solscan, SEC, sources). Everything you found, in your own words."></textarea>
+      <div class="file-drop" id="wire-file-drop">
+        <input type="file" id="wire-file" accept="image/*,.pdf,.csv,.txt,.json,.xlsx" style="display:none" onchange="onPickFile('wire')">
+        <button type="button" class="file-btn" onclick="document.getElementById('wire-file').click()">📎 Attach image or file</button>
+        <span class="file-name mono" id="wire-file-name"></span>
+        <div class="file-prev" id="wire-file-prev"></div>
+      </div>
+      <div class="wire-form-foot">
+        <span class="fo-form-note">Backing and supporting are the on-chain actions. Filing is free, signed to prove authorship.</span>
+        <div style="display:flex;gap:8px">
+          <button class="fo-cancel" onclick="wireCloseForm()">Cancel</button>
+          <button class="wire-pub-btn" onclick="submitIntel()">Publish to the wire →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="wire-bar">
+      <div class="wire-bar-l">▚ The feed</div>
+      <div class="wire-sorts" id="wire-sorts">
+        <span class="wire-bar-l" style="letter-spacing:.14em">sort</span>
+        <button class="wire-sort active" data-s="newest" onclick="wireSort('newest')">Newest</button>
+        <button class="wire-sort" data-s="supported" onclick="wireSort('supported')">Most backed</button>
+      </div>
+    </div>
+
+    <div class="wire-feed" id="wire-cases"></div>
+  </div>
+</section>
+
 <section class="sec" data-view="admin" id="admin-view">
 <style>
 body[data-view="admin"] section[data-view="admin"]{display:block}
@@ -1318,42 +1427,11 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     </div>
 
     <div class="comm-tabs">
-      <button class="ctab active" onclick="switchTab(this,'tab-submit')">⊕ Submit Research</button>
-      <button class="ctab" onclick="switchTab(this,'tab-analysts')">✦ Analysts</button>
+      <button class="ctab active" onclick="switchTab(this,'tab-analysts')">✦ Analysts</button>
     </div>
 
     <!-- WALLET REQUESTS -->
-    <div class="tab-panel active" id="tab-submit">
-      <div class="panel-bar">
-        <div class="pb-title">📝 Submit Research <span class="mono dim">· contribute an attribution report</span></div>
-      </div>
-      <div class="submit-grid">
-        <div class="rules">
-          <div class="rules-title mono">Submission rules</div>
-          <ul class="rule-list">
-            <li><span class="rk">01</span> Every claim needs <b>on-chain proof</b>, transaction hashes, addresses, flows.</li>
-            <li><span class="rk">02</span> Plus <b>off-chain corroboration</b>, SEC filing, press release, or official disclosure.</li>
-            <li><span class="rk">03</span> State a <b>confidence level</b> per wallet. Never present clustering as certainty.</li>
-            <li><span class="rk">04</span> Reviewed by <b>recognized analysts</b> and the maintainer before publishing.</li>
-            <li><span class="rk">05</span> Approved reports are credited to you, on-chain-verifiable, forever public.</li>
-          </ul>
-        </div>
-        <div class="mini-form" style="margin-top:0">
-          <div class="mf-title mono">New report</div>
-          <input type="text" placeholder="Subject company / fund" id="sub-co" style="margin-bottom:10px">
-          <textarea placeholder="Summary of attribution + key evidence" id="sub-sum" rows="3"></textarea>
-          <div class="mf-row" style="margin-top:10px">
-            <input type="text" placeholder="On-chain proof link (Solscan / explorer)" id="sub-onchain">
-            <input type="text" placeholder="Off-chain proof link (SEC / press)" id="sub-offchain">
-          </div>
-          <button class="btn-fill" onclick="submitResearch()" style="margin-top:12px">Submit for Review</button>
-          <div class="mf-note">Goes into the review queue. You'll be credited if approved.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ANALYSTS -->
-    <div class="tab-panel" id="tab-analysts">
+    <div class="tab-panel active" id="tab-analysts">
 <style>
 .rec-hero{position:relative;border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:linear-gradient(120deg,var(--bg-card),var(--bg));padding:30px 28px;overflow:hidden}
 .rec-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(20,241,149,.045),transparent);transform:translateX(-100%);animation:rec-sweep 7s ease-in-out infinite;pointer-events:none}
@@ -1604,6 +1682,17 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .btn-reward{background:var(--sol);color:var(--bg);border:0;border-radius:2px;padding:8px 13px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.03em;cursor:pointer;margin-top:5px}
 .btn-reward:hover{background:var(--sol-deep)}
 .bounty.resolved{border-left:2px solid var(--sol)}
+.tip-pay-toggle{width:100%;margin-top:11px;background:transparent;border:1px solid var(--line-bright);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;padding:10px;border-radius:2px;cursor:pointer;transition:all .13s}
+.tip-pay-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+.tip-pay{margin-top:13px;border:1px solid var(--line);border-radius:3px;padding:18px;text-align:center;background:var(--bg)}
+.tip-qr{width:188px;height:188px;margin:0 auto 14px;background:#fff;border-radius:4px;padding:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
+.tip-qr img{width:100%;height:100%;image-rendering:pixelated;display:block}
+.tip-qr-load,.tip-qr-fallback{font-size:10px;color:#64748b}
+.tip-pay-link{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);text-decoration:none;border:1px solid rgba(34,211,238,.4);border-radius:2px;padding:9px 14px;margin-bottom:9px}
+.tip-pay-link:hover{background:rgba(34,211,238,.1)}
+.tip-pay-copy{display:block;width:100%;background:transparent;border:0;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:10.5px;cursor:pointer;text-decoration:underline;margin-top:4px}
+.tip-pay-copy:hover{color:var(--ink-dim)}
+.tip-pay-note{font-size:9.5px;color:var(--ink-faint);line-height:1.6;margin-top:13px}
 </style>
   <div class="tip-card">
     <button class="tip-x" onclick="closeTip()">&times;</button>
@@ -1619,6 +1708,13 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     </div>
     <div class="tip-usd" id="tip-usd"></div>
     <button class="tip-send" onclick="confirmTip()">Send tip →</button>
+    <button class="tip-pay-toggle" id="tip-pay-toggle" onclick="toggleSolanaPay()">⊞&nbsp; Or pay with any wallet (Solana Pay) ▾</button>
+    <div class="tip-pay" id="tip-pay" hidden>
+      <div class="tip-qr" id="tip-qr"></div>
+      <a class="tip-pay-link" id="tip-pay-link" href="#" target="_blank" rel="noopener">Open in a Solana wallet ↗</a>
+      <button class="tip-pay-copy" onclick="copySolanaPay()">Copy Solana Pay link</button>
+      <div class="tip-pay-note mono">Scan with any Solana wallet on your phone, or tap to open. Same direct transfer, no copy-paste of addresses.</div>
+    </div>
     <div class="tip-status" id="tip-status"></div>
     <div class="tip-note mono">A direct SOL transfer from your wallet to theirs. You pay the amount plus the ~0.000005 SOL network fee. Non-custodial, OSI never holds the funds.</div>
   </div>
@@ -1903,6 +1999,179 @@ window.CASE_STUDIES = [
 ];
 </script>
 <script>
+// ===== THE WIRE: open community intelligence, filed without a bounty =====
+let wireState = { sort:'newest', data:[] };
+
+async function renderWire(){
+  if(!document.getElementById('wire-cases')) return;
+  // Flagship investigations (the curated case studies) feature at the top of the wire.
+  const featured = (window.CASE_STUDIES || []).map(function(cs){
+    return { id:'cs_'+cs.id, _case:cs.id, subject: cs.company + (cs.ticker ? (' (' + cs.ticker + ')') : ''),
+             body: cs.summary || cs.intro || '', author: (cs.author || 'aksusarya'), premium:true, image:'', wallet:'', created_at:'2099-01-01' };
+  });
+  let community = [];
+  if(SUPA_ON){
+    try{
+      const rows = await supaGet('reports?select=id,bounty,company,wallet,summary,attachment,created_at&approved=eq.true&order=created_at.desc');
+      community = (rows || [])
+        .filter(function(r){ return !(r.bounty && String(r.bounty).trim()); })   // intel = no bounty
+        .map(function(r){
+          const isImg = r.attachment && /\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(r.attachment);
+          return { id:r.id, subject:(r.company || 'Intel dispatch'), body:(r.summary || ''),
+                   author:(r.wallet ? short(r.wallet) : 'analyst'), wallet:(r.wallet || ''),
+                   image:(isImg ? r.attachment : ''), attachment:(r.attachment || ''),
+                   created_at:r.created_at, premium:false };
+        });
+    }catch(e){ /* feed still shows flagship */ }
+  }
+  wireState.data = featured.concat(community);
+  drawWire();
+}
+function drawWire(){
+  const host=document.getElementById('wire-cases'); if(!host) return;
+  wireStats(wireState.data);
+  let list = wireState.data.slice();
+  if(wireState.sort==='supported'){
+    list.sort(function(a,b){ return (((window.boostCounts||{})[b.id])||0) - (((window.boostCounts||{})[a.id])||0); });
+  } else {
+    list.sort(function(a,b){ if(a.premium!==b.premium) return a.premium?-1:1; return new Date(b.created_at||0) - new Date(a.created_at||0); });
+  }
+  if(!list.length){
+    host.innerHTML = '<div class="wire-empty"><div class="wire-empty-h">The wire is quiet</div><p>No dispatches yet. Be the first to file one. Trace something nobody asked about and publish it here.</p><button class="wire-cta" onclick="wireOpenForm()">+ File a dispatch</button></div>';
+    return;
+  }
+  host.innerHTML = list.map(wireCard).join('');
+  const boosted=lsGet('stw_boosted',{});
+  host.querySelectorAll('.bounty[data-bid]').forEach(function(card){ if(boosted[card.dataset.bid]) markBoostedUI(card,null); });
+  hydrateBoosts();
+}
+function wireCard(d){
+  const id = escapeHtml(d.id);
+  const subject = escapeHtml(d.subject || 'Intel dispatch');
+  const full = String(d.body || '');
+  const body = escapeHtml(full.slice(0,260)) + (full.length>260 ? '…' : '');
+  const count = ((window.boostCounts||{})[d.id]) || 0;
+  const img = d.image ? '<div class="wire-img"><img src="'+escapeHtml(d.image)+'" alt="" loading="lazy"></div>' : '';
+  const badge = d.premium ? '<span class="wire-badge premium">★ FLAGSHIP</span>' : '<span class="wire-badge">● DISPATCH</span>';
+  const att = (!d.premium && d.attachment && !d.image) ? '<div class="wire-att">'+attachmentTag(d.attachment)+'</div>' : '';
+  let actions = '<button class="btn-stake" onclick="stakeBoost(this)">↑ Back this</button>';
+  if(d.premium && d._case){
+    actions += '<button class="wire-read" onclick="openReport(\'case\',\''+d._case+'\')">Read full report →</button>';
+  } else if(d.wallet){
+    actions += '<button class="wire-support" onclick="openTip(\''+d.wallet+'\',\''+escapeHtml(short(d.wallet))+'\',0.1,\'\\u25ce Support the analyst\')">\\u25ce Support analyst</button>';
+  }
+  return '<div class="wire-card bounty'+(d.premium?' premium':'')+'" data-bid="'+id+'">'
+    + img
+    + '<div class="wire-body">'
+      + '<div class="wire-top">'+badge+'<span class="wire-by mono">by '+escapeHtml(d.author||'analyst')+'</span></div>'
+      + '<div class="wire-subject b-target">'+subject+'</div>'
+      + '<div class="wire-text">'+body+'</div>'
+      + att
+      + '<div class="wire-metrics"><span class="b-reward"><span class="n">'+count+'</span></span> backing this dispatch</div>'
+      + '<div class="wire-actions">'+actions+'</div>'
+    + '</div>'
+  + '</div>';
+}
+function wireStats(list){
+  const host=document.getElementById('wire-stats'); if(!host) return;
+  const total = list.length;
+  const flag = list.filter(function(d){ return d.premium; }).length;
+  const comm = total - flag;
+  host.innerHTML =
+      '<div class="wire-op"><div class="wire-op-n cy">'+total+'</div><div class="wire-op-l">Dispatches</div></div>'
+    + '<div class="wire-op"><div class="wire-op-n">'+flag+'</div><div class="wire-op-l">Flagship reports</div></div>'
+    + '<div class="wire-op"><div class="wire-op-n">'+comm+'</div><div class="wire-op-l">Community filings</div></div>';
+}
+function wireSort(s){ wireState.sort=s; document.querySelectorAll('.wire-sort').forEach(function(b){ b.classList.toggle('active', b.dataset.s===s); }); drawWire(); }
+function wireOpenForm(){ const f=document.getElementById('wire-form'); if(f){ f.hidden=false; f.scrollIntoView({behavior:'smooth',block:'center'}); const t=document.getElementById('wire-subject-in'); if(t) t.focus(); } }
+function wireCloseForm(){ const f=document.getElementById('wire-form'); if(f) f.hidden=true; }
+
+async function submitIntel(){
+  const subject = (document.getElementById('wire-subject-in').value || '').trim();
+  const body = (document.getElementById('wire-body-in').value || '').trim();
+  if(!subject){ showToast("Give your dispatch a subject (the entity or wallet it concerns)."); return; }
+  if(!body){ showToast("Write up your findings before publishing."); return; }
+  const memo = "OSI intel: " + subject + (walletPubkey ? (" | by " + walletPubkey) : "");
+  withOnchainVote("Publish intel", memo, async (sig)=>{
+    let att = '';
+    try{ att = await uploadPicked('wire'); }
+    catch(e){ showToast("Attachment upload failed, publishing without it."); }
+    const id = 'rep_' + Date.now();
+    const reports = lsGet('stw_reports', []);
+    reports.unshift({ id, bounty:'', company:subject, summary:body, onchain:'', offchain:'', attachment:att, wallet:walletPubkey||'', tx:sig||'', up:0, dn:0 });
+    lsSet('stw_reports', reports);
+    if(SUPA_ON){ try{ const row = { id, bounty:'', company:subject, wallet:walletPubkey||'', summary:body, onchain:'', offchain:'', tx:sig||'', approved:false }; if(att) row.attachment = att; await supaPost('reports', row); }catch(e){ console.warn('OSI: intel publish failed.', e); } }
+    try{ await sendForm({ _subject:'OSI, Intel Dispatch: '+subject, type:'intel-listing', subject, wallet:walletPubkey||'(none)', summary:body, attachment:att||'(none)', tx:sig||'(none)' }); }catch(e){}
+    clearPickedFile('wire');
+    ['wire-subject-in','wire-body-in'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
+    wireCloseForm();
+    renderReviewQueue();
+    showToast("\\u2713 Dispatch signed on-chain and submitted, it goes live on The Wire once a maintainer approves.");
+  });
+}
+
+// ===== Solana Pay: turn any tip/reward/support into a scannable payment request =====
+const SOLANA_PAY_QR_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+let _qrLibLoading = null, _payOpen = false, _qrTimer = null;
+
+function loadQrLib(){
+  if(window.qrcode) return Promise.resolve();
+  if(_qrLibLoading) return _qrLibLoading;
+  _qrLibLoading = new Promise(function(resolve, reject){
+    const s = document.createElement('script');
+    s.src = SOLANA_PAY_QR_CDN; s.async = true;
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ _qrLibLoading = null; reject(new Error('qr lib failed')); };
+    document.head.appendChild(s);
+  });
+  return _qrLibLoading;
+}
+// Solana Pay transfer request spec: solana:<recipient>?amount=&label=&message=&memo=
+function buildSolanaPayUrl(){
+  if(!tipCtx || !tipCtx.wallet) return '';
+  const p = new URLSearchParams();
+  if(tipCtx.amount && tipCtx.amount > 0) p.set('amount', String(tipCtx.amount));
+  p.set('label', 'OSI');
+  p.set('message', 'Support for ' + (tipCtx.label || 'an OSI analyst'));
+  p.set('memo', 'OSI support');
+  return 'solana:' + tipCtx.wallet + '?' + p.toString();
+}
+function resetSolanaPay(){
+  _payOpen = false;
+  const box = document.getElementById('tip-pay'); if(box) box.hidden = true;
+  const tg = document.getElementById('tip-pay-toggle'); if(tg) tg.innerHTML = '\u229e&nbsp; Or pay with any wallet (Solana Pay) \u25be';
+  const qr = document.getElementById('tip-qr'); if(qr) qr.innerHTML = '';
+}
+function toggleSolanaPay(){
+  _payOpen = !_payOpen;
+  const box = document.getElementById('tip-pay'); if(box) box.hidden = !_payOpen;
+  const tg = document.getElementById('tip-pay-toggle'); if(tg) tg.innerHTML = _payOpen ? '\u229e&nbsp; Or pay with any wallet (Solana Pay) \u25b4' : '\u229e&nbsp; Or pay with any wallet (Solana Pay) \u25be';
+  if(_payOpen) renderSolanaPay();
+}
+function renderSolanaPay(){
+  if(!_payOpen) return;
+  const url = buildSolanaPayUrl();
+  const link = document.getElementById('tip-pay-link'); if(link) link.href = url || '#';
+  clearTimeout(_qrTimer);
+  _qrTimer = setTimeout(function(){
+    const host = document.getElementById('tip-qr'); if(!host) return;
+    if(!url){ host.innerHTML = ''; return; }
+    host.innerHTML = '<div class="tip-qr-load mono">rendering QR…</div>';
+    loadQrLib().then(function(){
+      try{
+        const qr = window.qrcode(0, 'M'); qr.addData(url); qr.make();
+        host.innerHTML = '<img alt="Solana Pay QR" src="' + qr.createDataURL(5, 6) + '">';
+      }catch(e){ host.innerHTML = '<div class="tip-qr-fallback mono">QR unavailable here, use the link below.</div>'; }
+    }).catch(function(){ host.innerHTML = '<div class="tip-qr-fallback mono">QR unavailable here, use the link below.</div>'; });
+  }, 160);
+}
+function copySolanaPay(){
+  const url = buildSolanaPayUrl(); if(!url) return;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ showToast('Solana Pay link copied \u2713'); }, function(){ showToast('Copy failed, long-press the link to copy it.'); });
+  } else { showToast('Copy not supported here, long-press the link.'); }
+}
+
 // ===== File + image attachments via Supabase Storage =====
 const OSI_BUCKET = 'osi-uploads';
 const _picked = {};   // { apply: File|null, bf: File|null }
@@ -2483,6 +2752,7 @@ function admReflow(){
   try{ if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); }catch(_){}
   try{ if(typeof hydrateLatestIntel==='function') hydrateLatestIntel(); }catch(_){}
   try{ if(typeof renderFieldOffice==='function') renderFieldOffice(); }catch(_){}
+  try{ if(typeof renderWire==='function') renderWire(); }catch(_){}
   try{ if(typeof renderActivity==='function') renderActivity(); }catch(_){}
 }
 async function admSet(table, id, approved){
@@ -2633,6 +2903,7 @@ renderRequests();
 renderReviewQueue();
 restoreBountyState();
 renderFieldOffice();
+renderWire();
 renderTicker();
 renderActivity();
 renderDAT();
@@ -2764,6 +3035,7 @@ function showView(v){
   if(v==='profile'){ renderProfile(); }
   if(v==='dat'){ renderDAT(); }
   if(v==='field'){ renderFieldOffice(); }
+  if(v==='wire'){ renderWire(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 // ===== Wallet profile: a personal console for the connected wallet =====
@@ -3007,6 +3279,7 @@ function openTip(wallet, label, amount, title){
   document.querySelectorAll('.tip-amt').forEach(function(b,i){ b.classList.toggle('active', i===idx); });
   if(idx===-1 && cu){ cu.value = preset; }
   updateTipUsd();
+  resetSolanaPay();
   const m=document.getElementById('tip-modal'); if(m) m.classList.add('open');
 }
 function closeTip(){ const m=document.getElementById('tip-modal'); if(m) m.classList.remove('open'); }
@@ -3023,8 +3296,9 @@ function setTipCustom(v){
   updateTipUsd();
 }
 function updateTipUsd(){
-  const el=document.getElementById('tip-usd'); if(!el) return;
-  el.textContent = SOL_PRICE ? ('\u2248 $'+(tipCtx.amount*SOL_PRICE).toLocaleString(undefined,{maximumFractionDigits:2})+' at the current SOL price') : '';
+  const el=document.getElementById('tip-usd');
+  if(el) el.textContent = SOL_PRICE ? ('\u2248 $'+(tipCtx.amount*SOL_PRICE).toLocaleString(undefined,{maximumFractionDigits:2})+' at the current SOL price') : '';
+  renderSolanaPay();
 }
 async function confirmTip(){
   const st=document.getElementById('tip-status');
