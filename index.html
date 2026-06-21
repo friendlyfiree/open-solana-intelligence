@@ -2161,46 +2161,45 @@ window.CASE_STUDIES = [
 //  no submits, no on-chain actions. Pure guided tour.
 // ============================================================
 var DEMO_STEPS = [
-  { view:'registry', sel:null,
+  { view:'registry', sel:null, dur:7000,
     title:'Open Solana Intelligence',
-    body:'A sixty-second briefing. Institutions say they hold SOL. OSI shows the exact wallets behind the claim, traced on-chain and open to everyone.',
-    dur:6000 },
-  { view:'registry', sel:'.stats',
+    body:'A short intelligence briefing. Institutions say they hold SOL. OSI shows the exact wallets behind the claim, traced on-chain and open to everyone.' },
+  { view:'registry', sel:'.stats', dur:8000,
     title:'The numbers, checked against the chain',
-    body:'Declared holdings come from filings. Live balances come straight from Solana. The gap between the two is the story this registry exists to surface.',
-    dur:7000 },
-  { view:'registry', sel:'#companies > div', sel2:'#companies',
+    body:'Declared holdings come from company filings. Live balances come straight from Solana. The gap between the two is what this registry exists to surface.' },
+  { view:'registry', sel:'#companies > div', sel2:'#companies', dur:9000,
     title:'The wallets behind the number',
-    body:'Every institution opens into its real wallets: funding sources, custodians, and validator-level staking, each rated by confidence so you know how solid the link is.',
-    dur:7500 },
-  { view:'registry', sel:'#entry-points .ep-grid', sel2:'#entry-points',
+    body:'Each institution opens into its real wallets: funding sources, custodians, and validator-level staking. Every address is rated by confidence so you know how solid the link is.' },
+  { view:'research', sel:'#case-studies-list .cs-card', sel2:'#case-studies-list', dur:9500,
+    title:'The case files',
+    body:'Long-form investigations that read like detective work. One traces 999,999 SOL moving from a foundation wallet straight into a public company treasury, the kind of link a filing never spells out.' },
+  { view:'registry', sel:'#entry-points .ep-grid', sel2:'#entry-points', dur:8000,
     title:'Three ways in',
-    body:'Browse the open record, take a bounty and earn SOL for tracing a target, or file new evidence to the public ledger. No gate, no paywall.',
-    dur:7000 },
-  { view:'field', sel:'#field-cases > div', sel2:'#field-stats',
+    body:'Browse the open record, take a bounty and earn SOL for tracing a target, or file new evidence to the public ledger. No gate, no paywall.' },
+  { view:'field', sel:'#field-cases > div', sel2:'#field-stats', dur:9000,
     title:'The Field Office',
-    body:'A live bounty board. Anyone can fund an investigation; analysts claim it, trace the wallets, and the sponsor releases the reward on-chain. Each case runs on a countdown.',
-    dur:7500 },
-  { view:'wire', sel:'#wire-cases > div', sel2:'#wire-cases',
+    body:'A live bounty board. Anyone funds an investigation; analysts claim it, trace the wallets, and the sponsor releases the reward on-chain. Every case runs on its own countdown.' },
+  { view:'dat', sel:'#dat-body > div', sel2:'#dat-body', dur:8500,
+    title:'DAT Watch',
+    body:'A running scoreboard of every public Solana treasury company, and whether we have traced it yet. Verified holdings on one side, an open watchlist of fresh targets on the other.' },
+  { view:'wire', sel:'#wire-cases > div', sel2:'#wire-cases', dur:8000,
     title:'The Wire',
-    body:'An open intelligence feed. New findings are filed here and, once reviewed, become a permanent part of the public record. Evidence in the open, not behind a desk.',
-    dur:7000 },
-  { view:'graph', sel:'.gph-stage',
+    body:'An open intelligence feed. New findings are filed here and, once reviewed, become a permanent part of the public record. Evidence in the open, not behind a desk.' },
+  { view:'graph', sel:'.gph-stage', dur:8500,
     title:'The network',
-    body:'Funding and custody relationships, mapped. An autonomous, explorable graph of how money moves between foundations, market makers, custodians, and treasuries.',
-    dur:7000 },
-  { view:'methodology', sel:'.hiw',
+    body:'Funding and custody relationships, mapped. An autonomous, explorable graph of how SOL moves between foundations, market makers, custodians, and treasuries.' },
+  { view:'methodology', sel:'.hiw', sel2:'#methodology', dur:9500,
     title:'Open intelligence, not a paywall',
-    body:'Demand funds the work, analysts produce it, peers verify it, and the result is published for everyone. A closed marketplace stops at the buyer. OSI stops at the public.',
-    dur:7500 },
-  { view:'community', sel:'#consensus-floor', sel2:'#analyst-roster',
+    body:'Demand funds the work, analysts produce it, peers verify it, and the result is published for everyone. A closed marketplace stops at the buyer. OSI stops at the public.' },
+  { view:'community', sel:'#consensus-floor', sel2:'#analyst-roster', dur:9000,
     title:'A self-governing newsroom',
-    body:'A verified analyst roster with weighted peer review. Today a maintainer seals each report; the design hands that power to the network over time.',
-    dur:7500 },
-  { view:'registry', sel:null,
+    body:'A verified analyst roster with weighted peer review. Today a maintainer seals each report; the design is built to hand that power to the network over time.' },
+  { view:'community', sel:'#newsletter', sel2:'#nl-email', dur:7000,
+    title:'Stay briefed',
+    body:'A weekly brief turns this into a habit: major treasury movements and freshly traced wallets land in your inbox, so the intelligence finds you.' },
+  { view:'registry', sel:null, dur:8000,
     title:'The record is public',
-    body:'Original on-chain forensics, an open bounty economy, and a community that reviews its own work. Explore freely from here, nothing on this site asks for your wallet.',
-    dur:6500 }
+    body:'Original on-chain forensics, an open bounty economy, and a community that reviews its own work. Explore freely from here, nothing on this site asks for your wallet.' }
 ];
 
 var demoIdx = 0, demoPlaying = false, demoTimer = null, demoStepStart = 0, demoPausedElapsed = 0;
@@ -2210,12 +2209,12 @@ function demoStart(){
   var root = document.getElementById('demo-root'); if(!root) return;
   root.hidden = false;
   document.body.classList.add('demo-on');
-  // block manual scroll/zoom; programmatic scrollIntoView still works
   root.addEventListener('wheel', demoBlockScroll, { passive:false });
   root.addEventListener('touchmove', demoBlockScroll, { passive:false });
   if(demoTimer) clearInterval(demoTimer);
   demoTimer = setInterval(demoTick, 50);
   demoPlaying = true;
+  var pb = document.getElementById('demo-play'); if(pb) pb.textContent = '\u2759\u2759';
   demoGoStep(0);
 }
 function demoBlockScroll(e){ if(e.target.closest && e.target.closest('.demo-card')) return; e.preventDefault(); }
@@ -2227,6 +2226,7 @@ function demoStop(){
   root.removeEventListener('touchmove', demoBlockScroll, { passive:false });
   root.hidden = true;
   document.body.classList.remove('demo-on');
+  var spot = document.getElementById('demo-spot'); if(spot){ spot.classList.remove('on'); spot.classList.remove('center'); }
   try{ showView('registry'); window.scrollTo({ top:0, behavior:'smooth' }); }catch(e){}
 }
 function demoNext(){ if(demoIdx >= DEMO_STEPS.length - 1){ demoStop(); return; } demoGoStep(demoIdx + 1); }
@@ -2246,10 +2246,13 @@ function demoTick(){
   var bar = document.getElementById('demo-prog'); if(bar) bar.style.width = (frac * 100) + '%';
   if(frac >= 1){ demoNext(); }
 }
+function demoNeedFallback(el){ return !el || el.getBoundingClientRect().height < 4; }
 function demoFindTarget(step){
-  var el = step.sel ? document.querySelector(step.sel) : null;
-  if((!el || el.getBoundingClientRect().height < 4) && step.sel2){ el = document.querySelector(step.sel2); }
-  if(el && el.getBoundingClientRect().height < 4) el = null;
+  if(!step.sel) return null; // centered slide
+  var el = document.querySelector(step.sel);
+  if(demoNeedFallback(el) && step.sel2) el = document.querySelector(step.sel2);
+  if(demoNeedFallback(el) && step.view) el = document.querySelector('section[data-view="' + step.view + '"]');
+  if(demoNeedFallback(el)) el = null;
   return el;
 }
 function demoGoStep(i){
@@ -2257,61 +2260,75 @@ function demoGoStep(i){
   demoIdx = i;
   var step = DEMO_STEPS[i];
   demoStepStart = Date.now(); demoPausedElapsed = 0;
-  // text + chrome
   var st = document.getElementById('demo-step'); if(st) st.textContent = ('0' + (i + 1)).slice(-2) + ' / ' + ('0' + DEMO_STEPS.length).slice(-2);
   var tt = document.getElementById('demo-title'); if(tt) tt.textContent = step.title;
   var bd = document.getElementById('demo-body'); if(bd) bd.textContent = step.body;
   var bar = document.getElementById('demo-prog'); if(bar) bar.style.width = '0%';
   var back = document.getElementById('demo-back'); if(back) back.disabled = (i === 0);
   var nx = document.getElementById('demo-next'); if(nx) nx.textContent = (i === DEMO_STEPS.length - 1) ? 'Finish' : 'Next \u203A';
-  // switch view, then place the spotlight once it has rendered
   try{ showView(step.view); }catch(e){}
+  if(!step.sel){ try{ window.scrollTo({ top:0, behavior:'smooth' }); }catch(e){} }
   setTimeout(function(){
     var el = demoFindTarget(step);
     if(el){
       try{ el.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(e){}
-      setTimeout(function(){ demoPlace(el.getBoundingClientRect()); }, 360);
+      setTimeout(function(){ demoPlace(el.getBoundingClientRect()); }, 430);
     } else {
       demoPlace(null);
     }
-  }, 90);
+  }, 120);
 }
+function demoClamp(v, total, size, M){ return Math.max(M, Math.min(total - size - M, v)); }
 function demoPlace(rect){
   var spot = document.getElementById('demo-spot');
   var card = document.getElementById('demo-card');
   if(!spot || !card) return;
-  var vw = window.innerWidth, vh = window.innerHeight;
+  var vw = window.innerWidth, vh = window.innerHeight, M = 16;
+  var cr = card.getBoundingClientRect(); var cw = cr.width, ch = cr.height;
   if(!rect){
-    // centered briefing slide, no target
-    spot.classList.add('center');
+    spot.classList.add('center'); spot.classList.add('on');
     spot.style.left = (vw / 2) + 'px'; spot.style.top = (vh / 2) + 'px';
     spot.style.width = '0px'; spot.style.height = '0px';
-    spot.classList.add('on');
-    var cr0 = card.getBoundingClientRect();
-    card.style.left = Math.round((vw - cr0.width) / 2) + 'px';
-    card.style.top = Math.round((vh - cr0.height) / 2) + 'px';
+    card.style.left = Math.round((vw - cw) / 2) + 'px';
+    card.style.top = Math.round((vh - ch) / 2) + 'px';
     return;
   }
   spot.classList.remove('center');
   var pad = 8;
-  var sx = Math.max(6, rect.left - pad), sy = Math.max(6, rect.top - pad);
-  var sw = Math.min(vw - 12, rect.width + pad * 2), sh = Math.min(vh - 12, rect.height + pad * 2);
-  spot.style.left = sx + 'px'; spot.style.top = sy + 'px';
-  spot.style.width = sw + 'px'; spot.style.height = sh + 'px';
+  var tx = Math.max(M, rect.left - pad), ty = Math.max(M, rect.top - pad);
+  var tw = Math.min(vw - 2 * M, rect.width + 2 * pad), th = Math.min(vh - 2 * M, rect.height + 2 * pad);
+  // room on each side of the target
+  var gBelow = vh - (ty + th), gAbove = ty, gRight = vw - (tx + tw), gLeft = tx;
+  var cands = [];
+  if(gBelow >= ch + 2 * M) cands.push(['below', gBelow]);
+  if(gAbove >= ch + 2 * M) cands.push(['above', gAbove]);
+  if(gRight >= cw + 2 * M) cands.push(['right', gRight]);
+  if(gLeft  >= cw + 2 * M) cands.push(['left',  gLeft]);
+  cands.sort(function(a, b){ return b[1] - a[1]; });
+  var place = cands.length ? cands[0][0] : null;
+  var left, top;
+  if(place === 'below'){ top = ty + th + M; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M); }
+  else if(place === 'above'){ top = ty - M - ch; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M); }
+  else if(place === 'right'){ left = tx + tw + M; top = demoClamp(ty + th / 2 - ch / 2, vh, ch, M); }
+  else if(place === 'left'){ left = tx - M - cw; top = demoClamp(ty + th / 2 - ch / 2, vh, ch, M); }
+  else {
+    // target fills the viewport: pin the card to the bottom and pull the
+    // spotlight up so the lit area always sits clear of the card
+    top = vh - ch - M; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M);
+    var maxBottom = top - M;
+    if(ty + th > maxBottom) th = Math.max(70, maxBottom - ty);
+    if(maxBottom - ty < 70){ // no room below either: pin card to the top instead
+      top = M; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M);
+      var minTop = top + ch + M;
+      if(ty < minTop){ var d = minTop - ty; ty = minTop; th = Math.max(70, th - d); }
+    }
+  }
+  spot.style.left = tx + 'px'; spot.style.top = ty + 'px';
+  spot.style.width = tw + 'px'; spot.style.height = th + 'px';
   spot.classList.add('on');
-  // place card: prefer below the spotlight, else above, else beside
-  var cr = card.getBoundingClientRect();
-  var cw = cr.width, ch = cr.height, gap = 16;
-  var top, left;
-  if(sy + sh + gap + ch <= vh - 12){ top = sy + sh + gap; }
-  else if(sy - gap - ch >= 12){ top = sy - gap - ch; }
-  else { top = Math.max(12, Math.min(vh - ch - 12, sy)); }
-  left = sx + sw / 2 - cw / 2;
-  left = Math.max(12, Math.min(vw - cw - 12, left));
   card.style.left = Math.round(left) + 'px';
   card.style.top = Math.round(top) + 'px';
 }
-// keep the spotlight aligned if the window resizes mid-briefing
 window.addEventListener('resize', function(){
   var root = document.getElementById('demo-root');
   if(root && !root.hidden){ demoGoStep(demoIdx); }
