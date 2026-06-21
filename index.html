@@ -1205,6 +1205,16 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
       <div style="margin-top:10px"><button class="adm-go" onclick="admAddAnalyst()">Add to roster</button></div>
       <div class="adm-cfg-msg" id="admAnMsg"></div>
     </div>
+    <div class="adm-cfg" id="adm-cfg-consensus">
+      <div class="adm-cfg-h">CONSENSUS / PEER REVIEW</div>
+      <div class="adm-cfg-s">Verified analysts vouch on pending items in the Review Floor, each vouch carrying the weight set on its roster row. When approve-weight reaches the threshold an item clears. Turn auto-publish ON to let the network publish without you; OFF keeps your seal final (recommended until vouches are signature-verified).</div>
+      <div class="adm-cfg-row" style="align-items:center">
+        <input id="admConThr" type="number" min="1" max="50" style="max-width:90px" placeholder="3">
+        <label class="adm-con-lab"><input type="checkbox" id="admConAuto"> Auto-publish at threshold</label>
+        <button class="adm-go" onclick="admSaveConsensus()">Save</button>
+      </div>
+      <div class="adm-cfg-msg" id="admConMsg"></div>
+    </div>
     <div id="admQueue"><div class="adm-muted">Loading...</div></div>
   </div>
 </div></div>
@@ -1609,6 +1619,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   <div class="ttl">REVIEW FLOOR // LIVE CASEWORK</div>
   <button class="rec-clear" onclick="clearMyDrafts()" title="Remove your local draft submissions from this device">Clear my drafts</button>
 </div>
+<div id="consensus-floor"></div>
 <div id="review-list"></div>
 <div class="rec-phase">⛓ <b>Phase 2:</b> reputation moves on-chain, a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
     </div>
@@ -2071,6 +2082,120 @@ window.CASE_STUDIES = [
 ];
 </script>
 <script>
+// ===== CONSENSUS (analyst peer-review / progressive decentralization) =====
+let CONSENSUS_THRESHOLD = 3;
+let CONSENSUS_AUTO = false;
+window.ANALYST_WEIGHT = window.ANALYST_WEIGHT || {};
+window.VOUCHES = window.VOUCHES || {};
+
+function rfEsc(s){ return String(s==null?'':s).replace(/[\\'"<>]/g,''); }
+function vouchKey(type,id){ return type+'|'+id; }
+function analystWeight(wallet){ const w = window.ANALYST_WEIGHT[String(wallet)]; return (w==null?0:Number(w)); }
+
+async function loadVouches(){
+  if(!SUPA_ON) return;
+  try{
+    const rows = await supaGet('vouches?select=item_type,item_id,analyst,vote') || [];
+    const map={};
+    rows.forEach(function(v){
+      const k=vouchKey(v.item_type, v.item_id);
+      if(!map[k]) map[k]={approve:[],reject:[]};
+      map[k][v.vote==='reject'?'reject':'approve'].push(String(v.analyst));
+    });
+    window.VOUCHES = map;
+  }catch(e){ /* table may not exist yet */ }
+}
+function vouchTally(type,id){
+  const v = window.VOUCHES[vouchKey(type,id)] || {approve:[],reject:[]};
+  let aw=0, rw=0;
+  v.approve.forEach(function(w){ aw += analystWeight(w); });
+  v.reject.forEach(function(w){ rw += analystWeight(w); });
+  return { approve:v.approve, reject:v.reject, aw:aw, rw:rw };
+}
+function myVouch(type,id){
+  if(!walletPubkey) return null;
+  const v = window.VOUCHES[vouchKey(type,id)] || {approve:[],reject:[]};
+  if(v.approve.indexOf(walletPubkey)!==-1) return 'approve';
+  if(v.reject.indexOf(walletPubkey)!==-1) return 'reject';
+  return null;
+}
+function consensusMeter(type,id){
+  const t = vouchTally(type,id);
+  const pct = Math.min(100, Math.round(t.aw / Math.max(1,CONSENSUS_THRESHOLD) * 100));
+  const need = Math.max(0, CONSENSUS_THRESHOLD - t.aw);
+  const cleared = t.aw >= CONSENSUS_THRESHOLD;
+  const status = cleared ? (CONSENSUS_AUTO ? 'cleared \u00b7 publishing' : 'cleared \u00b7 awaiting maintainer seal') : (need + ' more weight to clear');
+  return '<div class="cm'+(cleared?' done':'')+'">'
+    + '<div class="cm-bar"><div class="cm-fill" style="width:'+pct+'%"></div></div>'
+    + '<div class="cm-meta mono"><span class="cm-w">\u2713 '+t.aw+' / '+CONSENSUS_THRESHOLD+' weight</span>'
+      + '<span class="cm-st">'+status+'</span>'
+      + (t.rw>0 ? ('<span class="cm-rj">\u2715 '+t.rw+'</span>') : '')
+    + '</div></div>';
+}
+async function vouch(type,id,vote){
+  if(!isVerifiedAnalyst(walletPubkey)){ showToast("Only verified analysts can vouch. Apply from the Analysts tab to join the roster."); return; }
+  if(myVouch(type,id)===vote){ showToast("You already vouched "+vote+" on this."); return; }
+  try{
+    await supaPost('vouches', { item_type:type, item_id:id, analyst:walletPubkey, vote:vote });
+    showToast(vote==='approve' ? 'Vouched to publish \u2713' : 'Flagged for rejection');
+    await loadVouches();
+    renderReviewFloor();
+    if(CONSENSUS_AUTO){ try{ renderFieldOffice(); renderWire(); if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); loadAnalysts(); }catch(e){} }
+  }catch(e){ showToast('Vouch failed (you may have already voted on this).'); }
+}
+async function renderReviewFloor(){
+  const host=document.getElementById('consensus-floor'); if(!host) return;
+  if(!SUPA_ON){ host.innerHTML=''; return; }
+  let reports=[], bounties=[], apps=[];
+  try{ reports  = await supaGet('reports?select=id,company,bounty,wallet,summary,created_at&approved=eq.false&order=created_at.desc&limit=30') || []; }catch(e){}
+  try{ bounties = await supaGet('bounties?select=id,target,title,detail,created_at&approved=eq.false&order=created_at.desc&limit=30') || []; }catch(e){}
+  try{ apps     = await supaGet('analysts?select=wallet,name,handle,bio,created_at&approved=eq.false&order=created_at.desc&limit=30') || []; }catch(e){}
+  await loadVouches();
+  const items=[];
+  reports.forEach(function(r){ items.push({type:'report', id:String(r.id), title:(r.company||r.bounty||'Report'), sub:String(r.summary||'').slice(0,170), tag:'intel', ts:r.created_at}); });
+  bounties.forEach(function(b){ items.push({type:'bounty', id:String(b.id), title:(b.target||b.title||'Bounty'), sub:String(b.detail||'').slice(0,170), tag:'bounty', ts:b.created_at}); });
+  apps.forEach(function(a){ const h=a.handle?('@'+String(a.handle).replace(/^@/,'')):''; items.push({type:'analyst', id:String(a.wallet), title:(a.name||h||short(a.wallet)), sub:(h?h+'  \u00b7  ':'')+String(a.bio||'').slice(0,140), tag:'application', ts:a.created_at}); });
+  const canVouch = isVerifiedAnalyst(walletPubkey);
+  const note = '<div class="rf-note mono">'+(canVouch
+      ? ('You are a verified analyst \u00b7 your vouch carries weight '+(analystWeight(walletPubkey)||1)+'. '+(CONSENSUS_AUTO?('At '+CONSENSUS_THRESHOLD+' weight an item publishes itself.'):('Cleared items go to the maintainer for the final seal.')))
+      : ('Verified analysts review and clear this queue. '+(walletPubkey?'Your wallet is not on the roster yet, apply below.':'Connect your wallet to take part.')))
+    +'</div>';
+  if(!items.length){ host.innerHTML = note + '<div class="rf-empty mono">Queue clear. Nothing awaiting peer review.</div>'; return; }
+  items.sort(function(x,y){ return new Date(y.ts||0)-new Date(x.ts||0); });
+  host.innerHTML = note + items.map(function(it){ return reviewCard(it, canVouch); }).join('');
+}
+function reviewCard(it, canVouch){
+  const mine = myVouch(it.type, it.id);
+  const btns = canVouch
+    ? '<div class="rf-btns">'
+      + '<button class="rf-b ap'+(mine==='approve'?' on':'')+'" onclick="vouch(\''+it.type+'\',\''+rfEsc(it.id)+'\',\'approve\')">\u2713 Vouch to publish</button>'
+      + '<button class="rf-b rj'+(mine==='reject'?' on':'')+'" onclick="vouch(\''+it.type+'\',\''+rfEsc(it.id)+'\',\'reject\')">\u2715 Flag</button>'
+      + '</div>'
+    : '';
+  return '<div class="rf-card">'
+    + '<div class="rf-top"><span class="rf-tag rf-'+it.tag+'">'+it.tag+'</span><span class="rf-ttl">'+escapeHtml(it.title)+'</span></div>'
+    + (it.sub ? '<div class="rf-sub">'+escapeHtml(it.sub)+'</div>' : '')
+    + consensusMeter(it.type, it.id)
+    + btns
+  + '</div>';
+}
+
+// ----- maintainer: consensus settings -----
+async function admSaveConsensus(){
+  const thr = parseInt((document.getElementById('admConThr').value||'3'),10);
+  const auto = document.getElementById('admConAuto').checked ? 'on' : 'off';
+  const msg = document.getElementById('admConMsg');
+  if(isNaN(thr) || thr<1){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Threshold must be 1 or more.'; } return; }
+  if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
+  try{
+    await supaUpsertConfig('consensus_threshold', String(thr));
+    await supaUpsertConfig('consensus_auto', auto);
+    CONSENSUS_THRESHOLD = thr; CONSENSUS_AUTO = (auto==='on');
+    if(msg){ msg.style.color='var(--sol)'; msg.textContent = '\u2713 Saved. ' + (auto==='on' ? ('Items now auto-publish at '+thr+' approve-weight.') : 'Auto-publish off, your seal stays final.'); }
+    renderReviewFloor();
+  }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Failed: '+((e&&e.message)||e); } }
+}
+
 // ===== ANALYST ROSTER (founder-curated, level earned by verified work) =====
 const ANALYST_TIERS = [
   { t:'I',   name:'Apprentice',      min:0,   cls:'pf-l1' },
@@ -2084,9 +2209,10 @@ window.VERIFIED_ANALYSTS = window.VERIFIED_ANALYSTS || {};
 async function loadAnalysts(){
   if(!SUPA_ON) return;
   try{
-    const a = await supaGet('analysts?select=wallet,handle,name&approved=eq.true&verified=eq.true') || [];
-    const map={}; a.forEach(function(x){ if(x.wallet) map[String(x.wallet)] = { handle:x.handle, name:x.name }; });
-    window.VERIFIED_ANALYSTS = map;
+    const a = await supaGet('analysts?select=*&approved=eq.true&verified=eq.true') || [];
+    const map={}, wmap={};
+    a.forEach(function(x){ if(x.wallet){ map[String(x.wallet)] = { handle:x.handle, name:x.name }; wmap[String(x.wallet)] = (x.tier_weight==null?1:Number(x.tier_weight)); } });
+    window.VERIFIED_ANALYSTS = map; window.ANALYST_WEIGHT = wmap;
   }catch(e){ /* table may not exist yet */ }
 }
 function isVerifiedAnalyst(wallet){ return !!(wallet && window.VERIFIED_ANALYSTS && window.VERIFIED_ANALYSTS[String(wallet)]); }
@@ -2232,10 +2358,12 @@ function isSolAddr(a){ a = String(a || '').trim(); return /^[1-9A-HJ-NP-Za-km-z]
 async function loadConfig(){
   if(!SUPA_ON) return;
   try{
-    const rows = await supaGet('osi_config?key=in.(support_wallet,admin_wallet)&select=key,value');
+    const rows = await supaGet('osi_config?key=in.(support_wallet,admin_wallet,consensus_threshold,consensus_auto)&select=key,value');
     (rows||[]).forEach(function(r){
       if(r.key==='support_wallet' && r.value && isSolAddr(r.value)) OSI_SUPPORT_WALLET = String(r.value).trim();
       if(r.key==='admin_wallet'   && r.value && isSolAddr(r.value)) OSI_ADMIN_WALLET   = String(r.value).trim();
+      if(r.key==='consensus_threshold' && r.value) CONSENSUS_THRESHOLD = parseInt(r.value,10)||3;
+      if(r.key==='consensus_auto') CONSENSUS_AUTO = (r.value==='on');
     });
   }catch(e){ /* no config yet */ }
 }
@@ -2990,6 +3118,8 @@ async function admLogin(){
     document.getElementById('admWho').textContent=email;
     const su=document.getElementById('admSupport'); if(su) su.value = OSI_SUPPORT_WALLET || '';
     const aw=document.getElementById('admAdminW'); if(aw) aw.value = OSI_ADMIN_WALLET || '';
+    const ct=document.getElementById('admConThr'); if(ct) ct.value = CONSENSUS_THRESHOLD;
+    const ca=document.getElementById('admConAuto'); if(ca) ca.checked = CONSENSUS_AUTO;
     admRefresh();
   }catch(e){ msg.textContent='Sign-in failed: '+e.message; }
 }
@@ -3237,7 +3367,7 @@ restoreBountyState();
 renderFieldOffice();
 renderWire();
 loadConfig().then(function(){ try{ renderCaseStudies(); }catch(e){} try{ renderWire(); }catch(e){} try{ updateAdminButton(); }catch(e){} });
-loadAnalysts().then(function(){ try{ renderAnalysts(); }catch(e){} });
+loadAnalysts().then(function(){ try{ renderAnalysts(); }catch(e){} try{ renderReviewFloor(); }catch(e){} });
 window.addEventListener('hashchange', function(){ if(typeof updateAdminButton==='function') updateAdminButton(); });
 renderTicker();
 renderActivity();
@@ -4177,6 +4307,7 @@ function goCommunity(id){
   showView('community');
   openCommunityTab(id);
   if(typeof renderAnalysts==='function') renderAnalysts();
+  if(typeof renderReviewFloor==='function') renderReviewFloor();
 }
 
 // Analyst application, sends Telegram / X handles + optional proof to the
@@ -4550,6 +4681,30 @@ function showToast(msg){
 .pf-an.pending .pf-an-ic{color:var(--amber)}
 .pf-an.member{background:var(--bg-card)}
 .pf-an.member .pf-an-ic{color:var(--ink-faint)}
+.rf-note{font-size:11px;color:var(--ink-faint);border:1px dashed var(--line-bright);border-radius:3px;padding:10px 13px;margin-bottom:12px;line-height:1.5}
+.rf-empty{font-size:12px;color:var(--ink-faint);padding:16px 4px}
+.rf-card{background:var(--bg-card);border:1px solid var(--line);border-radius:5px;padding:14px 16px;margin-bottom:10px}
+.rf-top{display:flex;align-items:center;gap:10px;margin-bottom:5px;flex-wrap:wrap}
+.rf-tag{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:2px;border:1px solid var(--line-bright)}
+.rf-intel{color:var(--cyan);border-color:rgba(34,211,238,.4)}
+.rf-bounty{color:var(--amber);border-color:rgba(255,176,32,.4)}
+.rf-application{color:var(--violet);border-color:rgba(153,69,255,.45)}
+.rf-ttl{font-family:'Archivo',sans-serif;font-weight:700;font-size:14px}
+.rf-sub{font-size:12px;color:var(--ink-dim);line-height:1.5;margin-bottom:10px}
+.cm{margin:8px 0 2px}
+.cm-bar{height:6px;background:var(--bg);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.cm-fill{height:100%;background:linear-gradient(90deg,var(--sol-deep),var(--sol));transition:width .3s}
+.cm.done .cm-fill{background:var(--sol)}
+.cm-meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:10px;color:var(--ink-faint)}
+.cm-w{color:var(--sol)}
+.cm.done .cm-st{color:var(--sol)}
+.cm-rj{color:var(--red)}
+.rf-btns{display:flex;gap:8px;margin-top:11px}
+.rf-b{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:8px 12px;border-radius:3px;cursor:pointer;border:1px solid var(--line-bright);background:none;color:var(--ink-dim);transition:all .14s}
+.rf-b.ap:hover,.rf-b.ap.on{background:var(--sol);color:var(--bg);border-color:var(--sol)}
+.rf-b.rj:hover,.rf-b.rj.on{background:var(--red);color:#fff;border-color:var(--red)}
+.adm-con-lab{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);cursor:pointer;white-space:nowrap}
+.adm-con-lab input{width:auto;cursor:pointer}
 .va-tag{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.06em;color:var(--sol);border:1px solid var(--sol-deep);border-radius:3px;padding:1px 5px;white-space:nowrap}
 </style>
 <div class="adm-edit" id="adm-edit-modal">
