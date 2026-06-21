@@ -2170,9 +2170,9 @@ var DEMO_STEPS = [
   { view:'registry', sel:'#companies > div', sel2:'#companies', dur:9000,
     title:'The wallets behind the number',
     body:'Each institution opens into its real wallets: funding sources, custodians, and validator-level staking. Every address is rated by confidence so you know how solid the link is.' },
-  { view:'research', sel:'#case-studies-list .cs-card', sel2:'#case-studies-list', dur:9500,
+  { view:'research', sel:'#case-solana-company', sel2:'#case-studies-list', dur:9500,
     title:'The case files',
-    body:'Long-form investigations that read like detective work. One traces 999,999 SOL moving from a foundation wallet straight into a public company treasury, the kind of link a filing never spells out.' },
+    body:'Long-form investigations that read like detective work. This one traces 999,999 SOL moving from a foundation wallet straight into a public company treasury, the kind of link a filing never spells out.' },
   { view:'registry', sel:'#entry-points .ep-grid', sel2:'#entry-points', dur:8000,
     title:'Three ways in',
     body:'Browse the open record, take a bounty and earn SOL for tracing a target, or file new evidence to the public ledger. No gate, no paywall.' },
@@ -2202,11 +2202,14 @@ var DEMO_STEPS = [
     body:'Original on-chain forensics, an open bounty economy, and a community that reviews its own work. Explore freely from here, nothing on this site asks for your wallet.' }
 ];
 
-var demoIdx = 0, demoPlaying = false, demoTimer = null, demoStepStart = 0, demoPausedElapsed = 0;
+var demoIdx = 0, demoPlaying = false, demoTimer = null, demoStepStart = 0, demoPausedElapsed = 0, demoPrevSB = '', demoRzT = null;
 
 function demoStart(){
   demoIdx = 0; demoPausedElapsed = 0;
   var root = document.getElementById('demo-root'); if(!root) return;
+  // kill smooth-scroll for the duration so measurements are exact at any zoom level
+  demoPrevSB = document.documentElement.style.scrollBehavior;
+  document.documentElement.style.scrollBehavior = 'auto';
   root.hidden = false;
   document.body.classList.add('demo-on');
   root.addEventListener('wheel', demoBlockScroll, { passive:false });
@@ -2227,7 +2230,8 @@ function demoStop(){
   root.hidden = true;
   document.body.classList.remove('demo-on');
   var spot = document.getElementById('demo-spot'); if(spot){ spot.classList.remove('on'); spot.classList.remove('center'); }
-  try{ showView('registry'); window.scrollTo({ top:0, behavior:'smooth' }); }catch(e){}
+  document.documentElement.style.scrollBehavior = demoPrevSB || '';
+  try{ showView('registry'); window.scrollTo(0, 0); }catch(e){}
 }
 function demoNext(){ if(demoIdx >= DEMO_STEPS.length - 1){ demoStop(); return; } demoGoStep(demoIdx + 1); }
 function demoPrev(){ if(demoIdx <= 0) return; demoGoStep(demoIdx - 1); }
@@ -2248,11 +2252,10 @@ function demoTick(){
 }
 function demoNeedFallback(el){ return !el || el.getBoundingClientRect().height < 4; }
 function demoFindTarget(step){
-  if(!step.sel) return null; // centered slide
+  if(!step.sel) return null;
   var el = document.querySelector(step.sel);
   if(demoNeedFallback(el) && step.sel2) el = document.querySelector(step.sel2);
-  if(demoNeedFallback(el) && step.view) el = document.querySelector('section[data-view="' + step.view + '"]');
-  if(demoNeedFallback(el)) el = null;
+  if(demoNeedFallback(el)) return null;
   return el;
 }
 function demoGoStep(i){
@@ -2267,16 +2270,26 @@ function demoGoStep(i){
   var back = document.getElementById('demo-back'); if(back) back.disabled = (i === 0);
   var nx = document.getElementById('demo-next'); if(nx) nx.textContent = (i === DEMO_STEPS.length - 1) ? 'Finish' : 'Next \u203A';
   try{ showView(step.view); }catch(e){}
-  if(!step.sel){ try{ window.scrollTo({ top:0, behavior:'smooth' }); }catch(e){} }
-  setTimeout(function(){
-    var el = demoFindTarget(step);
-    if(el){
-      try{ el.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(e){}
-      setTimeout(function(){ demoPlace(el.getBoundingClientRect()); }, 430);
-    } else {
-      demoPlace(null);
-    }
-  }, 120);
+  if(!step.sel){ try{ window.scrollTo(0, 0); }catch(e){} }
+  setTimeout(function(){ demoLocate(step, 0); }, 80);
+}
+// resolve + scroll + measure. retries for content that loads late (e.g. Supabase lists).
+function demoLocate(step, attempt){
+  if(DEMO_STEPS[demoIdx] !== step) return; // step changed, drop this stale locate
+  if(!step.sel){ demoPlace(null); return; }
+  var el = demoFindTarget(step);
+  if(!el){
+    if(attempt < 10){ setTimeout(function(){ demoLocate(step, attempt + 1); }, 150); return; }
+    el = document.querySelector('section[data-view="' + step.view + '"]'); // last resort: the whole section
+    if(demoNeedFallback(el)){ demoPlace(null); return; }
+  }
+  try{ el.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){ try{ el.scrollIntoView(); }catch(_){} }
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      if(DEMO_STEPS[demoIdx] !== step) return;
+      demoPlace(el.getBoundingClientRect());
+    });
+  });
 }
 function demoClamp(v, total, size, M){ return Math.max(M, Math.min(total - size - M, v)); }
 function demoPlace(rect){
@@ -2297,7 +2310,6 @@ function demoPlace(rect){
   var pad = 8;
   var tx = Math.max(M, rect.left - pad), ty = Math.max(M, rect.top - pad);
   var tw = Math.min(vw - 2 * M, rect.width + 2 * pad), th = Math.min(vh - 2 * M, rect.height + 2 * pad);
-  // room on each side of the target
   var gBelow = vh - (ty + th), gAbove = ty, gRight = vw - (tx + tw), gLeft = tx;
   var cands = [];
   if(gBelow >= ch + 2 * M) cands.push(['below', gBelow]);
@@ -2312,12 +2324,10 @@ function demoPlace(rect){
   else if(place === 'right'){ left = tx + tw + M; top = demoClamp(ty + th / 2 - ch / 2, vh, ch, M); }
   else if(place === 'left'){ left = tx - M - cw; top = demoClamp(ty + th / 2 - ch / 2, vh, ch, M); }
   else {
-    // target fills the viewport: pin the card to the bottom and pull the
-    // spotlight up so the lit area always sits clear of the card
     top = vh - ch - M; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M);
     var maxBottom = top - M;
     if(ty + th > maxBottom) th = Math.max(70, maxBottom - ty);
-    if(maxBottom - ty < 70){ // no room below either: pin card to the top instead
+    if(maxBottom - ty < 70){
       top = M; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M);
       var minTop = top + ch + M;
       if(ty < minTop){ var d = minTop - ty; ty = minTop; th = Math.max(70, th - d); }
@@ -2329,10 +2339,18 @@ function demoPlace(rect){
   card.style.left = Math.round(left) + 'px';
   card.style.top = Math.round(top) + 'px';
 }
-window.addEventListener('resize', function(){
-  var root = document.getElementById('demo-root');
-  if(root && !root.hidden){ demoGoStep(demoIdx); }
-});
+// re-align (not re-run) on zoom / window resize, without resetting the step timer
+function demoRealign(){
+  var root = document.getElementById('demo-root'); if(!root || root.hidden) return;
+  var step = DEMO_STEPS[demoIdx]; if(!step) return;
+  if(!step.sel){ demoPlace(null); return; }
+  var el = demoFindTarget(step) || document.querySelector('section[data-view="' + step.view + '"]');
+  if(el && el.getBoundingClientRect().height >= 4){
+    try{ el.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){}
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ demoPlace(el.getBoundingClientRect()); }); });
+  } else { demoPlace(null); }
+}
+window.addEventListener('resize', function(){ if(demoRzT) clearTimeout(demoRzT); demoRzT = setTimeout(demoRealign, 140); });
 
 // ===== CONSENSUS (analyst peer-review / progressive decentralization) =====
 let CONSENSUS_THRESHOLD = 3;
