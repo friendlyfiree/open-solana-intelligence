@@ -652,7 +652,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     <button class="sb-board-cta" onclick="goCommunity('tab-analysts')">Join the ladder →</button>
   </div>
   <div class="sb-foot">
-    <button class="adm-lock" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">🔒</button>
+    <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">🔒</button>
     <button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, or open your profile"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
@@ -1179,6 +1179,16 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
         <button class="adm-go" onclick="admSaveSupport()">Save</button>
       </div>
       <div class="adm-cfg-msg" id="admCfgMsg"></div>
+    </div>
+    <div class="adm-cfg" id="adm-cfg-admin">
+      <div class="adm-cfg-h">ADMIN ACCESS WALLET</div>
+      <div class="adm-cfg-s">The only wallet that may see the maintainer lock icon. Once set, the lock appears solely when this wallet is connected and stays hidden from everyone else. You can always recover access by opening the site with #ops added to the end of the URL.</div>
+      <div class="adm-cfg-row">
+        <input id="admAdminW" placeholder="SOL wallet address">
+        <button class="adm-out" onclick="admUseConnectedAdmin()">Use connected</button>
+        <button class="adm-go" onclick="admSaveAdminWallet()">Save</button>
+      </div>
+      <div class="adm-cfg-msg" id="admAdminMsg"></div>
     </div>
     <div id="admQueue"><div class="adm-muted">Loading...</div></div>
   </div>
@@ -2045,6 +2055,29 @@ window.CASE_STUDIES = [
 ];
 </script>
 <script>
+// ===== Maintainer button: wallet-gated visibility (hidden unless the admin wallet is connected) =====
+function updateAdminButton(){
+  const btn=document.getElementById('admLockBtn'); if(!btn) return;
+  const show = (!OSI_ADMIN_WALLET) || (walletPubkey && walletPubkey===OSI_ADMIN_WALLET) || (location.hash==='#ops');
+  btn.style.display = show ? '' : 'none';
+}
+function admUseConnectedAdmin(){
+  if(!walletPubkey){ showToast("Connect your wallet first (top right), then click this again."); return; }
+  const el=document.getElementById('admAdminW'); if(el) el.value=walletPubkey;
+}
+async function admSaveAdminWallet(){
+  const v=(document.getElementById('admAdminW').value||'').trim();
+  const msg=document.getElementById('admAdminMsg');
+  if(v && !isSolAddr(v)){ if(msg){ msg.style.color='var(--red)'; msg.textContent="That is not a valid Solana address."; } return; }
+  if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
+  try{
+    await supaUpsertConfig('admin_wallet', v);
+    OSI_ADMIN_WALLET = isSolAddr(v) ? v : '';
+    updateAdminButton();
+    if(msg){ msg.style.color='var(--sol)'; msg.textContent = OSI_ADMIN_WALLET ? ('\u2713 Saved. The maintainer button now appears only when '+short(OSI_ADMIN_WALLET)+' is connected.') : '\u2713 Cleared. The button stays visible until you set a wallet.'; }
+  }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Save failed: '+((e&&e.message)||e); } }
+}
+
 // ===== Admin: edit a bounty (target, brief, reward, logo) =====
 function admEditBounty(id){
   const b = (window.__admBounties||[]).find(function(x){ return String(x.id)===String(id); });
@@ -2055,7 +2088,7 @@ function admEditBounty(id){
   document.getElementById('aeb-reward').value = (b.reward_sol!=null ? b.reward_sol : '');
   document.getElementById('aeb-image').value = b.image || '';
   clearPickedFile('aeb');
-  const prev=document.getElementById('aeb-file-prev'); if(prev) prev.innerHTML = b.image ? '<img src="'+escapeHtml(b.image)+'" alt="">' : '';
+  const prev=document.getElementById('aeb-file-prev'); if(prev){ const _ai=safeUrl(b.image); prev.innerHTML = _ai ? '<img src="'+escapeHtml(_ai)+'" alt="">' : ''; }
   const msg=document.getElementById('aeb-msg'); if(msg) msg.textContent='';
   document.getElementById('adm-edit-modal').classList.add('open');
 }
@@ -2079,13 +2112,17 @@ async function admSaveBounty(){
 
 // ===== Support / payout wallet (maintainer-set, stored globally in Supabase) =====
 let OSI_SUPPORT_WALLET = '';
+let OSI_ADMIN_WALLET = '';
 function isSolAddr(a){ a = String(a || '').trim(); return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a); }
 
 async function loadConfig(){
   if(!SUPA_ON) return;
   try{
-    const rows = await supaGet('osi_config?key=eq.support_wallet&select=value');
-    if(rows && rows[0] && rows[0].value && isSolAddr(rows[0].value)) OSI_SUPPORT_WALLET = String(rows[0].value).trim();
+    const rows = await supaGet('osi_config?key=in.(support_wallet,admin_wallet)&select=key,value');
+    (rows||[]).forEach(function(r){
+      if(r.key==='support_wallet' && r.value && isSolAddr(r.value)) OSI_SUPPORT_WALLET = String(r.value).trim();
+      if(r.key==='admin_wallet'   && r.value && isSolAddr(r.value)) OSI_ADMIN_WALLET   = String(r.value).trim();
+    });
   }catch(e){ /* no config yet */ }
 }
 async function supaUpsertConfig(key, value){
@@ -2167,14 +2204,14 @@ function wireCard(d){
   const full = String(d.body || '');
   const body = escapeHtml(full.slice(0,260)) + (full.length>260 ? '…' : '');
   const count = ((window.boostCounts||{})[d.id]) || 0;
-  const img = d.image ? '<div class="wire-img"><img src="'+escapeHtml(d.image)+'" alt="" loading="lazy"></div>' : '';
+  const _dimg = safeUrl(d.image); const img = _dimg ? '<div class="wire-img"><img src="'+escapeHtml(_dimg)+'" alt="" loading="lazy"></div>' : '';
   const badge = d.premium ? '<span class="wire-badge premium">★ FLAGSHIP</span>' : '<span class="wire-badge">● DISPATCH</span>';
   const att = (!d.premium && d.attachment && !d.image) ? '<div class="wire-att">'+attachmentTag(d.attachment)+'</div>' : '';
   let actions = '<button class="btn-stake" onclick="stakeBoost(this)">↑ Back this</button>';
   if(d.premium && d._case){
     actions += '<button class="wire-read" onclick="openReport(\'case\',\''+d._case+'\')">Read full report →</button>';
     if(OSI_SUPPORT_WALLET){ const sl=String(d.subject||'').replace(/['\"\\<>]/g,'').slice(0,50); actions += '<button class="wire-support" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\''+escapeHtml(sl)+'\',0.5,\'\\u25ce Support this investigation\')">\u25ce Support investigation</button>'; }
-  } else if(d.wallet){
+  } else if(isSolAddr(d.wallet)){
     actions += '<button class="wire-support" onclick="openTip(\''+d.wallet+'\',\''+escapeHtml(short(d.wallet))+'\',0.1,\'\\u25ce Support the analyst\')">\\u25ce Support analyst</button>';
   }
   return '<div class="wire-card bounty'+(d.premium?' premium':'')+'" data-bid="'+id+'">'
@@ -2208,6 +2245,7 @@ async function submitIntel(){
   const body = (document.getElementById('wire-body-in').value || '').trim();
   if(!subject){ showToast("Give your dispatch a subject (the entity or wallet it concerns)."); return; }
   if(!body){ showToast("Write up your findings before publishing."); return; }
+  if(!rateOk('submit', 6000)){ showToast("Give it a few seconds before filing another dispatch."); return; }
   const memo = "OSI intel: " + subject + (walletPubkey ? (" | by " + walletPubkey) : "");
   withOnchainVote("Publish intel", memo, async (sig)=>{
     let att = '';
@@ -2300,6 +2338,7 @@ function onPickFile(key){
   const prevEl = document.getElementById(key+'-file-prev');
   if(!f){ _picked[key]=null; if(nameEl) nameEl.textContent=''; if(prevEl) prevEl.innerHTML=''; return; }
   if(f.size > 10*1024*1024){ showToast("That file is over 10MB. Please attach something smaller."); if(inp) inp.value=''; return; }
+  if(f.type && !/^(image\/(png|jpe?g|gif|webp|avif)|application\/pdf|text\/(plain|csv))$/i.test(f.type)){ showToast("That file type is not allowed. Attach an image, PDF, or text/CSV file."); if(inp) inp.value=''; _picked[key]=null; return; }
   _picked[key]=f;
   if(nameEl) nameEl.textContent = f.name;
   if(prevEl){
@@ -2421,12 +2460,12 @@ function fieldCaseCard(b, i){
     const payAmt = reward > 0 ? reward : 0.1;
     const tlabel = String(b.target||b.title||'this case').replace(/['"\\<>]/g,'').slice(0,60);
     actions = '<div class="fo-won">🏆 won by '+wl+'</div>'
-      + '<button class="btn-reward" onclick="openTip(\''+b.winner_wallet+'\',\'winner of: '+tlabel+'\','+payAmt+',\'◎ Reward the winner\')">Send reward ◎</button>';
+      + '<button class="btn-reward" onclick="openTip(\''+(isSolAddr(b.winner_wallet)?b.winner_wallet:'')+'\',\'winner of: '+tlabel+'\','+payAmt+',\'◎ Reward the winner\')">Send reward ◎</button>';
   } else {
     actions = '<button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>'
       + '<button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>';
   }
-  const img = b.image ? '<div class="fo-case-img"><img src="'+escapeHtml(b.image)+'" alt="" loading="lazy"></div>' : '';
+  const _bimg = safeUrl(b.image); const img = _bimg ? '<div class="fo-case-img"><img src="'+escapeHtml(_bimg)+'" alt="" loading="lazy"></div>' : '';
   return '<div class="fo-case bounty '+status+'" data-bid="'+id+'">'
     + '<div class="fo-case-stripe"></div>'
     + '<div class="fo-case-body">'
@@ -2495,6 +2534,19 @@ const DAT_COMPANIES = [
   { rank:3, t:'HSDT', name:'Solana Company (Helius)', ex:'NASDAQ', sol:2332691, traced:'case:solana-company', custody:'Coinbase Prime \u00b7 Anchorage \u00b7 BitGo' },
   { rank:4, t:'DFDV', name:'DeFi Development Corp', ex:'NASDAQ', sol:2294576, traced:null,                  custody:null },
   { rank:5, t:'STSS', name:'Sharps Technology',  ex:'NASDAQ', sol:2009494, traced:'case:sharps-technology', custody:'Coinbase Prime' }
+];
+const DAT_WATCHLIST = [
+  { t:'YDKG',   name:'Yueda Digital Holding', ex:'OTC' },
+  { t:'PHX.AD', name:'Phoenix Group PLC',     ex:'Abu Dhabi' },
+  { t:'KIDZ',   name:'Classover Holdings',    ex:'Nasdaq' },
+  { t:'WIZE',   name:'WIZE Inc',              ex:'',           note:'formerly Mobcast Holdings' },
+  { t:'SOLAI',  name:'SOLAI Limited',         ex:'',           note:'formerly BIT Mining' },
+  { t:'TORR.V', name:'Torrent Capital',       ex:'TSX Venture' },
+  { t:'DCC.AX', name:'DigitalX',              ex:'ASX' },
+  { t:'EXOD',   name:'Exodus Movement',       ex:'NYSE American' },
+  { t:'BTC.BK', name:'The Brooker Group',     ex:'SET (Thailand)' },
+  { t:'DEVS',   name:'DevvStream',            ex:'Nasdaq' },
+  { t:'LGHL',   name:'Lion Group Holding',    ex:'Nasdaq' }
 ];
 
 function render(){
@@ -2770,6 +2822,8 @@ function safeUrl(u){ u = String(u || '').trim(); return /^https?:\/\//i.test(u) 
 
 // a stable per-browser id so one browser counts as one vote
 function voterId(){ let v = lsGet('stw_voter', null); if(!v){ v = 'v_' + Math.random().toString(36).slice(2) + Date.now().toString(36); lsSet('stw_voter', v); } return v; }
+// Client-side spam speed-bump. A real rate limit needs a backend; this only stops casual rapid-fire from one browser.
+function rateOk(key, ms){ try{ const now=Date.now(); const last=parseInt(localStorage.getItem('stw_rl_'+key)||'0',10)||0; if(now-last < ms) return false; localStorage.setItem('stw_rl_'+key, String(now)); return true; }catch(e){ return true; } }
 
 // ── OPTIONAL GLOBAL BACKEND (Supabase) ──────────────────────────────
 // Leave BOTH blank → the boards run on local storage (per-browser, the
@@ -2821,6 +2875,7 @@ async function admLogin(){
     document.getElementById('admPanel').style.display='block';
     document.getElementById('admWho').textContent=email;
     const su=document.getElementById('admSupport'); if(su) su.value = OSI_SUPPORT_WALLET || '';
+    const aw=document.getElementById('admAdminW'); if(aw) aw.value = OSI_ADMIN_WALLET || '';
     admRefresh();
   }catch(e){ msg.textContent='Sign-in failed: '+e.message; }
 }
@@ -2966,6 +3021,7 @@ function updateWalletUI(){
     const av = document.getElementById('wbAva'); if(av) av.remove();
     const dot = btn.querySelector('.wb-dot'); if(dot) dot.style.display='';
   }
+  if(typeof updateAdminButton === 'function') updateAdminButton();
   if(typeof refreshApplyWalletRow === 'function') refreshApplyWalletRow();
   if(document.body.dataset.view==='profile' && typeof renderProfile==='function') renderProfile();
 }
@@ -3051,7 +3107,8 @@ renderReviewQueue();
 restoreBountyState();
 renderFieldOffice();
 renderWire();
-loadConfig().then(function(){ try{ renderCaseStudies(); }catch(e){} try{ renderWire(); }catch(e){} });
+loadConfig().then(function(){ try{ renderCaseStudies(); }catch(e){} try{ renderWire(); }catch(e){} try{ updateAdminButton(); }catch(e){} });
+window.addEventListener('hashchange', function(){ if(typeof updateAdminButton==='function') updateAdminButton(); });
 renderTicker();
 renderActivity();
 renderDAT();
@@ -3416,7 +3473,20 @@ function renderDAT(){
     +'</div>';
   });
   html+='</div>';
-  html+='<div class="dat-note">Roughly 23 public companies now hold SOL as a treasury asset; the five above hold the overwhelming majority of it. Figures are self-declared snapshots from public disclosures and trackers, and they move as companies buy and report. Treasuries OSI has not independently traced yet are open <a onclick="goCommunity(\'tab-bounties\')" style="color:var(--sol);cursor:pointer">bounty targets</a>.</div>';
+  html+='<div class="dat-wl"><div class="dat-wl-h"><div class="dat-wl-title">Watchlist \u00b7 emerging Solana treasuries</div><div class="dat-wl-sub">Public companies that have announced or are reported to hold SOL, not yet independently traced by OSI. Open a hunt to put one on the board.</div></div><div class="dat-wl-grid">';
+  DAT_WATCHLIST.forEach(function(c){
+    const ex = c.ex ? ('<span class="dat-wl-ex">'+escapeHtml(c.ex)+'</span>') : '';
+    const note = c.note ? ('<span class="dat-wl-note">'+escapeHtml(c.note)+'</span>') : '';
+    const sep = (c.ex && c.note) ? '<span class="dat-wl-dot">\u00b7</span>' : '';
+    html+='<div class="dat-wl-card">'
+      +'<div class="dat-wl-top"><span class="dat-wl-tk">'+escapeHtml(c.t)+'</span><span class="dat-wl-uv">\u25cb UNVERIFIED</span></div>'
+      +'<div class="dat-wl-nm">'+escapeHtml(c.name)+'</div>'
+      +'<div class="dat-wl-meta">'+ex+sep+note+'</div>'
+      +'<button class="dat-wl-hunt" onclick="datHunt(\''+escapeHtml(c.name).replace(/\x27/g,"\\x27")+'\')">Hunt this treasury \u2192</button>'
+    +'</div>';
+  });
+  html+='</div></div>';
+  html+='<div class="dat-note">Two dozen-plus public companies now hold SOL as a treasury asset. The ranked names above carry verified declared figures; the watchlist tracks the rest as they surface. Figures are self-declared snapshots from public disclosures and trackers, and move as companies buy and report. Any treasury OSI has not independently traced is an open <a onclick="showView(\'field\')" style="color:var(--sol);cursor:pointer">bounty target</a>.</div>';
   host.innerHTML=html;
 }
 function datSyncUSD(){
@@ -3425,11 +3495,11 @@ function datSyncUSD(){
   const tk=document.querySelector('.dat-kpi .k[data-usd]'); if(tk) tk.textContent=datUsd(total);
 }
 function datHunt(name){
-  goCommunity('tab-bounties');
+  showView('field');
   setTimeout(function(){
-    const f=document.getElementById('bounty-form'); if(f) f.scrollIntoView({behavior:'smooth'});
-    const t=document.getElementById('bf-target'); if(t){ t.value=name+', SOL treasury wallets'; t.focus(); }
-  },220);
+    const s=document.getElementById('fo-search'); if(s) s.value=name;
+    if(typeof fieldSearch==='function') fieldSearch(name);
+  },200);
 }
 
 // ===== Solana tipping: a real SOL transfer from the connected wallet to an analyst =====
@@ -3602,6 +3672,7 @@ async function submitBounty(){
   const rewardSol=parseFloat((document.getElementById('bf-reward').value||'').trim())||0;
   if(!target){ showToast("Name the target of the bounty (a company or wallet set)."); return; }
   if(!detail){ showToast("Describe what the bounty needs proven (trace, custody, corroboration)."); return; }
+  if(!rateOk('submit', 6000)){ showToast("Give it a few seconds between submissions."); return; }
   const memo = "OSI new bounty: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
   withOnchainVote("Open bounty", memo, async (sig)=>{
     let img='';
@@ -3632,7 +3703,7 @@ function bountyCardHtml(b){
     const payAmt = reward>0 ? reward : 0.1;
     const tlabel = String(b.target||b.title||'this hunt').replace(/['"\\<>]/g,'').slice(0,60);
     rightExtra='<div class="b-won mono">🏆 won by '+wl+'</div>'
-      +'<button class="btn-reward" onclick="openTip(\''+b.winner_wallet+'\',\'winner of: '+tlabel+'\','+payAmt+',\'◎ Reward the winner\')">Send reward ◎</button>';
+      +'<button class="btn-reward" onclick="openTip(\''+(isSolAddr(b.winner_wallet)?b.winner_wallet:'')+'\',\'winner of: '+tlabel+'\','+payAmt+',\'◎ Reward the winner\')">Send reward ◎</button>';
   } else {
     rightExtra='<button class="btn-stake" onclick="stakeBoost(this)">↑ Boost</button>'
       +'<button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>';
@@ -3710,6 +3781,7 @@ function refreshApplyWalletRow(){
 async function submitBountyReport(){
   const report = (document.getElementById('apply-report').value || '').trim();
   if(!report){ showToast("Write up your findings before submitting."); return; }
+  if(!rateOk('submit', 6000)){ showToast("Give it a few seconds between submissions."); return; }
   const target = applyCtx.target, bid = applyCtx.bid;
   const memo = "OSI bounty report: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
   withOnchainVote("Submit report", memo, async (sig)=>{
@@ -3902,7 +3974,7 @@ function reportCardHtml(r){
   const who = r.wallet ? short(r.wallet) : 'you';
   const txLink = r.tx ? ` <a class="mono" href="https://solscan.io/tx/${escapeHtml(r.tx)}" target="_blank" rel="noopener" style="color:var(--sol);text-decoration:none;font-size:9px">↗ signed ✓</a>` : '';
   const bountyTag = r.bounty ? `<div class="rc-bounty mono">🎯 ${escapeHtml(r.bounty)}</div>` : '';
-  const tipBtn = (r.approved && r.wallet && !r.example) ? `<button class="rc-tip" onclick="openTip('${r.wallet}','${short(r.wallet)}')">\u25ce Tip in SOL</button>` : '';
+  const _rtw = isSolAddr(r.wallet) ? r.wallet : ''; const tipBtn = (r.approved && _rtw && !r.example) ? `<button class="rc-tip" onclick="openTip('${_rtw}','${short(_rtw)}')">\u25ce Tip in SOL</button>` : '';
   let by, conf;
   if(r.example){ by = `<span style="color:var(--amber)">example</span> · illustrates how scoring works`; conf = '◑ pending verification'; }
   else if(r.approved){ by = `by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span> · <span style="color:var(--sol)">◆ approved by maintainer</span>`; conf = '✓ published'; }
@@ -4285,6 +4357,23 @@ function showToast(msg){
 .adm-edit-save{width:100%;margin-top:16px;background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:12px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;cursor:pointer}
 .adm-edit-save:hover{background:var(--sol-deep)}
 .aeb-msg{font-size:11px;color:var(--ink-dim);margin-top:10px;min-height:14px}
+.dat-wl{margin-top:30px;padding-top:24px;border-top:1px solid var(--line)}
+.dat-wl-h{margin-bottom:16px}
+.dat-wl-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:16px;letter-spacing:-.01em}
+.dat-wl-sub{font-size:12px;color:var(--ink-faint);line-height:1.55;margin-top:5px;max-width:640px}
+.dat-wl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px}
+.dat-wl-card{background:var(--bg-card);border:1px solid var(--line);border-radius:4px;padding:15px 15px 14px;display:flex;flex-direction:column;transition:border-color .15s,transform .15s}
+.dat-wl-card:hover{border-color:var(--line-bright);transform:translateY(-2px)}
+.dat-wl-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.dat-wl-tk{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:.04em}
+.dat-wl-uv{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;color:var(--ink-faint);border:1px solid var(--line);border-radius:2px;padding:2px 6px;white-space:nowrap}
+.dat-wl-nm{font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;line-height:1.25;margin-bottom:4px}
+.dat-wl-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:13px;min-height:13px}
+.dat-wl-dot{opacity:.5}
+.dat-wl-note{font-style:italic;opacity:.85}
+.dat-wl-hunt{margin-top:auto;background:none;border:1px solid var(--sol-deep);color:var(--sol);font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;padding:8px 10px;border-radius:2px;cursor:pointer;text-align:left;transition:background .15s,color .15s}
+.dat-wl-hunt:hover{background:var(--sol);color:var(--bg);border-color:var(--sol)}
+@media(max-width:520px){.dat-wl-grid{grid-template-columns:1fr 1fr}}
 </style>
 <div class="adm-edit" id="adm-edit-modal">
   <div class="adm-edit-box">
