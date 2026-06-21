@@ -2987,15 +2987,17 @@ async function toggleWallet(){
     return;
   }
   if(walletPubkey){
-    // disconnect
+    // disconnect (remember the choice so a refresh does not silently reconnect)
     try{ await prov.disconnect(); }catch(e){}
     walletPubkey = null;
+    lsSet('stw_wallet_off', true);
     updateWalletUI();
     return;
   }
   try{
     const resp = await prov.connect();
     walletPubkey = resp.publicKey.toString();
+    lsSet('stw_wallet_off', false);
     updateWalletUI();
     if(typeof showToast==='function') showToast('Connected \u2713  Open your profile from the wallet button.');
   }catch(e){
@@ -3090,9 +3092,11 @@ window.addEventListener('load', async ()=>{
   const prov = getProvider();
   if(prov){
     try{
-      const resp = await prov.connect({ onlyIfTrusted:true });
-      walletPubkey = resp.publicKey.toString();
-      updateWalletUI();
+      if(!lsGet('stw_wallet_off', false)){
+        const resp = await prov.connect({ onlyIfTrusted:true });
+        walletPubkey = resp.publicKey.toString();
+        updateWalletUI();
+      }
     }catch(e){ /* not previously connected */ }
     prov.on && prov.on('disconnect', ()=>{ walletPubkey=null; updateWalletUI(); });
   }
@@ -3253,6 +3257,7 @@ async function disconnectWallet(){
   const prov = getProvider();
   try{ if(prov) await prov.disconnect(); }catch(e){}
   walletPubkey = null;
+  lsSet('stw_wallet_off', true);
   updateWalletUI();
   showView('registry');
   showToast('Wallet disconnected.');
