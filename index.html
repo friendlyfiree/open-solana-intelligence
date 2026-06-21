@@ -1190,6 +1190,20 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
       </div>
       <div class="adm-cfg-msg" id="admAdminMsg"></div>
     </div>
+    <div class="adm-cfg" id="adm-cfg-analyst">
+      <div class="adm-cfg-h">ADD AN ANALYST</div>
+      <div class="adm-cfg-s">Add a trusted analyst to the public roster. They start at Tier I and earn rank automatically as their reports get approved and they win bounties. Applications from others appear in the queue below for you to approve or reject.</div>
+      <div class="adm-cfg-row">
+        <input id="admAnWallet" placeholder="SOL wallet (their identity)">
+        <input id="admAnHandle" placeholder="X / Twitter handle (e.g. @analyst)">
+      </div>
+      <div class="adm-cfg-row" style="margin-top:8px">
+        <input id="admAnName" placeholder="Display name (optional)">
+        <input id="admAnBio" placeholder="One-line bio (optional)">
+      </div>
+      <div style="margin-top:10px"><button class="adm-go" onclick="admAddAnalyst()">Add to roster</button></div>
+      <div class="adm-cfg-msg" id="admAnMsg"></div>
+    </div>
     <div id="admQueue"><div class="adm-muted">Loading...</div></div>
   </div>
 </div></div>
@@ -1558,6 +1572,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   <button class="rec-cta" onclick="document.getElementById('analyst-form').scrollIntoView({behavior:'smooth',block:'center'});var e=document.getElementById('an-tg');if(e)e.focus();">REQUEST CLEARANCE →</button>
 </div>
 
+<div id="analyst-roster"></div>
 <div class="rec-sec-h">CLEARANCE LADDER</div>
 <div class="rec-ladder">
   <div class="rec-rung"><div class="lv">TIER I</div><div class="nm">Apprentice</div><div class="rq">Sign up. Start tracing.</div></div>
@@ -1571,7 +1586,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 <div class="rec-sec-h">REQUEST FIELD CREDENTIALS</div>
 <div class="rec-apply" id="analyst-form">
   <h3>Apply to become an analyst</h3>
-  <div class="lead">Share at least one handle so the maintainer can reach you. Applications are read by hand, you will get a reply.</div>
+  <div class="lead">Connect your wallet (top right) so your approved work counts toward your rank, then share a handle so the maintainer can reach you. Applications are read by hand.</div>
   <div class="rec-frow">
     <input type="text" placeholder="Telegram username (e.g. @you)" id="an-tg">
     <input type="text" placeholder="X / Twitter username (e.g. @you)" id="an-tw">
@@ -2055,6 +2070,104 @@ window.CASE_STUDIES = [
 ];
 </script>
 <script>
+// ===== ANALYST ROSTER (founder-curated, level earned by verified work) =====
+const ANALYST_TIERS = [
+  { t:'I',   name:'Apprentice',      min:0,   cls:'pf-l1' },
+  { t:'II',  name:'Bounty Hunter',   min:60,  cls:'pf-l2' },
+  { t:'III', name:'Detective',       min:180, cls:'pf-l3' },
+  { t:'IV',  name:'Chief Detective', min:400, cls:'pf-l4' }
+];
+
+// verified-analyst lookup (wallet -> {handle,name}); powers the ★ badge across the site
+window.VERIFIED_ANALYSTS = window.VERIFIED_ANALYSTS || {};
+async function loadAnalysts(){
+  if(!SUPA_ON) return;
+  try{
+    const a = await supaGet('analysts?select=wallet,handle,name&approved=eq.true&verified=eq.true') || [];
+    const map={}; a.forEach(function(x){ if(x.wallet) map[String(x.wallet)] = { handle:x.handle, name:x.name }; });
+    window.VERIFIED_ANALYSTS = map;
+  }catch(e){ /* table may not exist yet */ }
+}
+function isVerifiedAnalyst(wallet){ return !!(wallet && window.VERIFIED_ANALYSTS && window.VERIFIED_ANALYSTS[String(wallet)]); }
+function analystTag(wallet){ return isVerifiedAnalyst(wallet) ? ' <span class="va-tag" title="Verified analyst">\u2605 analyst</span>' : ''; }
+
+function analystStats(wallet, reports, bounties){
+  const w = String(wallet);
+  const authored = reports.filter(function(r){ return String(r.wallet)===w; }).length;
+  const won = bounties.filter(function(b){ return String(b.winner_wallet)===w; }).length;
+  const xp = authored*15 + won*60;
+  let idx=0; for(let i=0;i<ANALYST_TIERS.length;i++){ if(xp>=ANALYST_TIERS[i].min) idx=i; }
+  return { authored:authored, won:won, xp:xp, tier:ANALYST_TIERS[idx] };
+}
+function analystCard(a){
+  const handle = String(a.handle||'').replace(/^@/,'').replace(/[^A-Za-z0-9_]/g,'').slice(0,30);
+  const name = escapeHtml(a.name || (handle ? '@'+handle : short(a.wallet)));
+  const av = (typeof pfIdenticon==='function') ? pfIdenticon(String(a.wallet), 44) : '';
+  const xrow = handle ? '<a class="ar-x" href="https://x.com/'+escapeHtml(handle)+'" target="_blank" rel="noopener">@'+escapeHtml(handle)+' \u2197</a>' : '<span class="ar-x mono" style="color:var(--ink-faint)">'+escapeHtml(short(a.wallet))+'</span>';
+  const bio = a.bio ? '<div class="ar-bio">'+escapeHtml(String(a.bio).slice(0,160))+'</div>' : '';
+  const t = a.tier;
+  return '<div class="ar-card">'
+    + '<div class="ar-top">'+av+'<div class="ar-id"><div class="ar-name">'+name+' <span class="ar-verif" title="Verified analyst">\u2605</span></div>'+xrow+'</div></div>'
+    + bio
+    + '<div class="ar-tier '+t.cls+'">TIER '+t.t+' \u00b7 '+escapeHtml(t.name)+'</div>'
+    + '<div class="ar-stats">'
+      + '<div><span class="n">'+a.xp+'</span><span class="l">XP</span></div>'
+      + '<div><span class="n">'+a.authored+'</span><span class="l">intel</span></div>'
+      + '<div><span class="n">'+a.won+'</span><span class="l">bounties won</span></div>'
+    + '</div>'
+  + '</div>';
+}
+async function renderAnalysts(){
+  const host=document.getElementById('analyst-roster'); if(!host) return;
+  if(!SUPA_ON){ host.innerHTML=''; return; }
+  let analysts=[], reports=[], bounties=[];
+  try{ analysts = await supaGet('analysts?select=*&approved=eq.true') || []; }catch(e){}
+  try{ reports  = await supaGet('reports?select=wallet&approved=eq.true') || []; }catch(e){}
+  try{ bounties = await supaGet('bounties?select=winner_wallet&winner_wallet=not.is.null') || []; }catch(e){}
+  if(!analysts.length){ host.innerHTML=''; return; }
+  const rows = analysts.map(function(a){ return Object.assign({}, a, analystStats(a.wallet, reports, bounties)); })
+                       .sort(function(x,y){ return y.xp - x.xp; });
+  host.innerHTML = '<div class="rec-sec-h">THE ROSTER \u00b7 VERIFIED ANALYSTS <span class="ar-count">'+rows.length+'</span></div><div class="ar-grid">' + rows.map(analystCard).join('') + '</div>';
+}
+
+// ----- maintainer: roster management -----
+async function supaUpsertAnalyst(row){
+  const r = await fetch(SUPABASE_URL + '/rest/v1/analysts', {
+    method:'POST',
+    headers: supaHeaders({ Prefer:'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(row)
+  });
+  if(!r.ok && r.status!==409) throw new Error('analyst upsert ' + r.status);
+  return true;
+}
+async function admAddAnalyst(){
+  const wallet=(document.getElementById('admAnWallet').value||'').trim();
+  const handle=(document.getElementById('admAnHandle').value||'').trim().replace(/^@/,'');
+  const name=(document.getElementById('admAnName').value||'').trim();
+  const bio=(document.getElementById('admAnBio').value||'').trim();
+  const msg=document.getElementById('admAnMsg');
+  if(!isSolAddr(wallet)){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Enter a valid Solana wallet address.'; } return; }
+  if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Adding\u2026'; }
+  try{
+    await supaUpsertAnalyst({ wallet:wallet, handle:handle||null, name:name||null, bio:bio||null, verified:true, approved:true });
+    if(msg){ msg.style.color='var(--sol)'; msg.textContent='\u2713 Analyst added to the roster.'; }
+    ['admAnWallet','admAnHandle','admAnName','admAnBio'].forEach(function(id){ const e=document.getElementById(id); if(e) e.value=''; });
+    admRefresh(); loadAnalysts(); renderAnalysts();
+  }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Failed: '+((e&&e.message)||e)+' (did you run the latest SQL?)'; } }
+}
+async function admSetAnalyst(wallet, on){
+  try{
+    await supaPatch('analysts?wallet=eq.'+encodeURIComponent(wallet), { verified:on, approved:on });
+    showToast(on?'Analyst verified and on the roster.':'Analyst hidden from the roster.');
+    admRefresh(); loadAnalysts(); renderAnalysts();
+  }catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
+}
+async function admDelAnalyst(wallet){
+  if(!confirm('Remove this analyst from the roster? This cannot be undone.')) return;
+  try{ await supaDelete('analysts?wallet=eq.'+encodeURIComponent(wallet)); showToast('Analyst removed.'); admRefresh(); loadAnalysts(); renderAnalysts(); }
+  catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
+}
+
 // ===== Maintainer button: wallet-gated visibility (hidden unless the admin wallet is connected) =====
 function updateAdminButton(){
   const btn=document.getElementById('admLockBtn'); if(!btn) return;
@@ -2217,7 +2330,7 @@ function wireCard(d){
   return '<div class="wire-card bounty'+(d.premium?' premium':'')+'" data-bid="'+id+'">'
     + img
     + '<div class="wire-body">'
-      + '<div class="wire-top">'+badge+'<span class="wire-by mono">by '+escapeHtml(d.author||'analyst')+'</span></div>'
+      + '<div class="wire-top">'+badge+'<span class="wire-by mono">by '+escapeHtml(d.author||'analyst')+'</span>'+analystTag(d.wallet)+'</div>'
       + '<div class="wire-subject b-target">'+subject+'</div>'
       + '<div class="wire-text">'+body+'</div>'
       + att
@@ -2892,19 +3005,29 @@ async function admRefresh(){
     const reports = await supaGet('reports?select=*&order=created_at.desc');
     let requests=[]; try{ requests = await supaGet('requests?select=*&order=created_at.desc'); }catch(_){}
     let bounties=[]; try{ bounties = await supaGet('bounties?select=*&order=created_at.desc'); }catch(_){}
+    let analysts=[]; try{ analysts = await supaGet('analysts?select=*&order=created_at.desc'); }catch(_){}
     window.__admBounties = bounties || [];
-    host.innerHTML = admRender(reports||[], requests||[], bounties||[]);
+    host.innerHTML = admRender(reports||[], requests||[], bounties||[], analysts||[]);
   }catch(e){
     host.innerHTML='<div class="adm-err">Could not load the queue ('+admEsc(e.message)+').<br><br>Most likely the admin SQL policies have not been run yet, or this account is not the maintainer. Run osi_admin_setup.sql in the Supabase SQL Editor, then refresh.</div>';
   }
 }
 function admItem(kind, table, r){
   const approved = !!r.approved;
+  const id = admEsc(kind==='analyst' ? r.wallet : r.id);
+  if(kind==='analyst'){
+    const h = r.handle ? ('@'+String(r.handle).replace(/^@/,'')) : '';
+    const title = admEsc(r.name || h || r.wallet);
+    const sub = admEsc((h?h+'  \u00b7  ':'') + (r.wallet?String(r.wallet).slice(0,12)+'\u2026  ':'') + String(r.bio||r.link||'').slice(0,140));
+    const acts = approved
+      ? '<button class="adm-b warn" onclick="admSetAnalyst(\''+id+'\',false)">Unpublish</button><button class="adm-b del" onclick="admDelAnalyst(\''+id+'\')">Remove</button>'
+      : '<button class="adm-b ok" onclick="admSetAnalyst(\''+id+'\',true)">Approve analyst</button><button class="adm-b del" onclick="admDelAnalyst(\''+id+'\')">Reject</button>';
+    return '<div class="adm-row"><div class="adm-meta"><div class="adm-t">'+title+'<span class="adm-kind">analyst</span></div><div class="adm-s">'+sub+'</div></div><div class="adm-acts">'+acts+'</div></div>';
+  }
   const title = kind==='report' ? admEsc(r.company || r.bounty || r.id) : (kind==='bounty' ? admEsc(r.target || r.title || r.id) : admEsc(r.name || r.id));
   const sub = kind==='report'
     ? admEsc((r.wallet ? ('wallet ' + String(r.wallet).slice(0,12) + '...  ') : '') + String(r.summary||'').slice(0,160))
     : (kind==='bounty' ? admEsc('bounty proposal \u00b7 ' + String(r.detail||'').slice(0,150)) : 'wallet investigation request');
-  const id = admEsc(r.id);
   const acts = approved
     ? '<button class="adm-b warn" onclick="admSet(\''+table+'\',\''+id+'\',false)">Unpublish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Delete</button>'
     : '<button class="adm-b ok" onclick="admSet(\''+table+'\',\''+id+'\',true)">Approve &amp; publish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Reject</button>';
@@ -2912,11 +3035,12 @@ function admItem(kind, table, r){
   if(kind==='bounty'){ extra = '<button class="adm-b" onclick="admEditBounty(\''+id+'\')">Edit</button>'; if(approved){ extra += r.winner_wallet ? '<button class="adm-b" onclick="admResolveBounty(\''+id+'\')">Change winner</button>' : '<button class="adm-b ok" onclick="admResolveBounty(\''+id+'\')">Set winner</button>'; } }
   return '<div class="adm-row"><div class="adm-meta"><div class="adm-t">'+title+'<span class="adm-kind">'+kind+'</span></div><div class="adm-s">'+sub+'</div></div><div class="adm-acts">'+acts+extra+'</div></div>';
 }
-function admRender(reports, requests, bounties){
+function admRender(reports, requests, bounties, analysts){
   const pend=[], pub=[];
   reports.forEach(function(r){ (r.approved?pub:pend).push(admItem('report','reports',r)); });
   requests.forEach(function(r){ (r.approved?pub:pend).push(admItem('request','requests',r)); });
   (bounties||[]).forEach(function(r){ (r.approved?pub:pend).push(admItem('bounty','bounties',r)); });
+  (analysts||[]).forEach(function(r){ (r.approved?pub:pend).push(admItem('analyst','analysts',r)); });
   let h='';
   h+='<div class="adm-sec"><div class="adm-h">PENDING REVIEW <span>'+pend.length+'</span></div>'+(pend.length?pend.join(''):'<div class="adm-muted">Nothing waiting. Clear desk.</div>')+'</div>';
   h+='<div class="adm-sec"><div class="adm-h">PUBLISHED <span>'+pub.length+'</span></div>'+(pub.length?pub.join(''):'<div class="adm-muted">Nothing published yet.</div>')+'</div>';
@@ -3112,6 +3236,7 @@ restoreBountyState();
 renderFieldOffice();
 renderWire();
 loadConfig().then(function(){ try{ renderCaseStudies(); }catch(e){} try{ renderWire(); }catch(e){} try{ updateAdminButton(); }catch(e){} });
+loadAnalysts().then(function(){ try{ renderAnalysts(); }catch(e){} });
 window.addEventListener('hashchange', function(){ if(typeof updateAdminButton==='function') updateAdminButton(); });
 renderTicker();
 renderActivity();
@@ -3982,7 +4107,7 @@ function reportCardHtml(r){
   const _rtw = isSolAddr(r.wallet) ? r.wallet : ''; const tipBtn = (r.approved && _rtw && !r.example) ? `<button class="rc-tip" onclick="openTip('${_rtw}','${short(_rtw)}')">\u25ce Tip in SOL</button>` : '';
   let by, conf;
   if(r.example){ by = `<span style="color:var(--amber)">example</span> · illustrates how scoring works`; conf = '◑ pending verification'; }
-  else if(r.approved){ by = `by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span> · <span style="color:var(--sol)">◆ approved by maintainer</span>`; conf = '✓ published'; }
+  else if(r.approved){ by = `by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span>${analystTag(r.wallet)} · <span style="color:var(--sol)">◆ approved by maintainer</span>`; conf = '✓ published'; }
   else { by = `by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span> · ⏳ pending review`; conf = '◑ pending verification'; }
   return `<div class="report-card${r.approved ? ' approved' : ''}" style="margin-bottom:11px">
       <div class="rc-top">
@@ -4040,6 +4165,7 @@ function openCommunityTab(id){
 function goCommunity(id){
   showView('community');
   openCommunityTab(id);
+  if(typeof renderAnalysts==='function') renderAnalysts();
 }
 
 // Analyst application, sends Telegram / X handles + optional proof to the
@@ -4049,7 +4175,11 @@ async function submitAnalystApplication(){
   const tw  = (document.getElementById('an-tw').value || '').trim();
   const web = (document.getElementById('an-web').value || '').trim();
   if(!tg && !tw){ showToast("Add your Telegram or X username so the maintainer can reach you."); return; }
+  if(!rateOk('apply', 30000)){ showToast("You just sent an application. Give the maintainer a moment."); return; }
   const handle = tg || tw;
+  if(SUPA_ON && isSolAddr(walletPubkey||'')){
+    try{ await supaUpsertAnalyst({ wallet: walletPubkey, handle:(tw||'').replace(/^@/,'')||null, telegram:(tg||'').replace(/^@/,'')||null, link: web||null, verified:false, approved:false }); }catch(e){}
+  }
   try{
     const res = await sendForm({ _subject: 'OSI, Analyst Application: ' + handle, type: 'analyst-application', telegram: tg || '(none)', twitter: tw || '(none)', website: web || '(none)' });
     if(res.ok){
@@ -4379,6 +4509,22 @@ function showToast(msg){
 .dat-wl-hunt{margin-top:auto;background:none;border:1px solid var(--sol-deep);color:var(--sol);font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;padding:8px 10px;border-radius:2px;cursor:pointer;text-align:left;transition:background .15s,color .15s}
 .dat-wl-hunt:hover{background:var(--sol);color:var(--bg);border-color:var(--sol)}
 @media(max-width:520px){.dat-wl-grid{grid-template-columns:1fr 1fr}}
+.ar-count{display:inline-block;margin-left:8px;font-size:9px;color:var(--bg);background:var(--sol);border-radius:8px;padding:1px 7px;vertical-align:middle}
+.ar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:8px}
+.ar-card{background:var(--bg-card);border:1px solid var(--line);border-radius:4px;padding:16px;display:flex;flex-direction:column;transition:border-color .15s,transform .15s}
+.ar-card:hover{border-color:var(--line-bright);transform:translateY(-2px)}
+.ar-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.ar-id{min-width:0}
+.ar-name{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;display:flex;align-items:center;gap:6px;line-height:1.2}
+.ar-verif{color:var(--sol);font-size:11px}
+.ar-x{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);text-decoration:none;display:inline-block;margin-top:3px}
+.ar-x:hover{text-decoration:underline}
+.ar-bio{font-size:12px;color:var(--ink-dim);line-height:1.5;margin-bottom:11px}
+.ar-tier{display:inline-block;align-self:flex-start;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;padding:3px 9px;border-radius:3px;margin-bottom:12px;border:1px solid var(--line-bright)}
+.ar-stats{display:flex;gap:16px;margin-top:auto;padding-top:12px;border-top:1px solid var(--line)}
+.ar-stats .n{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:var(--ink);display:block;line-height:1}
+.ar-stats .l{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.08em;color:var(--ink-faint);margin-top:4px;display:block}
+.va-tag{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.06em;color:var(--sol);border:1px solid var(--sol-deep);border-radius:3px;padding:1px 5px;white-space:nowrap}
 </style>
 <div class="adm-edit" id="adm-edit-modal">
   <div class="adm-edit-box">
