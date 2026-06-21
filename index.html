@@ -277,6 +277,14 @@ body[data-sub="tab-analysts"] .sb-sub[data-sub="tab-analysts"]{color:var(--sol);
 /* ---- hero ---- */
 .hero{padding:46px 0 34px;position:relative}
 .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sol);border:1px solid rgba(20,241,149,.3);background:rgba(20,241,149,.05);padding:6px 12px;border-radius:100px;margin-bottom:26px}
+.hero-grid{display:flex;align-items:center;gap:44px}
+.hero-main{flex:1;min-width:0}
+.hero-logo{flex:0 0 290px;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer}
+.hero-logo-glow{position:absolute;width:300px;height:300px;background:radial-gradient(circle,rgba(20,241,149,.16),transparent 62%);filter:blur(14px);pointer-events:none}
+.hero-logo-img{position:relative;width:248px;height:248px;background:var(--osi-logo) center/contain no-repeat;filter:drop-shadow(0 0 22px rgba(20,241,149,.32));transition:transform .35s ease}
+.hero-logo:hover .hero-logo-img{transform:scale(1.045)}
+@media(max-width:980px){.hero-logo{flex-basis:210px}.hero-logo-img{width:188px;height:188px}.hero-logo-glow{width:230px;height:230px}}
+@media(max-width:760px){.hero-grid{flex-direction:column-reverse;gap:18px}.hero-logo{flex:none;margin-bottom:6px}.hero-logo-img{width:140px;height:140px}.hero-logo-glow{width:170px;height:170px}}
 .eyebrow .live{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 1.6s infinite}
 h1{font-size:clamp(30px,4.6vw,52px);line-height:1.02;font-weight:900;letter-spacing:-.035em;margin-bottom:22px}
 h1 .stroke{color:transparent;-webkit-text-stroke:1.4px var(--ink-dim)}
@@ -654,6 +662,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
   <div class="sb-foot">
     <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">🔒</button>
+    <button class="sb-demo" onclick="demoStart()" title="Guided 60-second briefing, no wallet needed"><span>▶</span> Briefing</button>
     <button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, or open your profile"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
@@ -701,6 +710,8 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 
 <section class="hero" data-view="registry">
   <div class="wrap">
+    <div class="hero-grid">
+    <div class="hero-main">
     <span class="eyebrow"><span class="live"></span>Open on-chain intelligence</span>
     <h1>
       Institutions say<br>
@@ -709,6 +720,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     </h1>
     <p class="lede">Open intelligence on <strong>institutional Solana activity</strong>: public companies, ETFs, foundations, VCs, DAOs, validators, liquid-staking protocols, and custodians. Wallets mapped through <strong>original on-chain forensics</strong>: funding sources, custody controllers, and validator-level staking.</p>
     <p class="creed">// <b>don't trust the filing</b>, verify the chain</p>
+    <button class="hero-demo" onclick="demoStart()"><span class="hd-ic">▶</span> Run demo briefing <span class="hd-sec">60 sec · no wallet</span></button>
 
     <div class="stats">
       <div class="stat">
@@ -733,6 +745,9 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
       </div>
     </div>
     <p class="disclaim">Declared figures come from company filings &amp; press releases. Live wallet balances are fetched directly from the Solana chain and may differ from declared totals, that gap is exactly what this registry surfaces.</p>
+    </div>
+    <aside class="hero-logo" onclick="showView('registry')" title="Open Solana Intelligence"><div class="hero-logo-glow"></div><div class="hero-logo-img"></div></aside>
+    </div>
   </div>
 </section>
 
@@ -743,13 +758,13 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
       <button class="ep-card" onclick="epScrollEntities()">
         <div class="ep-ic">▣</div>
         <div class="ep-t">Browse the Registry</div>
-        <div class="ep-d">See the verified institutions and the exact wallets behind their declared SOL.</div>
+        <div class="ep-d">See the institutions on the registry and the exact wallets behind their declared SOL.</div>
         <div class="ep-go mono">Jump to the entities →</div>
       </button>
       <button class="ep-card feat" onclick="showView('field')">
         <div class="ep-ic">🗂</div>
         <div class="ep-t">Join a Bounty</div>
-        <div class="ep-d">Take an open case, trace the wallets, and earn the SOL reward when your work clears review.</div>
+        <div class="ep-d">Take an open case, trace the wallets, and earn the pledged SOL reward when your work clears review.</div>
         <div class="ep-go mono">See open bounties →</div>
       </button>
       <button class="ep-card" onclick="epSubmit()">
@@ -1209,7 +1224,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     </div>
     <div class="adm-cfg" id="adm-cfg-admin">
       <div class="adm-cfg-h">ADMIN ACCESS WALLET</div>
-      <div class="adm-cfg-s">The only wallet that may see the maintainer lock icon. Once set, the lock appears solely when this wallet is connected and stays hidden from everyone else. You can always recover access by opening the site with #ops added to the end of the URL.</div>
+      <div class="adm-cfg-s">This only controls who SEES the maintainer lock icon, a convenience, not a security boundary. The real protection is Supabase row-level security plus the maintainer email login: nothing can be approved or changed without that authentication, wallet or not. (Add #ops to the URL to re-reveal the icon if you ever hide your own.)</div>
       <div class="adm-cfg-row">
         <input id="admAdminW" placeholder="SOL wallet address">
         <button class="adm-out" onclick="admUseConnectedAdmin()">Use connected</button>
@@ -1455,7 +1470,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
           </div>
           <div class="hiw-leg">
             <div class="hiw-legtag open">not found</div>
-            <div class="hiw-node"><div class="hiw-t">Open a bounty</div><div class="hiw-s">Fund a public investigation. A reputation-backed commitment, no escrow, no locked funds.</div></div>
+            <div class="hiw-node"><div class="hiw-t">Open a bounty</div><div class="hiw-s">Pledge a reward and describe the case. The pledge is the sponsor's public commitment; OSI does not hold the funds or guarantee payment.</div></div>
             <div class="hiw-arrow sm">↓</div>
             <div class="hiw-node"><div class="hiw-t">Analysts investigate</div><div class="hiw-s">Trace funding, custody, and validators directly on-chain.</div></div>
             <div class="hiw-arrow sm">↓</div>
@@ -1465,7 +1480,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
         <div class="hiw-arrow">↓</div>
         <div class="hiw-node pub"><div class="hiw-t">Published to the public record</div><div class="hiw-s">Open and permanent, with the methodology attached so the technique spreads, not just the result.</div></div>
         <div class="hiw-arrow">↓</div>
-        <div class="hiw-node"><div class="hiw-t">Reward paid on-chain · patrons credited · reputation grows</div><div class="hiw-s">The hunter is paid peer-to-peer, backers are named on the work, and the analyst's public track record climbs.</div></div>
+        <div class="hiw-node"><div class="hiw-t">Sponsor releases the reward on-chain · reputation grows</div><div class="hiw-s">The sponsor pays the hunter peer-to-peer when the work is accepted. OSI verifies the work, not the payment. Backers are named, and the analyst's public track record climbs.</div></div>
         <div class="hiw-arrow">↓</div>
         <div class="hiw-node end"><div class="hiw-t">Everyone gets the intelligence</div><div class="hiw-s">The whole ecosystem can verify it. A closed marketplace stops at the buyer; OSI stops at the public.</div></div>
       </div>
@@ -1655,7 +1670,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 <div class="rec-sec-h">REQUEST FIELD CREDENTIALS</div>
 <div class="rec-apply" id="analyst-form">
   <h3>Apply to become an analyst</h3>
-  <div class="lead">Connect your wallet (top right) so your approved work counts toward your rank, then share a handle so the maintainer can reach you. Applications are read by hand.</div>
+  <div class="lead">Connect your wallet (top right) first, it is your analyst identity and is required for an application. Then add a handle so the maintainer can reach you and your approved work counts toward your rank. Applications are read by hand.</div>
   <div class="rec-frow">
     <input type="text" placeholder="Telegram username (e.g. @you)" id="an-tg">
     <input type="text" placeholder="X / Twitter username (e.g. @you)" id="an-tw">
@@ -1671,7 +1686,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   <div class="rec-card dn"><div class="ic" style="color:var(--red)">▼</div><div class="t">Downvote</div><div class="d">Flag weak attribution or missing proof. Clustering is never certainty.</div></div>
   <div class="rec-card seal"><div class="ic" style="color:var(--violet)">✓</div><div class="t">Maintainer seal</div><div class="d">Final approval before a report goes public on the registry.</div></div>
 </div>
-<p class="rec-note">Every score is a signed on-chain memo, with no fee to us (only the ~0.000005 SOL network fee). That keeps votes real and attributable instead of free to farm.</p>
+<p class="rec-note">Peer review is off-chain for now: each vouch is recorded against a verified analyst on the roster, attributable but not yet trustless. Phase 2 moves every score on-chain, signed by the analyst and impossible to forge or farm.</p>
 
 <div class="rec-floor-h">
   <div class="ttl">REVIEW FLOOR // LIVE CASEWORK</div>
@@ -2140,6 +2155,168 @@ window.CASE_STUDIES = [
 ];
 </script>
 <script>
+// ============================================================
+//  INTELLIGENCE BRIEFING  (demo mode for reviewers)
+//  Spotlight walkthrough of the whole platform. No wallet,
+//  no submits, no on-chain actions. Pure guided tour.
+// ============================================================
+var DEMO_STEPS = [
+  { view:'registry', sel:null,
+    title:'Open Solana Intelligence',
+    body:'A sixty-second briefing. Institutions say they hold SOL. OSI shows the exact wallets behind the claim, traced on-chain and open to everyone.',
+    dur:6000 },
+  { view:'registry', sel:'.stats',
+    title:'The numbers, checked against the chain',
+    body:'Declared holdings come from filings. Live balances come straight from Solana. The gap between the two is the story this registry exists to surface.',
+    dur:7000 },
+  { view:'registry', sel:'#companies > div', sel2:'#companies',
+    title:'The wallets behind the number',
+    body:'Every institution opens into its real wallets: funding sources, custodians, and validator-level staking, each rated by confidence so you know how solid the link is.',
+    dur:7500 },
+  { view:'registry', sel:'#entry-points .ep-grid', sel2:'#entry-points',
+    title:'Three ways in',
+    body:'Browse the open record, take a bounty and earn SOL for tracing a target, or file new evidence to the public ledger. No gate, no paywall.',
+    dur:7000 },
+  { view:'field', sel:'#field-cases > div', sel2:'#field-stats',
+    title:'The Field Office',
+    body:'A live bounty board. Anyone can fund an investigation; analysts claim it, trace the wallets, and the sponsor releases the reward on-chain. Each case runs on a countdown.',
+    dur:7500 },
+  { view:'wire', sel:'#wire-cases > div', sel2:'#wire-cases',
+    title:'The Wire',
+    body:'An open intelligence feed. New findings are filed here and, once reviewed, become a permanent part of the public record. Evidence in the open, not behind a desk.',
+    dur:7000 },
+  { view:'graph', sel:'.gph-stage',
+    title:'The network',
+    body:'Funding and custody relationships, mapped. An autonomous, explorable graph of how money moves between foundations, market makers, custodians, and treasuries.',
+    dur:7000 },
+  { view:'methodology', sel:'.hiw',
+    title:'Open intelligence, not a paywall',
+    body:'Demand funds the work, analysts produce it, peers verify it, and the result is published for everyone. A closed marketplace stops at the buyer. OSI stops at the public.',
+    dur:7500 },
+  { view:'community', sel:'#consensus-floor', sel2:'#analyst-roster',
+    title:'A self-governing newsroom',
+    body:'A verified analyst roster with weighted peer review. Today a maintainer seals each report; the design hands that power to the network over time.',
+    dur:7500 },
+  { view:'registry', sel:null,
+    title:'The record is public',
+    body:'Original on-chain forensics, an open bounty economy, and a community that reviews its own work. Explore freely from here, nothing on this site asks for your wallet.',
+    dur:6500 }
+];
+
+var demoIdx = 0, demoPlaying = false, demoTimer = null, demoStepStart = 0, demoPausedElapsed = 0;
+
+function demoStart(){
+  demoIdx = 0; demoPausedElapsed = 0;
+  var root = document.getElementById('demo-root'); if(!root) return;
+  root.hidden = false;
+  document.body.classList.add('demo-on');
+  // block manual scroll/zoom; programmatic scrollIntoView still works
+  root.addEventListener('wheel', demoBlockScroll, { passive:false });
+  root.addEventListener('touchmove', demoBlockScroll, { passive:false });
+  if(demoTimer) clearInterval(demoTimer);
+  demoTimer = setInterval(demoTick, 50);
+  demoPlaying = true;
+  demoGoStep(0);
+}
+function demoBlockScroll(e){ if(e.target.closest && e.target.closest('.demo-card')) return; e.preventDefault(); }
+function demoStop(){
+  var root = document.getElementById('demo-root'); if(!root) return;
+  if(demoTimer){ clearInterval(demoTimer); demoTimer = null; }
+  demoPlaying = false;
+  root.removeEventListener('wheel', demoBlockScroll, { passive:false });
+  root.removeEventListener('touchmove', demoBlockScroll, { passive:false });
+  root.hidden = true;
+  document.body.classList.remove('demo-on');
+  try{ showView('registry'); window.scrollTo({ top:0, behavior:'smooth' }); }catch(e){}
+}
+function demoNext(){ if(demoIdx >= DEMO_STEPS.length - 1){ demoStop(); return; } demoGoStep(demoIdx + 1); }
+function demoPrev(){ if(demoIdx <= 0) return; demoGoStep(demoIdx - 1); }
+function demoTogglePlay(){
+  demoPlaying = !demoPlaying;
+  if(demoPlaying){ demoStepStart = Date.now() - demoPausedElapsed; }
+  else { demoPausedElapsed = Date.now() - demoStepStart; }
+  var b = document.getElementById('demo-play');
+  if(b) b.textContent = demoPlaying ? '\u2759\u2759' : '\u25B6';
+}
+function demoTick(){
+  if(!demoPlaying) return;
+  var step = DEMO_STEPS[demoIdx]; if(!step) return;
+  var elapsed = Date.now() - demoStepStart;
+  var frac = Math.min(1, elapsed / step.dur);
+  var bar = document.getElementById('demo-prog'); if(bar) bar.style.width = (frac * 100) + '%';
+  if(frac >= 1){ demoNext(); }
+}
+function demoFindTarget(step){
+  var el = step.sel ? document.querySelector(step.sel) : null;
+  if((!el || el.getBoundingClientRect().height < 4) && step.sel2){ el = document.querySelector(step.sel2); }
+  if(el && el.getBoundingClientRect().height < 4) el = null;
+  return el;
+}
+function demoGoStep(i){
+  i = Math.max(0, Math.min(DEMO_STEPS.length - 1, i));
+  demoIdx = i;
+  var step = DEMO_STEPS[i];
+  demoStepStart = Date.now(); demoPausedElapsed = 0;
+  // text + chrome
+  var st = document.getElementById('demo-step'); if(st) st.textContent = ('0' + (i + 1)).slice(-2) + ' / ' + ('0' + DEMO_STEPS.length).slice(-2);
+  var tt = document.getElementById('demo-title'); if(tt) tt.textContent = step.title;
+  var bd = document.getElementById('demo-body'); if(bd) bd.textContent = step.body;
+  var bar = document.getElementById('demo-prog'); if(bar) bar.style.width = '0%';
+  var back = document.getElementById('demo-back'); if(back) back.disabled = (i === 0);
+  var nx = document.getElementById('demo-next'); if(nx) nx.textContent = (i === DEMO_STEPS.length - 1) ? 'Finish' : 'Next \u203A';
+  // switch view, then place the spotlight once it has rendered
+  try{ showView(step.view); }catch(e){}
+  setTimeout(function(){
+    var el = demoFindTarget(step);
+    if(el){
+      try{ el.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(e){}
+      setTimeout(function(){ demoPlace(el.getBoundingClientRect()); }, 360);
+    } else {
+      demoPlace(null);
+    }
+  }, 90);
+}
+function demoPlace(rect){
+  var spot = document.getElementById('demo-spot');
+  var card = document.getElementById('demo-card');
+  if(!spot || !card) return;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  if(!rect){
+    // centered briefing slide, no target
+    spot.classList.add('center');
+    spot.style.left = (vw / 2) + 'px'; spot.style.top = (vh / 2) + 'px';
+    spot.style.width = '0px'; spot.style.height = '0px';
+    spot.classList.add('on');
+    var cr0 = card.getBoundingClientRect();
+    card.style.left = Math.round((vw - cr0.width) / 2) + 'px';
+    card.style.top = Math.round((vh - cr0.height) / 2) + 'px';
+    return;
+  }
+  spot.classList.remove('center');
+  var pad = 8;
+  var sx = Math.max(6, rect.left - pad), sy = Math.max(6, rect.top - pad);
+  var sw = Math.min(vw - 12, rect.width + pad * 2), sh = Math.min(vh - 12, rect.height + pad * 2);
+  spot.style.left = sx + 'px'; spot.style.top = sy + 'px';
+  spot.style.width = sw + 'px'; spot.style.height = sh + 'px';
+  spot.classList.add('on');
+  // place card: prefer below the spotlight, else above, else beside
+  var cr = card.getBoundingClientRect();
+  var cw = cr.width, ch = cr.height, gap = 16;
+  var top, left;
+  if(sy + sh + gap + ch <= vh - 12){ top = sy + sh + gap; }
+  else if(sy - gap - ch >= 12){ top = sy - gap - ch; }
+  else { top = Math.max(12, Math.min(vh - ch - 12, sy)); }
+  left = sx + sw / 2 - cw / 2;
+  left = Math.max(12, Math.min(vw - cw - 12, left));
+  card.style.left = Math.round(left) + 'px';
+  card.style.top = Math.round(top) + 'px';
+}
+// keep the spotlight aligned if the window resizes mid-briefing
+window.addEventListener('resize', function(){
+  var root = document.getElementById('demo-root');
+  if(root && !root.hidden){ demoGoStep(demoIdx); }
+});
+
 // ===== CONSENSUS (analyst peer-review / progressive decentralization) =====
 let CONSENSUS_THRESHOLD = 3;
 let CONSENSUS_AUTO = false;
@@ -2204,6 +2381,21 @@ async function vouch(type,id,vote){
 async function renderReviewFloor(){
   const host=document.getElementById('consensus-floor'); if(!host) return;
   if(!SUPA_ON){ host.innerHTML=''; return; }
+  const canVouch = isVerifiedAnalyst(walletPubkey);
+  const isMaint = !!SUPA_AUTH_TOKEN;
+  if(!(canVouch || isMaint)){
+    // public: only the queue size + an invitation, never the unvetted content
+    var nR=0, nB=0;
+    try{ var r = await supaGet('reports?select=id&approved=eq.false&limit=100'); nR=(r||[]).length; }catch(e){}
+    try{ var b = await supaGet('bounties?select=id&approved=eq.false&limit=100'); nB=(b||[]).length; }catch(e){}
+    var tot=nR+nB;
+    var msg = tot
+      ? (tot+' item'+(tot!==1?'s':'')+' awaiting peer review ('+nR+' report'+(nR!==1?'s':'')+', '+nB+' bount'+(nB!==1?'ies':'y')+'). Verified analysts review and clear this queue before anything reaches the public record.')
+      : 'Queue clear. Nothing is awaiting peer review right now.';
+    host.innerHTML = '<div class="rf-note mono">'+msg+' <a onclick="goCommunity(\'tab-analysts\')" style="color:var(--sol);cursor:pointer">Apply to join the roster \u2192</a></div>';
+    return;
+  }
+  // verified analyst or maintainer: the full queue
   let reports=[], bounties=[];
   try{ reports  = await supaGet('reports?select=id,company,bounty,wallet,summary,created_at&approved=eq.false&order=created_at.desc&limit=30') || []; }catch(e){}
   try{ bounties = await supaGet('bounties?select=id,target,title,detail,created_at&approved=eq.false&order=created_at.desc&limit=30') || []; }catch(e){}
@@ -2211,10 +2403,9 @@ async function renderReviewFloor(){
   const items=[];
   reports.forEach(function(r){ items.push({type:'report', id:String(r.id), title:(r.company||r.bounty||'Report'), sub:String(r.summary||'').slice(0,170), tag:'intel', ts:r.created_at}); });
   bounties.forEach(function(b){ items.push({type:'bounty', id:String(b.id), title:(b.target||b.title||'Bounty'), sub:String(b.detail||'').slice(0,170), tag:'bounty', ts:b.created_at}); });
-  const canVouch = isVerifiedAnalyst(walletPubkey);
   const note = '<div class="rf-note mono">'+(canVouch
-      ? ('You are a verified analyst \u00b7 your vouch carries weight '+(analystWeight(walletPubkey)||1)+'. '+(CONSENSUS_AUTO?('At '+CONSENSUS_THRESHOLD+' weight an item publishes itself.'):('Cleared items go to the maintainer for the final seal.')))
-      : ('Verified analysts review and clear this queue. '+(walletPubkey?'Your wallet is not on the roster yet, apply below.':'Connect your wallet to take part.')))
+      ? ('You are a verified analyst \u00b7 your vouch carries weight '+(analystWeight(walletPubkey)||1)+'. '+(CONSENSUS_AUTO?('At '+CONSENSUS_THRESHOLD+' weight an item publishes itself.'):('Cleared items still go to the maintainer for the final seal.')))
+      : ('Maintainer view \u00b7 you hold the final seal. Approve or remove items from the queue below or in the admin panel.'))
     +'</div>';
   if(!items.length){ host.innerHTML = note + '<div class="rf-empty mono">Queue clear. Nothing awaiting peer review.</div>'; return; }
   items.sort(function(x,y){ return new Date(y.ts||0)-new Date(x.ts||0); });
@@ -2712,8 +2903,9 @@ async function renderFieldOffice(){
 }
 function drawFieldOffice(){
   const host=document.getElementById('field-cases'); if(!host) return;
-  fieldStats(fieldState.data);
-  let list = fieldState.data.slice();
+  let base = fieldState.data.slice().filter(function(b){ if(b.winner_wallet) return true; var dl=bountyDeadline(b); return !dl || dl>Date.now(); });
+  fieldStats(base);
+  let list = base.slice();
   const q = (fieldState.q||'').trim().toLowerCase();
   if(q){ list = list.filter(function(b){ return ((b.target||b.title||'')+' '+(b.detail||'')).toLowerCase().indexOf(q)!==-1; }); }
   if(fieldState.filter==='open') list = list.filter(function(b){ return !b.winner_wallet; });
@@ -2737,6 +2929,35 @@ function drawFieldOffice(){
 }
 function fieldSearch(v){ fieldState.q = v||''; drawFieldOffice(); }
 
+// Solana amblem (kucuk inline SVG, yesil) + bounty geri sayim
+var SOL_MARK='<svg class="sol-mk" viewBox="0 0 24 19" aria-hidden="true"><path d="M5 1h18l-4 4H1z"/><path d="M1 7.5h18l4 4H5z"/><path d="M5 14h18l-4 4H1z"/></svg>';
+function bountyDeadline(b){
+  if(b && b.expires_at){ var t=new Date(b.expires_at).getTime(); if(!isNaN(t)&&t>0) return t; }
+  var id=String((b&&b.id)||(b&&b.target)||''); if(!id) return 0;
+  var k='stw_dl_'+id; var v=lsGet(k,'');
+  if(v){ var tt=parseInt(v,10); if(tt>0) return tt; }
+  var hsh=2166136261; for(var i=0;i<id.length;i++){ hsh^=id.charCodeAt(i); hsh=Math.imul(hsh,16777619); }
+  var hours=100+(Math.abs(hsh)%101); // 100..200 saat, davaya gore degisken
+  var t2=Date.now()+hours*3600000; lsSet(k,String(t2)); return t2;
+}
+function fmtCountdown(ms){
+  if(ms<=0) return null;
+  var tm=Math.floor(ms/60000), d=Math.floor(tm/1440), h=Math.floor((tm%1440)/60), m=tm%60;
+  if(d>0) return d+'d '+h+'h';
+  if(h>0) return h+'h '+m+'m';
+  return m+'m';
+}
+function fieldTick(){
+  document.querySelectorAll('.fo-case[data-deadline]').forEach(function(card){
+    var dl=parseInt(card.dataset.deadline,10)||0; if(!dl) return;
+    var left=dl-Date.now();
+    if(left<=0){ card.style.display='none'; return; }
+    var cd=card.querySelector('.fo-cd-t'); if(cd) cd.textContent=fmtCountdown(left);
+    var box=card.querySelector('.fo-countdown'); if(box && left<86400000) box.classList.add('urgent');
+  });
+}
+if(typeof window!=='undefined' && !window.__fieldTick){ window.__fieldTick=setInterval(fieldTick, 30000); }
+
 function fieldCaseCard(b, i){
   const id = escapeHtml(b.id);
   const target = escapeHtml(b.target || b.title || 'wallet hunt');
@@ -2746,11 +2967,15 @@ function fieldCaseCard(b, i){
   const count = ((window.boostCounts||{})[b.id]) || 0;
   const hot = !resolved && count >= 5;
   const status = resolved ? 'closed' : (hot ? 'hot' : 'open');
+  const deadline = resolved ? 0 : bountyDeadline(b);
+  const _left = deadline - Date.now();
+  const _urgent = (deadline && _left < 86400000);
+  const countdown = (!resolved && deadline && _left > 0) ? '<div class="fo-countdown'+(_urgent?' urgent':'')+'"><span class="fo-cd-ic">\u23f3</span> ends in <span class="fo-cd-t">'+fmtCountdown(_left)+'</span></div>' : '';
   const caseNo = 'CASE #' + ((pfHash(String(b.id)) % 9000) + 1000);
   const statusLabel = resolved ? '✓ CLOSED' : (hot ? '🔥 HOT' : '● OPEN');
   const demandPct = Math.min(100, count * 12);
   const rewardCell = reward > 0
-    ? '<div class="fo-m-n rew">◎ '+reward+'</div><div class="fo-m-l">SOL reward</div>'
+    ? '<div class="fo-m-n rew">'+SOL_MARK+' '+reward+'</div><div class="fo-m-l">SOL reward</div>'
     : '<div class="fo-m-n" style="color:var(--ink-dim);font-size:13px">community</div><div class="fo-m-l">funded</div>';
   let actions;
   if(resolved){
@@ -2764,13 +2989,14 @@ function fieldCaseCard(b, i){
       + '<button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>';
   }
   const _bimg = safeUrl(b.image); const img = _bimg ? '<div class="fo-case-img"><img src="'+escapeHtml(_bimg)+'" alt="" loading="lazy"></div>' : '';
-  return '<div class="fo-case bounty '+status+'" data-bid="'+id+'">'
+  return '<div class="fo-case bounty '+status+'" data-bid="'+id+'" data-deadline="'+deadline+'">'
     + '<div class="fo-case-stripe"></div>'
     + '<div class="fo-case-body">'
       + img
       + '<div class="fo-case-top"><span class="fo-case-no">'+caseNo+'</span><span class="fo-case-status '+status+'">'+statusLabel+'</span></div>'
       + '<div class="fo-case-target b-target">'+target+'</div>'
       + '<div class="fo-case-brief">'+brief+'</div>'
+      + countdown
       + '<div class="fo-case-metrics">'
         + '<div class="fo-metric">'+rewardCell+'</div>'
         + '<div class="fo-metric"><div class="fo-m-n b-reward"><span class="n">'+count+'</span></div><div class="fo-m-l">boosts</div></div>'
@@ -2787,7 +3013,7 @@ function fieldStats(list){
   const pooled = list.reduce(function(s,b){ return s + (parseFloat(b.reward_sol)||0); }, 0);
   host.innerHTML =
       '<div class="fo-op"><div class="fo-op-n">'+open+'</div><div class="fo-op-l">Open cases</div></div>'
-    + '<div class="fo-op"><div class="fo-op-n sol">◎ '+pooled+'</div><div class="fo-op-l">SOL in rewards</div></div>'
+    + '<div class="fo-op"><div class="fo-op-n sol">'+SOL_MARK+' '+pooled+'</div><div class="fo-op-l">SOL in rewards</div></div>'
     + '<div class="fo-op"><div class="fo-op-n">'+closed+'</div><div class="fo-op-l">Cases closed</div></div>'
     + '<div class="fo-op"><div class="fo-op-n">'+list.length+'</div><div class="fo-op-l">Total cases</div></div>';
 }
@@ -3063,8 +3289,10 @@ async function renderActivity(){
     (reps||[]).forEach(function(r){ items.push({kind:'rep', title:r.company||r.bounty||'attribution report', sub:'New report:', ts:r.created_at}); });
     (bnts||[]).forEach(function(b){ items.push({kind:'bnt', title:b.target||b.title||'wallet hunt', sub:'Bounty opened:', ts:b.created_at}); });
     (reqs||[]).forEach(function(q){ items.push({kind:'req', title:q.name||'wallet request', sub:'New request:', ts:q.created_at}); });
-    items.sort(function(a,b){ return new Date(b.ts||0)-new Date(a.ts||0); });
-    const live=items.slice(0,14).map(function(it){ return raItem(it.kind, it.title, it.sub, it.ts); }).join('');
+    var _cut=Date.now()-60*86400000;
+    var _recent=items.filter(function(it){ var t=new Date(it.ts||0).getTime(); return t>0 && t>=_cut; });
+    _recent.sort(function(a,b){ return new Date(b.ts||0)-new Date(a.ts||0); });
+    const live=_recent.slice(0,14).map(function(it){ return raItem(it.kind, it.title, it.sub, it.ts); }).join('');
     host.innerHTML='<div class="ra-feed">'+live+raCaseSeed('Case file:')+'</div>';
   }catch(e){ /* keep the seed view on failure */ }
 }
@@ -3761,7 +3989,7 @@ function methodStep(n){
 // CoinGecko, The Block, bitcoinminingstock.io), late 2025 / early 2026. Edit freely.
 
 function datTotal(){ return DAT_COMPANIES.reduce(function(s,c){ return s+c.sol; }, 0); }
-function datUsd(sol){ return SOL_PRICE ? '$'+fmt(sol*SOL_PRICE) : '$\u2014'; }
+function datUsd(sol){ return SOL_PRICE ? '$'+fmt(sol*SOL_PRICE) : '$\u2026'; }
 function renderDAT(){
   const host=document.getElementById('dat-body'); if(!host) return;
   const total=datTotal();
@@ -4371,6 +4599,7 @@ function goCommunity(id){
 // Analyst application, sends Telegram / X handles + optional proof to the
 // maintainer via Formspree. No mail client opens, no page jump.
 async function submitAnalystApplication(){
+  if(!isSolAddr(walletPubkey||'')){ showToast("Connect your Solana wallet first. Your analyst identity and reputation are tied to it."); return; }
   const tg  = (document.getElementById('an-tg').value || '').trim();
   const tw  = (document.getElementById('an-tw').value || '').trim();
   const web = (document.getElementById('an-web').value || '').trim();
@@ -4800,6 +5029,45 @@ function showToast(msg){
 .hiw-legtag.found{color:var(--cyan);border:1px solid rgba(34,211,238,.4)}
 .hiw-legtag.open{color:var(--amber);border:1px solid rgba(255,176,32,.4)}
 .hiw-div{height:1px;background:var(--line);margin:0 0 34px}
+.sol-mk{width:.82em;height:.64em;display:inline-block;vertical-align:-.04em;fill:var(--sol)}
+.fo-op-n.sol .sol-mk,.fo-m-n.rew .sol-mk{vertical-align:-.02em}
+.fo-countdown{display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;color:var(--ink-faint);border:1px solid var(--line);border-radius:3px;padding:3px 9px;margin-bottom:12px}
+.fo-cd-ic{font-size:10px;filter:grayscale(.3)}
+.fo-cd-t{color:var(--ink-dim);font-weight:600;letter-spacing:.02em}
+.fo-countdown.urgent{color:var(--amber);border-color:rgba(255,176,32,.45);background:rgba(255,176,32,.05)}
+.fo-countdown.urgent .fo-cd-t{color:var(--amber)}
+.demo-root[hidden]{display:none}
+.demo-root{position:fixed;inset:0;z-index:99999}
+.demo-block{position:absolute;inset:0;background:transparent;z-index:1}
+.demo-spot{position:fixed;z-index:2;border-radius:9px;box-shadow:0 0 0 9999px rgba(5,8,14,.9);border:1.5px solid var(--sol);opacity:0;pointer-events:none;transition:left .5s cubic-bezier(.4,0,.2,1),top .5s cubic-bezier(.4,0,.2,1),width .5s cubic-bezier(.4,0,.2,1),height .5s cubic-bezier(.4,0,.2,1),box-shadow .4s,opacity .3s}
+.demo-spot.on{opacity:1;box-shadow:0 0 0 9999px rgba(5,8,14,.9),0 0 22px rgba(20,241,149,.45),inset 0 0 0 1px rgba(20,241,149,.25)}
+.demo-spot.center{border-color:transparent;box-shadow:0 0 0 9999px rgba(5,8,14,.93)}
+.demo-card{position:fixed;z-index:3;width:344px;max-width:calc(100vw - 28px);background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-left:3px solid var(--sol);border-radius:12px;padding:20px 22px;box-shadow:0 26px 70px rgba(0,0,0,.62);transition:left .42s cubic-bezier(.4,0,.2,1),top .42s cubic-bezier(.4,0,.2,1)}
+.demo-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+.demo-kicker{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--sol)}
+.demo-step{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--ink-faint)}
+.demo-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:19px;letter-spacing:-.01em;line-height:1.2;margin-bottom:9px}
+.demo-body{font-size:13px;color:var(--ink-dim);line-height:1.62;margin-bottom:16px}
+.demo-prog-track{height:3px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:15px}
+.demo-prog{height:100%;width:0;background:linear-gradient(90deg,var(--sol-deep),var(--sol));border-radius:3px;transition:width .1s linear}
+.demo-controls{display:flex;align-items:center;gap:8px}
+.demo-nav{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;padding:9px 13px;border-radius:7px;border:1px solid var(--line-bright);background:none;color:var(--ink-dim);cursor:pointer;transition:all .14s}
+.demo-nav:hover:not(:disabled){border-color:var(--sol);color:var(--ink)}
+.demo-nav:disabled{opacity:.3;cursor:default}
+.demo-nav.next{margin-left:auto;background:var(--sol);color:var(--bg);border-color:var(--sol);font-weight:700}
+.demo-nav.next:hover{filter:brightness(1.08)}
+.demo-play{width:34px;height:34px;border-radius:7px;border:1px solid var(--line-bright);background:none;color:var(--ink-dim);cursor:pointer;font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center}
+.demo-play:hover{border-color:var(--sol);color:var(--sol)}
+.demo-exit{font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 12px;border-radius:7px;border:1px solid transparent;background:none;color:var(--ink-faint);cursor:pointer}
+.demo-exit:hover{color:var(--red)}
+.hero-demo{display:inline-flex;align-items:center;gap:9px;margin-top:22px;padding:13px 20px;border-radius:9px;border:1px solid rgba(20,241,149,.4);background:linear-gradient(180deg,rgba(20,241,149,.12),rgba(20,241,149,.04));color:var(--sol);font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all .16s}
+.hero-demo:hover{border-color:var(--sol);box-shadow:0 8px 30px rgba(20,241,149,.18);transform:translateY(-1px)}
+.hd-ic{font-size:11px}
+.hd-sec{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:var(--ink-faint);letter-spacing:.04em}
+.sb-demo{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:7px;border:1px solid rgba(20,241,149,.4);background:rgba(20,241,149,.08);color:var(--sol);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .15s;white-space:nowrap}
+.sb-demo:hover{background:var(--sol);color:var(--bg);border-color:var(--sol)}
+.sb-demo span{font-size:9px}
+@media(max-width:720px){.hd-sec{display:none}.demo-card{width:320px}}
 .adm-con-lab{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);cursor:pointer;white-space:nowrap}
 .adm-con-lab input{width:auto;cursor:pointer}
 .va-tag{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.06em;color:var(--sol);border:1px solid var(--sol-deep);border-radius:3px;padding:1px 5px;white-space:nowrap}
@@ -4825,6 +5093,25 @@ function showToast(msg){
     </div>
     <button class="adm-edit-save" onclick="admSaveBounty()">Save changes</button>
     <div class="aeb-msg mono" id="aeb-msg"></div>
+  </div>
+</div>
+<div id="demo-root" class="demo-root" hidden>
+  <div class="demo-block"></div>
+  <div class="demo-spot" id="demo-spot"></div>
+  <div class="demo-card" id="demo-card">
+    <div class="demo-card-top">
+      <span class="demo-kicker">// intelligence briefing</span>
+      <span class="demo-step" id="demo-step">01 / 10</span>
+    </div>
+    <div class="demo-title" id="demo-title"></div>
+    <div class="demo-body" id="demo-body"></div>
+    <div class="demo-prog-track"><div class="demo-prog" id="demo-prog"></div></div>
+    <div class="demo-controls">
+      <button class="demo-nav" id="demo-back" onclick="demoPrev()">‹ Back</button>
+      <button class="demo-play" id="demo-play" onclick="demoTogglePlay()" title="Pause or play" aria-label="Pause or play">❙❙</button>
+      <button class="demo-exit" onclick="demoStop()">Exit</button>
+      <button class="demo-nav next" id="demo-next" onclick="demoNext()">Next ›</button>
+    </div>
   </div>
 </div>
 </body>
