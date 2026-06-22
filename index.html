@@ -704,6 +704,10 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .ra-t{font-size:12px;color:var(--ink);line-height:1.4}
 .ra-t b{font-weight:700}
 .ra-m{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-faint);margin-top:3px;letter-spacing:.04em}
+.ra-ic.sgn{color:var(--sol)}
+.ra-solscan{color:var(--cyan);text-decoration:none;border-bottom:1px dotted rgba(34,211,238,.45);white-space:nowrap}
+.ra-solscan:hover{color:var(--sol);border-bottom-color:var(--sol)}
+.ra-note{font-family:'JetBrains Mono',monospace;font-size:9.5px;line-height:1.55;color:var(--ink-faint);padding:9px 15px 11px;border-bottom:1px solid var(--line)}
 .ra-empty{font-size:11.5px;color:var(--ink-faint);font-style:italic;padding:16px 15px;line-height:1.5}
 @media(max-width:920px){.reg-layout{grid-template-columns:1fr}.reg-rail{position:static;margin-top:8px}.ra-feed{max-height:420px}}
 </style>
@@ -827,7 +831,8 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     <div class="reg-layout">
       <div class="companies" id="companies"></div>
       <aside class="reg-rail">
-        <div class="ra-head"><span class="ra-dot"></span>Recent Activity</div>
+        <div class="ra-head"><span class="ra-dot"></span>On-chain Activity</div>
+        <div class="ra-note mono">Signed actions are real Solana memo transactions, verifiable on Solscan. A memo is a public audit trail, not a verdict, and OSI never holds funds.</div>
         <div id="activity-feed"><div class="ra-empty">Loading activity…</div></div>
       </aside>
     </div>
@@ -2156,6 +2161,44 @@ window.CASE_STUDIES = [
 </script>
 <script>
 // ============================================================
+//  ON-CHAIN AUDIT INDEX  (surface the signed actions that already happen)
+//  Best-effort, additive: never blocks or reverses any action. The
+//  on-chain memo transaction is the real proof; Supabase is just an index.
+// ============================================================
+function solscanTx(sig){ return 'https://solscan.io/tx/' + encodeURIComponent(sig); }
+async function recordOnchainEvent(ev){
+  if(typeof SUPA_ON==='undefined' || !SUPA_ON || !ev || !ev.tx_sig) return;
+  try{
+    await supaPost('onchain_events', {
+      event_type:   ev.event_type || 'event',
+      actor_wallet: ev.actor_wallet || (typeof walletPubkey!=='undefined' ? walletPubkey : null) || null,
+      item_type:    ev.item_type || null,
+      item_id:      (ev.item_id!=null) ? String(ev.item_id) : null,
+      vote:         ev.vote || null,
+      amount:       (ev.amount!=null && ev.amount!=='') ? Number(ev.amount) : null,
+      token:        ev.token || null,
+      label:        ev.label || null,
+      memo_text:    ev.memo_text || null,
+      tx_sig:       ev.tx_sig,
+      status:       'confirmed'
+    });
+  }catch(e){ /* the on-chain memo tx remains the source of truth */ }
+}
+function raShortW(w){ w=String(w||''); return w.length>8 ? (w.slice(0,4)+'\u2026'+w.slice(-4)) : (w||'someone'); }
+function raSignedItem(ev){
+  var w=raShortW(ev.actor_wallet);
+  var item=escapeHtml(String(ev.item_id||'').slice(0,12));
+  var type=escapeHtml(ev.item_type||'item');
+  var ic='\u2605', label, signed='Signed memo';
+  if(ev.event_type==='analyst_vouch'){ ic='\u2713'; label='Analyst <b>'+w+'</b> '+(ev.vote==='approve'?'approved':'flagged')+' '+type+(item?(' '+item):''); }
+  else if(ev.event_type==='report_submitted'){ ic='\u25a4'; label='Researcher <b>'+w+'</b> filed a report'+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^filed report on /,'on '))):''); }
+  else if(ev.event_type==='demand_signal'){ ic='\u25ce'; label='<b>'+w+'</b> backed a hunt'+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^pledged demand for /,'for '))):''); }
+  else if(ev.event_type==='support'){ ic='\u25ce'; signed='Signed transfer'; label='<b>'+w+'</b> sent '+(ev.amount!=null?(escapeHtml(String(ev.amount))+' '+escapeHtml(ev.token||'SOL')):'support')+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^supported /,'to support '))):''); }
+  else { label='<b>'+w+'</b> signed an action'; }
+  var link=ev.tx_sig?(' \u00b7 <a href="'+solscanTx(ev.tx_sig)+'" target="_blank" rel="noopener" class="ra-solscan">'+signed+' \u2197</a>'):'';
+  return '<div class="ra-item"><span class="ra-ic sgn">'+ic+'</span><div class="ra-tx"><div class="ra-t">'+label+'</div><div class="ra-m">'+raTimeAgo(ev.created_at)+link+'</div></div></div>';
+}
+// ============================================================
 //  INTELLIGENCE BRIEFING  (interactive product walkthrough)
 //  A demo cursor walks in from the controls, "presses", the
 //  element lights up, real boxes open. Pure visual simulation:
@@ -2573,13 +2616,19 @@ function consensusMeter(type,id){
 async function vouch(type,id,vote){
   if(!isVerifiedAnalyst(walletPubkey)){ showToast("Only verified analysts can vouch. Apply from the Analysts tab to join the roster."); return; }
   if(myVouch(type,id)===vote){ showToast("You already vouched "+vote+" on this."); return; }
-  try{
-    await supaPost('vouches', { item_type:type, item_id:id, analyst:walletPubkey, vote:vote });
-    showToast(vote==='approve' ? 'Vouched to publish \u2713' : 'Flagged for rejection');
-    await loadVouches();
-    renderReviewFloor();
-    if(CONSENSUS_AUTO){ try{ renderFieldOffice(); renderWire(); if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); loadAnalysts(); }catch(e){} }
-  }catch(e){ showToast('Vouch failed (you may have already voted on this).'); }
+  const _vts = Math.floor(Date.now()/1000);
+  const _vmemo = "OSI_ANALYST_VOUCH|item_type="+type+"|item_id="+id+"|vote="+vote+"|analyst="+(walletPubkey||'')+"|ts="+_vts;
+  withOnchainVote(vote==='approve' ? 'Vouch to publish' : 'Flag report', _vmemo, async (sig)=>{
+    try{
+      await supaPost('vouches', { item_type:type, item_id:id, analyst:walletPubkey, vote:vote });
+      recordOnchainEvent({ event_type:'analyst_vouch', item_type:type, item_id:id, vote:vote, label:(vote==='approve'?'approved':'flagged')+' '+type, memo_text:_vmemo, tx_sig:sig });
+      showToast(vote==='approve' ? 'Vouch signed on-chain \u2713' : 'Flag signed on-chain');
+      await loadVouches();
+      renderReviewFloor();
+      if(typeof renderActivity==='function'){ try{ renderActivity(); }catch(e){} }
+      if(CONSENSUS_AUTO){ try{ renderFieldOffice(); renderWire(); if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); loadAnalysts(); }catch(e){} }
+    }catch(e){ showToast('Vouch failed (you may have already voted on this).'); }
+  });
 }
 async function renderReviewFloor(){
   const host=document.getElementById('consensus-floor'); if(!host) return;
@@ -2938,7 +2987,8 @@ async function submitIntel(){
   if(!subject){ showToast("Give your dispatch a subject (the entity or wallet it concerns)."); return; }
   if(!body){ showToast("Write up your findings before publishing."); return; }
   if(!rateOk('submit', 6000)){ showToast("Give it a few seconds before filing another dispatch."); return; }
-  const memo = "OSI intel: " + subject + (walletPubkey ? (" | by " + walletPubkey) : "");
+  const _its = Math.floor(Date.now()/1000);
+  const memo = "OSI_REPORT_SUBMITTED|subject=" + String(subject).replace(/\|/g,"/") + "|researcher=" + (walletPubkey||"anon") + "|ts=" + _its;
   withOnchainVote("Publish intel", memo, async (sig)=>{
     let att = '';
     try{ att = await uploadPicked('wire'); }
@@ -2948,6 +2998,7 @@ async function submitIntel(){
     reports.unshift({ id, bounty:'', company:subject, summary:body, onchain:'', offchain:'', attachment:att, wallet:walletPubkey||'', tx:sig||'', up:0, dn:0 });
     lsSet('stw_reports', reports);
     if(SUPA_ON){ try{ const row = { id, bounty:'', company:subject, wallet:walletPubkey||'', summary:body, onchain:'', offchain:'', tx:sig||'', approved:false }; if(att) row.attachment = att; await supaPost('reports', row); }catch(e){ console.warn('OSI: intel publish failed.', e); } }
+    recordOnchainEvent({ event_type:'report_submitted', item_type:'report', item_id:id, label:'filed report on '+subject, memo_text:memo, tx_sig:sig });
     try{ await sendForm({ _subject:'OSI, Intel Dispatch: '+subject, type:'intel-listing', subject, wallet:walletPubkey||'(none)', summary:body, attachment:att||'(none)', tx:sig||'(none)' }); }catch(e){}
     clearPickedFile('wire');
     ['wire-subject-in','wire-body-in'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
@@ -3485,6 +3536,8 @@ async function renderActivity(){
   host.innerHTML='<div class="ra-feed">'+(seed||'<div class="ra-empty">Activity will appear here as reports, bounties, and requests get published.</div>')+'</div>';
   if(!SUPA_ON) return;
   try{
+    let signed='';
+    try{ const ev=await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=10'); signed=(ev||[]).map(raSignedItem).join(''); }catch(_e){ /* table may not exist yet */ }
     const reps=await supaGet('reports?select=company,bounty,created_at&approved=eq.true&order=created_at.desc&limit=8');
     const bnts=await supaGet('bounties?select=target,title,created_at&approved=eq.true&order=created_at.desc&limit=8');
     const reqs=await supaGet('requests?select=name,created_at&approved=eq.true&order=created_at.desc&limit=8');
@@ -3495,8 +3548,8 @@ async function renderActivity(){
     var _cut=Date.now()-60*86400000;
     var _recent=items.filter(function(it){ var t=new Date(it.ts||0).getTime(); return t>0 && t>=_cut; });
     _recent.sort(function(a,b){ return new Date(b.ts||0)-new Date(a.ts||0); });
-    const live=_recent.slice(0,14).map(function(it){ return raItem(it.kind, it.title, it.sub, it.ts); }).join('');
-    host.innerHTML='<div class="ra-feed">'+live+raCaseSeed('Case file:')+'</div>';
+    const live=_recent.slice(0,12).map(function(it){ return raItem(it.kind, it.title, it.sub, it.ts); }).join('');
+    host.innerHTML='<div class="ra-feed">'+signed+live+raCaseSeed('Case file:')+'</div>';
   }catch(e){ /* keep the seed view on failure */ }
 }
 
@@ -4344,6 +4397,7 @@ async function confirmTip(){
   try{
     const sig = await sendTipTx(tipCtx.wallet, tipCtx.amount, 'OSI tip \u00b7 '+tipCtx.label);
     if(st) st.innerHTML='<span class="tip-ok">\u2713 Sent '+tipCtx.amount+' SOL. <a href="https://solscan.io/tx/'+encodeURIComponent(sig)+'" target="_blank" rel="noopener">view on-chain \u2197</a></span>';
+    recordOnchainEvent({ event_type:'support', amount:tipCtx.amount, token:'SOL', label:'supported '+tipCtx.label, memo_text:'OSI tip \u00b7 '+tipCtx.label, tx_sig:sig });
     showToast('Tip sent \u2713');
   }catch(e){
     const m = String((e && e.message) || e || '');
@@ -4397,12 +4451,14 @@ function markBoostedUI(card, sig){
 function stakeBoost(btn){
   const card = btn.closest('.bounty'); if(!card) return;
   const bid = card.dataset.bid;
-  const memo = "OSI boost, signal demand: " + bountyTargetText(card);
+  const _bts = Math.floor(Date.now()/1000);
+  const memo = "OSI_DEMAND_SIGNAL|bounty=" + (bid||"") + "|target=" + String(bountyTargetText(card)).replace(/\|/g,"/") + "|backer=" + (walletPubkey||"") + "|ts=" + _bts;
   withOnchainVote("Boost", memo, async (sig)=>{
     const numEl = card.querySelector('.b-reward .n');
     if(numEl){ numEl.textContent = (parseInt(numEl.textContent) || 0) + 1; }
     if(bid){ const mine = lsGet('stw_boosted', {}); mine[bid] = { name: bountyTargetText(card), tx: sig, ts: Date.now() }; lsSet('stw_boosted', mine); }
     markBoostedUI(card, sig);
+    recordOnchainEvent({ event_type:'demand_signal', item_type:'bounty', item_id:bid, label:'pledged demand for '+bountyTargetText(card), memo_text:memo, tx_sig:sig });
     if(SUPA_ON && bid){ try{ await supaPost('bounty_boosts', { bounty_id: bid, voter: voterId() }); hydrateBoosts(); }catch(e){ console.warn('OSI: boost sync failed.', e); } }
   });
 }
