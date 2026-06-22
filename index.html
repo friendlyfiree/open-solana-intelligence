@@ -2509,12 +2509,10 @@ window.addEventListener('resize', function(){ if(demoRzT) clearTimeout(demoRzT);
 
 // ---- welcome card: greets first-time visitors, launches or dismisses ----
 function welcomeShow(){
-  try{ if(localStorage.getItem('stw_welcome_v1')) return; }catch(e){}
-  var w = document.getElementById('osi-welcome'); if(w) w.hidden = false;
+  var w = document.getElementById('osi-welcome'); if(w){ w.style.display = ''; w.hidden = false; }
 }
 function welcomeClose(){
-  var w = document.getElementById('osi-welcome'); if(w) w.hidden = true;
-  try{ localStorage.setItem('stw_welcome_v1', '1'); }catch(e){}
+  var w = document.getElementById('osi-welcome'); if(w){ w.hidden = true; w.style.display = 'none'; }
 }
 function welcomeStart(){ welcomeClose(); demoStart(); }
 (function(){
@@ -5248,6 +5246,7 @@ function showToast(msg){
 .demo-spot.on{opacity:1;box-shadow:0 0 0 9999px rgba(5,8,14,.9),0 0 22px rgba(20,241,149,.45),inset 0 0 0 1px rgba(20,241,149,.25)}
 .demo-spot.center{border-color:transparent;box-shadow:0 0 0 9999px rgba(5,8,14,.93)}
 .demo-spot.off{box-shadow:none;border-color:transparent;opacity:0}
+.osi-welcome[hidden]{display:none !important}
 .osi-welcome{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(4,7,14,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:owFade .3s ease}
 @keyframes owFade{from{opacity:0}to{opacity:1}}
 .ow-card{position:relative;max-width:440px;width:100%;background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-top:2px solid var(--sol);border-radius:14px;padding:30px 28px;box-shadow:0 40px 100px rgba(0,0,0,.7);animation:owRise .34s cubic-bezier(.2,.7,.2,1)}
