@@ -2157,8 +2157,9 @@ window.CASE_STUDIES = [
 <script>
 // ============================================================
 //  INTELLIGENCE BRIEFING  (demo mode for reviewers)
-//  Spotlight walkthrough of the whole platform. No wallet,
-//  no submits, no on-chain actions. Pure guided tour.
+//  Self-running showcase: opens real boxes (Solana Pay, the
+//  application form, the dispatch form) so the UI shows itself.
+//  No wallet connect, no submit, no on-chain action.
 // ============================================================
 var DEMO_STEPS = [
   { view:'registry', sel:null, dur:7000,
@@ -2176,15 +2177,21 @@ var DEMO_STEPS = [
   { view:'registry', sel:'#entry-points .ep-grid', sel2:'#entry-points', dur:8000,
     title:'Three ways in',
     body:'Browse the open record, take a bounty and earn SOL for tracing a target, or file new evidence to the public ledger. No gate, no paywall.' },
-  { view:'field', sel:'#field-cases > div', sel2:'#field-stats', dur:9000,
+  { view:'field', sel:'#field-cases > div', sel2:'#field-stats', dur:8500,
     title:'The Field Office',
-    body:'A live bounty board. Anyone funds an investigation; analysts claim it, trace the wallets, and the sponsor releases the reward on-chain. Every case runs on its own countdown.' },
+    body:'A live bounty board. Anyone funds an investigation; analysts claim it and trace the wallets. Every case runs on its own countdown and closes when it lapses.' },
+  { view:'field', box:'demoBoxApply', modalMode:true, dur:10000,
+    title:'Claim a bounty',
+    body:'Open a case and you get this box: write up your findings, attach the proof, and sign the submission with your wallet. No middleman ever holds your work.' },
+  { view:'field', box:'demoBoxPay', modalMode:true, dur:11000,
+    title:'Solana Pay, built in',
+    body:'Support and rewards move on Solana Pay. Scan the code from any Solana wallet, or tap to pay on mobile. Sponsors release bounty rewards the same way, peer to peer, settled on-chain in seconds.' },
+  { view:'wire', box:'demoBoxWire', sel:'#wire-form', sel2:'#wire-cases', dur:9500,
+    title:'File a dispatch',
+    body:'Found something unprompted? File it here: the subject, the trail, your confidence per address, the links. After review it joins the public record and the community can back it.' },
   { view:'dat', sel:'#dat-body > div', sel2:'#dat-body', dur:8500,
     title:'DAT Watch',
     body:'A running scoreboard of every public Solana treasury company, and whether we have traced it yet. Verified holdings on one side, an open watchlist of fresh targets on the other.' },
-  { view:'wire', sel:'#wire-cases > div', sel2:'#wire-cases', dur:8000,
-    title:'The Wire',
-    body:'An open intelligence feed. New findings are filed here and, once reviewed, become a permanent part of the public record. Evidence in the open, not behind a desk.' },
   { view:'graph', sel:'.gph-stage', dur:8500,
     title:'The network',
     body:'Funding and custody relationships, mapped. An autonomous, explorable graph of how SOL moves between foundations, market makers, custodians, and treasuries.' },
@@ -2204,12 +2211,29 @@ var DEMO_STEPS = [
 
 var demoIdx = 0, demoPlaying = false, demoTimer = null, demoStepStart = 0, demoPausedElapsed = 0, demoPrevSB = '', demoRzT = null;
 
+// --- boxes the briefing opens (read-only: no wallet, no submit) ---
+function demoBoxApply(){
+  var btn = document.querySelector('.bounty .btn-apply');
+  if(btn && typeof openApplyModal === 'function'){ openApplyModal(btn); return; }
+  var m = document.getElementById('apply-modal');
+  if(m){ var nm = document.getElementById('apply-bounty-name'); if(nm) nm.textContent = '\uD83C\uDFAF Sample target'; m.classList.add('open'); }
+}
+function demoBoxPay(){
+  var w = (typeof OSI_SUPPORT_WALLET !== 'undefined' && OSI_SUPPORT_WALLET) ? OSI_SUPPORT_WALLET : '7kBQy7e14gW4CJ9BNBHhrxoHFtBthBmZyUWcuSCKkVEY';
+  if(typeof openTip === 'function') openTip(w, 'this investigation', 0.1, '\u25CE Support with Solana Pay');
+}
+function demoBoxWire(){ if(typeof wireOpenForm === 'function') wireOpenForm(); }
+function demoBoxCloseAll(){
+  if(typeof closeApplyModal === 'function') closeApplyModal();
+  if(typeof closeTip === 'function') closeTip();
+  var wf = document.getElementById('wire-form'); if(wf) wf.hidden = true;
+}
+
 function demoStart(){
   demoIdx = 0; demoPausedElapsed = 0;
   var root = document.getElementById('demo-root'); if(!root) return;
-  // kill smooth-scroll for the duration so measurements are exact at any zoom level
   demoPrevSB = document.documentElement.style.scrollBehavior;
-  document.documentElement.style.scrollBehavior = 'auto';
+  document.documentElement.style.scrollBehavior = 'auto'; // exact measurements at any zoom
   root.hidden = false;
   document.body.classList.add('demo-on');
   root.addEventListener('wheel', demoBlockScroll, { passive:false });
@@ -2223,13 +2247,14 @@ function demoStart(){
 function demoBlockScroll(e){ if(e.target.closest && e.target.closest('.demo-card')) return; e.preventDefault(); }
 function demoStop(){
   var root = document.getElementById('demo-root'); if(!root) return;
+  demoBoxCloseAll();
   if(demoTimer){ clearInterval(demoTimer); demoTimer = null; }
   demoPlaying = false;
   root.removeEventListener('wheel', demoBlockScroll, { passive:false });
   root.removeEventListener('touchmove', demoBlockScroll, { passive:false });
   root.hidden = true;
   document.body.classList.remove('demo-on');
-  var spot = document.getElementById('demo-spot'); if(spot){ spot.classList.remove('on'); spot.classList.remove('center'); }
+  var spot = document.getElementById('demo-spot'); if(spot){ spot.classList.remove('on'); spot.classList.remove('center'); spot.classList.remove('off'); }
   document.documentElement.style.scrollBehavior = demoPrevSB || '';
   try{ showView('registry'); window.scrollTo(0, 0); }catch(e){}
 }
@@ -2262,6 +2287,7 @@ function demoGoStep(i){
   i = Math.max(0, Math.min(DEMO_STEPS.length - 1, i));
   demoIdx = i;
   var step = DEMO_STEPS[i];
+  demoBoxCloseAll(); // close any box left open by the previous step
   demoStepStart = Date.now(); demoPausedElapsed = 0;
   var st = document.getElementById('demo-step'); if(st) st.textContent = ('0' + (i + 1)).slice(-2) + ' / ' + ('0' + DEMO_STEPS.length).slice(-2);
   var tt = document.getElementById('demo-title'); if(tt) tt.textContent = step.title;
@@ -2270,17 +2296,24 @@ function demoGoStep(i){
   var back = document.getElementById('demo-back'); if(back) back.disabled = (i === 0);
   var nx = document.getElementById('demo-next'); if(nx) nx.textContent = (i === DEMO_STEPS.length - 1) ? 'Finish' : 'Next \u203A';
   try{ showView(step.view); }catch(e){}
-  if(!step.sel){ try{ window.scrollTo(0, 0); }catch(e){} }
-  setTimeout(function(){ demoLocate(step, 0); }, 80);
+  if(!step.sel && !step.box){ try{ window.scrollTo(0, 0); }catch(e){} }
+  setTimeout(function(){
+    if(DEMO_STEPS[demoIdx] !== step) return;
+    if(step.box && typeof window[step.box] === 'function'){ try{ window[step.box](); }catch(e){} }
+    if(step.modalMode){
+      setTimeout(function(){ if(DEMO_STEPS[demoIdx] === step) demoPlaceModal(); }, 240);
+    } else {
+      demoLocate(step, 0);
+    }
+  }, 90);
 }
-// resolve + scroll + measure. retries for content that loads late (e.g. Supabase lists).
 function demoLocate(step, attempt){
-  if(DEMO_STEPS[demoIdx] !== step) return; // step changed, drop this stale locate
+  if(DEMO_STEPS[demoIdx] !== step) return;
   if(!step.sel){ demoPlace(null); return; }
   var el = demoFindTarget(step);
   if(!el){
     if(attempt < 10){ setTimeout(function(){ demoLocate(step, attempt + 1); }, 150); return; }
-    el = document.querySelector('section[data-view="' + step.view + '"]'); // last resort: the whole section
+    el = document.querySelector('section[data-view="' + step.view + '"]');
     if(demoNeedFallback(el)){ demoPlace(null); return; }
   }
   try{ el.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){ try{ el.scrollIntoView(); }catch(_){} }
@@ -2291,58 +2324,42 @@ function demoLocate(step, attempt){
     });
   });
 }
-function demoClamp(v, total, size, M){ return Math.max(M, Math.min(total - size - M, v)); }
+// modal mode: the box brings its own backdrop, so the demo dimmer steps aside
+function demoPlaceModal(){
+  var spot = document.getElementById('demo-spot'); if(!spot) return;
+  spot.classList.remove('center'); spot.classList.remove('on'); spot.classList.add('off');
+}
 function demoPlace(rect){
   var spot = document.getElementById('demo-spot');
   var card = document.getElementById('demo-card');
   if(!spot || !card) return;
+  spot.classList.remove('off');
   var vw = window.innerWidth, vh = window.innerHeight, M = 16;
-  var cr = card.getBoundingClientRect(); var cw = cr.width, ch = cr.height;
   if(!rect){
     spot.classList.add('center'); spot.classList.add('on');
     spot.style.left = (vw / 2) + 'px'; spot.style.top = (vh / 2) + 'px';
     spot.style.width = '0px'; spot.style.height = '0px';
-    card.style.left = Math.round((vw - cw) / 2) + 'px';
-    card.style.top = Math.round((vh - ch) / 2) + 'px';
     return;
   }
   spot.classList.remove('center');
   var pad = 8;
   var tx = Math.max(M, rect.left - pad), ty = Math.max(M, rect.top - pad);
   var tw = Math.min(vw - 2 * M, rect.width + 2 * pad), th = Math.min(vh - 2 * M, rect.height + 2 * pad);
-  var gBelow = vh - (ty + th), gAbove = ty, gRight = vw - (tx + tw), gLeft = tx;
-  var cands = [];
-  if(gBelow >= ch + 2 * M) cands.push(['below', gBelow]);
-  if(gAbove >= ch + 2 * M) cands.push(['above', gAbove]);
-  if(gRight >= cw + 2 * M) cands.push(['right', gRight]);
-  if(gLeft  >= cw + 2 * M) cands.push(['left',  gLeft]);
-  cands.sort(function(a, b){ return b[1] - a[1]; });
-  var place = cands.length ? cands[0][0] : null;
-  var left, top;
-  if(place === 'below'){ top = ty + th + M; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M); }
-  else if(place === 'above'){ top = ty - M - ch; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M); }
-  else if(place === 'right'){ left = tx + tw + M; top = demoClamp(ty + th / 2 - ch / 2, vh, ch, M); }
-  else if(place === 'left'){ left = tx - M - cw; top = demoClamp(ty + th / 2 - ch / 2, vh, ch, M); }
-  else {
-    top = vh - ch - M; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M);
-    var maxBottom = top - M;
-    if(ty + th > maxBottom) th = Math.max(70, maxBottom - ty);
-    if(maxBottom - ty < 70){
-      top = M; left = demoClamp(tx + tw / 2 - cw / 2, vw, cw, M);
-      var minTop = top + ch + M;
-      if(ty < minTop){ var d = minTop - ty; ty = minTop; th = Math.max(70, th - d); }
-    }
+  // the narration card is pinned bottom-right: never let the lit area slide under it
+  var crd = card.getBoundingClientRect(); var gap = 14;
+  if(crd && crd.width && tx + tw > crd.left - gap && ty + th > crd.top - gap){
+    var nTh = (crd.top - gap) - ty;
+    if(nTh >= 120){ th = nTh; }
+    else { var nTw = (crd.left - gap) - tx; if(nTw >= 220){ tw = nTw; } }
   }
   spot.style.left = tx + 'px'; spot.style.top = ty + 'px';
   spot.style.width = tw + 'px'; spot.style.height = th + 'px';
   spot.classList.add('on');
-  card.style.left = Math.round(left) + 'px';
-  card.style.top = Math.round(top) + 'px';
 }
-// re-align (not re-run) on zoom / window resize, without resetting the step timer
 function demoRealign(){
   var root = document.getElementById('demo-root'); if(!root || root.hidden) return;
   var step = DEMO_STEPS[demoIdx]; if(!step) return;
+  if(step.modalMode){ demoPlaceModal(); return; }
   if(!step.sel){ demoPlace(null); return; }
   var el = demoFindTarget(step) || document.querySelector('section[data-view="' + step.view + '"]');
   if(el && el.getBoundingClientRect().height >= 4){
@@ -5077,7 +5094,9 @@ function showToast(msg){
 .demo-spot{position:fixed;z-index:2;border-radius:9px;box-shadow:0 0 0 9999px rgba(5,8,14,.9);border:1.5px solid var(--sol);opacity:0;pointer-events:none;transition:left .5s cubic-bezier(.4,0,.2,1),top .5s cubic-bezier(.4,0,.2,1),width .5s cubic-bezier(.4,0,.2,1),height .5s cubic-bezier(.4,0,.2,1),box-shadow .4s,opacity .3s}
 .demo-spot.on{opacity:1;box-shadow:0 0 0 9999px rgba(5,8,14,.9),0 0 22px rgba(20,241,149,.45),inset 0 0 0 1px rgba(20,241,149,.25)}
 .demo-spot.center{border-color:transparent;box-shadow:0 0 0 9999px rgba(5,8,14,.93)}
-.demo-card{position:fixed;z-index:3;width:344px;max-width:calc(100vw - 28px);background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-left:3px solid var(--sol);border-radius:12px;padding:20px 22px;box-shadow:0 26px 70px rgba(0,0,0,.62);transition:left .42s cubic-bezier(.4,0,.2,1),top .42s cubic-bezier(.4,0,.2,1)}
+.demo-spot.off{box-shadow:none;border-color:transparent;opacity:0}
+.demo-card{position:fixed;z-index:4;right:22px;bottom:22px;left:auto;top:auto;width:336px;max-width:calc(100vw - 28px);background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-left:3px solid var(--sol);border-radius:12px;padding:19px 21px;box-shadow:0 26px 70px rgba(0,0,0,.66)}
+@media(max-height:560px){.demo-card{bottom:12px;right:12px;padding:14px 16px}}
 .demo-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
 .demo-kicker{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--sol)}
 .demo-step{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--ink-faint)}
