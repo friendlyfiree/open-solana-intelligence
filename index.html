@@ -662,7 +662,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
   <div class="sb-foot">
     <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">🔒</button>
-    <button class="sb-demo" onclick="demoStart()" title="Guided 60-second briefing, no wallet needed"><span>▶</span> Briefing</button>
+    <button class="sb-demo" onclick="demoStart()" title="Guided 2-minute briefing, no wallet needed"><span>▶</span> Briefing</button>
     <button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, or open your profile"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
@@ -720,7 +720,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     </h1>
     <p class="lede">Open intelligence on <strong>institutional Solana activity</strong>: public companies, ETFs, foundations, VCs, DAOs, validators, liquid-staking protocols, and custodians. Wallets mapped through <strong>original on-chain forensics</strong>: funding sources, custody controllers, and validator-level staking.</p>
     <p class="creed">// <b>don't trust the filing</b>, verify the chain</p>
-    <button class="hero-demo" onclick="demoStart()"><span class="hd-ic">▶</span> Run demo briefing <span class="hd-sec">60 sec · no wallet</span></button>
+    <button class="hero-demo" onclick="demoStart()"><span class="hd-ic">▶</span> Run demo briefing <span class="hd-sec">~2 min · no wallet</span></button>
 
     <div class="stats">
       <div class="stat">
@@ -758,7 +758,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
       <button class="ep-card" onclick="epScrollEntities()">
         <div class="ep-ic">▣</div>
         <div class="ep-t">Browse the Registry</div>
-        <div class="ep-d">See the institutions on the registry and the exact wallets behind their declared SOL.</div>
+        <div class="ep-d">See the institutions on the registry and the wallets behind their declared SOL, traced and attributed on-chain.</div>
         <div class="ep-go mono">Jump to the entities →</div>
       </button>
       <button class="ep-card feat" onclick="showView('field')">
@@ -2157,14 +2157,16 @@ window.CASE_STUDIES = [
 <script>
 // ============================================================
 //  INTELLIGENCE BRIEFING  (interactive product walkthrough)
-//  A demo cursor walks to each target, "clicks", the element
-//  lights up, real boxes open (Solana Pay, the forms). It is a
-//  pure visual simulation: no wallet, no submit, no on-chain,
-//  no Supabase write. Findings are framed as high-confidence,
-//  not certainty.
+//  A demo cursor walks in from the controls, "presses", the
+//  element lights up, real boxes open. Pure visual simulation:
+//  no wallet, no submit, no on-chain, no Supabase write, and no
+//  typing into the page while it runs. Findings are framed as
+//  high-confidence, not certainty.
 // ============================================================
+var DEMO_WALK = 720; // cursor travel time, matches the CSS transition
+
 var DEMO_STEPS = [
-  { view:'registry', sel:null, dur:7000,
+  { view:'registry', sel:'.hero h1', sel2:'.hero-main', noCursor:true, dur:7000,
     title:'Open Solana Intelligence',
     body:'A short intelligence briefing. Institutions say they hold SOL. OSI maps the wallets behind the claim through on-chain forensics, with a confidence level on every link.' },
   { view:'registry', sel:'.stats', dur:8000,
@@ -2185,24 +2187,24 @@ var DEMO_STEPS = [
   { view:'field', box:'demoBoxApply', modalMode:true, clickSel:'.bounty .btn-apply', dur:10000,
     title:'Claim a bounty',
     body:'Click Apply and you get this box: write up your findings, attach the proof, and sign the submission with your wallet. No middleman ever holds your work.' },
-  { view:'field', box:'demoBoxPay', modalMode:true, dur:11000,
+  { view:'field', box:'demoBoxPay', modalMode:true, modalPoint:'#tip-pay-toggle', modalReveal:'toggleSolanaPay', dur:11000,
     title:'Solana Pay, built in',
-    body:'Support and rewards move on Solana Pay. Scan the code from any Solana wallet, or tap to pay on mobile. Sponsors release bounty rewards the same way, peer to peer, settled on-chain in seconds.' },
+    body:'Support and rewards move on Solana Pay. Open the panel for a QR any Solana wallet can scan, or tap to pay on mobile. Sponsors release bounty rewards the same way, peer to peer, settled on-chain in seconds.' },
   { view:'wire', box:'demoBoxWire', sel:'#wire-form', sel2:'#wire-cases', clickSel:'.wire-cta', dur:9500,
     title:'File a dispatch',
     body:'Found something unprompted? File it here: the subject, the trail, your confidence per address, the links. After review it joins the public record and the community can back it.' },
   { view:'dat', sel:'#dat-body > div', sel2:'#dat-body', clickSel:'.dat-row', dur:8500,
     title:'DAT Watch',
-    body:'A running scoreboard of every public Solana treasury company, and whether we have traced it yet. Verified holdings on one side, an open watchlist of fresh targets on the other.' },
+    body:'A running scoreboard of every public Solana treasury company, and whether we have traced it yet. Traced holdings on one side, an open watchlist of fresh targets on the other.' },
   { view:'graph', sel:'.gph-stage', dur:8500,
     title:'The network',
     body:'Funding and custody relationships, mapped. An autonomous, explorable graph of how SOL moves between foundations, market makers, custodians, and treasuries.' },
-  { view:'methodology', sel:'.hiw', sel2:'#methodology', dur:9500,
+  { view:'methodology', sel:'.hiw-lead', sel2:'.hiw', dur:9000,
     title:'Open intelligence, not a paywall',
     body:'Demand funds the work, analysts produce it, peers verify it, and the result is published for everyone. A closed marketplace stops at the buyer. OSI stops at the public.' },
   { view:'community', sel:'#consensus-floor', sel2:'#analyst-roster', clickSel:'#consensus-floor .rf-b.ap', mockReview:true, dur:9500,
     title:'A self-governing newsroom',
-    body:'This is the review floor a verified analyst sees: a pending finding, a weighted vote to publish or flag, and a maintainer seal as the final check. Power that the design hands to the network over time.' },
+    body:'This is the review floor a verified analyst sees: a pending finding, a weighted vote to publish or flag, and a maintainer seal as the final check. Power the design hands to the network over time.' },
   { view:'community', sel:'#newsletter', sel2:'#nl-email', dur:7000,
     title:'Stay briefed',
     body:'A weekly brief turns this into a habit: major treasury movements and freshly traced wallets land in your inbox, so the intelligence finds you.' },
@@ -2224,13 +2226,12 @@ function demoBoxPay(){
   var w = (typeof OSI_SUPPORT_WALLET !== 'undefined' && OSI_SUPPORT_WALLET) ? OSI_SUPPORT_WALLET : '7kBQy7e14gW4CJ9BNBHhrxoHFtBthBmZyUWcuSCKkVEY';
   if(typeof openTip === 'function') openTip(w, 'this investigation', 0.1, '\u25CE Support with Solana Pay');
 }
-function demoBoxWire(){ if(typeof wireOpenForm === 'function') wireOpenForm(); }
+function demoBoxWire(){ if(typeof wireOpenForm === 'function') wireOpenForm(); demoBlurInputs(); }
 function demoBoxCloseAll(){
   if(typeof closeApplyModal === 'function') closeApplyModal();
   if(typeof closeTip === 'function') closeTip();
   var wf = document.getElementById('wire-form'); if(wf) wf.hidden = true;
 }
-// sample pending card so reviewers see the vouch / seal mechanic
 function demoInjectMockReview(){
   var host = document.getElementById('consensus-floor'); if(!host) return;
   if(demoMockHTML === null) demoMockHTML = host.innerHTML;
@@ -2253,28 +2254,31 @@ function demoClearMock(){
 }
 
 // ---- cursor / click / arrow helpers ----
-function demoIsTouch(){
-  try{ if(window.matchMedia && window.matchMedia('(hover: none)').matches) return true; }catch(e){}
-  return false;
-}
-function demoCenterOf(el){
-  var r = el.getBoundingClientRect();
-  return { x: r.left + r.width / 2, y: r.top + Math.min(r.height / 2, 90) };
-}
-function demoCursorTo(x, y){
+function demoIsTouch(){ try{ if(window.matchMedia && window.matchMedia('(hover: none)').matches) return true; }catch(e){} return false; }
+function demoCenterOf(el){ var r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(r.height / 2, 90) }; }
+function demoCenterPoint(){ return { x: window.innerWidth / 2, y: window.innerHeight * 0.46 }; }
+function demoClampPt(p){ p.x = Math.max(22, Math.min(window.innerWidth - 22, p.x)); p.y = Math.max(22, Math.min(window.innerHeight - 22, p.y)); return p; }
+// cursor enters from the control card so the move always reads as deliberate guidance
+function demoCursorWalk(x, y){
   var c = document.getElementById('demo-cursor'); if(!c) return;
   if(demoIsTouch()){ c.style.opacity = '0'; return; }
+  var card = document.getElementById('demo-card'); var sx, sy;
+  if(card){ var cr = card.getBoundingClientRect(); sx = cr.left + 24; sy = cr.top + 18; } else { sx = window.innerWidth - 70; sy = window.innerHeight - 70; }
+  c.style.transition = 'none';
+  c.style.transform = 'translate(' + sx + 'px,' + sy + 'px)';
   c.style.opacity = '1';
+  void c.offsetWidth; // reflow so the next transform animates
+  c.style.transition = '';
   c.style.transform = 'translate(' + x + 'px,' + y + 'px)';
 }
 function demoCursorHide(){ var c = document.getElementById('demo-cursor'); if(c) c.style.opacity = '0'; }
+function demoPress(){ var c = document.getElementById('demo-cursor'); if(!c || demoIsTouch()) return; c.classList.add('press'); setTimeout(function(){ c.classList.remove('press'); }, 180); }
 function demoArrowTo(x, y){
   var card = document.getElementById('demo-card'), ar = document.getElementById('demo-arrow'); if(!card || !ar) return;
   if(demoIsTouch()){ ar.style.opacity = '0'; return; }
   var cr = card.getBoundingClientRect();
   var ang = Math.atan2(y - (cr.top + cr.height / 2), x - (cr.left + cr.width / 2)) * 180 / Math.PI;
-  ar.style.opacity = '1';
-  ar.style.transform = 'rotate(' + ang + 'deg)';
+  ar.style.opacity = '1'; ar.style.transform = 'rotate(' + ang + 'deg)';
 }
 function demoArrowHide(){ var ar = document.getElementById('demo-arrow'); if(ar) ar.style.opacity = '0'; }
 function demoRipple(x, y){
@@ -2284,16 +2288,26 @@ function demoRipple(x, y){
   fx.appendChild(r);
   setTimeout(function(){ if(r.parentNode) r.parentNode.removeChild(r); }, 720);
 }
+function demoBlurInputs(){ var a = document.activeElement; if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && !(a.closest && a.closest('.demo-card'))){ try{ a.blur(); }catch(e){} } }
+// while the briefing runs, the page is for looking, not typing (Escape exits)
+function demoKeyBlock(e){
+  if(e.key === 'Escape'){ demoStop(); return; }
+  var t = e.target;
+  if(t && t.closest && t.closest('.demo-card')) return;
+  if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)){ e.preventDefault(); e.stopPropagation(); }
+}
 
 function demoStart(){
   demoIdx = 0; demoPausedElapsed = 0;
   var root = document.getElementById('demo-root'); if(!root) return;
+  if(typeof welcomeClose === 'function') welcomeClose();
   demoPrevSB = document.documentElement.style.scrollBehavior;
   document.documentElement.style.scrollBehavior = 'auto';
   root.hidden = false;
   document.body.classList.add('demo-on');
   root.addEventListener('wheel', demoBlockScroll, { passive:false });
   root.addEventListener('touchmove', demoBlockScroll, { passive:false });
+  document.addEventListener('keydown', demoKeyBlock, true);
   if(demoTimer) clearInterval(demoTimer);
   demoTimer = setInterval(demoTick, 50);
   demoPlaying = true;
@@ -2308,6 +2322,7 @@ function demoStop(){
   demoPlaying = false;
   root.removeEventListener('wheel', demoBlockScroll, { passive:false });
   root.removeEventListener('touchmove', demoBlockScroll, { passive:false });
+  document.removeEventListener('keydown', demoKeyBlock, true);
   root.hidden = true;
   document.body.classList.remove('demo-on');
   var spot = document.getElementById('demo-spot'); if(spot){ spot.classList.remove('on'); spot.classList.remove('center'); spot.classList.remove('off'); spot.classList.remove('pulse'); }
@@ -2321,8 +2336,7 @@ function demoTogglePlay(){
   demoPlaying = !demoPlaying;
   if(demoPlaying){ demoStepStart = Date.now() - demoPausedElapsed; }
   else { demoPausedElapsed = Date.now() - demoStepStart; }
-  var b = document.getElementById('demo-play');
-  if(b) b.textContent = demoPlaying ? '\u2759\u2759' : '\u25B6';
+  var b = document.getElementById('demo-play'); if(b) b.textContent = demoPlaying ? '\u2759\u2759' : '\u25B6';
 }
 function demoTick(){
   if(!demoPlaying) return;
@@ -2358,7 +2372,7 @@ function demoGoStep(i){
 }
 function demoSetup(step){
   if(step.mockReview) demoInjectMockReview();
-  if(step.modalMode && !step.sel){ demoGesture(step, null); return; }
+  if(step.modalMode && !step.sel){ demoModalStep(step); return; }
   if(!step.sel){ demoPlace(null); return; }
   demoLocate(step, 0);
 }
@@ -2371,39 +2385,77 @@ function demoLocate(step, attempt){
     if(demoNeedFallback(el)){ demoPlace(null); return; }
   }
   try{ el.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){ try{ el.scrollIntoView(); }catch(_){} }
-  requestAnimationFrame(function(){
-    requestAnimationFrame(function(){
-      if(DEMO_STEPS[demoIdx] !== step) return;
-      demoGesture(step, el);
-    });
-  });
-}
-// the heart of the walkthrough: cursor -> click -> reveal
-function demoGesture(step, el){
-  var clickEl = step.clickSel ? document.querySelector(step.clickSel) : el;
-  var cp = clickEl ? demoCenterOf(clickEl) : { x: window.innerWidth / 2, y: window.innerHeight * 0.42 };
-  cp.x = Math.max(20, Math.min(window.innerWidth - 20, cp.x));
-  cp.y = Math.max(20, Math.min(window.innerHeight - 20, cp.y));
-  demoCursorTo(cp.x, cp.y);
-  demoArrowTo(cp.x, cp.y);
-  setTimeout(function(){
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
     if(DEMO_STEPS[demoIdx] !== step) return;
-    demoRipple(cp.x, cp.y);
-    if(step.box && typeof window[step.box] === 'function'){ try{ window[step.box](); }catch(e){} }
+    if(step.noCursor){
+      var r = el.getBoundingClientRect();
+      demoPlace(r, true); demoCursorHide();
+      demoArrowTo(r.left + r.width / 2, r.top + Math.min(r.height / 2, 80));
+      return;
+    }
+    demoGesture(step, el);
+  }); });
+}
+// content step: cursor walks in, presses, the element lights up
+function demoGesture(step, el){
+  if(step.clickSel){ var pre = document.querySelector(step.clickSel); if(pre){ try{ pre.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){} } }
+  requestAnimationFrame(function(){
+    if(DEMO_STEPS[demoIdx] !== step) return;
+    var ce = step.clickSel ? document.querySelector(step.clickSel) : el;
+    var cp = demoClampPt(ce ? demoCenterOf(ce) : demoCenterPoint());
+    demoCursorWalk(cp.x, cp.y);
+    demoArrowTo(cp.x, cp.y);
     setTimeout(function(){
       if(DEMO_STEPS[demoIdx] !== step) return;
-      if(step.modalMode){ demoPlaceModal(); demoArrowHide(); return; }
-      var t2 = demoFindTarget(step) || el;
-      if(!t2){ demoPlace(null); return; }
-      try{ t2.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){}
-      requestAnimationFrame(function(){
+      demoPress(); demoRipple(cp.x, cp.y);
+      if(step.box && typeof window[step.box] === 'function'){ try{ window[step.box](); }catch(e){} demoBlurInputs(); }
+      setTimeout(function(){
         if(DEMO_STEPS[demoIdx] !== step) return;
-        var rect = t2.getBoundingClientRect();
-        demoPlace(rect, true);
-        demoArrowTo(rect.left + rect.width / 2, rect.top + Math.min(rect.height / 2, 80));
-      });
-    }, step.box ? 280 : 70);
-  }, 640);
+        if(step.modalMode){ demoPlaceModal(); demoArrowHide(); return; }
+        var t2 = demoFindTarget(step) || el;
+        if(!t2){ demoPlace(null); return; }
+        try{ t2.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){}
+        requestAnimationFrame(function(){
+          if(DEMO_STEPS[demoIdx] !== step) return;
+          var rect = t2.getBoundingClientRect();
+          demoPlace(rect, true);
+          demoArrowTo(rect.left + rect.width / 2, rect.top + Math.min(rect.height / 2, 80));
+        });
+      }, step.box ? 260 : 80);
+    }, DEMO_WALK + 60);
+  });
+}
+// modal step: either click a trigger then the modal opens, or open the modal then point at its control
+function demoModalStep(step){
+  if(step.clickSel){
+    var pre = document.querySelector(step.clickSel); if(pre){ try{ pre.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){} }
+    requestAnimationFrame(function(){
+      if(DEMO_STEPS[demoIdx] !== step) return;
+      var ce = document.querySelector(step.clickSel);
+      var cp = demoClampPt(ce ? demoCenterOf(ce) : demoCenterPoint());
+      demoCursorWalk(cp.x, cp.y); demoArrowTo(cp.x, cp.y);
+      setTimeout(function(){
+        if(DEMO_STEPS[demoIdx] !== step) return;
+        demoPress(); demoRipple(cp.x, cp.y);
+        if(step.box && typeof window[step.box] === 'function'){ try{ window[step.box](); }catch(e){} demoBlurInputs(); }
+        setTimeout(function(){ if(DEMO_STEPS[demoIdx] === step){ demoPlaceModal(); demoArrowHide(); } }, 220);
+      }, DEMO_WALK + 60);
+    });
+  } else {
+    if(step.box && typeof window[step.box] === 'function'){ try{ window[step.box](); }catch(e){} demoBlurInputs(); }
+    setTimeout(function(){
+      if(DEMO_STEPS[demoIdx] !== step) return;
+      var mp = step.modalPoint ? document.querySelector(step.modalPoint) : null;
+      var cp = demoClampPt(mp ? demoCenterOf(mp) : demoCenterPoint());
+      demoCursorWalk(cp.x, cp.y); demoArrowTo(cp.x, cp.y);
+      setTimeout(function(){
+        if(DEMO_STEPS[demoIdx] !== step) return;
+        demoPress(); demoRipple(cp.x, cp.y);
+        if(step.modalReveal && typeof window[step.modalReveal] === 'function'){ try{ window[step.modalReveal](); }catch(e){} }
+        demoBlurInputs(); demoPlaceModal(); demoArrowHide();
+      }, DEMO_WALK + 60);
+    }, 260);
+  }
 }
 function demoPlaceModal(){
   var spot = document.getElementById('demo-spot'); if(!spot) return;
@@ -2449,11 +2501,26 @@ function demoRealign(){
     requestAnimationFrame(function(){ requestAnimationFrame(function(){
       var rect = el.getBoundingClientRect();
       demoPlace(rect);
-      demoArrowTo(rect.left + rect.width / 2, rect.top + Math.min(rect.height / 2, 80));
+      if(!step.noCursor) demoArrowTo(rect.left + rect.width / 2, rect.top + Math.min(rect.height / 2, 80));
     }); });
   } else { demoPlace(null); }
 }
 window.addEventListener('resize', function(){ if(demoRzT) clearTimeout(demoRzT); demoRzT = setTimeout(demoRealign, 140); });
+
+// ---- welcome card: greets first-time visitors, launches or dismisses ----
+function welcomeShow(){
+  try{ if(localStorage.getItem('stw_welcome_v1')) return; }catch(e){}
+  var w = document.getElementById('osi-welcome'); if(w) w.hidden = false;
+}
+function welcomeClose(){
+  var w = document.getElementById('osi-welcome'); if(w) w.hidden = true;
+  try{ localStorage.setItem('stw_welcome_v1', '1'); }catch(e){}
+}
+function welcomeStart(){ welcomeClose(); demoStart(); }
+(function(){
+  function go(){ setTimeout(welcomeShow, 800); }
+  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', go); } else { go(); }
+})();
 
 // ===== CONSENSUS (analyst peer-review / progressive decentralization) =====
 let CONSENSUS_THRESHOLD = 3;
@@ -5181,7 +5248,27 @@ function showToast(msg){
 .demo-spot.on{opacity:1;box-shadow:0 0 0 9999px rgba(5,8,14,.9),0 0 22px rgba(20,241,149,.45),inset 0 0 0 1px rgba(20,241,149,.25)}
 .demo-spot.center{border-color:transparent;box-shadow:0 0 0 9999px rgba(5,8,14,.93)}
 .demo-spot.off{box-shadow:none;border-color:transparent;opacity:0}
-.demo-cursor{position:fixed;left:0;top:0;z-index:6;width:24px;height:24px;margin:-1px 0 0 -1px;pointer-events:none;opacity:0;transition:transform .62s cubic-bezier(.33,0,.2,1),opacity .25s;will-change:transform}
+.osi-welcome{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(4,7,14,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:owFade .3s ease}
+@keyframes owFade{from{opacity:0}to{opacity:1}}
+.ow-card{position:relative;max-width:440px;width:100%;background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-top:2px solid var(--sol);border-radius:14px;padding:30px 28px;box-shadow:0 40px 100px rgba(0,0,0,.7);animation:owRise .34s cubic-bezier(.2,.7,.2,1)}
+@keyframes owRise{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+.ow-x{position:absolute;top:13px;right:15px;background:transparent;border:0;color:var(--ink-faint);font-size:24px;line-height:1;cursor:pointer;transition:color .15s}
+.ow-x:hover{color:var(--ink)}
+.ow-eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--sol);margin-bottom:13px}
+.ow-dot{width:6px;height:6px;border-radius:50%;background:var(--sol);animation:owPing 1.8s ease-out infinite}
+@keyframes owPing{0%{box-shadow:0 0 0 0 rgba(20,241,149,.5)}70%{box-shadow:0 0 0 7px rgba(20,241,149,0)}100%{box-shadow:0 0 0 0 rgba(20,241,149,0)}}
+.ow-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:24px;letter-spacing:-.02em;line-height:1.15;margin:0 0 11px}
+.ow-body{font-size:13.5px;line-height:1.62;color:var(--ink-dim);margin:0 0 22px}
+.ow-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.ow-go{display:inline-flex;align-items:center;gap:9px;padding:13px 20px;border-radius:9px;border:1px solid rgba(20,241,149,.45);background:linear-gradient(180deg,rgba(20,241,149,.16),rgba(20,241,149,.05));color:var(--sol);font-family:'Archivo',sans-serif;font-weight:700;font-size:14.5px;cursor:pointer;transition:all .16s}
+.ow-go:hover{border-color:var(--sol);box-shadow:0 8px 30px rgba(20,241,149,.22);transform:translateY(-1px)}
+.ow-go span:first-child{font-size:11px}
+.ow-sec{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;color:var(--ink-faint);letter-spacing:.04em}
+.ow-skip{background:transparent;border:0;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:12px;cursor:pointer;padding:8px;transition:color .15s}
+.ow-skip:hover{color:var(--ink-dim)}
+.demo-cursor{position:fixed;left:0;top:0;z-index:6;width:24px;height:24px;margin:-1px 0 0 -1px;pointer-events:none;opacity:0;transition:transform .72s cubic-bezier(.3,0,.18,1),opacity .25s;will-change:transform}
+.dc-in{display:block;transition:transform .13s ease}
+.demo-cursor.press .dc-in{transform:scale(.74)}
 .demo-fx{position:fixed;inset:0;z-index:5;pointer-events:none;overflow:hidden}
 .demo-click{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2px solid var(--sol);background:rgba(20,241,149,.22);transform:scale(.2);animation:demoClick .68s ease-out forwards}
 @keyframes demoClick{0%{transform:scale(.2);opacity:.95}70%{opacity:.45}100%{transform:scale(2.8);opacity:0}}
@@ -5242,10 +5329,22 @@ function showToast(msg){
     <div class="aeb-msg mono" id="aeb-msg"></div>
   </div>
 </div>
+<div id="osi-welcome" class="osi-welcome" hidden>
+  <div class="ow-card">
+    <button class="ow-x" onclick="welcomeClose()" aria-label="Close">&times;</button>
+    <div class="ow-eyebrow mono"><span class="ow-dot"></span> New here</div>
+    <h2 class="ow-title">Take the 2-minute briefing</h2>
+    <p class="ow-body">OSI traces the Solana wallets behind public companies' treasuries, with a confidence level on every link. This guided tour walks the whole platform for you. No wallet, no signup, the product shows itself.</p>
+    <div class="ow-actions">
+      <button class="ow-go" onclick="welcomeStart()"><span>&#9654;</span> Run the briefing <span class="ow-sec">~2 min</span></button>
+      <button class="ow-skip" onclick="welcomeClose()">Explore on my own</button>
+    </div>
+  </div>
+</div>
 <div id="demo-root" class="demo-root" hidden>
   <div class="demo-block"></div>
   <div class="demo-fx" id="demo-fx"></div>
-  <div class="demo-cursor" id="demo-cursor"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 2.5l13.5 7.8-5.7 1.4-1.2 5.6z" fill="#ffffff" stroke="#0a0e16" stroke-width="1.2" stroke-linejoin="round"/></svg></div>
+  <div class="demo-cursor" id="demo-cursor"><span class="dc-in"><svg viewBox="0 0 24 24" width="23" height="23"><path d="M5 2.5l13.5 7.8-5.7 1.4-1.2 5.6z" fill="#ffffff" stroke="#0a0e16" stroke-width="1.2" stroke-linejoin="round"/></svg></span></div>
   <div class="demo-spot" id="demo-spot"></div>
   <div class="demo-card" id="demo-card">
     <div class="demo-arrow" id="demo-arrow"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M4 12h13M11 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
