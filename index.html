@@ -2156,40 +2156,42 @@ window.CASE_STUDIES = [
 </script>
 <script>
 // ============================================================
-//  INTELLIGENCE BRIEFING  (demo mode for reviewers)
-//  Self-running showcase: opens real boxes (Solana Pay, the
-//  application form, the dispatch form) so the UI shows itself.
-//  No wallet connect, no submit, no on-chain action.
+//  INTELLIGENCE BRIEFING  (interactive product walkthrough)
+//  A demo cursor walks to each target, "clicks", the element
+//  lights up, real boxes open (Solana Pay, the forms). It is a
+//  pure visual simulation: no wallet, no submit, no on-chain,
+//  no Supabase write. Findings are framed as high-confidence,
+//  not certainty.
 // ============================================================
 var DEMO_STEPS = [
   { view:'registry', sel:null, dur:7000,
     title:'Open Solana Intelligence',
-    body:'A short intelligence briefing. Institutions say they hold SOL. OSI shows the exact wallets behind the claim, traced on-chain and open to everyone.' },
+    body:'A short intelligence briefing. Institutions say they hold SOL. OSI maps the wallets behind the claim through on-chain forensics, with a confidence level on every link.' },
   { view:'registry', sel:'.stats', dur:8000,
     title:'The numbers, checked against the chain',
     body:'Declared holdings come from company filings. Live balances come straight from Solana. The gap between the two is what this registry exists to surface.' },
   { view:'registry', sel:'#companies > div', sel2:'#companies', dur:9000,
     title:'The wallets behind the number',
-    body:'Each institution opens into its real wallets: funding sources, custodians, and validator-level staking. Every address is rated by confidence so you know how solid the link is.' },
+    body:'Each institution opens into the wallets we attribute to it: funding sources, custodians, validators. Every address carries a confidence grade, high-confidence or publicly labeled, rarely flat certainty.' },
   { view:'research', sel:'#case-solana-company', sel2:'#case-studies-list', dur:9500,
     title:'The case files',
-    body:'Long-form investigations that read like detective work. This one traces 999,999 SOL moving from a foundation wallet straight into a public company treasury, the kind of link a filing never spells out.' },
+    body:'Long-form investigations that read like detective work. This one follows 999,999 SOL leaving a foundation wallet and landing in what we attribute, with high confidence, to a public company treasury.' },
   { view:'registry', sel:'#entry-points .ep-grid', sel2:'#entry-points', dur:8000,
     title:'Three ways in',
     body:'Browse the open record, take a bounty and earn SOL for tracing a target, or file new evidence to the public ledger. No gate, no paywall.' },
-  { view:'field', sel:'#field-cases > div', sel2:'#field-stats', dur:8500,
+  { view:'field', sel:'#field-cases > div', sel2:'#field-stats', clickSel:'#field-cases > div', dur:8500,
     title:'The Field Office',
-    body:'A live bounty board. Anyone funds an investigation; analysts claim it and trace the wallets. Every case runs on its own countdown and closes when it lapses.' },
-  { view:'field', box:'demoBoxApply', modalMode:true, dur:10000,
+    body:'A live bounty board. Anyone funds an investigation; analysts claim a case and trace the wallets. Each one runs on its own countdown and closes when it lapses.' },
+  { view:'field', box:'demoBoxApply', modalMode:true, clickSel:'.bounty .btn-apply', dur:10000,
     title:'Claim a bounty',
-    body:'Open a case and you get this box: write up your findings, attach the proof, and sign the submission with your wallet. No middleman ever holds your work.' },
+    body:'Click Apply and you get this box: write up your findings, attach the proof, and sign the submission with your wallet. No middleman ever holds your work.' },
   { view:'field', box:'demoBoxPay', modalMode:true, dur:11000,
     title:'Solana Pay, built in',
     body:'Support and rewards move on Solana Pay. Scan the code from any Solana wallet, or tap to pay on mobile. Sponsors release bounty rewards the same way, peer to peer, settled on-chain in seconds.' },
-  { view:'wire', box:'demoBoxWire', sel:'#wire-form', sel2:'#wire-cases', dur:9500,
+  { view:'wire', box:'demoBoxWire', sel:'#wire-form', sel2:'#wire-cases', clickSel:'.wire-cta', dur:9500,
     title:'File a dispatch',
     body:'Found something unprompted? File it here: the subject, the trail, your confidence per address, the links. After review it joins the public record and the community can back it.' },
-  { view:'dat', sel:'#dat-body > div', sel2:'#dat-body', dur:8500,
+  { view:'dat', sel:'#dat-body > div', sel2:'#dat-body', clickSel:'.dat-row', dur:8500,
     title:'DAT Watch',
     body:'A running scoreboard of every public Solana treasury company, and whether we have traced it yet. Verified holdings on one side, an open watchlist of fresh targets on the other.' },
   { view:'graph', sel:'.gph-stage', dur:8500,
@@ -2198,9 +2200,9 @@ var DEMO_STEPS = [
   { view:'methodology', sel:'.hiw', sel2:'#methodology', dur:9500,
     title:'Open intelligence, not a paywall',
     body:'Demand funds the work, analysts produce it, peers verify it, and the result is published for everyone. A closed marketplace stops at the buyer. OSI stops at the public.' },
-  { view:'community', sel:'#consensus-floor', sel2:'#analyst-roster', dur:9000,
+  { view:'community', sel:'#consensus-floor', sel2:'#analyst-roster', clickSel:'#consensus-floor .rf-b.ap', mockReview:true, dur:9500,
     title:'A self-governing newsroom',
-    body:'A verified analyst roster with weighted peer review. Today a maintainer seals each report; the design is built to hand that power to the network over time.' },
+    body:'This is the review floor a verified analyst sees: a pending finding, a weighted vote to publish or flag, and a maintainer seal as the final check. Power that the design hands to the network over time.' },
   { view:'community', sel:'#newsletter', sel2:'#nl-email', dur:7000,
     title:'Stay briefed',
     body:'A weekly brief turns this into a habit: major treasury movements and freshly traced wallets land in your inbox, so the intelligence finds you.' },
@@ -2209,9 +2211,9 @@ var DEMO_STEPS = [
     body:'Original on-chain forensics, an open bounty economy, and a community that reviews its own work. Explore freely from here, nothing on this site asks for your wallet.' }
 ];
 
-var demoIdx = 0, demoPlaying = false, demoTimer = null, demoStepStart = 0, demoPausedElapsed = 0, demoPrevSB = '', demoRzT = null;
+var demoIdx = 0, demoPlaying = false, demoTimer = null, demoStepStart = 0, demoPausedElapsed = 0, demoPrevSB = '', demoRzT = null, demoMockHTML = null;
 
-// --- boxes the briefing opens (read-only: no wallet, no submit) ---
+// ---- boxes the briefing opens (read-only) ----
 function demoBoxApply(){
   var btn = document.querySelector('.bounty .btn-apply');
   if(btn && typeof openApplyModal === 'function'){ openApplyModal(btn); return; }
@@ -2228,12 +2230,66 @@ function demoBoxCloseAll(){
   if(typeof closeTip === 'function') closeTip();
   var wf = document.getElementById('wire-form'); if(wf) wf.hidden = true;
 }
+// sample pending card so reviewers see the vouch / seal mechanic
+function demoInjectMockReview(){
+  var host = document.getElementById('consensus-floor'); if(!host) return;
+  if(demoMockHTML === null) demoMockHTML = host.innerHTML;
+  host.innerHTML = '<div class="rf-note mono">Example view: how the queue looks to a verified analyst.</div>'
+    + '<div class="rf-card">'
+    + '<div class="rf-top"><span class="rf-tag rf-intel">intel</span><span class="rf-ttl">Sample treasury attribution</span></div>'
+    + '<div class="rf-sub">A pending report linking a custody wallet cluster to a public filing, awaiting peer review.</div>'
+    + '<div class="cm"><div class="cm-bar"><div class="cm-fill" style="width:66%"></div></div>'
+    + '<div class="cm-meta mono"><span class="cm-w">\u2713 2 / 3 weight</span><span class="cm-st">1 more to clear, then maintainer seal</span></div></div>'
+    + '<div class="rf-btns"><button class="rf-b ap" type="button">\u2713 Vouch to publish</button><button class="rf-b rj" type="button">\u2715 Flag</button></div>'
+    + '</div>';
+}
+function demoClearMock(){
+  if(demoMockHTML !== null){
+    var host = document.getElementById('consensus-floor');
+    if(host) host.innerHTML = demoMockHTML;
+    demoMockHTML = null;
+    if(typeof renderReviewFloor === 'function'){ try{ renderReviewFloor(); }catch(e){} }
+  }
+}
+
+// ---- cursor / click / arrow helpers ----
+function demoIsTouch(){
+  try{ if(window.matchMedia && window.matchMedia('(hover: none)').matches) return true; }catch(e){}
+  return false;
+}
+function demoCenterOf(el){
+  var r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + Math.min(r.height / 2, 90) };
+}
+function demoCursorTo(x, y){
+  var c = document.getElementById('demo-cursor'); if(!c) return;
+  if(demoIsTouch()){ c.style.opacity = '0'; return; }
+  c.style.opacity = '1';
+  c.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+}
+function demoCursorHide(){ var c = document.getElementById('demo-cursor'); if(c) c.style.opacity = '0'; }
+function demoArrowTo(x, y){
+  var card = document.getElementById('demo-card'), ar = document.getElementById('demo-arrow'); if(!card || !ar) return;
+  if(demoIsTouch()){ ar.style.opacity = '0'; return; }
+  var cr = card.getBoundingClientRect();
+  var ang = Math.atan2(y - (cr.top + cr.height / 2), x - (cr.left + cr.width / 2)) * 180 / Math.PI;
+  ar.style.opacity = '1';
+  ar.style.transform = 'rotate(' + ang + 'deg)';
+}
+function demoArrowHide(){ var ar = document.getElementById('demo-arrow'); if(ar) ar.style.opacity = '0'; }
+function demoRipple(x, y){
+  var fx = document.getElementById('demo-fx'); if(!fx) return;
+  var r = document.createElement('div'); r.className = 'demo-click';
+  r.style.left = x + 'px'; r.style.top = y + 'px';
+  fx.appendChild(r);
+  setTimeout(function(){ if(r.parentNode) r.parentNode.removeChild(r); }, 720);
+}
 
 function demoStart(){
   demoIdx = 0; demoPausedElapsed = 0;
   var root = document.getElementById('demo-root'); if(!root) return;
   demoPrevSB = document.documentElement.style.scrollBehavior;
-  document.documentElement.style.scrollBehavior = 'auto'; // exact measurements at any zoom
+  document.documentElement.style.scrollBehavior = 'auto';
   root.hidden = false;
   document.body.classList.add('demo-on');
   root.addEventListener('wheel', demoBlockScroll, { passive:false });
@@ -2247,14 +2303,15 @@ function demoStart(){
 function demoBlockScroll(e){ if(e.target.closest && e.target.closest('.demo-card')) return; e.preventDefault(); }
 function demoStop(){
   var root = document.getElementById('demo-root'); if(!root) return;
-  demoBoxCloseAll();
+  demoBoxCloseAll(); demoClearMock();
   if(demoTimer){ clearInterval(demoTimer); demoTimer = null; }
   demoPlaying = false;
   root.removeEventListener('wheel', demoBlockScroll, { passive:false });
   root.removeEventListener('touchmove', demoBlockScroll, { passive:false });
   root.hidden = true;
   document.body.classList.remove('demo-on');
-  var spot = document.getElementById('demo-spot'); if(spot){ spot.classList.remove('on'); spot.classList.remove('center'); spot.classList.remove('off'); }
+  var spot = document.getElementById('demo-spot'); if(spot){ spot.classList.remove('on'); spot.classList.remove('center'); spot.classList.remove('off'); spot.classList.remove('pulse'); }
+  demoCursorHide(); demoArrowHide();
   document.documentElement.style.scrollBehavior = demoPrevSB || '';
   try{ showView('registry'); window.scrollTo(0, 0); }catch(e){}
 }
@@ -2270,8 +2327,7 @@ function demoTogglePlay(){
 function demoTick(){
   if(!demoPlaying) return;
   var step = DEMO_STEPS[demoIdx]; if(!step) return;
-  var elapsed = Date.now() - demoStepStart;
-  var frac = Math.min(1, elapsed / step.dur);
+  var frac = Math.min(1, (Date.now() - demoStepStart) / step.dur);
   var bar = document.getElementById('demo-prog'); if(bar) bar.style.width = (frac * 100) + '%';
   if(frac >= 1){ demoNext(); }
 }
@@ -2287,7 +2343,7 @@ function demoGoStep(i){
   i = Math.max(0, Math.min(DEMO_STEPS.length - 1, i));
   demoIdx = i;
   var step = DEMO_STEPS[i];
-  demoBoxCloseAll(); // close any box left open by the previous step
+  demoBoxCloseAll(); demoClearMock();
   demoStepStart = Date.now(); demoPausedElapsed = 0;
   var st = document.getElementById('demo-step'); if(st) st.textContent = ('0' + (i + 1)).slice(-2) + ' / ' + ('0' + DEMO_STEPS.length).slice(-2);
   var tt = document.getElementById('demo-title'); if(tt) tt.textContent = step.title;
@@ -2296,20 +2352,18 @@ function demoGoStep(i){
   var back = document.getElementById('demo-back'); if(back) back.disabled = (i === 0);
   var nx = document.getElementById('demo-next'); if(nx) nx.textContent = (i === DEMO_STEPS.length - 1) ? 'Finish' : 'Next \u203A';
   try{ showView(step.view); }catch(e){}
+  demoCursorHide(); demoArrowHide();
   if(!step.sel && !step.box){ try{ window.scrollTo(0, 0); }catch(e){} }
-  setTimeout(function(){
-    if(DEMO_STEPS[demoIdx] !== step) return;
-    if(step.box && typeof window[step.box] === 'function'){ try{ window[step.box](); }catch(e){} }
-    if(step.modalMode){
-      setTimeout(function(){ if(DEMO_STEPS[demoIdx] === step) demoPlaceModal(); }, 240);
-    } else {
-      demoLocate(step, 0);
-    }
-  }, 90);
+  setTimeout(function(){ if(DEMO_STEPS[demoIdx] === step) demoSetup(step); }, 90);
+}
+function demoSetup(step){
+  if(step.mockReview) demoInjectMockReview();
+  if(step.modalMode && !step.sel){ demoGesture(step, null); return; }
+  if(!step.sel){ demoPlace(null); return; }
+  demoLocate(step, 0);
 }
 function demoLocate(step, attempt){
   if(DEMO_STEPS[demoIdx] !== step) return;
-  if(!step.sel){ demoPlace(null); return; }
   var el = demoFindTarget(step);
   if(!el){
     if(attempt < 10){ setTimeout(function(){ demoLocate(step, attempt + 1); }, 150); return; }
@@ -2320,32 +2374,59 @@ function demoLocate(step, attempt){
   requestAnimationFrame(function(){
     requestAnimationFrame(function(){
       if(DEMO_STEPS[demoIdx] !== step) return;
-      demoPlace(el.getBoundingClientRect());
+      demoGesture(step, el);
     });
   });
 }
-// modal mode: the box brings its own backdrop, so the demo dimmer steps aside
+// the heart of the walkthrough: cursor -> click -> reveal
+function demoGesture(step, el){
+  var clickEl = step.clickSel ? document.querySelector(step.clickSel) : el;
+  var cp = clickEl ? demoCenterOf(clickEl) : { x: window.innerWidth / 2, y: window.innerHeight * 0.42 };
+  cp.x = Math.max(20, Math.min(window.innerWidth - 20, cp.x));
+  cp.y = Math.max(20, Math.min(window.innerHeight - 20, cp.y));
+  demoCursorTo(cp.x, cp.y);
+  demoArrowTo(cp.x, cp.y);
+  setTimeout(function(){
+    if(DEMO_STEPS[demoIdx] !== step) return;
+    demoRipple(cp.x, cp.y);
+    if(step.box && typeof window[step.box] === 'function'){ try{ window[step.box](); }catch(e){} }
+    setTimeout(function(){
+      if(DEMO_STEPS[demoIdx] !== step) return;
+      if(step.modalMode){ demoPlaceModal(); demoArrowHide(); return; }
+      var t2 = demoFindTarget(step) || el;
+      if(!t2){ demoPlace(null); return; }
+      try{ t2.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){}
+      requestAnimationFrame(function(){
+        if(DEMO_STEPS[demoIdx] !== step) return;
+        var rect = t2.getBoundingClientRect();
+        demoPlace(rect, true);
+        demoArrowTo(rect.left + rect.width / 2, rect.top + Math.min(rect.height / 2, 80));
+      });
+    }, step.box ? 280 : 70);
+  }, 640);
+}
 function demoPlaceModal(){
   var spot = document.getElementById('demo-spot'); if(!spot) return;
-  spot.classList.remove('center'); spot.classList.remove('on'); spot.classList.add('off');
+  spot.classList.remove('center'); spot.classList.remove('on'); spot.classList.remove('pulse'); spot.classList.add('off');
 }
-function demoPlace(rect){
+function demoPlace(rect, pulse){
   var spot = document.getElementById('demo-spot');
   var card = document.getElementById('demo-card');
   if(!spot || !card) return;
   spot.classList.remove('off');
   var vw = window.innerWidth, vh = window.innerHeight, M = 16;
   if(!rect){
+    spot.classList.remove('pulse');
     spot.classList.add('center'); spot.classList.add('on');
     spot.style.left = (vw / 2) + 'px'; spot.style.top = (vh / 2) + 'px';
     spot.style.width = '0px'; spot.style.height = '0px';
+    demoArrowHide();
     return;
   }
   spot.classList.remove('center');
   var pad = 8;
   var tx = Math.max(M, rect.left - pad), ty = Math.max(M, rect.top - pad);
   var tw = Math.min(vw - 2 * M, rect.width + 2 * pad), th = Math.min(vh - 2 * M, rect.height + 2 * pad);
-  // the narration card is pinned bottom-right: never let the lit area slide under it
   var crd = card.getBoundingClientRect(); var gap = 14;
   if(crd && crd.width && tx + tw > crd.left - gap && ty + th > crd.top - gap){
     var nTh = (crd.top - gap) - ty;
@@ -2355,6 +2436,7 @@ function demoPlace(rect){
   spot.style.left = tx + 'px'; spot.style.top = ty + 'px';
   spot.style.width = tw + 'px'; spot.style.height = th + 'px';
   spot.classList.add('on');
+  if(pulse){ spot.classList.add('pulse'); setTimeout(function(){ spot.classList.remove('pulse'); }, 720); }
 }
 function demoRealign(){
   var root = document.getElementById('demo-root'); if(!root || root.hidden) return;
@@ -2364,7 +2446,11 @@ function demoRealign(){
   var el = demoFindTarget(step) || document.querySelector('section[data-view="' + step.view + '"]');
   if(el && el.getBoundingClientRect().height >= 4){
     try{ el.scrollIntoView({ block:'center', inline:'nearest' }); }catch(e){}
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){ demoPlace(el.getBoundingClientRect()); }); });
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      var rect = el.getBoundingClientRect();
+      demoPlace(rect);
+      demoArrowTo(rect.left + rect.width / 2, rect.top + Math.min(rect.height / 2, 80));
+    }); });
   } else { demoPlace(null); }
 }
 window.addEventListener('resize', function(){ if(demoRzT) clearTimeout(demoRzT); demoRzT = setTimeout(demoRealign, 140); });
@@ -5095,6 +5181,13 @@ function showToast(msg){
 .demo-spot.on{opacity:1;box-shadow:0 0 0 9999px rgba(5,8,14,.9),0 0 22px rgba(20,241,149,.45),inset 0 0 0 1px rgba(20,241,149,.25)}
 .demo-spot.center{border-color:transparent;box-shadow:0 0 0 9999px rgba(5,8,14,.93)}
 .demo-spot.off{box-shadow:none;border-color:transparent;opacity:0}
+.demo-cursor{position:fixed;left:0;top:0;z-index:6;width:24px;height:24px;margin:-1px 0 0 -1px;pointer-events:none;opacity:0;transition:transform .62s cubic-bezier(.33,0,.2,1),opacity .25s;will-change:transform}
+.demo-fx{position:fixed;inset:0;z-index:5;pointer-events:none;overflow:hidden}
+.demo-click{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2px solid var(--sol);background:rgba(20,241,149,.22);transform:scale(.2);animation:demoClick .68s ease-out forwards}
+@keyframes demoClick{0%{transform:scale(.2);opacity:.95}70%{opacity:.45}100%{transform:scale(2.8);opacity:0}}
+.demo-spot.pulse{animation:demoPulse .72s ease-out}
+@keyframes demoPulse{0%{box-shadow:0 0 0 9999px rgba(5,8,14,.9),0 0 0 2px rgba(20,241,149,.95),0 0 40px rgba(20,241,149,.85)}100%{box-shadow:0 0 0 9999px rgba(5,8,14,.9),0 0 22px rgba(20,241,149,.45),inset 0 0 0 1px rgba(20,241,149,.25)}}
+.demo-arrow{position:absolute;left:-13px;top:22px;width:28px;height:28px;opacity:0;color:var(--sol);transition:transform .42s ease,opacity .3s;pointer-events:none;filter:drop-shadow(0 0 6px rgba(20,241,149,.5))}
 .demo-card{position:fixed;z-index:4;right:22px;bottom:22px;left:auto;top:auto;width:336px;max-width:calc(100vw - 28px);background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-left:3px solid var(--sol);border-radius:12px;padding:19px 21px;box-shadow:0 26px 70px rgba(0,0,0,.66)}
 @media(max-height:560px){.demo-card{bottom:12px;right:12px;padding:14px 16px}}
 .demo-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
@@ -5151,8 +5244,11 @@ function showToast(msg){
 </div>
 <div id="demo-root" class="demo-root" hidden>
   <div class="demo-block"></div>
+  <div class="demo-fx" id="demo-fx"></div>
+  <div class="demo-cursor" id="demo-cursor"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 2.5l13.5 7.8-5.7 1.4-1.2 5.6z" fill="#ffffff" stroke="#0a0e16" stroke-width="1.2" stroke-linejoin="round"/></svg></div>
   <div class="demo-spot" id="demo-spot"></div>
   <div class="demo-card" id="demo-card">
+    <div class="demo-arrow" id="demo-arrow"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M4 12h13M11 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <div class="demo-card-top">
       <span class="demo-kicker">// intelligence briefing</span>
       <span class="demo-step" id="demo-step">01 / 10</span>
