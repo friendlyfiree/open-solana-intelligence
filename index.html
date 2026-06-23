@@ -667,7 +667,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
   <div class="sb-foot">
     <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">🔒</button>
-    <button class="sb-demo" onclick="demoStart()" title="Guided 2-minute briefing, no wallet needed"><span>▶</span> Briefing</button>
+    <button class="sb-demo" onclick="demoStart()" title="Guided briefing, no wallet needed"><span>▶</span> Briefing</button>
     <button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, or open your profile"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
@@ -745,7 +745,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     <p class="creed">// <b>you should not have to</b> trace it alone</p>
     <div class="hero-cta">
       <button class="hero-go" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);"><span>+</span> Open a case <span class="hg-sec">free · 1 signature</span></button>
-      <button class="hero-demo" onclick="demoStart()"><span class="hd-ic">▶</span> Watch the 2-min tour <span class="hd-sec">no wallet</span></button>
+      <button class="hero-demo" onclick="demoStart()"><span class="hd-ic">▶</span> Watch the guided tour <span class="hd-sec">no wallet</span></button>
     </div>
 
     </div>
@@ -1760,32 +1760,32 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div class="sec-head">
       <h2>Where this goes</h2>
       <div class="legend">
-        <span class="mono" style="color:var(--ink-faint)">ship the registry first · grow it in the open</span>
+        <span class="mono" style="color:var(--ink-faint)">ship first · open it up · hand it over</span>
       </div>
     </div>
     <div class="roadmap">
       <div class="rm-phase">
         <span class="rm-tag now">Live now</span>
-        <h3>Treasury registry</h3>
-        <p>Public-company SOL treasuries, traced wallet-by-wallet, with live balances, public sources, and a confidence level on every address.</p>
+        <h3>The desk is open</h3>
+        <p>Open a case, traced wallets, case files, and the safety rules, all live. Free to use, public to read.</p>
         <div class="pin">// you're looking at it</div>
       </div>
       <div class="rm-phase">
         <span class="rm-tag next">Next</span>
-        <h3>Coverage &amp; open source</h3>
-        <p>More entities added, the full codebase and dataset opened on GitHub, and the Weekly Brief wired up so movements land in your inbox.</p>
-        <div class="pin">// expand + open the repo</div>
+        <h3>Open the code</h3>
+        <p>The full codebase and dataset on GitHub, more entities on the registry, and the weekly brief wired up.</p>
+        <div class="pin">// open the repo</div>
       </div>
       <div class="rm-phase">
         <span class="rm-tag soon">Soon</span>
-        <h3>Community intelligence</h3>
-        <p>Anyone can open a request, and anyone can back it with a tip. A bounty the whole community funds, not a single buyer (the way it works elsewhere). Volunteer researchers pick it up, and every report is open-source and written <i>with</i> its methodology, so the technique spreads, not just the result.</p>
+        <h3>Grow the roster</h3>
+        <p>More verified analysts reviewing each other's work. Consensus clears a finding, never one single voice.</p>
         <div class="pin">// the network forms</div>
       </div>
       <div class="rm-phase">
         <span class="rm-tag later">Later</span>
-        <h3>Self-governing network</h3>
-        <p>Approval moves from the founder to the analysts themselves. Every report, bounty, and application is reviewed by peers, weighted by the reputation each analyst earned. Enough independent sign-off and it publishes on its own; the maintainer's seal fades as the network matures. A Wikipedia for on-chain attribution, run by the people who do the work.</p>
+        <h3>Hand it to the network</h3>
+        <p>Approval moves from the maintainer to the analysts themselves, weighted by reputation. A Wikipedia for on-chain investigation, run by the people who do the work.</p>
         <div class="pin">// progressive decentralization</div>
       </div>
     </div>
@@ -2262,10 +2262,10 @@ var DEMO_WALK = 720; // cursor travel time, matches the CSS transition
 var DEMO_STEPS = [
   { view:'registry', sel:'.hero h1', sel2:'.hero-main', noCursor:true, dur:7000,
     title:'Open Solana Intelligence',
-    body:'A two-minute tour. OSI is an open desk for on-chain investigations: lost SOL, a suspicious flow, or an institution\u2019s treasury. Anyone opens a case for free, the community traces it on-chain, and the finding is published. It never promises to recover funds.' },
-  { view:'registry', sel:'.stats', dur:8000,
-    title:'The numbers, checked against the chain',
-    body:'Declared holdings come from company filings. Live balances come straight from Solana. The gap between the two is what this registry exists to surface.' },
+    body:'A guided tour. OSI is an open desk for on-chain investigations: lost SOL, a suspicious flow, or an institution\u2019s treasury. Anyone opens a case for free, the community traces it on-chain, and the finding is published. It never promises to recover funds.' },
+  { view:'registry', sel:'#safeguards .guards', sel2:'#safeguards', dur:8500,
+    title:'What we promise, and what we never will',
+    body:'Three lines we lead with. OSI can trace and document, but it cannot recover funds and never promises to. It will never DM you or ask for your seed phrase. And it follows the money, not the person: no names, no doxxing.' },
   { view:'registry', sel:'#companies > div', sel2:'#companies', dur:9000,
     title:'The wallets behind the number',
     body:'Each institution opens into the wallets we attribute to it: funding sources, custodians, validators. Every address carries a confidence grade, high-confidence or publicly labeled, rarely flat certainty.' },
@@ -2277,34 +2277,40 @@ var DEMO_STEPS = [
     body:'Open a case if something happened to you, take a case as an analyst, or just read the open record. No gate, no paywall, no signup.' },
   { view:'field', sel:'#field-cases > div', sel2:'#field-stats', clickSel:'#field-cases > div', dur:8500,
     title:'The Field Office',
-    body:'A live case board. Anyone posts a case for free; analysts claim it and trace the wallets on-chain. Each case runs on its own countdown and closes when it lapses.' },
-  { view:'field', box:'demoBoxApply', modalMode:true, clickSel:'.bounty .btn-apply', dur:10000,
-    title:'Claim a bounty',
+    body:'A live case board. Anyone posts a case for free; analysts claim it and trace the wallets on-chain. The Wire, for unprompted dispatches, sits one tab over.' },
+  { view:'field', box:'demoBoxApply', modalMode:true, clickSel:'.bounty .btn-apply', dur:9500,
+    title:'Claim a case',
     body:'Take a case and you get this box: write up your findings, attach the proof, and sign the submission with your wallet. No middleman ever holds your work.' },
+  { view:'field', box:'demoBoxGuard', modalMode:true, modalPoint:'#og-agree', dur:12000,
+    title:'A safety check before anything goes public',
+    body:'Before any case or report is submitted, this stop appears. No one from OSI will ever ask for your seed phrase. Only publicly verifiable, open-source evidence gets published, never private messages or personal data. And nothing moves until you tick the box. It protects the person who was hit and the analyst working the case.' },
   { view:'field', box:'demoBoxPay', modalMode:true, modalPoint:'#tip-pay-toggle', modalReveal:'toggleSolanaPay', dur:11000,
     title:'Solana Pay, built in',
-    body:'Support and rewards move on Solana Pay. Open the panel for a QR any Solana wallet can scan, or tap to pay on mobile. Sponsors release bounty rewards the same way, peer to peer, settled on-chain in seconds.' },
-  { view:'wire', box:'demoBoxWire', sel:'#wire-form', sel2:'#wire-cases', clickSel:'.wire-cta', dur:9500,
-    title:'File a dispatch',
+    body:'Support and rewards move on Solana Pay. Open the panel for a QR any Solana wallet can scan, or tap to pay on mobile. If a sponsor funds a reward, they release it the same way, peer to peer, settled on-chain. OSI never holds it.' },
+  { view:'wire', box:'demoBoxWire', sel:'#wire-form', sel2:'#wire-cases', clickSel:'.wire-cta', dur:9000,
+    title:'The Wire',
     body:'Found something unprompted? File it here: the subject, the trail, your confidence per address, the links. After review it joins the public record and the community can back it.' },
   { view:'dat', sel:'#dat-body > div', sel2:'#dat-body', clickSel:'.dat-row', dur:8500,
     title:'DAT Watch',
-    body:'A running scoreboard of every public Solana treasury company, and whether we have traced it yet. Traced holdings on one side, an open watchlist of fresh targets on the other.' },
-  { view:'graph', sel:'.gph-stage', dur:8500,
-    title:'The network',
-    body:'Funding and custody relationships, mapped. An autonomous, explorable graph of how SOL moves between foundations, market makers, custodians, and treasuries.' },
+    body:'A running scoreboard of every public Solana treasury company, and whether we have traced it yet. The coverage totals, entities, wallets, and SOL on the record, sit right at the top.' },
+  { view:'graph', sel:'.gph-stage', dur:8000,
+    title:'The network map',
+    body:'Funding and custody relationships, mapped. An explorable graph of how SOL moves between foundations, market makers, custodians, and treasuries. It lives one tab over from DAT Watch.' },
   { view:'methodology', sel:'.hiw-lead', sel2:'.hiw', dur:9000,
     title:'Open intelligence, not a paywall',
-    body:'Demand funds the work, analysts produce it, peers verify it, and the result is published for everyone. A closed marketplace stops at the buyer. OSI stops at the public.' },
+    body:'Anyone can open a case, analysts produce the work, peers verify it, and the result is published for everyone. A closed marketplace stops at the buyer. OSI stops at the public.' },
+  { view:'community', sel:'.wiki-model', sel2:'.rec-hero', dur:10000,
+    title:'Written and checked like Wikipedia',
+    body:'OSI governs itself like Wikipedia for on-chain investigations. Anyone contributes, verified analysts review each other, and nothing publishes until enough independent analysts agree. Every entry stays open and correctable. No single person, including us, owns the truth.' },
   { view:'community', sel:'#consensus-floor', sel2:'#analyst-roster', clickSel:'#consensus-floor .rf-b.ap', mockReview:true, dur:9500,
-    title:'A self-governing newsroom',
-    body:'This is the review floor a verified analyst sees: a pending finding, a weighted vote to publish or flag, and a maintainer seal as the final check. Power the design hands to the network over time.' },
+    title:'The review floor, live',
+    body:'This is what a verified analyst sees: a pending finding, a weighted vote to publish or flag, and a maintainer seal as the final check while the roster grows. This consensus has to clear before anything joins the record.' },
   { view:'community', sel:'#newsletter', sel2:'#nl-email', dur:7000,
     title:'Stay briefed',
     body:'A weekly brief turns this into a habit: major treasury movements and freshly traced wallets land in your inbox, so the intelligence finds you.' },
   { view:'registry', sel:null, dur:8000,
     title:'The record is public',
-    body:'Original on-chain forensics, an open bounty economy, and a community that reviews its own work. Explore freely from here, nothing on this site asks for your wallet.' }
+    body:'Original on-chain forensics, an open case board, and a community that reviews its own work in the open. Explore freely from here, nothing on this site asks for your wallet.' }
 ];
 
 var demoIdx = 0, demoPlaying = false, demoTimer = null, demoStepStart = 0, demoPausedElapsed = 0, demoPrevSB = '', demoRzT = null, demoMockHTML = null;
@@ -2321,10 +2327,12 @@ function demoBoxPay(){
   if(typeof openTip === 'function') openTip(w, 'this investigation', 0.1, '\u25CE Support with Solana Pay');
 }
 function demoBoxWire(){ if(typeof wireOpenForm === 'function') wireOpenForm(); demoBlurInputs(); }
+function demoBoxGuard(){ if(typeof osiSubmitGuard === 'function'){ osiSubmitGuard('report', function(){}); } }
 function demoBoxCloseAll(){
   if(typeof closeApplyModal === 'function') closeApplyModal();
   if(typeof closeTip === 'function') closeTip();
   var wf = document.getElementById('wire-form'); if(wf) wf.hidden = true;
+  if(typeof osiGuardClose === 'function') osiGuardClose();
 }
 function demoInjectMockReview(){
   var host = document.getElementById('consensus-floor'); if(!host) return;
@@ -2617,6 +2625,11 @@ function osiSubmitGuard(kind, proceed){
   var t = document.getElementById('og-title'); if(t) t.textContent = titles[kind] || 'Read this first';
   var ag = document.getElementById('og-agree'); if(ag) ag.checked = false;
   var go = document.getElementById('og-go'); if(go) go.disabled = true;
+  var pub = (kind === 'report' || kind === 'intel');
+  var ex = document.getElementById('og-extra');
+  if(ex){ ex.innerHTML = pub ? '<div class="og-item os"><span class="og-ic">\u26d3</span><div><b>Open-source evidence only.</b> Everything you submit can become public. Include only what is publicly verifiable: on-chain transactions, public addresses, open-source records. Never submit private messages, DMs, screenshots of private chats, or anyone\u2019s personal data. Private information must never be published here.</div></div>' : ''; }
+  var ctx = document.getElementById('og-check-tx');
+  if(ctx){ ctx.textContent = pub ? 'I understand: no seed phrase or private key, and I am submitting only public, open-source evidence, no private messages.' : 'I understand, and I am not sharing any seed phrase or private key.'; }
   var m = document.getElementById('osi-guard'); if(m){ m.style.display=''; m.hidden=false; }
 }
 function osiGuardToggle(){ var ag=document.getElementById('og-agree'), go=document.getElementById('og-go'); if(go) go.disabled = !(ag && ag.checked); }
@@ -5377,6 +5390,8 @@ function showToast(msg){
 .og-item.warn .og-ic{color:var(--amber)}
 .og-item.warn b{color:var(--amber)}
 .og-item.plat .og-ic{color:var(--cyan)}
+.og-item.os .og-ic{color:var(--sol)}
+.og-item.os b{color:var(--sol)}
 .og-check{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--ink-dim);line-height:1.5;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:12px 13px;background:var(--bg)}
 .og-check input{margin-top:2px;flex:none;accent-color:var(--sol)}
 .og-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
@@ -5470,10 +5485,10 @@ function showToast(msg){
   <div class="ow-card">
     <button class="ow-x" onclick="welcomeClose()" aria-label="Close">&times;</button>
     <div class="ow-eyebrow mono"><span class="ow-dot"></span> New here</div>
-    <h2 class="ow-title">A 2-minute tour of OSI</h2>
+    <h2 class="ow-title">A guided tour of OSI</h2>
     <p class="ow-body">OSI is an open, community-run desk for on-chain investigations, from a drained wallet to an institution's treasury. This guided tour walks the whole platform for you. No wallet, no signup, the product shows itself.</p>
     <div class="ow-actions">
-      <button class="ow-go" onclick="welcomeStart()"><span>&#9654;</span> Run the briefing <span class="ow-sec">~2 min</span></button>
+      <button class="ow-go" onclick="welcomeStart()"><span>&#9654;</span> Run the briefing <span class="ow-sec">no wallet</span></button>
       <button class="ow-skip" onclick="welcomeClose()">Explore on my own</button>
     </div>
   </div>
@@ -5488,8 +5503,9 @@ function showToast(msg){
       <div class="og-item warn"><span class="og-ic">⚠</span><div><b>Never share your seed phrase or private key, with anyone.</b> No one from OSI will ever DM you, ask for your seed phrase, or ask you to send funds to recover anything. Anyone who does is a scammer.</div></div>
       <div class="og-item"><span class="og-ic">⚖</span><div><b>Facts, not people.</b> Keep your writeup to on-chain evidence and transaction hashes. No private keys, no personal identities, no accusations, no doxxing. Follow the money, not the person.</div></div>
       <div class="og-item"><span class="og-ic">◉</span><div><b>This is public and permanent.</b> Once reviewed, your submission joins the open record for anyone to read and verify. Do not include anything you would not want public.</div></div>
+      <div id="og-extra"></div>
     </div>
-    <label class="og-check"><input type="checkbox" id="og-agree" onchange="osiGuardToggle()"> I understand, and I am not sharing any seed phrase or private key.</label>
+    <label class="og-check"><input type="checkbox" id="og-agree" onchange="osiGuardToggle()"> <span id="og-check-tx">I understand, and I am not sharing any seed phrase or private key.</span></label>
     <div class="og-actions">
       <button class="og-cancel" onclick="osiGuardClose()">Cancel</button>
       <button class="og-go" id="og-go" onclick="osiGuardProceed()" disabled>Continue</button>
