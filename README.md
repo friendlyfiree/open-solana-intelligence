@@ -1,141 +1,103 @@
 # Open Solana Intelligence (OSI)
 
-**Institutions say they hold SOL. We show the wallets.**
+**An open, community-run desk for on-chain investigations.**
 
-Open, on-chain forensic intelligence on institutional Solana activity. Every wallet is mapped through first-hand forensics, matched to public disclosures, and rated by confidence, so anyone can check institutional SOL holdings for themselves instead of trusting a filing.
+When SOL leaves a wallet and you cannot trace it yourself, the usual options are a paid analyst who answers to one client, or silence. OSI is the opposite. Anyone can open a case for free, verified analysts trace where the funds went and how, their peers review the work, and the finding becomes a permanent public record. It works the same for a drained wallet and for an institution's treasury. We follow the money, not people, and we never promise to recover funds.
 
-> `// don't trust the filing, verify the chain`
+> `// you should not have to trace it alone`
 
-**Live:** https://solana-treasury-watch-bmua.vercel.app &nbsp;·&nbsp; **Repo:** https://github.com/friendlyfiree/solana-treasury-watch
+<!-- ============================================================= -->
+<!--  MAINTAINER: paste the live URL on the line below after you   -->
+<!--  rename or redeploy the Vercel project, then re-upload this   -->
+<!--  file. No code change is needed; the app does not hardcode    -->
+<!--  its own address.                                             -->
+<!-- ============================================================= -->
 
-![Open Solana Intelligence](preview.png)
+**Live:** `<< PASTE YOUR VERCEL URL HERE >>`
 
----
-
-## What it is
-
-Most trackers give you a number. OSI gives you the wallets behind the number: funding sources, custody controllers, and validator-level staking, with the evidence and a confidence label on every address.
-
-Today it tracks **3 public companies** (Forward Industries, Solana Company / HSDT, Sharps Technology) across **38 attributed wallets**, with balances pulled live from the Solana chain. It is built to extend across the rest of institutional Solana: ETFs, foundations, VCs, DAOs, validators, liquid-staking protocols, and custodians.
-
----
-
-## Why OSI is different
-
-Most on-chain intelligence platforms sell attribution to whoever pays, and the answer stays locked to that one buyer. OSI runs the opposite way.
-
-Demand funds an investigation, analysts do the work, their peers verify it, and the result becomes a **permanent public record** anyone can check. The market here is **reputation, not resale**. A closed marketplace stops at the buyer; OSI stops at the public.
-
-```
-Demand for intelligence
-        |
-Search the open registry  ->  found:     already on the record (free, public)
-        |
-        +-----------------> not found:  open a bounty (sponsor-pledged, not held by OSI)
-                                              |
-                                         analysts investigate
-                                              |
-                                         peer review (weighted consensus)
-                                              |
-                            Published to the public record (open, permanent)
-                                              |
-          Sponsor releases reward on-chain - patrons credited - reputation grows
-                                              |
-                            Everyone gets the intelligence
-```
+**Source:** https://github.com/friendlyfiree/solana-treasury-watch
 
 ---
 
-## What is inside
+## What we promise, and what we never will
 
-- **Entity Registry** : the institutions we track and the exact wallets behind their declared SOL, live balances pulled straight from the chain, and the gap between disclosure and reality made visible.
-- **The Field Office** : a live bounty board. Take an open case, trace the wallets, and earn the SOL reward when your work clears review. Each case carries a countdown and closes automatically when it lapses.
-- **The Wire** : an intelligence feed where anyone can file a dispatch and put new evidence on the public record.
-- **DAT Watch** : a leaderboard and watchlist of digital-asset-treasury companies, verified and unverified.
-- **Network Graph** : an autonomous, explorable map of funding and custody relationships between entities and wallets.
-- **Investigations** : long-form flagship case files, each one a reproducible chain of evidence.
-- **Methodology** : the full tradecraft behind every entry, with no black boxes. Walk it in order, check the work, or run your own.
-- **Community / Analysts** : a verified analyst roster with tiers and reputation, a peer-review floor, and a path for new analysts to apply and earn their place.
+OSI is built to be safe for the people who need it most. Three lines are non-negotiable, and they appear throughout the product:
 
----
+- **No recovery, ever.** On-chain transfers are final. OSI traces and documents what happened. It cannot reverse, freeze, or recover funds, and it will never promise to.
+- **We never DM you first.** OSI and its analysts never message you out of the blue, and never ask for a fee, a seed phrase, or wallet access. Anyone promising to recover your funds for a payment is a scammer.
+- **The money, not the person.** Investigations follow the fund flow and the mechanism, every step backed by a transaction hash. No accusations, no identities, no doxxing.
 
-## How attribution works
+Before any case or report is submitted, a hard-stop safety screen makes the contributor confirm they are not sharing a private key, and that only publicly verifiable, open-source evidence will be published. Private messages and personal data never belong here.
 
-Wallet attribution can look like magic. It is not. It is a repeatable chain of evidence:
+## How it works
 
-1. **Anchor** : start from a wallet or fact disclosed in a filing, press release, or on-chain label.
-2. **Funding trace** : follow the SOL backwards to its source (foundations, market makers, exchanges).
-3. **Custody mapping** : identify the controller (Coinbase Prime, Fireblocks, Anchorage, BitGo, and similar) by behaviour and counterparties.
-4. **Validator and staking analysis** : map stake delegation to surface relationships filings never mention.
-5. **Confidence grading** : every claim is rated (verified, high-confidence, publicly labeled) so readers know exactly how solid each link is.
+1. **Something needs tracing.** A drained wallet, a suspicious flow, or an institution's treasury.
+2. **Open a case, free.** Describe what happened and sign it on-chain. No fee to open.
+3. **Analysts investigate.** Verified analysts trace funding, custody, and validators directly on the chain.
+4. **Peers review.** Other analysts vouch for or flag the work. Weak or unproven attribution is caught here.
+5. **Consensus publishes.** A finding goes public only when enough independent analysts agree. No single voice decides.
+6. **Always correctable.** Every entry stays open and can be challenged with better evidence.
 
-Each entry on the registry is built from these steps and can be reproduced independently with a block explorer.
+OSI governs itself like Wikipedia for on-chain investigations. Today a maintainer holds the final seal while the analyst roster grows, so nothing slips through unchecked. As the roster grows, that power moves to the network: a record no one, including us, can quietly control.
 
----
+## What is shipped
 
-## Peer review and progressive decentralization
+This is a working product, not a mockup. Live today:
 
-OSI is built to give power away over time.
+- **Field Office** is the live case board. Anyone posts a case for free; analysts claim it and trace the wallets. The Wire, a feed for unprompted dispatches, sits alongside it as a sub-tab.
+- **DAT Watch** tracks every public Solana treasury company and whether it has been traced yet, with coverage totals on top. The Network map, an explorable graph of how SOL moves between foundations, market makers, custodians, and treasuries, sits alongside it as a sub-tab.
+- **Registry** is the wallets behind each tracked institution, with a confidence grade on every address.
+- **Investigations** is the published, long-form case files.
+- **Methodology** is exactly how the attribution is done, in the open.
+- **Community** is the open roster, the peer-review floor, and the path to self-governance.
+- A **guided tour** walks the whole product end to end, no wallet needed.
 
-- Verified analysts **vouch** on pending reports and bounties in the review floor.
-- Each vouch carries a **weight** set on the analyst's roster row (server-side, never client-controlled).
-- When approve-weight reaches a configurable **threshold**, the item clears.
-- A maintainer seal stays final in the early phase. When the network and its identity guarantees are strong enough, auto-publish can be turned on and the community publishes without a gatekeeper.
+The registry today covers 3 public companies (Forward Industries, the Solana Company / HSDT, and Sharps Technology) across 38 attributed wallets, with balances pulled live from the chain. It is built to extend across the rest of institutional Solana, and the same tradecraft applies to tracing an individual incident.
 
-This is the Wikipedia model applied to on-chain forensics: open contribution, weighted peer review, and a public record that belongs to everyone.
+## On-chain and verifiable
 
----
+OSI is a real Solana dApp. Connect Phantom and the core actions, opening a case, vouching on a report, signaling demand, and sending support, each write a signed SPL memo to Solana mainnet. Every action is a public audit trail, links straight to Solscan, and can be checked by anyone. A memo is evidence of an action, not a verdict, and OSI never holds or moves your funds. Support and any optional reward move over Solana Pay, peer to peer, settled on-chain. No fee is collected beyond the standard network cost.
 
-## Tech
+## Safety and security by design
 
-- **Static single-page app.** No build step, no server to run. One `index.html` deploys anywhere.
-- **Solana** via `@solana/web3.js` and Phantom for wallet connect, tipping, and on-chain bounty rewards. Solana Pay supported for tips.
-- **Supabase** (Postgres + row-level security) for community data: reports, bounties, the analyst roster, peer-review vouches, and configuration. Read access is public where it should be and locked where it must be; writes are gated by RLS and a maintainer login.
-- **Helius** RPC for live balances; **CoinGecko** for pricing.
-- Design language: a dark forensic-intelligence terminal in Solana green, Archivo and JetBrains Mono.
+- **Only the public key ships.** The page carries the Supabase publishable (anon) key only, which is public by design. Row-level security and a maintainer-approval step govern what can be read or published. No admin or service key ever touches the code.
+- **Domain-locked RPC.** The Helius key shipped in the page only works from the project's own origin.
+- **No raw HTML, safe links only.** Nothing a visitor types is rendered as raw HTML, and only http and https links are accepted, so the board cannot be used for injection.
+- **Open-source evidence only.** Contributors are required to keep submissions to publicly verifiable, on-chain facts. Private messages, personal data, and accusations are rejected by design.
 
----
+## Stack and data
+
+No framework and no build step. The app is a single static `index.html`, self-contained, that runs anywhere static files are served.
+
+- **Live balances:** [Helius](https://www.helius.dev) RPC on Solana mainnet, with the public node as an automatic fallback.
+- **Live price:** the CoinGecko public API, so the gap between declared and on-chain is always shown in current dollars.
+- **Wallet and on-chain actions:** [`@solana/web3.js`](https://github.com/solana-labs/solana-web3.js) with Phantom and the SPL Memo program, with payments over Solana Pay.
+- **Shared community layer:** an optional [Supabase](https://supabase.com) backend for the global case board, the roster, peer review, and the on-chain action index, all governed by row-level security.
+- **Form delivery:** analyst applications and the weekly brief reach the maintainer through [Web3Forms](https://web3forms.com).
+
+All entity and wallet data is auditable. Every attribution carries its evidence and a confidence label, and the methodology to reproduce it is published in full.
 
 ## Run it locally
 
-No toolchain required.
+Serve `index.html` from any static host. With Vercel, drag the file in and deploy. No build, no backend required. To turn on the shared community layer, create a free Supabase project, run the SQL from the setup notes, and paste your project URL and publishable key into the two constants near the top of the script.
 
-```bash
-git clone https://github.com/friendlyfiree/solana-treasury-watch.git
-cd solana-treasury-watch
-# open index.html in a browser, or serve it:
-python3 -m http.server 8080
-# then visit http://localhost:8080
-```
+## Roadmap
 
-The registry, methodology, graph, and flagship investigations work entirely offline. The community layer (bounties, reports, roster, review) talks to Supabase.
+- **Live now, the desk is open.** Open a case, traced wallets, case files, and the safety rules, all live. Free to use, public to read.
+- **Next, open the code.** The full codebase and dataset on GitHub, more entities on the registry, and the weekly brief wired up.
+- **Soon, grow the roster.** More verified analysts reviewing each other's work. Consensus clears a finding, never one single voice.
+- **Later, hand it to the network.** Approval moves from the maintainer to the analysts themselves, weighted by reputation. A Wikipedia for on-chain investigation, run by the people who do the work.
 
-### Configuring the backend (optional)
-
-Community features expect a Supabase project. The SQL to provision every table, policy, storage bucket, and seed is idempotent:
-
-- `osi_supabase_setup.sql` : tables, row-level security, storage, and the seeded bounty board.
-- `osi_admin_setup.sql` : maintainer (authenticated) full access.
-- `osi_security.sql` : delete and size-guard hardening.
-- `osi_consensus.sql` : analyst roster weighting, the vouches table, and the peer-review consensus trigger.
-
----
+The near-term list is deliberately small and achievable for a solo maintainer. The later list is the direction of travel, not a promise with a date.
 
 ## Contributing
 
-OSI is a community intelligence project. Two ways in:
-
-- **File evidence or take a bounty.** Connect a wallet, open the Field Office or the Wire, and contribute. Cleared work is published to the public record and the bounty sponsor releases the reward on-chain (OSI does not hold or guarantee the funds).
-- **Join the analyst roster.** Apply from the Community tab. Applications are reviewed privately by the maintainer; verified analysts gain a weighted vote in peer review and a public, reputation-tracked profile.
-
-Code contributions are welcome via pull request. Keep additions dependency-light and reproducible.
-
----
+New attributions and case work are welcome, see [CONTRIBUTING.md](./CONTRIBUTING.md). The bar is deliberately high: every claim needs an on-chain trail, a documented confidence level, and only public, open-source evidence. No private data, ever.
 
 ## Disclaimer
 
-OSI publishes intelligence derived from public filings, press releases, and public on-chain data. Declared figures come from company disclosures; live balances come directly from the Solana chain and may differ. Nothing here is financial, investment, or legal advice. Attributions are analytical conclusions, presented with their confidence level, and are open to correction through the public review process.
+This is open-source research, not financial, legal, or recovery advice. On-chain attribution is probabilistic; labels reflect evidentiary strength, not legal certainty. OSI does not recover funds and never promises to. Always verify independently before acting.
 
----
+## License
 
-*Built for the Solana community. Open intelligence, not a paywall.*
+[MIT](./LICENSE)
