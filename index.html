@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Open Solana Intelligence, On-Chain Verified Institutional Activity</title>
+<title>Open Solana Intelligence · community-verified on-chain investigation</title>
 <meta name="description" content="Open, on-chain-verified intelligence on institutional Solana activity, public companies, ETFs, foundations, VCs, DAOs, validators, and custodians. Don't trust the filing, verify the chain.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -567,12 +567,19 @@ body{padding-left:0;padding-top:84px}
 body[data-view="registry"] .sb-item[data-view="registry"],
 body[data-view="research"] .sb-item[data-view="research"],
 body[data-view="methodology"] .sb-item[data-view="methodology"],
-body[data-view="graph"] .sb-item[data-view="graph"],
+body[data-view="graph"] .sb-item[data-view="dat"],
 body[data-view="dat"] .sb-item[data-view="dat"],
 body[data-view="field"] .sb-item[data-view="field"],
-body[data-view="wire"] .sb-item[data-view="wire"],
+body[data-view="wire"] .sb-item[data-view="field"],
 body[data-view="community"] .sb-item[data-view="community"]{
   background:rgba(20,241,149,.08);color:var(--sol);box-shadow:inset 0 -2px 0 var(--sol)}
+.vsub{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+.vsub-b{background:none;border:0;border-bottom:2px solid transparent;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;padding:11px 15px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;margin-bottom:-1px;transition:color .15s,border-color .15s}
+.vsub-b:hover{color:var(--ink-dim)}
+.vsub-b.active{color:var(--sol);border-bottom-color:var(--sol)}
+.vsub-b span{font-size:13px;opacity:.9}
+.vsub.gin{border-bottom:0;margin-bottom:0;margin-left:-4px}
+.vsub.gin .vsub-b{padding:8px 13px}
 .sb-board{display:none!important}
 .sb-subnav{display:none!important}
 .sb-foot{margin:0 0 0 auto;padding:0;border-top:none;flex-direction:row;align-items:center;gap:10px;flex-shrink:0}
@@ -643,9 +650,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   <nav class="sb-nav" role="tablist" aria-label="Sections">
     <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span class="sb-ic">▣</span><span>Registry</span><span class="sb-c" id="vc-co">3</span></button>
     <button class="sb-item" data-view="field" role="tab" onclick="showView('field')"><span class="sb-ic">🗂</span><span>Field Office</span></button>
-    <button class="sb-item" data-view="wire" role="tab" onclick="showView('wire')"><span class="sb-ic">📰</span><span>The Wire</span></button>
     <button class="sb-item" data-view="dat" role="tab" onclick="showView('dat')"><span class="sb-ic">📡</span><span>DAT Watch</span></button>
-    <button class="sb-item" data-view="graph" role="tab" onclick="showView('graph')"><span class="sb-ic">🕸️</span><span>Network</span></button>
     <button class="sb-item" data-view="research" role="tab" onclick="showView('research')"><span class="sb-ic">🕵️</span><span>Investigations</span><span class="sb-c" id="vc-cases">2</span></button>
     <button class="sb-item" data-view="methodology" role="tab" onclick="showView('methodology')"><span class="sb-ic">🔬</span><span>Methodology</span></button>
     <button class="sb-item" data-view="community" role="tab" onclick="showView('community')"><span class="sb-ic">✦</span><span>Community</span></button>
@@ -670,8 +675,22 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 
 <div class="glow"></div>
 
-<div id="wsj-ticker" class="wsj-ticker" aria-hidden="true"><div class="wsj-track" id="wsj-track"></div></div>
+<div id="osi-strip" class="osi-strip">
+  <span class="os-dot"></span>
+  <span class="os-tx">Open, community-verified on-chain investigation</span>
+  <span class="os-sep">·</span>
+  <span class="os-tx os-dim">No fee to open a case</span>
+  <span class="os-sep os-h">·</span>
+  <span class="os-tx os-warn os-h">OSI never DMs you or asks for your funds</span>
+</div>
 <style>
+.osi-strip{position:fixed;top:54px;left:0;right:0;height:30px;z-index:55;background:rgba(6,9,16,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:9px;padding:0 16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;overflow:hidden}
+.os-dot{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 1.8s infinite;flex:none}
+.os-tx{color:var(--ink-dim);white-space:nowrap}
+.os-dim{color:var(--ink-faint)}
+.os-warn{color:var(--amber)}
+.os-sep{color:var(--line-bright)}
+@media(max-width:680px){.os-h{display:none}}
 .wsj-ticker{position:fixed;top:54px;left:0;right:0;height:30px;z-index:55;background:rgba(6,9,16,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line);overflow:hidden;display:flex;align-items:center}
 .wsj-ticker::before{content:"";position:absolute;left:0;top:0;bottom:0;width:60px;z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(6,9,16,.97),transparent)}
 .wsj-ticker::after{content:"";position:absolute;right:0;top:0;bottom:0;width:60px;z-index:2;pointer-events:none;background:linear-gradient(270deg,rgba(6,9,16,.97),transparent)}
@@ -729,29 +748,6 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
       <button class="hero-demo" onclick="demoStart()"><span class="hd-ic">▶</span> Watch the 2-min tour <span class="hd-sec">no wallet</span></button>
     </div>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="k">Entities tracked</div>
-        <div class="v" id="s-co">3</div>
-        <div class="sub">institutions &amp; protocols</div>
-      </div>
-      <div class="stat">
-        <div class="k">Wallets attributed</div>
-        <div class="v" id="s-wal">-</div>
-        <div class="sub">across all entities</div>
-      </div>
-      <div class="stat">
-        <div class="k">Declared SOL</div>
-        <div class="v sol" id="s-sol">-</div>
-        <div class="sub">per entity disclosures</div>
-      </div>
-      <div class="stat">
-        <div class="k">Est. USD value</div>
-        <div class="v" id="s-usd">-</div>
-        <div class="sub" id="s-price">at live SOL price</div>
-      </div>
-    </div>
-    <p class="disclaim">Declared figures come from company filings &amp; press releases. Live wallet balances are fetched directly from the Solana chain and may differ from declared totals, that gap is exactly what this registry surfaces.</p>
     </div>
     <aside class="hero-logo" onclick="showView('registry')" title="Open Solana Intelligence"><div class="hero-logo-glow"></div><div class="hero-logo-img"></div></aside>
     </div>
@@ -915,14 +911,43 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .dat-cta{margin-top:10px;background:transparent;border:1px solid var(--line-bright);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;padding:7px 11px;border-radius:2px;cursor:pointer;white-space:nowrap}
 .dat-row.is-traced .dat-cta{border-color:rgba(20,241,149,.35);color:var(--sol)}
 .dat-cta:hover{border-color:var(--sol);color:var(--sol)}
+.dat-cov-h{font-size:10px;letter-spacing:.18em;color:var(--ink-faint);text-transform:uppercase;margin:4px 0 12px}
 .dat-note{font-size:12px;color:var(--ink-faint);line-height:1.65;margin-top:18px;border-top:1px solid var(--line);padding-top:16px;max-width:760px}
 @media(max-width:760px){.dat-row{grid-template-columns:34px 1fr;gap:12px}.dat-fig{grid-column:1/-1;text-align:left;border-top:1px solid var(--line);padding-top:12px;margin-top:4px;display:flex;align-items:center;gap:14px}.dat-fig .dat-cta{margin-top:0;margin-left:auto}.dat-sum-n{font-size:30px}}
 </style>
   <div class="wrap">
+    <div class="vsub">
+      <button class="vsub-b active" onclick="showView('dat')"><span>📡</span> Watchlist</button>
+      <button class="vsub-b" onclick="showView('graph')"><span>🕸️</span> Network map</button>
+    </div>
     <div class="sec-head">
       <h2>📡 DAT Watch</h2>
       <div class="legend"><span class="mono" style="color:var(--ink-faint)">every public Solana treasury &middot; and whether we have traced it</span></div>
     </div>
+    <div class="dat-cov-h mono">// what OSI has traced so far</div>
+    <div class="stats">
+      <div class="stat">
+        <div class="k">Entities tracked</div>
+        <div class="v" id="s-co">3</div>
+        <div class="sub">institutions &amp; protocols</div>
+      </div>
+      <div class="stat">
+        <div class="k">Wallets attributed</div>
+        <div class="v" id="s-wal">-</div>
+        <div class="sub">across all entities</div>
+      </div>
+      <div class="stat">
+        <div class="k">Declared SOL</div>
+        <div class="v sol" id="s-sol">-</div>
+        <div class="sub">per entity disclosures</div>
+      </div>
+      <div class="stat">
+        <div class="k">Est. USD value</div>
+        <div class="v" id="s-usd">-</div>
+        <div class="sub" id="s-price">at live SOL price</div>
+      </div>
+    </div>
+    <p class="disclaim">Declared figures come from company filings &amp; press releases. Live wallet balances are fetched directly from the Solana chain and may differ from declared totals, that gap is exactly what this registry surfaces.</p>
     <div id="dat-body"></div>
   </div>
 </section>
@@ -1021,6 +1046,10 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .rc-att img{display:block;max-width:100%;max-height:180px;object-fit:cover}
 </style>
   <div class="wrap">
+    <div class="vsub">
+      <button class="vsub-b active" onclick="showView('field')"><span>🗂</span> Open cases</button>
+      <button class="vsub-b" onclick="showView('wire')"><span>📰</span> The Wire</button>
+    </div>
     <div class="fo-hero">
       <div class="fo-hero-l">
         <div class="fo-eyebrow"><span class="fo-live"></span>Live ops</div>
@@ -1033,12 +1062,12 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 
     <div class="fo-form" id="field-form" hidden>
       <div class="fo-form-h">⊹ File a new case</div>
-      <p class="fo-form-sub">Name a target and what needs proving. After a maintainer reviews it, the case goes live on the board where anyone can boost it or apply with a report. Filing is signed with your wallet.</p>
+      <p class="fo-form-sub">Tell us what happened, or what needs tracing. After a maintainer reviews it, the case goes live on the board where the community can back it or work it. Opening is free and signed with your wallet. Keep it to on-chain facts, no seed phrases, no names.</p>
       <div class="fo-grid2">
-        <input id="bf-target" class="fo-in" placeholder="Target  ·  e.g. Galaxy Digital, SOL treasury wallets">
-        <input id="bf-reward" class="fo-in" type="number" step="0.1" min="0" placeholder="Reward in SOL (optional)  ·  paid to the winner">
+        <input id="bf-target" class="fo-in" placeholder="What happened, or what needs tracing  ·  e.g. my wallet was drained, or a treasury to verify">
+        <input id="bf-reward" class="fo-in" type="number" step="0.1" min="0" placeholder="Optional reward in SOL  ·  released by you, peer-to-peer">
       </div>
-      <textarea id="bf-detail" class="fo-in fo-ta" placeholder="The brief  ·  exchange-inflow trace, custody controller, corroborating disclosure, confidence per address…"></textarea>
+      <textarea id="bf-detail" class="fo-in fo-ta" placeholder="The details  ·  the wallet or transaction involved, when it happened, where the funds went if you know. On-chain facts and tx hashes only. No seed phrases, no private keys, no names."></textarea>
       <div class="file-drop" id="bf-file-drop">
         <input type="file" id="bf-image" accept="image/*" style="display:none" onchange="onPickFile('bf')">
         <button type="button" class="file-btn" onclick="document.getElementById('bf-image').click()">\uD83D\uDDBC Add an image  ·  logo, chart, screenshot</button>
@@ -1046,10 +1075,10 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
         <div class="file-prev" id="bf-file-prev"></div>
       </div>
       <div class="fo-form-foot">
-        <span class="fo-form-note">No fee to file. Boosting, applying and rewarding are the on-chain actions.</span>
+        <span class="fo-form-note">Free to open. OSI traces and documents, it cannot recover funds and never promises to.</span>
         <div style="display:flex;gap:8px">
           <button class="fo-cancel" onclick="fieldCloseForm()">Cancel</button>
-          <button class="fo-file-btn" onclick="submitBounty()">File the case →</button>
+          <button class="fo-file-btn" onclick="osiSubmitGuard('case', submitBounty)">File the case →</button>
         </div>
       </div>
     </div>
@@ -1153,6 +1182,10 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .adm-cfg-msg{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);margin-top:9px;min-height:14px}
 </style>
   <div class="wrap">
+    <div class="vsub">
+      <button class="vsub-b" onclick="showView('field')"><span>🗂</span> Open cases</button>
+      <button class="vsub-b active" onclick="showView('wire')"><span>📰</span> The Wire</button>
+    </div>
     <div class="wire-hero">
       <div class="wire-eyebrow"><span class="wire-live"></span>Open intelligence</div>
       <h1 class="wire-title">The Wire</h1>
@@ -1176,7 +1209,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
         <span class="fo-form-note">Backing and supporting are the on-chain actions. Filing is free, signed to prove authorship.</span>
         <div style="display:flex;gap:8px">
           <button class="fo-cancel" onclick="wireCloseForm()">Cancel</button>
-          <button class="wire-pub-btn" onclick="submitIntel()">Publish to the wire →</button>
+          <button class="wire-pub-btn" onclick="osiSubmitGuard('intel', submitIntel)">Publish to the wire →</button>
         </div>
       </div>
     </div>
@@ -1435,7 +1468,10 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 </style>
 <div class="gphwrap">
   <div class="gph-head">
-    <div class="gph-h-id">LINK ANALYSIS // <b>INSTITUTIONAL FLOW</b> // 51 NODES &middot; 53 LINKS</div>
+    <div class="vsub gin">
+      <button class="vsub-b" onclick="showView('dat')"><span>📡</span> Watchlist</button>
+      <button class="vsub-b active" onclick="showView('graph')"><span>🕸️</span> Network map</button>
+    </div>
     <div class="gph-q"><span>QUERY //</span><input id="gphQ" autocomplete="off" spellcheck="false" placeholder="filter: entity, wallet, custodian, validator, funder"></div>
   </div>
   <div class="gph-stage" id="gphStage">
@@ -1526,7 +1562,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
         <div class="hiw-arrow">↓</div>
         <div class="hiw-node pub"><div class="hiw-t">Published to the public record</div><div class="hiw-s">Open and permanent, with the methodology attached so the technique spreads, not just the result.</div></div>
         <div class="hiw-arrow">↓</div>
-        <div class="hiw-node"><div class="hiw-t">Sponsor releases the reward on-chain · reputation grows</div><div class="hiw-s">The sponsor pays the hunter peer-to-peer when the work is accepted. OSI verifies the work, not the payment. Backers are named, and the analyst's public track record climbs.</div></div>
+        <div class="hiw-node"><div class="hiw-t">Optional support · a public track record</div><div class="hiw-s">If the person who opened the case chooses to fund a reward, they release it peer-to-peer. OSI verifies the work, never the payment, and never guarantees it. Mostly what an analyst earns is a signed, public track record.</div></div>
         <div class="hiw-arrow">↓</div>
         <div class="hiw-node end"><div class="hiw-t">Everyone gets the intelligence</div><div class="hiw-s">The whole ecosystem can verify it. A closed marketplace stops at the buyer; OSI stops at the public.</div></div>
       </div>
@@ -1534,51 +1570,10 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div class="hiw-div"></div>
 
     <div class="sec-head">
-      <h2>🔬 The Tradecraft</h2>
-      <div class="legend"><span class="mono" style="color:var(--ink-faint)">no black boxes · reproduce every step with a block explorer</span></div>
+      <h2>The method, in the open</h2>
+      <div class="legend"><span class="mono" style="color:var(--ink-faint)">no black boxes · every step reproducible in a block explorer</span></div>
     </div>
-    <p class="mth-intro">Tracing stolen or hidden SOL can look like magic. It isn't. It is a repeatable chain of evidence anyone can follow with a block explorer and patience, whether the target is a drained wallet or an institution's treasury. Below is the exact five-step method behind every investigation here. Walk it in order, check our work, or run your own.</p>
-
-    <div class="mth-rail">
-      <button class="mth-node active" onclick="methodStep(1)"><span class="mth-n">01</span><span class="mth-l">Anchor</span></button>
-      <button class="mth-node" onclick="methodStep(2)"><span class="mth-n">02</span><span class="mth-l">Fund flow</span></button>
-      <button class="mth-node" onclick="methodStep(3)"><span class="mth-n">03</span><span class="mth-l">Custodian</span></button>
-      <button class="mth-node" onclick="methodStep(4)"><span class="mth-n">04</span><span class="mth-l">Cluster</span></button>
-      <button class="mth-node" onclick="methodStep(5)"><span class="mth-n">05</span><span class="mth-l">Cross-validate</span></button>
-    </div>
-
-    <div class="mth-detail">
-      <div class="mth-pane active" data-step="1">
-        <div class="mth-tag">STEP 01 // ANCHOR ON A DISCLOSURE</div>
-        <h3>Start off-chain, with the filing</h3>
-        <p>Every trace starts from a fixed point. For an institution that is a filing: an SEC 8-K or a press release stating a SOL purchase or custody deal, with a date and an amount. For an incident it is the transaction itself: the moment funds left the wallet. Either way you now have a <i>when</i>, a <i>how much</i>, and an address to hunt from.</p>
-        <div class="mth-ex"><b>Example</b>"Helius (HSDT) begins purchasing SOL, 760,190 SOL" on 2025-09-22. Now you know the rough size and the window to look in.</div>
-      </div>
-      <div class="mth-pane" data-step="2">
-        <div class="mth-tag">STEP 02 // MATCH THE FUNDING FLOW</div>
-        <h3>Find inflows that line up</h3>
-        <p>Find on-chain inflows whose <b>timing and size</b> match the disclosure. A treasury buying hundreds of thousands of SOL leaves a footprint: large transfers out of an exchange or OTC desk (Coinbase Prime, FalconX) into fresh addresses, clustered around the announced date.</p>
-        <div class="mth-ex"><b>Signal</b>a 1M+ SOL transfer arriving directly from a Solana Foundation non-circulating supply wallet is about as strong as on-chain evidence gets.</div>
-      </div>
-      <div class="mth-pane" data-step="3">
-        <div class="mth-tag">STEP 03 // FINGERPRINT THE CUSTODIAN</div>
-        <h3>Identify who controls the keys</h3>
-        <p>Custodians leave recognizable on-chain patterns: deposit-address structures, program interactions, and stake-authority layouts that repeat across their clients. Matching those patterns tells you <b>who controls the keys</b>, not just where the coins sit.</p>
-        <div class="mth-ex"><b>Tells</b>Coinbase Prime, Fireblocks, Anchorage and BitGo each route and stake differently. The plumbing gives them away.</div>
-      </div>
-      <div class="mth-pane" data-step="4">
-        <div class="mth-tag">STEP 04 // CLUSTER THE ACCOUNTS</div>
-        <h3>Expand one wallet into the full set</h3>
-        <p>Follow each stake account back to its <b>stake authority</b> and <b>withdraw authority</b>; group deposit addresses that share a controller. One confirmed wallet expands into the whole treasury this way: custody wallets, stake accounts, and the validators they delegate to.</p>
-        <div class="mth-ex"><b>Method</b>shared authorities and repeated counterparties turn a single address into a mapped treasury.</div>
-      </div>
-      <div class="mth-pane" data-step="5">
-        <div class="mth-tag">STEP 05 // CROSS-VALIDATE BEFORE YOU LABEL</div>
-        <h3>Two independent lines, or it waits</h3>
-        <p>Never publish on a single signal. Require at least <b>two independent lines</b>, a timing match plus a custodian fingerprint plus a corroborating filing, before attributing an address. Then assign a <b>confidence level</b>, not a verdict.</p>
-        <div class="mth-ex"><b>Rule</b>if it only checks one box, it stays in the notes, not on the registry.</div>
-      </div>
-    </div>
+    <p class="mth-intro">Every attribution here is a chain of evidence anyone can re-walk: anchor on a transaction or a filing, follow the funding, fingerprint the custody, cluster the related accounts, and cross-validate before anything is labeled. Nothing is taken on trust. A wrong call is visible and fixable in the open, not buried in a private dataset.</p>
 
     <div class="mth-conf-h">Confidence is graded, never assumed</div>
     <div class="mth-conf">
@@ -1686,21 +1681,36 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .rec-clear:hover{color:var(--ink-dim);border-color:var(--line-bright)}
 .rec-phase{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);border:1px dashed var(--line-bright);border-radius:2px;padding:13px 15px;margin-top:18px;line-height:1.55}
 .rec-phase b{color:var(--cyan)}
+.wiki-model{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin:26px 0 6px}
+.wiki-step{display:flex;gap:13px;align-items:flex-start;border:1px solid var(--line);border-left:2px solid var(--sol);background:var(--bg-card);border-radius:8px;padding:16px 17px}
+.wiki-step .wn{flex:none;width:24px;height:24px;border-radius:50%;background:rgba(20,241,149,.12);color:var(--sol);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+.wiki-step b{display:block;font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;letter-spacing:-.01em;margin-bottom:4px}
+.wiki-step span{font-size:12px;color:var(--ink-dim);line-height:1.55}
+.wiki-note{font-size:12.5px;color:var(--ink-faint);line-height:1.6;border:1px dashed var(--line-bright);border-radius:8px;padding:14px 16px;margin:14px 0 4px}
+@media(max-width:680px){.wiki-model{grid-template-columns:1fr}}
 @media(max-width:720px){.rec-ladder{grid-template-columns:repeat(2,1fr)}.rec-rung{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.rec-craft{grid-template-columns:1fr}.rec-frow{grid-template-columns:1fr}}
 @media (prefers-reduced-motion: reduce){.rec-hero::after{animation:none}.rec-ey i{animation:none}}
 </style>
 
 <div class="rec-hero">
-  <div class="rec-ey"><i></i>FIELD ANALYST RECRUITMENT // OPEN</div>
-  <div class="rec-h">Trace the money <span>nobody else is tracing.</span></div>
-  <div class="rec-sub">OSI runs on independent on-chain forensics. Bring an attribution the chain can prove and your name goes on the registry: <b>permanent, public, credited to you</b>. Reputation here is earned in the open, never bought.</div>
+  <div class="rec-ey"><i></i>A SELF-GOVERNING DESK // OPEN ROSTER</div>
+  <div class="rec-h">A record the community <span>writes and checks.</span></div>
+  <div class="rec-sub">OSI works like Wikipedia for on-chain investigations. Anyone can contribute a finding; verified analysts review each other's work; and nothing is published until enough independent analysts agree. No single person owns the truth, and every entry can be challenged and corrected in the open.</div>
   <div class="rec-stats">
     <div class="rec-stat"><div class="n">38</div><div class="l">WALLETS PUBLISHED</div></div>
     <div class="rec-stat"><div class="n">3</div><div class="l">ENTITIES MAPPED</div></div>
     <div class="rec-stat"><div class="n">OPEN</div><div class="l">SEATS ON THE LADDER</div></div>
   </div>
-  <button class="rec-cta" onclick="document.getElementById('analyst-form').scrollIntoView({behavior:'smooth',block:'center'});var e=document.getElementById('an-tg');if(e)e.focus();">REQUEST CLEARANCE →</button>
+  <button class="rec-cta" onclick="document.getElementById('analyst-form').scrollIntoView({behavior:'smooth',block:'center'});var e=document.getElementById('an-tg');if(e)e.focus();">Apply to the roster →</button>
 </div>
+
+<div class="wiki-model">
+  <div class="wiki-step"><span class="wn">1</span><div><b>Anyone contributes</b><span>Open a case or file a finding. Opening is free, and every submission is signed on-chain so it is attributable.</span></div></div>
+  <div class="wiki-step"><span class="wn">2</span><div><b>Peers review</b><span>Verified analysts vouch for or flag the work. Weak or unproven attribution gets caught here, in the open.</span></div></div>
+  <div class="wiki-step"><span class="wn">3</span><div><b>Consensus publishes</b><span>A finding goes public only when enough independent analysts agree. No single voice decides what is true.</span></div></div>
+  <div class="wiki-step"><span class="wn">4</span><div><b>Always correctable</b><span>Every entry stays open and can be challenged with better evidence. A wrong call is fixed in daylight, not buried.</span></div></div>
+</div>
+<p class="wiki-note">Today a maintainer holds the final seal while the analyst base grows, so nothing slips through unchecked. As the roster grows, that power moves to the network. That is the whole direction of the project: a record no one, including us, can quietly control.</p>
 
 <div id="analyst-roster"></div>
 <div class="rec-sec-h">CLEARANCE LADDER</div>
@@ -1711,7 +1721,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   <div class="rec-rung"><div class="lv">TIER IV</div><div class="nm">Chief Detective</div><div class="rq">Trusted to review others.</div></div>
   <div class="rec-rung seal"><div class="lv">◆ SEAL</div><div class="nm">Maintainer</div><div class="rq">Holds the final approval.</div></div>
 </div>
-<p class="rec-note">Volume alone does not move you. <b>Quality multiplied by accepted submissions</b> does. Every report you ship that gets approved, and every boost the community casts on it, adds rank.</p>
+<p class="rec-note">Volume alone does not move you. <b>Quality times accepted work</b> does. Reports that clear peer review, and the community's backing on them, build your standing.</p>
 
 <div class="rec-sec-h">REQUEST FIELD CREDENTIALS</div>
 <div class="rec-apply" id="analyst-form">
@@ -1722,11 +1732,11 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <input type="text" placeholder="X / Twitter username (e.g. @you)" id="an-tw">
   </div>
   <input type="text" class="full" placeholder="Proof of work: a report, thread, or dashboard (optional)" id="an-web">
-  <button class="rec-go" onclick="submitAnalystApplication()">SEND APPLICATION</button>
+  <button class="rec-go" onclick="osiSubmitGuard('application', submitAnalystApplication)">SEND APPLICATION</button>
   <div class="rec-note">No token, no fee, no pay-to-win. Just evidence.</div>
 </div>
 
-<div class="rec-sec-h">THE TRADECRAFT // HOW SCORING WORKS</div>
+<div class="rec-sec-h">HOW PEER REVIEW WORKS</div>
 <div class="rec-craft">
   <div class="rec-card up"><div class="ic" style="color:var(--sol)">▲</div><div class="t">Upvote</div><div class="d">Recognized analysts vouch for the evidence quality of a report.</div></div>
   <div class="rec-card dn"><div class="ic" style="color:var(--red)">▼</div><div class="t">Downvote</div><div class="d">Flag weak attribution or missing proof. Clustering is never certainty.</div></div>
@@ -1844,7 +1854,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
         <span class="file-name mono" id="apply-file-name"></span>
         <div class="file-prev" id="apply-file-prev"></div>
       </div>
-      <button class="btn-fill" onclick="submitBountyReport()" style="margin-top:13px">✦ Sign &amp; Submit on-chain</button>
+      <button class="btn-fill" onclick="osiSubmitGuard('report', submitBountyReport)" style="margin-top:13px">✦ Sign &amp; Submit on-chain</button>
       <div class="mf-note">Write your findings freely and attach a screenshot or document if you have one. Your wallet signs the submission, then it lands in the review queue, public once a maintainer approves it.</div>
     </div>
   </div>
@@ -2599,6 +2609,19 @@ function welcomeClose(){
   var w = document.getElementById('osi-welcome'); if(w){ w.hidden = true; w.style.display = 'none'; }
 }
 function welcomeStart(){ welcomeClose(); demoStart(); }
+// ---- pre-submission safety guard: protects OSI, the victim, and the analyst ----
+var _osiGuardFn = null;
+function osiSubmitGuard(kind, proceed){
+  _osiGuardFn = (typeof proceed === 'function') ? proceed : null;
+  var titles = { 'case':'Before you open a case', 'intel':'Before you file a dispatch', 'application':'Before you apply', 'report':'Before you submit your report' };
+  var t = document.getElementById('og-title'); if(t) t.textContent = titles[kind] || 'Read this first';
+  var ag = document.getElementById('og-agree'); if(ag) ag.checked = false;
+  var go = document.getElementById('og-go'); if(go) go.disabled = true;
+  var m = document.getElementById('osi-guard'); if(m){ m.style.display=''; m.hidden=false; }
+}
+function osiGuardToggle(){ var ag=document.getElementById('og-agree'), go=document.getElementById('og-go'); if(go) go.disabled = !(ag && ag.checked); }
+function osiGuardClose(){ var m=document.getElementById('osi-guard'); if(m){ m.hidden=true; m.style.display='none'; } _osiGuardFn=null; }
+function osiGuardProceed(){ var ag=document.getElementById('og-agree'); if(!(ag && ag.checked)) return; var fn=_osiGuardFn; osiGuardClose(); if(typeof fn==='function'){ try{ fn(); }catch(e){} } }
 (function(){
   function go(){ setTimeout(welcomeShow, 800); }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', go); } else { go(); }
@@ -4276,11 +4299,6 @@ async function renderProfile(){
   }
 }
 
-function methodStep(n){
-  document.querySelectorAll('.mth-node').forEach(function(b,i){ b.classList.toggle('active', i===(n-1)); });
-  document.querySelectorAll('.mth-pane').forEach(function(p){ p.classList.toggle('active', p.dataset.step===String(n)); });
-}
-
 // ===== DAT Watch: the whole Solana corporate-treasury sector, and what we have traced =====
 // Self-declared holdings from public disclosures + trackers (Yahoo Finance, Helius,
 // CoinGecko, The Block, bitcoinminingstock.io), late 2025 / early 2026. Edit freely.
@@ -5344,6 +5362,29 @@ function showToast(msg){
 .demo-spot.center{border-color:transparent;box-shadow:0 0 0 9999px rgba(5,8,14,.93)}
 .demo-spot.off{box-shadow:none;border-color:transparent;opacity:0}
 .osi-welcome[hidden]{display:none !important}
+.osi-guard[hidden]{display:none !important}
+.osi-guard{position:fixed;inset:0;z-index:9600;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(4,7,14,.8);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);animation:owFade .25s ease;overflow-y:auto}
+.og-card{position:relative;max-width:520px;width:100%;background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-top:2px solid var(--amber);border-radius:14px;padding:28px 26px;box-shadow:0 40px 100px rgba(0,0,0,.72);animation:owRise .3s cubic-bezier(.2,.7,.2,1);margin:auto}
+.og-x{position:absolute;top:12px;right:14px;background:transparent;border:0;color:var(--ink-faint);font-size:23px;line-height:1;cursor:pointer}
+.og-x:hover{color:var(--ink)}
+.og-ey{display:inline-flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin-bottom:11px}
+.og-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:owPing 1.8s ease-out infinite}
+.og-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:21px;letter-spacing:-.02em;margin:0 0 16px}
+.og-list{display:flex;flex-direction:column;gap:11px;margin-bottom:17px}
+.og-item{display:flex;gap:11px;align-items:flex-start;font-size:12.5px;line-height:1.55;color:var(--ink-dim)}
+.og-item b{color:var(--ink)}
+.og-ic{flex:none;font-size:15px;line-height:1.3;color:var(--ink-faint)}
+.og-item.warn .og-ic{color:var(--amber)}
+.og-item.warn b{color:var(--amber)}
+.og-item.plat .og-ic{color:var(--cyan)}
+.og-check{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--ink-dim);line-height:1.5;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:12px 13px;background:var(--bg)}
+.og-check input{margin-top:2px;flex:none;accent-color:var(--sol)}
+.og-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.og-cancel{background:transparent;border:1px solid var(--line-bright);color:var(--ink-dim);border-radius:8px;padding:11px 18px;font-family:'JetBrains Mono',monospace;font-size:12px;cursor:pointer}
+.og-cancel:hover{color:var(--ink);border-color:var(--ink-faint)}
+.og-go{background:var(--sol);color:var(--bg);border:0;border-radius:8px;padding:11px 20px;font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .15s}
+.og-go:disabled{opacity:.4;cursor:not-allowed}
+.og-go:not(:disabled):hover{background:var(--sol-deep)}
 .osi-welcome{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(4,7,14,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:owFade .3s ease}
 @keyframes owFade{from{opacity:0}to{opacity:1}}
 .ow-card{position:relative;max-width:440px;width:100%;background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-top:2px solid var(--sol);border-radius:14px;padding:30px 28px;box-shadow:0 40px 100px rgba(0,0,0,.7);animation:owRise .34s cubic-bezier(.2,.7,.2,1)}
@@ -5434,6 +5475,24 @@ function showToast(msg){
     <div class="ow-actions">
       <button class="ow-go" onclick="welcomeStart()"><span>&#9654;</span> Run the briefing <span class="ow-sec">~2 min</span></button>
       <button class="ow-skip" onclick="welcomeClose()">Explore on my own</button>
+    </div>
+  </div>
+</div>
+<div id="osi-guard" class="osi-guard" hidden>
+  <div class="og-card">
+    <button class="og-x" onclick="osiGuardClose()" aria-label="Close">&times;</button>
+    <div class="og-ey mono"><span class="og-dot"></span> Before you sign</div>
+    <h2 class="og-title" id="og-title">Read this first</h2>
+    <div class="og-list">
+      <div class="og-item plat"><span class="og-ic">⛓</span><div><b>OSI holds nothing and guarantees nothing.</b> This is an open, public platform. OSI is not an escrow, never holds or moves your funds, and cannot promise any payment or outcome. A signed memo is a public audit trail, not a verdict or legal proof.</div></div>
+      <div class="og-item warn"><span class="og-ic">⚠</span><div><b>Never share your seed phrase or private key, with anyone.</b> No one from OSI will ever DM you, ask for your seed phrase, or ask you to send funds to recover anything. Anyone who does is a scammer.</div></div>
+      <div class="og-item"><span class="og-ic">⚖</span><div><b>Facts, not people.</b> Keep your writeup to on-chain evidence and transaction hashes. No private keys, no personal identities, no accusations, no doxxing. Follow the money, not the person.</div></div>
+      <div class="og-item"><span class="og-ic">◉</span><div><b>This is public and permanent.</b> Once reviewed, your submission joins the open record for anyone to read and verify. Do not include anything you would not want public.</div></div>
+    </div>
+    <label class="og-check"><input type="checkbox" id="og-agree" onchange="osiGuardToggle()"> I understand, and I am not sharing any seed phrase or private key.</label>
+    <div class="og-actions">
+      <button class="og-cancel" onclick="osiGuardClose()">Cancel</button>
+      <button class="og-go" id="og-go" onclick="osiGuardProceed()" disabled>Continue</button>
     </div>
   </div>
 </div>
