@@ -716,15 +716,18 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   <div class="wrap">
     <div class="hero-grid">
     <div class="hero-main">
-    <span class="eyebrow"><span class="live"></span>Open on-chain intelligence</span>
+    <span class="eyebrow"><span class="live"></span>Open, community-verified on-chain investigation</span>
     <h1>
-      Institutions say<br>
-      they hold <span class="stroke">SOL.</span><br>
-      <span class="chain">We show the wallets.</span>
+      Lost SOL to a hack,<br>
+      a rug, or a scam?<br>
+      <span class="chain">Open a case.</span>
     </h1>
-    <p class="lede">Open intelligence on <strong>institutional Solana activity</strong>: public companies, ETFs, foundations, VCs, DAOs, validators, liquid-staking protocols, and custodians. Wallets mapped through <strong>original on-chain forensics</strong>: funding sources, custody controllers, and validator-level staking.</p>
-    <p class="creed">// <b>don't trust the filing</b>, verify the chain</p>
-    <button class="hero-demo" onclick="demoStart()"><span class="hd-ic">▶</span> Run demo briefing <span class="hd-sec">~2 min · no wallet</span></button>
+    <p class="lede">OSI is an open, community-run desk for on-chain investigations, from a drained wallet to an institution's treasury. Opening a case is <strong>free</strong> and takes one wallet signature. Verified analysts trace <strong>where the funds went and how</strong>, their peers review the work, and the finding is published, public and permanent. We follow the money, not people, and we never promise to get it back.</p>
+    <p class="creed">// <b>you should not have to</b> trace it alone</p>
+    <div class="hero-cta">
+      <button class="hero-go" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);"><span>+</span> Open a case <span class="hg-sec">free · 1 signature</span></button>
+      <button class="hero-demo" onclick="demoStart()"><span class="hd-ic">▶</span> Watch the 2-min tour <span class="hd-sec">no wallet</span></button>
+    </div>
 
     <div class="stats">
       <div class="stat">
@@ -755,27 +758,65 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
 </section>
 
+<section class="sec" data-view="registry" id="safeguards">
+<style>
+.hero-cta{display:flex;flex-wrap:wrap;gap:11px;align-items:center;margin-top:6px}
+.hero-go{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:9px;border:1px solid var(--sol);background:linear-gradient(180deg,rgba(20,241,149,.2),rgba(20,241,149,.06));color:var(--sol);font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;cursor:pointer;transition:all .16s}
+.hero-go:hover{box-shadow:0 10px 34px rgba(20,241,149,.25);transform:translateY(-1px)}
+.hero-go span:first-child{font-size:15px;font-weight:700}
+.hg-sec{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--ink-faint);letter-spacing:.04em}
+#safeguards{padding-top:10px;padding-bottom:8px}
+.guards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.guard{border:1px solid var(--line);border-top:2px solid var(--line-bright);background:var(--bg-card);border-radius:10px;padding:17px 18px}
+.guard.warn{border-top-color:var(--amber)}
+.guard-ic{font-size:17px;line-height:1;margin-bottom:9px;color:var(--ink-dim)}
+.guard.warn .guard-ic{color:var(--amber)}
+.guard-b{font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;letter-spacing:-.01em;margin-bottom:6px}
+.guard-d{font-size:11.5px;line-height:1.55;color:var(--ink-dim)}
+@media(max-width:760px){.guards{grid-template-columns:1fr}}
+</style>
+  <div class="wrap">
+    <div class="guards">
+      <div class="guard warn">
+        <div class="guard-ic">⚠</div>
+        <div class="guard-b">No recovery, ever</div>
+        <div class="guard-d">On-chain transfers are final. OSI traces and documents what happened. It cannot reverse, freeze, or recover funds, and will never promise to.</div>
+      </div>
+      <div class="guard">
+        <div class="guard-ic">🛡</div>
+        <div class="guard-b">We never DM you first</div>
+        <div class="guard-d">OSI and its analysts never message you out of the blue, and never ask for a fee, a seed phrase, or wallet access. Anyone promising to recover your funds for a payment is a scammer.</div>
+      </div>
+      <div class="guard">
+        <div class="guard-ic">⚖</div>
+        <div class="guard-b">The money, not the person</div>
+        <div class="guard-d">Investigations follow the fund flow and the mechanism, every step backed by a transaction hash. No accusations, no identities, no doxxing.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="sec" data-view="registry" id="entry-points">
   <div class="wrap">
-    <div class="ep-kicker mono">// pick your way in</div>
+    <div class="ep-kicker mono">// where do you fit in</div>
     <div class="ep-grid">
+      <button class="ep-card feat" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">
+        <div class="ep-ic">🛟</div>
+        <div class="ep-t">Something happened? Open a case</div>
+        <div class="ep-d">Drained, rugged, or scammed, and the explorers make no sense? Open a free case and the community traces where your SOL went and how. One signature, no fee.</div>
+        <div class="ep-go mono">Open a case →</div>
+      </button>
+      <button class="ep-card" onclick="showView('field')">
+        <div class="ep-ic">🔍</div>
+        <div class="ep-t">Help investigate</div>
+        <div class="ep-d">On-chain analyst? Take an open case, trace the funding and custody directly on the chain, and build a public, signed track record.</div>
+        <div class="ep-go mono">See open cases →</div>
+      </button>
       <button class="ep-card" onclick="epScrollEntities()">
         <div class="ep-ic">▣</div>
-        <div class="ep-t">Browse the Registry</div>
-        <div class="ep-d">See the institutions on the registry and the wallets behind their declared SOL, traced and attributed on-chain.</div>
-        <div class="ep-go mono">Jump to the entities →</div>
-      </button>
-      <button class="ep-card feat" onclick="showView('field')">
-        <div class="ep-ic">🗂</div>
-        <div class="ep-t">Join a Bounty</div>
-        <div class="ep-d">Take an open case, trace the wallets, and earn the pledged SOL reward when your work clears review.</div>
-        <div class="ep-go mono">See open bounties →</div>
-      </button>
-      <button class="ep-card" onclick="epSubmit()">
-        <div class="ep-ic">📡</div>
-        <div class="ep-t">Submit Evidence</div>
-        <div class="ep-d">Found something on-chain? File a dispatch and put it on the permanent public record.</div>
-        <div class="ep-go mono">File a dispatch →</div>
+        <div class="ep-t">Browse the open record</div>
+        <div class="ep-d">Read what the community has already traced: institutional treasuries, flagged wallets, and published investigations. Free and permanent.</div>
+        <div class="ep-go mono">Jump to the record →</div>
       </button>
     </div>
   </div>
@@ -984,7 +1025,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
       <div class="fo-hero-l">
         <div class="fo-eyebrow"><span class="fo-live"></span>Live ops</div>
         <h1 class="fo-title">The Field Office</h1>
-        <p class="fo-sub">Open bounties for the wallets nobody else is tracing. Post a case, hunt a target, and reward the analyst who cracks it in SOL, wallet to wallet. This is where a generation of on-chain investigators gets to work.</p>
+        <p class="fo-sub">Open cases waiting for an analyst. Anyone can post a case for free, from a drained wallet to an untraced treasury, and the community traces where the funds went and how. If you choose to reward the analyst who cracks it, that is peer to peer in SOL; OSI never holds it and never guarantees it.</p>
         <button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button>
       </div>
       <div class="fo-ops" id="field-stats"></div>
@@ -1463,9 +1504,9 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div class="hiw">
       <div class="hiw-kick mono">// how OSI works</div>
       <h3>Open intelligence, not a paywall</h3>
-      <p class="hiw-lead">Most on-chain intel platforms sell attribution to whoever pays, and the answer stays locked to that one buyer. OSI runs the opposite way. Demand funds an investigation, analysts do the work, their peers verify it, and the result becomes a permanent public record anyone can check. The market here is reputation, not resale.</p>
+      <p class="hiw-lead">When SOL leaves your wallet, or an institution's, and you cannot trace it yourself, the usual options are a paid analyst who answers to one client, or silence. OSI runs the opposite way. Anyone can open a case for free; verified analysts investigate, their peers review the work, and the result becomes a permanent public record anyone can check. The reward here is reputation, not resale, and none of it is a promise to recover what was lost.</p>
       <div class="hiw-flow">
-        <div class="hiw-node start"><div class="hiw-t">Demand for intelligence</div><div class="hiw-s">Someone needs a wallet or an institution's treasury traced.</div></div>
+        <div class="hiw-node start"><div class="hiw-t">Something needs tracing</div><div class="hiw-s">A drained wallet, a suspicious flow, or an institution's treasury.</div></div>
         <div class="hiw-arrow">↓</div>
         <div class="hiw-node"><div class="hiw-t">Search the open registry</div><div class="hiw-s">Everything already traced is public and free to read.</div></div>
         <div class="hiw-split">
@@ -1475,7 +1516,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
           </div>
           <div class="hiw-leg">
             <div class="hiw-legtag open">not found</div>
-            <div class="hiw-node"><div class="hiw-t">Open a bounty</div><div class="hiw-s">Pledge a reward and describe the case. The pledge is the sponsor's public commitment; OSI does not hold the funds or guarantee payment.</div></div>
+            <div class="hiw-node"><div class="hiw-t">Open a case, free</div><div class="hiw-s">Describe what happened and sign it on-chain. No fee to open. If you later choose to fund a reward, that pledge is your public commitment; OSI never holds it or guarantees payment.</div></div>
             <div class="hiw-arrow sm">↓</div>
             <div class="hiw-node"><div class="hiw-t">Analysts investigate</div><div class="hiw-s">Trace funding, custody, and validators directly on-chain.</div></div>
             <div class="hiw-arrow sm">↓</div>
@@ -1496,7 +1537,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
       <h2>🔬 The Tradecraft</h2>
       <div class="legend"><span class="mono" style="color:var(--ink-faint)">no black boxes · reproduce every step with a block explorer</span></div>
     </div>
-    <p class="mth-intro">Wallet attribution can look like magic. It isn't. It is a repeatable chain of evidence anyone can follow with a block explorer and patience. Below is the exact five-step method behind every entry on the registry. Walk it in order, check our work, or run your own.</p>
+    <p class="mth-intro">Tracing stolen or hidden SOL can look like magic. It isn't. It is a repeatable chain of evidence anyone can follow with a block explorer and patience, whether the target is a drained wallet or an institution's treasury. Below is the exact five-step method behind every investigation here. Walk it in order, check our work, or run your own.</p>
 
     <div class="mth-rail">
       <button class="mth-node active" onclick="methodStep(1)"><span class="mth-n">01</span><span class="mth-l">Anchor</span></button>
@@ -1510,7 +1551,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
       <div class="mth-pane active" data-step="1">
         <div class="mth-tag">STEP 01 // ANCHOR ON A DISCLOSURE</div>
         <h3>Start off-chain, with the filing</h3>
-        <p>Every trace starts off-chain. An SEC 8-K, an 8-K/A, or a press release that states a SOL purchase, a custody arrangement, or a staking deal, with a date and an amount. That gives you a <i>when</i> and a <i>how much</i> to hunt for on the chain.</p>
+        <p>Every trace starts from a fixed point. For an institution that is a filing: an SEC 8-K or a press release stating a SOL purchase or custody deal, with a date and an amount. For an incident it is the transaction itself: the moment funds left the wallet. Either way you now have a <i>when</i>, a <i>how much</i>, and an address to hunt from.</p>
         <div class="mth-ex"><b>Example</b>"Helius (HSDT) begins purchasing SOL, 760,190 SOL" on 2025-09-22. Now you know the rough size and the window to look in.</div>
       </div>
       <div class="mth-pane" data-step="2">
@@ -2211,7 +2252,7 @@ var DEMO_WALK = 720; // cursor travel time, matches the CSS transition
 var DEMO_STEPS = [
   { view:'registry', sel:'.hero h1', sel2:'.hero-main', noCursor:true, dur:7000,
     title:'Open Solana Intelligence',
-    body:'A short intelligence briefing. Institutions say they hold SOL. OSI maps the wallets behind the claim through on-chain forensics, with a confidence level on every link.' },
+    body:'A two-minute tour. OSI is an open desk for on-chain investigations: lost SOL, a suspicious flow, or an institution\u2019s treasury. Anyone opens a case for free, the community traces it on-chain, and the finding is published. It never promises to recover funds.' },
   { view:'registry', sel:'.stats', dur:8000,
     title:'The numbers, checked against the chain',
     body:'Declared holdings come from company filings. Live balances come straight from Solana. The gap between the two is what this registry exists to surface.' },
@@ -2223,13 +2264,13 @@ var DEMO_STEPS = [
     body:'Long-form investigations that read like detective work. This one follows 999,999 SOL leaving a foundation wallet and landing in what we attribute, with high confidence, to a public company treasury.' },
   { view:'registry', sel:'#entry-points .ep-grid', sel2:'#entry-points', dur:8000,
     title:'Three ways in',
-    body:'Browse the open record, take a bounty and earn SOL for tracing a target, or file new evidence to the public ledger. No gate, no paywall.' },
+    body:'Open a case if something happened to you, take a case as an analyst, or just read the open record. No gate, no paywall, no signup.' },
   { view:'field', sel:'#field-cases > div', sel2:'#field-stats', clickSel:'#field-cases > div', dur:8500,
     title:'The Field Office',
-    body:'A live bounty board. Anyone funds an investigation; analysts claim a case and trace the wallets. Each one runs on its own countdown and closes when it lapses.' },
+    body:'A live case board. Anyone posts a case for free; analysts claim it and trace the wallets on-chain. Each case runs on its own countdown and closes when it lapses.' },
   { view:'field', box:'demoBoxApply', modalMode:true, clickSel:'.bounty .btn-apply', dur:10000,
     title:'Claim a bounty',
-    body:'Click Apply and you get this box: write up your findings, attach the proof, and sign the submission with your wallet. No middleman ever holds your work.' },
+    body:'Take a case and you get this box: write up your findings, attach the proof, and sign the submission with your wallet. No middleman ever holds your work.' },
   { view:'field', box:'demoBoxPay', modalMode:true, modalPoint:'#tip-pay-toggle', modalReveal:'toggleSolanaPay', dur:11000,
     title:'Solana Pay, built in',
     body:'Support and rewards move on Solana Pay. Open the panel for a QR any Solana wallet can scan, or tap to pay on mobile. Sponsors release bounty rewards the same way, peer to peer, settled on-chain in seconds.' },
@@ -5388,8 +5429,8 @@ function showToast(msg){
   <div class="ow-card">
     <button class="ow-x" onclick="welcomeClose()" aria-label="Close">&times;</button>
     <div class="ow-eyebrow mono"><span class="ow-dot"></span> New here</div>
-    <h2 class="ow-title">Take the 2-minute briefing</h2>
-    <p class="ow-body">OSI traces the Solana wallets behind public companies' treasuries, with a confidence level on every link. This guided tour walks the whole platform for you. No wallet, no signup, the product shows itself.</p>
+    <h2 class="ow-title">A 2-minute tour of OSI</h2>
+    <p class="ow-body">OSI is an open, community-run desk for on-chain investigations, from a drained wallet to an institution's treasury. This guided tour walks the whole platform for you. No wallet, no signup, the product shows itself.</p>
     <div class="ow-actions">
       <button class="ow-go" onclick="welcomeStart()"><span>&#9654;</span> Run the briefing <span class="ow-sec">~2 min</span></button>
       <button class="ow-skip" onclick="welcomeClose()">Explore on my own</button>
