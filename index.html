@@ -2619,8 +2619,11 @@ function welcomeClose(){
 function welcomeStart(){ welcomeClose(); demoStart(); }
 // ---- pre-submission safety guard: protects OSI, the victim, and the analyst ----
 var _osiGuardFn = null;
+var _osiGuardKind = null;
 function osiSubmitGuard(kind, proceed){
   _osiGuardFn = (typeof proceed === 'function') ? proceed : null;
+  _osiGuardKind = kind;
+  var _bl = document.getElementById('og-block'); if(_bl) _bl.hidden = true;
   var titles = { 'case':'Before you open a case', 'intel':'Before you file a dispatch', 'application':'Before you apply', 'report':'Before you submit your report' };
   var t = document.getElementById('og-title'); if(t) t.textContent = titles[kind] || 'Read this first';
   var ag = document.getElementById('og-agree'); if(ag) ag.checked = false;
@@ -2634,7 +2637,158 @@ function osiSubmitGuard(kind, proceed){
 }
 function osiGuardToggle(){ var ag=document.getElementById('og-agree'), go=document.getElementById('og-go'); if(go) go.disabled = !(ag && ag.checked); }
 function osiGuardClose(){ var m=document.getElementById('osi-guard'); if(m){ m.hidden=true; m.style.display='none'; } _osiGuardFn=null; }
-function osiGuardProceed(){ var ag=document.getElementById('og-agree'); if(!(ag && ag.checked)) return; var fn=_osiGuardFn; osiGuardClose(); if(typeof fn==='function'){ try{ fn(); }catch(e){} } }
+function osiGuardProceed(){
+  var ag=document.getElementById('og-agree'); if(!(ag && ag.checked)) return;
+  try{
+    var res = osiSafetyScan(osiScanFor(_osiGuardKind), _osiGuardKind);
+    if(res && res.blocked){
+      var r=document.getElementById('ogb-reasons'); if(r) r.textContent='Detected: '+res.reasons.join(', ')+'.';
+      var b=document.getElementById('og-block'); if(b){ b.hidden=false; try{ b.scrollIntoView({block:'nearest'}); }catch(e){} }
+      return; // blocked: do not sign on-chain, do not write to Supabase
+    }
+  }catch(e){ /* fail-open: a scanner error must never break the submit flow */ }
+  var fn=_osiGuardFn; osiGuardClose(); if(typeof fn==='function'){ try{ fn(); }catch(e){} }
+}
+
+// ===== Local Safety Gate (client-side, no API/AI/backend) =====
+// A guardrail that blocks obviously risky USER content before it is signed
+// on-chain or written to Supabase. It is bypassable by design (client-side),
+// so the real protection stays the maintainer-approval step + RLS. This only
+// stops accidental/casual risky content from ever reaching the queue.
+// NOTE: tx signatures and private keys are both ~88-char base58 and cannot be
+// told apart by length, so private keys are matched by keyword + byte-array
+// format only, never by base58 length. That keeps tx hashes (allowed) safe.
+var SAFETY_PROFANITY = /\b(f+u+c+k+(?:ing|er|ers|ed|s)?|motherf\w+|c+u+n+t+s?|n[i1]gg(?:er|a|ers|as)|f[a4]gg?(?:ot|ots)?|f[a4]gs?|spics?|kikes?|wetbacks?|trann(?:y|ies)|retard(?:ed|s)?)\b/i;
+
+// --- the scanner: returns {blocked, reasons[]} ; tuned to avoid blocking legit on-chain evidence
+function osiSafetyScan(text, kind){
+  var reasons = [];
+  if(!text) return { blocked:false, reasons:reasons };
+  var t = String(text);
+  var low = t.toLowerCase();
+  function add(r){ if(reasons.indexOf(r) < 0) reasons.push(r); }
+
+  // 1) seed / recovery phrase: keyword, OR a clean maximal run of an exact BIP39 length
+  var seedHit = /\b(seed|recovery|mnemonic)\s*(phrase|words?)\b/i.test(t) || /\bseed\s*:/i.test(t);
+  if(!seedHit){
+    var STOP = {the:1,and:1,but:1,for:1,with:1,that:1,this:1,your:1,you:1,are:1,was:1,her:1,his:1,its:1,our:1,their:1,from:1,have:1,has:1,had:1,not:1,all:1,any:1,can:1,will:1,out:1,who:1,how:1,why:1,what:1,when:1,where:1,been:1,were:1,they:1,them:1,then:1,than:1,into:1,over:1,just:1,like:1,some:1,more:1,also:1,only:1,sent:1,went:1,here:1,came:1,used:1,both:1,each:1,very:1,much:1,many:1,most:1,wallet:1,funds:1,money:1,token:1,tokens:1,coins:1,scam:1,scammer:1,hack:1,hacked:1,stole:1,stolen:1,drained:1,sol:1,usdc:1,address:1,wallets:1};
+    var ow = t.split(/\s+/), run = [];
+    for(var i=0;i<=ow.length;i++){
+      var w = ow[i] || '';
+      if(/^[a-z]{3,8}$/.test(w)){ run.push(w); }
+      else {
+        if([12,15,18,21,24].indexOf(run.length) >= 0){
+          var sN=0, uq={}; for(var j=0;j<run.length;j++){ if(STOP[run[j]]) sN++; uq[run[j]]=1; }
+          if(sN<=1 && Object.keys(uq).length===run.length){ seedHit = true; break; }
+        }
+        run = [];
+      }
+    }
+  }
+  if(seedHit) add('a seed or recovery phrase');
+
+  // 2) private key: keyword, byte-array, or long hex ONLY. Never base58 length (tx sigs share it).
+  if(/\b(private|secret)\s*key\b/i.test(t)) add('a private key');
+  else if(/\[\s*\d{1,3}(?:\s*,\s*\d{1,3}){47,}\s*\]/.test(t)) add('a private key (keypair array)');
+  else if(/\b[0-9a-fA-F]{64,}\b/.test(t)) add('a private key (hex)');
+
+  // application is just a contact handle + a public link, so only the catastrophic checks apply
+  if(kind === 'application') return { blocked:reasons.length>0, reasons:reasons };
+
+  // 3) email
+  if(/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/i.test(t)) add('an email address');
+
+  // 4) phone: formatted or +country only (bare digit runs are amounts/slots, allowed)
+  if(/\+\d[\d\s().\-]{7,}\d/.test(t) || /\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b/.test(t)) add('a phone number');
+
+  // 5) personal identity / home address (doxxing)
+  if(/\b(real name is|their name is|his name is|her name is|full name is|lives at|home address|residing at|home is at)\b/i.test(low)) add('a personal identity or home address');
+  else if(/\b\d{1,5}\s+(?:[a-z0-9.]+\s){1,4}(street|avenue|boulevard|apartment|suite)\b/i.test(low)) add('a home address');
+
+  // 6) threats
+  if(/\b(i\s*will\s*kill|i'?ll\s*kill|kill\s*you|you\s*are\s*dead|you'?re\s*dead|i\s*will\s*find\s*you|i'?ll\s*find\s*you|watch\s*your\s*back|i\s*know\s*where\s*you\s*live|hunt\s*you\s*down|burn\s*your)\b/i.test(low)) add('a threat');
+
+  // 7) spam: too many links, or a long repeated-character run
+  var links = (t.match(/https?:\/\//gi) || []).length;
+  if(links > 6) add('too many links (spam)');
+  else if(/(.)\1{14,}/.test(t)) add('repeated-character spam');
+
+  // 8) heavy profanity / slurs (the maintainer asked for a clean, professional record)
+  if(SAFETY_PROFANITY.test(low)) add('heavy profanity or a slur');
+
+  return { blocked:reasons.length>0, reasons:reasons };
+}
+
+// gather the relevant field text per submission kind
+function osiScanFor(kind){
+  function v(id){ var e=document.getElementById(id); return e ? String(e.value||'') : ''; }
+  if(kind === 'case')        return v('bf-target') + '\n' + v('bf-detail');
+  if(kind === 'report')      return v('apply-report');
+  if(kind === 'intel')       return v('wire-subject-in') + '\n' + v('wire-body-in');
+  if(kind === 'application') return v('an-tg') + '\n' + v('an-web');
+  return '';
+}
+
+
+function safetyGate(text){
+  var t = String(text || '');
+  var low = t.toLowerCase();
+  var hits = [];
+  function add(l){ if(hits.indexOf(l) === -1) hits.push(l); }
+
+  // seed / recovery phrase (protects the user from doxxing themselves)
+  if(/\b(seed phrase|recovery phrase|secret recovery phrase|mnemonic phrase|mnemonic|seed words?)\b/i.test(t)) add('a seed or recovery phrase');
+  var run = low.match(/\b[a-z]{3,8}(?:\s+[a-z]{3,8}){11,23}\b/);
+  if(run){
+    var ws = run[0].split(/\s+/);
+    var STOP = /^(the|and|for|you|your|was|were|are|this|that|with|but|not|they|them|then|now|gone|sent|send|lost|funds|fund|wallet|money|scam|scammed|stole|stolen|drain|drained|please|help|someone|somebody|anybody|nothing|hacked|hack|hacker|address|account|transaction|transfer|swap|swapped|staked|stake|claimed|signed|approve|approved|phantom|solana|ethereum|bitcoin|usdc|usdt|dollars|amount|balance|from|have|has|had|will|been|into|onto|over|back|just|like|when|what|where|which|there|their|would|could|should|because|after|before|while|through|around|between|here|told|said|asked|paid|using|used|received|missing|moving|moved|tracing|traced|going|doing|trying|really|started|looking|getting|coins|token|tokens|exchange|binance|coinbase|thanks|thank)$/;
+    var nar = 0; for(var i=0;i<ws.length;i++){ if(STOP.test(ws[i])) nar++; }
+    if(nar === 0) add('a seed or recovery phrase');
+  }
+
+  // private key (keyword + exported byte-array; NOT base58 length, see note above)
+  if(/\b(private key|secret key|priv\s*key|privkey|keypair|secret phrase)\b/i.test(t)) add('a private key');
+  if(/\[\s*\d{1,3}\s*(?:,\s*\d{1,3}\s*){47,}\]/.test(t)) add('a private key');
+
+  // email
+  if(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/.test(t)) add('an email address');
+
+  // phone (needs grouping or country code, so amounts/hashes do not trip it)
+  if(/(?:\+\d{1,3}[\s.\-]?)?(?:\(\d{3}\)|\d{3})[\s.\-]\d{3}[\s.\-]\d{4}\b/.test(t) || /\+\d{1,3}[\s.\-]?\d{9,12}\b/.test(t)) add('a phone number');
+
+  // physical address / government ID
+  if(/\b\d{1,5}\s+(?:[A-Za-z0-9.]+\s+){1,4}(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|court|ct|place|pl|way|highway|hwy|apt|suite|ste)\b/i.test(t)) add('a home address');
+  if(/\b\d{3}\-\d{2}\-\d{4}\b/.test(t)) add('a personal ID number');
+
+  // private message / DM content
+  if(/(?:\b(?:the|our|my|his|her|their)\s+dms?\b|\bin\s+(?:the\s+|our\s+|his\s+|her\s+|their\s+)?dms?\b|\bprivate\s+(?:message|chat|conversation|dm)s?\b|\bscreenshot\s+of\b[\s\S]{0,40}?\b(?:dm|chat|conversation|messages?|texts?)\b|\b(?:he|she|they|we)\s+(?:dm(?:ed|d)?|messaged|texted|pm(?:ed|d)?)\s+me\b|\b(?:dm(?:ed|d)?|messaged|texted)\s+me\s+(?:saying|that|this)\b|\bover\s+(?:dm|whatsapp|telegram|signal|imessage)\b)/i.test(t)) add('private message content');
+
+  // threats (first-person)
+  if(/\b(?:i(?:'?| a)m going to|i will|i'?ll|im gonna|i'?m gonna|we will|we'?ll|im going to)\b[^.!?\n]{0,40}\b(?:kill|hurt|harm|find you|come for you|come to your|beat you|destroy you|end you|make you pay|expose you|burn|stab|shoot|murder)\b/i.test(t)) add('a threat');
+
+  // direct accusation / name-calling at a person (the event itself is fine; naming a person a "thief" is not)
+  if(/\b(?:you(?:'?| a)re|he'?s|she'?s|they'?re|is|are)\s+(?:a |an |the )?(?:thief|thieves|scammer|scammers|fraudster|fraud|criminal|crook|liar|con\s?artist|pedophile|paedophile|terrorist|rapist)\b/i.test(t)) add('a direct accusation or name-calling');
+
+  // spam / excessive links
+  var urls = (t.match(/https?:\/\/[^\s]+/gi) || []);
+  if(urls.length > 5) add('too many links (spam)');
+  var seen = {}, rep = false;
+  for(var u=0; u<urls.length; u++){ var k = urls[u].toLowerCase(); seen[k] = (seen[k]||0)+1; if(seen[k] >= 3) rep = true; }
+  if(rep) add('repeated links (spam)');
+  if(/\b(?:free (?:crypto|sol|airdrop|nft|tokens?)|claim your (?:free|reward|airdrop)|connect your wallet to (?:claim|receive)|guaranteed (?:profit|returns|gains)|double your (?:sol|crypto|money)|click here to (?:win|claim))\b/i.test(t)) add('spam content');
+
+  // heavy profanity / slur
+  if(SAFETY_PROFANITY.test(t)) add('heavy profanity or a slur');
+
+  return { ok: hits.length === 0, hits: hits };
+}
+
+function osiBlockShow(hits){
+  var lst = document.getElementById('osi-block-list');
+  if(lst){ lst.innerHTML = (hits && hits.length) ? ('<div class="ob-det">Detected in your text: ' + hits.join(', ') + '. Please remove it and try again.</div>') : ''; }
+  var m = document.getElementById('osi-block'); if(m){ m.style.display = ''; m.hidden = false; }
+}
+function osiBlockClose(){ var m = document.getElementById('osi-block'); if(m){ m.hidden = true; m.style.display = 'none'; } }
 (function(){
   function go(){ setTimeout(welcomeShow, 800); }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', go); } else { go(); }
@@ -3064,6 +3218,8 @@ async function submitIntel(){
   if(!subject){ showToast("Give your dispatch a subject (the entity or wallet it concerns)."); return; }
   if(!body){ showToast("Write up your findings before publishing."); return; }
   if(!rateOk('submit', 6000)){ showToast("Give it a few seconds before filing another dispatch."); return; }
+  var _sgI = safetyGate(subject + "\n" + body);
+  if(!_sgI.ok){ osiBlockShow(_sgI.hits); return; }
   const _its = Math.floor(Date.now()/1000);
   const memo = "OSI_REPORT_SUBMITTED|subject=" + String(subject).replace(/\|/g,"/") + "|researcher=" + (walletPubkey||"anon") + "|ts=" + _its;
   withOnchainVote("Publish intel", memo, async (sig)=>{
@@ -4561,6 +4717,8 @@ async function submitBounty(){
   if(!target){ showToast("Name the target of the bounty (a company or wallet set)."); return; }
   if(!detail){ showToast("Describe what the bounty needs proven (trace, custody, corroboration)."); return; }
   if(!rateOk('submit', 6000)){ showToast("Give it a few seconds between submissions."); return; }
+  var _sgB = safetyGate(target + "\n" + detail);
+  if(!_sgB.ok){ osiBlockShow(_sgB.hits); return; }
   const memo = "OSI new bounty: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
   withOnchainVote("Open bounty", memo, async (sig)=>{
     let img='';
@@ -4670,6 +4828,8 @@ async function submitBountyReport(){
   const report = (document.getElementById('apply-report').value || '').trim();
   if(!report){ showToast("Write up your findings before submitting."); return; }
   if(!rateOk('submit', 6000)){ showToast("Give it a few seconds between submissions."); return; }
+  var _sgR = safetyGate(report);
+  if(!_sgR.ok){ osiBlockShow(_sgR.hits); return; }
   const target = applyCtx.target, bid = applyCtx.bid;
   const memo = "OSI bounty report: " + target + (walletPubkey ? (" | by " + walletPubkey) : "");
   withOnchainVote("Submit report", memo, async (sig)=>{
@@ -5392,6 +5552,11 @@ function showToast(msg){
 .og-item.plat .og-ic{color:var(--cyan)}
 .og-item.os .og-ic{color:var(--sol)}
 .og-item.os b{color:var(--sol)}
+.og-block[hidden]{display:none}
+.og-block{border:1px solid var(--red);background:rgba(255,84,112,.1);border-radius:9px;padding:14px 15px;margin-bottom:16px}
+.ogb-h{font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;color:var(--red);margin-bottom:6px}
+.ogb-tx{font-size:12px;color:var(--ink-dim);line-height:1.55}
+.ogb-reasons{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--red);margin-top:8px;font-weight:600}
 .og-check{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--ink-dim);line-height:1.5;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:12px 13px;background:var(--bg)}
 .og-check input{margin-top:2px;flex:none;accent-color:var(--sol)}
 .og-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
@@ -5400,6 +5565,14 @@ function showToast(msg){
 .og-go{background:var(--sol);color:var(--bg);border:0;border-radius:8px;padding:11px 20px;font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .15s}
 .og-go:disabled{opacity:.4;cursor:not-allowed}
 .og-go:not(:disabled):hover{background:var(--sol-deep)}
+.ob-card{border-top-color:var(--red)}
+.ob-ey{color:var(--red)}
+.ob-dot{background:var(--red);box-shadow:0 0 8px var(--red)}
+.ob-msg{font-size:13px;line-height:1.6;color:var(--ink-dim);margin:0 0 14px}
+#osi-block-list:not(:empty){margin-bottom:4px}
+.ob-det{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--amber);background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.28);border-radius:8px;padding:11px 13px;line-height:1.55}
+.ob-go{background:var(--red)!important;color:#fff!important}
+.ob-go:hover{filter:brightness(1.12)}
 .osi-welcome{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(4,7,14,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:owFade .3s ease}
 @keyframes owFade{from{opacity:0}to{opacity:1}}
 .ow-card{position:relative;max-width:440px;width:100%;background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-top:2px solid var(--sol);border-radius:14px;padding:30px 28px;box-shadow:0 40px 100px rgba(0,0,0,.7);animation:owRise .34s cubic-bezier(.2,.7,.2,1)}
@@ -5498,6 +5671,11 @@ function showToast(msg){
     <button class="og-x" onclick="osiGuardClose()" aria-label="Close">&times;</button>
     <div class="og-ey mono"><span class="og-dot"></span> Before you sign</div>
     <h2 class="og-title" id="og-title">Read this first</h2>
+    <div id="og-block" class="og-block" hidden>
+      <div class="ogb-h">&#9940; Submission blocked</div>
+      <div class="ogb-tx">OSI only accepts public on-chain evidence. Remove private information, seed phrases, personal data, accusations, threats, spam, or private messages before continuing.</div>
+      <div class="ogb-reasons" id="ogb-reasons"></div>
+    </div>
     <div class="og-list">
       <div class="og-item plat"><span class="og-ic">⛓</span><div><b>OSI holds nothing and guarantees nothing.</b> This is an open, public platform. OSI is not an escrow, never holds or moves your funds, and cannot promise any payment or outcome. A signed memo is a public audit trail, not a verdict or legal proof.</div></div>
       <div class="og-item warn"><span class="og-ic">⚠</span><div><b>Never share your seed phrase or private key, with anyone.</b> No one from OSI will ever DM you, ask for your seed phrase, or ask you to send funds to recover anything. Anyone who does is a scammer.</div></div>
@@ -5509,6 +5687,18 @@ function showToast(msg){
     <div class="og-actions">
       <button class="og-cancel" onclick="osiGuardClose()">Cancel</button>
       <button class="og-go" id="og-go" onclick="osiGuardProceed()" disabled>Continue</button>
+    </div>
+  </div>
+</div>
+<div id="osi-block" class="osi-guard" hidden>
+  <div class="og-card ob-card">
+    <button class="og-x" onclick="osiBlockClose()" aria-label="Close">&times;</button>
+    <div class="og-ey mono ob-ey"><span class="og-dot ob-dot"></span> Submission blocked</div>
+    <h2 class="og-title">Public on-chain evidence only</h2>
+    <p class="ob-msg">Submission blocked. OSI only accepts public on-chain evidence. Remove private information, seed phrases, personal data, accusations, threats, spam, or private messages before continuing.</p>
+    <div id="osi-block-list"></div>
+    <div class="og-actions">
+      <button class="og-go ob-go" onclick="osiBlockClose()">OK, I will fix it</button>
     </div>
   </div>
 </div>
