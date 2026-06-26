@@ -652,6 +652,9 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 </head>
 <body data-view="registry" data-sub="tab-analysts">
 <canvas id="osi-stream" aria-hidden="true"></canvas>
+<div class="px-aurora" aria-hidden="true"></div>
+<div class="px-mesh" aria-hidden="true"></div>
+<div class="px-scan" aria-hidden="true"></div>
 <div class="backdrop"></div>
 <div class="glow"></div>
 
@@ -751,72 +754,72 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 <section class="hero" data-view="registry">
   <div class="wrap">
     <div class="hero-grid">
-    <div class="hero-main">
-    <div class="eyebrow"><span class="live"></span> Public on-chain investigation desk</div>
-    <h1 class="hero-h1">Public Intelligence for<br><span class="hero-grad">Solana Incidents.</span></h1>
-    <p class="hero-sub">Open a case.<span class="hs-sep">/</span>Trace the trail.<span class="hs-sep">/</span>Seal the record.</p>
-    <div class="hero-cta">
-      <button class="btn-acc" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">Open a Case</button>
-      <button class="btn-outline" onclick="showView('community'); setTimeout(function(){ var e=document.getElementById('an-tg'); if(e) e.focus(); }, 320);">Join as Analyst</button>
-      <button class="btn-ghost" onclick="demoStart()"><span class="bg-ic">&#9654;</span> Launch Console</button>
-    </div>
+      <div class="hero-main">
+        <div class="eyebrow"><span class="live"></span> Public on-chain investigation desk</div>
+        <h1 class="hero-h1">Public Intelligence for<br><span class="hero-grad">Solana Incidents.</span></h1>
+        <p class="hero-sub">Open a case.<span class="hs-sep">/</span>Inspect the trail.<span class="hs-sep">/</span>Seal the record.</p>
+        <div class="hero-cta">
+          <button class="btn-acc" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">Open a Case</button>
+          <button class="btn-outline" onclick="showView('community'); setTimeout(function(){ var e=document.getElementById('an-tg'); if(e) e.focus(); }, 320);">Join as Analyst</button>
+          <button class="btn-ghost" onclick="demoStart()"><span class="bg-ic">&#9654;</span> Launch Console</button>
+        </div>
+      </div>
 
-    </div>
-    <aside class="hero-logo" onclick="showView('registry')" title="Open Solana Intelligence"><div class="hero-logo-glow"></div><div class="hero-logo-img"></div></aside>
-    </div>
-  </div>
-</section>
+      <div class="hero-scene" aria-hidden="true">
+        <div class="hs-glow"></div>
+        <svg class="hs-net" viewBox="0 0 460 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="#9945ff" stroke-width="1" opacity="0.5">
+            <line x1="70" y1="60" x2="200" y2="130"/><line x1="200" y1="130" x2="360" y2="80"/>
+            <line x1="200" y1="130" x2="150" y2="280"/><line x1="360" y1="80" x2="410" y2="220"/>
+            <line x1="150" y1="280" x2="300" y2="340"/><line x1="410" y1="220" x2="300" y2="340"/>
+          </g>
+          <g fill="#22d3ee" opacity="0.55">
+            <circle cx="70" cy="60" r="3"/><circle cx="360" cy="80" r="3"/><circle cx="410" cy="220" r="3"/><circle cx="300" cy="340" r="3"/>
+          </g>
+          <g fill="#ff7a3d" opacity="0.7"><circle cx="200" cy="130" r="4.5"/><circle cx="150" cy="280" r="3.5"/></g>
+        </svg>
 
-<section class="sec" data-view="registry" id="safeguards">
-<style>
-.hero-cta{display:flex;flex-wrap:wrap;gap:11px;align-items:center;margin-top:6px}
-.hero-go{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:9px;border:1px solid var(--sol);background:linear-gradient(180deg,rgba(20,241,149,.2),rgba(20,241,149,.06));color:var(--sol);font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;cursor:pointer;transition:all .16s}
-.hero-go:hover{box-shadow:0 10px 34px rgba(20,241,149,.25);transform:translateY(-1px)}
-.hero-go span:first-child{font-size:15px;font-weight:700}
-.hg-sec{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--ink-faint);letter-spacing:.04em}
-.hero-h1{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(38px,6vw,68px);line-height:1.02;letter-spacing:-.03em;margin:14px 0 18px}
-.hero-grad{background:linear-gradient(100deg,var(--acc) 0%,#ffb020 45%,var(--acc) 90%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--acc);animation:heroGrad 6s linear infinite}
-@keyframes heroGrad{to{background-position:200% center}}
-.hero-sub{font-family:'JetBrains Mono',monospace;font-size:clamp(13px,1.6vw,16px);color:var(--ink-dim);letter-spacing:.01em;margin-bottom:30px}
-.hs-sep{color:var(--acc);margin:0 9px;font-weight:700}
-.btn-acc{background:linear-gradient(180deg,var(--acc),var(--acc-deep));color:#1c0f06;border:0;border-radius:11px;padding:15px 28px;font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 10px 34px var(--acc-glow);transition:transform .16s,box-shadow .16s}
-.btn-acc:hover{transform:translateY(-2px);box-shadow:0 16px 46px var(--acc-glow)}
-.btn-outline{background:transparent;color:var(--ink);border:1px solid var(--line-bright);border-radius:11px;padding:15px 24px;font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:all .16s}
-.btn-outline:hover{border-color:var(--acc-line);color:var(--acc);box-shadow:0 6px 24px var(--acc-glow);transform:translateY(-1px)}
-.btn-ghost{background:transparent;color:var(--ink-dim);border:0;padding:15px 12px;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:color .16s}
-.btn-ghost:hover{color:var(--acc)}
-.btn-ghost .bg-ic{font-size:10px}
-#safeguards{padding-top:10px;padding-bottom:8px}
-.guards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.guard{border:1px solid var(--line);border-top:2px solid var(--line-bright);background:var(--bg-card);border-radius:10px;padding:17px 18px}
-.guard.warn{border-top-color:var(--amber)}
-.guard-ic{font-size:17px;line-height:1;margin-bottom:9px;color:var(--ink-dim)}
-.guard.warn .guard-ic{color:var(--amber)}
-.guard-b{font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;letter-spacing:-.01em;margin-bottom:6px}
-.guard-d{font-size:11.5px;line-height:1.55;color:var(--ink-dim)}
-@media(max-width:760px){.guards{grid-template-columns:1fr}}
-.sec-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);margin-bottom:12px}
-.sec-head-lg{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(23px,3vw,33px);letter-spacing:-.02em;margin-bottom:24px;line-height:1.08}
-.trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
-.tcard{position:relative;background:linear-gradient(160deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line);border-radius:13px;padding:21px 19px;transition:transform .18s,border-color .18s,box-shadow .18s}
-.tcard:hover{transform:translateY(-3px);border-color:var(--acc-line);box-shadow:0 14px 40px rgba(0,0,0,.45)}
-.tc-ic{font-size:20px;line-height:1;margin-bottom:13px;color:var(--acc)}
-.tcard.warn .tc-ic{color:var(--amber)}
-.tc-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:15.5px;letter-spacing:-.01em;margin-bottom:7px}
-.tc-d{font-size:12px;color:var(--ink-dim);line-height:1.55}
-@media(max-width:840px){.trust-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:520px){.trust-grid{grid-template-columns:1fr}}
-</style>
-  <div class="wrap">
-    <div class="sec-eyebrow mono">// trust &amp; verification</div>
-    <h2 class="sec-head-lg">Built to be checked, not trusted</h2>
-    <div class="trust-grid">
-      <div class="tcard reveal"><div class="tc-ic">🛡</div><div class="tc-t">Local Safety Gate</div><div class="tc-d">Seed phrases, private keys and personal data are blocked in your browser before anything is ever submitted.</div></div>
-      <div class="tcard reveal"><div class="tc-ic">✓</div><div class="tc-t">Analyst Vouch</div><div class="tc-d">Verified analysts vouch for or flag each report. Weak claims get caught by peers, not waved through.</div></div>
-      <div class="tcard reveal"><div class="tc-ic">◉</div><div class="tc-t">Maintainer Seal</div><div class="tc-d">A final human check seals a finding into the public record while the analyst roster grows.</div></div>
-      <div class="tcard reveal"><div class="tc-ic">⛓</div><div class="tc-t">Signed Memo Trail</div><div class="tc-d">Every key action is a signed Solana memo, public and verifiable on Solscan by anyone.</div></div>
-      <div class="tcard reveal"><div class="tc-ic">⚖</div><div class="tc-t">Challenge Reports</div><div class="tc-d">Any record can be challenged with better evidence. Nothing is final, everything stays correctable.</div></div>
-      <div class="tcard warn reveal"><div class="tc-ic">⚠</div><div class="tc-t">No Recovery Promise</div><div class="tc-d">OSI traces and documents what happened. It cannot recover funds and never promises to.</div></div>
+        <div class="hs-panel hs-file">
+          <div class="hsf-top">
+            <span class="hsf-id">CASE #OSI-7F3K2</span>
+            <span class="hs-pill">OPEN</span>
+          </div>
+          <div class="hsf-row"><span class="k">Victim</span><span class="v">9xQe7P2k...3pBZ</span></div>
+          <div class="hsf-row"><span class="k">Traced</span><span class="v">1,253,407 SOL</span></div>
+          <div class="hsf-row"><span class="k">Route</span><span class="v">5 wallets / Jupiter / CEX</span></div>
+          <div class="hsf-bar"></div>
+          <div class="hsf-meta">
+            <div>Vouches<b>4</b></div>
+            <div>Confidence<b>High</b></div>
+            <div>Trail<b>Signed</b></div>
+          </div>
+        </div>
+
+        <div class="hs-panel hs-memo">
+          <div class="hsm-h"><span class="hsm-dot"></span> Signed memo</div>
+          <div class="hsm-code">OSI_REPORT_SUBMITTED<br>sig 9a7b...e2d1</div>
+        </div>
+
+        <div class="hs-panel hs-tx">
+          <div class="hsm-h"><span class="hsm-dot"></span> On-chain trail</div>
+          <div class="hstx-line">tx <b>9B7c...Lm8x</b></div>
+          <div class="hstx-line">memo OSI_ANALYST_VOUCH</div>
+          <div class="hstx-line">slot 298,441,902</div>
+        </div>
+
+        <div class="hs-seal">
+          <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g opacity="0.95">
+              <circle cx="60" cy="60" r="34" stroke="#ff7a3d" stroke-width="2.4"/>
+              <circle cx="60" cy="60" r="42" stroke="#ff7a3d" stroke-width="1" stroke-dasharray="3 5" opacity="0.7"/>
+              <circle cx="60" cy="60" r="26" stroke="#ffb020" stroke-width="1" opacity="0.7"/>
+              <path d="M50 60l7 7 14-15" stroke="#14f195" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </svg>
+        </div>
+
+        <div class="hs-chip"><span class="hsm-dot"></span> Verify on Solana</div>
+      </div>
     </div>
   </div>
 </section>
@@ -826,108 +829,325 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     <div class="acards">
       <button class="acard reveal" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">
         <div class="ac-sweep"></div>
-        <span class="ac-no">01</span>
-        <div class="ac-t">Open a Case</div>
-        <div class="ac-d">Submit public on-chain evidence for free.</div>
-        <div class="ac-go">Open <span>&rarr;</span></div>
+        <div class="ac-scene">
+          <svg viewBox="0 0 320 116" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="92" y="34" width="104" height="62" rx="6" fill="#0e1320" stroke="#2c3860" stroke-width="1.2"/>
+            <rect x="108" y="22" width="104" height="62" rx="6" fill="#11172a" stroke="#ff7a3d" stroke-width="1.4"/>
+            <line x1="122" y1="40" x2="186" y2="40" stroke="#5a6488" stroke-width="2" stroke-linecap="round"/>
+            <line x1="122" y1="52" x2="198" y2="52" stroke="#5a6488" stroke-width="2" stroke-linecap="round"/>
+            <line x1="122" y1="64" x2="170" y2="64" stroke="#ff9a52" stroke-width="2" stroke-linecap="round"/>
+            <path d="M214 92h44M236 70v44" stroke="#ff7a3d" stroke-width="2.4" stroke-linecap="round" opacity="0.9"/>
+            <circle cx="236" cy="92" r="16" stroke="#ff7a3d" stroke-width="1.4" opacity="0.5"/>
+          </svg>
+        </div>
+        <div class="ac-body">
+          <span class="ac-no">01</span>
+          <div class="ac-t">Open a Case</div>
+          <div class="ac-d">Submit public on-chain evidence for free.</div>
+          <div class="ac-go">Open <span>&rarr;</span></div>
+        </div>
       </button>
+
       <button class="acard reveal" onclick="showView('graph')">
         <div class="ac-sweep"></div>
-        <span class="ac-no">02</span>
-        <div class="ac-t">Trace the Funds</div>
-        <div class="ac-d">Map wallets, transactions, swaps, bridges and exchange deposits.</div>
-        <div class="ac-go">Trace <span>&rarr;</span></div>
+        <div class="ac-scene">
+          <svg viewBox="0 0 320 116" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="#2c3860" stroke-width="1.4">
+              <line x1="60" y1="58" x2="140" y2="34"/><line x1="140" y1="34" x2="220" y2="58"/>
+              <line x1="60" y1="58" x2="140" y2="84"/><line x1="140" y1="84" x2="220" y2="58"/>
+            </g>
+            <g stroke="#22d3ee" stroke-width="2"><line x1="220" y1="58" x2="270" y2="40"/></g>
+            <circle cx="60" cy="58" r="9" fill="#11172a" stroke="#ff7a3d" stroke-width="1.6"/>
+            <circle cx="140" cy="34" r="6" fill="#0e1320" stroke="#8b96b8" stroke-width="1.4"/>
+            <circle cx="140" cy="84" r="6" fill="#0e1320" stroke="#8b96b8" stroke-width="1.4"/>
+            <circle cx="220" cy="58" r="7" fill="#0e1320" stroke="#22d3ee" stroke-width="1.6"/>
+            <rect x="262" y="32" width="16" height="16" rx="3" fill="#0e1320" stroke="#22d3ee" stroke-width="1.6"/>
+          </svg>
+        </div>
+        <div class="ac-body">
+          <span class="ac-no">02</span>
+          <div class="ac-t">Inspect the Trail</div>
+          <div class="ac-d">Review wallet and transaction evidence submitted to a case.</div>
+          <div class="ac-go">Trace <span>&rarr;</span></div>
+        </div>
       </button>
+
       <button class="acard reveal" onclick="showView('community')">
         <div class="ac-sweep"></div>
-        <span class="ac-no">03</span>
-        <div class="ac-t">Review Evidence</div>
-        <div class="ac-d">Analysts review reports, add vouches and challenge weak claims.</div>
-        <div class="ac-go">Review <span>&rarr;</span></div>
+        <div class="ac-scene">
+          <svg viewBox="0 0 320 116" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="96" y="24" width="86" height="68" rx="6" fill="#0e1320" stroke="#2c3860" stroke-width="1.2"/>
+            <line x1="108" y1="40" x2="170" y2="40" stroke="#5a6488" stroke-width="2" stroke-linecap="round"/>
+            <line x1="108" y1="52" x2="170" y2="52" stroke="#5a6488" stroke-width="2" stroke-linecap="round"/>
+            <path d="M108 64l5 5 9-10" stroke="#14f195" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="128" y1="64" x2="170" y2="64" stroke="#5a6488" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="196" cy="64" r="20" fill="#11172a" stroke="#ff7a3d" stroke-width="2"/>
+            <circle cx="196" cy="64" r="11" stroke="#ff9a52" stroke-width="1.4" opacity="0.6"/>
+            <line x1="211" y1="79" x2="226" y2="94" stroke="#ff7a3d" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="ac-body">
+          <span class="ac-no">03</span>
+          <div class="ac-t">Review Evidence</div>
+          <div class="ac-d">Analysts review reports, add vouches, and challenge weak claims.</div>
+          <div class="ac-go">Review <span>&rarr;</span></div>
+        </div>
       </button>
+
       <button class="acard reveal" onclick="showView('research')">
         <div class="ac-sweep"></div>
-        <span class="ac-no">04</span>
-        <div class="ac-t">Seal the Record</div>
-        <div class="ac-d">Verified reports become public records with signed activity.</div>
-        <div class="ac-go">View <span>&rarr;</span></div>
+        <div class="ac-scene">
+          <svg viewBox="0 0 320 116" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="160" cy="58" r="30" fill="#11172a" stroke="#ff7a3d" stroke-width="2"/>
+            <circle cx="160" cy="58" r="38" stroke="#ff7a3d" stroke-width="1" stroke-dasharray="3 5" opacity="0.65"/>
+            <circle cx="160" cy="58" r="22" stroke="#ffb020" stroke-width="1" opacity="0.7"/>
+            <path d="M148 58l8 8 16-17" stroke="#14f195" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M150 86l-6 18 16-8 16 8-6-18" fill="none" stroke="#e8622a" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="ac-body">
+          <span class="ac-no">04</span>
+          <div class="ac-t">Seal the Record</div>
+          <div class="ac-d">Verified reports become public records with signed activity.</div>
+          <div class="ac-go">View <span>&rarr;</span></div>
+        </div>
       </button>
     </div>
   </div>
-<style>
-.acards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.acard{position:relative;overflow:hidden;text-align:left;background:linear-gradient(160deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line);border-radius:14px;padding:22px 20px 20px;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;min-height:172px;display:flex;flex-direction:column}
-.acard::before{content:'';position:absolute;top:8px;left:8px;width:16px;height:16px;border-top:2px solid var(--acc-line);border-left:2px solid var(--acc-line);opacity:.45;transition:opacity .2s}
-.acard::after{content:'';position:absolute;bottom:8px;right:8px;width:16px;height:16px;border-bottom:2px solid var(--acc-line);border-right:2px solid var(--acc-line);opacity:.45;transition:opacity .2s}
-.acard:hover{transform:translateY(-4px);border-color:var(--acc-line);box-shadow:0 18px 50px rgba(0,0,0,.5)}
-.acard:hover::before,.acard:hover::after{opacity:1}
-.ac-sweep{position:absolute;inset:0;background:linear-gradient(115deg,transparent 32%,var(--acc-soft) 50%,transparent 68%);transform:translateX(-130%);transition:transform .75s ease;pointer-events:none}
-.acard:hover .ac-sweep{transform:translateX(130%)}
-.ac-no{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--acc);letter-spacing:.1em}
-.ac-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:19px;letter-spacing:-.01em;margin:14px 0 8px}
-.ac-d{font-size:12.5px;color:var(--ink-dim);line-height:1.5;flex:1}
-.ac-go{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--ink-faint);margin-top:14px;letter-spacing:.04em;transition:color .2s}
-.ac-go span{transition:transform .2s;display:inline-block;margin-left:2px}
-.acard:hover .ac-go{color:var(--acc)}
-.acard:hover .ac-go span{transform:translateX(4px)}
-@media(max-width:900px){.acards{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:520px){.acards{grid-template-columns:1fr}}
-</style>
+</section>
+
+<section class="sec" data-view="registry" id="case-preview">
+  <div class="wrap">
+    <div class="sec-eyebrow">// anatomy of a case</div>
+    <h2 class="sec-head-lg">Every case is a public, signed record.</h2>
+    <p class="sec-sub">Not a chat log and not a screenshot. A structured case file: the victim wallet, the traced route, analyst vouches, a report hash, and the signed memo trail anyone can verify on Solana.</p>
+    <div class="px-panel">
+      <div class="px-panel-glow"></div>
+      <div class="cf-wrap">
+        <div class="cf-main">
+          <div class="cf-head">
+            <span class="cf-id">CASE #OSI-2B9L1 <span class="tag">Drain / Approval Abuse</span></span>
+            <span class="cf-verify"><span class="hsm-dot" style="background:#14f195"></span> Verify on Solana</span>
+          </div>
+          <div class="cf-grid">
+            <div class="cf-cell"><div class="l">Victim wallet</div><div class="v amber">7kBQy7e1...KkVEY</div></div>
+            <div class="cf-cell"><div class="l">Reported loss</div><div class="v">999,999 SOL</div></div>
+            <div class="cf-cell"><div class="l">Analyst vouches</div><div class="v green">4 signed</div></div>
+            <div class="cf-cell"><div class="l">Report hash</div><div class="v cyan">b3c8d1...f9a2</div></div>
+          </div>
+          <div class="cf-evidence">
+            <div class="l">Transaction evidence</div>
+            <div class="cf-tx"><i></i> inflow <b>+999,999 SOL</b> from foundation non-circulating wallet</div>
+            <div class="cf-tx"><i></i> tx <b>5F3d...7aK2</b> &middot; slot 298,441,902 &middot; memo attached</div>
+            <div class="cf-tx"><i></i> challenge window <b>open</b> &middot; 0 disputes filed</div>
+          </div>
+          <div class="cf-actions">
+            <span class="cf-btn"><span class="hsm-dot" style="background:#14f195"></span> Verify on Solana</span>
+            <span class="cf-btn amber">Export Exchange Pack</span>
+          </div>
+        </div>
+        <div class="cf-side">
+          <div class="l">Signed lifecycle</div>
+          <div class="cf-step"><span class="num">1</span><span class="tx"><b>Case opened</b>Public, no fee, no DM</span></div>
+          <div class="cf-step"><span class="num">2</span><span class="tx"><b>Report submitted</b>Hash anchored on-chain</span></div>
+          <div class="cf-step"><span class="num">3</span><span class="tx"><b>Analyst vouch</b>Peers sign or challenge</span></div>
+          <div class="cf-step"><span class="num">4</span><span class="tx"><b>Maintainer seal</b>Final human review gate</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" data-view="registry" id="verify-chain">
+  <div class="wrap">
+    <div class="sec-eyebrow">// signed on solana</div>
+    <h2 class="sec-head-lg">Built to be checked, not trusted.</h2>
+    <p class="sec-sub">Every meaningful action leaves a signed Solana memo. The record is public, timestamped and permanent, so the trail can be verified without taking OSI's word for it.</p>
+    <div class="vc-grid">
+      <div class="vc-rail">
+        <div class="vc-item amber"><div class="vc-t">Case opened</div><div class="vc-d">A public case is created with no fee and no private contact.</div></div>
+        <div class="vc-item amber"><div class="vc-t">Report submitted</div><div class="vc-d">The analyst report is hashed and the hash is written on-chain.</div><span class="vc-memo amber">memo OSI_REPORT_SUBMITTED</span></div>
+        <div class="vc-item"><div class="vc-t">Analyst vouch</div><div class="vc-d">Verified analysts sign a vouch, or challenge the claim with evidence.</div><span class="vc-memo">memo OSI_ANALYST_VOUCH</span></div>
+        <div class="vc-item"><div class="vc-t">Demand signal</div><div class="vc-d">Community demand for escalation is recorded as a signed signal.</div><span class="vc-memo">memo OSI_DEMAND_SIGNAL</span></div>
+        <div class="vc-item"><div class="vc-t">Maintainer seal</div><div class="vc-d">A final human review seals the finding into the public record.</div></div>
+      </div>
+      <div class="px-card vc-card">
+        <div class="vc-badge">
+          <span class="ring">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="32" cy="32" r="22" stroke="#14f195" stroke-width="2.4"/>
+              <circle cx="32" cy="32" r="28" stroke="#14f195" stroke-width="1" stroke-dasharray="3 5" opacity="0.6"/>
+              <path d="M24 32l6 6 12-13" stroke="#14f195" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <div>
+            <div class="t">Verifiable on Solscan</div>
+            <div class="s">Open any memo and confirm the signer, the slot and the payload yourself.</div>
+          </div>
+        </div>
+        <div class="vc-rows">
+          <div class="vc-row"><span class="k">Signer</span><span class="v">analyst wallet</span></div>
+          <div class="vc-row"><span class="k">Program</span><span class="v">Memo Program</span></div>
+          <div class="vc-row"><span class="k">Payload</span><span class="v">OSI_REPORT_SUBMITTED</span></div>
+          <div class="vc-row"><span class="k">Custody of funds</span><span class="v"><span class="ok">none, ever</span></span></div>
+          <div class="vc-row"><span class="k">Status</span><span class="v"><span class="ok">signed and public</span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" data-view="registry" id="how-osi-works">
+  <div class="wrap">
+    <div class="sec-eyebrow">// how osi works</div>
+    <h2 class="sec-head-lg">From a single wallet to a sealed record.</h2>
+    <div class="how-flow" style="margin-top:30px">
+      <div class="how-step">
+        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#ff7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        <div class="how-t">Submit</div><div class="how-d">Open a case and submit on-chain evidence.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#ff7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="9" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="M8 7l8 1M8 8l1 8"/></svg></div>
+        <div class="how-t">Trace</div><div class="how-d">Map wallets, swaps and exchange deposits.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#ff7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg></div>
+        <div class="how-t">Review</div><div class="how-d">Analysts vouch, flag or challenge claims.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#ff7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="6"/><path d="M9 15l-1 6 4-2 4 2-1-6"/></svg></div>
+        <div class="how-t">Seal</div><div class="how-d">A maintainer seals the finding.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#14f195" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 16 0M12 4v8l5 3"/></svg></div>
+        <div class="how-t">Publish</div><div class="how-d">Signed activity goes public, permanently.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" data-view="registry" id="safeguards">
+  <div class="wrap">
+    <div class="sec-eyebrow">// trust &amp; verification</div>
+    <h2 class="sec-head-lg">Six layers that keep findings honest.</h2>
+    <div class="trust-grid" style="margin-top:24px">
+      <div class="tcard reveal"><div class="tc-ic">&#128737;</div><div class="tc-t">Local Safety Gate</div><div class="tc-d">Seed phrases, private keys and personal data are blocked in your browser before anything is ever submitted.</div></div>
+      <div class="tcard reveal"><div class="tc-ic">&#10003;</div><div class="tc-t">Analyst Vouch</div><div class="tc-d">Verified analysts vouch for or flag each report. Weak claims get caught by peers, not waved through.</div></div>
+      <div class="tcard reveal"><div class="tc-ic">&#9673;</div><div class="tc-t">Maintainer Seal</div><div class="tc-d">A final human check seals a finding into the public record while the analyst roster grows.</div></div>
+      <div class="tcard reveal"><div class="tc-ic">&#9939;</div><div class="tc-t">Signed Memo Trail</div><div class="tc-d">Every key action is a signed Solana memo, public and verifiable on Solscan by anyone.</div></div>
+      <div class="tcard reveal"><div class="tc-ic">&#9878;</div><div class="tc-t">Challenge Reports</div><div class="tc-d">Any record can be challenged with better evidence. Nothing is final, everything stays correctable.</div></div>
+      <div class="tcard warn reveal"><div class="tc-ic">&#9888;</div><div class="tc-t">No Recovery Promise</div><div class="tc-d">OSI traces and documents what happened. It cannot recover funds and never promises to.</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" data-view="registry" id="analyst-ladder">
+  <div class="wrap">
+    <div class="sec-eyebrow">// analysts &amp; community</div>
+    <h2 class="sec-head-lg">Open to contribute. Earned to vouch.</h2>
+    <p class="sec-sub">Anyone can bring research to a case. Verified analysts can sign vouches and build wallet-based reputation. During the pilot, a maintainer seal is the final gate.</p>
+    <div class="lad-grid">
+      <div class="lad-card reveal"><div class="lad-step">01 / OPEN</div><div class="lad-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#ff7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div><div class="lad-t">Contribute</div><div class="lad-d">Anyone can submit research and evidence to a public case.</div></div>
+      <div class="lad-card reveal"><div class="lad-step">02 / VERIFIED</div><div class="lad-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#ff7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg></div><div class="lad-t">Vouch</div><div class="lad-d">Verified analysts sign vouches or challenge weak claims.</div></div>
+      <div class="lad-card reveal"><div class="lad-step">03 / WALLET</div><div class="lad-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#ff7a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/></svg></div><div class="lad-t">Reputation</div><div class="lad-d">Signed activity builds wallet-based, portable reputation.</div></div>
+      <div class="lad-card green reveal"><div class="lad-step">04 / SEAL</div><div class="lad-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#14f195" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="6"/><path d="M9 15l-1 6 4-2 4 2-1-6"/></svg></div><div class="lad-t">Maintainer Seal</div><div class="lad-d">A human seal is the final gate during the pilot stage.</div></div>
+    </div>
+    <div class="hero-cta" style="margin-top:24px">
+      <button class="btn-outline" onclick="showView('community'); setTimeout(function(){ var e=document.getElementById('an-tg'); if(e) e.focus(); }, 320);">Join as Analyst</button>
+    </div>
+  </div>
+</section>
+
+<section class="sec" data-view="registry" id="exchange-pack">
+  <div class="wrap">
+    <div class="px-panel">
+      <div class="px-panel-glow"></div>
+      <div class="ep-grid">
+        <div class="ep-left">
+          <div class="ep-kicker">// escalation, productized</div>
+          <div class="ep-h">Exchange Escalation Pack</div>
+          <div class="ep-p">When a trail reaches an exchange deposit, OSI assembles a clean, exportable dossier: the incident summary, the wallet list, the transaction evidence, a timeline and a public case reference any desk can verify.</div>
+          <div class="ep-tags">
+            <span class="ep-tag">Incident summary</span>
+            <span class="ep-tag">Wallet list</span>
+            <span class="ep-tag">Tx evidence</span>
+            <span class="ep-tag">Timeline</span>
+            <span class="ep-tag">Case reference</span>
+          </div>
+        </div>
+        <div class="ep-right">
+          <div class="ep-doc-h"><span>ESCALATION_PACK / OSI-2B9L1</span><span>PDF</span></div>
+          <div class="ep-line"><span class="k">Incident</span><span class="v">Wallet drain / approval abuse</span></div>
+          <div class="ep-line"><span class="k">Wallets</span><span class="v cyan">5 flagged addresses</span></div>
+          <div class="ep-line"><span class="k">Deposit</span><span class="v">CEX inflow detected</span></div>
+          <div class="ep-line"><span class="k">Evidence</span><span class="v">3 signed tx + memos</span></div>
+          <div class="ep-line"><span class="k">Timeline</span><span class="v">slot 298,441,902 +</span></div>
+          <div class="ep-line"><span class="k">Reference</span><span class="v">#OSI-2B9L1</span></div>
+          <span class="ep-foot"><span class="hsm-dot" style="background:#14f195"></span> Verify on Solana</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" data-view="registry" id="labs-preview">
+  <div class="wrap">
+    <div class="sec-eyebrow">// supporting intelligence . labs</div>
+    <h2 class="sec-head-lg">Watchlists and network mapping.</h2>
+    <p class="sec-sub">Secondary modules that feed the casework. Treasury watch surfaces concentration and movement; the network map lays out the relationships behind a trail.</p>
+    <div class="labs-grid">
+      <div class="lab-card reveal" onclick="showView('dat')">
+        <span class="lab-badge">Labs . DAT Watch</span>
+        <div class="lab-t">Treasury Watch</div>
+        <div class="lab-d">Declared institutional Solana holdings, concentration and movement, sourced and confidence-rated.</div>
+        <div class="lab-viz">
+          <svg viewBox="0 0 320 90" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <polyline points="0,70 40,58 80,62 120,40 160,46 200,28 240,34 280,18 320,24" stroke="#22d3ee" stroke-width="2" fill="none"/>
+            <polyline points="0,80 40,74 80,76 120,66 160,70 200,60 240,64 280,54 320,58" stroke="#9945ff" stroke-width="1.6" fill="none" opacity="0.7"/>
+          </svg>
+        </div>
+        <div class="lab-go">Open DAT Watch <span>&rarr;</span></div>
+      </div>
+      <div class="lab-card reveal" onclick="showView('graph')">
+        <span class="lab-badge">Labs . Network Map</span>
+        <div class="lab-t">Network Map</div>
+        <div class="lab-d">Trace the relationships between wallets, swaps, bridges and exchange deposits in one view.</div>
+        <div class="lab-viz">
+          <svg viewBox="0 0 320 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="#2c3860" stroke-width="1.2"><line x1="40" y1="45" x2="120" y2="22"/><line x1="120" y1="22" x2="200" y2="45"/><line x1="120" y1="22" x2="160" y2="68"/><line x1="200" y1="45" x2="280" y2="30"/><line x1="160" y1="68" x2="240" y2="60"/></g>
+            <circle cx="120" cy="22" r="6" fill="#11172a" stroke="#ff7a3d" stroke-width="1.6"/>
+            <circle cx="40" cy="45" r="4" fill="#0e1320" stroke="#22d3ee" stroke-width="1.4"/>
+            <circle cx="200" cy="45" r="4.5" fill="#0e1320" stroke="#22d3ee" stroke-width="1.4"/>
+            <circle cx="280" cy="30" r="4" fill="#0e1320" stroke="#8b96b8" stroke-width="1.4"/>
+            <circle cx="160" cy="68" r="4" fill="#0e1320" stroke="#8b96b8" stroke-width="1.4"/>
+            <circle cx="240" cy="60" r="4" fill="#0e1320" stroke="#8b96b8" stroke-width="1.4"/>
+          </svg>
+        </div>
+        <div class="lab-go">Open Network Map <span>&rarr;</span></div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section class="sec" data-view="registry" id="latest-intel-sec">
-<style>
-#latest-intel-sec{padding-top:6px}
-@keyframes li-sweep{0%,100%{transform:translateX(-110%)}50%{transform:translateX(110%)}}
-.li-feat{position:relative;border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:linear-gradient(115deg,var(--bg-card),var(--bg));padding:28px;display:grid;grid-template-columns:1fr auto;gap:26px;align-items:center;overflow:hidden}
-.li-feat::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(20,241,149,.03),transparent);transform:translateX(-110%);animation:li-sweep 8s ease-in-out infinite;pointer-events:none}
-.li-tag{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--sol);position:relative;z-index:1}
-.li-tag i{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 1.8s infinite}
-.li-tag .date{color:var(--ink-faint)}
-.li-co{font-family:'Archivo',sans-serif;font-weight:900;font-size:clamp(20px,2.6vw,30px);letter-spacing:-.02em;margin:13px 0 0;line-height:1.1;position:relative;z-index:1}
-.li-co .tk{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);letter-spacing:.06em;margin-left:11px;font-weight:500}
-.li-find{font-size:14px;color:var(--ink-dim);line-height:1.6;margin-top:12px;max-width:580px;position:relative;z-index:1}
-.li-by{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);letter-spacing:.12em;margin-top:13px;position:relative;z-index:1}
-.li-read{margin-top:18px;display:inline-flex;align-items:center;gap:8px;background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:11px 17px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.08em;cursor:pointer;position:relative;z-index:1}
-.li-read:hover{background:var(--sol-deep)}
-.li-stat{text-align:right;border-left:1px solid var(--line);padding-left:26px;position:relative;z-index:1}
-.li-stat .n{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;color:var(--ink);line-height:1}
-.li-stat .l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-faint);margin-top:6px}
-.li-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
-.li-card{border:1px solid var(--line);border-left:2px solid var(--line-bright);background:var(--bg-card);padding:16px;cursor:pointer;transition:border-color .15s}
-.li-card:hover{border-left-color:var(--sol)}
-.li-t2{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--ink-faint)}
-.li-nm2{font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;margin-top:8px;letter-spacing:-.01em}
-.li-fd{font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin-top:7px}
-.li-rd{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sol);margin-top:10px;letter-spacing:.08em}
-@media(max-width:720px){.li-feat{grid-template-columns:1fr;padding:22px}.li-stat{border-left:0;border-top:1px solid var(--line);padding-left:0;padding-top:16px;text-align:left}.li-row{grid-template-columns:1fr}}
-@media (prefers-reduced-motion: reduce){.li-feat::after{animation:none}.li-tag i{animation:none}}
-</style>
-<div class="wrap">
-  <div class="sec-head">
-    <h2>🗞️ Latest Intelligence</h2>
-    <div class="legend"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--ink-faint)">newly published, straight from the registry</span></div>
+  <div class="wrap">
+    <div class="sec-eyebrow">// published case files</div>
+    <h2 class="sec-head-lg" style="font-size:clamp(20px,2.4vw,27px)">Latest Intelligence</h2>
+    <div id="latest-intel"></div>
   </div>
-  <div id="latest-intel"></div>
-</div>
 </section>
 
 <section class="sec" id="registry" data-view="registry">
   <div class="wrap">
-    <div class="sec-head">
-      <h2>🛰️ Entity Registry</h2>
-      <div class="legend">
-        <span><span class="chip verified"></span>Verified</span>
-        <span><span class="chip high"></span>High confidence</span>
-        <span><span class="chip labeled"></span>Publicly labeled</span>
-      </div>
-    </div>
+    <div class="sec-eyebrow">// reference . entity registry</div>
+    <h2 class="sec-head-lg" style="font-size:clamp(20px,2.4vw,27px)">Entity Registry</h2>
+    <p class="sec-sub">Background reference: declared institutional holders and their on-chain activity. Secondary to the live casework above.</p>
     <div class="reg-layout">
       <div class="companies" id="companies"></div>
       <aside class="reg-rail">
         <div class="ra-head"><span class="ra-dot"></span>On-chain Activity</div>
         <div class="ra-note mono">Signed actions are real Solana memo transactions, verifiable on Solscan. A memo is a public audit trail, not a verdict, and OSI never holds funds.</div>
-        <div id="activity-feed"><div class="ra-empty">Loading activity…</div></div>
+        <div id="activity-feed"><div class="ra-empty">Loading activity...</div></div>
       </aside>
     </div>
   </div>
@@ -1868,23 +2088,29 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   </div>
 </section>
 
-<section class="sec" data-view="registry" id="built-with">
+<section class="sec" data-view="registry" id="sponsors">
   <div class="wrap">
-    <div class="sec-eyebrow mono">// infrastructure</div>
-    <h2 class="sec-head-lg">Built With</h2>
-    <div class="bw-grid">
-      <div class="bw-pill reveal"><span class="bw-dot"></span>Solana</div>
-      <div class="bw-pill reveal"><span class="bw-dot"></span>Supabase</div>
-      <div class="bw-pill reveal"><span class="bw-dot"></span>Vercel</div>
-      <div class="bw-pill reveal"><span class="bw-dot"></span>Phantom</div>
+    <div class="sec-eyebrow">// ecosystem support</div>
+    <h2 class="sec-head-lg" style="font-size:clamp(21px,2.6vw,29px)">Supported by the Solana ecosystem.</h2>
+    <div class="sp-wrap" style="margin-top:18px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:14px">Built on</div>
+      <div class="sp-row">
+        <div class="sp-pill reveal"><span class="dot"></span>Solana</div>
+        <div class="sp-pill reveal"><span class="dot"></span>Supabase</div>
+        <div class="sp-pill reveal"><span class="dot"></span>Vercel</div>
+        <div class="sp-pill reveal"><span class="dot"></span>Phantom</div>
+      </div>
+      <div class="sp-slots">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:14px">Strategic support</div>
+        <div class="sp-row">
+          <div class="sp-slot">OPEN FOR<br>ECOSYSTEM SUPPORT</div>
+          <div class="sp-slot">OPEN FOR<br>ECOSYSTEM SUPPORT</div>
+          <div class="sp-slot">OPEN FOR<br>ECOSYSTEM SUPPORT</div>
+        </div>
+        <div class="sp-note">OSI is an open public good. Strategic support slots are open and will list real partners only once confirmed. No paid placement, no sponsored verdicts.</div>
+      </div>
     </div>
   </div>
-<style>
-.bw-grid{display:flex;flex-wrap:wrap;gap:12px}
-.bw-pill{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(160deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line);border-radius:999px;padding:12px 23px;font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;color:var(--ink);transition:border-color .18s,transform .18s,box-shadow .18s}
-.bw-pill:hover{border-color:var(--acc-line);transform:translateY(-2px);box-shadow:0 8px 26px var(--acc-glow)}
-.bw-dot{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 9px var(--acc-glow)}
-</style>
 </section>
 
 <footer>
@@ -2008,6 +2234,309 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   </div>
 </div>
 
+<style id="osi-premium-v2">
+/* ===================================================================
+   OSI PREMIUM VISUAL SYSTEM v2  (injected last, wins the cascade)
+   amber = brand/action, cyan = trace/data, violet = network,
+   green(--sol) = signed/verified/connected/success ONLY.
+   No em-dash anywhere. Respects prefers-reduced-motion.
+   =================================================================== */
+
+:root{
+  --acc2:#ff9a52;            /* brighter amber highlight */
+  --acc-bright:#ffae5e;
+  --cyan-soft:rgba(34,211,238,.12);
+  --cyan-line:rgba(34,211,238,.42);
+  --violet-soft:rgba(153,69,255,.12);
+  --violet-line:rgba(153,69,255,.40);
+  --sol-soft:rgba(20,241,149,.12);
+  --sol-line:rgba(20,241,149,.40);
+  --ink-bright:#f6f9ff;
+  --glass:rgba(17,23,42,.62);
+  --glass-line:rgba(120,140,190,.16);
+  --shadow-amb:0 1px 0 rgba(255,255,255,.04) inset, 0 18px 50px -22px rgba(0,0,0,.8);
+  --shadow-key:0 30px 80px -30px rgba(0,0,0,.9);
+}
+
+/* ---- richer premium background (kills the matte/flat feel) ---- */
+body{
+  background:
+    radial-gradient(ellipse 70% 42% at 50% -6%, rgba(255,138,70,.16), transparent 62%),
+    radial-gradient(ellipse 46% 40% at 96% 4%, rgba(153,69,255,.12), transparent 60%),
+    radial-gradient(ellipse 50% 46% at 2% 82%, rgba(34,211,238,.08), transparent 62%),
+    radial-gradient(ellipse 90% 60% at 50% 120%, rgba(255,122,61,.06), transparent 70%),
+    #06080f !important;
+}
+
+/* slow ambient aurora drift behind everything */
+.px-aurora{position:fixed;inset:-20% -10% 0 -10%;z-index:0;pointer-events:none;opacity:.5;
+  background:
+    radial-gradient(40% 50% at 20% 30%, rgba(255,122,61,.10), transparent 70%),
+    radial-gradient(36% 46% at 82% 22%, rgba(153,69,255,.09), transparent 70%),
+    radial-gradient(40% 50% at 60% 80%, rgba(34,211,238,.06), transparent 72%);
+  filter:blur(30px);animation:pxAurora 26s ease-in-out infinite alternate}
+@keyframes pxAurora{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-2.5%,1.5%,0) scale(1.06)}}
+
+/* fine intelligence mesh, crisper near the top */
+.px-mesh{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background-image:
+    linear-gradient(rgba(120,150,210,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(120,150,210,.06) 1px,transparent 1px);
+  background-size:54px 54px;
+  mask-image:radial-gradient(ellipse 95% 62% at 50% -4%,#000 18%,transparent 78%);
+  -webkit-mask-image:radial-gradient(ellipse 95% 62% at 50% -4%,#000 18%,transparent 78%)}
+
+/* single slow scan sweep, very faint */
+.px-scan{position:fixed;left:0;right:0;height:34vh;top:-34vh;z-index:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(255,138,70,.05) 60%,transparent);
+  animation:pxScan 13s linear infinite}
+@keyframes pxScan{0%{transform:translateY(0)}100%{transform:translateY(150vh)}}
+
+#osi-stream{opacity:.82 !important}
+
+/* ===================== shared section heads ===================== */
+.sec-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--acc);margin-bottom:13px;display:flex;align-items:center;gap:9px}
+.sec-eyebrow::before{content:"";width:22px;height:1px;background:linear-gradient(90deg,var(--acc),transparent)}
+.sec-head-lg{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(24px,3.1vw,36px);letter-spacing:-.025em;margin-bottom:7px;line-height:1.06;color:var(--ink-bright)}
+.sec-sub{font-size:13.5px;color:var(--ink-dim);line-height:1.6;max-width:640px;margin-bottom:26px}
+
+/* premium glass card primitive */
+.px-card{position:relative;overflow:hidden;background:linear-gradient(165deg,rgba(20,27,48,.92),rgba(12,16,29,.92));
+  border:1px solid var(--line);border-radius:16px;
+  box-shadow:var(--shadow-amb);transition:transform .22s cubic-bezier(.2,.7,.2,1),border-color .22s,box-shadow .22s}
+.px-card::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent);opacity:.7}
+.px-card:hover{transform:translateY(-4px);border-color:var(--acc-line);box-shadow:var(--shadow-key),0 0 0 1px rgba(255,122,61,.12),0 24px 60px -28px rgba(255,122,61,.45)}
+
+/* ===================== HERO ===================== */
+.hero{padding-top:30px;padding-bottom:18px;position:relative;overflow:visible}
+.hero-grid{display:grid;grid-template-columns:1.04fr .96fr;gap:38px;align-items:center}
+.hero-main{position:relative;z-index:2}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);
+  background:linear-gradient(180deg,rgba(255,122,61,.10),rgba(255,122,61,.03));border:1px solid var(--acc-line);padding:7px 13px;border-radius:999px}
+.eyebrow .live{width:7px;height:7px;border-radius:50%;background:var(--sol);box-shadow:0 0 10px var(--sol);animation:pulse 1.8s infinite}
+.hero-h1{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(40px,5.6vw,70px);line-height:1.0;letter-spacing:-.035em;margin:18px 0 16px;color:var(--ink-bright)}
+.hero-grad{background:linear-gradient(100deg,var(--acc) 0%,var(--acc-bright) 42%,#ffd08a 60%,var(--acc) 92%);background-size:220% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--acc);animation:heroGrad 7s linear infinite;text-shadow:0 0 60px rgba(255,122,61,.25)}
+@keyframes heroGrad{to{background-position:220% center}}
+.hero-sub{font-family:'JetBrains Mono',monospace;font-size:clamp(13px,1.5vw,16px);color:var(--ink-dim);letter-spacing:.01em;margin-bottom:30px}
+.hs-sep{color:var(--acc);margin:0 9px;font-weight:700}
+.hero-cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn-acc{background:linear-gradient(180deg,var(--acc-bright),var(--acc-deep));color:#1c0f06;border:0;border-radius:12px;padding:15px 28px;font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 14px 40px -10px rgba(255,122,61,.6),0 1px 0 rgba(255,255,255,.25) inset;transition:transform .16s,box-shadow .16s}
+.btn-acc:hover{transform:translateY(-2px);box-shadow:0 20px 54px -10px rgba(255,122,61,.75),0 1px 0 rgba(255,255,255,.3) inset}
+.btn-outline{background:rgba(255,255,255,.015);color:var(--ink-bright);border:1px solid var(--line-bright);border-radius:12px;padding:15px 24px;font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:all .16s}
+.btn-outline:hover{border-color:var(--acc-line);color:var(--acc);box-shadow:0 8px 28px -10px var(--acc-glow);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--ink-dim);border:0;padding:15px 10px;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:color .16s}
+.btn-ghost:hover{color:var(--acc)}
+.btn-ghost .bg-ic{font-size:10px}
+
+/* hero scene (right) : composed product panels, alive */
+.hero-scene{position:relative;height:clamp(330px,34vw,440px);z-index:1}
+.hs-net{position:absolute;inset:0;opacity:.5;pointer-events:none}
+.hs-glow{position:absolute;width:78%;height:70%;left:14%;top:10%;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,122,61,.22),rgba(153,69,255,.10) 45%,transparent 70%);filter:blur(26px);pointer-events:none}
+.hs-panel{position:absolute;border-radius:14px;background:linear-gradient(165deg,rgba(22,29,52,.96),rgba(12,16,30,.96));
+  border:1px solid var(--line-bright);box-shadow:0 30px 70px -28px rgba(0,0,0,.95),0 0 0 1px rgba(255,255,255,.03) inset;backdrop-filter:blur(3px)}
+.hs-file{left:2%;top:8%;width:62%;padding:16px 17px;animation:pxFloat 7s ease-in-out infinite}
+.hs-file::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:2px;border-radius:2px;background:linear-gradient(180deg,var(--acc),transparent)}
+.hsf-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hsf-id{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--ink-bright);letter-spacing:.04em}
+.hs-pill{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--acc-line);color:var(--acc);background:var(--acc-soft)}
+.hs-pill.ok{border-color:var(--sol-line);color:var(--sol);background:var(--sol-soft)}
+.hsf-row{display:flex;align-items:center;gap:8px;margin-top:11px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-dim)}
+.hsf-row .k{color:var(--ink-faint);width:54px;flex-shrink:0}
+.hsf-row .v{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hsf-bar{height:1px;background:linear-gradient(90deg,var(--line-bright),transparent);margin:12px 0 0}
+.hsf-meta{display:flex;gap:14px;margin-top:11px}
+.hsf-meta div{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-faint);letter-spacing:.06em}
+.hsf-meta b{display:block;font-size:15px;color:var(--ink-bright);margin-top:2px;font-family:'Archivo',sans-serif;font-weight:800}
+.hs-memo{right:0;top:0;width:46%;padding:12px 13px;animation:pxFloat 8s ease-in-out infinite .8s}
+.hsm-h{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--sol)}
+.hsm-dot{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol)}
+.hsm-code{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-dim);margin-top:8px;line-height:1.5;word-break:break-all}
+.hs-tx{right:4%;top:40%;width:44%;padding:12px 13px;animation:pxFloat 9s ease-in-out infinite .4s}
+.hs-tx .hsm-h{color:var(--cyan)}
+.hs-tx .hsm-dot{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.hstx-line{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-faint);margin-top:6px;letter-spacing:.02em}
+.hstx-line b{color:var(--cyan)}
+.hs-seal{left:8%;bottom:0;width:118px;height:118px;display:flex;align-items:center;justify-content:center;animation:pxFloat 7.5s ease-in-out infinite 1.2s}
+.hs-chip{position:absolute;left:40%;bottom:9%;display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--sol);
+  background:linear-gradient(180deg,rgba(20,241,149,.14),rgba(20,241,149,.04));border:1px solid var(--sol-line);padding:8px 12px;border-radius:999px;box-shadow:0 12px 30px -14px rgba(20,241,149,.5);animation:pxFloat 8.5s ease-in-out infinite .2s}
+@keyframes pxFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+
+/* ===================== 4 ACTION CARDS ===================== */
+.acards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
+.acard{position:relative;overflow:hidden;text-align:left;background:linear-gradient(165deg,rgba(20,27,48,.95),rgba(12,16,29,.95));border:1px solid var(--line);border-radius:16px;padding:0 0 20px;cursor:pointer;transition:transform .22s cubic-bezier(.2,.7,.2,1),border-color .22s,box-shadow .22s;min-height:264px;display:flex;flex-direction:column;box-shadow:var(--shadow-amb)}
+.acard::before{content:"";position:absolute;top:10px;left:10px;width:15px;height:15px;border-top:2px solid var(--acc-line);border-left:2px solid var(--acc-line);opacity:.5;transition:opacity .22s;z-index:3}
+.acard::after{content:"";position:absolute;bottom:10px;right:10px;width:15px;height:15px;border-bottom:2px solid var(--acc-line);border-right:2px solid var(--acc-line);opacity:.5;transition:opacity .22s;z-index:3}
+.acard:hover{transform:translateY(-5px);border-color:var(--acc-line);box-shadow:var(--shadow-key),0 26px 60px -26px rgba(255,122,61,.5)}
+.acard:hover::before,.acard:hover::after{opacity:1}
+.ac-sweep{position:absolute;inset:0;background:linear-gradient(115deg,transparent 34%,rgba(255,154,82,.16) 50%,transparent 66%);transform:translateX(-130%);transition:transform .8s ease;pointer-events:none;z-index:2}
+.acard:hover .ac-sweep{transform:translateX(130%)}
+.ac-scene{position:relative;height:116px;border-bottom:1px solid var(--line);overflow:hidden;background:radial-gradient(120% 100% at 50% 0%,rgba(255,122,61,.07),transparent 62%)}
+.ac-scene svg{position:absolute;inset:0;width:100%;height:100%}
+.ac-body{padding:16px 18px 0;display:flex;flex-direction:column;flex:1}
+.ac-no{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--acc);letter-spacing:.14em}
+.ac-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:18.5px;letter-spacing:-.015em;margin:9px 0 7px;color:var(--ink-bright)}
+.ac-d{font-size:12.5px;color:var(--ink-dim);line-height:1.5;flex:1}
+.ac-go{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--ink-faint);margin-top:14px;letter-spacing:.04em;transition:color .22s;display:inline-flex;align-items:center;gap:5px}
+.ac-go span{transition:transform .22s;display:inline-block}
+.acard:hover .ac-go{color:var(--acc)}
+.acard:hover .ac-go span{transform:translateX(4px)}
+
+/* ===================== TRUST grid ===================== */
+.trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.tcard{position:relative;overflow:hidden;background:linear-gradient(165deg,rgba(20,27,48,.92),rgba(12,16,29,.92));border:1px solid var(--line);border-radius:14px;padding:22px 20px;transition:transform .2s,border-color .2s,box-shadow .2s;box-shadow:var(--shadow-amb)}
+.tcard::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,122,61,.35),transparent);opacity:.6}
+.tcard:hover{transform:translateY(-3px);border-color:var(--acc-line);box-shadow:var(--shadow-key),0 0 0 1px rgba(255,122,61,.1)}
+.tcard.warn::before{background:linear-gradient(90deg,transparent,rgba(255,176,32,.4),transparent)}
+.tcard.warn:hover{border-color:rgba(255,176,32,.42)}
+.tc-ic{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;font-size:18px;line-height:1;margin-bottom:14px;color:var(--acc);background:var(--acc-soft);border:1px solid var(--acc-line)}
+.tcard.warn .tc-ic{color:var(--amber);background:rgba(255,176,32,.1);border-color:rgba(255,176,32,.36)}
+.tc-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:15.5px;letter-spacing:-.01em;margin-bottom:7px;color:var(--ink-bright)}
+.tc-d{font-size:12px;color:var(--ink-dim);line-height:1.55}
+
+/* ===================== generic premium panel ===================== */
+.px-panel{position:relative;overflow:hidden;border-radius:18px;border:1px solid var(--line-bright);
+  background:linear-gradient(160deg,rgba(18,24,44,.94),rgba(10,14,26,.96));box-shadow:var(--shadow-key)}
+.px-panel-glow{position:absolute;width:60%;height:120%;right:-10%;top:-30%;background:radial-gradient(circle,rgba(255,122,61,.12),transparent 65%);filter:blur(40px);pointer-events:none}
+
+/* ----- Live Case File Preview ----- */
+.cf-wrap{display:grid;grid-template-columns:1.5fr 1fr;gap:0}
+.cf-main{padding:26px 28px;position:relative;z-index:1}
+.cf-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.cf-id{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--ink-bright);letter-spacing:.03em;display:flex;align-items:center;gap:10px}
+.cf-id .tag{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--red);border:1px solid rgba(255,84,112,.4);background:rgba(255,84,112,.1);padding:3px 8px;border-radius:999px}
+.cf-verify{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--sol);border:1px solid var(--sol-line);background:var(--sol-soft);padding:7px 11px;border-radius:999px}
+.cf-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:20px}
+.cf-cell{background:rgba(8,11,20,.6);border:1px solid var(--line);border-radius:11px;padding:13px 14px}
+.cf-cell .l{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+.cf-cell .v{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink-bright);margin-top:6px;word-break:break-all}
+.cf-cell .v.amber{color:var(--acc)}
+.cf-cell .v.cyan{color:var(--cyan)}
+.cf-cell .v.green{color:var(--sol)}
+.cf-evidence{margin-top:11px;background:rgba(8,11,20,.6);border:1px solid var(--line);border-radius:11px;padding:13px 14px}
+.cf-evidence .l{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:9px}
+.cf-tx{display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);padding:5px 0}
+.cf-tx i{width:5px;height:5px;border-radius:50%;background:var(--cyan);flex-shrink:0;box-shadow:0 0 7px var(--cyan)}
+.cf-tx b{color:var(--ink)}
+.cf-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+.cf-btn{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.03em;padding:10px 15px;border-radius:9px;cursor:default;border:1px solid var(--sol-line);color:var(--sol);background:var(--sol-soft)}
+.cf-btn.amber{border-color:var(--acc-line);color:var(--acc);background:var(--acc-soft)}
+.cf-side{position:relative;z-index:1;padding:26px 24px;border-left:1px solid var(--line);background:linear-gradient(180deg,rgba(255,122,61,.04),transparent)}
+.cf-side .l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:14px}
+.cf-step{display:flex;gap:11px;padding:9px 0;position:relative}
+.cf-step .num{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;border:1px solid var(--sol-line);color:var(--sol);background:var(--sol-soft)}
+.cf-step .tx{font-size:11.5px;color:var(--ink-dim);line-height:1.4}
+.cf-step .tx b{color:var(--ink-bright);display:block;font-family:'Archivo',sans-serif;font-weight:700;font-size:12.5px;margin-bottom:1px}
+
+/* ----- Verify on Solana / signed record ----- */
+.vc-grid{display:grid;grid-template-columns:1fr 1.15fr;gap:22px;align-items:start}
+.vc-rail{position:relative;padding-left:8px}
+.vc-item{position:relative;padding:0 0 22px 30px;border-left:1px solid var(--line-bright)}
+.vc-item:last-child{border-left-color:transparent;padding-bottom:0}
+.vc-item::before{content:"";position:absolute;left:-7px;top:2px;width:13px;height:13px;border-radius:50%;background:var(--bg-card);border:2px solid var(--sol);box-shadow:0 0 10px rgba(20,241,149,.5)}
+.vc-item.amber::before{border-color:var(--acc);box-shadow:0 0 10px rgba(255,122,61,.5)}
+.vc-t{font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;color:var(--ink-bright);letter-spacing:-.01em}
+.vc-d{font-size:12px;color:var(--ink-dim);margin-top:3px;line-height:1.5}
+.vc-memo{display:inline-flex;align-items:center;gap:7px;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--sol);border:1px solid var(--sol-line);background:var(--sol-soft);padding:5px 9px;border-radius:7px}
+.vc-memo.amber{color:var(--acc);border-color:var(--acc-line);background:var(--acc-soft)}
+.vc-card{padding:26px}
+.vc-badge{display:flex;align-items:center;gap:14px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.vc-badge .ring{flex-shrink:0}
+.vc-badge .t{font-family:'Archivo',sans-serif;font-weight:800;font-size:17px;color:var(--ink-bright)}
+.vc-badge .s{font-size:11.5px;color:var(--ink-dim);margin-top:3px;line-height:1.5}
+.vc-rows{margin-top:16px;display:flex;flex-direction:column;gap:9px}
+.vc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:'JetBrains Mono',monospace;font-size:11px}
+.vc-row .k{color:var(--ink-faint)}
+.vc-row .v{color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.vc-row .v .ok{color:var(--sol)}
+
+/* ----- How OSI works flow ----- */
+.how-flow{display:grid;grid-template-columns:repeat(5,1fr);gap:0;position:relative}
+.how-step{position:relative;text-align:center;padding:0 12px}
+.how-step:not(:last-child)::after{content:"";position:absolute;top:30px;right:-10px;left:calc(50% + 30px);height:1px;background:repeating-linear-gradient(90deg,var(--line-bright) 0 6px,transparent 6px 12px)}
+.how-ic{width:60px;height:60px;margin:0 auto 14px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(165deg,rgba(20,27,48,.95),rgba(12,16,29,.95));border:1px solid var(--acc-line);box-shadow:0 14px 34px -18px rgba(255,122,61,.5);position:relative;z-index:1}
+.how-ic svg{width:26px;height:26px}
+.how-step:nth-child(5) .how-ic{border-color:var(--sol-line);box-shadow:0 14px 34px -18px rgba(20,241,149,.5)}
+.how-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;color:var(--ink-bright);letter-spacing:-.01em}
+.how-d{font-size:11.5px;color:var(--ink-dim);margin-top:6px;line-height:1.45}
+
+/* ----- Analyst / ladder ----- */
+.lad-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.lad-card{position:relative;overflow:hidden;background:linear-gradient(165deg,rgba(20,27,48,.92),rgba(12,16,29,.92));border:1px solid var(--line);border-radius:14px;padding:20px 18px;box-shadow:var(--shadow-amb);transition:transform .2s,border-color .2s}
+.lad-card:hover{transform:translateY(-3px);border-color:var(--acc-line)}
+.lad-step{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--ink-faint)}
+.lad-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin:12px 0;border:1px solid var(--acc-line);background:var(--acc-soft)}
+.lad-ic svg{width:20px;height:20px}
+.lad-card.green .lad-ic{border-color:var(--sol-line);background:var(--sol-soft)}
+.lad-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;color:var(--ink-bright);letter-spacing:-.01em}
+.lad-d{font-size:11.5px;color:var(--ink-dim);margin-top:6px;line-height:1.5}
+
+/* ----- Exchange escalation pack ----- */
+.ep-grid{display:grid;grid-template-columns:1fr 1.25fr;gap:0}
+.ep-left{padding:28px;position:relative;z-index:1}
+.ep-kicker{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);margin-bottom:12px}
+.ep-h{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(20px,2.4vw,27px);letter-spacing:-.02em;color:var(--ink-bright);line-height:1.1}
+.ep-p{font-size:13px;color:var(--ink-dim);line-height:1.6;margin-top:13px}
+.ep-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.ep-tag{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-dim);border:1px solid var(--line-bright);border-radius:999px;padding:6px 12px}
+.ep-right{padding:24px;border-left:1px solid var(--line);background:rgba(8,11,20,.5);position:relative;z-index:1}
+.ep-doc-h{display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);letter-spacing:.1em;padding-bottom:11px;border-bottom:1px solid var(--line)}
+.ep-line{display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);padding:8px 0;border-bottom:1px dashed rgba(120,140,190,.12)}
+.ep-line .k{color:var(--ink-faint);width:92px;flex-shrink:0}
+.ep-line .v{color:var(--ink-bright)}
+.ep-line .v.cyan{color:var(--cyan)}
+.ep-foot{display:inline-flex;align-items:center;gap:7px;margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:var(--sol);border:1px solid var(--sol-line);background:var(--sol-soft);padding:8px 12px;border-radius:8px}
+
+/* ----- Labs / secondary modules ----- */
+.labs-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.lab-card{position:relative;overflow:hidden;border-radius:15px;border:1px solid var(--line);background:linear-gradient(165deg,rgba(16,21,38,.92),rgba(10,14,24,.94));padding:22px 22px 20px;box-shadow:var(--shadow-amb);transition:transform .2s,border-color .2s;cursor:pointer}
+.lab-card:hover{transform:translateY(-3px);border-color:var(--cyan-line)}
+.lab-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);border:1px solid var(--cyan-line);background:var(--cyan-soft);padding:3px 9px;border-radius:999px}
+.lab-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:17px;color:var(--ink-bright);margin:13px 0 6px;letter-spacing:-.01em}
+.lab-d{font-size:12px;color:var(--ink-dim);line-height:1.5;max-width:330px}
+.lab-viz{height:90px;margin-top:14px;border-radius:10px;border:1px solid var(--line);overflow:hidden;position:relative;background:radial-gradient(120% 120% at 50% 0,rgba(34,211,238,.07),transparent 60%)}
+.lab-viz svg{position:absolute;inset:0;width:100%;height:100%}
+.lab-go{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);margin-top:14px;letter-spacing:.04em;display:inline-flex;gap:5px}
+.lab-card:hover .lab-go{color:var(--cyan)}
+
+/* ----- Sponsors / ecosystem ----- */
+.sp-wrap{border-radius:18px;border:1px solid var(--line);background:linear-gradient(160deg,rgba(16,21,38,.7),rgba(10,14,24,.7));padding:26px 26px 22px;position:relative;overflow:hidden}
+.sp-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
+.sp-pill{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(160deg,rgba(20,27,48,.9),rgba(12,16,29,.9));border:1px solid var(--line);border-radius:999px;padding:12px 22px;font-family:'Archivo',sans-serif;font-weight:700;font-size:14.5px;color:var(--ink-bright);transition:border-color .18s,transform .18s}
+.sp-pill:hover{border-color:var(--acc-line);transform:translateY(-2px)}
+.sp-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 9px var(--acc-glow)}
+.sp-slots{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.sp-slot{flex:1;min-width:150px;border:1px dashed rgba(120,140,190,.28);border-radius:12px;padding:18px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:var(--ink-faint);background:rgba(255,255,255,.012)}
+.sp-note{font-size:11.5px;color:var(--ink-faint);margin-top:14px;line-height:1.5}
+
+/* ===================== responsive ===================== */
+@media(max-width:980px){
+  .hero-grid{grid-template-columns:1fr;gap:8px}
+  .hero-scene{height:330px;margin-top:6px;order:2}
+  .cf-wrap,.ep-grid,.vc-grid{grid-template-columns:1fr}
+  .cf-side,.ep-right{border-left:0;border-top:1px solid var(--line)}
+  .acards{grid-template-columns:repeat(2,1fr)}
+  .trust-grid{grid-template-columns:repeat(2,1fr)}
+  .lad-grid{grid-template-columns:repeat(2,1fr)}
+  .how-flow{grid-template-columns:repeat(2,1fr);gap:24px 0}
+  .how-step::after{display:none}
+  .labs-grid{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .acards{grid-template-columns:1fr}
+  .trust-grid{grid-template-columns:1fr}
+  .lad-grid{grid-template-columns:1fr}
+  .how-flow{grid-template-columns:1fr;gap:18px}
+  .cf-grid{grid-template-columns:1fr}
+  .hero-scene{height:300px}
+  .hs-file{width:74%}
+  .hs-memo,.hs-tx{width:54%}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .px-aurora,.px-scan,.hero-grad,.hs-file,.hs-memo,.hs-tx,.hs-seal,.hs-chip{animation:none !important}
+}
+</style>
 <script>
 // ── OSI configuration ───────────────────────────────────────────────
 // This tiny file is SAFE to make public and commit to the repo: the
@@ -2018,6 +2547,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 
 window.OSI_SUPABASE_URL = "https://afibxpniwfnavdobecrn.supabase.co";
 window.OSI_SUPABASE_KEY = "sb_publishable_ZMeLittgGgqke81us9GY7g_qpcWoilm";
+
 </script>
 <script>
 /* ============================================================
@@ -2285,6 +2815,7 @@ window.CASE_STUDIES = [
     note: "Why this holds up. The 999,999 SOL came straight from a Foundation non-circulating-supply wallet, co-signed by the Genesis community-allocation vault, keys only the Foundation controls, and landed one day before the discount agreement was public. Add dual-validator staking that matches the disclosed Helius/Twinstake deal, Coinbase Prime + FalconX funding, and a deposit cluster with sequential 0.05-SOL fingerprints, and coincidence is effectively ruled out. The aggregate footprint exceeds the declared 2.3M because some addresses are commingled custody or Foundation escrow, still probabilistic, but about as strong as on-chain attribution gets."
   }
 ];
+
 </script>
 <script>
 // ============================================================
@@ -5225,6 +5756,7 @@ function showToast(msg){
   clearTimeout(t._hideTimer);
   t._hideTimer = setTimeout(()=>{ t.style.opacity = "0"; }, 2600);
 }
+
 </script>
 <script>
 (function(){
@@ -5470,6 +6002,7 @@ function showToast(msg){
   window.__graphHide=function(){ if(dossier) dossier.classList.remove("open"); };
   document.addEventListener("keydown", e=>{ if(e.key==="Escape" && dossier) dossier.classList.remove("open"); });
 })();
+
 </script>
 <style>
 .fo-search-wrap{margin-top:6px}
@@ -5807,21 +6340,30 @@ function showToast(msg){
     var ctx=c.getContext('2d'); if(!ctx) return;
     var rm=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var DPR=Math.min(window.devicePixelRatio||1,2), W=0,H=0,frags=[];
-    var hex='0123456789abcdef', tags=['tx','memo','sig','case','sol','seal','0x','vault'];
+    var hex='0123456789abcdef', tags=['tx','memo','sig','case','sol','seal','0x','vault','hash','slot'];
     function R(a,b){return a+Math.random()*(b-a);}
     function hsh(n){var s='';for(var i=0;i<n;i++)s+=hex[(Math.random()*16)|0];return s;}
-    function frag(){return (Math.random()<.45?tags[(Math.random()*tags.length)|0]+':':'')+hsh(6+(Math.random()*10|0));}
+    function frag(){return (Math.random()<.5?tags[(Math.random()*tags.length)|0]+':':'')+hsh(6+(Math.random()*10|0));}
     function build(){
       W=c.width=Math.floor(innerWidth*DPR); H=c.height=Math.floor(innerHeight*DPR);
       c.style.width=innerWidth+'px'; c.style.height=innerHeight+'px';
-      var n=Math.max(10,Math.min(34,Math.floor(innerWidth/46))); frags=[];
-      for(var i=0;i<n;i++) frags.push({x:R(0,W),y:R(0,H),v:R(.06,.26)*DPR,s:R(9.5,12.5)*DPR,a:R(.05,.14),t:frag()});
+      var n=Math.max(14,Math.min(44,Math.floor(innerWidth/38))); frags=[];
+      for(var i=0;i<n;i++){
+        var cyan=Math.random()<.16, hot=Math.random()<.12;
+        frags.push({x:R(0,W),y:R(0,H),v:R(.05,.28)*DPR,s:R(9.5,12.5)*DPR,
+          a:hot?R(.16,.26):R(.05,.15),cyan:cyan,hot:hot,t:frag()});
+      }
     }
     function paint(){
       ctx.clearRect(0,0,W,H);
       for(var i=0;i<frags.length;i++){var f=frags[i];
-        ctx.font='600 '+f.s+"px 'JetBrains Mono',monospace"; ctx.fillStyle='rgba(255,122,61,'+f.a+')';
-        ctx.fillText(f.t,f.x,f.y);}
+        ctx.font='600 '+f.s+"px 'JetBrains Mono',monospace";
+        if(f.hot){ctx.shadowColor=f.cyan?'rgba(34,211,238,.7)':'rgba(255,122,61,.7)';ctx.shadowBlur=8*DPR;}
+        else{ctx.shadowBlur=0;}
+        ctx.fillStyle=(f.cyan?'rgba(34,211,238,':'rgba(255,138,70,')+f.a+')';
+        ctx.fillText(f.t,f.x,f.y);
+      }
+      ctx.shadowBlur=0;
     }
     var raf;
     function tick(){ for(var i=0;i<frags.length;i++){var f=frags[i]; f.y+=f.v; if(f.y>H+18){f.y=-18;f.x=R(0,W);f.t=frag();}} paint(); raf=requestAnimationFrame(tick); }
