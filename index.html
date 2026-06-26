@@ -28,12 +28,20 @@
   --amber:#ffb020;
   --cyan:#22d3ee;
   --red:#ff5470;
+  --acc:#ff7a3d;
+  --acc-deep:#e8622a;
+  --acc-soft:rgba(255,122,61,.12);
+  --acc-line:rgba(255,122,61,.42);
+  --acc-glow:rgba(255,122,61,.34);
   --sb:252px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
-  background:var(--bg);
+  background:
+    radial-gradient(ellipse 78% 48% at 50% -8%, rgba(255,122,61,.07), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 92% 6%, rgba(153,69,255,.05), transparent 58%),
+    var(--bg);
   color:var(--ink);
   font-family:'Archivo',system-ui,sans-serif;
   line-height:1.5;
@@ -41,6 +49,9 @@ body{
   overflow-x:hidden;
 }
 .mono{font-family:'JetBrains Mono',monospace}
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
 
 /* ---- ambient grid backdrop ---- */
 .backdrop{
@@ -52,10 +63,11 @@ body{
   opacity:.25;
   mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 20%,transparent 80%);
 }
+#osi-stream{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.6}
 .glow{
   position:fixed;top:-30%;left:50%;transform:translateX(-50%);
   width:900px;height:600px;z-index:0;pointer-events:none;
-  background:radial-gradient(circle,rgba(20,241,149,.10),transparent 60%);
+  background:radial-gradient(circle,rgba(255,122,61,.12),transparent 62%);
   filter:blur(40px);
 }
 .wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px}
@@ -572,11 +584,15 @@ body[data-view="dat"] .sb-item[data-view="dat"],
 body[data-view="field"] .sb-item[data-view="field"],
 body[data-view="wire"] .sb-item[data-view="field"],
 body[data-view="community"] .sb-item[data-view="community"]{
-  background:rgba(20,241,149,.08);color:var(--sol);box-shadow:inset 0 -2px 0 var(--sol)}
+  background:var(--acc-soft);color:var(--acc);box-shadow:inset 0 -2px 0 var(--acc)}
+.sb-nav .sb-item{position:relative}
+.sb-nav .sb-item::after{content:'';position:absolute;left:12px;right:12px;bottom:4px;height:2px;background:linear-gradient(90deg,var(--acc),var(--amber));border-radius:2px;transform:scaleX(0);transform-origin:left;transition:transform .25s ease;pointer-events:none}
+.sb-nav .sb-item:hover{color:var(--acc);background:var(--acc-soft)}
+.sb-nav .sb-item:hover::after{transform:scaleX(1)}
 .vsub{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
 .vsub-b{background:none;border:0;border-bottom:2px solid transparent;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;padding:11px 15px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;margin-bottom:-1px;transition:color .15s,border-color .15s}
 .vsub-b:hover{color:var(--ink-dim)}
-.vsub-b.active{color:var(--sol);border-bottom-color:var(--sol)}
+.vsub-b.active{color:var(--acc);border-bottom-color:var(--acc)}
 .vsub-b span{font-size:13px;opacity:.9}
 .vsub.gin{border-bottom:0;margin-bottom:0;margin-left:-4px}
 .vsub.gin .vsub-b{padding:8px 13px}
@@ -635,6 +651,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 </style>
 </head>
 <body data-view="registry" data-sub="tab-analysts">
+<canvas id="osi-stream" aria-hidden="true"></canvas>
 <div class="backdrop"></div>
 <div class="glow"></div>
 
@@ -735,17 +752,13 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   <div class="wrap">
     <div class="hero-grid">
     <div class="hero-main">
-    <span class="eyebrow"><span class="live"></span>Open, community-verified on-chain investigation</span>
-    <h1>
-      Lost SOL to a hack,<br>
-      a rug, or a scam?<br>
-      <span class="chain">Open a case.</span>
-    </h1>
-    <p class="lede">OSI is an open, community-run desk for on-chain investigations, from a drained wallet to an institution's treasury. Opening a case is <strong>free</strong> and takes one wallet signature. Verified analysts trace <strong>where the funds went and how</strong>, their peers review the work, and the finding is published, public and permanent. We follow the money, not people, and we never promise to get it back.</p>
-    <p class="creed">// <b>you should not have to</b> trace it alone</p>
+    <div class="eyebrow"><span class="live"></span> Public on-chain investigation desk</div>
+    <h1 class="hero-h1">Public Intelligence for<br><span class="hero-grad">Solana Incidents.</span></h1>
+    <p class="hero-sub">Open a case.<span class="hs-sep">/</span>Trace the trail.<span class="hs-sep">/</span>Seal the record.</p>
     <div class="hero-cta">
-      <button class="hero-go" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);"><span>+</span> Open a case <span class="hg-sec">free · 1 signature</span></button>
-      <button class="hero-demo" onclick="demoStart()"><span class="hd-ic">▶</span> Watch the guided tour <span class="hd-sec">no wallet</span></button>
+      <button class="btn-acc" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">Open a Case</button>
+      <button class="btn-outline" onclick="showView('community'); setTimeout(function(){ var e=document.getElementById('an-tg'); if(e) e.focus(); }, 320);">Join as Analyst</button>
+      <button class="btn-ghost" onclick="demoStart()"><span class="bg-ic">&#9654;</span> Launch Console</button>
     </div>
 
     </div>
@@ -761,6 +774,18 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .hero-go:hover{box-shadow:0 10px 34px rgba(20,241,149,.25);transform:translateY(-1px)}
 .hero-go span:first-child{font-size:15px;font-weight:700}
 .hg-sec{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--ink-faint);letter-spacing:.04em}
+.hero-h1{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(38px,6vw,68px);line-height:1.02;letter-spacing:-.03em;margin:14px 0 18px}
+.hero-grad{background:linear-gradient(100deg,var(--acc) 0%,#ffb020 45%,var(--acc) 90%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--acc);animation:heroGrad 6s linear infinite}
+@keyframes heroGrad{to{background-position:200% center}}
+.hero-sub{font-family:'JetBrains Mono',monospace;font-size:clamp(13px,1.6vw,16px);color:var(--ink-dim);letter-spacing:.01em;margin-bottom:30px}
+.hs-sep{color:var(--acc);margin:0 9px;font-weight:700}
+.btn-acc{background:linear-gradient(180deg,var(--acc),var(--acc-deep));color:#1c0f06;border:0;border-radius:11px;padding:15px 28px;font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 10px 34px var(--acc-glow);transition:transform .16s,box-shadow .16s}
+.btn-acc:hover{transform:translateY(-2px);box-shadow:0 16px 46px var(--acc-glow)}
+.btn-outline{background:transparent;color:var(--ink);border:1px solid var(--line-bright);border-radius:11px;padding:15px 24px;font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:all .16s}
+.btn-outline:hover{border-color:var(--acc-line);color:var(--acc);box-shadow:0 6px 24px var(--acc-glow);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--ink-dim);border:0;padding:15px 12px;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:color .16s}
+.btn-ghost:hover{color:var(--acc)}
+.btn-ghost .bg-ic{font-size:10px}
 #safeguards{padding-top:10px;padding-bottom:8px}
 .guards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .guard{border:1px solid var(--line);border-top:2px solid var(--line-bright);background:var(--bg-card);border-radius:10px;padding:17px 18px}
@@ -770,52 +795,84 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .guard-b{font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;letter-spacing:-.01em;margin-bottom:6px}
 .guard-d{font-size:11.5px;line-height:1.55;color:var(--ink-dim)}
 @media(max-width:760px){.guards{grid-template-columns:1fr}}
+.sec-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);margin-bottom:12px}
+.sec-head-lg{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(23px,3vw,33px);letter-spacing:-.02em;margin-bottom:24px;line-height:1.08}
+.trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+.tcard{position:relative;background:linear-gradient(160deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line);border-radius:13px;padding:21px 19px;transition:transform .18s,border-color .18s,box-shadow .18s}
+.tcard:hover{transform:translateY(-3px);border-color:var(--acc-line);box-shadow:0 14px 40px rgba(0,0,0,.45)}
+.tc-ic{font-size:20px;line-height:1;margin-bottom:13px;color:var(--acc)}
+.tcard.warn .tc-ic{color:var(--amber)}
+.tc-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:15.5px;letter-spacing:-.01em;margin-bottom:7px}
+.tc-d{font-size:12px;color:var(--ink-dim);line-height:1.55}
+@media(max-width:840px){.trust-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.trust-grid{grid-template-columns:1fr}}
 </style>
   <div class="wrap">
-    <div class="guards">
-      <div class="guard warn">
-        <div class="guard-ic">⚠</div>
-        <div class="guard-b">No recovery, ever</div>
-        <div class="guard-d">On-chain transfers are final. OSI traces and documents what happened. It cannot reverse, freeze, or recover funds, and will never promise to.</div>
-      </div>
-      <div class="guard">
-        <div class="guard-ic">🛡</div>
-        <div class="guard-b">We never DM you first</div>
-        <div class="guard-d">OSI and its analysts never message you out of the blue, and never ask for a fee, a seed phrase, or wallet access. Anyone promising to recover your funds for a payment is a scammer.</div>
-      </div>
-      <div class="guard">
-        <div class="guard-ic">⚖</div>
-        <div class="guard-b">The money, not the person</div>
-        <div class="guard-d">Investigations follow the fund flow and the mechanism, every step backed by a transaction hash. No accusations, no identities, no doxxing.</div>
-      </div>
+    <div class="sec-eyebrow mono">// trust &amp; verification</div>
+    <h2 class="sec-head-lg">Built to be checked, not trusted</h2>
+    <div class="trust-grid">
+      <div class="tcard reveal"><div class="tc-ic">🛡</div><div class="tc-t">Local Safety Gate</div><div class="tc-d">Seed phrases, private keys and personal data are blocked in your browser before anything is ever submitted.</div></div>
+      <div class="tcard reveal"><div class="tc-ic">✓</div><div class="tc-t">Analyst Vouch</div><div class="tc-d">Verified analysts vouch for or flag each report. Weak claims get caught by peers, not waved through.</div></div>
+      <div class="tcard reveal"><div class="tc-ic">◉</div><div class="tc-t">Maintainer Seal</div><div class="tc-d">A final human check seals a finding into the public record while the analyst roster grows.</div></div>
+      <div class="tcard reveal"><div class="tc-ic">⛓</div><div class="tc-t">Signed Memo Trail</div><div class="tc-d">Every key action is a signed Solana memo, public and verifiable on Solscan by anyone.</div></div>
+      <div class="tcard reveal"><div class="tc-ic">⚖</div><div class="tc-t">Challenge Reports</div><div class="tc-d">Any record can be challenged with better evidence. Nothing is final, everything stays correctable.</div></div>
+      <div class="tcard warn reveal"><div class="tc-ic">⚠</div><div class="tc-t">No Recovery Promise</div><div class="tc-d">OSI traces and documents what happened. It cannot recover funds and never promises to.</div></div>
     </div>
   </div>
 </section>
 
 <section class="sec" data-view="registry" id="entry-points">
   <div class="wrap">
-    <div class="ep-kicker mono">// where do you fit in</div>
-    <div class="ep-grid">
-      <button class="ep-card feat" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">
-        <div class="ep-ic">🛟</div>
-        <div class="ep-t">Something happened? Open a case</div>
-        <div class="ep-d">Drained, rugged, or scammed, and the explorers make no sense? Open a free case and the community traces where your SOL went and how. One signature, no fee.</div>
-        <div class="ep-go mono">Open a case →</div>
+    <div class="acards">
+      <button class="acard reveal" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">
+        <div class="ac-sweep"></div>
+        <span class="ac-no">01</span>
+        <div class="ac-t">Open a Case</div>
+        <div class="ac-d">Submit public on-chain evidence for free.</div>
+        <div class="ac-go">Open <span>&rarr;</span></div>
       </button>
-      <button class="ep-card" onclick="showView('field')">
-        <div class="ep-ic">🔍</div>
-        <div class="ep-t">Help investigate</div>
-        <div class="ep-d">On-chain analyst? Take an open case, trace the funding and custody directly on the chain, and build a public, signed track record.</div>
-        <div class="ep-go mono">See open cases →</div>
+      <button class="acard reveal" onclick="showView('graph')">
+        <div class="ac-sweep"></div>
+        <span class="ac-no">02</span>
+        <div class="ac-t">Trace the Funds</div>
+        <div class="ac-d">Map wallets, transactions, swaps, bridges and exchange deposits.</div>
+        <div class="ac-go">Trace <span>&rarr;</span></div>
       </button>
-      <button class="ep-card" onclick="epScrollEntities()">
-        <div class="ep-ic">▣</div>
-        <div class="ep-t">Browse the open record</div>
-        <div class="ep-d">Read what the community has already traced: institutional treasuries, flagged wallets, and published investigations. Free and permanent.</div>
-        <div class="ep-go mono">Jump to the record →</div>
+      <button class="acard reveal" onclick="showView('community')">
+        <div class="ac-sweep"></div>
+        <span class="ac-no">03</span>
+        <div class="ac-t">Review Evidence</div>
+        <div class="ac-d">Analysts review reports, add vouches and challenge weak claims.</div>
+        <div class="ac-go">Review <span>&rarr;</span></div>
+      </button>
+      <button class="acard reveal" onclick="showView('research')">
+        <div class="ac-sweep"></div>
+        <span class="ac-no">04</span>
+        <div class="ac-t">Seal the Record</div>
+        <div class="ac-d">Verified reports become public records with signed activity.</div>
+        <div class="ac-go">View <span>&rarr;</span></div>
       </button>
     </div>
   </div>
+<style>
+.acards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.acard{position:relative;overflow:hidden;text-align:left;background:linear-gradient(160deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line);border-radius:14px;padding:22px 20px 20px;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;min-height:172px;display:flex;flex-direction:column}
+.acard::before{content:'';position:absolute;top:8px;left:8px;width:16px;height:16px;border-top:2px solid var(--acc-line);border-left:2px solid var(--acc-line);opacity:.45;transition:opacity .2s}
+.acard::after{content:'';position:absolute;bottom:8px;right:8px;width:16px;height:16px;border-bottom:2px solid var(--acc-line);border-right:2px solid var(--acc-line);opacity:.45;transition:opacity .2s}
+.acard:hover{transform:translateY(-4px);border-color:var(--acc-line);box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.acard:hover::before,.acard:hover::after{opacity:1}
+.ac-sweep{position:absolute;inset:0;background:linear-gradient(115deg,transparent 32%,var(--acc-soft) 50%,transparent 68%);transform:translateX(-130%);transition:transform .75s ease;pointer-events:none}
+.acard:hover .ac-sweep{transform:translateX(130%)}
+.ac-no{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--acc);letter-spacing:.1em}
+.ac-t{font-family:'Archivo',sans-serif;font-weight:800;font-size:19px;letter-spacing:-.01em;margin:14px 0 8px}
+.ac-d{font-size:12.5px;color:var(--ink-dim);line-height:1.5;flex:1}
+.ac-go{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--ink-faint);margin-top:14px;letter-spacing:.04em;transition:color .2s}
+.ac-go span{transition:transform .2s;display:inline-block;margin-left:2px}
+.acard:hover .ac-go{color:var(--acc)}
+.acard:hover .ac-go span{transform:translateX(4px)}
+@media(max-width:900px){.acards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.acards{grid-template-columns:1fr}}
+</style>
 </section>
 
 <section class="sec" data-view="registry" id="latest-intel-sec">
@@ -1809,6 +1866,25 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
       </div>
     </div>
   </div>
+</section>
+
+<section class="sec" data-view="registry" id="built-with">
+  <div class="wrap">
+    <div class="sec-eyebrow mono">// infrastructure</div>
+    <h2 class="sec-head-lg">Built With</h2>
+    <div class="bw-grid">
+      <div class="bw-pill reveal"><span class="bw-dot"></span>Solana</div>
+      <div class="bw-pill reveal"><span class="bw-dot"></span>Supabase</div>
+      <div class="bw-pill reveal"><span class="bw-dot"></span>Vercel</div>
+      <div class="bw-pill reveal"><span class="bw-dot"></span>Phantom</div>
+    </div>
+  </div>
+<style>
+.bw-grid{display:flex;flex-wrap:wrap;gap:12px}
+.bw-pill{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(160deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line);border-radius:999px;padding:12px 23px;font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;color:var(--ink);transition:border-color .18s,transform .18s,box-shadow .18s}
+.bw-pill:hover{border-color:var(--acc-line);transform:translateY(-2px);box-shadow:0 8px 26px var(--acc-glow)}
+.bw-dot{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 9px var(--acc-glow)}
+</style>
 </section>
 
 <footer>
@@ -5724,5 +5800,48 @@ function showToast(msg){
     </div>
   </div>
 </div>
+<script>
+(function(){
+  try{
+    var c=document.getElementById('osi-stream'); if(!c||!c.getContext) return;
+    var ctx=c.getContext('2d'); if(!ctx) return;
+    var rm=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var DPR=Math.min(window.devicePixelRatio||1,2), W=0,H=0,frags=[];
+    var hex='0123456789abcdef', tags=['tx','memo','sig','case','sol','seal','0x','vault'];
+    function R(a,b){return a+Math.random()*(b-a);}
+    function hsh(n){var s='';for(var i=0;i<n;i++)s+=hex[(Math.random()*16)|0];return s;}
+    function frag(){return (Math.random()<.45?tags[(Math.random()*tags.length)|0]+':':'')+hsh(6+(Math.random()*10|0));}
+    function build(){
+      W=c.width=Math.floor(innerWidth*DPR); H=c.height=Math.floor(innerHeight*DPR);
+      c.style.width=innerWidth+'px'; c.style.height=innerHeight+'px';
+      var n=Math.max(10,Math.min(34,Math.floor(innerWidth/46))); frags=[];
+      for(var i=0;i<n;i++) frags.push({x:R(0,W),y:R(0,H),v:R(.06,.26)*DPR,s:R(9.5,12.5)*DPR,a:R(.05,.14),t:frag()});
+    }
+    function paint(){
+      ctx.clearRect(0,0,W,H);
+      for(var i=0;i<frags.length;i++){var f=frags[i];
+        ctx.font='600 '+f.s+"px 'JetBrains Mono',monospace"; ctx.fillStyle='rgba(255,122,61,'+f.a+')';
+        ctx.fillText(f.t,f.x,f.y);}
+    }
+    var raf;
+    function tick(){ for(var i=0;i<frags.length;i++){var f=frags[i]; f.y+=f.v; if(f.y>H+18){f.y=-18;f.x=R(0,W);f.t=frag();}} paint(); raf=requestAnimationFrame(tick); }
+    build(); window.addEventListener('resize',build);
+    if(rm) paint(); else tick();
+  }catch(e){}
+})();
+</script>
+<script>
+(function(){
+  function showAll(){ try{ var a=document.querySelectorAll('.reveal'); for(var k=0;k<a.length;k++) a[k].classList.add('in'); }catch(_){}}
+  try{
+    var els=document.querySelectorAll('.reveal'); if(!els.length) return;
+    var rm=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(rm||!('IntersectionObserver' in window)){ showAll(); return; }
+    var io=new IntersectionObserver(function(ents){ ents.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); },{threshold:.12,rootMargin:'0px 0px -7% 0px'});
+    for(var j=0;j<els.length;j++) io.observe(els[j]);
+    setTimeout(showAll, 2200);
+  }catch(e){ showAll(); }
+})();
+</script>
 </body>
 </html>
