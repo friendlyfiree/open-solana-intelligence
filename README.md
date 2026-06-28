@@ -1,103 +1,251 @@
-# Open Solana Intelligence (OSI)
+# OSI · Open Solana Intelligence
 
-**An open, community-run desk for on-chain investigations.**
+**An open, community-run intelligence desk for on-chain Solana incidents.**
+When SOL is drained, rugged, or scammed and the victim cannot trace it alone, OSI turns scattered on-chain evidence into reviewed, verifiable **case records** and ready-to-send **escalation packs**, all in public.
 
-When SOL leaves a wallet and you cannot trace it yourself, the usual options are a paid analyst who answers to one client, or silence. OSI is the opposite. Anyone can open a case for free, verified analysts trace where the funds went and how, their peers review the work, and the finding becomes a permanent public record. It works the same for a drained wallet and for an institution's treasury. We follow the money, not people, and we never promise to recover funds.
+> Information only. No financial or legal advice, and no promise to recover funds.
 
-> `// you should not have to trace it alone`
-
-<!-- ============================================================= -->
-<!--  MAINTAINER: paste the live URL on the line below after you   -->
-<!--  rename or redeploy the Vercel project, then re-upload this   -->
-<!--  file. No code change is needed; the app does not hardcode    -->
-<!--  its own address.                                             -->
-<!-- ============================================================= -->
-
-**Live:** `<< PASTE YOUR VERCEL URL HERE >>`
-
-**Source:** https://github.com/friendlyfiree/solana-treasury-watch
+**Built on:** Solana · Supabase · Phantom · Vercel
+**Live:** https://solana-treasury-watch-wald.vercel.app/
+*(the current deployment URL still carries an older project name; it will be renamed to the OSI domain.)*
 
 ---
 
-## What we promise, and what we never will
+## Table of contents
 
-OSI is built to be safe for the people who need it most. Three lines are non-negotiable, and they appear throughout the product:
+- [Why OSI exists](#why-osi-exists)
+- [What OSI is](#what-osi-is)
+- [How it works: the case lifecycle](#how-it-works-the-case-lifecycle)
+- [Verifiable on-chain (Solana Memo)](#verifiable-on-chain-solana-memo)
+- [Public Case Records](#public-case-records)
+- [AI-assisted escalation packs](#ai-assisted-escalation-packs)
+- [Analyst reputation and review](#analyst-reputation-and-review)
+- [What makes OSI different](#what-makes-osi-different)
+- [Architecture and tech stack](#architecture-and-tech-stack)
+- [Project structure](#project-structure)
+- [Running and deploying](#running-and-deploying)
+- [Roadmap](#roadmap)
+- [Safety, scope, and disclaimers](#safety-scope-and-disclaimers)
+- [Contributing](#contributing)
 
-- **No recovery, ever.** On-chain transfers are final. OSI traces and documents what happened. It cannot reverse, freeze, or recover funds, and it will never promise to.
-- **We never DM you first.** OSI and its analysts never message you out of the blue, and never ask for a fee, a seed phrase, or wallet access. Anyone promising to recover your funds for a payment is a scammer.
-- **The money, not the person.** Investigations follow the fund flow and the mechanism, every step backed by a transaction hash. No accusations, no identities, no doxxing.
+---
 
-Before any case or report is submitted, a hard-stop safety screen makes the contributor confirm they are not sharing a private key, and that only publicly verifiable, open-source evidence will be published. Private messages and personal data never belong here.
+## Why OSI exists
 
-## How it works
+The people who need on-chain forensics the most are usually the ones who can reach it the least.
 
-1. **Something needs tracing.** A drained wallet, a suspicious flow, or an institution's treasury.
-2. **Open a case, free.** Describe what happened and sign it on-chain. No fee to open.
-3. **Analysts investigate.** Verified analysts trace funding, custody, and validators directly on the chain.
-4. **Peers review.** Other analysts vouch for or flag the work. Weak or unproven attribution is caught here.
-5. **Consensus publishes.** A finding goes public only when enough independent analysts agree. No single voice decides.
-6. **Always correctable.** Every entry stays open and can be challenged with better evidence.
+- **Victims are often broke after the hack.** They lost the funds, so paying for a private analyst or opening a paid bounty is rarely an option.
+- **Trust is concentrated.** Users only trust a handful of well-known analysts, and getting those analysts to look at a fresh case, for free, is hard.
+- **Nobody knows what to tell an exchange or the police.** Victims rarely know how to package evidence for a compliance desk, and local law enforcement often struggles to read on-chain activity.
+- **New analysts have nowhere to prove themselves.** Most help happens in private DMs, so good work never builds a public track record, and the next generation of analysts has no arena to grow in.
+- **The "how" is never shared.** The community sees a result, but newcomers cannot learn how the trail was actually followed.
 
-OSI governs itself like Wikipedia for on-chain investigations. Today a maintainer holds the final seal while the analyst roster grows, so nothing slips through unchecked. As the roster grows, that power moves to the network: a record no one, including us, can quietly control.
+Existing bounty platforms are useful, but verdicts are decided centrally. That is fine until the company pivots, runs out of money, or lays off the team. **OSI is built so the public record outlives any single operator.** Cases are public, analysts prove themselves in the open, and findings publish through peer consensus, so even if the founder steps away, the system keeps running.
 
-## What is shipped
+OSI is a public good. It is **not profit-driven.**
 
-This is a working product, not a mockup. Live today:
+---
 
-- **Field Office** is the live case board. Anyone posts a case for free; analysts claim it and trace the wallets. The Wire, a feed for unprompted dispatches, sits alongside it as a sub-tab.
-- **DAT Watch** tracks every public Solana treasury company and whether it has been traced yet, with coverage totals on top. The Network map, an explorable graph of how SOL moves between foundations, market makers, custodians, and treasuries, sits alongside it as a sub-tab.
-- **Registry** is the wallets behind each tracked institution, with a confidence grade on every address.
-- **Investigations** is the published, long-form case files.
-- **Methodology** is exactly how the attribution is done, in the open.
-- **Community** is the open roster, the peer-review floor, and the path to self-governance.
-- A **guided tour** walks the whole product end to end, no wallet needed.
+## What OSI is
 
-The registry today covers 3 public companies (Forward Industries, the Solana Company / HSDT, and Sharps Technology) across 38 attributed wallets, with balances pulled live from the chain. It is built to extend across the rest of institutional Solana, and the same tradecraft applies to tracing an individual incident.
+OSI is a **case-first, public on-chain forensic platform** for Solana.
 
-## On-chain and verifiable
+- **Anyone can open a case for free.** No private contact, no fee, no wallet drained twice by middlemen.
+- **Verified analysts investigate** the funding, routing, and clustering directly on-chain.
+- **Peers review the work.** A finding does not publish on one voice; it clears a weighted consensus of independent analysts, with a maintainer seal as the final human check while the network grows.
+- **The result becomes a permanent, public, on-chain-verifiable case record**, with the methodology attached so the technique spreads, not just the answer.
+- **Every meaningful action is signed as a Solana Memo**, so the whole trail can be checked on any block explorer without taking OSI's word for it.
 
-OSI is a real Solana dApp. Connect Phantom and the core actions, opening a case, vouching on a report, signaling demand, and sending support, each write a signed SPL memo to Solana mainnet. Every action is a public audit trail, links straight to Solscan, and can be checked by anyone. A memo is evidence of an action, not a verdict, and OSI never holds or moves your funds. Support and any optional reward move over Solana Pay, peer to peer, settled on-chain. No fee is collected beyond the standard network cost.
+The reward for analysts is **reputation, not resale.** What an analyst earns here is a signed, public track record.
 
-## Safety and security by design
+---
 
-- **Only the public key ships.** The page carries the Supabase publishable (anon) key only, which is public by design. Row-level security and a maintainer-approval step govern what can be read or published. No admin or service key ever touches the code.
-- **Domain-locked RPC.** The Helius key shipped in the page only works from the project's own origin.
-- **No raw HTML, safe links only.** Nothing a visitor types is rendered as raw HTML, and only http and https links are accepted, so the board cannot be used for injection.
-- **Open-source evidence only.** Contributors are required to keep submissions to publicly verifiable, on-chain facts. Private messages, personal data, and accusations are rejected by design.
+## How it works: the case lifecycle
 
-## Stack and data
+```mermaid
+flowchart TD
+    A[Someone opens a case<br/>free, public, no DM] -->|memo OSI_CASE_OPENED| B[Verified analyst investigates<br/>funding, routing, clustering]
+    B -->|memo OSI_REPORT_SUBMITTED| C[Peer review on the floor]
+    C -->|memo OSI_ANALYST_VOUCH| D{Weighted consensus reached?}
+    D -- No / challenged --> C
+    D -- Yes --> E[Maintainer seal<br/>final human review gate]
+    E -->|memo OSI_MAINTAINER_SEAL| F[Public Case Record<br/>sealed and verifiable]
+    F --> G[AI-assisted escalation packs<br/>human-reviewed before release]
+```
 
-No framework and no build step. The app is a single static `index.html`, self-contained, that runs anywhere static files are served.
+A case moves through honest, visible states: **Under review → Reviewed → Sealed.** A case is never shown as sealed until it actually is.
 
-- **Live balances:** [Helius](https://www.helius.dev) RPC on Solana mainnet, with the public node as an automatic fallback.
-- **Live price:** the CoinGecko public API, so the gap between declared and on-chain is always shown in current dollars.
-- **Wallet and on-chain actions:** [`@solana/web3.js`](https://github.com/solana-labs/solana-web3.js) with Phantom and the SPL Memo program, with payments over Solana Pay.
-- **Shared community layer:** an optional [Supabase](https://supabase.com) backend for the global case board, the roster, peer review, and the on-chain action index, all governed by row-level security.
-- **Form delivery:** analyst applications and the weekly brief reach the maintainer through [Web3Forms](https://web3forms.com).
+---
 
-All entity and wallet data is auditable. Every attribution carries its evidence and a confidence label, and the methodology to reproduce it is published in full.
+## Verifiable on-chain (Solana Memo)
 
-## Run it locally
+OSI does not ask you to trust a database. Each meaningful action writes a signed entry to the **SPL Memo program** on Solana mainnet, timestamped and permanent. Anyone can open the transaction in a block explorer (for example Solscan) and read the memo for themselves.
 
-Serve `index.html` from any static host. With Vercel, drag the file in and deploy. No build, no backend required. To turn on the shared community layer, create a free Supabase project, run the SQL from the setup notes, and paste your project URL and publishable key into the two constants near the top of the script.
+| Memo | When it is written |
+| --- | --- |
+| `OSI_CASE_OPENED` | A public case is created |
+| `OSI_REPORT_SUBMITTED` | An analyst report is hashed and anchored on-chain |
+| `OSI_ANALYST_VOUCH` | A verified analyst signs a vouch to publish |
+| `OSI_CHALLENGE_FILED` | An analyst challenges a finding with evidence |
+| `OSI_CASE_BACKED` | A signed signal of demand for a case |
+| `OSI_WIRE_DISPATCH_SUBMITTED` | A field-office dispatch is filed |
+| `OSI_MAINTAINER_SEAL` | The final maintainer seal on a reviewed case |
+
+Because the report itself is hashed and the hash is written on-chain, a published finding can be proven to predate any later edit.
+
+---
+
+## Public Case Records
+
+The **Public Case Records** archive is the front door to OSI's output. It is a premium public intelligence archive, not a social feed.
+
+Each record is a compact, scannable dossier:
+
+- OSI case id and title
+- Honest status: **Reviewed** or **Sealed**
+- On-chain evidence indicators and any available escalation packs
+- **Verify on Solana** (links straight to the signing transaction)
+- **Open Case Record**, which opens a focused side drawer for that single case so the page stays clean as the archive grows
+
+The drawer shows the full picture for one case: verification (Solana Memo and transaction reference), summary, evidence, analyst-review status, any **reviewed** escalation packs to download, and the standing disclaimer. Draft (unreviewed) AI packs are never shown publicly.
+
+---
+
+## AI-assisted escalation packs
+
+Once a case clears review, OSI can turn the public on-chain evidence into a structured brief for whoever can act on it:
+
+- **Victim Brief**: a plain-language summary for the affected user
+- **Exchange Pack**: structured evidence for an exchange compliance desk
+- **Law Enforcement Brief**: a formatted dossier for cyber and LE units
+
+Hard rules baked into the feature:
+
+- AI output is an **artifact, not a chat message.**
+- Every pack is **AI-assisted and human-reviewed.** It carries a clear "review required" state and only becomes public after a maintainer reviews it.
+- **No legal advice, no recovery promise, no accusation language**, and no invented wallets, transactions, people, or exchanges.
+- During the pilot, **generation is maintainer-only.** The model never receives or returns anything beyond the public case evidence, and the AI key lives **only on the server**, never in the browser.
+
+---
+
+## Analyst reputation and review
+
+OSI is designed to grow a real analyst base in the open.
+
+- Analysts apply and identify themselves by wallet signature.
+- A pending finding is reviewed on the consensus floor: peers **vouch to publish** or **flag** with evidence.
+- Today a maintainer holds the final seal while the roster grows, so nothing slips through unchecked.
+- As the network matures, that approval power moves to the analysts themselves, weighted by reputation.
+
+A reputation-weighted voting model (where the person opening a case sets how much analyst consensus is required to publish, and analyst weight is capped so no single voice can dominate) and a public **Proof Log** of every signed action are in active design. See the [Roadmap](#roadmap).
+
+---
+
+## What makes OSI different
+
+- **Public by default.** A closed marketplace stops at the buyer; OSI stops at the public. Everyone gets the intelligence.
+- **Survives its operator.** Consensus and on-chain proof mean the record does not depend on one company staying solvent or one admin staying employed.
+- **No paid verdicts.** Support is peer-to-peer and optional; OSI verifies the work, never the payment, and never guarantees it.
+- **Teaches, not just tells.** The methodology travels with every record, so the technique spreads.
+- **Honest by construction.** Confidence is graded, status is never overstated, and a wrong call is visible and fixable in the open instead of buried in a private dataset.
+
+---
+
+## Architecture and tech stack
+
+OSI is intentionally lightweight and dependency-light, so it is easy to audit and easy to host.
+
+| Layer | Choice |
+| --- | --- |
+| Frontend | Vanilla JavaScript, a single `index.html`, no framework and no build step |
+| Solana | `@solana/web3.js` (loaded from CDN); SPL Memo program on mainnet for signed event records |
+| Wallet | Phantom, using a session-based connection (silent restore on refresh within the same browser session, manual connect on a new session, no fake permanent connection) |
+| RPC | Public Solana RPC endpoints with an automatic fallback chain for reliability |
+| Backend | Supabase: Postgres with Row Level Security, Auth for maintainers, and Edge Functions (Deno) |
+| AI | Anthropic Claude, called from a Supabase Edge Function on the server side; the API key is never exposed to the client |
+| Hosting | Vercel, deployed as a single static file |
+
+Security posture worth calling out:
+
+- The service-role key and the AI key are **server-side only.** Only the Supabase publishable key ships in the client, and public read access is restricted by Row Level Security to approved content.
+- The app is **safe to read.** Every published attribution can be re-walked in a block explorer.
+
+---
+
+## Project structure
+
+```
+.
+├── index.html        # the entire app: markup, styles, and inlined scripts for deploy
+├── config.js         # public Supabase URL + publishable key (no secrets)
+├── data.js           # reserved data module
+├── app.js            # all client logic: wallet, memo signing, Supabase reads/writes, rendering
+│
+└── osi-backend/      # deployed by the maintainer into Supabase (not served to the client)
+    ├── escalation_packs.sql           # escalation_packs table + Row Level Security
+    ├── escalation_migration.sql       # additive migration (sealed flag, public read of approved packs)
+    └── generate-escalation-pack/
+        └── index.ts                   # Edge Function: maintainer-gated, server-side AI generation
+```
+
+For deployment, the local scripts are inlined into a single `index.html`, so the live site is one self-contained file.
+
+---
+
+## Running and deploying
+
+**View locally.** Because the app is a single HTML file with CDN dependencies, you can serve the folder with any static server:
+
+```bash
+# from the project root
+python3 -m http.server 8080
+# then open http://localhost:8080
+```
+
+**Deploy.** Drag the built `index.html` to the repository root on Vercel; it publishes automatically. No build pipeline is required.
+
+**Backend (maintainer, one time).** In the Supabase dashboard:
+
+1. Run `osi-backend/escalation_packs.sql` and `osi-backend/escalation_migration.sql` in the SQL editor.
+2. Deploy the `generate-escalation-pack` Edge Function.
+3. Set the AI API key as an Edge Function secret (server-side only).
+
+---
 
 ## Roadmap
 
-- **Live now, the desk is open.** Open a case, traced wallets, case files, and the safety rules, all live. Free to use, public to read.
-- **Next, open the code.** The full codebase and dataset on GitHub, more entities on the registry, and the weekly brief wired up.
-- **Soon, grow the roster.** More verified analysts reviewing each other's work. Consensus clears a finding, never one single voice.
-- **Later, hand it to the network.** Approval moves from the maintainer to the analysts themselves, weighted by reputation. A Wikipedia for on-chain investigation, run by the people who do the work.
+| Phase | Status | What it means |
+| --- | --- | --- |
+| **The desk is open** | Live now | Open a case, trace the wallets, publish a case file, with the safety rules in place. Free to use, public to read. |
+| **Open the code** | Next | The full codebase on GitHub with open contributor docs, fully public. |
+| **Grow the roster** | Soon | More verified analysts reviewing each other's work, so consensus clears a finding rather than one single voice. |
+| **Hand it to the network** | Later | Approval moves from the maintainer to the analysts themselves, weighted by reputation: a public, peer-checked record run by the people who do the work. |
 
-The near-term list is deliberately small and achievable for a solo maintainer. The later list is the direction of travel, not a promise with a date.
+**In active design (next build phase):**
+
+- **Reputation-weighted voting.** Analyst vote weight scales with rank and is capped so no single analyst can dominate. When opening a case, the author chooses how much analyst consensus is required to publish (for example 1, 3, 5, or 7 weight). This makes analyst standing visible and keeps approval decentralized.
+- **Proof Log.** A premium, on-chain-verifiable timeline of every signed action on the platform (application, approval, case opened, report submitted, accepted or rejected, pack reviewed, seal), each entry one line with a direct "Verify on Solana" link.
+
+Longer term, as the platform earns trust, deeper exchange cooperation (freeze and blacklist workflows) becomes possible. That is an aspiration, not a promise.
+
+---
+
+## Safety, scope, and disclaimers
+
+OSI is research infrastructure, and it is careful on purpose.
+
+- **Information only.** Nothing here is financial or legal advice.
+- **No recovery promise.** OSI traces and documents; it does not guarantee that any funds are returned.
+- **Attribution is probabilistic.** Confidence is graded as **Verified**, **High confidence**, or **Publicly labeled**, and "high confidence" means the evidence strongly converges, not that ownership is legally proven.
+- **Follow the money, not people.** OSI blocks direct accusations, doxxing, threats, and requests for seed phrases or private keys, and never publishes private personal information.
+- **Open and correctable.** Every attribution can be challenged with better evidence. A wrong call is visible and fixable in the open, which is the entire point of doing this in public.
+
+---
 
 ## Contributing
 
-New attributions and case work are welcome, see [CONTRIBUTING.md](./CONTRIBUTING.md). The bar is deliberately high: every claim needs an on-chain trail, a documented confidence level, and only public, open-source evidence. No private data, ever.
+The codebase is being opened on GitHub with contributor docs (see the roadmap). The most valuable contributions are careful on-chain analysis done in the open and peer review that holds findings to a high standard. If you want to take part, connecting a wallet is enough to begin; that is your identity here.
 
-## Disclaimer
+---
 
-This is open-source research, not financial, legal, or recovery advice. On-chain attribution is probabilistic; labels reflect evidentiary strength, not legal certainty. OSI does not recover funds and never promises to. Always verify independently before acting.
-
-## License
-
-[MIT](./LICENSE)
+*OSI · Open Solana Intelligence. A public good for the Solana ecosystem, built so anyone can follow the trail and check the work.*
