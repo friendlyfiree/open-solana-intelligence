@@ -927,6 +927,33 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
 </section>
 
+<section class="sec" data-view="registry" id="escalation-note">
+<style id="osi-escnote">
+.escn-wrap{max-width:980px;margin:0 auto;border:1px solid var(--line-bright);border-left:2px solid var(--acc);background:var(--bg-card);border-radius:4px;padding:clamp(22px,4vw,34px);position:relative;overflow:hidden}
+.escn-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 80% at 100% 0%, rgba(255,122,61,.08), transparent 60%)}
+.escn-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--acc);position:relative}
+.escn-h{font-family:'Archivo',sans-serif;font-size:clamp(20px,3.4vw,28px);font-weight:800;color:var(--ink-bright);margin:10px 0 0;position:relative;max-width:22ch}
+.escn-p{font-size:14px;line-height:1.6;color:var(--ink-dim);margin:12px 0 0;max-width:62ch;position:relative}
+.escn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;position:relative}
+.escn-tag{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);border:1px solid var(--line-bright);border-radius:2px;padding:7px 12px}
+.escn-tag b{color:var(--acc2,#ff9a52);font-weight:700}
+.escn-foot{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);margin-top:14px;position:relative;line-height:1.5}
+</style>
+<div class="wrap">
+  <div class="escn-wrap">
+    <div class="escn-eyebrow">// FROM RECORD TO ACTION</div>
+    <h2 class="escn-h">When a case clears, the record becomes something you can act on.</h2>
+    <p class="escn-p">Once a finding passes analyst review and a maintainer seal, OSI compiles structured escalation packs straight from the public on-chain evidence, ready to hand to the people who can do something about it.</p>
+    <div class="escn-row">
+      <span class="escn-tag"><b>Victim</b> brief</span>
+      <span class="escn-tag"><b>Exchange</b> pack</span>
+      <span class="escn-tag"><b>Law&#8209;enforcement</b> brief</span>
+    </div>
+    <div class="escn-foot">AI&#8209;assisted, and human&#8209;reviewed before anything leaves OSI. No recovery is promised, and nothing here is legal advice.</div>
+  </div>
+</div>
+</section>
+
 <section class="sec" data-view="registry" id="how-osi-works">
   <div class="wrap">
     <div class="sec-eyebrow">// how osi works</div>
@@ -1377,6 +1404,78 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
       <div class="adm-who">SIGNED IN &middot; <b id="admWho"></b></div>
       <div style="display:flex;gap:8px"><button class="adm-out" onclick="admRefresh()">Refresh</button><button class="adm-out" onclick="admLogout()">Sign out</button></div>
     </div>
+    <style id="osi-escpack">
+.esc-box{border:1px solid var(--line-bright);border-left:2px solid var(--acc);background:var(--bg-card);padding:18px;margin-bottom:16px;border-radius:3px}
+.esc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.esc-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--acc);font-weight:700}
+.esc-pill{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;color:var(--acc2,#ff9a52);border:1px solid rgba(255,122,61,.35);border-radius:2px;padding:3px 7px}
+.esc-s{font-size:11.5px;color:var(--ink-faint);line-height:1.55;margin:9px 0 14px;max-width:640px}
+.esc-s b{color:var(--ink-dim)}
+.esc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.esc-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-faint);margin-bottom:6px}
+.esc-row{display:flex;gap:8px}
+.esc-row select{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 10px}
+.esc-row select:focus{outline:none;border-color:var(--acc)}
+.esc-types{display:flex;flex-direction:column;gap:6px}
+.esc-type{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-dim);cursor:pointer;border:1px solid var(--line);border-radius:2px;padding:8px 10px;transition:border-color .15s,color .15s}
+.esc-type:hover{border-color:var(--line-bright);color:var(--ink)}
+.esc-type input{accent-color:var(--acc);margin:0}
+.esc-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}
+.esc-go{background:var(--acc);color:#0b0d16;border:0;border-radius:2px;padding:12px 22px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.06em;cursor:pointer;box-shadow:0 6px 20px rgba(255,122,61,.25)}
+.esc-go:hover{background:var(--acc-deep,#e8622a)}
+.esc-go:disabled{opacity:.55;cursor:default;box-shadow:none}
+.esc-status{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim)}
+.esc-status.busy{color:var(--cyan)}
+.esc-status.ok{color:var(--sol)}
+.esc-status.warn{color:var(--amber)}
+.esc-out-wrap{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.esc-out-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.esc-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--amber);border:1px solid rgba(255,176,32,.35);border-radius:2px;padding:4px 8px}
+.esc-out-acts{display:flex;gap:7px}
+.esc-out{width:100%;min-height:260px;resize:vertical;background:var(--bg);border:1px solid var(--line-bright);border-radius:3px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:14px;white-space:pre-wrap}
+.esc-out:focus{outline:none;border-color:var(--acc)}
+.esc-foot{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);line-height:1.5;margin-top:9px}
+@media(max-width:620px){.esc-grid{grid-template-columns:1fr}}
+</style>
+<div class="esc-box" id="esc-box">
+  <div class="esc-head">
+    <div class="esc-h">AI ESCALATION PACK BUILDER</div>
+    <span class="esc-pill">PILOT &middot; MAINTAINER ONLY</span>
+  </div>
+  <div class="esc-s">Turn a reviewed public case into a structured DRAFT brief, compiled only from evidence already on the record. Every pack is AI-assisted and <b>requires your review</b> before it leaves OSI. No recovery is promised, nothing here is legal advice, and generating a pack never seals or publishes anything.</div>
+  <div class="esc-grid">
+    <div class="esc-field">
+      <label>1 &middot; REVIEWED CASE</label>
+      <div class="esc-row">
+        <select id="esc-case"><option value="">Load reviewed cases&hellip;</option></select>
+        <button class="adm-out" type="button" onclick="escLoadCases()">&#8635; Load</button>
+      </div>
+    </div>
+    <div class="esc-field">
+      <label>2 &middot; PACK TYPE</label>
+      <div class="esc-types">
+        <label class="esc-type"><input type="radio" name="esc-type" value="victim"><span>Victim Brief</span></label>
+        <label class="esc-type"><input type="radio" name="esc-type" value="exchange"><span>Exchange Pack</span></label>
+        <label class="esc-type"><input type="radio" name="esc-type" value="law_enforcement"><span>Law Enforcement Brief</span></label>
+      </div>
+    </div>
+  </div>
+  <div class="esc-actions">
+    <button class="esc-go" type="button" onclick="escGenerate()">Generate Escalation Pack</button>
+    <span class="esc-status" id="esc-status">Idle</span>
+  </div>
+  <div class="esc-out-wrap" id="esc-out-wrap" style="display:none">
+    <div class="esc-out-bar">
+      <span class="esc-badge" id="esc-badge">ai_generated &middot; review_required</span>
+      <div class="esc-out-acts">
+        <button class="adm-out" type="button" onclick="escCopy()">Copy</button>
+        <button class="adm-out" type="button" onclick="escDownload()">Download .txt</button>
+      </div>
+    </div>
+    <textarea id="esc-out" class="esc-out" readonly spellcheck="false" placeholder="The generated draft will appear here."></textarea>
+    <div class="esc-foot">This draft is unverified AI output. Read every line, remove anything not supported by the public evidence, and confirm the on-chain references before you use or send it.</div>
+  </div>
+</div>
     <div class="adm-cfg" id="adm-cfg">
       <div class="adm-cfg-h">SUPPORT / PAYOUT WALLET</div>
       <div class="adm-cfg-s">The SOL address that receives support across the site. It powers the Support buttons and Solana Pay on every case. Set once, change anytime.</div>
@@ -5125,6 +5224,96 @@ function showToast(msg){
   t.style.opacity = "1";
   clearTimeout(t._hideTimer);
   t._hideTimer = setTimeout(()=>{ t.style.opacity = "0"; }, 2600);
+}
+
+
+// ============================================================
+// AI Escalation Pack Builder (maintainer-only pilot)
+// Calls our Supabase Edge Function (never the AI directly).
+// ============================================================
+var escCaseEvidence = {};
+var escLastFilename = 'OSI_escalation_pack.txt';
+
+function escStatus(msg, cls){
+  var el = document.getElementById('esc-status');
+  if(!el) return;
+  el.textContent = msg;
+  el.className = 'esc-status' + (cls ? ' ' + cls : '');
+}
+function escSetOutput(text){
+  var wrap = document.getElementById('esc-out-wrap');
+  var out = document.getElementById('esc-out');
+  if(out) out.value = text || '';
+  if(wrap) wrap.style.display = text ? 'block' : 'none';
+}
+async function escLoadCases(){
+  var sel = document.getElementById('esc-case');
+  if(!sel) return;
+  if(typeof SUPA_ON === 'undefined' || !SUPA_ON){ escStatus('Supabase is not configured.', 'warn'); return; }
+  escStatus('Loading reviewed cases\u2026', 'busy');
+  try{
+    var rows = await supaGet('reports?approved=eq.true&select=id,company,summary,onchain,offchain,tx,wallet&order=id.desc&limit=200');
+    escCaseEvidence = {};
+    sel.innerHTML = '<option value="">Select a reviewed case\u2026</option>';
+    (rows || []).forEach(function(r){
+      escCaseEvidence[r.id] = { subject:r.company||'', summary:r.summary||'', onchain:r.onchain||'', offchain:r.offchain||'', tx:r.tx||'', wallet:r.wallet||'' };
+      var o = document.createElement('option');
+      o.value = r.id;
+      var label = (r.company || r.summary || r.id || 'case');
+      o.textContent = String(label).slice(0, 70);
+      sel.appendChild(o);
+    });
+    escStatus((rows && rows.length) ? (rows.length + ' reviewed case(s) loaded.') : 'No reviewed cases yet.', (rows && rows.length) ? 'ok' : 'warn');
+  }catch(e){
+    escStatus('Could not load cases. Are you signed in as a maintainer?', 'warn');
+  }
+}
+async function escGenerate(){
+  if(typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ escStatus('Sign in as a maintainer first.', 'warn'); return; }
+  var sel = document.getElementById('esc-case');
+  var caseRef = sel ? sel.value : '';
+  var ev = caseRef ? escCaseEvidence[caseRef] : null;
+  var typeEl = document.querySelector('input[name="esc-type"]:checked');
+  var pt = typeEl ? typeEl.value : '';
+  if(!ev){ escStatus('Pick a reviewed case (Load, then select).', 'warn'); return; }
+  if(!pt){ escStatus('Choose a pack type.', 'warn'); return; }
+  var btn = document.querySelector('.esc-go');
+  if(btn) btn.disabled = true;
+  escStatus('Generating with Claude, this can take 10-30s\u2026', 'busy');
+  escSetOutput('');
+  try{
+    var res = await fetch(SUPABASE_URL + '/functions/v1/generate-escalation-pack', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPA_AUTH_TOKEN },
+      body: JSON.stringify({ case_ref:caseRef, pack_type:pt, evidence:ev })
+    });
+    if(res.status === 404){ escStatus('Backend not deployed yet. Deploy the Edge Function (see setup notes).', 'warn'); if(btn) btn.disabled=false; return; }
+    if(res.status === 401){ escStatus('Not authorized. Sign in as a maintainer and retry.', 'warn'); if(btn) btn.disabled=false; return; }
+    if(res.status === 429){ escStatus('Daily generation limit reached. Try again tomorrow.', 'warn'); if(btn) btn.disabled=false; return; }
+    var data = null; try{ data = await res.json(); }catch(_e){}
+    if(!res.ok || !data || !data.ok){ escStatus((data && data.error) ? data.error : ('Generation failed (' + res.status + ').'), 'warn'); if(btn) btn.disabled=false; return; }
+    escSetOutput(data.content || '');
+    var badge = document.getElementById('esc-badge');
+    if(badge) badge.textContent = ((data.status || 'review_required') === 'review_required') ? 'ai_generated \u00b7 review_required' : ('ai_generated \u00b7 ' + data.status);
+    escStatus('Done. Review required before use.', 'ok');
+    escLastFilename = 'OSI_' + pt + '_' + (caseRef || 'case') + '.txt';
+  }catch(e){
+    escStatus('Could not reach the backend. Is the Edge Function deployed?', 'warn');
+  }
+  if(btn) btn.disabled = false;
+}
+function escCopy(){
+  var out = document.getElementById('esc-out'); if(!out || !out.value) return;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(out.value).then(function(){ escStatus('Copied to clipboard.', 'ok'); }, function(){ out.select(); });
+  } else { out.select(); try{ document.execCommand('copy'); escStatus('Copied.', 'ok'); }catch(_e){} }
+}
+function escDownload(){
+  var out = document.getElementById('esc-out'); if(!out || !out.value) return;
+  var blob = new Blob([out.value], { type:'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url; a.download = escLastFilename || 'OSI_escalation_pack.txt';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
 </script>
