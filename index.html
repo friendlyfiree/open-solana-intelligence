@@ -1065,6 +1065,53 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
 </section>
 
+<section class="sec" data-view="registry" id="case-records-sec" style="display:none">
+<style id="osi-caserecords">
+.cr-intro{font-size:14px;color:var(--ink-dim);line-height:1.6;max-width:64ch;margin:12px 0 0}
+#case-records{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:24px}
+.cr-card{position:relative;border:1px solid var(--line);border-radius:12px;background:linear-gradient(165deg,rgba(20,27,48,.6),rgba(12,16,29,.6));padding:18px;display:flex;flex-direction:column;gap:9px;transition:border-color .2s,transform .2s}
+.cr-card:hover{border-color:var(--line-bright);transform:translateY(-2px)}
+.cr-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cr-status{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:4px 9px;border-radius:20px;border:1px solid var(--line-bright)}
+.cr-sealed{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.07)}
+.cr-reviewed{color:var(--cyan);border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.06)}
+.cr-pending{color:var(--ink-faint)}
+.cr-verify{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-dim);text-decoration:none;border-bottom:1px dotted var(--ink-faint)}
+.cr-verify:hover{color:var(--sol)}
+.cr-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:17px;color:var(--ink-bright);letter-spacing:-.01em}
+.cr-sum{font-size:12.5px;color:var(--ink-dim);line-height:1.5;flex:1}
+.cr-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:9px;margin-top:2px}
+.cr-rev{font-size:9.5px;color:var(--ink-faint);letter-spacing:.06em}
+.cr-hash{font-size:10px;color:var(--ink-faint)}
+.cr-packs{display:flex;flex-wrap:wrap;gap:6px}
+.cr-pack{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc2,#ff9a52);background:rgba(255,122,61,.08);border:1px solid rgba(255,122,61,.3);border-radius:6px;padding:6px 9px;cursor:pointer;transition:background .15s}
+.cr-pack:hover{background:rgba(255,122,61,.16)}
+/* maintainer pack controls inside the admin box */
+.esc-pack-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}
+.esc-mini{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);background:var(--bg-raised);border:1px solid var(--line-bright);border-radius:6px;padding:8px 12px;cursor:pointer}
+.esc-mini:hover{border-color:var(--acc);color:var(--ink)}
+.esc-mini.ok{color:var(--sol);border-color:rgba(20,241,149,.4)}
+.esc-mini.ok:hover{background:rgba(20,241,149,.1)}
+.esc-okline{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sol);display:inline-flex;align-items:center}
+/* profile case records */
+.pf-cases{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}
+#pf-cases-body{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:13px}
+.pf-case{border:1px solid var(--line);border-radius:10px;background:var(--bg-card);padding:14px;display:flex;flex-direction:column;gap:7px}
+.pf-case-top{display:flex}
+.pf-case-t{font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;color:var(--ink-bright)}
+.pf-case-s{font-size:12px;color:var(--ink-dim);line-height:1.45}
+.pf-empty{font-size:12px;color:var(--ink-faint);padding:14px;border:1px dashed var(--line-bright);border-radius:8px;grid-column:1/-1}
+@media(max-width:900px){#case-records{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){#case-records{grid-template-columns:1fr}#pf-cases-body{grid-template-columns:1fr}}
+</style>
+<div class="wrap">
+  <div class="sec-eyebrow">// public case records</div>
+  <h2 class="sec-head-lg" style="font-size:clamp(20px,2.6vw,30px)">The sealed record</h2>
+  <p class="cr-intro">Cases that cleared analyst review and a maintainer seal, with their on-chain references and any reviewed escalation packs. A public archive, not a forum: every entry is a finished, verifiable record.</p>
+  <div id="case-records"></div>
+</div>
+</section>
+
 <section class="sec" data-view="registry" id="latest-intel-sec">
   <div class="wrap">
     <div class="sec-eyebrow">// published case files</div>
@@ -1456,7 +1503,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div class="esc-field">
       <label>1 &middot; REVIEWED CASE</label>
       <div class="esc-row">
-        <select id="esc-case"><option value="">Load reviewed cases&hellip;</option></select>
+        <select id="esc-case" onchange="escLoadPacksForCase(this.value)"><option value="">Load reviewed cases&hellip;</option></select>
         <button class="adm-out" type="button" onclick="escLoadCases()">&#8635; Load</button>
       </div>
     </div>
@@ -1483,6 +1530,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     </div>
     <textarea id="esc-out" class="esc-out" readonly spellcheck="false" placeholder="The generated draft will appear here."></textarea>
     <div class="esc-foot">This draft is unverified AI output. Read every line, remove anything not supported by the public evidence, and confirm the on-chain references before you use or send it.</div>
+    <div class="esc-pack-controls" id="esc-pack-controls"></div>
   </div>
 </div>
     <div class="adm-cfg" id="adm-cfg">
@@ -4358,6 +4406,7 @@ window.addEventListener('load', function(){
 render();
 renderCaseStudies();
 hydrateLatestIntel();
+if(typeof renderCaseRecords==='function') renderCaseRecords();
 syncTabCounts();
 renderRequests();
 renderReviewQueue();
@@ -4654,6 +4703,7 @@ function pfShell(addr, name, email, joined, reports, bounties, boosted, pubIds){
     +'<div class="pf-col"><div class="pf-h">My bounties <span class="pf-h-c">'+bounties.length+'</span></div>'+pfBounties(bounties,pubIds)+'</div>'
     +'<div class="pf-col pf-col-wide"><div class="pf-h">My boosts <span class="pf-h-c">'+nBoost+'</span></div>'+pfBoosts(boosted)+'</div>'
   +'</div>'
+  +'<div class="pf-cases"><div class="pf-h">My case records <span class="pf-h-c" id="pf-cases-n">0</span></div><div id="pf-cases-body"><div class="pf-empty mono">Loading</div></div></div>'
   +'<div class="pf-settings">'
     +'<div class="pf-h">Profile</div>'
     +'<div class="pf-set-grid">'
@@ -4681,13 +4731,14 @@ async function renderProfile(){
   let name=lsGet('stw_profile_name','');
   const email=lsGet('stw_profile_email','');
   host.innerHTML=pfShell(addr,name,email,joined,reports,bounties,boosted,{});
+  if(typeof pfRenderCases==='function') pfRenderCases(addr);
   if(SUPA_ON){
     try{
       const pr=await supaGet('reports?select=id&wallet=eq.'+encodeURIComponent(addr)+'&approved=eq.true');
       const pb=await supaGet('bounties?select=id&created_by=eq.'+encodeURIComponent(addr)+'&approved=eq.true');
       const pubIds={}; (pr||[]).forEach(function(x){ pubIds[x.id]=1; }); (pb||[]).forEach(function(x){ pubIds[x.id]=1; });
       try{ const prof=await supaGet('profiles?select=name&wallet=eq.'+encodeURIComponent(addr)); if(prof&&prof[0]&&prof[0].name){ name=prof[0].name; lsSet('stw_profile_name',name); if(typeof updateWalletUI==='function') updateWalletUI(); } }catch(_){}
-      if(document.body.dataset.view==='profile' && walletPubkey===addr){ host.innerHTML=pfShell(addr,name,email,joined,reports,bounties,boosted,pubIds); }
+      if(document.body.dataset.view==='profile' && walletPubkey===addr){ host.innerHTML=pfShell(addr,name,email,joined,reports,bounties,boosted,pubIds); if(typeof pfRenderCases==='function') pfRenderCases(addr); }
     }catch(e){}
   }
 }
@@ -5344,7 +5395,7 @@ async function escLoadCases(){
   }
 }
 async function escGenerate(){
-  if(typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ escStatus('Sign in as a maintainer first.', 'warn'); return; }
+  if(typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ escStatus(ESC_PILOT_MSG, 'warn'); return; }
   var sel = document.getElementById('esc-case');
   var caseRef = sel ? sel.value : '';
   var ev = caseRef ? escCaseEvidence[caseRef] : null;
@@ -5372,6 +5423,7 @@ async function escGenerate(){
     if(badge) badge.textContent = ((data.status || 'review_required') === 'review_required') ? 'ai_generated \u00b7 review_required' : ('ai_generated \u00b7 ' + data.status);
     escStatus('Done. Review required before use.', 'ok');
     escLastFilename = 'OSI_' + pt + '_' + (caseRef || 'case') + '.txt';
+    if(typeof escRenderPackControls==='function') escRenderPackControls({ id: data.id, status: data.status || 'review_required', pack_type: pt });
   }catch(e){
     escStatus('Could not reach the backend. Is the Edge Function deployed?', 'warn');
   }
@@ -5389,6 +5441,143 @@ function escDownload(){
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a'); a.href = url; a.download = escLastFilename || 'OSI_escalation_pack.txt';
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+
+// ============================================================
+// AI packs as persistent CASE ARTIFACTS
+//  - load saved packs for a case (fixes "disappears on refresh")
+//  - maintainer: mark a pack reviewed (publish) and seal a case
+//  - Public Case Records archive + profile "My case records"
+// ============================================================
+var ESC_PILOT_MSG = "AI escalation packs are currently maintainer-reviewed during the pilot.";
+var escCurrentPacks = [];
+
+function escPackLabel(t){ return t==='victim' ? 'Victim brief' : (t==='exchange' ? 'Exchange pack' : (t==='law_enforcement' ? 'Law-enforcement brief' : String(t||'Pack'))); }
+function escStatusLabel(s){ return s==='approved' ? 'reviewed' : (s==='discarded' ? 'discarded' : 'review required'); }
+
+// Load any saved packs for a case and show the most recent one.
+async function escLoadPacksForCase(caseRef){
+  escCurrentPacks = [];
+  var host = document.getElementById('esc-pack-controls'); if(host) host.innerHTML='';
+  if(!caseRef){ return; }
+  if(typeof SUPA_ON === 'undefined' || !SUPA_ON){ return; }
+  try{
+    var rows = await supaGet('escalation_packs?case_ref=eq.' + encodeURIComponent(caseRef) + '&select=id,pack_type,content,status,created_at&order=created_at.desc');
+    escCurrentPacks = rows || [];
+    if(escCurrentPacks.length){
+      var p = escCurrentPacks[0];
+      escSetOutput(p.content || '');
+      var badge = document.getElementById('esc-badge'); if(badge) badge.textContent = 'ai_generated \u00b7 ' + escStatusLabel(p.status);
+      escRenderPackControls(p);
+      escStatus('Loaded a saved ' + escPackLabel(p.pack_type) + ' (' + escStatusLabel(p.status) + ').', 'ok');
+    } else {
+      escStatus('No saved pack for this case yet.', '');
+    }
+  }catch(e){ /* anon only sees approved; maintainer sees all */ }
+}
+
+// Maintainer-only controls shown under a pack: mark reviewed (publish) / seal case.
+function escRenderPackControls(p){
+  var host = document.getElementById('esc-pack-controls'); if(!host) return;
+  if(!p || typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ host.innerHTML=''; return; }
+  var approved = (p.status === 'approved');
+  host.innerHTML =
+    (approved
+      ? '<span class="esc-okline">\u2713 Reviewed \u00b7 eligible for Public Case Records</span>'
+      : '<button class="esc-mini ok" type="button" onclick="escApprovePack(\'' + p.id + '\')">Mark reviewed (publish pack)</button>')
+    + '<button class="esc-mini" type="button" onclick="escSealCase()">Seal this case</button>';
+}
+
+async function escApprovePack(packId){
+  if(typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ escStatus(ESC_PILOT_MSG, 'warn'); return; }
+  try{
+    await supaPatch('escalation_packs?id=eq.' + encodeURIComponent(packId), { status:'approved' });
+    escStatus('Pack marked reviewed. It can now appear in Public Case Records.', 'ok');
+    var sel = document.getElementById('esc-case'); if(sel) await escLoadPacksForCase(sel.value);
+    if(typeof renderCaseRecords === 'function') renderCaseRecords();
+  }catch(e){ escStatus('Could not update the pack. Check you are signed in as a maintainer.', 'warn'); }
+}
+
+async function escSealCase(){
+  if(typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ escStatus(ESC_PILOT_MSG, 'warn'); return; }
+  var sel = document.getElementById('esc-case'); var caseRef = sel ? sel.value : '';
+  if(!caseRef){ escStatus('Pick a case first.', 'warn'); return; }
+  try{
+    await supaPatch('reports?id=eq.' + encodeURIComponent(caseRef), { sealed:true });
+    escStatus('Case sealed. It now shows as Sealed in Public Case Records.', 'ok');
+    if(typeof renderCaseRecords === 'function') renderCaseRecords();
+  }catch(e){ escStatus('Could not seal the case. Check you are signed in as a maintainer.', 'warn'); }
+}
+
+// ---- Public Case Records (premium archive of reviewed / sealed cases) ----
+async function renderCaseRecords(){
+  var host = document.getElementById('case-records'); if(!host) return;
+  var sec = document.getElementById('case-records-sec');
+  if(typeof SUPA_ON === 'undefined' || !SUPA_ON){ if(sec) sec.style.display='none'; return; }
+  try{
+    var reports = await supaGet('reports?select=id,company,summary,onchain,tx,wallet,sealed,created_at&approved=eq.true&order=created_at.desc&limit=24') || [];
+    if(!reports.length){ if(sec) sec.style.display='none'; return; }
+    var packs = [];
+    try{ packs = await supaGet('escalation_packs?status=eq.approved&select=case_ref,pack_type,content&order=created_at.desc') || []; }catch(_e){}
+    var byCase = {}; packs.forEach(function(p){ (byCase[p.case_ref] = byCase[p.case_ref] || []).push(p); });
+    window.__crPacks = byCase;
+    if(sec) sec.style.display='';
+    host.innerHTML = reports.map(function(r){ return crCard(r, byCase[r.id] || []); }).join('');
+  }catch(e){ if(sec) sec.style.display='none'; }
+}
+function crCard(r, packs){
+  var title = escapeHtml(r.company || ('Case ' + String(r.id).slice(0,6)));
+  var sealed = !!r.sealed;
+  var statusTxt = sealed ? 'Sealed' : 'Reviewed';
+  var statusCls = sealed ? 'cr-sealed' : 'cr-reviewed';
+  var hash = r.tx || r.onchain || '';
+  var verify = hash ? '<a class="cr-verify" href="https://solscan.io/tx/' + encodeURIComponent(hash) + '" target="_blank" rel="noopener">Verify on Solana \u2197</a>' : '';
+  var hashLine = hash ? '<div class="cr-hash mono">' + escapeHtml(String(hash).slice(0,10)) + '\u2026' + escapeHtml(String(hash).slice(-6)) + '</div>' : '';
+  var packChips = packs.length
+    ? '<div class="cr-packs">' + packs.map(function(p,i){ return '<button class="cr-pack" type="button" onclick="crDownloadPack(\'' + r.id + '\',' + i + ')">\u2193 ' + escapeHtml(escPackLabel(p.pack_type)) + '</button>'; }).join('') + '</div>'
+    : '';
+  return '<div class="cr-card">'
+    + '<div class="cr-top"><span class="cr-status ' + statusCls + '">' + statusTxt + '</span>' + verify + '</div>'
+    + '<div class="cr-title">' + title + '</div>'
+    + '<div class="cr-sum">' + escapeHtml(String(r.summary || '').slice(0,150)) + '</div>'
+    + '<div class="cr-foot"><span class="cr-rev mono">\u25c8 Analyst-reviewed</span>' + hashLine + '</div>'
+    + packChips
+    + '</div>';
+}
+function crDownloadPack(caseRef, idx){
+  var packs = (window.__crPacks || {})[caseRef] || []; var p = packs[idx]; if(!p) return;
+  var blob = new Blob([p.content || ''], { type:'text/plain;charset=utf-8' }); var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url; a.download = 'OSI_' + p.pack_type + '_' + caseRef + '.txt'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+// ---- Profile: "My case records" (the wallet owner's cases + reviewed packs) ----
+async function pfRenderCases(addr){
+  var host = document.getElementById('pf-cases-body'); if(!host) return;
+  if(typeof SUPA_ON === 'undefined' || !SUPA_ON){ host.innerHTML = '<div class="pf-empty mono">Connect Supabase to load your case records.</div>'; return; }
+  try{
+    var rows = await supaGet('reports?select=id,company,summary,tx,onchain,sealed,approved,created_at&wallet=eq.' + encodeURIComponent(addr) + '&order=created_at.desc&limit=50') || [];
+    var nEl = document.getElementById('pf-cases-n'); if(nEl) nEl.textContent = rows.length;
+    if(!rows.length){ host.innerHTML = '<div class="pf-empty mono">No cases yet. Open a case to start your public record.</div>'; return; }
+    var packs = []; try{ packs = await supaGet('escalation_packs?status=eq.approved&select=case_ref,pack_type,content') || []; }catch(_e){}
+    var byCase = {}; packs.forEach(function(p){ (byCase[p.case_ref] = byCase[p.case_ref] || []).push(p); }); window.__pfPacks = byCase;
+    host.innerHTML = rows.map(function(r){
+      var st = r.sealed ? 'Sealed' : (r.approved ? 'Reviewed' : 'Under review');
+      var stc = r.sealed ? 'cr-sealed' : (r.approved ? 'cr-reviewed' : 'cr-pending');
+      var ps = byCase[r.id] || [];
+      var chips = ps.length
+        ? '<div class="cr-packs">' + ps.map(function(p,i){ return '<button class="cr-pack" type="button" onclick="pfDownloadPack(\'' + r.id + '\',' + i + ')">\u2193 ' + escapeHtml(escPackLabel(p.pack_type)) + '</button>'; }).join('') + '</div>'
+        : '';
+      return '<div class="pf-case"><div class="pf-case-top"><span class="cr-status ' + stc + '">' + st + '</span></div>'
+        + '<div class="pf-case-t">' + escapeHtml(r.company || ('Case ' + String(r.id).slice(0,6))) + '</div>'
+        + '<div class="pf-case-s">' + escapeHtml(String(r.summary || '').slice(0,120)) + '</div>' + chips + '</div>';
+    }).join('');
+  }catch(e){ host.innerHTML = '<div class="pf-empty mono">Could not load your case records.</div>'; }
+}
+function pfDownloadPack(caseRef, idx){
+  var packs = (window.__pfPacks || {})[caseRef] || []; var p = packs[idx]; if(!p) return;
+  var blob = new Blob([p.content || ''], { type:'text/plain;charset=utf-8' }); var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url; a.download = 'OSI_' + p.pack_type + '_' + caseRef + '.txt'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
 </script>
