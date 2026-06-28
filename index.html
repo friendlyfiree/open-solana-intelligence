@@ -687,7 +687,15 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   <div class="sb-foot">
     <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">🔒</button>
     <button class="sb-demo" onclick="demoStart()" title="Guided briefing, no wallet needed"><span>▶</span> Briefing</button>
-    <button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, or open your profile"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button>
+<style id="osi-wallet-menu">
+.wb-wrap{position:relative;display:flex}
+.wb-menu{position:absolute;bottom:calc(100% + 8px);right:0;min-width:170px;background:var(--bg-raised);border:1px solid var(--line-bright);border-radius:9px;padding:6px;display:none;z-index:80;box-shadow:0 14px 36px rgba(0,0,0,.55)}
+.wb-menu.open{display:block}
+.wb-mi{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 11px;border-radius:6px;cursor:pointer;letter-spacing:.02em;white-space:nowrap}
+.wb-mi:hover{background:var(--bg-card);color:var(--ink)}
+.wb-mi.danger:hover{background:rgba(255,84,112,.12);color:var(--red)}
+</style>
+    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Open profile</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -887,6 +895,33 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
 </section>
 
+<section class="sec" data-view="registry" id="escalation-note">
+<style id="osi-escnote">
+.escn-wrap{max-width:980px;margin:0 auto;border:1px solid var(--line-bright);border-left:2px solid var(--acc);background:var(--bg-card);border-radius:4px;padding:clamp(22px,4vw,34px);position:relative;overflow:hidden}
+.escn-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 80% at 100% 0%, rgba(255,122,61,.08), transparent 60%)}
+.escn-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--acc);position:relative}
+.escn-h{font-family:'Archivo',sans-serif;font-size:clamp(20px,3.4vw,28px);font-weight:800;color:var(--ink-bright);margin:10px 0 0;position:relative;max-width:22ch}
+.escn-p{font-size:14px;line-height:1.6;color:var(--ink-dim);margin:12px 0 0;max-width:62ch;position:relative}
+.escn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;position:relative}
+.escn-tag{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);border:1px solid var(--line-bright);border-radius:2px;padding:7px 12px}
+.escn-tag b{color:var(--acc2,#ff9a52);font-weight:700}
+.escn-foot{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);margin-top:14px;position:relative;line-height:1.5}
+</style>
+<div class="wrap">
+  <div class="escn-wrap">
+    <div class="escn-eyebrow">// FROM RECORD TO ACTION</div>
+    <h2 class="escn-h">When a case clears, the record becomes something you can act on.</h2>
+    <p class="escn-p">Once a finding passes analyst review and a maintainer seal, OSI compiles structured escalation packs straight from the public on-chain evidence, ready to hand to the people who can do something about it.</p>
+    <div class="escn-row">
+      <span class="escn-tag"><b>Victim</b> brief</span>
+      <span class="escn-tag"><b>Exchange</b> pack</span>
+      <span class="escn-tag"><b>Law&#8209;enforcement</b> brief</span>
+    </div>
+    <div class="escn-foot">AI&#8209;assisted, and human&#8209;reviewed before anything leaves OSI. No recovery is promised, and nothing here is legal advice.</div>
+  </div>
+</div>
+</section>
+
 <section class="sec" data-view="registry" id="verify-chain">
   <div class="wrap">
     <div class="sec-eyebrow">// signed on solana</div>
@@ -927,32 +962,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
 </section>
 
-<section class="sec" data-view="registry" id="escalation-note">
-<style id="osi-escnote">
-.escn-wrap{max-width:980px;margin:0 auto;border:1px solid var(--line-bright);border-left:2px solid var(--acc);background:var(--bg-card);border-radius:4px;padding:clamp(22px,4vw,34px);position:relative;overflow:hidden}
-.escn-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 80% at 100% 0%, rgba(255,122,61,.08), transparent 60%)}
-.escn-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--acc);position:relative}
-.escn-h{font-family:'Archivo',sans-serif;font-size:clamp(20px,3.4vw,28px);font-weight:800;color:var(--ink-bright);margin:10px 0 0;position:relative;max-width:22ch}
-.escn-p{font-size:14px;line-height:1.6;color:var(--ink-dim);margin:12px 0 0;max-width:62ch;position:relative}
-.escn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;position:relative}
-.escn-tag{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);border:1px solid var(--line-bright);border-radius:2px;padding:7px 12px}
-.escn-tag b{color:var(--acc2,#ff9a52);font-weight:700}
-.escn-foot{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);margin-top:14px;position:relative;line-height:1.5}
-</style>
-<div class="wrap">
-  <div class="escn-wrap">
-    <div class="escn-eyebrow">// FROM RECORD TO ACTION</div>
-    <h2 class="escn-h">When a case clears, the record becomes something you can act on.</h2>
-    <p class="escn-p">Once a finding passes analyst review and a maintainer seal, OSI compiles structured escalation packs straight from the public on-chain evidence, ready to hand to the people who can do something about it.</p>
-    <div class="escn-row">
-      <span class="escn-tag"><b>Victim</b> brief</span>
-      <span class="escn-tag"><b>Exchange</b> pack</span>
-      <span class="escn-tag"><b>Law&#8209;enforcement</b> brief</span>
-    </div>
-    <div class="escn-foot">AI&#8209;assisted, and human&#8209;reviewed before anything leaves OSI. No recovery is promised, and nothing here is legal advice.</div>
-  </div>
-</div>
-</section>
+
 
 <section class="sec" data-view="registry" id="how-osi-works">
   <div class="wrap">
@@ -1030,15 +1040,14 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
       <div class="px-panel-glow"></div>
       <div class="ep-grid">
         <div class="ep-left">
-          <div class="ep-kicker">// escalation, productized</div>
-          <div class="ep-h">Exchange Escalation Pack</div>
-          <div class="ep-p">When a trail reaches an exchange deposit, OSI assembles a clean, exportable dossier: the incident summary, the wallet list, the transaction evidence, a timeline and a public case reference any desk can verify.</div>
+          <div class="ep-kicker">// AI-assisted escalation</div>
+          <div class="ep-h">From the record to an escalation pack</div>
+          <div class="ep-p">Once a case clears review, OSI turns the public on-chain evidence into a structured brief for whoever can act on it: a victim brief, an exchange pack, or a law-enforcement brief. Every pack is AI-assisted and human-reviewed before it leaves OSI, with no recovery promised and nothing offered as legal advice.</div>
           <div class="ep-tags">
-            <span class="ep-tag">Incident summary</span>
-            <span class="ep-tag">Wallet list</span>
-            <span class="ep-tag">Tx evidence</span>
-            <span class="ep-tag">Timeline</span>
-            <span class="ep-tag">Case reference</span>
+            <span class="ep-tag">Victim brief</span>
+            <span class="ep-tag">Exchange pack</span>
+            <span class="ep-tag">Law-enforcement brief</span>
+            <span class="ep-tag">Human-reviewed</span>
           </div>
         </div>
         <div class="ep-right">
@@ -2804,7 +2813,7 @@ window.addEventListener('resize', function(){ if(demoRzT) clearTimeout(demoRzT);
 
 // ---- welcome card: greets first-time visitors, launches or dismisses ----
 function welcomeShow(){
-  var w = document.getElementById('osi-welcome'); if(w){ w.style.display = ''; w.hidden = false; }
+  var w = document.getElementById('osi-welcome'); if(w){ w.style.display = ''; w.hidden = false; try{ localStorage.setItem('osi_briefing_seen','1'); }catch(e){} }
 }
 function welcomeClose(){
   var w = document.getElementById('osi-welcome'); if(w){ w.hidden = true; w.style.display = 'none'; }
@@ -2983,7 +2992,7 @@ function osiBlockShow(hits){
 }
 function osiBlockClose(){ var m = document.getElementById('osi-block'); if(m){ m.hidden = true; m.style.display = 'none'; } }
 (function(){
-  function go(){ setTimeout(welcomeShow, 800); }
+  function go(){ try{ if(localStorage.getItem('osi_briefing_seen')==='1') return; }catch(e){} setTimeout(welcomeShow, 800); }
   if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', go); } else { go(); }
 })();
 
@@ -3707,6 +3716,32 @@ function fieldCloseForm(){ const f=document.getElementById('field-form'); if(f) 
 const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=6cb1f3a8-f0cc-404b-a403-37afd1f3f427";
 const PUBLIC_RPC = "https://api.mainnet-beta.solana.com";
 const SOL_RPC = HELIUS_RPC; // primary for balance reads
+// Multiple CORS-friendly public RPCs so one flaky endpoint never blocks signing.
+// Phantom itself broadcasts the transaction; these are only used to fetch a recent blockhash.
+const RPC_FALLBACKS = [
+  "https://solana-rpc.publicnode.com",
+  HELIUS_RPC,
+  "https://api.mainnet-beta.solana.com",
+  "https://solana.drpc.org",
+  "https://endpoints.omniatech.io/v1/sol/mainnet/public"
+];
+async function fetchRecentBlockhash(){
+  if(!window.solanaWeb3 || !solanaWeb3.Connection) return null;
+  const C = solanaWeb3.Connection;
+  for(var pass=0; pass<2; pass++){
+    for(var k=0; k<RPC_FALLBACKS.length; k++){
+      try{
+        var conn = new C(RPC_FALLBACKS[k], "confirmed");
+        var r = await Promise.race([
+          conn.getLatestBlockhash("confirmed"),
+          new Promise(function(_,rej){ setTimeout(function(){ rej(new Error("rpc-timeout")); }, 7000); })
+        ]);
+        if(r && r.blockhash) return r.blockhash;
+      }catch(e){ /* try the next endpoint */ }
+    }
+  }
+  return null;
+}
 
 // getBalance with automatic fallback: try Helius first, then the public RPC.
 async function rpcGetBalance(addr){
@@ -4158,29 +4193,59 @@ function getProvider(){
   return null;
 }
 
+function clearWalletCache(){
+  try{ localStorage.removeItem('stw_profile_name'); }catch(e){}
+  try{ localStorage.removeItem('stw_wallet_off'); }catch(e){}
+  try{ sessionStorage.removeItem('osi_wallet_session'); }catch(e){}
+}
+// True only if the user connected earlier in THIS browser session (sessionStorage, not localStorage).
+function sessionRestoreWanted(){ try{ return sessionStorage.getItem('osi_wallet_session') === '1'; }catch(e){ return false; } }
+// True only when Phantom is present AND reports a connected publicKey AND we hold the address.
+function getConnectedProvider(){
+  var prov = getProvider();
+  if(!prov) return null;
+  if(prov.isConnected === false) return null;
+  if(!prov.publicKey) return null;
+  if(!walletPubkey) return null;
+  return prov;
+}
+// Map common Phantom / network failures to a clear, non-crashing message.
+function walletErrorMessage(e, ctx){
+  var code = e && (e.code !== undefined ? e.code : (e.error && e.error.code));
+  var msg = String((e && e.message) || e || "").toLowerCase();
+  ctx = ctx || "Action";
+  if(code === 4001 || msg.indexOf("user rejected") >= 0 || msg.indexOf("rejected the request") >= 0) return "You declined the request in Phantom.";
+  if(code === -32002 || msg.indexOf("already pending") >= 0 || msg.indexOf("request of type") >= 0) return "A Phantom request is already open. Finish or close the Phantom popup, then try again.";
+  if(msg.indexOf("popup") >= 0 || msg.indexOf("blocked") >= 0) return "Phantom popup was blocked. Allow popups for this site, then try again.";
+  if(msg.indexOf("notconnected") >= 0 || msg.indexOf("not connected") >= 0 || msg.indexOf("publickey") >= 0 || msg.indexOf("provider missing") >= 0) return "Connect Phantom first.";
+  if(msg.indexOf("rpc") >= 0 || msg.indexOf("network") >= 0 || msg.indexOf("blockhash") >= 0 || msg.indexOf("timeout") >= 0 || msg.indexOf("fetch") >= 0) return "Could not reach the Solana network. Check your connection and try again in a moment.";
+  if(msg.indexOf("buffer") >= 0) return "Could not build the transaction in this browser. Hard-refresh (Ctrl/Cmd + Shift + R) and try again.";
+  return ctx + " could not be completed. " + (((e && e.message) || "Please try again."));
+}
+// Small menu under the wallet button (Open profile / Disconnect).
+function openWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.add('open'); }
+function closeWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.remove('open'); }
+function toggleWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.toggle('open'); }
+
 async function toggleWallet(){
-  const prov = getProvider();
+  var prov = getProvider();
   if(!prov){
-    alert("Phantom wallet not found.\n\nInstall it from phantom.app, then refresh this page to connect.");
-    window.open("https://phantom.app/","_blank");
-    return;
+    if(typeof showToast==='function') showToast("Phantom not found. Install it from phantom.app, then refresh and connect.");
+    try{ window.open("https://phantom.app/","_blank"); }catch(e){}
+    return false;
   }
-  if(walletPubkey){
-    // disconnect (remember the choice so a refresh does not silently reconnect)
-    try{ await prov.disconnect(); }catch(e){}
-    walletPubkey = null;
-    lsSet('stw_wallet_off', true);
-    updateWalletUI();
-    return;
-  }
+  if(walletPubkey && prov.publicKey && prov.isConnected !== false) return true; // already connected this session
   try{
-    const resp = await prov.connect();
+    var resp = await prov.connect();
+    if(!resp || !resp.publicKey){ if(typeof showToast==='function') showToast("Connect Phantom first."); return false; }
     walletPubkey = resp.publicKey.toString();
-    lsSet('stw_wallet_off', false);
+    try{ sessionStorage.setItem('osi_wallet_session','1'); }catch(e){}
     updateWalletUI();
-    if(typeof showToast==='function') showToast('Connected \u2713  Open your profile from the wallet button.');
+    if(typeof showToast==='function') showToast('Connected \u2713  Use the wallet button to open your profile or disconnect.');
+    return true;
   }catch(e){
-    // user rejected
+    if(typeof showToast==='function') showToast(walletErrorMessage(e, "Connection"));
+    return false;
   }
 }
 
@@ -4198,6 +4263,7 @@ function updateWalletUI(){
     const dot = btn.querySelector('.wb-dot'); if(dot) dot.style.display='none';
   } else {
     btn.classList.remove('connected');
+    if(typeof closeWalletMenu==='function') closeWalletMenu();
     txt.textContent = "Connect Wallet";
     const av = document.getElementById('wbAva'); if(av) av.remove();
     const dot = btn.querySelector('.wb-dot'); if(dot) dot.style.display='';
@@ -4211,7 +4277,8 @@ function updateWalletUI(){
 // Returns the transaction signature on success, throws on failure.
 async function castOnchainVote(memoText){
   const prov = getProvider();
-  if(!prov || !walletPubkey) throw new Error("not connected");
+  if(!prov) throw new Error("PROVIDER missing");
+  if(!walletPubkey || !prov.publicKey || prov.isConnected === false) throw new Error("NOTCONNECTED");
   const { Connection, PublicKey, Transaction, TransactionInstruction } = solanaWeb3;
   const fromPub = new PublicKey(walletPubkey);
 
@@ -4226,11 +4293,8 @@ async function castOnchainVote(memoText){
   tx.feePayer = fromPub;
 
   // Fetch a recent blockhash, trying Helius then the public RPC.
-  let blockhash = null;
-  for(const url of [HELIUS_RPC, PUBLIC_RPC]){
-    try{ const r = await new Connection(url, "confirmed").getLatestBlockhash(); if(r && r.blockhash){ blockhash = r.blockhash; break; } }catch(e){ /* try next */ }
-  }
-  if(!blockhash) throw new Error("could not reach the Solana network, try again in a moment");
+  const blockhash = await fetchRecentBlockhash();
+  if(!blockhash) throw new Error("NETWORK: could not reach the Solana network. Check your connection and try again in a moment.");
   tx.recentBlockhash = blockhash;
 
   const signed = await prov.signAndSendTransaction(tx);  // Phantom signs + sends
@@ -4239,22 +4303,25 @@ async function castOnchainVote(memoText){
 
 // Wrapper used by vote/boost buttons: ensure wallet, send the memo tx, then run the UI action.
 async function withOnchainVote(actionLabel, memoText, onSuccess){
-  if(!walletPubkey){
-    const ok = confirm(`"${actionLabel}" is recorded as a real on-chain action.\n\nConnect your Phantom wallet to sign it. No money is paid to anyone, only the standard Solana network fee (~0.000005 SOL).`);
-    if(ok) await toggleWallet();
-    if(!walletPubkey) return;
-  }
-  try{
-    const sig = await castOnchainVote(memoText);
-    onSuccess(sig);
-  }catch(e){
-    const msg = String((e && e.message) || e || "");
-    if(msg.includes("Buffer")){
-      alert("Couldn't build the transaction in this browser. Hard-refresh the page (Ctrl/Cmd + Shift + R) and try again. If it keeps failing, update your wallet extension.");
-    }else{
-      alert("Vote not completed: " + (msg || "the transaction was cancelled."));
+  if(!getConnectedProvider()){
+    var ok = confirm('"' + actionLabel + '" is recorded as a real on-chain action.\n\nConnect your Phantom wallet to sign it. No money is paid to anyone, only the standard Solana network fee (~0.000005 SOL).');
+    if(!ok) return;
+    var connected = await toggleWallet();
+    if(!connected || !getConnectedProvider()){
+      if(typeof showToast==='function') showToast("Connect Phantom first, then try again.");
+      return;
     }
   }
+  var sig;
+  try{
+    sig = await castOnchainVote(memoText);
+    if(!sig) throw new Error("signing failed");
+  }catch(e){
+    var friendly = walletErrorMessage(e, "Signing");
+    if(typeof showToast==='function') showToast(friendly); else alert(friendly);
+    return; // signing failed: do NOT submit data
+  }
+  try{ await onSuccess(sig); }catch(e){ /* the success handler manages its own UI and writes */ }
 }
 
 // Point every [data-mailto] element at the contact address.
@@ -4265,20 +4332,27 @@ function wireContactLinks(){
   });
 }
 
-// auto-reconnect if Phantom already trusted this site
-window.addEventListener('load', async ()=>{
+// Uniswap/PancakeSwap-style wallet: silent restore on refresh ONLY within the same browser session.
+window.addEventListener('load', function(){
   wireContactLinks();
-  const prov = getProvider();
-  if(prov){
-    try{
-      if(!lsGet('stw_wallet_off', false)){
-        const resp = await prov.connect({ onlyIfTrusted:true });
-        walletPubkey = resp.publicKey.toString();
-        updateWalletUI();
-      }
-    }catch(e){ /* not previously connected */ }
-    prov.on && prov.on('disconnect', ()=>{ walletPubkey=null; updateWalletUI(); });
+  var prov = getProvider();
+  if(prov && prov.on){
+    prov.on('disconnect', function(){ walletPubkey = null; clearWalletCache(); if(typeof closeWalletMenu==='function') closeWalletMenu(); updateWalletUI(); });
+    prov.on('accountChanged', function(pk){
+      if(pk){ walletPubkey = pk.toString(); } else { walletPubkey = null; clearWalletCache(); }
+      updateWalletUI();
+    });
   }
+  // Silent restore only if the user connected earlier in this session; new browser session = manual connect.
+  if(prov && sessionRestoreWanted()){
+    prov.connect({ onlyIfTrusted:true }).then(function(resp){
+      if(resp && resp.publicKey){ walletPubkey = resp.publicKey.toString(); updateWalletUI(); }
+    }).catch(function(){ /* not trusted or revoked: stay disconnected, user connects manually */ });
+  }
+  document.addEventListener('click', function(e){
+    var inside = e.target && e.target.closest && e.target.closest('.wb-wrap');
+    if(!inside && typeof closeWalletMenu==='function') closeWalletMenu();
+  });
 });
 
 render();
@@ -4426,18 +4500,21 @@ function showView(v){
 }
 // ===== Wallet profile: a personal console for the connected wallet =====
 function walletButtonClick(){
-  if(walletPubkey){ showView('profile'); }
+  if(walletPubkey){ toggleWalletMenu(); }
   else { toggleWallet(); }
 }
+
 async function disconnectWallet(){
-  const prov = getProvider();
-  try{ if(prov) await prov.disconnect(); }catch(e){}
+  var prov = getProvider();
+  try{ if(prov && prov.disconnect) await prov.disconnect(); }catch(e){}
   walletPubkey = null;
-  lsSet('stw_wallet_off', true);
+  clearWalletCache();
+  if(typeof closeWalletMenu==='function') closeWalletMenu();
   updateWalletUI();
-  showView('registry');
-  showToast('Wallet disconnected.');
+  if(document.body && document.body.dataset && document.body.dataset.view==='profile') showView('registry');
+  if(typeof showToast==='function') showToast('Wallet disconnected.');
 }
+
 function pfHash(str){ let h=0; str=String(str); for(let i=0;i<str.length;i++){ h=(h<<5)-h+str.charCodeAt(i); h|=0; } return Math.abs(h); }
 function pfIdenticon(addr, size){
   const h=pfHash(addr); const hue=h%360; const hue2=(Math.floor(h/7))%360; const n=5; const cell=size/n; const cells=[];
@@ -4625,7 +4702,8 @@ let tipCtx = { wallet:null, amount:0.1, label:'' };
 
 async function sendTipTx(toWallet, amountSOL, memoText){
   const prov = getProvider();
-  if(!prov || !walletPubkey) throw new Error("not connected");
+  if(!prov) throw new Error("PROVIDER missing");
+  if(!walletPubkey || !prov.publicKey || prov.isConnected === false) throw new Error("NOTCONNECTED");
   const { Connection, PublicKey, Transaction, SystemProgram, TransactionInstruction } = solanaWeb3;
   const fromPub = new PublicKey(walletPubkey);
   let toPub;
@@ -4643,11 +4721,8 @@ async function sendTipTx(toWallet, amountSOL, memoText){
     }));
   }
   tx.feePayer = fromPub;
-  let blockhash = null;
-  for(const url of [HELIUS_RPC, PUBLIC_RPC]){
-    try{ const r = await new Connection(url, "confirmed").getLatestBlockhash(); if(r && r.blockhash){ blockhash = r.blockhash; break; } }catch(e){ /* try next */ }
-  }
-  if(!blockhash) throw new Error("could not reach the Solana network, try again in a moment");
+  const blockhash = await fetchRecentBlockhash();
+  if(!blockhash) throw new Error("NETWORK: could not reach the Solana network. Check your connection and try again in a moment.");
   tx.recentBlockhash = blockhash;
   const signed = await prov.signAndSendTransaction(tx);
   return signed.signature;
