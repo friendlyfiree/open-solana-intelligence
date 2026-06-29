@@ -2553,19 +2553,25 @@ var DEMO_WALK = 720; // cursor travel time, matches the CSS transition
 var DEMO_STEPS = [
   { view:'registry', sel:'.hero h1', sel2:'.hero-main', noCursor:true, dur:7000,
     title:'Open Solana Intelligence',
-    body:'A guided tour. OSI is an open desk for on-chain investigations: lost SOL, a suspicious flow, or an institution\u2019s treasury. Anyone opens a case for free, the community traces it on-chain, and the finding is published. It never promises to recover funds.' },
+    body:'A guided tour, no wallet and no signup. OSI is an open, community-run desk for on-chain Solana incidents: a drained wallet, a rug, a scam. Anyone opens a case for free, analysts trace it on-chain, and the finding becomes a public record. It never promises to recover funds.' },
   { view:'registry', sel:'#safeguards .trust-grid', sel2:'#safeguards', dur:8500,
     title:'What we promise, and what we never will',
     body:'Three lines we lead with. OSI can trace and document, but it cannot recover funds and never promises to. It will never DM you or ask for your seed phrase. And it follows the money, not the person: no names, no doxxing.' },
-  { view:'registry', sel:'#case-preview .cf-wrap', sel2:'#case-preview', dur:9000,
-    title:'Every case is a public record',
-    body:'A case is not a chat log. It is a structured file: the wallets in scope, the traced route, analyst vouches, a report hash, and a signed memo trail anyone can verify on Solana.' },
+  { view:'registry', sel:'#exchange-pack .ep-flow', sel2:'#exchange-pack', noCursor:true, dur:9500,
+    title:'From one record, three escalation packs',
+    body:'Once a case clears review, OSI turns the public evidence into ready-to-send briefs: a Victim Brief in plain language, an Exchange Pack for a compliance desk, and a Law Enforcement Brief for cyber units. Every pack is AI-assisted and always human-reviewed before it can go out.' },
+  { view:'registry', sel:'#case-records .cr-card', sel2:'#case-records-sec', dur:9000,
+    title:'The public case archive',
+    body:'Reviewed and sealed cases live here as compact, verifiable records: the case id, an honest status of Reviewed or Sealed, the on-chain evidence, and any reviewed packs. It reads like an intelligence archive, not a feed.' },
+  { view:'registry', box:'demoBoxRecord', modalMode:true, modalPoint:'.crd-dl', cardLeft:true, dur:11000,
+    title:'Open a record, download the packs',
+    body:'Open any record and the full dossier slides in: verification on Solana, the summary, the evidence, the analyst-review status, and the reviewed escalation packs ready to download. Drafts are never shown in public, only reviewed work.' },
   { view:'registry', sel:'#verify-chain .vc-rail', sel2:'#verify-chain', dur:9000,
     title:'Signed and verifiable on Solana',
-    body:'Every key step leaves a signed memo on-chain: report submitted, analyst vouch, maintainer seal. The trail is public and permanent, so you never have to take our word for it.' },
+    body:'Every key step writes a signed memo on-chain: case opened, report submitted, analyst vouch, maintainer seal. The trail is public and permanent on Solana, so you never have to take our word for any of it.' },
   { view:'registry', sel:'#entry-points .acards', sel2:'#entry-points', dur:8000,
     title:'Three ways in',
-    body:'Open a case if something happened to you, take a case as an analyst, or just read the open record. No gate, no paywall, no signup.' },
+    body:'Open a case if something happened to you, take a case as an analyst, or just read the open record. No gate, no paywall, no signup to look around.' },
   { view:'field', sel:'#field-cases > div', sel2:'#field-stats', clickSel:'#field-cases > div', dur:8500,
     title:'The Field Office',
     body:'A live case board. Anyone posts a case for free; analysts claim it and trace the wallets on-chain. The Wire, for unprompted dispatches, sits one tab over.' },
@@ -2574,28 +2580,25 @@ var DEMO_STEPS = [
     body:'Take a case and you get this box: write up your findings, attach the proof, and sign the submission with your wallet. No middleman ever holds your work.' },
   { view:'field', box:'demoBoxGuard', modalMode:true, modalPoint:'#og-agree', dur:12000,
     title:'A safety check before anything goes public',
-    body:'Before any case or report is submitted, this stop appears. No one from OSI will ever ask for your seed phrase. Only publicly verifiable, open-source evidence gets published, never private messages or personal data. And nothing moves until you tick the box. It protects the person who was hit and the analyst working the case.' },
+    body:'Before any case or report is submitted, this stop appears. OSI will never ask for your seed phrase. Only publicly verifiable, open-source evidence gets published, never private messages or personal data. Nothing moves until you tick the box. It protects the person who was hit and the analyst working the case.' },
   { view:'field', box:'demoBoxPay', modalMode:true, modalPoint:'#tip-pay-toggle', modalReveal:'toggleSolanaPay', dur:11000,
     title:'Solana Pay, built in',
     body:'Support and rewards move on Solana Pay. Open the panel for a QR any Solana wallet can scan, or tap to pay on mobile. If a sponsor funds a reward, they release it the same way, peer to peer, settled on-chain. OSI never holds it.' },
   { view:'wire', box:'demoBoxWire', sel:'#wire-form', sel2:'#wire-cases', clickSel:'.wire-cta', dur:9000,
     title:'The Wire',
     body:'Found something unprompted? File it here: the subject, the trail, your confidence per address, the links. After review it joins the public record and the community can back it.' },
-  { view:'methodology', sel:'.hiw-lead', sel2:'.hiw', dur:9000,
-    title:'Open intelligence, not a paywall',
-    body:'Anyone can open a case, analysts produce the work, peers verify it, and the result is published for everyone. A closed marketplace stops at the buyer. OSI stops at the public.' },
-  { view:'community', sel:'.wiki-model', sel2:'.rec-hero', dur:10000,
-    title:'Written and checked in the open',
-    body:'OSI governs itself in the open. Anyone contributes, verified analysts review each other, and nothing publishes until enough independent analysts agree. Every entry stays open and correctable, so no single person, including us, owns the verdict.' },
   { view:'community', sel:'#consensus-floor', sel2:'#analyst-roster', clickSel:'#consensus-floor .rf-b.ap', mockReview:true, dur:9500,
     title:'The review floor, live',
-    body:'This is what a verified analyst sees: a pending finding, a weighted vote to publish or flag, and a maintainer seal as the final check while the roster grows. This consensus has to clear before anything joins the record.' },
+    body:'This is what a verified analyst sees: a pending finding, a weighted vote to publish or flag, and a maintainer seal as the final check while the roster grows. Consensus has to clear before anything joins the record. No single voice decides.' },
+  { view:'registry', sel:'#walletBtn', sel2:'.wb-wrap', dur:9000,
+    title:'Connect to take part',
+    body:'Connect a Solana wallet here to open your own case, vouch as an analyst, or support a finding, all signed by you. You also get a profile with your case records and any reviewed packs. The tour itself never needs your wallet.' },
   { view:'registry', sel:null, dur:8000,
     title:'The record is public',
-    body:'Original on-chain forensics, an open case board, and a community that reviews its own work in the open. Explore freely from here, nothing on this site asks for your wallet.' }
+    body:'Original on-chain forensics, an open case board, AI-assisted escalation packs, and a community that reviews its own work in the open. Explore freely from here. Nothing on this site asks for your wallet.' }
 ];
-
 var demoIdx = 0, demoPlaying = false, demoTimer = null, demoStepStart = 0, demoPausedElapsed = 0, demoPrevSB = '', demoRzT = null, demoMockHTML = null;
+var demoTrackRAF = null, demoTrackArmed = false, demoArmT = null, demoRecState = null;
 
 // ---- boxes the briefing opens (read-only) ----
 function demoBoxApply(){
@@ -2615,6 +2618,7 @@ function demoBoxCloseAll(){
   if(typeof closeTip === 'function') closeTip();
   var wf = document.getElementById('wire-form'); if(wf) wf.hidden = true;
   if(typeof osiGuardClose === 'function') osiGuardClose();
+  if(typeof closeCaseDrawer === 'function') closeCaseDrawer();
 }
 function demoInjectMockReview(){
   var host = document.getElementById('consensus-floor'); if(!host) return;
@@ -2635,6 +2639,32 @@ function demoClearMock(){
     demoMockHTML = null;
     if(typeof renderReviewFloor === 'function'){ try{ renderReviewFloor(); }catch(e){} }
   }
+}
+
+function demoInjectRecords(){
+  var sec = document.getElementById('case-records-sec'); if(!sec) return;
+  if(demoRecState === null){ demoRecState = { list: window.__crList, recs: window.__crRecords, packs: window.__crPacks, hidden: (sec.style.display === 'none'), html: (document.getElementById('case-records') || {}).innerHTML }; }
+  sec.style.display = '';
+  if(!document.querySelector('#case-records .cr-card')){
+    var rec = { id:'OSIDEMO1', company:'Wallet-drainer incident (sample)', summary:'Sample record. Funds drained through a malicious token approval, then routed across intermediary wallets toward an exchange deposit.', tx:'', onchain:'intermediary wallet cluster', offchain:'', sealed:true, created_at:new Date().toISOString() };
+    window.__crList = [rec]; window.__crRecords = { OSIDEMO1: rec };
+    window.__crPacks = { OSIDEMO1: [ {case_ref:'OSIDEMO1',pack_type:'victim',content:'Sample victim brief.'}, {case_ref:'OSIDEMO1',pack_type:'exchange',content:'Sample exchange pack.'}, {case_ref:'OSIDEMO1',pack_type:'law_enforcement',content:'Sample law enforcement brief.'} ] };
+    if(typeof crPaint === 'function') crPaint();
+  }
+}
+function demoClearRecords(){
+  if(demoRecState === null) return;
+  if(typeof closeCaseDrawer === 'function') closeCaseDrawer();
+  window.__crList = demoRecState.list; window.__crRecords = demoRecState.recs; window.__crPacks = demoRecState.packs;
+  var host = document.getElementById('case-records'); if(host && typeof demoRecState.html === 'string') host.innerHTML = demoRecState.html;
+  var sec = document.getElementById('case-records-sec'); if(sec && demoRecState.hidden) sec.style.display = 'none';
+  demoRecState = null;
+  if(typeof renderCaseRecords === 'function'){ try{ renderCaseRecords(); }catch(e){} }
+}
+function demoBoxRecord(){
+  demoInjectRecords();
+  var id = (window.__crList && window.__crList[0]) ? window.__crList[0].id : null;
+  if(id && typeof openCaseRecord === 'function') openCaseRecord(id);
 }
 
 // ---- cursor / click / arrow helpers ----
@@ -2695,6 +2725,8 @@ function demoStart(){
   if(demoTimer) clearInterval(demoTimer);
   demoTimer = setInterval(demoTick, 50);
   demoPlaying = true;
+  demoTrackArmed = false; if(demoTrackRAF) cancelAnimationFrame(demoTrackRAF); demoTrackRAF = requestAnimationFrame(demoTrackLoop);
+  if(typeof demoInjectRecords === 'function') demoInjectRecords();
   var pb = document.getElementById('demo-play'); if(pb) pb.textContent = '\u2759\u2759';
   demoGoStep(0);
 }
@@ -2711,6 +2743,8 @@ function demoStop(){
   document.body.classList.remove('demo-on');
   var spot = document.getElementById('demo-spot'); if(spot){ spot.classList.remove('on'); spot.classList.remove('center'); spot.classList.remove('off'); spot.classList.remove('pulse'); }
   demoCursorHide(); demoArrowHide();
+  if(demoTrackRAF){ cancelAnimationFrame(demoTrackRAF); demoTrackRAF = null; } demoTrackArmed = false; if(demoArmT){ clearTimeout(demoArmT); demoArmT = null; }
+  if(typeof demoClearRecords === 'function') demoClearRecords();
   document.documentElement.style.scrollBehavior = demoPrevSB || '';
   try{ showView('registry'); window.scrollTo(0, 0); }catch(e){}
 }
@@ -2740,8 +2774,10 @@ function demoFindTarget(step){
 function demoGoStep(i){
   i = Math.max(0, Math.min(DEMO_STEPS.length - 1, i));
   demoIdx = i;
+  demoTrackArmed = false; if(demoArmT){ clearTimeout(demoArmT); demoArmT = null; }
   var step = DEMO_STEPS[i];
   demoBoxCloseAll(); demoClearMock();
+  var dcard = document.getElementById('demo-card'); if(dcard){ if(step.cardLeft) dcard.classList.add('dc-left'); else dcard.classList.remove('dc-left'); }
   demoStepStart = Date.now(); demoPausedElapsed = 0;
   var st = document.getElementById('demo-step'); if(st) st.textContent = ('0' + (i + 1)).slice(-2) + ' / ' + ('0' + DEMO_STEPS.length).slice(-2);
   var tt = document.getElementById('demo-title'); if(tt) tt.textContent = step.title;
@@ -2849,6 +2885,7 @@ function demoPlace(rect, pulse){
   var spot = document.getElementById('demo-spot');
   var card = document.getElementById('demo-card');
   if(!spot || !card) return;
+  spot.style.transition = '';
   spot.classList.remove('off');
   var vw = window.innerWidth, vh = window.innerHeight, M = 16;
   if(!rect){
@@ -2873,6 +2910,33 @@ function demoPlace(rect, pulse){
   spot.style.width = tw + 'px'; spot.style.height = th + 'px';
   spot.classList.add('on');
   if(pulse){ spot.classList.add('pulse'); setTimeout(function(){ spot.classList.remove('pulse'); }, 720); }
+  demoArmTrack();
+}
+// snap the highlight box to a rect WITHOUT animation (used by the live tracker)
+function demoPlaceSnap(rect){
+  var spot = document.getElementById('demo-spot'); if(!spot || !rect) return;
+  var vw = window.innerWidth, vh = window.innerHeight, M = 16, pad = 8;
+  var tx = Math.max(M, rect.left - pad), ty = Math.max(M, rect.top - pad);
+  var tw = Math.min(vw - 2*M, rect.width + 2*pad), th = Math.min(vh - 2*M, rect.height + 2*pad);
+  var card = document.getElementById('demo-card'); var crd = card ? card.getBoundingClientRect() : null; var gap = 14;
+  if(crd && crd.width && tx + tw > crd.left - gap && ty + th > crd.top - gap){
+    var nTh = (crd.top - gap) - ty; if(nTh >= 120){ th = nTh; } else { var nTw = (crd.left - gap) - tx; if(nTw >= 220){ tw = nTw; } }
+  }
+  spot.style.transition = 'none';
+  spot.style.left = tx + 'px'; spot.style.top = ty + 'px'; spot.style.width = tw + 'px'; spot.style.height = th + 'px';
+  spot.classList.remove('center'); spot.classList.remove('off'); spot.classList.add('on');
+}
+function demoArmTrack(){ if(demoArmT) clearTimeout(demoArmT); demoTrackArmed = false; demoArmT = setTimeout(function(){ demoTrackArmed = true; }, 560); }
+// continuously pin the highlight to the live target rect: zoom, scroll or reflow can never desync it
+function demoTrackLoop(){
+  demoTrackRAF = requestAnimationFrame(demoTrackLoop);
+  if(!demoTrackArmed) return;
+  var root = document.getElementById('demo-root'); if(!root || root.hidden) return;
+  var step = DEMO_STEPS[demoIdx]; if(!step || step.modalMode || !step.sel) return;
+  var el = demoFindTarget(step); if(!el) return;
+  var r = el.getBoundingClientRect(); if(r.height < 4) return;
+  demoPlaceSnap(r);
+  if(!step.noCursor) demoArrowTo(r.left + r.width/2, r.top + Math.min(r.height/2, 80));
 }
 function demoRealign(){
   var root = document.getElementById('demo-root'); if(!root || root.hidden) return;
@@ -5860,6 +5924,7 @@ function pfDownloadPack(caseRef, idx){
 .demo-spot.pulse{animation:demoPulse .72s ease-out}
 @keyframes demoPulse{0%{box-shadow:0 0 0 9999px rgba(5,8,14,.9),0 0 0 2px rgba(20,241,149,.95),0 0 40px rgba(20,241,149,.85)}100%{box-shadow:0 0 0 9999px rgba(5,8,14,.9),0 0 22px rgba(20,241,149,.45),inset 0 0 0 1px rgba(20,241,149,.25)}}
 .demo-arrow{position:absolute;left:-13px;top:22px;width:28px;height:28px;opacity:0;color:var(--sol);transition:transform .42s ease,opacity .3s;pointer-events:none;filter:drop-shadow(0 0 6px rgba(20,241,149,.5))}
+.demo-card.dc-left{left:22px;right:auto}
 .demo-card{position:fixed;z-index:4;right:22px;bottom:22px;left:auto;top:auto;width:336px;max-width:calc(100vw - 28px);background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-left:3px solid var(--sol);border-radius:12px;padding:19px 21px;box-shadow:0 26px 70px rgba(0,0,0,.66)}
 @media(max-height:560px){.demo-card{bottom:12px;right:12px;padding:14px 16px}}
 .demo-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
@@ -5919,7 +5984,7 @@ function pfDownloadPack(caseRef, idx){
     <button class="ow-x" onclick="welcomeClose()" aria-label="Close">&times;</button>
     <div class="ow-eyebrow mono"><span class="ow-dot"></span> New here</div>
     <h2 class="ow-title">A guided tour of OSI</h2>
-    <p class="ow-body">OSI is an open, community-run desk for on-chain investigations, from a drained wallet to an institution's treasury. This guided tour walks the whole platform for you. No wallet, no signup, the product shows itself.</p>
+    <p class="ow-body">OSI is an open, community-run desk for on-chain Solana incidents: drained wallets, rugs, and scams, traced in public and turned into verifiable case records and escalation packs. This guided tour walks the whole platform for you. No wallet, no signup, the product shows itself.</p>
     <div class="ow-actions">
       <button class="ow-go" onclick="welcomeStart()"><span>&#9654;</span> Run the briefing <span class="ow-sec">no wallet</span></button>
       <button class="ow-skip" onclick="welcomeClose()">Explore on my own</button>
