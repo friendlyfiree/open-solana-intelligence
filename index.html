@@ -1163,11 +1163,79 @@ body.cr-drawer-lock{overflow:hidden}
   <div class="cr-trust"><span class="hsm-dot" style="background:#14f195"></span> Every record is public, on-chain verifiable, and signed via Solana Memo.</div>
 </div>
 </section>
+<style id="osi-fo-rows">
+/* ===== Field Office case-file rows ===== */
+.fc-stripe{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line-bright)}
+.fo-case.open .fc-stripe{background:var(--cyan)}
+.fo-case.hot .fc-stripe{background:var(--amber)}
+.fo-case.closed .fc-stripe{background:var(--ink-faint)}
+.fc-id{display:flex;flex-direction:column;gap:6px;align-items:flex-start;width:84px;flex-shrink:0}
+.fc-osi{font-size:12px;font-weight:700;color:var(--ink-dim);letter-spacing:.02em}
+.fc-st{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 7px;border-radius:20px}
+.fc-st.open{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.32)}
+.fc-st.hot{background:rgba(255,176,32,.1);color:var(--amber);border:1px solid rgba(255,176,32,.32)}
+.fc-st.closed{background:rgba(148,163,184,.08);color:var(--ink-dim);border:1px solid var(--line-bright)}
+.fc-main{flex:1;min-width:0}
+.fc-title{font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;letter-spacing:-.01em;color:var(--ink-bright);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-meta{display:flex;gap:7px;margin-top:6px;flex-wrap:wrap}
+.fc-pill{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);border:1px solid var(--line);border-radius:20px;padding:3px 9px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.fc-pill.sup{color:var(--sol);border-color:var(--sol-line)}
+.fc-pill .sol-mk{width:11px;height:auto;fill:var(--sol);opacity:.9}
+.fc-pill .n{color:var(--ink-dim);font-weight:700}
+.fc-right{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.fc-time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);white-space:nowrap}
+.fc-time.urgent{color:var(--amber)}
+.fc-time.open{color:var(--cyan)}
+.fc-time.done{color:var(--ink-faint)}
+.fc-chev{color:var(--ink-faint);font-size:18px;line-height:1;transition:transform .14s,color .14s}
+.fo-case:hover .fc-chev{color:var(--cyan);transform:translateX(2px)}
+@media(max-width:560px){
+  .fo-case{flex-wrap:wrap;gap:8px 11px;padding:12px 14px}
+  .fc-id{flex-direction:row;align-items:center;width:auto;order:1}
+  .fc-right{order:2;margin-left:auto}
+  .fc-main{order:3;flex-basis:100%;min-width:0}
+  .fc-title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .fc-chev{display:none}
+}
+/* ===== Case file drawer content ===== */
+.cf-head{display:flex;align-items:center;gap:12px;margin-bottom:2px;padding-right:30px}
+.cf-osi{font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:.03em}
+.cf-st{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:20px;margin-left:auto}
+.cf-st.open{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.32)}
+.cf-st.hot{background:rgba(255,176,32,.1);color:var(--amber);border:1px solid rgba(255,176,32,.32)}
+.cf-st.closed{background:rgba(148,163,184,.08);color:var(--ink-dim);border:1px solid var(--line-bright)}
+.cf-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:21px;letter-spacing:-.02em;line-height:1.2;margin:12px 0 18px;color:var(--ink-bright)}
+.cf-statrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:22px}
+.cf-stat{background:var(--bg-card);padding:13px 14px}
+.cf-stat-n{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--ink-bright);line-height:1.25;display:flex;align-items:center;gap:5px}
+.cf-stat-n .sol-mk{width:12px;height:auto;fill:var(--sol)}
+.cf-stat-l{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;color:var(--ink-faint);margin-top:6px;text-transform:uppercase}
+.cf-sec-l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase;margin-bottom:8px}
+.cf-desc{font-size:13.5px;color:var(--ink-dim);line-height:1.7;margin:0 0 16px}
+.cf-foot{font-size:10px;color:var(--ink-faint);margin-bottom:18px;letter-spacing:.02em}
+.cf-actions{display:flex;flex-direction:column;gap:9px;margin-bottom:18px}
+.cf-btn{width:100%;border:0;border-radius:9px;padding:13px 16px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px;letter-spacing:.03em;cursor:pointer;transition:filter .14s,background .14s,border-color .14s,color .14s}
+.cf-btn.primary{background:var(--cyan);color:#04121a}
+.cf-btn.primary:hover{filter:brightness(1.08)}
+.cf-btn.ghost{background:transparent;border:1px solid var(--line-bright);color:var(--ink-dim)}
+.cf-btn.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.cf-btn.ghost.on{border-color:var(--sol-line);color:var(--sol)}
+.cf-won{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--sol);padding:6px 0}
+.cf-note{font-size:10.5px;color:var(--ink-faint);line-height:1.6;border-top:1px solid var(--line);padding-top:14px}
+@media(max-width:560px){.cf-statrow{grid-template-columns:1fr 1fr}.cf-title{font-size:19px}}
+</style>
 <div class="cr-drawer" id="cr-drawer" aria-hidden="true">
   <div class="cr-drawer-bg" onclick="closeCaseDrawer()"></div>
   <aside class="cr-drawer-panel" role="dialog" aria-label="Case record">
     <button class="cr-drawer-x" type="button" onclick="closeCaseDrawer()" aria-label="Close">&times;</button>
     <div class="cr-drawer-body" id="cr-drawer-body"></div>
+  </aside>
+</div>
+<div class="cr-drawer" id="cf-drawer" aria-hidden="true">
+  <div class="cr-drawer-bg" onclick="closeCaseFile()"></div>
+  <aside class="cr-drawer-panel" role="dialog" aria-label="Case file">
+    <button class="cr-drawer-x" type="button" onclick="closeCaseFile()" aria-label="Close">&times;</button>
+    <div class="cr-drawer-body" id="cf-drawer-body"></div>
   </aside>
 </div>
 
@@ -1177,7 +1245,7 @@ body.cr-drawer-lock{overflow:hidden}
 <style>
 #field-view .wrap{max-width:1140px}
 /* hero */
-.fo-hero{position:relative;border:1px solid var(--line-bright);border-top:2px solid var(--acc);background:
+.fo-hero{position:relative;border:1px solid var(--line-bright);border-top:2px solid var(--cyan);border-radius:12px;background:
    linear-gradient(115deg,var(--bg-card),var(--bg)),
    repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(255,255,255,.012) 23px,rgba(255,255,255,.012) 24px),
    repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,.012) 23px,rgba(255,255,255,.012) 24px);
@@ -1187,12 +1255,12 @@ body.cr-drawer-lock{overflow:hidden}
 .fo-live{width:7px;height:7px;border-radius:50%;background:var(--sol);box-shadow:0 0 9px var(--sol);animation:pulse 1.7s infinite}
 .fo-title{font-family:'Archivo',sans-serif;font-weight:900;font-size:clamp(30px,4.6vw,50px);letter-spacing:-.03em;line-height:.98;margin:14px 0 0}
 .fo-sub{font-size:14px;color:var(--ink-dim);line-height:1.65;max-width:560px;margin:14px 0 0}
-.fo-cta{margin-top:20px;background:var(--acc);color:var(--bg);border:0;border-radius:3px;padding:13px 20px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.06em;cursor:pointer;transition:background .14s}
-.fo-cta:hover{background:var(--acc-deep)}
-.fo-ops{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);position:relative;z-index:1}
+.fo-cta{margin-top:20px;background:var(--cyan);color:#04121a;border:0;border-radius:8px;padding:13px 20px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.06em;cursor:pointer;transition:filter .14s}
+.fo-cta:hover{filter:brightness(1.08)}
+.fo-ops{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative;z-index:1}
 .fo-op{background:var(--bg-card);padding:16px 20px;min-width:118px}
 .fo-op-n{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:var(--ink);line-height:1}
-.fo-op-n.sol{color:var(--sol)}
+.fo-op-n.sol{color:var(--sol);display:flex;align-items:center;gap:5px}
 .fo-op-l{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;color:var(--ink-faint);margin-top:7px;text-transform:uppercase}
 /* create form */
 .fo-form{border:1px solid var(--line-bright);border-left:2px solid var(--violet);background:var(--bg-card);padding:24px;margin-top:14px}
@@ -1205,23 +1273,23 @@ body.cr-drawer-lock{overflow:hidden}
 .fo-ta{min-height:84px;resize:vertical;line-height:1.5;font-family:'JetBrains Mono',monospace}
 .fo-form-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px;flex-wrap:wrap}
 .fo-form-note{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint)}
-.fo-file-btn{background:var(--acc);color:var(--bg);border:0;border-radius:6px;padding:12px 18px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.04em;cursor:pointer}
-.fo-file-btn:hover{background:var(--sol-deep)}
+.fo-file-btn{background:var(--cyan);color:#04121a;border:0;border-radius:8px;padding:12px 18px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.04em;cursor:pointer}
+.fo-file-btn:hover{filter:brightness(1.08)}
 .fo-cancel{background:transparent;border:1px solid var(--line-bright);color:var(--ink-faint);border-radius:2px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer}
 /* control bar */
 .fo-controls{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:22px 0 14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px}
 .fo-filters,.fo-sorts{display:flex;align-items:center;gap:4px}
 .fo-fil{background:transparent;border:1px solid var(--line);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.04em;padding:8px 15px;border-radius:2px;cursor:pointer;transition:all .13s}
 .fo-fil:hover{border-color:var(--line-bright);color:var(--ink)}
-.fo-fil.active{background:rgba(255,122,61,.1);border-color:var(--acc);color:var(--acc)}
+.fo-fil.active{background:rgba(34,211,238,.1);border-color:var(--cyan);color:var(--cyan)}
 .fo-sort-l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase;margin-right:6px}
 .fo-sort{background:transparent;border:0;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:6px 9px;cursor:pointer;border-bottom:1px solid transparent}
 .fo-sort:hover{color:var(--ink-dim)}
-.fo-sort.active{color:var(--acc);border-bottom-color:var(--acc)}
+.fo-sort.active{color:var(--cyan);border-bottom-color:var(--cyan)}
 /* case grid */
-.fo-cases{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.fo-case{position:relative;display:flex;border:1px solid var(--line);background:var(--bg-card);border-radius:10px;overflow:hidden;transition:border-color .15s,transform .15s}
-.fo-case:hover{border-color:var(--line-bright);transform:translateY(-2px)}
+.fo-cases{display:flex;flex-direction:column;gap:8px}
+.fo-case{position:relative;display:flex;align-items:center;gap:14px;border:1px solid var(--line);background:var(--bg-card);border-radius:11px;padding:13px 16px 13px 16px;cursor:pointer;overflow:hidden;transition:border-color .14s,background .14s,transform .12s}
+.fo-case:hover{border-color:var(--line-bright);background:#121829;transform:translateX(2px)}.fo-case:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .fo-case-stripe{width:3px;flex-shrink:0;background:var(--line-bright)}
 .fo-case.open .fo-case-stripe{background:var(--cyan)}
 .fo-case.hot .fo-case-stripe{background:var(--amber)}
@@ -1246,12 +1314,12 @@ body.cr-drawer-lock{overflow:hidden}
 .fo-demand-l{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;color:var(--ink-faint);text-transform:uppercase}
 .fo-case-actions{display:flex;align-items:center;gap:8px;margin:15px 0 0;flex-wrap:wrap}
 .fo-won{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sol);display:flex;align-items:center;gap:6px}
-.fo-empty{grid-column:1/-1;text-align:center;border:1px dashed var(--line-bright);background:var(--bg-card);padding:46px 24px;color:var(--ink-faint)}
+.fo-empty{text-align:center;border:1px dashed var(--line-bright);background:var(--bg-card);padding:46px 24px;color:var(--ink-faint)}
 .fo-empty-h{font-family:'Archivo',sans-serif;font-weight:700;font-size:16px;color:var(--ink-dim);margin-bottom:8px}
 .fo-empty p{font-size:12.5px;line-height:1.6;max-width:360px;margin:0 auto 16px}
 @media (prefers-reduced-motion: reduce){.fo-live{animation:none}}
-@media(max-width:900px){.fo-hero{grid-template-columns:1fr}.fo-ops{grid-template-columns:1fr 1fr}.fo-cases{grid-template-columns:1fr}}
-@media(max-width:560px){.fo-grid2{grid-template-columns:1fr}.fo-hero::after{font-size:54px}}
+@media(max-width:900px){.fo-hero{grid-template-columns:1fr}.fo-ops{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.fo-grid2{grid-template-columns:1fr}.fo-hero::after{display:none}.fo-hero{padding:20px 18px}.fo-title{font-size:30px}.fo-sub{font-size:13px;margin-top:10px}.fo-ops{margin-top:16px}.fo-op{padding:12px 13px}.fo-op-n{font-size:19px}}
 
 .file-drop{margin-top:11px;border:1px dashed var(--line-bright);border-radius:3px;padding:12px 13px;background:var(--bg)}
 .file-btn{background:var(--bg-raised);border:1px solid var(--line-bright);color:var(--ink-dim);border-radius:2px;padding:9px 13px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:all .13s}
@@ -1276,7 +1344,7 @@ body.cr-drawer-lock{overflow:hidden}
       <div class="fo-hero-l">
         <div class="fo-eyebrow"><span class="fo-live"></span>Live ops</div>
         <h1 class="fo-title">The Field Office</h1>
-        <p class="fo-sub">Open cases waiting for an analyst. The requests below are community intelligence requests: starter cases the project wants traced, from a drained wallet to a suspicious cluster. Anyone can post a case for free, and the community traces where the funds went and how. If you choose to reward the analyst who cracks it, that is peer to peer in SOL; OSI never holds it and never guarantees it.</p>
+        <p class="fo-sub">Community case intelligence and analyst workspace. Anyone opens a case for free; the community traces where the funds went, on-chain. Any reward is peer to peer in SOL, never held by OSI and never a promise of recovery.</p>
         <button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button>
       </div>
       <div class="fo-ops" id="field-stats"></div>
@@ -1327,7 +1395,7 @@ body.cr-drawer-lock{overflow:hidden}
 <section class="sec" data-view="wire" id="wire-view">
 <style>
 #wire-view .wrap{max-width:920px}
-.wire-hero{position:relative;border:1px solid var(--line-bright);border-top:2px solid var(--acc);background:
+.wire-hero{position:relative;border:1px solid var(--line-bright);border-top:2px solid var(--cyan);border-radius:12px;background:
    linear-gradient(115deg,var(--bg-card),var(--bg)),
    repeating-linear-gradient(90deg,transparent,transparent 5px,rgba(34,211,238,.018) 5px,rgba(34,211,238,.018) 6px);
    padding:30px 32px;overflow:hidden}
@@ -1342,7 +1410,7 @@ body.cr-drawer-lock{overflow:hidden}
 .wire-op-n{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;color:var(--ink);line-height:1}
 .wire-op-n.cy{color:var(--cyan)}
 .wire-op-l{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.11em;color:var(--ink-faint);margin-top:6px;text-transform:uppercase}
-.wire-cta{margin-top:20px;background:var(--acc);color:var(--bg);border:0;border-radius:3px;padding:13px 20px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.05em;cursor:pointer}
+.wire-cta{margin-top:20px;background:var(--cyan);color:#04121a;border:0;border-radius:8px;padding:13px 20px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.05em;cursor:pointer;transition:filter .14s}.wire-cta:hover{filter:brightness(1.08)}
 .wire-cta:hover{filter:brightness(1.1)}
 /* publish form */
 .wire-form{border:1px solid var(--line-bright);border-left:2px solid var(--cyan);background:var(--bg-card);padding:24px;margin-top:14px}
@@ -1364,8 +1432,8 @@ body.cr-drawer-lock{overflow:hidden}
 .wire-sort.active{color:var(--cyan);border-bottom-color:var(--cyan)}
 /* feed */
 .wire-feed{display:flex;flex-direction:column;gap:12px}
-.wire-card{position:relative;border:1px solid var(--line);border-left:3px solid var(--cyan);background:var(--bg-card);overflow:hidden;transition:border-color .15s,transform .15s}
-.wire-card:hover{border-color:var(--line-bright);border-left-color:var(--cyan);transform:translateX(2px)}
+.wire-card{position:relative;border:1px solid var(--line);background:var(--bg-card);border-radius:11px;padding:15px 17px 15px 18px;overflow:hidden;transition:border-color .14s,background .14s}
+.wire-card:hover{border-color:var(--line-bright);background:#121829}.wire-card .fc-stripe{background:var(--cyan)}.wire-card.premium .fc-stripe{background:var(--violet)}
 .wire-card.premium{border-left-color:var(--violet)}
 .wire-img{max-height:150px;overflow:hidden;border-bottom:1px solid var(--line)}
 .wire-img img{width:100%;max-height:150px;object-fit:cover;display:block}
@@ -1384,6 +1452,20 @@ body.cr-drawer-lock{overflow:hidden}
 .wire-support:hover{background:rgba(20,241,149,.1)}
 .wire-read{background:transparent;border:1px solid rgba(153,69,255,.4);color:var(--violet);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.03em;padding:8px 14px;border-radius:2px;cursor:pointer}
 .wire-read:hover{background:rgba(153,69,255,.1)}
+.wr-head{display:flex;align-items:center;gap:10px;margin-bottom:9px;flex-wrap:wrap}
+.wr-st{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.1em;padding:2px 8px;border-radius:20px;background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.32)}
+.wr-st.flag{background:rgba(153,69,255,.1);color:var(--violet);border-color:rgba(153,69,255,.34)}
+.wr-by{font-size:10px;color:var(--ink-faint)}
+.wr-back{font-size:10px;color:var(--ink-faint);margin-left:auto}
+.wr-back .b-reward .n{color:var(--cyan);font-weight:700}
+.wr-title{white-space:normal;margin-bottom:6px;font-size:16px;line-height:1.25}
+.wr-snip{font-size:12.5px;color:var(--ink-faint);line-height:1.55;margin-bottom:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wr-acts{display:flex;gap:8px;flex-wrap:wrap}
+.wr-act{border:0;border-radius:8px;padding:9px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.03em;cursor:pointer;transition:filter .14s,border-color .14s,color .14s}
+.wr-act.primary{background:var(--cyan);color:#04121a}
+.wr-act.primary:hover{filter:brightness(1.08)}
+.wr-act.ghost{background:transparent;border:1px solid var(--line-bright);color:var(--ink-dim)}
+.wr-act.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
 .wire-empty{text-align:center;border:1px dashed var(--line-bright);background:var(--bg-card);padding:46px 24px;color:var(--ink-faint)}
 .wire-empty-h{font-family:'Archivo',sans-serif;font-weight:700;font-size:16px;color:var(--ink-dim);margin-bottom:8px}
 .wire-empty p{font-size:12.5px;line-height:1.6;max-width:380px;margin:0 auto 16px}
@@ -3522,28 +3604,25 @@ function wireCard(d){
   const id = escapeHtml(d.id);
   const subject = escapeHtml(d.subject || 'Intel dispatch');
   const full = String(d.body || '');
-  const body = escapeHtml(full.slice(0,260)) + (full.length>260 ? '…' : '');
+  const snippet = escapeHtml(full.slice(0,130)) + (full.length>130 ? '\u2026' : '');
   const count = ((window.boostCounts||{})[d.id]) || 0;
-  const _dimg = safeUrl(d.image); const img = _dimg ? '<div class="wire-img"><img src="'+escapeHtml(_dimg)+'" alt="" loading="lazy"></div>' : '';
-  const badge = d.premium ? '<span class="wire-badge premium">★ FLAGSHIP</span>' : '<span class="wire-badge">● DISPATCH</span>';
-  const att = (!d.premium && d.attachment && !d.image) ? '<div class="wire-att">'+attachmentTag(d.attachment)+'</div>' : '';
-  let actions = '<button class="btn-stake" onclick="stakeBoost(this)">↑ Back this</button>';
+  const author = escapeHtml(d.author||'analyst');
+  const status = d.premium ? 'flag' : 'open';
+  const statusLabel = d.premium ? 'FLAGSHIP' : 'DISPATCH';
+  let actions = '';
   if(d.premium && d._case){
-    actions += '<button class="wire-read" onclick="openReport(\'case\',\''+d._case+'\')">Read full report →</button>';
-    if(OSI_SUPPORT_WALLET){ const sl=String(d.subject||'').replace(/['\"\\<>]/g,'').slice(0,50); actions += '<button class="wire-support" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\''+escapeHtml(sl)+'\',0.5,\'\\u25ce Support this investigation\')">\u25ce Support investigation</button>'; }
-  } else if(isSolAddr(d.wallet)){
-    actions += '<button class="wire-support" onclick="openTip(\''+d.wallet+'\',\''+escapeHtml(short(d.wallet))+'\',0.1,\'\\u25ce Support the analyst\')">\\u25ce Support analyst</button>';
+    actions += '<button class="wr-act primary" type="button" onclick="openReport(\'case\',\''+d._case+'\')">Read report \u2192</button>';
+    if(OSI_SUPPORT_WALLET){ const sl=String(d.subject||'').replace(/['\"\\<>]/g,'').slice(0,50); actions += '<button class="wr-act ghost" type="button" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\''+escapeHtml(sl)+'\',0.5,\'\\u25ce Support this investigation\')">\u25ce Support</button>'; }
+  } else {
+    actions += '<button class="wr-act ghost" type="button" onclick="stakeBoost(this)">\u2191 Back</button>';
+    if(isSolAddr(d.wallet)){ actions += '<button class="wr-act ghost" type="button" onclick="openTip(\''+d.wallet+'\',\''+escapeHtml(short(d.wallet))+'\',0.1,\'\\u25ce Support the analyst\')">\u25ce Support</button>'; }
   }
   return '<div class="wire-card bounty'+(d.premium?' premium':'')+'" data-bid="'+id+'">'
-    + img
-    + '<div class="wire-body">'
-      + '<div class="wire-top">'+badge+'<span class="wire-by mono">by '+escapeHtml(d.author||'analyst')+'</span>'+analystTag(d.wallet)+'</div>'
-      + '<div class="wire-subject b-target">'+subject+'</div>'
-      + '<div class="wire-text">'+body+'</div>'
-      + att
-      + '<div class="wire-metrics"><span class="b-reward"><span class="n">'+count+'</span></span> backing this dispatch</div>'
-      + '<div class="wire-actions">'+actions+'</div>'
-    + '</div>'
+    + '<span class="fc-stripe"></span>'
+    + '<div class="wr-head"><span class="wr-st '+status+'">'+statusLabel+'</span><span class="wr-by mono">by '+author+'</span><span class="wr-back mono"><span class="b-reward"><span class="n">'+count+'</span></span> backing</span></div>'
+    + '<div class="fc-title b-target wr-title">'+subject+'</div>'
+    + (snippet ? '<div class="wr-snip">'+snippet+'</div>' : '')
+    + '<div class="wr-acts">'+actions+'</div>'
   + '</div>';
 }
 function wireStats(list){
@@ -3760,11 +3839,12 @@ function bountyDeadline(b){
   if(b && b.expires_at){ var t=new Date(b.expires_at).getTime(); if(!isNaN(t)&&t>0) return t; }
   if(!(parseFloat(b && b.reward_sol) > 0)) return 0;
   var id=String((b&&b.id)||(b&&b.target)||''); if(!id) return 0;
-  var k='stw_dl_'+id; var v=lsGet(k,'');
-  if(v){ var tt=parseInt(v,10); if(tt>0) return tt; }
   var hsh=2166136261; for(var i=0;i<id.length;i++){ hsh^=id.charCodeAt(i); hsh=Math.imul(hsh,16777619); }
-  var hours=100+(Math.abs(hsh)%101); // 100..200 saat, davaya gore degisken
-  var t2=Date.now()+hours*3600000; lsSet(k,String(t2)); return t2;
+  var hours=100+(Math.abs(hsh)%101); // deterministic 100..200h window
+  // base the countdown on the case created_at so it is identical on every device
+  var base=(b && b.created_at) ? new Date(b.created_at).getTime() : 0;
+  if(isNaN(base)||base<=0) base=Date.now();
+  return base + hours*3600000;
 }
 function fmtCountdown(ms){
   if(ms<=0) return null;
@@ -3778,8 +3858,7 @@ function fieldTick(){
     var dl=parseInt(card.dataset.deadline,10)||0; if(!dl) return;
     var left=dl-Date.now();
     if(left<=0){ card.style.display='none'; return; }
-    var cd=card.querySelector('.fo-cd-t'); if(cd) cd.textContent=fmtCountdown(left);
-    var box=card.querySelector('.fo-countdown'); if(box && left<86400000) box.classList.add('urgent');
+    var cd=card.querySelector('.fc-time[data-cd]'); if(cd){ cd.textContent=fmtCountdown(left); if(left<86400000) cd.classList.add('urgent'); }
   });
 }
 if(typeof window!=='undefined' && !window.__fieldTick){ window.__fieldTick=setInterval(fieldTick, 30000); }
@@ -3787,50 +3866,115 @@ if(typeof window!=='undefined' && !window.__fieldTick){ window.__fieldTick=setIn
 function fieldCaseCard(b, i){
   const id = escapeHtml(b.id);
   const target = escapeHtml(b.target || b.title || 'case');
-  const brief = escapeHtml(b.detail || 'Community intelligence request.');
   const reward = parseFloat(b.reward_sol) || 0;
   const resolved = !!b.winner_wallet;
   const count = ((window.boostCounts||{})[b.id]) || 0;
   const hot = !resolved && count >= 5;
   const status = resolved ? 'closed' : (hot ? 'hot' : 'open');
+  const statusLabel = resolved ? 'CLOSED' : (hot ? 'HOT' : 'OPEN');
+  const osi = 'OSI-' + ((pfHash(String(b.id)) % 9000) + 1000);
   const deadline = resolved ? 0 : bountyDeadline(b);
   const _left = deadline - Date.now();
   const _urgent = (deadline && _left < 86400000);
-  const countdown = (!resolved && deadline && _left > 0) ? '<div class="fo-countdown'+(_urgent?' urgent':'')+'"><span class="fo-cd-ic">\u23f3</span> ends in <span class="fo-cd-t">'+fmtCountdown(_left)+'</span></div>' : '';
-  const caseNo = 'CASE #' + ((pfHash(String(b.id)) % 9000) + 1000);
-  const statusLabel = resolved ? '✓ CLOSED' : (hot ? '🔥 HOT' : '● OPEN');
-  const demandPct = Math.min(100, count * 12);
-  const rewardCell = reward > 0
-    ? '<div class="fo-m-n rew">'+SOL_MARK+' '+reward+'</div><div class="fo-m-l">SOL reward</div>'
-    : '<div class="fo-m-n" style="color:var(--ink-dim);font-size:13px">community</div><div class="fo-m-l">funded</div>';
-  let actions;
-  if(resolved){
-    const wl = escapeHtml(b.winner_label || short(b.winner_wallet));
-    const payAmt = reward > 0 ? reward : 0.1;
-    const tlabel = String(b.target||b.title||'this case').replace(/['"\\<>]/g,'').slice(0,60);
-    actions = '<div class="fo-won">🏆 won by '+wl+'</div>'
-      + '<button class="btn-reward" onclick="openTip(\''+(isSolAddr(b.winner_wallet)?b.winner_wallet:'')+'\',\'winner of: '+tlabel+'\','+payAmt+',\'◎ Reward the winner\')">Send reward ◎</button>';
-  } else {
-    actions = '<button class="btn-stake" onclick="stakeBoost(this)">↑ Back</button>'
-      + '<button class="btn-apply" onclick="openApplyModal(this)">✦ Apply</button>';
-  }
-  const _bimg = safeUrl(b.image); const img = _bimg ? '<div class="fo-case-img"><img src="'+escapeHtml(_bimg)+'" alt="" loading="lazy"></div>' : '';
-  return '<div class="fo-case bounty '+status+'" data-bid="'+id+'" data-deadline="'+deadline+'">'
-    + '<div class="fo-case-stripe"></div>'
-    + '<div class="fo-case-body">'
-      + img
-      + '<div class="fo-case-top"><span class="fo-case-no">'+caseNo+'</span><span class="fo-case-status '+status+'">'+statusLabel+'</span></div>'
-      + '<div class="fo-case-target b-target">'+target+'</div>'
-      + '<div class="fo-case-brief">'+brief+'</div>'
-      + countdown
-      + '<div class="fo-case-metrics">'
-        + '<div class="fo-metric">'+rewardCell+'</div>'
-        + '<div class="fo-metric"><div class="fo-m-n b-reward"><span class="n">'+count+'</span></div><div class="fo-m-l">boosts</div></div>'
-        + '<div class="fo-demand"><div class="fo-demand-track"><div class="fo-demand-bar" data-bid="'+id+'" style="width:'+demandPct+'%"></div></div><div class="fo-demand-l">demand</div></div>'
-      + '</div>'
-      + '<div class="fo-case-actions">'+actions+'</div>'
-    + '</div>'
+  let timeHtml;
+  if(resolved){ timeHtml = '<span class="fc-time done">closed</span>'; }
+  else if(deadline && _left > 0){ timeHtml = '<span class="fc-time'+(_urgent?' urgent':'')+'" data-cd="1">'+fmtCountdown(_left)+'</span>'; }
+  else { timeHtml = '<span class="fc-time open">open</span>'; }
+  const supportPill = reward > 0
+    ? '<span class="fc-pill sup">'+SOL_MARK+' '+reward+' SOL</span>'
+    : '<span class="fc-pill">community</span>';
+  const backPill = '<span class="fc-pill b-reward">\u2191 <span class="n">'+count+'</span> backing</span>';
+  return '<div class="fo-case bounty '+status+'" data-bid="'+id+'" data-deadline="'+deadline+'" role="button" tabindex="0" onclick="openCaseFile(\''+id+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openCaseFile(\''+id+'\');}">'
+    + '<span class="fc-stripe"></span>'
+    + '<div class="fc-id"><span class="fc-osi mono">'+osi+'</span><span class="fc-st '+status+'">'+statusLabel+'</span></div>'
+    + '<div class="fc-main"><div class="fc-title b-target">'+target+'</div><div class="fc-meta">'+supportPill+backPill+'</div></div>'
+    + '<div class="fc-right">'+timeHtml+'<span class="fc-chev">\u203a</span></div>'
   + '</div>';
+}
+
+// ---- Case file drawer: the single detail surface for an open case ----
+var caseFileData = null;
+function openCaseFile(id){
+  var list = (fieldState && fieldState.data) ? fieldState.data : [];
+  var b = null; for(var i=0;i<list.length;i++){ if(String(list[i].id)===String(id)){ b=list[i]; break; } }
+  if(!b) return;
+  caseFileData = b;
+  var body = document.getElementById('cf-drawer-body'); if(body) body.innerHTML = cfDrawerHtml(b);
+  var dr = document.getElementById('cf-drawer'); if(dr){ dr.classList.add('open'); dr.setAttribute('aria-hidden','false'); }
+  document.body.classList.add('cr-drawer-lock');
+}
+function closeCaseFile(){ var d=document.getElementById('cf-drawer'); if(d){ d.classList.remove('open'); d.setAttribute('aria-hidden','true'); } document.body.classList.remove('cr-drawer-lock'); }
+function cfDrawerHtml(b){
+  var target = escapeHtml(b.target || b.title || 'case');
+  var brief = escapeHtml(b.detail || 'Community intelligence request.');
+  var reward = parseFloat(b.reward_sol) || 0;
+  var resolved = !!b.winner_wallet;
+  var count = ((window.boostCounts||{})[b.id]) || 0;
+  var hot = !resolved && count >= 5;
+  var status = resolved ? 'closed' : (hot ? 'hot' : 'open');
+  var statusLabel = resolved ? 'CLOSED' : (hot ? 'HOT' : 'OPEN');
+  var osi = 'OSI-' + ((pfHash(String(b.id)) % 9000) + 1000);
+  var deadline = resolved ? 0 : bountyDeadline(b);
+  var _left = deadline - Date.now();
+  var timeLine = resolved ? 'Resolved' : (deadline && _left>0 ? fmtCountdown(_left)+' left' : 'Open');
+  var filed = b.created_at ? new Date(b.created_at).toLocaleDateString() : '';
+  var supVal = reward>0 ? (SOL_MARK+' '+reward+' SOL') : 'Community';
+  var applied = !!lsGet('stw_applied',{})[b.id];
+  var backed = !!lsGet('stw_boosted',{})[b.id];
+  var actions;
+  if(resolved){
+    var wl = escapeHtml(b.winner_label || short(b.winner_wallet));
+    actions = '<div class="cf-won">\uD83C\uDFC6 won by '+wl+'</div>'
+      + '<button class="cf-btn primary" type="button" onclick="caseFileReward()">\u25ce Send analyst support</button>';
+  } else {
+    actions = '<button class="cf-btn primary" type="button" onclick="caseFileApply()">\u2726 Submit a report</button>'
+      + '<button class="cf-btn ghost'+(backed?' on':'')+'" type="button" onclick="caseFileBack()">\u2191 '+(backed?'Backed':'Support this case')+'</button>';
+  }
+  var foot = (filed ? 'Filed '+filed : '') + (backed ? (filed?' \u00b7 ':'')+'you backed this' : '') + (applied ? ((filed||backed)?' \u00b7 ':'')+'you submitted a report' : '');
+  return ''
+    + '<div class="cf-head"><div class="cf-osi mono">'+osi+'</div><span class="cf-st '+status+'">'+statusLabel+'</span></div>'
+    + '<h3 class="cf-title">'+target+'</h3>'
+    + '<div class="cf-statrow">'
+      + '<div class="cf-stat"><div class="cf-stat-n">'+supVal+'</div><div class="cf-stat-l">Peer support</div></div>'
+      + '<div class="cf-stat"><div class="cf-stat-n">'+count+'</div><div class="cf-stat-l">Backing</div></div>'
+      + '<div class="cf-stat"><div class="cf-stat-n">'+timeLine+'</div><div class="cf-stat-l">Status</div></div>'
+    + '</div>'
+    + '<div class="cf-sec-l">Brief</div><p class="cf-desc">'+brief+'</p>'
+    + (foot ? '<div class="cf-foot mono">'+foot+'</div>' : '')
+    + '<div class="cf-actions">'+actions+'</div>'
+    + '<div class="cf-note">OSI traces and documents. It cannot recover funds and never promises to. Evidence is public and on-chain: no seed phrases, no private data, no accusations.</div>';
+}
+// open the apply (report) flow for the case in the drawer, reusing the shared submit path
+function caseFileApply(){
+  var b = caseFileData; if(!b) return;
+  applyCtx = { bid: b.id, target: (b.target||b.title||'case') };
+  var nm = document.getElementById('apply-bounty-name'); if(nm) nm.textContent = '\uD83C\uDFAF ' + applyCtx.target;
+  var rep = document.getElementById('apply-report'); if(rep) rep.value = '';
+  if(typeof clearPickedFile==='function') clearPickedFile('apply');
+  if(typeof refreshApplyWalletRow==='function') refreshApplyWalletRow();
+  var m = document.getElementById('apply-modal'); if(m) m.classList.add('open');
+}
+// support the case in the drawer, same signed memo + backend path as the board boost
+function caseFileBack(){
+  var b = caseFileData; if(!b) return;
+  if(lsGet('stw_boosted',{})[b.id]){ if(typeof showToast==='function') showToast('You already backed this case.'); return; }
+  var bid = b.id, _bts = Math.floor(Date.now()/1000);
+  var subj = String(b.target||b.title||'case').replace(/\|/g,'/');
+  var memo = "OSI_CASE_BACKED|case_id=" + (bid||"") + "|subject=" + subj + "|backer=" + (walletPubkey||"") + "|ts=" + _bts;
+  withOnchainVote("Support", memo, async function(sig){
+    if(bid){ var mine = lsGet('stw_boosted', {}); mine[bid] = { name: (b.target||b.title), tx: sig, ts: Date.now() }; lsSet('stw_boosted', mine); }
+    if(typeof recordOnchainEvent==='function') recordOnchainEvent({ event_type:'demand_signal', item_type:'bounty', item_id:bid, label:'pledged demand for '+(b.target||b.title), memo_text:memo, tx_sig:sig });
+    if(SUPA_ON && bid){ try{ await supaPost('bounty_boosts', { bounty_id: bid, voter: voterId() }); if(typeof hydrateBoosts==='function') hydrateBoosts(); }catch(e){} }
+    if(typeof showToast==='function') showToast('Support recorded on-chain.');
+    try{ if(typeof drawFieldOffice==='function') drawFieldOffice(); }catch(e){}
+    if(caseFileData && String(caseFileData.id)===String(bid)){ var body=document.getElementById('cf-drawer-body'); if(body) body.innerHTML=cfDrawerHtml(caseFileData); }
+  });
+}
+function caseFileReward(){
+  var b = caseFileData; if(!b || !b.winner_wallet) return;
+  var reward = parseFloat(b.reward_sol)||0; var payAmt = reward>0?reward:0.1;
+  var tlabel = String(b.target||b.title||'this case').replace(/['"\\<>]/g,'').slice(0,60);
+  if(typeof openTip==='function') openTip(isSolAddr(b.winner_wallet)?b.winner_wallet:'', 'winner of: '+tlabel, payAmt, '\u25ce Send analyst support');
 }
 function fieldStats(list){
   const host=document.getElementById('field-stats'); if(!host) return;
@@ -3839,9 +3983,8 @@ function fieldStats(list){
   const pooled = list.reduce(function(s,b){ return s + (parseFloat(b.reward_sol)||0); }, 0);
   host.innerHTML =
       '<div class="fo-op"><div class="fo-op-n">'+open+'</div><div class="fo-op-l">Open cases</div></div>'
-    + '<div class="fo-op"><div class="fo-op-n sol">'+SOL_MARK+' '+pooled+'</div><div class="fo-op-l">SOL in rewards</div></div>'
-    + '<div class="fo-op"><div class="fo-op-n">'+closed+'</div><div class="fo-op-l">Cases closed</div></div>'
-    + '<div class="fo-op"><div class="fo-op-n">'+list.length+'</div><div class="fo-op-l">Total cases</div></div>';
+    + '<div class="fo-op"><div class="fo-op-n sol">'+SOL_MARK+' '+pooled+'</div><div class="fo-op-l">Peer support</div></div>'
+    + '<div class="fo-op"><div class="fo-op-n">'+closed+'</div><div class="fo-op-l">Cases closed</div></div>';
 }
 function fieldUpdateDemand(){
   document.querySelectorAll('.fo-demand-bar[data-bid]').forEach(function(bar){
