@@ -670,6 +670,8 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   <nav class="sb-nav" role="tablist" aria-label="Sections">
     <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span class="sb-ic">▣</span><span>Home</span><span class="sb-c" id="vc-co" style="display:none">3</span></button>
     <button class="sb-item" data-view="field" role="tab" onclick="showView('field')"><span class="sb-ic">🗂</span><span>Field Office</span></button>
+    <button class="sb-item" data-view="analysts" role="tab" onclick="showView('analysts')"><span class="sb-ic">🏅</span><span>Analysts</span></button>
+    <button class="sb-item" data-view="prooflog" role="tab" onclick="showView('prooflog')"><span class="sb-ic">🔗</span><span>Proof Log</span></button>
     <button class="sb-item" data-view="research" role="tab" onclick="showView('research')"><span class="sb-ic">🕵️</span><span>Investigations</span><span class="sb-c" id="vc-cases" style="display:none">2</span></button>
     <button class="sb-item" data-view="methodology" role="tab" onclick="showView('methodology')"><span class="sb-ic">🔬</span><span>Methodology</span></button>
     <button class="sb-item" data-view="community" role="tab" onclick="showView('community')"><span class="sb-ic">✦</span><span>Community</span></button>
@@ -1224,6 +1226,157 @@ body.cr-drawer-lock{overflow:hidden}
 .cf-note{font-size:10.5px;color:var(--ink-faint);line-height:1.6;border-top:1px solid var(--line);padding-top:14px}
 @media(max-width:560px){.cf-statrow{grid-template-columns:1fr 1fr}.cf-title{font-size:19px}}
 </style>
+<style id="osi-analysts">
+/* nav active (desktop left accent, mobile bottom accent at 900px, matching other items) */
+body[data-view="analysts"] .sb-item[data-view="analysts"]{background:rgba(20,241,149,.1);color:var(--sol);box-shadow:inset 3px 0 0 var(--sol)}
+@media(max-width:900px){body[data-view="analysts"] .sb-item[data-view="analysts"]{box-shadow:inset 0 -2px 0 var(--sol)}}
+/* ===== Analyst Proof-of-Work Leaderboard ===== */
+.lb-shell{max-width:940px;margin:0 auto;padding:0 22px}
+.lb-hero{margin-bottom:22px}
+.lb-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin:8px 0 0;color:var(--ink-bright)}
+.lb-sub{font-size:14px;color:var(--ink-dim);line-height:1.6;margin:12px 0 0;max-width:730px}
+.lb-wrap{display:flex;flex-direction:column;gap:8px}
+.lb-demo{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);background:rgba(255,176,32,.07);border:1px solid rgba(255,176,32,.28);border-radius:9px;padding:10px 13px;margin-bottom:6px;line-height:1.5}
+.lb-row{position:relative;display:flex;align-items:center;gap:14px;border:1px solid var(--line);background:var(--bg-card);border-radius:11px;padding:13px 16px;cursor:pointer;transition:border-color .14s,background .14s,transform .12s}
+.lb-row:hover{border-color:var(--line-bright);background:#121829;transform:translateX(2px)}
+.lb-row:focus-visible{outline:2px solid var(--sol);outline-offset:2px}
+.lb-left{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.lb-rank{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--ink-faint);width:24px;text-align:center}
+.lb-medal{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:800;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#04121a}
+.lb-medal.m1{background:linear-gradient(135deg,#ffd76a,#f5a623)}
+.lb-medal.m2{background:linear-gradient(135deg,#dfe6f2,#a9b4c9)}
+.lb-medal.m3{background:linear-gradient(135deg,#e3a877,#c4763b)}
+.lb-av{width:40px;height:40px;border-radius:9px;overflow:hidden;border:1px solid var(--line-bright);flex-shrink:0}
+.lb-av img,.lb-av svg{border-radius:9px;display:block;width:40px;height:40px}
+.lb-main{flex:1;min-width:0}
+.lb-name{font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;color:var(--ink-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-handle{color:var(--ink-faint);font-weight:500;font-size:12.5px}
+.lb-chips{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center}
+.lb-id{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:20px;border:1px solid var(--line-bright);color:var(--ink-dim)}
+.lb-id.x{color:var(--ink-bright)}
+.lb-id.li{color:#5b9bd5;border-color:rgba(91,155,213,.4)}
+.lb-id.wo{color:var(--ink-faint)}
+.lb-tier{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;padding:2px 8px;border-radius:20px;text-transform:uppercase}
+.lb-tier.pf-l1{background:rgba(139,150,184,.12);color:var(--ink-dim)}
+.lb-tier.pf-l2{background:rgba(34,211,238,.1);color:var(--cyan)}
+.lb-tier.pf-l3{background:rgba(153,69,255,.12);color:var(--violet)}
+.lb-tier.pf-l4,.lb-tier.pf-l5{background:rgba(20,241,149,.1);color:var(--sol)}
+.lb-stat{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap}
+.lb-stat span{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint)}
+.lb-stat b{color:var(--ink-dim);font-weight:700}
+.lb-right{display:flex;align-items:center;gap:16px;flex-shrink:0}
+.lb-rep{text-align:right}
+.lb-rep-n{display:block;font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:800;color:var(--sol);line-height:1}
+.lb-rep-l{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;color:var(--ink-faint);text-transform:uppercase}
+.lb-wt{text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--ink-dim)}
+.lb-wt-l{display:block;font-size:8px;letter-spacing:.1em;color:var(--ink-faint);text-transform:uppercase;font-weight:400}
+.lb-chev{color:var(--ink-faint);font-size:18px;transition:color .14s,transform .14s}
+.lb-row:hover .lb-chev{color:var(--sol);transform:translateX(2px)}
+@media(max-width:640px){
+  .lb-shell{padding:0 15px}
+  .lb-title{font-size:25px}
+  .lb-row{flex-wrap:wrap;gap:8px 12px;padding:12px 14px}
+  .lb-main{flex-basis:calc(100% - 88px)}
+  .lb-right{width:100%;justify-content:flex-end;gap:14px;border-top:1px solid var(--line);padding-top:9px}
+  .lb-stat{gap:10px}
+  .lb-chev{display:none}
+}
+/* ===== Analyst profile / proof-of-work CV modal ===== */
+.ap-modal{position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;padding:20px;visibility:hidden;opacity:0;transition:opacity .18s,visibility .18s}
+.ap-modal.open{visibility:visible;opacity:1}
+.ap-modal-bg{position:absolute;inset:0;background:rgba(4,8,16,.72)}
+.ap-modal-card{position:relative;width:min(560px,100%);max-height:88vh;overflow-y:auto;background:var(--bg-raised);border:1px solid var(--line-bright);border-radius:16px;padding:26px 26px 22px;box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.ap-modal-x{position:absolute;top:14px;right:16px;background:transparent;border:0;color:var(--ink-faint);font-size:26px;line-height:1;cursor:pointer;z-index:2}
+.ap-modal-x:hover{color:var(--ink-bright)}
+.ap-head{display:flex;gap:15px;align-items:center;margin-bottom:14px;padding-right:26px}
+.ap-head img,.ap-head svg{border-radius:12px;border:1px solid var(--line-bright);display:block}
+.ap-idbox{min-width:0}
+.ap-name{font-family:'Archivo',sans-serif;font-weight:800;font-size:20px;color:var(--ink-bright);line-height:1.2}
+.ap-wallet{font-size:11px;color:var(--ink-faint);margin-top:4px;word-break:break-all}
+.ap-status{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sol);margin-top:5px;letter-spacing:.03em}
+.ap-idrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+.ap-idnote{font-size:10px;color:var(--ink-faint);font-style:italic}
+.ap-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:20px}
+.ap-topc{background:var(--bg-card);padding:13px 12px;text-align:center}
+.ap-topn{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;color:var(--ink-bright);line-height:1}
+.ap-topc:first-child .ap-topn{color:var(--sol)}
+.ap-topl{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.07em;color:var(--ink-faint);margin-top:6px;text-transform:uppercase}
+.ap-sec-l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase;margin:0 0 9px}
+.ap-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:20px}
+.ap-cell{background:var(--bg-card);border:1px solid var(--line);border-radius:9px;padding:12px 13px}
+.ap-cell .n{display:block;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;color:var(--ink-bright)}
+.ap-cell .l{display:block;font-size:10px;color:var(--ink-faint);margin-top:4px}
+.ap-badges{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:20px}
+.ap-badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.28);color:var(--cyan)}
+.ap-note{font-size:11px;color:var(--ink-faint);line-height:1.55;background:var(--bg-card);border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin-bottom:20px}
+.ap-cases{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:20px}
+.ap-case{font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;background:rgba(20,241,149,.06);border:1px solid var(--sol-line);color:var(--sol)}
+.ap-case-note{font-size:9px;color:var(--ink-faint);font-style:italic}
+.ap-peer{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--sol);margin-bottom:20px}
+.ap-peer-note{display:block;font-size:10px;color:var(--ink-faint);margin-top:5px;font-style:italic;font-family:'Archivo',sans-serif}
+.ap-foot{display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);border-top:1px solid var(--line);padding-top:14px}
+.ap-risk{color:var(--sol)}
+.ap-risk.on{color:var(--red)}
+.ap-demo{text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--amber);margin-top:12px;letter-spacing:.05em}
+@media(max-width:560px){.ap-modal-card{padding:22px 17px}.ap-name{font-size:18px}}
+</style>
+<section class="sec" id="analysts" data-view="analysts">
+  <div class="lb-shell">
+    <div class="lb-hero">
+      <div class="sec-eyebrow">ANALYST REPUTATION</div>
+      <h2 class="lb-title">Analyst Proof-of-Work Leaderboard</h2>
+      <p class="lb-sub">Analysts earn standing by reviewing cases, filing approved reports, and signing their work on Solana. Reputation reflects reviewed work only. Vote weight is capped. Peer support in SOL is voluntary, peer to peer, and never affects reputation or vote weight.</p>
+    </div>
+    <div class="lb-wrap" id="lb-body"></div>
+  </div>
+</section>
+<div class="ap-modal" id="ap-modal" aria-hidden="true">
+  <div class="ap-modal-bg" onclick="closeAnalystProfile()"></div>
+  <div class="ap-modal-card" role="dialog" aria-label="Analyst profile">
+    <button class="ap-modal-x" type="button" onclick="closeAnalystProfile()" aria-label="Close">&times;</button>
+    <div class="ap-modal-body" id="ap-modal-body"></div>
+  </div>
+</div>
+<style id="osi-prooflog">
+/* nav active */
+body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(20,241,149,.1);color:var(--sol);box-shadow:inset 3px 0 0 var(--sol)}
+@media(max-width:900px){body[data-view="prooflog"] .sb-item[data-view="prooflog"]{box-shadow:inset 0 -2px 0 var(--sol)}}
+/* case lifecycle tracker (case detail drawer) */
+.cf-life{margin:16px 0 4px}
+.cf-track{display:flex;align-items:center}
+.cf-dot{width:11px;height:11px;border-radius:50%;border:2px solid var(--line-bright);background:var(--bg);flex-shrink:0}
+.cf-dot.done{background:var(--sol);border-color:var(--sol)}
+.cf-dot.current{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 0 4px rgba(34,211,238,.18)}
+.cf-line{flex:1;height:2px;background:var(--line-bright)}
+.cf-line.done{background:var(--sol)}
+.cf-labels{display:flex;justify-content:space-between;margin-top:7px}
+.cf-labels span{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.02em;color:var(--ink-faint);text-transform:uppercase;flex:1;text-align:center}
+.cf-labels span:first-child{text-align:left}
+.cf-labels span:last-child{text-align:right}
+.cf-labels span.done{color:var(--ink-dim)}
+.cf-labels span.current{color:var(--cyan)}
+.cf-stage-note{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);margin:6px 0 16px;line-height:1.4}
+/* ===== Proof Log view ===== */
+.pl-shell{max-width:820px;margin:0 auto;padding:0 22px}
+.pl-hero{margin-bottom:20px}
+.pl-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin:8px 0 0;color:var(--ink-bright)}
+.pl-sub{font-size:14px;color:var(--ink-dim);line-height:1.6;margin:12px 0 0;max-width:690px}
+.pl-demo{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);background:rgba(255,176,32,.07);border:1px solid rgba(255,176,32,.28);border-radius:9px;padding:10px 13px;margin-bottom:12px;line-height:1.5}
+.pl-live{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sol);background:rgba(20,241,149,.06);border:1px solid var(--sol-line);border-radius:9px;padding:10px 13px;margin-bottom:12px}
+.pl-note{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-faint);padding:20px 0}
+.pl-feed{display:flex;flex-direction:column;gap:2px}
+@media(max-width:640px){.pl-shell{padding:0 15px}.pl-title{font-size:25px}}
+</style>
+<section class="sec" id="prooflog" data-view="prooflog">
+  <div class="pl-shell">
+    <div class="pl-hero">
+      <div class="sec-eyebrow">ON-CHAIN VERIFICATION</div>
+      <h2 class="pl-title">Proof Log</h2>
+      <p class="pl-sub">Every important action on OSI is signed by a wallet and written as a memo on Solana: cases opened, reports filed, analyst reviews, challenges, and seals. This log is the public trail, and each entry links to its transaction on Solana, so you never have to take our word for it.</p>
+    </div>
+    <div id="pl-body"></div>
+  </div>
+</section>
 <div class="cr-drawer" id="cr-drawer" aria-hidden="true">
   <div class="cr-drawer-bg" onclick="closeCaseDrawer()"></div>
   <aside class="cr-drawer-panel" role="dialog" aria-label="Case record">
@@ -2618,6 +2771,7 @@ function raSignedItem(ev){
   else if(ev.event_type==='wire_dispatch'){ ic='\u25c8'; label='Analyst <b>'+w+'</b> filed a dispatch'+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^filed a dispatch on /,'on '))):''); }
   else if(ev.event_type==='demand_signal'){ ic='\u25ce'; label='<b>'+w+'</b> backed the case'+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^pledged demand for /,'for '))):''); }
   else if(ev.event_type==='support'){ ic='\u25ce'; signed='Signed transfer'; label='<b>'+w+'</b> sent '+(ev.amount!=null?(escapeHtml(String(ev.amount))+' '+escapeHtml(ev.token||'SOL')):'support')+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^supported /,'to support '))):''); }
+  else if(ev.event_type==='maintainer_seal'){ ic='\u2713'; label='Maintainer <b>'+w+'</b> sealed '+type+(item?(' '+item):'')+' as a public record'; }
   else { label='<b>'+w+'</b> signed an action'; }
   var link=ev.tx_sig?(' \u00b7 <a href="'+solscanTx(ev.tx_sig)+'" target="_blank" rel="noopener" class="ra-solscan">'+signed+' \u2197</a>'):'';
   return '<div class="ra-item"><span class="ra-ic sgn">'+ic+'</span><div class="ra-tx"><div class="ra-t">'+label+'</div><div class="ra-m">'+raTimeAgo(ev.created_at)+link+'</div></div></div>';
@@ -3417,6 +3571,107 @@ async function renderAnalysts(){
   host.innerHTML = '<div class="rec-sec-h">THE ROSTER \u00b7 VERIFIED ANALYSTS <span class="ar-count">'+rows.length+'</span></div><div class="ar-grid">' + rows.map(analystCard).join('') + '</div>';
 }
 
+// ===== Analyst Proof-of-Work Leaderboard (Round 1a) =====
+// Reputation is earned from reviewed work only. Peer support (SOL) is voluntary and
+// NEVER affects reputation or vote weight. Vote weight is capped. Identity signals are
+// optional and do not by themselves confer trust. The roster below is clearly labeled
+// demo data until the verified analyst roster grows on real signed proof-of-work.
+var LB_IS_DEMO = true;
+var LEADERBOARD_SAMPLE = [
+  { id:'a1', wallet:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', handle:'chainseer', name:'chainseer', tier:2, reviewed:34, reports:9, challenges:5, memo:71, weight:1.75, badges:['Verified','10+ reviews','First seal','Challenge accepted'], x:true, linkedin:true, joined:'Feb 2026', peer:2.4, risk:0 },
+  { id:'a2', wallet:'4Nd1mYh8pQ2rStUvWxYz3aBcDeFgHjKmNpQrStUvWxY', handle:'memo_maria', name:'memo.maria', tier:2, reviewed:26, reports:5, challenges:4, memo:53, weight:1.5, badges:['Verified','Peer reviewer','Clean record'], x:false, linkedin:true, joined:'Feb 2026', peer:0.8, risk:0 },
+  { id:'a3', wallet:'9zAbCdEfGhJkLmNpQrStUvWxYz2345678aBcDeFgHjK', handle:'solsleuth', name:'solsleuth', tier:2, reviewed:22, reports:6, challenges:3, memo:48, weight:1.5, badges:['Verified','6 approved reports'], x:true, linkedin:false, joined:'Mar 2026', peer:1.1, risk:0 },
+  { id:'a4', wallet:'3RtY6uJ8kLmN2pQ4sV7wX9zAbCdEfGhJkLmNpQrStUv', handle:'rugtracer', name:'rugtracer', tier:1, reviewed:15, reports:4, challenges:2, memo:30, weight:1.25, badges:['Verified','Tracer'], x:true, linkedin:false, joined:'Mar 2026', peer:0.5, risk:0 },
+  { id:'a5', wallet:'5FhGjKlMnBvCxZaSdFgHjKlPoIuYtReWqAsDfGhJkLm', handle:'', name:'', tier:1, reviewed:12, reports:3, challenges:1, memo:22, weight:1.25, badges:['Verified','Wallet-only'], x:false, linkedin:false, joined:'Apr 2026', peer:0, risk:0 },
+  { id:'a6', wallet:'2WpQeRtYuIoPaSdFgHjKlZxCvBnMqWeRtYuIoPaSdFg', handle:'degen_dt', name:'degen.dt', tier:0, reviewed:6, reports:1, challenges:0, memo:9, weight:1.0, badges:['New analyst'], x:true, linkedin:false, joined:'Apr 2026', peer:0.2, risk:0 }
+];
+// transparent reputation: reviewed work + approved reports + successful challenges + signed actions
+function lbRep(a){ return (a.reviewed||0)*4 + (a.reports||0)*10 + (a.challenges||0)*8 + (a.memo||0)*1; }
+function lbTier(i){ return ANALYST_TIERS[Math.max(0, Math.min(ANALYST_TIERS.length-1, i||0))]; }
+function lbList(){
+  var rows = LEADERBOARD_SAMPLE.map(function(a){ return Object.assign({}, a, { rep: lbRep(a) }); });
+  rows.sort(function(x,y){ return y.rep - x.rep; });
+  window.__lbList = rows;
+  return rows;
+}
+function lbIdChips(a){
+  var c = '';
+  if(a.x)        c += '<span class="lb-id x" title="X identity linked (optional signal)">\uD835\uDD4F verified</span>';
+  if(a.linkedin) c += '<span class="lb-id li" title="LinkedIn identity linked (optional signal)">in verified</span>';
+  if(!a.x && !a.linkedin) c += '<span class="lb-id wo" title="No linked identity">wallet-only</span>';
+  return c;
+}
+function lbRow(a, rank){
+  var t = lbTier(a.tier);
+  var nm = a.name ? escapeHtml(a.name) : escapeHtml(short(a.wallet));
+  var handle = a.handle ? '<span class="lb-handle">@'+escapeHtml(a.handle)+'</span>' : '<span class="lb-handle mono">'+escapeHtml(short(a.wallet))+'</span>';
+  var av = (typeof pfIdenticon==='function') ? pfIdenticon(String(a.wallet), 40) : '';
+  var medal = rank<=3 ? '<span class="lb-medal m'+rank+'">'+rank+'</span>' : '<span class="lb-rank">'+rank+'</span>';
+  return '<div class="lb-row" role="button" tabindex="0" onclick="openAnalystProfile(\''+a.id+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openAnalystProfile(\''+a.id+'\');}">'
+    + '<div class="lb-left">'+medal+'<span class="lb-av">'+av+'</span></div>'
+    + '<div class="lb-main"><div class="lb-name">'+nm+' '+handle+'</div>'
+      + '<div class="lb-chips">'+lbIdChips(a)+'<span class="lb-tier '+t.cls+'">'+escapeHtml(t.name)+'</span></div>'
+      + '<div class="lb-stat"><span><b>'+a.reviewed+'</b> reviewed</span><span><b>'+a.reports+'</b> reports</span><span><b>'+a.challenges+'</b> challenges</span><span><b>'+a.memo+'</b> signed</span></div>'
+    + '</div>'
+    + '<div class="lb-right"><div class="lb-rep"><span class="lb-rep-n">'+a.rep+'</span><span class="lb-rep-l">reputation</span></div>'
+      + '<div class="lb-wt" title="Vote weight is capped">\u00d7'+a.weight+'<span class="lb-wt-l">weight</span></div>'
+      + '<span class="lb-chev">\u203a</span></div>'
+  + '</div>';
+}
+function renderLeaderboard(){
+  var host = document.getElementById('lb-body'); if(!host) return;
+  var rows = lbList();
+  var banner = LB_IS_DEMO
+    ? '<div class="lb-demo">Sample roster \u00b7 demo data. Real analysts rank here as they join, get verified, and build signed proof-of-work on-chain.</div>'
+    : '';
+  host.innerHTML = banner + rows.map(function(a,i){ return lbRow(a, i+1); }).join('');
+}
+// ---- Analyst profile / proof-of-work CV (modal) ----
+function openAnalystProfile(id){
+  var list = window.__lbList || lbList();
+  var a = null; for(var i=0;i<list.length;i++){ if(String(list[i].id)===String(id)){ a=list[i]; break; } }
+  if(!a) return;
+  var body = document.getElementById('ap-modal-body'); if(body) body.innerHTML = analystProfileHtml(a);
+  var m = document.getElementById('ap-modal'); if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
+  document.body.classList.add('cr-drawer-lock');
+}
+function closeAnalystProfile(){ var m=document.getElementById('ap-modal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); } document.body.classList.remove('cr-drawer-lock'); }
+function analystProfileHtml(a){
+  var t = lbTier(a.tier);
+  var nm = a.name ? escapeHtml(a.name) : escapeHtml(short(a.wallet));
+  var av = (typeof pfIdenticon==='function') ? pfIdenticon(String(a.wallet), 60) : '';
+  var idrow = a.x || a.linkedin
+    ? ((a.x?'<span class="lb-id x">\uD835\uDD4F verified</span>':'') + (a.linkedin?'<span class="lb-id li">in verified</span>':''))
+    : '<span class="lb-id wo">wallet-only</span>';
+  var badges = (a.badges||[]).map(function(b){ return '<span class="ap-badge">'+escapeHtml(b)+'</span>'; }).join('');
+  // sample public case links (clearly demo)
+  var cases = ['OSI-4433','OSI-2185','OSI-7706'].slice(0, Math.max(1, Math.min(3, (a.reports||1))))
+    .map(function(c){ return '<span class="ap-case mono">'+c+'</span>'; }).join('');
+  return ''
+    + '<div class="ap-head">'+av+'<div class="ap-idbox"><div class="ap-name">'+nm+(a.handle?' <span class="lb-handle">@'+escapeHtml(a.handle)+'</span>':'')+'</div>'
+      + '<div class="ap-wallet mono">'+escapeHtml(a.wallet)+'</div>'
+      + '<div class="ap-status">Verified analyst \u00b7 '+escapeHtml(t.name)+'</div></div></div>'
+    + '<div class="ap-idrow">'+idrow+'<span class="ap-idnote">identity signals are optional and do not affect reputation</span></div>'
+    + '<div class="ap-top">'
+      + '<div class="ap-topc"><div class="ap-topn">'+a.rep+'</div><div class="ap-topl">Reputation</div></div>'
+      + '<div class="ap-topc"><div class="ap-topn">\u00d7'+a.weight+'</div><div class="ap-topl">Vote weight (capped)</div></div>'
+      + '<div class="ap-topc"><div class="ap-topn">'+escapeHtml(t.t)+'</div><div class="ap-topl">Tier</div></div>'
+    + '</div>'
+    + '<div class="ap-sec-l">Proof of work</div>'
+    + '<div class="ap-grid">'
+      + '<div class="ap-cell"><span class="n">'+a.reviewed+'</span><span class="l">Reviewed contributions</span></div>'
+      + '<div class="ap-cell"><span class="n">'+a.reports+'</span><span class="l">Approved reports</span></div>'
+      + '<div class="ap-cell"><span class="n">'+a.challenges+'</span><span class="l">Successful challenges</span></div>'
+      + '<div class="ap-cell"><span class="n">'+a.memo+'</span><span class="l">Memo-signed actions</span></div>'
+    + '</div>'
+    + (badges ? '<div class="ap-sec-l">Badges</div><div class="ap-badges">'+badges+'</div>' : '')
+    + '<div class="ap-note">Every contribution above is signed by this wallet and verifiable on Solana. Reputation reflects reviewed work only.</div>'
+    + '<div class="ap-sec-l">Recent public records</div><div class="ap-cases">'+cases+' <span class="ap-case-note">sample</span></div>'
+    + '<div class="ap-sec-l">Peer support</div><div class="ap-peer">\u25ce '+(a.peer||0)+' SOL received <span class="ap-peer-note">voluntary, peer to peer \u00b7 does not affect reputation or vote weight</span></div>'
+    + '<div class="ap-foot"><span>Joined '+escapeHtml(a.joined||'-')+'</span><span class="ap-risk'+(a.risk?' on':'')+'">'+(a.risk?'\u26a0 flagged':'\u2713 no risk flags')+'</span></div>'
+    + '<div class="ap-demo">Demo profile \u00b7 sample data</div>';
+}
+
 // ----- maintainer: roster management -----
 async function supaUpsertAnalyst(row){
   const r = await fetch(SUPABASE_URL + '/rest/v1/analysts', {
@@ -3871,15 +4126,15 @@ function fieldCaseCard(b, i){
   const count = ((window.boostCounts||{})[b.id]) || 0;
   const hot = !resolved && count >= 5;
   const status = resolved ? 'closed' : (hot ? 'hot' : 'open');
-  const statusLabel = resolved ? 'CLOSED' : (hot ? 'HOT' : 'OPEN');
+  const statusLabel = resolved ? 'REVIEWED' : 'SUBMITTED';
   const osi = 'OSI-' + ((pfHash(String(b.id)) % 9000) + 1000);
   const deadline = resolved ? 0 : bountyDeadline(b);
   const _left = deadline - Date.now();
   const _urgent = (deadline && _left < 86400000);
   let timeHtml;
-  if(resolved){ timeHtml = '<span class="fc-time done">closed</span>'; }
+  if(resolved){ timeHtml = ''; }
   else if(deadline && _left > 0){ timeHtml = '<span class="fc-time'+(_urgent?' urgent':'')+'" data-cd="1">'+fmtCountdown(_left)+'</span>'; }
-  else { timeHtml = '<span class="fc-time open">open</span>'; }
+  else { timeHtml = '<span class="fc-time">no deadline</span>'; }
   const supportPill = reward > 0
     ? '<span class="fc-pill sup">'+SOL_MARK+' '+reward+' SOL</span>'
     : '<span class="fc-pill">community</span>';
@@ -3904,6 +4159,48 @@ function openCaseFile(id){
   document.body.classList.add('cr-drawer-lock');
 }
 function closeCaseFile(){ var d=document.getElementById('cf-drawer'); if(d){ d.classList.remove('open'); d.setAttribute('aria-hidden','true'); } document.body.classList.remove('cr-drawer-lock'); }
+// case lifecycle tracker: Submitted -> Under Review -> Reviewed -> Public Record
+function cfLifecycle(idx){
+  var steps = ['Submitted','Under Review','Reviewed','Public Record'];
+  var track = '';
+  for(var i=0;i<steps.length;i++){
+    var dcls = i<idx ? 'done' : (i===idx ? 'current' : 'pending');
+    track += '<span class="cf-dot '+dcls+'"></span>';
+    if(i<steps.length-1) track += '<span class="cf-line '+(i<idx?'done':'pending')+'"></span>';
+  }
+  var labels = steps.map(function(s,i){ return '<span class="'+(i<idx?'done':(i===idx?'current':''))+'">'+s+'</span>'; }).join('');
+  return '<div class="cf-life"><div class="cf-track">'+track+'</div><div class="cf-labels">'+labels+'</div></div>';
+}
+
+// ===== Proof Log: global timeline of signed, on-chain-verifiable actions =====
+function proofLogSample(){
+  var now = Date.now();
+  function t(mins){ return new Date(now - mins*60000).toISOString(); }
+  return [
+    { event_type:'maintainer_seal', actor_wallet:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', item_type:'case', item_id:'OSI-4433', label:'sealed case', created_at:t(9) },
+    { event_type:'analyst_vouch', vote:'approve', actor_wallet:'4Nd1mYh8pQ2rStUvWxYz3aBcDeFgHjKmNpQrStUvWxY', item_type:'case', item_id:'OSI-4433', label:'approved case', created_at:t(31) },
+    { event_type:'report_submitted', actor_wallet:'9zAbCdEfGhJkLmNpQrStUvWxYz2345678aBcDeFgHjK', item_type:'report', item_id:'OSI-4433', label:'filed report on OSI-4433', created_at:t(66) },
+    { event_type:'demand_signal', actor_wallet:'3RtY6uJ8kLmN2pQ4sV7wX9zAbCdEfGhJkLmNpQrStUv', item_type:'case', item_id:'OSI-7706', label:'pledged demand for OSI-7706', created_at:t(120) },
+    { event_type:'analyst_vouch', vote:'challenge', actor_wallet:'5FhGjKlMnBvCxZaSdFgHjKlPoIuYtReWqAsDfGhJkLm', item_type:'report', item_id:'OSI-2185', label:'challenged report', created_at:t(175) },
+    { event_type:'wire_dispatch', actor_wallet:'2WpQeRtYuIoPaSdFgHjKlZxCvBnMqWeRtYuIoPaSdFg', item_type:'report', item_id:'WIRE-19', label:'filed a dispatch on a suspicious cluster', created_at:t(240) },
+    { event_type:'report_submitted', actor_wallet:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', item_type:'report', item_id:'OSI-5218', label:'filed report on OSI-5218', created_at:t(360) }
+  ];
+}
+async function renderProofLog(){
+  var host = document.getElementById('pl-body'); if(!host) return;
+  host.innerHTML = '<div class="pl-note">Loading signed actions\u2026</div>';
+  var events = [];
+  if(typeof SUPA_ON!=='undefined' && SUPA_ON){
+    try{ events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=60') || []; }catch(e){}
+  }
+  var demo = false;
+  if(!events.length){ demo = true; events = proofLogSample(); }
+  var banner = demo
+    ? '<div class="pl-demo">Sample entries \u00b7 demo data. Every signed action the community takes writes a memo on Solana and appears here with a live Verify on Solana link.</div>'
+    : '<div class="pl-live">'+events.length+' signed action'+(events.length===1?'':'s')+' \u00b7 each verifiable on Solana</div>';
+  host.innerHTML = banner + '<div class="ra-feed pl-feed">' + events.map(raSignedItem).join('') + '</div>';
+}
+
 function cfDrawerHtml(b){
   var target = escapeHtml(b.target || b.title || 'case');
   var brief = escapeHtml(b.detail || 'Community intelligence request.');
@@ -3912,11 +4209,11 @@ function cfDrawerHtml(b){
   var count = ((window.boostCounts||{})[b.id]) || 0;
   var hot = !resolved && count >= 5;
   var status = resolved ? 'closed' : (hot ? 'hot' : 'open');
-  var statusLabel = resolved ? 'CLOSED' : (hot ? 'HOT' : 'OPEN');
+  var statusLabel = resolved ? 'REVIEWED' : 'SUBMITTED';
   var osi = 'OSI-' + ((pfHash(String(b.id)) % 9000) + 1000);
   var deadline = resolved ? 0 : bountyDeadline(b);
   var _left = deadline - Date.now();
-  var timeLine = resolved ? 'Resolved' : (deadline && _left>0 ? fmtCountdown(_left)+' left' : 'Open');
+  var timeVal = resolved ? '-' : (deadline && _left>0 ? fmtCountdown(_left) : 'No deadline');
   var filed = b.created_at ? new Date(b.created_at).toLocaleDateString() : '';
   var supVal = reward>0 ? (SOL_MARK+' '+reward+' SOL') : 'Community';
   var applied = !!lsGet('stw_applied',{})[b.id];
@@ -3934,10 +4231,12 @@ function cfDrawerHtml(b){
   return ''
     + '<div class="cf-head"><div class="cf-osi mono">'+osi+'</div><span class="cf-st '+status+'">'+statusLabel+'</span></div>'
     + '<h3 class="cf-title">'+target+'</h3>'
+    + cfLifecycle(resolved?2:0)
+    + (!resolved ? '<div class="cf-stage-note">Open case, accepting analyst reports. This is not a reviewed public record yet.</div>' : '')
     + '<div class="cf-statrow">'
       + '<div class="cf-stat"><div class="cf-stat-n">'+supVal+'</div><div class="cf-stat-l">Peer support</div></div>'
       + '<div class="cf-stat"><div class="cf-stat-n">'+count+'</div><div class="cf-stat-l">Backing</div></div>'
-      + '<div class="cf-stat"><div class="cf-stat-n">'+timeLine+'</div><div class="cf-stat-l">Status</div></div>'
+      + '<div class="cf-stat"><div class="cf-stat-n">'+timeVal+'</div><div class="cf-stat-l">Time left</div></div>'
     + '</div>'
     + '<div class="cf-sec-l">Brief</div><p class="cf-desc">'+brief+'</p>'
     + (foot ? '<div class="cf-foot mono">'+foot+'</div>' : '')
@@ -4743,6 +5042,8 @@ function showView(v){
   if(v==='profile'){ renderProfile(); }
   if(v==='field'){ renderFieldOffice(); }
   if(v==='wire'){ renderWire(); }
+  if(v==='analysts'){ renderLeaderboard(); }
+  if(v==='prooflog'){ renderProofLog(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 // ===== Wallet profile: a personal console for the connected wallet =====
