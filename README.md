@@ -6,8 +6,7 @@ When SOL is drained, rugged, or scammed and the victim cannot trace it alone, OS
 > Information only. No financial or legal advice, and no promise to recover funds.
 
 **Built on:** Solana · Supabase · Phantom · Vercel
-**Live:** https://solana-treasury-watch-wald.vercel.app/
-*(the current deployment URL still carries an older project name; it will be renamed to the OSI domain.)*
+**Live:** https://open-solana-intel.vercel.app/
 
 ---
 
