@@ -696,7 +696,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .wb-mi:hover{background:var(--bg-card);color:var(--ink)}
 .wb-mi.danger:hover{background:rgba(255,84,112,.12);color:var(--red)}
 </style>
-    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Open profile</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
+    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Open profile</button><button class="wb-mi" type="button" role="menuitem" onclick="openSelfProfile();">Proof-of-work CV</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -1194,6 +1194,70 @@ body.cr-drawer-lock{overflow:hidden}
 #consensus-floor .rf-b.ap.on{background:rgba(20,241,149,.12);border-color:var(--sol-line);color:var(--sol)}
 #consensus-floor .rf-b.rj.on{background:rgba(255,84,112,.1);border-color:rgba(255,84,112,.4);color:var(--red)}
 </style>
+<style id="osi-cv">
+#ap-modal .ap-modal-card{width:min(920px,100%);padding:24px}
+.cv-loading{padding:30px 4px;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:12px}
+.cv-wrap{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:20px}
+.cv-main{min-width:0}
+.cv-head{display:flex;gap:15px;align-items:center;margin-bottom:16px}
+.cv-av svg,.cv-av img{border-radius:14px;border:1px solid var(--line-bright);display:block}
+.cv-idbox{min-width:0}
+.cv-name{font-family:'Archivo',sans-serif;font-weight:800;font-size:22px;color:var(--ink-bright);line-height:1.15;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.cv-handle{color:var(--ink-faint);font-weight:600;font-size:13px}
+.cv-demochip{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.12em;color:var(--amber);border:1px solid rgba(255,176,32,.4);border-radius:20px;padding:2px 8px}
+.cv-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;align-items:center}
+.cv-role{font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.1em;padding:3px 9px;border-radius:20px}
+.cv-role.an{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.32)}
+.cv-role.maint{background:rgba(20,241,149,.1);color:var(--sol);border:1px solid var(--sol-line)}
+.cv-role.usr{background:rgba(139,150,184,.1);color:var(--ink-dim);border:1px solid var(--line-bright)}
+.cv-wline{margin-top:8px;font-size:11px;color:var(--ink-dim);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cv-copy{background:none;border:1px solid var(--line-bright);border-radius:6px;color:var(--ink-dim);font-size:11px;padding:2px 7px;cursor:pointer}
+.cv-copy:hover{color:var(--cyan);border-color:var(--cyan)}
+.cv-wsol{color:var(--ink-faint);text-decoration:none;font-size:10px}
+.cv-wsol:hover{color:var(--cyan)}
+.cv-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:6px 0 16px;overflow-x:auto}
+.cv-tab{background:none;border:0;border-bottom:2px solid transparent;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.03em;padding:9px 12px;cursor:pointer;white-space:nowrap}
+.cv-tab:hover{color:var(--ink-dim)}
+.cv-tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.cv-pane{display:none}
+.cv-pane.active{display:block}
+.cv-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px;margin-bottom:18px}
+.cv-kpi{background:var(--bg-card);border:1px solid var(--line);border-radius:10px;padding:12px 13px}
+.cv-kpi .n{display:block;font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:800;color:var(--ink-bright)}
+.cv-kpi .l{display:block;font-size:9.5px;color:var(--ink-faint);margin-top:5px;line-height:1.35}
+.cv-pend{color:var(--ink-faint);font-weight:400}
+.cv-note{font-size:11px;color:var(--ink-faint);line-height:1.6;background:var(--bg-card);border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin-top:6px}
+.cv-a{color:var(--cyan);cursor:pointer}
+.cv-empty{font-size:11px;color:var(--ink-faint);padding:14px 2px}
+.cv-demo-note{font-size:10px;color:var(--amber);background:rgba(255,176,32,.06);border:1px solid rgba(255,176,32,.25);border-radius:8px;padding:8px 11px;margin-bottom:10px}
+.cv-sactl{display:flex;flex-direction:column;gap:7px}
+.cv-sact{display:flex;gap:10px;font-size:12px;color:var(--ink-dim);background:var(--bg-card);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+.cv-sact .t{color:var(--ink-faint);font-size:10px;flex-shrink:0;width:52px}
+.cv-feed{max-height:320px;overflow-y:auto}
+.cv-mtacts{display:flex;flex-direction:column;gap:8px;margin:4px 0 10px;max-width:340px}
+.cv-rail{display:flex;flex-direction:column;gap:12px}
+.cv-card{background:var(--bg-card);border:1px solid var(--line);border-radius:12px;padding:14px 15px}
+.cv-card-h{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.13em;color:var(--ink-faint);margin-bottom:11px;display:flex;align-items:center;gap:8px}
+.cv-hnote{font-size:8px;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:20px;padding:1px 7px;letter-spacing:.06em}
+.cv-repline{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+.cv-rep{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:800;color:var(--sol);line-height:1}
+.cv-replbl{font-size:9px;color:var(--ink-faint);letter-spacing:.05em}
+.cv-kv{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:11px;color:var(--ink-faint);padding:6px 0;border-top:1px solid var(--line)}
+.cv-kv b{color:var(--ink-dim);font-weight:700;font-size:11px}
+.cv-kv b i{font-style:normal;color:var(--ink-faint);font-size:9px}
+.cv-ok{color:var(--sol)!important}
+.cv-bad{color:var(--red)!important}
+.cv-fine{font-size:9.5px;color:var(--ink-faint);line-height:1.5;margin-top:10px;border-top:1px solid var(--line);padding-top:9px}
+.cv-fine2{font-size:9px;color:var(--amber);margin-left:6px}
+.cv-peer{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--sol)}
+.cv-peer.cv-dim{color:var(--ink-faint);font-size:11px;font-family:'Archivo',sans-serif}
+.cv-scan{display:block;text-align:center;margin-top:11px;border:1px solid rgba(34,211,238,.35);border-radius:9px;color:var(--cyan);text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:10px}
+.cv-scan:hover{background:rgba(34,211,238,.08)}
+.cv-reclink{cursor:pointer}
+.ar-card{cursor:pointer}
+.ar-card:hover{border-color:var(--line-bright)}
+@media(max-width:760px){.cv-wrap{grid-template-columns:1fr}.cv-rail{order:2}.cv-name{font-size:19px}#ap-modal .ap-modal-card{padding:18px 15px}.cv-kpis{grid-template-columns:1fr 1fr}}
+</style>
 <style id="osi-fo-rows">
 /* ===== Field Office case-file rows ===== */
 .fc-stripe{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line-bright)}
@@ -1252,6 +1316,9 @@ body.cr-drawer-lock{overflow:hidden}
 .cf-btn.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
 .cf-btn.ghost.on{border-color:var(--sol-line);color:var(--sol)}
 .cf-won{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--sol);padding:6px 0}
+.cf-proof{margin-bottom:16px}
+.cf-feed{max-height:220px;overflow-y:auto}
+.cf-packs{font-size:11px;color:var(--ink-faint);line-height:1.6;background:var(--bg-card);border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin-bottom:16px}
 .cf-note{font-size:10.5px;color:var(--ink-faint);line-height:1.6;border-top:1px solid var(--line);padding-top:14px}
 @media(max-width:560px){.cf-statrow{grid-template-columns:1fr 1fr}.cf-title{font-size:19px}}
 </style>
@@ -1721,21 +1788,21 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .adm-top{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:24px;flex-wrap:wrap}
 .adm-title{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.2em;color:var(--ink-dim)}
 .adm-title b{color:var(--ink);font-weight:700}
-.adm-clr{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:2px;padding:4px 9px}
+.adm-clr{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:8px;padding:4px 9px}
 .adm-card{border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:var(--bg-card);padding:26px;max-width:430px}
 .adm-card h3{font-family:'Archivo',sans-serif;font-size:18px;font-weight:800;margin:0 0 5px}
 .adm-card p{font-size:12.5px;color:var(--ink-faint);margin:0 0 18px;line-height:1.5}
 .adm-field{display:block;margin-bottom:13px}
 .adm-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--ink-faint);margin-bottom:6px}
-.adm-field input{width:100%;background:var(--bg);border:1px solid var(--line-bright);border-radius:2px;padding:11px 12px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px;outline:0}
+.adm-field input{width:100%;background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;padding:11px 12px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px;outline:0}
 .adm-field input:focus{border-color:rgba(20,241,149,.5)}
-.adm-go{width:100%;margin-top:6px;background:var(--sol);color:var(--bg);border:0;border-radius:2px;padding:12px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.1em;cursor:pointer}
+.adm-go{width:100%;margin-top:6px;background:var(--sol);color:var(--bg);border:0;border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.1em;cursor:pointer}
 .adm-go:hover{background:var(--sol-deep)}
 .adm-msg{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);margin-top:13px;min-height:14px;line-height:1.4}
 .adm-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap}
 .adm-who{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);letter-spacing:.08em}
 .adm-who b{color:var(--sol)}
-.adm-out{background:none;border:1px solid var(--line-bright);border-radius:2px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;padding:7px 12px;cursor:pointer}
+.adm-out{background:none;border:1px solid var(--line-bright);border-radius:8px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;padding:7px 12px;cursor:pointer}
 .adm-out:hover{color:var(--ink);border-color:var(--ink-faint)}
 .adm-sec{margin-bottom:26px}
 .adm-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-faint);border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:11px;display:flex;align-items:center;gap:9px}
@@ -1743,10 +1810,10 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .adm-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 16px;border:1px solid var(--line);border-left:2px solid var(--line-bright);background:var(--bg-card);margin-bottom:8px}
 .adm-meta{min-width:0}
 .adm-t{font-size:14px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-.adm-kind{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);border:1px solid var(--line-bright);border-radius:2px;padding:2px 6px}
+.adm-kind{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);border:1px solid var(--line-bright);border-radius:8px;padding:2px 6px}
 .adm-s{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);margin-top:5px;word-break:break-word;line-height:1.45}
 .adm-acts{display:flex;gap:7px;flex-shrink:0}
-.adm-b{border:1px solid var(--line-bright);border-radius:2px;background:none;font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 11px;cursor:pointer;white-space:nowrap;color:var(--ink-dim)}
+.adm-b{border:1px solid var(--line-bright);border-radius:8px;background:none;font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 11px;cursor:pointer;white-space:nowrap;color:var(--ink-dim)}
 .adm-b.ok{border-color:rgba(20,241,149,.5);color:var(--sol)}
 .adm-b.ok:hover{background:var(--sol);color:var(--bg)}
 .adm-b.warn{border-color:rgba(255,176,32,.4);color:var(--amber)}
@@ -1754,12 +1821,18 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .adm-b.del{border-color:rgba(255,84,112,.4);color:var(--red)}
 .adm-b.del:hover{background:var(--red);color:#fff}
 .adm-muted{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-faint);padding:10px 2px}
-.adm-err{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:2px;padding:14px;line-height:1.55;background:rgba(255,176,32,.05)}
-@media(max-width:620px){ .adm-row{flex-direction:column;align-items:stretch} .adm-acts{justify-content:flex-end} }
+.adm-err{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:8px;padding:14px;line-height:1.55;background:rgba(255,176,32,.05)}
+.adm-ops{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:22px}
+.adm-ops:empty{display:none}
+.adm-op{background:var(--bg-card);padding:12px 13px}
+.adm-op .n{display:block;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;color:var(--ink-bright);line-height:1}
+.adm-op .n.warn{color:var(--amber)}
+.adm-op .l{display:block;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.09em;color:var(--ink-faint);margin-top:6px;text-transform:uppercase}
+@media(max-width:620px){ .adm-row{flex-direction:column;align-items:stretch} .adm-acts{justify-content:flex-end} .adm-ops{grid-template-columns:1fr 1fr} }
 </style>
 <div class="wrap"><div class="adm-wrap">
   <div class="adm-top">
-    <div class="adm-title">MODERATION CONSOLE // <b>OSI</b></div>
+    <div class="adm-title">MAINTAINER COMMAND CENTER // <b>OSI</b></div>
     <div class="adm-clr">MAINTAINER ONLY</div>
   </div>
   <div id="admLogin">
@@ -1777,25 +1850,26 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
       <div class="adm-who">SIGNED IN &middot; <b id="admWho"></b></div>
       <div style="display:flex;gap:8px"><button class="adm-out" onclick="admRefresh()">Refresh</button><button class="adm-out" onclick="admLogout()">Sign out</button></div>
     </div>
+    <div class="adm-ops" id="adm-ops"></div>
     <style id="osi-escpack">
-.esc-box{border:1px solid var(--line-bright);border-left:2px solid var(--acc);background:var(--bg-card);padding:18px;margin-bottom:16px;border-radius:3px}
+.esc-box{border:1px solid var(--line-bright);border-left:2px solid var(--cyan);background:var(--bg-card);padding:18px;margin-bottom:16px;border-radius:8px}
 .esc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.esc-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--acc);font-weight:700}
-.esc-pill{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;color:var(--acc2,#ff9a52);border:1px solid rgba(255,122,61,.35);border-radius:2px;padding:3px 7px}
+.esc-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--cyan);font-weight:700}
+.esc-pill{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;color:var(--cyan);border:1px solid rgba(34,211,238,.35);border-radius:8px;padding:3px 7px}
 .esc-s{font-size:11.5px;color:var(--ink-faint);line-height:1.55;margin:9px 0 14px;max-width:640px}
 .esc-s b{color:var(--ink-dim)}
 .esc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .esc-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-faint);margin-bottom:6px}
 .esc-row{display:flex;gap:8px}
-.esc-row select{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 10px}
-.esc-row select:focus{outline:none;border-color:var(--acc)}
+.esc-row select{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 10px}
+.esc-row select:focus{outline:none;border-color:var(--cyan)}
 .esc-types{display:flex;flex-direction:column;gap:6px}
-.esc-type{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-dim);cursor:pointer;border:1px solid var(--line);border-radius:2px;padding:8px 10px;transition:border-color .15s,color .15s}
+.esc-type{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-dim);cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:8px 10px;transition:border-color .15s,color .15s}
 .esc-type:hover{border-color:var(--line-bright);color:var(--ink)}
-.esc-type input{accent-color:var(--acc);margin:0}
+.esc-type input{accent-color:var(--cyan);margin:0}
 .esc-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}
-.esc-go{background:var(--acc);color:#0b0d16;border:0;border-radius:2px;padding:12px 22px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.06em;cursor:pointer;box-shadow:0 6px 20px rgba(255,122,61,.25)}
-.esc-go:hover{background:var(--acc-deep,#e8622a)}
+.esc-go{background:var(--cyan);color:#0b0d16;border:0;border-radius:8px;padding:12px 22px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.06em;cursor:pointer;box-shadow:0 6px 20px rgba(34,211,238,.25)}
+.esc-go:hover{filter:brightness(1.08)}
 .esc-go:disabled{opacity:.55;cursor:default;box-shadow:none}
 .esc-status{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim)}
 .esc-status.busy{color:var(--cyan)}
@@ -1803,10 +1877,10 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .esc-status.warn{color:var(--amber)}
 .esc-out-wrap{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
 .esc-out-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}
-.esc-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--amber);border:1px solid rgba(255,176,32,.35);border-radius:2px;padding:4px 8px}
+.esc-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--amber);border:1px solid rgba(255,176,32,.35);border-radius:8px;padding:4px 8px}
 .esc-out-acts{display:flex;gap:7px}
-.esc-out{width:100%;min-height:260px;resize:vertical;background:var(--bg);border:1px solid var(--line-bright);border-radius:3px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:14px;white-space:pre-wrap}
-.esc-out:focus{outline:none;border-color:var(--acc)}
+.esc-out{width:100%;min-height:260px;resize:vertical;background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:14px;white-space:pre-wrap}
+.esc-out:focus{outline:none;border-color:var(--cyan)}
 .esc-foot{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);line-height:1.5;margin-top:9px}
 @media(max-width:620px){.esc-grid{grid-template-columns:1fr}}
 </style>
@@ -1872,7 +1946,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     </div>
     <div class="adm-cfg" id="adm-cfg-analyst">
       <div class="adm-cfg-h">ADD AN ANALYST</div>
-      <div class="adm-cfg-s">Add a trusted analyst to the public roster. They start at Tier I and earn rank automatically as their reports get approved and they win bounties. Applications from others appear in the queue below for you to approve or reject.</div>
+      <div class="adm-cfg-s">Add a trusted analyst to the public roster. They start at Tier I and earn rank automatically as their reports get approved and their casework closes cases. Applications from others appear in the queue below for you to approve or reject.</div>
       <div class="adm-cfg-row">
         <input id="admAnWallet" placeholder="SOL wallet (their identity)">
         <input id="admAnHandle" placeholder="X / Twitter handle (e.g. @analyst)">
@@ -2883,6 +2957,7 @@ function demoBoxCloseAll(){
   var wf = document.getElementById('wire-form'); if(wf) wf.hidden = true;
   if(typeof osiGuardClose === 'function') osiGuardClose();
   if(typeof closeCaseDrawer === 'function') closeCaseDrawer();
+  if(typeof closeCaseFile === 'function') closeCaseFile();
 }
 function demoInjectMockReview(){
   var host = document.getElementById('consensus-floor'); if(!host) return;
@@ -3008,6 +3083,7 @@ function demoStop(){
   var spot = document.getElementById('demo-spot'); if(spot){ spot.classList.remove('on'); spot.classList.remove('center'); spot.classList.remove('off'); spot.classList.remove('pulse'); }
   demoCursorHide(); demoArrowHide();
   if(demoTrackRAF){ cancelAnimationFrame(demoTrackRAF); demoTrackRAF = null; } demoTrackArmed = false; if(demoArmT){ clearTimeout(demoArmT); demoArmT = null; }
+  if(typeof demoBoxCloseAll === 'function') demoBoxCloseAll();
   if(typeof demoClearRecords === 'function') demoClearRecords();
   document.documentElement.style.scrollBehavior = demoPrevSB || '';
   try{ showView('registry'); window.scrollTo(0, 0); }catch(e){}
@@ -3575,7 +3651,7 @@ function analystCard(a){
   const xrow = handle ? '<a class="ar-x" href="https://x.com/'+escapeHtml(handle)+'" target="_blank" rel="noopener">@'+escapeHtml(handle)+' \u2197</a>' : '<span class="ar-x mono" style="color:var(--ink-faint)">'+escapeHtml(short(a.wallet))+'</span>';
   const bio = a.bio ? '<div class="ar-bio">'+escapeHtml(String(a.bio).slice(0,160))+'</div>' : '';
   const t = a.tier;
-  return '<div class="ar-card">'
+  return '<div class="ar-card" role="button" tabindex="0" onclick="if(event.target.closest(&quot;a&quot;))return;openRosterProfile(\''+escapeHtml(String(a.wallet))+'\')" onkeydown="if(event.key===&quot;Enter&quot;)openRosterProfile(\''+escapeHtml(String(a.wallet))+'\')">'
     + '<div class="ar-top">'+av+'<div class="ar-id"><div class="ar-name">'+name+' <span class="ar-verif" title="Verified analyst">\u2605</span></div>'+xrow+'</div></div>'
     + bio
     + '<div class="ar-tier '+t.cls+'">TIER '+t.t+' \u00b7 '+escapeHtml(t.name)+'</div>'
@@ -3654,52 +3730,236 @@ function renderLeaderboard(){
     : '';
   host.innerHTML = banner + rows.map(function(a,i){ return lbRow(a, i+1); }).join('');
 }
-// ---- Analyst profile / proof-of-work CV (modal) ----
-function openAnalystProfile(id){
-  var list = window.__lbList || lbList();
-  var a = null; for(var i=0;i<list.length;i++){ if(String(list[i].id)===String(id)){ a=list[i]; break; } }
-  if(!a) return;
-  var body = document.getElementById('ap-modal-body'); if(body) body.innerHTML = analystProfileHtml(a);
-  var m = document.getElementById('ap-modal'); if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
-  document.body.classList.add('cr-drawer-lock');
+// ===== OSI Profile CV: one premium identity surface, three roles (user / analyst / maintainer) =====
+// Reputation reflects reviewed work only. Peer support and identity signals never affect vote weight.
+var CV_CTX = null;
+function cvSolscanAcct(w){ return 'https://solscan.io/account/'+encodeURIComponent(String(w)); }
+function cvCopy(txt, btn){
+  function done(){ if(btn){ var o=btn.textContent; btn.textContent='\u2713'; setTimeout(function(){ btn.textContent=o==='\u2713'?'\u29c9':o; }, 900); } }
+  try{ navigator.clipboard.writeText(String(txt)).then(done, function(){ if(typeof showToast==='function') showToast('Copy failed.'); }); }
+  catch(e){ if(typeof showToast==='function') showToast('Copy not available in this browser.'); }
 }
-function closeAnalystProfile(){ var m=document.getElementById('ap-modal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); } document.body.classList.remove('cr-drawer-lock'); }
-function analystProfileHtml(a){
+function cvTab(btn, id){
+  document.querySelectorAll('#ap-modal .cv-tab').forEach(function(b){ b.classList.toggle('active', b===btn); });
+  document.querySelectorAll('#ap-modal .cv-pane').forEach(function(p){ p.classList.toggle('active', p.id===id); });
+}
+function cvTierByXp(xp){ var idx=0; for(var i=0;i<ANALYST_TIERS.length;i++){ if(xp>=ANALYST_TIERS[i].min) idx=i; } return ANALYST_TIERS[idx]; }
+
+// ---- entry points ----
+function openAnalystProfile(id){ // leaderboard rows (sample roster)
+  var list = window.__lbList || lbList();
+  var a=null; for(var i=0;i<list.length;i++){ if(String(list[i].id)===String(id)){ a=list[i]; break; } }
+  if(!a) return;
+  openProfileCV({ role:'analyst', src:'sample', data:a });
+}
+function analystProfileHtml(a){ return cvHtml(cvFromSample(a), { role:'analyst', src:'sample' }); } // compat alias
+function openRosterProfile(wallet){ openProfileCV({ role:'analyst', src:'live', wallet:String(wallet) }); }
+function openSelfProfile(){
+  if(!walletPubkey){ if(typeof showToast==='function') showToast('Connect your wallet first (top right).'); return; }
+  var maint = (typeof SUPA_AUTH_TOKEN!=='undefined' && !!SUPA_AUTH_TOKEN) || (OSI_ADMIN_WALLET && walletPubkey===OSI_ADMIN_WALLET);
+  var role = maint ? 'maintainer' : (isVerifiedAnalyst(walletPubkey) ? 'analyst' : 'user');
+  openProfileCV({ role:role, src:'live', wallet:walletPubkey, self:true });
+  if(typeof closeWalletMenu==='function') closeWalletMenu();
+}
+function openProfileCV(ctx){
+  CV_CTX = ctx;
+  var body=document.getElementById('ap-modal-body'), m=document.getElementById('ap-modal');
+  if(!body || !m) return;
+  m.classList.add('open'); m.setAttribute('aria-hidden','false'); document.body.classList.add('cr-drawer-lock');
+  if(ctx.src==='sample'){ body.innerHTML = cvHtml(cvFromSample(ctx.data), ctx); return; }
+  body.innerHTML = '<div class="cv-loading mono">Building profile from live data\u2026</div>';
+  cvLoadLive(ctx).then(function(model){ if(CV_CTX===ctx){ body.innerHTML = cvHtml(model, ctx); } });
+}
+function closeAnalystProfile(){ var m=document.getElementById('ap-modal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); } document.body.classList.remove('cr-drawer-lock'); CV_CTX=null; }
+
+// ---- models ----
+function cvFromSample(a){
   var t = lbTier(a.tier);
-  var nm = a.name ? escapeHtml(a.name) : escapeHtml(short(a.wallet));
-  var av = (typeof pfIdenticon==='function') ? pfIdenticon(String(a.wallet), 60) : '';
-  var idrow = a.x || a.linkedin
-    ? ((a.x?'<span class="lb-id x">\uD835\uDD4F verified</span>':'') + (a.linkedin?'<span class="lb-id li">in verified</span>':''))
-    : '<span class="lb-id wo">wallet-only</span>';
-  var badges = (a.badges||[]).map(function(b){ return '<span class="ap-badge">'+escapeHtml(b)+'</span>'; }).join('');
-  // sample public case links (clearly demo)
-  var cases = ['OSI-4433','OSI-2185','OSI-7706'].slice(0, Math.max(1, Math.min(3, (a.reports||1))))
-    .map(function(c){ return '<span class="ap-case mono">'+c+'</span>'; }).join('');
-  return ''
-    + '<div class="ap-head">'+av+'<div class="ap-idbox"><div class="ap-name">'+nm+(a.handle?' <span class="lb-handle">@'+escapeHtml(a.handle)+'</span>':'')+'</div>'
-      + '<div class="ap-wallet mono">'+escapeHtml(a.wallet)+'</div>'
-      + '<div class="ap-status">Verified analyst \u00b7 '+escapeHtml(t.name)+'</div></div></div>'
-    + '<div class="ap-idrow">'+idrow+'<span class="ap-idnote">identity signals are optional and do not affect reputation</span></div>'
-    + '<div class="ap-top">'
-      + '<div class="ap-topc"><div class="ap-topn">'+a.rep+'</div><div class="ap-topl">Reputation</div></div>'
-      + '<div class="ap-topc"><div class="ap-topn">\u00d7'+a.weight+'</div><div class="ap-topl">Vote weight (capped)</div></div>'
-      + '<div class="ap-topc"><div class="ap-topn">'+escapeHtml(t.t)+'</div><div class="ap-topl">Tier</div></div>'
-    + '</div>'
-    + '<div class="ap-sec-l">Proof of work</div>'
-    + '<div class="ap-grid">'
-      + '<div class="ap-cell"><span class="n">'+a.reviewed+'</span><span class="l">Reviewed contributions</span></div>'
-      + '<div class="ap-cell"><span class="n">'+a.reports+'</span><span class="l">Approved reports</span></div>'
-      + '<div class="ap-cell"><span class="n">'+a.challenges+'</span><span class="l">Successful challenges</span></div>'
-      + '<div class="ap-cell"><span class="n">'+a.memo+'</span><span class="l">Memo-signed actions</span></div>'
-    + '</div>'
-    + (badges ? '<div class="ap-sec-l">Badges</div><div class="ap-badges">'+badges+'</div>' : '')
-    + '<div class="ap-note">Every contribution above is signed by this wallet and verifiable on Solana. Reputation reflects reviewed work only.</div>'
-    + '<div class="ap-sec-l">Recent public records</div><div class="ap-cases">'+cases+' <span class="ap-case-note">sample</span></div>'
-    + '<div class="ap-sec-l">Peer support</div><div class="ap-peer">\u25ce '+(a.peer||0)+' SOL received <span class="ap-peer-note">voluntary, peer to peer \u00b7 does not affect reputation or vote weight</span></div>'
-    + '<div class="ap-foot"><span>Joined '+escapeHtml(a.joined||'-')+'</span><span class="ap-risk'+(a.risk?' on':'')+'">'+(a.risk?'\u26a0 flagged':'\u2713 no risk flags')+'</span></div>'
-    + '<div class="ap-demo">Demo profile \u00b7 sample data</div>';
+  return {
+    demo:true, wallet:a.wallet, name:(a.name||''), handle:(a.handle||''),
+    tier:t, weight:(a.weight||1), rep:(a.rep!=null?a.rep:lbRep(a)),
+    joined:(a.joined||'-'), risk:!!a.risk, x:!!a.x, linkedin:!!a.linkedin,
+    stats:{ reviewed:a.reviewed||0, reports:a.reports||0, challenges:a.challenges||0, signed:a.memo||0, vouchesGiven:null, backs:null },
+    badges:(a.badges||[]).slice(), peer:(a.peer||0),
+    records:[{id:null,label:'OSI-4433'},{id:null,label:'OSI-2185'},{id:null,label:'OSI-7706'}].slice(0, Math.max(1, Math.min(3, a.reports||1))),
+    activity:[
+      { t:'2h ago',  label:'Signed a review memo on a pending finding' },
+      { t:'1d ago',  label:'Report approved and added to the public record' },
+      { t:'3d ago',  label:'Challenge filed on a weak attribution, accepted' }
+    ],
+    firstSeen:(a.joined||'-'), signedTotal:(a.memo||0)
+  };
+}
+async function cvLoadLive(ctx){
+  var W = String(ctx.wallet||'');
+  var entry = (window.VERIFIED_ANALYSTS||{})[W] || null;
+  var m = { demo:false, wallet:W, name:(entry&&(entry.name||''))||'', handle:(entry&&(entry.handle||''))||'',
+            x:false, linkedin:false, risk:false, joined:'-', peer:null,
+    stats:{ reviewed:null, reports:null, challenges:null, signed:null, vouchesGiven:null, backs:null },
+    badges:[], records:[], events:[], pending:!SUPA_ON };
+  var weight = (typeof analystWeight==='function' ? analystWeight(W) : 0) || 1;
+  m.weight = Math.min(2, weight);
+  if(entry && entry.created_at){ try{ m.joined = new Date(entry.created_at).toLocaleDateString(); }catch(e){} }
+  var authored=0, won=0;
+  if(SUPA_ON){
+    async function got(q){ try{ return await supaGet(q) || []; }catch(e){ return null; } }
+    var reps = await got('reports?select=id&wallet=eq.'+encodeURIComponent(W)+'&approved=eq.true&limit=100');
+    var wins = await got('bounties?select=id&winner_wallet=eq.'+encodeURIComponent(W)+'&limit=100');
+    var evs  = await got('onchain_events?select=event_type,item_type,item_id,vote,label,tx_sig,created_at,actor_wallet&actor_wallet=eq.'+encodeURIComponent(W)+'&order=created_at.desc&limit=25');
+    if(reps!==null){ authored=reps.length; m.stats.reports=authored; }
+    if(wins!==null){ won=wins.length; }
+    if(evs!==null){
+      m.events = evs;
+      m.stats.signed = evs.length;
+      m.stats.vouchesGiven = evs.filter(function(e){ return e.event_type==='analyst_vouch'; }).length;
+      m.stats.backs = evs.filter(function(e){ return e.event_type==='demand_signal'; }).length;
+      m.stats.reviewed = m.stats.vouchesGiven;
+      if(evs.length){ try{ m.firstSeen = new Date(evs[evs.length-1].created_at).toLocaleDateString(); }catch(e){} }
+      if(ctx.role==='maintainer'){ m.sealsDone = evs.filter(function(e){ return e.event_type==='maintainer_seal'; }).length; }
+    }
+    if(ctx.role==='maintainer'){
+      var pk = await got('escalation_packs?select=id&status=eq.approved&limit=200');
+      m.packsApproved = (pk===null? null : pk.length);
+    }
+  }
+  var xp = authored*15 + won*60;
+  m.tier = entry ? cvTierByXp(xp) : (ctx.role==='maintainer' ? {name:'Maintainer',cls:'pf-l4',t:'M'} : {name:'Contributor',cls:'pf-l1',t:'-'});
+  m.rep = (m.stats.reports!=null || m.stats.reviewed!=null || m.stats.signed!=null)
+        ? ((m.stats.reports||0)*10 + (m.stats.reviewed||0)*4 + (m.stats.signed||0)) : null;
+  // self-only local signals
+  if(ctx.self){
+    try{ m.selfBacked = Object.keys(lsGet('stw_boosted',{})||{}).length; }catch(e){ m.selfBacked = null; }
+    try{ m.selfApplied = Object.keys(lsGet('stw_applied',{})||{}).length; }catch(e){ m.selfApplied = null; }
+  }
+  // public records authored (link into the archive when loaded)
+  try{
+    var cr = window.__crList || [];
+    m.records = cr.filter(function(r){ return r && String(r.wallet||'')===W; }).slice(0,5)
+      .map(function(r){ return { id:r.id, label:(typeof osiCaseId==='function'? osiCaseId(r.id) : String(r.id).slice(0,8)) }; });
+  }catch(e){}
+  // honest badges from live signals
+  if(entry) m.badges.push('Verified analyst');
+  if((m.stats.signed||0)>0) m.badges.push('Memo signer');
+  if((m.stats.reports||0)>0) m.badges.push('Public record contributor');
+  if((m.stats.reviewed||0)>0) m.badges.push('Case reviewer');
+  if(ctx.role==='maintainer') m.badges.push('Maintainer');
+  if(!m.badges.length) m.badges.push('New wallet');
+  return m;
 }
 
+// ---- render ----
+function cvNum(v){ return (v===null||v===undefined) ? '<span class="cv-pend" title="No live data yet">\u2013</span>' : String(v); }
+function cvRecordBtn(r){
+  if(!r.id) return '<span class="ap-case mono">'+escapeHtml(r.label)+'</span>';
+  var id=String(r.id).replace(/[^A-Za-z0-9_-]/g,'');
+  return '<button class="ap-case mono cv-reclink" type="button" onclick="(window.__crRecords&&window.__crRecords[\''+id+'\'])?openCaseRecord(\''+id+'\'):showView(\'records\')">'+escapeHtml(r.label)+' \u2197</button>';
+}
+function cvHtml(m, ctx){
+  var role = ctx.role||'analyst';
+  var nm = m.name ? escapeHtml(m.name) : (m.handle? '@'+escapeHtml(m.handle) : escapeHtml(short(m.wallet)));
+  var av = (typeof pfIdenticon==='function') ? pfIdenticon(String(m.wallet), 64) : '';
+  var roleLabel = role==='maintainer' ? 'MAINTAINER' : (role==='analyst' ? 'VERIFIED ANALYST' : 'CONTRIBUTOR');
+  var roleCls   = role==='maintainer' ? 'maint' : (role==='analyst' ? 'an' : 'usr');
+  var idsig = (m.x?'<span class="lb-id x">\uD835\uDD4F verified</span>':'') + (m.linkedin?'<span class="lb-id li">in verified</span>':'');
+  if(!idsig) idsig='<span class="lb-id wo">wallet-only</span>';
+  var handleLine = m.handle ? '<span class="cv-handle">@'+escapeHtml(m.handle)+'</span>' : '';
+  var wshort = escapeHtml(short(m.wallet));
+  var demoChip = m.demo ? '<span class="cv-demochip">SAMPLE</span>' : '';
+
+  // ----- tabs -----
+  var tabs = '<div class="cv-tabs" role="tablist">'
+    + '<button class="cv-tab active" type="button" onclick="cvTab(this,\'cv-ov\')">Overview</button>'
+    + '<button class="cv-tab" type="button" onclick="cvTab(this,\'cv-rc\')">Public records</button>'
+    + '<button class="cv-tab" type="button" onclick="cvTab(this,\'cv-ac\')">Activity</button>'
+    + (role==='maintainer' ? '<button class="cv-tab" type="button" onclick="cvTab(this,\'cv-mt\')">Maintainer</button>' : '')
+    + '</div>';
+
+  // ----- Overview pane: proof-of-work grid + badges -----
+  var s=m.stats||{};
+  var pow = '<div class="cv-kpis">'
+    + '<div class="cv-kpi"><span class="n">'+cvNum(s.reviewed)+'</span><span class="l">Reviewed contributions</span></div>'
+    + '<div class="cv-kpi"><span class="n">'+cvNum(s.reports)+'</span><span class="l">Approved reports</span></div>'
+    + '<div class="cv-kpi"><span class="n">'+cvNum(s.challenges)+'</span><span class="l">Successful challenges</span></div>'
+    + '<div class="cv-kpi"><span class="n">'+cvNum(s.signed)+'</span><span class="l">Memo-signed actions</span></div>'
+    + (s.vouchesGiven!=null ? '<div class="cv-kpi"><span class="n">'+s.vouchesGiven+'</span><span class="l">Reviews signed</span></div>' : '')
+    + (s.backs!=null ? '<div class="cv-kpi"><span class="n">'+s.backs+'</span><span class="l">Cases backed</span></div>' : '')
+    + (ctx.self && m.selfApplied!=null ? '<div class="cv-kpi"><span class="n">'+m.selfApplied+'</span><span class="l">Reports submitted (this device)</span></div>' : '')
+    + (ctx.self && m.selfBacked!=null ? '<div class="cv-kpi"><span class="n">'+m.selfBacked+'</span><span class="l">Cases supported (this device)</span></div>' : '')
+    + '</div>';
+  var badges = (m.badges&&m.badges.length) ? '<div class="ap-sec-l">Badges</div><div class="ap-badges">'+m.badges.map(function(b){return '<span class="ap-badge">'+escapeHtml(b)+'</span>';}).join('')+'</div>' : '';
+  var usrCta = (role==='user')
+    ? '<div class="cv-note">Anyone can contribute: open a case, file a report, support a finding. Build a signed track record, then <a class="cv-a" onclick="closeAnalystProfile();goCommunity(\'tab-analysts\')">apply to the verified roster \u2192</a></div>' : '';
+  var ov = '<div class="cv-pane active" id="cv-ov"><div class="ap-sec-l">Proof of work</div>'+pow+badges+usrCta+'</div>';
+
+  // ----- Records pane -----
+  var recs = (m.records&&m.records.length)
+    ? '<div class="ap-cases">'+m.records.map(cvRecordBtn).join('')+(m.demo?' <span class="ap-case-note">sample</span>':'')+'</div>'
+    : '<div class="cv-empty mono">No public case records linked to this wallet yet.</div>';
+  var rc = '<div class="cv-pane" id="cv-rc"><div class="ap-sec-l">Public case records</div>'+recs
+    + '<div class="cv-note">Only reviewed cases appear in the public archive. <a class="cv-a" onclick="closeAnalystProfile();showView(\'records\')">Open the archive \u2192</a></div></div>';
+
+  // ----- Activity pane -----
+  var act;
+  if(m.demo){
+    act = '<div class="cv-demo-note mono">Sample data for demo only. Not real analyst activity \u00b7 no live transactions.</div>'
+      + '<div class="cv-sactl">'+m.activity.map(function(x){ return '<div class="cv-sact"><span class="t mono">'+escapeHtml(x.t)+'</span><span>'+escapeHtml(x.label)+'</span></div>'; }).join('')+'</div>';
+  } else if(m.events && m.events.length){
+    act = '<div class="ra-feed cv-feed">'+m.events.map(raSignedItem).join('')+'</div>';
+  } else {
+    act = '<div class="cv-empty mono">No signed on-chain actions from this wallet yet.</div>';
+  }
+  var ac = '<div class="cv-pane" id="cv-ac"><div class="ap-sec-l">Recent signed actions</div>'+act+'</div>';
+
+  // ----- Maintainer pane -----
+  var mt='';
+  if(role==='maintainer'){
+    mt = '<div class="cv-pane" id="cv-mt"><div class="ap-sec-l">Operational record</div>'
+      + '<div class="cv-kpis">'
+      + '<div class="cv-kpi"><span class="n">'+cvNum(m.sealsDone)+'</span><span class="l">Records reviewed on-chain</span></div>'
+      + '<div class="cv-kpi"><span class="n">'+cvNum(m.packsApproved)+'</span><span class="l">AI packs approved</span></div>'
+      + '</div>'
+      + '<div class="cv-mtacts">'
+      + '<button class="cf-btn primary" type="button" onclick="closeAnalystProfile();admOpen()">Open Command Center</button>'
+      + '<button class="cf-btn ghost" type="button" onclick="closeAnalystProfile();goCommunity(\'tab-analysts\')">Open review queue</button>'
+      + '</div>'
+      + '<div class="cv-note">Maintainer actions are signed and final-review only. AI drafts are never public until a human approves them.</div></div>';
+  }
+
+  // ----- right rail -----
+  var rep = '<div class="cv-card"><div class="cv-card-h">REPUTATION &amp; STATUS</div>'
+    + '<div class="cv-repline"><span class="cv-rep">'+(m.rep!=null?m.rep:'\u2013')+'</span><span class="cv-replbl">reputation'+(m.demo?'':' \u00b7 provisional')+'</span></div>'
+    + '<div class="cv-kv"><span>Vote weight</span><b>\u00d7'+(m.weight||1)+' <i>capped</i></b></div>'
+    + '<div class="cv-kv"><span>Tier</span><b>'+escapeHtml(m.tier.name)+'</b></div>'
+    + '<div class="cv-kv"><span>Joined</span><b>'+escapeHtml(m.joined||'-')+'</b></div>'
+    + '<div class="cv-kv"><span>Risk flags</span><b class="'+(m.risk?'cv-bad':'cv-ok')+'">'+(m.risk?'\u26a0 flagged':'none recorded')+'</b></div>'
+    + '<div class="cv-fine">Reputation reflects reviewed work only. Peer support and identity signals do not affect vote weight.</div></div>';
+  var peer = '<div class="cv-card"><div class="cv-card-h">PEER SUPPORT <span class="cv-hnote">not reputation</span></div>'
+    + (m.demo
+        ? '<div class="cv-peer">\u25ce '+(m.peer||0)+' SOL received <span class="cv-fine2">sample</span></div>'
+        : '<div class="cv-peer cv-dim">No peer support recorded on-chain yet.</div>')
+    + '<div class="cv-fine">Voluntary and peer to peer. It never affects reputation, vote weight, review authority, or ranking.</div></div>';
+  var chain = '<div class="cv-card"><div class="cv-card-h">ON-CHAIN IDENTITY</div>'
+    + '<div class="cv-kv"><span>Wallet</span><b class="mono">'+wshort+'</b></div>'
+    + '<div class="cv-kv"><span>First seen</span><b>'+escapeHtml(m.firstSeen||m.joined||'-')+'</b></div>'
+    + '<div class="cv-kv"><span>Signed actions</span><b>'+cvNum(m.signedTotal!=null?m.signedTotal:(s.signed))+'</b></div>'
+    + '<div class="cv-kv"><span>Memo signer</span><b>'+(((m.signedTotal||s.signed||0)>0)?'yes':'\u2013')+'</b></div>'
+    + '<a class="cv-scan" href="'+cvSolscanAcct(m.wallet)+'" target="_blank" rel="noopener">View on Solscan \u2197</a></div>';
+
+  // ----- header -----
+  var head = '<div class="cv-head">'
+    + '<div class="cv-av">'+av+'</div>'
+    + '<div class="cv-idbox">'
+      + '<div class="cv-name">'+nm+' '+handleLine+' '+demoChip+'</div>'
+      + '<div class="cv-pills"><span class="cv-role '+roleCls+'">'+roleLabel+'</span><span class="lb-tier '+m.tier.cls+'">'+escapeHtml(m.tier.name)+'</span>'+idsig+'</div>'
+      + '<div class="cv-wline mono">'+wshort+' <button class="cv-copy" type="button" title="Copy wallet" onclick="cvCopy(\''+escapeHtml(String(m.wallet))+'\',this)">\u29c9</button> <a class="cv-wsol" href="'+cvSolscanAcct(m.wallet)+'" target="_blank" rel="noopener">Solana \u2197</a></div>'
+    + '</div></div>';
+
+  var foot = m.demo ? '<div class="ap-demo">Sample data for demo only \u00b7 not real analyst activity</div>' : '';
+  return '<div class="cv-wrap">'
+    + '<div class="cv-main">'+head+tabs+ov+rc+ac+mt+'</div>'
+    + '<div class="cv-rail">'+rep+peer+chain+'</div>'
+    + '</div>'+foot;
+}
 // ----- maintainer: roster management -----
 async function supaUpsertAnalyst(row){
   const r = await fetch(SUPABASE_URL + '/rest/v1/analysts', {
@@ -3741,7 +4001,8 @@ async function admDelAnalyst(wallet){
 // ===== Maintainer button: wallet-gated visibility (hidden unless the admin wallet is connected) =====
 function updateAdminButton(){
   const btn=document.getElementById('admLockBtn'); if(!btn) return;
-  const show = (!OSI_ADMIN_WALLET) || (walletPubkey && walletPubkey===OSI_ADMIN_WALLET) || (location.hash==='#ops');
+  var dev=false; try{ dev = localStorage.getItem('stw_maint_dev')==='1'; }catch(e){}
+  const show = dev || (typeof SUPA_AUTH_TOKEN!=='undefined' && !!SUPA_AUTH_TOKEN) || (walletPubkey && OSI_ADMIN_WALLET && walletPubkey===OSI_ADMIN_WALLET) || (location.hash==='#ops') || (location.hash==='#admin');
   btn.style.display = show ? '' : 'none';
 }
 function admUseConnectedAdmin(){
@@ -4177,12 +4438,24 @@ function fieldCaseCard(b, i){
 
 // ---- Case file drawer: the single detail surface for an open case ----
 var caseFileData = null;
+async function cfLoadProof(bid){
+  var host=document.getElementById('cf-proof'); if(!host) return;
+  if(!caseFileData || String(caseFileData.id)!==String(bid)) return;
+  if(!SUPA_ON){ host.innerHTML='<span class="cv-empty mono">Live proof log loads when the backend is connected.</span>'; return; }
+  try{
+    var evs=await supaGet('onchain_events?select=event_type,item_type,item_id,vote,label,tx_sig,created_at,actor_wallet&item_id=eq.'+encodeURIComponent(String(bid))+'&order=created_at.desc&limit=8');
+    if(!caseFileData || String(caseFileData.id)!==String(bid)) return;
+    if(!evs || !evs.length){ host.innerHTML='<span class="cv-empty mono">No signed on-chain actions for this case yet. Backing it or filing a report writes the first memo.</span>'; return; }
+    host.innerHTML='<div class="ra-feed cf-feed">'+evs.map(raSignedItem).join('')+'</div>';
+  }catch(e){ host.innerHTML='<span class="cv-empty mono">Proof log unavailable right now.</span>'; }
+}
 function openCaseFile(id){
   var list = (fieldState && fieldState.data) ? fieldState.data : [];
   var b = null; for(var i=0;i<list.length;i++){ if(String(list[i].id)===String(id)){ b=list[i]; break; } }
   if(!b) return;
   caseFileData = b;
   var body = document.getElementById('cf-drawer-body'); if(body) body.innerHTML = cfDrawerHtml(b);
+  if(typeof cfLoadProof === 'function') cfLoadProof(b.id);
   var dr = document.getElementById('cf-drawer'); if(dr){ dr.classList.add('open'); dr.setAttribute('aria-hidden','false'); }
   document.body.classList.add('cr-drawer-lock');
 }
@@ -4269,6 +4542,8 @@ function cfDrawerHtml(b){
     + '<div class="cf-sec-l">Brief</div><p class="cf-desc">'+brief+'</p>'
     + (foot ? '<div class="cf-foot mono">'+foot+'</div>' : '')
     + '<div class="cf-actions">'+actions+'</div>'
+    + '<div class="cf-sec-l">On-chain proof</div><div id="cf-proof" class="cf-proof"><span class="cv-empty mono">Checking signed actions\u2026</span></div>'
+    + '<div class="cf-sec-l">Escalation packs</div><div class="cf-packs">AI briefs for the victim, the exchange desk, and law enforcement are prepared after a case is reviewed and published. <a class="cv-a" onclick="closeCaseFile();showView(\'records\')">See reviewed packs \u2192</a></div>'
     + '<div class="cf-note">OSI traces and documents. It cannot recover funds and never promises to. Evidence is public and on-chain: no seed phrases, no private data, no accusations.</div>';
 }
 // open the apply (report) flow for the case in the drawer, reusing the shared submit path
@@ -4294,7 +4569,7 @@ function caseFileBack(){
     if(SUPA_ON && bid){ try{ await supaPost('bounty_boosts', { bounty_id: bid, voter: voterId() }); if(typeof hydrateBoosts==='function') hydrateBoosts(); }catch(e){} }
     if(typeof showToast==='function') showToast('Support recorded on-chain.');
     try{ if(typeof drawFieldOffice==='function') drawFieldOffice(); }catch(e){}
-    if(caseFileData && String(caseFileData.id)===String(bid)){ var body=document.getElementById('cf-drawer-body'); if(body) body.innerHTML=cfDrawerHtml(caseFileData); }
+    if(caseFileData && String(caseFileData.id)===String(bid)){ var body=document.getElementById('cf-drawer-body'); if(body) body.innerHTML=cfDrawerHtml(caseFileData); if(typeof cfLoadProof==='function') cfLoadProof(bid); }
   });
 }
 function caseFileReward(){
@@ -4697,6 +4972,8 @@ async function admLogin(){
     const aw=document.getElementById('admAdminW'); if(aw) aw.value = OSI_ADMIN_WALLET || '';
     const ct=document.getElementById('admConThr'); if(ct) ct.value = CONSENSUS_THRESHOLD;
     const ca=document.getElementById('admConAuto'); if(ca) ca.checked = CONSENSUS_AUTO;
+    try{ localStorage.setItem('stw_maint_dev','1'); }catch(_){}
+    if(typeof updateAdminButton==='function') updateAdminButton();
     admRefresh();
   }catch(e){ msg.textContent='Sign-in failed: '+e.message; }
 }
@@ -4706,7 +4983,19 @@ function admLogout(){
   document.getElementById('admLogin').style.display='block';
   const pw=document.getElementById('admPw'); if(pw) pw.value='';
 }
+async function admOpsStats(){
+  var host=document.getElementById('adm-ops'); if(!host) return;
+  if(!SUPA_ON || typeof SUPA_AUTH_TOKEN==='undefined' || !SUPA_AUTH_TOKEN){ host.innerHTML=''; return; }
+  async function cnt(q){ try{ var r=await supaGet(q); return (r||[]).length; }catch(e){ return null; } }
+  var pr=await cnt('reports?select=id&approved=eq.false&limit=200');
+  var pc=await cnt('bounties?select=id&approved=eq.false&limit=200');
+  var pk=await cnt('escalation_packs?select=id&status=eq.draft&limit=200');
+  var an=await cnt('analysts?select=wallet&limit=500');
+  function cell(n,l,warn){ var v=(n===null?'-':n); return '<div class="adm-op"><span class="n'+(warn&&n>0?' warn':'')+'">'+v+'</span><span class="l">'+l+'</span></div>'; }
+  host.innerHTML = cell(pr,'Pending reports',true)+cell(pc,'Pending cases',true)+cell(pk,'Packs awaiting review',true)+cell(an,'Verified analysts',false);
+}
 async function admRefresh(){
+  if(typeof admOpsStats==='function'){ try{ admOpsStats(); }catch(e){} }
   const host=document.getElementById('admQueue');
   host.innerHTML='<div class="adm-muted">Loading queue...</div>';
   try{
