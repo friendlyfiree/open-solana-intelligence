@@ -238,7 +238,7 @@ body{padding-left:var(--sb)}
 body[data-view="registry"] .sb-item[data-view="registry"],
 body[data-view="research"] .sb-item[data-view="research"],
 body[data-view="methodology"] .sb-item[data-view="methodology"],
-body[data-view="community"] .sb-item[data-view="community"]{background:rgba(20,241,149,.1);color:var(--sol);box-shadow:inset 3px 0 0 var(--sol)}
+body[data-view="community"] .sb-item[data-view="community"]{background:rgba(34,211,238,.10);color:var(--cyan);box-shadow:inset 3px 0 0 var(--cyan)}
 body[data-view="registry"] .sb-item[data-view="registry"] .sb-c,
 body[data-view="research"] .sb-item[data-view="research"] .sb-c,
 body[data-view="community"] .sb-item[data-view="community"] .sb-c{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.08)}
@@ -257,7 +257,7 @@ body[data-view="community"] .sb-item[data-view="community"] .sb-c{color:var(--so
   .sb-item .sb-c{display:none}
   body[data-view="registry"] .sb-item[data-view="registry"],
   body[data-view="research"] .sb-item[data-view="research"],
-  body[data-view="community"] .sb-item[data-view="community"]{box-shadow:inset 0 -2px 0 var(--sol)}
+  body[data-view="community"] .sb-item[data-view="community"]{box-shadow:inset 0 -2px 0 var(--cyan)}
   .sb-foot{margin:0 0 0 auto;padding:0;border-top:none;flex-direction:row;flex-shrink:0}
   .sb-foot .sb-mini{display:none}
   .sb-foot .wallet-btn{width:auto;padding:7px 12px;font-size:12px}
@@ -671,11 +671,14 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
     </div>
   </div>
   <nav class="sb-nav" role="tablist" aria-label="Sections">
+    <div class="sb-group mono">Workspace</div>
     <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span class="sb-ic">▣</span><span>Home</span><span class="sb-c" id="vc-co" style="display:none">3</span></button>
     <button class="sb-item" data-view="field" role="tab" onclick="showView('field')"><span class="sb-ic">🗂</span><span>Field Office</span></button>
+    <div class="sb-group mono">Intelligence</div>
     <button class="sb-item" data-view="records" role="tab" onclick="showView('records')"><span class="sb-ic">🗄</span><span>Public Records</span></button>
     <button class="sb-item" data-view="analysts" role="tab" onclick="showView('analysts')"><span class="sb-ic">🏅</span><span>Analysts</span></button>
     <button class="sb-item" data-view="prooflog" role="tab" onclick="showView('prooflog')"><span class="sb-ic">🔗</span><span>Proof Log</span></button>
+    <div class="sb-group mono">Resources</div>
     <button class="sb-item" data-view="methodology" role="tab" onclick="showView('methodology')"><span class="sb-ic">📖</span><span>About</span></button>
     
   </nav>
@@ -697,6 +700,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .wb-mi.danger:hover{background:rgba(255,84,112,.12);color:var(--red)}
 </style>
     <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Open profile</button><button class="wb-mi" type="button" role="menuitem" onclick="openSelfProfile();">Proof-of-work CV</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
+    <div class="sb-net"><div class="sb-net-h mono">NETWORK</div><div class="sb-net-r"><span class="sb-net-dot"></span>Solana Mainnet</div><div class="sb-net-s mono">non-custodial · memo-verified</div></div>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -1071,8 +1075,8 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 
 
 <style id="osi-records">
-body[data-view="records"] .sb-item[data-view="records"]{background:rgba(20,241,149,.1);color:var(--sol);box-shadow:inset 3px 0 0 var(--sol)}
-@media(max-width:900px){body[data-view="records"] .sb-item[data-view="records"]{box-shadow:inset 0 -2px 0 var(--sol)}}
+body[data-view="records"] .sb-item[data-view="records"]{background:rgba(34,211,238,.10);color:var(--cyan);box-shadow:inset 3px 0 0 var(--cyan)}
+@media(max-width:900px){body[data-view="records"] .sb-item[data-view="records"]{box-shadow:inset 0 -2px 0 var(--cyan)}}
 </style>
 <section class="sec" id="records-hero" data-view="records">
   <div class="pl-shell">
@@ -1193,6 +1197,55 @@ body.cr-drawer-lock{overflow:hidden}
 #consensus-floor .rf-b.rj:hover{border-color:rgba(255,84,112,.5);color:var(--red)}
 #consensus-floor .rf-b.ap.on{background:rgba(20,241,149,.12);border-color:var(--sol-line);color:var(--sol)}
 #consensus-floor .rf-b.rj.on{background:rgba(255,84,112,.1);border-color:rgba(255,84,112,.4);color:var(--red)}
+</style>
+<style id="osi-shell2">
+.sb-group{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.18em;color:var(--ink-faint);text-transform:uppercase;padding:13px 14px 5px}
+.sb-net{margin:10px 12px 8px;border:1px solid var(--line);border-radius:11px;background:var(--bg-card);padding:11px 12px}
+.sb-net-h{font-size:8px;letter-spacing:.16em;color:var(--ink-faint)}
+.sb-net-r{display:flex;align-items:center;gap:8px;font-family:'Archivo',sans-serif;font-weight:700;font-size:12.5px;color:var(--ink);margin-top:7px}
+.sb-net-dot{width:7px;height:7px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 1.7s infinite}
+.sb-net-s{font-size:8.5px;color:var(--ink-faint);margin-top:6px;letter-spacing:.04em}
+@media(max-width:900px){.sb-group,.sb-net{display:none}}
+.fo-strip{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:10px;letter-spacing:.03em;color:var(--ink-faint);border:1px solid var(--line);border-radius:10px;background:var(--bg-raised);padding:9px 14px;margin:0 auto 16px;max-width:1140px}
+.fo-strip b{color:var(--amber);font-weight:700}
+.fs-dot{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 7px var(--sol);flex-shrink:0}
+.fs-sep{color:var(--ink-faint);opacity:.6}
+@media(max-width:560px){.fo-strip{font-size:9px;gap:7px}}
+#field-view .fo-ops{gap:10px;background:none;border:0;border-radius:0;overflow:visible}
+#field-view .fo-op{border:1px solid var(--line);border-radius:11px;background:var(--bg-card)}
+.fo-op-ic{font-size:13px;color:var(--cyan);line-height:1;margin-bottom:9px}
+#field-view .fo-op:nth-child(2) .fo-op-ic{color:var(--sol)}
+.fq-head{display:none}
+@media(min-width:900px){
+  .fq-head{display:grid;grid-template-columns:112px minmax(0,1fr) 190px;gap:14px;padding:2px 16px 8px 19px;font-size:8.5px;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase}
+  .fq-head .fq-r{text-align:right}
+  .fo-case{display:grid;grid-template-columns:96px minmax(0,1fr) 190px;align-items:center}
+  .fc-right{justify-content:flex-end}
+  .fc-chev{display:none}
+  .fc-open{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--cyan);border:1px solid rgba(34,211,238,.35);border-radius:8px;padding:6px 11px;white-space:nowrap}
+  .fo-case:hover .fc-open{background:rgba(34,211,238,.1)}
+}
+@media(max-width:899px){.fc-open{display:none}}
+.fo-case.selected{border-color:rgba(34,211,238,.55);background:#0e1a2e}
+.fo-case.selected .fc-stripe{background:var(--cyan)}
+.fo-preview{display:none}
+@media(min-width:1280px){
+  #field-view .wrap{display:grid;grid-template-columns:minmax(0,1fr) 316px;gap:22px;max-width:1420px;align-items:start}
+  .fo-main{min-width:0}
+  .fo-preview{display:block;position:sticky;top:18px;border:1px solid var(--line-bright);border-radius:13px;background:var(--bg-raised);padding:17px 17px 15px;max-height:calc(100vh - 36px);overflow-y:auto}
+}
+.fo-prev-empty{font-size:11px;color:var(--ink-faint);line-height:1.6;padding:6px 2px}
+.fp-k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--ink-faint);margin-bottom:10px}
+.fp-idrow{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px}
+.fp-osi{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--cyan)}
+.fp-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:17px;line-height:1.25;color:var(--ink-bright);margin:2px 0 12px}
+.fp-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:13px}
+.fp-stat{background:var(--bg-card);padding:9px 10px}
+.fp-stat .n{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:var(--ink-bright)}
+.fp-stat .l{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.09em;color:var(--ink-faint);margin-top:5px;text-transform:uppercase}
+.fp-sum{font-size:12px;color:var(--ink-dim);line-height:1.6;margin-bottom:13px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.fp-acts{display:flex;flex-direction:column;gap:8px}
+.fp-note{font-size:9.5px;color:var(--ink-faint);line-height:1.55;border-top:1px solid var(--line);padding-top:10px;margin-top:12px}
 </style>
 <style id="osi-cv">
 #ap-modal .ap-modal-card{width:min(920px,100%);padding:24px}
@@ -1324,8 +1377,8 @@ body.cr-drawer-lock{overflow:hidden}
 </style>
 <style id="osi-analysts">
 /* nav active (desktop left accent, mobile bottom accent at 900px, matching other items) */
-body[data-view="analysts"] .sb-item[data-view="analysts"]{background:rgba(20,241,149,.1);color:var(--sol);box-shadow:inset 3px 0 0 var(--sol)}
-@media(max-width:900px){body[data-view="analysts"] .sb-item[data-view="analysts"]{box-shadow:inset 0 -2px 0 var(--sol)}}
+body[data-view="analysts"] .sb-item[data-view="analysts"]{background:rgba(34,211,238,.10);color:var(--cyan);box-shadow:inset 3px 0 0 var(--cyan)}
+@media(max-width:900px){body[data-view="analysts"] .sb-item[data-view="analysts"]{box-shadow:inset 0 -2px 0 var(--cyan)}}
 /* ===== Analyst Proof-of-Work Leaderboard ===== */
 .lb-shell{max-width:940px;margin:0 auto;padding:0 22px}
 .lb-hero{margin-bottom:22px}
@@ -1435,8 +1488,8 @@ body[data-view="analysts"] .sb-item[data-view="analysts"]{background:rgba(20,241
 </div>
 <style id="osi-prooflog">
 /* nav active */
-body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(20,241,149,.1);color:var(--sol);box-shadow:inset 3px 0 0 var(--sol)}
-@media(max-width:900px){body[data-view="prooflog"] .sb-item[data-view="prooflog"]{box-shadow:inset 0 -2px 0 var(--sol)}}
+body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211,238,.10);color:var(--cyan);box-shadow:inset 3px 0 0 var(--cyan)}
+@media(max-width:900px){body[data-view="prooflog"] .sb-item[data-view="prooflog"]{box-shadow:inset 0 -2px 0 var(--cyan)}}
 /* case lifecycle tracker (case detail drawer) */
 .cf-life{margin:16px 0 4px}
 .cf-track{display:flex;align-items:center}
@@ -1491,6 +1544,7 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(20,241
 
 
 <section class="sec" data-view="field" id="field-view">
+<div class="fo-strip mono"><span class="fs-dot"></span>Open, community-verified on-chain investigation<span class="fs-sep">·</span>No fee to open a case<span class="fs-sep">·</span><b>OSI never DMs you or asks for your funds</b></div>
 <style>
 #field-view .wrap{max-width:1140px}
 /* hero */
@@ -1500,7 +1554,7 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(20,241
    repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,.012) 23px,rgba(255,255,255,.012) 24px);
    padding:30px 32px;display:grid;grid-template-columns:1fr auto;gap:30px;align-items:center;overflow:hidden}
 .fo-hero::after{content:"FIELD OFFICE";position:absolute;right:-10px;bottom:-22px;font-family:'Archivo',sans-serif;font-weight:900;font-size:88px;letter-spacing:-.04em;color:rgba(255,255,255,.018);pointer-events:none;white-space:nowrap}
-.fo-eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;color:var(--acc);text-transform:uppercase}
+.fo-eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;color:var(--cyan);text-transform:uppercase}
 .fo-live{width:7px;height:7px;border-radius:50%;background:var(--sol);box-shadow:0 0 9px var(--sol);animation:pulse 1.7s infinite}
 .fo-title{font-family:'Archivo',sans-serif;font-weight:900;font-size:clamp(30px,4.6vw,50px);letter-spacing:-.03em;line-height:.98;margin:14px 0 0}
 .fo-sub{font-size:14px;color:var(--ink-dim);line-height:1.65;max-width:560px;margin:14px 0 0}
@@ -1584,6 +1638,7 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(20,241
 .rc-att img{display:block;max-width:100%;max-height:180px;object-fit:cover}
 </style>
   <div class="wrap">
+<div class="fo-main">
     <div class="vsub">
       <button class="vsub-b active" onclick="showView('field')"><span>🗂</span> Case Queue</button>
       <button class="vsub-b" onclick="showView('wire')"><span>📰</span> The Wire</button>
@@ -1637,11 +1692,15 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(20,241
       </div>
     </div>
 
-    <div class="fo-cases" id="field-cases"></div>
+    <div class="fq-head mono" aria-hidden="true"><span>Case · stage</span><span>Title · support</span><span class="fq-r">Activity</span></div>
+<div class="fo-cases" id="field-cases"></div>
   </div>
+<aside class="fo-preview" id="fo-preview" aria-label="Selected case"><div class="fo-prev-empty mono">Select a case from the queue to preview it here.</div></aside>
+</div>
 </section>
 
 <section class="sec" data-view="wire" id="wire-view">
+<div class="fo-strip mono"><span class="fs-dot"></span>Open, community-verified on-chain investigation<span class="fs-sep">·</span>No fee to open a case<span class="fs-sep">·</span><b>OSI never DMs you or asks for your funds</b></div>
 <style>
 #wire-view .wrap{max-width:920px}
 .wire-hero{position:relative;border:1px solid var(--line-bright);border-top:2px solid var(--cyan);border-radius:12px;background:
@@ -4374,6 +4433,7 @@ function drawFieldOffice(){
     if(applied[card.dataset.bid]) markAppliedUI(card,null);
   });
   hydrateBoosts();
+  if(typeof foAutoPreview==='function'){ try{ foAutoPreview(); }catch(e){} }
 }
 function fieldSearch(v){ fieldState.q = v||''; drawFieldOffice(); }
 
@@ -4428,16 +4488,62 @@ function fieldCaseCard(b, i){
     ? '<span class="fc-pill sup">'+SOL_MARK+' '+reward+' SOL</span>'
     : '<span class="fc-pill">community</span>';
   const backPill = '<span class="fc-pill b-reward">\u2191 <span class="n">'+count+'</span> backing</span>';
-  return '<div class="fo-case bounty '+status+'" data-bid="'+id+'" data-deadline="'+deadline+'" role="button" tabindex="0" onclick="openCaseFile(\''+id+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openCaseFile(\''+id+'\');}">'
+  return '<div class="fo-case bounty '+status+'" data-bid="'+id+'" data-deadline="'+deadline+'" role="button" tabindex="0" onclick="fieldRowClick(\''+id+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();fieldRowClick(\''+id+'\');}">'
     + '<span class="fc-stripe"></span>'
     + '<div class="fc-id"><span class="fc-osi mono">'+osi+'</span><span class="fc-st '+status+'">'+statusLabel+'</span></div>'
     + '<div class="fc-main"><div class="fc-title b-target">'+target+'</div><div class="fc-meta">'+supportPill+backPill+'</div></div>'
-    + '<div class="fc-right">'+timeHtml+'<span class="fc-chev">\u203a</span></div>'
+    + '<div class="fc-right">'+timeHtml+'<span class="fc-open">Open case</span><span class="fc-chev">\u203a</span></div>'
   + '</div>';
 }
 
 // ---- Case file drawer: the single detail surface for an open case ----
 var caseFileData = null;
+function foWide(){ return window.innerWidth>=1280 && !!document.getElementById('fo-preview'); }
+function fieldRowClick(id){ if(foWide()){ foPreviewShow(id); } else { openCaseFile(id); } }
+function foPreviewHtml(b){
+  var target=escapeHtml(b.target||b.title||'case');
+  var brief=escapeHtml(b.detail||'Community intelligence request.');
+  var reward=parseFloat(b.reward_sol)||0, resolved=!!b.winner_wallet;
+  var count=((window.boostCounts||{})[b.id])||0;
+  var status=resolved?'closed':(count>=5?'hot':'open');
+  var label=resolved?'REVIEWED':'SUBMITTED';
+  var osi='OSI-'+((pfHash(String(b.id))%9000)+1000);
+  var dl=resolved?0:bountyDeadline(b), left=dl-Date.now();
+  var timeV=resolved?'-':(dl&&left>0?fmtCountdown(left):'No deadline');
+  var sup=reward>0?(SOL_MARK+' '+reward):'community';
+  var acts='<button class="cf-btn primary" type="button" onclick="openCaseFile(\''+escapeHtml(String(b.id))+'\')">View case file \u203a</button>'
+    + (resolved
+      ? '<button class="cf-btn ghost" type="button" onclick="caseFileReward()">\u25ce Send analyst support</button>'
+      : '<button class="cf-btn ghost" type="button" onclick="caseFileApply()">\u2726 Submit a report</button>'
+        +'<button class="cf-btn ghost" type="button" onclick="caseFileBack()">\u2191 Support this case</button>');
+  return '<div class="fp-k">SELECTED CASE</div>'
+    +'<div class="fp-idrow"><span class="fp-osi mono">'+osi+'</span><span class="fc-st '+status+'">'+label+'</span></div>'
+    +'<div class="fp-title">'+target+'</div>'
+    +'<div class="fp-stats">'
+    +'<div class="fp-stat"><span class="n">'+sup+'</span><span class="l">Peer support</span></div>'
+    +'<div class="fp-stat"><span class="n">'+count+'</span><span class="l">Backing</span></div>'
+    +'<div class="fp-stat"><span class="n">'+timeV+'</span><span class="l">Time</span></div>'
+    +'</div>'
+    +'<div class="fp-sum">'+brief+'</div>'
+    +'<div class="fp-acts">'+acts+'</div>'
+    +'<div class="fp-note">Peer support is voluntary and non-custodial. It never affects review outcomes.</div>';
+}
+function foPreviewShow(id){
+  var host=document.getElementById('fo-preview'); if(!host) return;
+  var list=(fieldState&&fieldState.data)?fieldState.data:[]; var b=null;
+  for(var i=0;i<list.length;i++){ if(String(list[i].id)===String(id)){ b=list[i]; break; } }
+  if(!b) return;
+  caseFileData=b;
+  host.innerHTML=foPreviewHtml(b);
+  document.querySelectorAll('#field-cases .fo-case').forEach(function(r){ r.classList.toggle('selected', String(r.getAttribute('data-bid'))===String(id)); });
+}
+function foAutoPreview(){
+  if(!foWide()) return;
+  var sel=document.querySelector('#field-cases .fo-case.selected[data-bid]');
+  var first=sel||document.querySelector('#field-cases .fo-case[data-bid]');
+  if(first){ foPreviewShow(first.getAttribute('data-bid')); }
+  else { var hh=document.getElementById('fo-preview'); if(hh) hh.innerHTML='<div class="fo-prev-empty mono">No open cases right now. Open the first one, it is free.</div>'; }
+}
 async function cfLoadProof(bid){
   var host=document.getElementById('cf-proof'); if(!host) return;
   if(!caseFileData || String(caseFileData.id)!==String(bid)) return;
@@ -4584,9 +4690,9 @@ function fieldStats(list){
   const closed = list.filter(function(b){ return !!b.winner_wallet; }).length;
   const pooled = list.reduce(function(s,b){ return s + (parseFloat(b.reward_sol)||0); }, 0);
   host.innerHTML =
-      '<div class="fo-op"><div class="fo-op-n">'+open+'</div><div class="fo-op-l">Open cases</div></div>'
-    + '<div class="fo-op"><div class="fo-op-n sol">'+SOL_MARK+' '+pooled+'</div><div class="fo-op-l">Peer support</div></div>'
-    + '<div class="fo-op"><div class="fo-op-n">'+closed+'</div><div class="fo-op-l">Cases closed</div></div>';
+      '<div class="fo-op"><div class="fo-op-ic">▣</div><div class="fo-op-n">'+open+'</div><div class="fo-op-l">Open cases</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic">◎</div><div class="fo-op-n sol">'+SOL_MARK+' '+pooled+'</div><div class="fo-op-l">Peer support</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic">✓</div><div class="fo-op-n">'+closed+'</div><div class="fo-op-l">Cases closed</div></div>';
 }
 function fieldUpdateDemand(){
   document.querySelectorAll('.fo-demand-bar[data-bid]').forEach(function(bar){
