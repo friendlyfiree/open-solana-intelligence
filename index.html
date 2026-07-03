@@ -567,17 +567,17 @@ body[data-view="records"] section[data-view="records"]{display:block}
 </style>
 <style>
 /* ===== PLATFORM TOP BAR (intelligence console) ===== */
-body{padding-left:0;padding-top:84px}
-.sidebar{position:fixed;left:0;right:0;top:0;bottom:auto;width:auto;height:54px;z-index:60;
-  display:flex;flex-direction:row;align-items:center;gap:6px;
+body{padding-left:var(--sb);padding-top:0}
+.sidebar{position:fixed;left:0;top:0;bottom:0;right:auto;width:var(--sb);height:auto;z-index:60;
+  display:flex;flex-direction:column;align-items:stretch;gap:0;
   background:linear-gradient(180deg,rgba(7,11,22,.95),rgba(7,11,22,.82));
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  border-right:none;border-bottom:1px solid var(--line);padding:0 20px;overflow:visible}
-.sb-brand{padding:0 16px 0 0;margin:0 12px 0 0;border-bottom:none;border-right:1px solid var(--line);flex-shrink:0}
+  border-right:1px solid var(--line);border-bottom:none;padding:16px 12px 14px;overflow-y:auto}
+.sb-brand{padding:0 4px 14px;margin:0 0 10px;border-bottom:1px solid var(--line);border-right:none;flex-shrink:0}
 .sb-brand .sb-name{font-size:13px;letter-spacing:.02em}
 .sb-brand .sb-tag{letter-spacing:.16em}
-.sb-nav{flex-direction:row;gap:2px;flex-shrink:0;align-items:center}
-.sb-item{padding:8px 13px;font-size:13px;white-space:nowrap;border-radius:8px}
+.sb-nav{flex-direction:column;gap:2px;flex-shrink:0;align-items:stretch}
+.sb-item{padding:10px 12px;font-size:13.5px;white-space:normal;border-radius:9px}
 .sb-item .sb-c{margin-left:8px}
 body[data-view="registry"] .sb-item[data-view="registry"],
 body[data-view="research"] .sb-item[data-view="research"],
@@ -587,21 +587,18 @@ body[data-view="dat"] .sb-item[data-view="dat"],
 body[data-view="field"] .sb-item[data-view="field"],
 body[data-view="wire"] .sb-item[data-view="field"],
 body[data-view="community"] .sb-item[data-view="community"]{
-  background:var(--acc-soft);color:var(--acc);box-shadow:inset 0 -2px 0 var(--acc)}
+  background:rgba(34,211,238,.10);color:var(--cyan);box-shadow:inset 3px 0 0 var(--cyan)}
 .sb-nav .sb-item{position:relative}
-.sb-nav .sb-item::after{content:'';position:absolute;left:12px;right:12px;bottom:4px;height:2px;background:linear-gradient(90deg,var(--acc),var(--amber));border-radius:2px;transform:scaleX(0);transform-origin:left;transition:transform .25s ease;pointer-events:none}
-.sb-nav .sb-item:hover{color:var(--acc);background:var(--acc-soft)}
-.sb-nav .sb-item:hover::after{transform:scaleX(1)}
+.sb-nav .sb-item::after{display:none}
+.sb-nav .sb-item:hover{color:var(--ink);background:rgba(34,211,238,.06)}
 .vsub{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
 .vsub-b{background:none;border:0;border-bottom:2px solid transparent;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:600;padding:11px 15px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;margin-bottom:-1px;transition:color .15s,border-color .15s}
 .vsub-b:hover{color:var(--ink-dim)}
-.vsub-b.active{color:var(--acc);border-bottom-color:var(--acc)}
+.vsub-b.active{color:var(--cyan);border-bottom-color:var(--cyan)}
 .vsub-b span{font-size:13px;opacity:.9}
 .vsub.gin{border-bottom:0;margin-bottom:0;margin-left:-4px}
 .vsub.gin .vsub-b{padding:8px 13px}
-.sb-board{display:none!important}
-.sb-subnav{display:none!important}
-.sb-foot{margin:0 0 0 auto;padding:0;border-top:none;flex-direction:row;align-items:center;gap:10px;flex-shrink:0}
+.sb-foot{margin:auto 0 0;padding:12px 0 0;border-top:1px solid var(--line);flex-direction:column;align-items:stretch;gap:8px;flex-shrink:0}
 .sb-foot .sb-mini{display:none}
 .sb-foot .wallet-btn{width:auto;padding:7px 13px}
 .adm-lock{background:none;border:1px solid var(--line);border-radius:2px;color:var(--ink-faint);font-size:11px;line-height:1;padding:7px 9px;cursor:pointer;flex-shrink:0}
@@ -1246,6 +1243,30 @@ body.cr-drawer-lock{overflow:hidden}
 .fp-sum{font-size:12px;color:var(--ink-dim);line-height:1.6;margin-bottom:13px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .fp-acts{display:flex;flex-direction:column;gap:8px}
 .fp-note{font-size:9.5px;color:var(--ink-faint);line-height:1.55;border-top:1px solid var(--line);padding-top:10px;margin-top:12px}
+/* ---- layout repair: ops-desk ---- */
+.osi-banner,.fo-banner{display:none!important}
+#field-view .fo-hero{padding:16px 20px;border-radius:12px}
+#field-view .fo-hero::before,#field-view .fo-hero::after{display:none!important}
+#field-view .fo-title{font-size:24px;margin:8px 0 0}
+#field-view .fo-sub{font-size:12.5px;line-height:1.55;margin:8px 0 0;max-width:none}
+#field-view .fo-cta{margin-top:12px;padding:10px 16px;font-size:11px}
+#field-view .fo-op{padding:10px 12px}
+#field-view .fo-op-ic{margin-bottom:6px;font-size:12px}
+#field-view .fo-op-n{font-size:16px}
+@media(min-width:901px){
+  .sb-foot .sb-demo{width:100%;justify-content:center}
+  .sb-foot .wb-wrap{width:100%}
+  .sb-foot .wallet-btn{width:100%;justify-content:center}
+  .sb-foot .adm-lock{align-self:flex-start}
+}
+@media(max-width:900px){
+  .sidebar{position:sticky;left:0;right:0;top:0;bottom:auto;width:auto;height:auto;flex-direction:row;align-items:center;padding:9px 12px;border-right:none;border-bottom:1px solid var(--line);gap:8px;overflow-x:auto;overflow-y:visible}
+  body{padding-left:0;padding-top:0}
+  .sb-nav{flex-direction:row;align-items:center;gap:2px}
+  .sb-item{width:auto;padding:8px 11px;white-space:nowrap}
+  .sb-brand{padding:0 12px 0 0;margin:0 8px 0 0;border-bottom:none;border-right:1px solid var(--line)}
+  .sb-foot{margin:0 0 0 auto;padding:0;border-top:none;flex-direction:row;align-items:center;gap:8px}
+}
 </style>
 <style id="osi-cv">
 #ap-modal .ap-modal-card{width:min(920px,100%);padding:24px}
@@ -1544,7 +1565,7 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 
 
 <section class="sec" data-view="field" id="field-view">
-<div class="fo-strip mono"><span class="fs-dot"></span>Open, community-verified on-chain investigation<span class="fs-sep">·</span>No fee to open a case<span class="fs-sep">·</span><b>OSI never DMs you or asks for your funds</b></div>
+
 <style>
 #field-view .wrap{max-width:1140px}
 /* hero */
@@ -1700,7 +1721,7 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 </section>
 
 <section class="sec" data-view="wire" id="wire-view">
-<div class="fo-strip mono"><span class="fs-dot"></span>Open, community-verified on-chain investigation<span class="fs-sep">·</span>No fee to open a case<span class="fs-sep">·</span><b>OSI never DMs you or asks for your funds</b></div>
+
 <style>
 #wire-view .wrap{max-width:920px}
 .wire-hero{position:relative;border:1px solid var(--line-bright);border-top:2px solid var(--cyan);border-radius:12px;background:
