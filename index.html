@@ -1408,7 +1408,7 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 
     <div class="fq-head mono" aria-hidden="true"><span>Case ID</span><span>Title</span><span>Stage</span><span>Support</span><span>Backers</span><span>Deadline</span><span></span></div>
 <div class="fo-cases" id="field-cases"></div>
-<div class="fo-count mono" id="fo-count" aria-live="polite"></div>
+<div class="fo-pager"><span class="fo-count mono" id="fo-count" aria-live="polite"></span><div class="fo-pnav" id="fo-pnav" role="navigation" aria-label="Case pages"></div></div>
   </div>
 <aside class="fo-preview" id="fo-preview" aria-label="Selected case"><div class="fo-prev-empty mono">Select a case from the queue to preview it here.</div></aside>
 <div class="fo-deck" id="fo-deck" aria-label="Operations overview">
@@ -1431,17 +1431,25 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 </div>
 <style id="osi-fo-premium">
 /* ============ FIELD OFFICE: OPERATIONS CENTER (north-star build) ============ */
-/* calm stage: hide the ambient stream + watermark on the console */
+/* flat stage: solid ground, zero ambient decor on the console */
+body[data-view="field"]{background:#070b13}
 body[data-view="field"] #osi-stream,
-body[data-view="field"] .osi-watermark{display:none}
+body[data-view="field"] .osi-watermark,
+body[data-view="field"] .glow{display:none}
 #field-view .wrap{max-width:1200px}
 .fo-rail{display:none}
 @media(min-width:1280px){
-  #field-view .wrap{display:grid;grid-template-columns:208px minmax(0,1fr) 380px;grid-template-rows:auto auto;gap:26px;max-width:1600px;align-items:start}
+  #field-view.sec{padding:0}
+  #field-view .wrap{display:grid;grid-template-columns:238px minmax(0,1fr) 404px;grid-template-rows:auto auto;gap:0;max-width:none;padding:0;align-items:stretch}
   #field-view .fo-rail{grid-row:1/3}
   #field-view .fo-deck{grid-column:2/4}
   #field-view .vsub{display:none}
-  .fo-rail{display:flex;flex-direction:column;position:sticky;top:96px;max-height:calc(100vh - 112px);overflow-y:auto;padding:2px 0}
+  .fo-rail{display:flex;flex-direction:column}
+  /* docked, full-height app rail: flush to the left edge */
+  #field-view .fo-rail{position:sticky;top:84px;height:calc(100vh - 84px);overflow-y:auto;padding:24px 15px 16px;background:linear-gradient(180deg,#0a1220,#070d17);border-right:1px solid var(--line)}
+  #field-view .fr-net{margin-top:auto}
+  #field-view .fo-main{padding:30px 30px 6px;min-width:0}
+  #field-view .fo-deck{margin:18px 26px 44px 30px}
   .fo-cta{display:none}
 }
 /* ---- rail: quiet, dim, one active box ---- */
@@ -1509,10 +1517,16 @@ body[data-view="field"] .osi-watermark{display:none}
   .fc-act{margin-left:auto}
 }
 .fc-title{font-size:15px}
-.fo-count{margin-top:12px;text-align:right;font-size:9.5px;letter-spacing:.08em;color:rgba(148,163,184,.45)}
+.fo-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;flex-wrap:wrap}
+.fo-count{font-size:9.5px;letter-spacing:.08em;color:rgba(148,163,184,.45)}
+.fo-pnav{display:flex;align-items:center;gap:5px}
+.fo-pg{min-width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;background:var(--bg-card);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .13s;padding:0 8px}
+.fo-pg:hover:not(:disabled){border-color:var(--line-bright);color:var(--ink)}
+.fo-pg.active{border-color:rgba(34,211,238,.5);background:rgba(34,211,238,.08);color:var(--cyan)}
+.fo-pg:disabled{opacity:.32;cursor:default}
 /* ---- selected case panel: the command post ---- */
 @media(min-width:1280px){
-  .fo-preview{top:96px;max-height:calc(100vh - 112px);border-radius:14px;border:1px solid var(--line-bright);border-top:2px solid var(--cyan);padding:0 19px 17px;background:linear-gradient(180deg,#0d1524,var(--bg-raised));box-shadow:0 18px 44px rgba(0,0,0,.35)}
+  .fo-preview{margin:30px 26px 30px 0;top:106px;max-height:calc(100vh - 130px);border-radius:14px;border:1px solid var(--line-bright);border-top:2px solid var(--cyan);padding:0 19px 17px;background:linear-gradient(180deg,#0d1524,var(--bg-raised));box-shadow:0 18px 44px rgba(0,0,0,.35)}
   .fo-preview .fp-k,.fo-preview .fo-prev-empty{margin:0 -19px 15px;padding:13px 19px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--line)}
   .fo-preview .fo-prev-empty{margin-bottom:0;border-bottom:0}
 }
@@ -1552,8 +1566,9 @@ a.fd-ago:hover{color:var(--cyan)}
 .fo-x:hover{color:var(--ink);border-color:var(--line-bright)}
 /* ---- console rail on the intelligence views ---- */
 @media(min-width:1280px){
-  .rail-grid{display:grid;grid-template-columns:208px minmax(0,1fr);gap:26px;align-items:start;max-width:1320px;margin:0 auto;padding:0 24px}
-  .rail-grid .fo-rail{grid-row:auto}
+  .rail-grid{display:grid;grid-template-columns:238px minmax(0,1fr);gap:28px;align-items:start;max-width:1380px;margin:0 auto;padding:0 24px}
+  .rail-grid .fo-rail{grid-row:auto;position:sticky;top:96px;max-height:calc(100vh - 116px);overflow-y:auto;padding:18px 13px 14px;background:linear-gradient(180deg,#0a1220,#070d17);border:1px solid var(--line);border-radius:14px}
+  .rail-grid .fr-net{margin-top:16px}
   .rail-main{min-width:0}
   .rail-main > *{margin-left:0;margin-right:0}
   #wire-view .vsub{display:none}
@@ -4174,7 +4189,8 @@ const FIELD_SEED = [
   { id:'seed_bridge',  target:'Cross-chain exit after an incident',         reward_sol:0, detail:'Community intelligence request. Trace funds that left Solana through a bridge after an incident: identify the entry wallet, the bridge route, and the destination cluster on the other chain, so exchanges can act on it.', created_at:'2026-06-22T00:00:00Z' },
   { id:'seed_phish',   target:'Phishing wave, shared attribution trail',    reward_sol:0, detail:'Community intelligence request. Aggregate reports from a phishing campaign, cluster the collector wallets, and build one shared attribution trail that victims and exchanges can act on together.', created_at:'2026-06-21T00:00:00Z' }
 ];
-let fieldState = { filter:'open', sort:'reward', q:'', mine:false, data:[] };
+let fieldState = { filter:'open', sort:'reward', q:'', mine:false, page:1, data:[] };
+const FIELD_PER_PAGE = 5;
 
 async function renderFieldOffice(){
   if(!document.getElementById('field-cases')) return;
@@ -4208,8 +4224,23 @@ function drawFieldOffice(){
   if(fieldState.sort==='reward') list.sort(function(a,b){ return (parseFloat(b.reward_sol)||0)-(parseFloat(a.reward_sol)||0); });
   else if(fieldState.sort==='newest') list.sort(function(a,b){ return new Date(b.created_at||0)-new Date(a.created_at||0); });
   else if(fieldState.sort==='boosts') list.sort(function(a,b){ return (((window.boostCounts||{})[b.id])||0)-(((window.boostCounts||{})[a.id])||0); });
+  var totalPages = Math.max(1, Math.ceil(list.length / FIELD_PER_PAGE));
+  if(fieldState.page > totalPages) fieldState.page = totalPages;
+  if(fieldState.page < 1) fieldState.page = 1;
+  var pFrom = (fieldState.page-1)*FIELD_PER_PAGE;
+  var pageList = list.slice(pFrom, pFrom+FIELD_PER_PAGE);
   var cnt=document.getElementById('fo-count');
-  if(cnt){ cnt.textContent = list.length ? ('Showing '+list.length+' of '+base.length+' cases') : ''; }
+  if(cnt){ cnt.textContent = list.length ? ('Showing '+(pFrom+1)+'\u2013'+(pFrom+pageList.length)+' of '+list.length+' cases') : ''; }
+  var pnav=document.getElementById('fo-pnav');
+  if(pnav){
+    if(totalPages<=1){ pnav.innerHTML=''; }
+    else{
+      var ph='<button class="fo-pg" type="button" '+(fieldState.page<=1?'disabled':'')+' onclick="fieldPage('+(fieldState.page-1)+')" aria-label="Previous page">\u2039</button>';
+      for(var pi=1; pi<=totalPages; pi++){ ph+='<button class="fo-pg n'+(pi===fieldState.page?' active':'')+'" type="button" onclick="fieldPage('+pi+')">'+pi+'</button>'; }
+      ph+='<button class="fo-pg" type="button" '+(fieldState.page>=totalPages?'disabled':'')+' onclick="fieldPage('+(fieldState.page+1)+')" aria-label="Next page">\u203a</button>';
+      pnav.innerHTML=ph;
+    }
+  }
   if(!list.length){
     if(fieldState.mine){
       host.innerHTML='<div class="fo-empty"><div class="fo-empty-h">No cases from this wallet yet.</div><p>Open your first case, it is free and signed with your wallet, so it shows up here as yours.</p><button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button></div>';
@@ -4220,7 +4251,7 @@ function drawFieldOffice(){
     host.innerHTML='<div class="fo-empty"><div class="fo-empty-h">'+why+'</div><p>Be the first to file one. Name a target nobody has traced and let the community hunt it.</p><button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button></div>';
     return;
   }
-  host.innerHTML = list.map(function(b,i){ return fieldCaseCard(b,i); }).join('');
+  host.innerHTML = pageList.map(function(b,i){ return fieldCaseCard(b,i); }).join('');
   const boosted=lsGet('stw_boosted',{}), applied=lsGet('stw_applied',{});
   host.querySelectorAll('.bounty[data-bid]').forEach(function(card){
     if(boosted[card.dataset.bid]) markBoostedUI(card,null);
@@ -4229,7 +4260,7 @@ function drawFieldOffice(){
   hydrateBoosts();
   if(typeof foAutoPreview==='function'){ try{ foAutoPreview(); }catch(e){} }
 }
-function fieldSearch(v){ fieldState.q = v||''; drawFieldOffice(); }
+function fieldSearch(v){ fieldState.q = v||''; fieldState.page=1; drawFieldOffice(); }
 
 // Solana amblem (kucuk inline SVG, yesil) + bounty geri sayim
 var SOL_MARK='<svg class="sol-mk" viewBox="0 0 24 19" aria-hidden="true"><path d="M5 1h18l-4 4H1z"/><path d="M1 7.5h18l4 4H5z"/><path d="M5 14h18l-4 4H1z"/></svg>';
@@ -4500,8 +4531,8 @@ function fieldUpdateDemand(){
     bar.style.width = Math.min(100, c*12) + '%';
   });
 }
-function fieldFilter(f){ fieldState.filter=f; document.querySelectorAll('.fo-fil').forEach(function(b){ b.classList.toggle('active', b.dataset.f===f); }); drawFieldOffice(); }
-function fieldSort(s){ fieldState.sort=s; document.querySelectorAll('.fo-sort').forEach(function(b){ b.classList.toggle('active', b.dataset.s===s); }); drawFieldOffice(); }
+function fieldFilter(f){ fieldState.filter=f; fieldState.page=1; document.querySelectorAll('.fo-fil').forEach(function(b){ b.classList.toggle('active', b.dataset.f===f); }); drawFieldOffice(); }
+function fieldSort(s){ fieldState.sort=s; fieldState.page=1; document.querySelectorAll('.fo-sort').forEach(function(b){ b.classList.toggle('active', b.dataset.s===s); }); drawFieldOffice(); }
 // ---- My Cases: cases opened from this wallet or drafted on this device ----
 function foMyIds(){ var ids={}; (lsGet('stw_bounties',[])||[]).forEach(function(x){ if(x&&x.id) ids[String(x.id)]=1; }); return ids; }
 function foIsMine(b){
@@ -4511,6 +4542,7 @@ function foIsMine(b){
 }
 function fieldMine(on){
   fieldState.mine = !!on;
+  fieldState.page = 1;
   var my=document.getElementById('fr-mycases'), fo=document.getElementById('fr-fieldoffice');
   if(my) my.classList.toggle('active', fieldState.mine);
   if(fo) fo.classList.toggle('active', !fieldState.mine);
@@ -4523,13 +4555,27 @@ function fieldMine(on){
   drawFieldOffice();
   try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(err){ try{ window.scrollTo(0,0); }catch(e2){} }
 }
-// ---- Verify on Solana: the case's own signed trail, or its on-chain proof section ----
+// ---- Verify on Solana: always resolves to Solscan (the case's own signed trail) ----
+function fieldPage(p){ fieldState.page = p|0; drawFieldOffice(); var q=document.getElementById('field-cases'); if(q){ try{ q.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} } }
 function foVerify(){
   var b=caseFileData; if(!b) return;
   var sig=b.tx||b.tx_sig||'';
   if(sig){ try{ window.open('https://solscan.io/tx/'+encodeURIComponent(String(sig)),'_blank','noopener'); }catch(e){} return; }
-  openCaseFile(b.id);
-  showToast('Signed on-chain actions for this case are in the proof section of the case file.');
+  if(!SUPA_ON){ showToast('No signed on-chain actions recorded for this case yet. Backing it writes the first memo.'); return; }
+  var win=null; try{ win=window.open('about:blank','_blank'); }catch(e){}
+  supaGet('onchain_events?select=tx_sig&item_id=eq.'+encodeURIComponent(String(b.id))+'&order=created_at.asc&limit=1')
+    .then(function(evs){
+      var s2=evs && evs[0] && evs[0].tx_sig;
+      if(s2){
+        var u='https://solscan.io/tx/'+encodeURIComponent(String(s2));
+        if(win){ try{ win.location=u; }catch(e){ try{ win.close(); }catch(e2){} try{ window.open(u,'_blank','noopener'); }catch(e3){} } }
+        else { try{ window.open(u,'_blank','noopener'); }catch(e){} }
+      } else {
+        if(win){ try{ win.close(); }catch(e){} }
+        showToast('No signed on-chain actions for this case yet. Backing it writes the first memo.');
+      }
+    })
+    .catch(function(){ if(win){ try{ win.close(); }catch(e){} } showToast('Could not reach the proof log right now.'); });
 }
 // ===== Console rail: shared left navigation, mounted into the intelligence views =====
 var OSI_RAIL_VIEWS=['wire','records','analysts','prooflog','methodology'];
