@@ -1431,11 +1431,14 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 </div>
 <style id="osi-fo-premium">
 /* ============ FIELD OFFICE: OPERATIONS CENTER (north-star build) ============ */
-/* flat stage: solid ground, zero ambient decor on the console */
-body[data-view="field"]{background:#070b13}
-body[data-view="field"] #osi-stream,
-body[data-view="field"] .osi-watermark,
-body[data-view="field"] .glow{display:none}
+/* flat stage: solid ground, zero ambient decor on every console view */
+body[data-view="field"],body[data-view="wire"],body[data-view="records"],body[data-view="analysts"],body[data-view="prooflog"],body[data-view="methodology"]{background:#070b13}
+body[data-view="field"] #osi-stream,body[data-view="field"] .osi-watermark,body[data-view="field"] .glow,
+body[data-view="wire"] #osi-stream,body[data-view="wire"] .osi-watermark,body[data-view="wire"] .glow,
+body[data-view="records"] #osi-stream,body[data-view="records"] .osi-watermark,body[data-view="records"] .glow,
+body[data-view="analysts"] #osi-stream,body[data-view="analysts"] .osi-watermark,body[data-view="analysts"] .glow,
+body[data-view="prooflog"] #osi-stream,body[data-view="prooflog"] .osi-watermark,body[data-view="prooflog"] .glow,
+body[data-view="methodology"] #osi-stream,body[data-view="methodology"] .osi-watermark,body[data-view="methodology"] .glow{display:none}
 #field-view .wrap{max-width:1200px}
 .fo-rail{display:none}
 @media(min-width:1280px){
@@ -1444,12 +1447,11 @@ body[data-view="field"] .glow{display:none}
   #field-view .fo-rail{grid-row:1/3}
   #field-view .fo-deck{grid-column:2/4}
   #field-view .vsub{display:none}
-  .fo-rail{display:flex;flex-direction:column}
   /* docked, full-height app rail: flush to the left edge */
-  #field-view .fo-rail{position:sticky;top:84px;height:calc(100vh - 84px);overflow-y:auto;padding:24px 15px 16px;background:linear-gradient(180deg,#0a1220,#070d17);border-right:1px solid var(--line)}
+  #field-view .fo-rail{display:flex;flex-direction:column;position:sticky;top:84px;height:calc(100vh - 84px);overflow-y:auto;padding:24px 15px 16px;background:linear-gradient(180deg,#0a1220,#070d17);border-right:1px solid var(--line)}
   #field-view .fr-net{margin-top:auto}
   #field-view .fo-main{padding:30px 30px 6px;min-width:0}
-  #field-view .fo-deck{margin:18px 26px 44px 30px}
+  #field-view .fo-deck{grid-column:2/3;margin:18px 30px 44px 30px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
   .fo-cta{display:none}
 }
 /* ---- rail: quiet, dim, one active box ---- */
@@ -1526,8 +1528,8 @@ body[data-view="field"] .glow{display:none}
 .fo-pg:disabled{opacity:.32;cursor:default}
 /* ---- selected case panel: the command post ---- */
 @media(min-width:1280px){
-  .fo-preview{margin:30px 26px 30px 0;top:106px;max-height:calc(100vh - 130px);border-radius:14px;border:1px solid var(--line-bright);border-top:2px solid var(--cyan);padding:0 19px 17px;background:linear-gradient(180deg,#0d1524,var(--bg-raised));box-shadow:0 18px 44px rgba(0,0,0,.35)}
-  .fo-preview .fp-k,.fo-preview .fo-prev-empty{margin:0 -19px 15px;padding:13px 19px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--line)}
+  .fo-preview{grid-row:1/3;margin:0;top:84px;height:calc(100vh - 84px);max-height:none;border-radius:0;border:0;border-left:1px solid var(--line);padding:0 22px 20px;background:linear-gradient(180deg,#0a1220,#070d17);box-shadow:none;overflow-y:auto}
+  .fo-preview .fp-k,.fo-preview .fo-prev-empty{margin:0 -22px 16px;padding:14px 22px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--line)}
   .fo-preview .fo-prev-empty{margin-bottom:0;border-bottom:0}
 }
 .fp-title{font-size:20px}
@@ -1565,13 +1567,31 @@ a.fd-ago:hover{color:var(--cyan)}
 .fo-x{position:absolute;top:13px;right:13px;background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink-faint);font-size:12px;line-height:1;padding:7px 9px;cursor:pointer;transition:all .13s}
 .fo-x:hover{color:var(--ink);border-color:var(--line-bright)}
 /* ---- console rail on the intelligence views ---- */
+.rail-shell{display:contents}
 @media(min-width:1280px){
-  .rail-grid{display:grid;grid-template-columns:238px minmax(0,1fr);gap:28px;align-items:start;max-width:1380px;margin:0 auto;padding:0 24px}
-  .rail-grid .fo-rail{grid-row:auto;position:sticky;top:96px;max-height:calc(100vh - 116px);overflow-y:auto;padding:18px 13px 14px;background:linear-gradient(180deg,#0a1220,#070d17);border:1px solid var(--line);border-radius:14px}
-  .rail-grid .fr-net{margin-top:16px}
-  .rail-main{min-width:0}
-  .rail-main > *{margin-left:0;margin-right:0}
+  body[data-view="wire"] .rail-shell[data-shell="wire"],
+  body[data-view="records"] .rail-shell[data-shell="records"],
+  body[data-view="analysts"] .rail-shell[data-shell="analysts"],
+  body[data-view="prooflog"] .rail-shell[data-shell="prooflog"],
+  body[data-view="methodology"] .rail-shell[data-shell="methodology"]{display:grid;grid-template-columns:238px minmax(0,1fr);align-items:stretch}
+  .rail-shell > .fo-rail{display:none}
+  body[data-view="wire"] .rail-shell[data-shell="wire"] > .fo-rail,
+  body[data-view="records"] .rail-shell[data-shell="records"] > .fo-rail,
+  body[data-view="analysts"] .rail-shell[data-shell="analysts"] > .fo-rail,
+  body[data-view="prooflog"] .rail-shell[data-shell="prooflog"] > .fo-rail,
+  body[data-view="methodology"] .rail-shell[data-shell="methodology"] > .fo-rail{display:flex;flex-direction:column;position:sticky;top:84px;height:calc(100vh - 84px);overflow-y:auto;padding:24px 15px 16px;background:linear-gradient(180deg,#0a1220,#070d17);border-right:1px solid var(--line)}
+  .rail-shell .fr-net{margin-top:auto}
+  .rail-shell .rail-main{min-width:0}
+  .rail-shell .rail-main > .sec{padding-top:30px}
   #wire-view .vsub{display:none}
+  /* console tone across the railed views */
+  .rail-shell .sec-eyebrow{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.24em;color:var(--cyan);text-transform:uppercase}
+  /* records: elite pass */
+  #records-hero .pl-title{font-size:clamp(27px,3vw,38px);letter-spacing:-.028em;margin-top:10px}
+  #records-hero .pl-sub{font-size:14px;line-height:1.7;max-width:600px;color:var(--ink-dim)}
+  #records-hero.sec{padding-bottom:4px}
+  #case-records-sec .sec-head-lg{letter-spacing:-.026em}
+  #case-records{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
 }
 </style>
 </section>
@@ -4595,21 +4615,16 @@ function osiRailHtml(active){
 }
 function osiRailMount(){
   OSI_RAIL_VIEWS.forEach(function(v){
-    var sec=document.querySelector('section[data-view="'+v+'"]'); if(!sec) return;
-    if(sec.querySelector('.rail-grid')) return;
-    var cont=null;
-    for(var i=0;i<sec.children.length;i++){
-      var el=sec.children[i];
-      if(el.tagName==='DIV'){ cont=el; break; }
-    }
-    if(!cont) return;
-    var grid=document.createElement('div'); grid.className='rail-grid';
-    sec.insertBefore(grid, cont);
+    if(document.querySelector('.rail-shell[data-shell="'+v+'"]')) return;
+    var secs=Array.prototype.slice.call(document.querySelectorAll('section[data-view="'+v+'"]'));
+    if(!secs.length) return;
+    var shell=document.createElement('div'); shell.className='rail-shell'; shell.setAttribute('data-shell',v);
     var rail=document.createElement('aside'); rail.className='fo-rail'; rail.setAttribute('aria-label','Console navigation');
     rail.innerHTML=osiRailHtml(v);
     var main=document.createElement('div'); main.className='rail-main';
-    main.appendChild(cont);
-    grid.appendChild(rail); grid.appendChild(main);
+    secs[0].parentNode.insertBefore(shell, secs[0]);
+    secs.forEach(function(sc){ main.appendChild(sc); });
+    shell.appendChild(rail); shell.appendChild(main);
   });
 }
 if(document.readyState!=='loading'){ try{ osiRailMount(); }catch(e){} } else { document.addEventListener('DOMContentLoaded', function(){ try{ osiRailMount(); }catch(e){} }); }
