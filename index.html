@@ -902,6 +902,8 @@ body[data-view="records"] .sb-item[data-view="records"]{background:rgba(34,211,2
             </select>
           </label>
         </div>
+        <div id="case-records"></div>
+        <div class="fo-pager"><span class="fo-count mono" id="cr-count" aria-live="polite"></span><div class="fo-pnav" id="cr-pnav" role="navigation" aria-label="Record pages"></div></div>
       </div>
       <aside class="cr-aside" aria-label="Archive standards">
         <div class="lb-card">
@@ -1005,10 +1007,6 @@ body.cr-drawer-lock{overflow:hidden}
 .cr-pack:hover{background:rgba(255,122,61,.16)}
 @media(max-width:600px){#pf-cases-body{grid-template-columns:1fr}}
 </style>
-<div class="wrap">
-  <div id="case-records"></div>
-  <div class="fo-pager"><span class="fo-count mono" id="cr-count" aria-live="polite"></span><div class="fo-pnav" id="cr-pnav" role="navigation" aria-label="Record pages"></div></div>
-</div>
 <style id="osi-records-premium">
 /* ============ PUBLIC RECORDS: forensic archive console ============ */
 .cr-hwrap{max-width:1360px}
@@ -1056,6 +1054,11 @@ body.cr-drawer-lock{overflow:hidden}
 .cr-copy{background:none;border:1px solid var(--line);border-radius:5px;color:rgba(148,163,184,.6);font-size:10px;padding:2px 5px;cursor:pointer;line-height:1;transition:all .12s}
 .cr-copy:hover{color:var(--cyan);border-color:rgba(34,211,238,.35)}
 .cr-arrow{margin-left:auto;color:rgba(148,163,184,.4);font-size:13px}
+.cr-noyet{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:48px 24px;border:1px dashed var(--line-bright);border-radius:14px;background:rgba(255,255,255,.01)}
+.cr-noyet-ic{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.2);color:var(--cyan)}
+.cr-noyet b{font-family:'Archivo',sans-serif;font-size:16px;font-weight:800;color:var(--ink-bright);letter-spacing:-.01em}
+.cr-noyet span{font-size:12px;color:rgba(148,163,184,.6);line-height:1.6;max-width:400px}
+.cr-noyet .cr-btn{margin-top:8px}
 .fd-it:hover .cr-arrow{color:var(--cyan)}
 </style>
 </section>
@@ -1851,12 +1854,12 @@ a.fd-ago:hover{color:var(--cyan)}
   .rail-shell > .fo-rail{grid-column:1;grid-row:1}
   .rail-shell .rail-main{grid-column:2;grid-row:1;min-width:0}
   .rail-shell .rail-main > .sec{padding-top:30px}
-  /* inner wrappers must NOT re-center or re-narrow inside the grid cell */
+  /* inner wrappers: cap width to a readable column, left-aligned in the grid cell (not stretched, not re-centered) */
   .rail-shell .rail-main .wrap,
   .rail-shell .rail-main .lb-shell,
   .rail-shell .rail-main .ab-wrap,
   .rail-shell .rail-main .cr-hwrap,
-  .rail-shell .rail-main .pl-shell{max-width:none;margin-left:0;margin-right:0;padding-left:34px;padding-right:34px}
+  .rail-shell .rail-main .pl-shell{max-width:1180px;margin-left:0;margin-right:auto;padding-left:34px;padding-right:34px}
   #wire-view .vsub{display:none}
   /* console tone across the railed views */
   .rail-shell .sec-eyebrow{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.24em;color:var(--cyan);text-transform:uppercase}
@@ -3090,7 +3093,7 @@ var DEMO_STEPS = [
   { view:'registry', sel:'#exchange-pack .ep-flow', sel2:'#exchange-pack', noCursor:true, dur:9500,
     title:'From one record, three escalation packs',
     body:'Once a case clears review, OSI turns the public evidence into ready-to-send briefs: a Victim Brief in plain language, an Exchange Pack for a compliance desk, and a Law Enforcement Brief for cyber units. Every pack is AI-assisted and always human-reviewed before it can go out.' },
-  { view:'records', sel:'#case-records .cr-card', sel2:'#case-records-sec', dur:9000,
+  { view:'records', sel:'#case-records .cr-card', sel2:'#records-hero', dur:9000,
     title:'The public case archive',
     body:'Reviewed and sealed cases live here as compact, verifiable records: the case id, an honest status of Reviewed or Sealed, the on-chain evidence, and any reviewed packs. It reads like an intelligence archive, not a feed.' },
   { view:'records', box:'demoBoxRecord', modalMode:true, modalPoint:'.crd-dl', cardLeft:true, dur:11000,
@@ -6767,13 +6770,16 @@ function crEvidenceCount(r){ return crCountTokens(r.tx) + crCountTokens(r.onchai
 function crAnalystReviews(r){ var t = (typeof vouchTally==='function') ? vouchTally('report', String(r.id)) : {approve:[],reject:[]}; return (t.approve||[]).length + (t.reject||[]).length; }
 async function renderCaseRecords(){
   var host = document.getElementById('case-records'); if(!host) return;
-  var sec = document.getElementById('case-records-sec');
-  if(typeof SUPA_ON === 'undefined' || !SUPA_ON){ if(sec) sec.style.display='none'; return; }
+  if(typeof SUPA_ON === 'undefined' || !SUPA_ON){
+    window.__crList = []; window.__crChallenged = {}; window.__crOpenChallengeCount = 0;
+    crPaint(); return;
+  }
   try{
     var reports = await supaGet('reports?select=id,company,summary,onchain,offchain,tx,wallet,sealed,created_at&approved=eq.true&order=created_at.desc&limit=48') || [];
-    if(!reports.length){ if(sec) sec.style.display='none'; return; }
     var packs = [];
-    try{ packs = await supaGet('escalation_packs?status=eq.approved&select=case_ref,pack_type,content&order=created_at.desc') || []; }catch(_e){}
+    if(reports.length){
+      try{ packs = await supaGet('escalation_packs?status=eq.approved&select=case_ref,pack_type,content&order=created_at.desc') || []; }catch(_e){}
+    }
     var byCase = {}; packs.forEach(function(p){ (byCase[p.case_ref] = byCase[p.case_ref] || []).push(p); });
     window.__crPacks = byCase;
     var recMap = {}; reports.forEach(function(r){ recMap[r.id] = r; });
@@ -6784,10 +6790,9 @@ async function renderCaseRecords(){
       var chSet = {}; ch.forEach(function(c){ chSet[String(c.item_id)] = 1; });
       window.__crChallenged = chSet; window.__crOpenChallengeCount = ch.length;
     }catch(_e){ window.__crChallenged = {}; window.__crOpenChallengeCount = 0; }
-    if(sec) sec.style.display='';
     crState.page = 1;
     crPaint();
-  }catch(e){ if(sec) sec.style.display='none'; }
+  }catch(e){ window.__crList = window.__crList || []; crPaint(); }
 }
 function crFilter(f){
   crState.filter=f; crState.page=1;
@@ -6836,7 +6841,9 @@ function crPaint(){
   var from=(crState.page-1)*CR_PER, page=reports.slice(from, from+CR_PER);
   host.innerHTML = page.length
     ? page.map(function(r){ return crCard(r, (window.__crPacks||{})[r.id] || []); }).join('')
-    : '<div class="fd-empty mono" style="grid-column:1/-1;padding:22px 4px">No records match this search or filter.</div>';
+    : ((window.__crList||[]).length
+        ? '<div class="fd-empty mono" style="grid-column:1/-1;padding:22px 4px">No records match this search or filter.</div>'
+        : '<div class="cr-noyet"><div class="cr-noyet-ic">▤</div><b>No public records yet.</b><span>When a case clears peer review and gets sealed, it is published here, signed and verifiable on Solana.</span><button class="cr-btn primary" type="button" onclick="fieldOpenForm()">Open the first case</button></div>');
   var cnt=document.getElementById('cr-count');
   if(cnt) cnt.textContent = reports.length ? ('Showing '+(from+1)+'\u2013'+(from+page.length)+' of '+reports.length+' record'+(reports.length===1?'':'s')) : '';
   var pn=document.getElementById('cr-pnav');
