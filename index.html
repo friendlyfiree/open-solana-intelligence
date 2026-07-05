@@ -2138,6 +2138,185 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   <div class="wrap"><div id="profile-body"></div></div>
 </section>
 
+<section class="sec" id="about-hero" data-view="methodology">
+<div class="wrap ab-wrap">
+<div class="ab-console">
+<div class="ab-main">
+  <div class="ab-eyebrow mono">Methodology &amp; Safety</div>
+  <h1 class="ab-title">Open intelligence, not a paywall.</h1>
+  <p class="ab-sub">OSI turns public Solana incident evidence into wallet-signed, reviewed, challengeable records. We provide the tools, the process, and the standards so anyone can contribute to transparent on-chain intelligence.</p>
+
+  <div class="ab-isgrid">
+    <div class="ab-is">
+      <div class="ab-is-h"><span class="ab-is-ic ok">✓</span><span class="mono">OSI is</span></div>
+      <div class="ab-li ok"><i>✓</i>A public evidence registry</div>
+      <div class="ab-li ok"><i>✓</i>An analyst review layer</div>
+      <div class="ab-li ok"><i>✓</i>A wallet-signed proof trail</div>
+      <div class="ab-li ok"><i>✓</i>An educational forensic workspace</div>
+      <div class="ab-li ok"><i>✓</i>Community-driven and open</div>
+    </div>
+    <div class="ab-is not">
+      <div class="ab-is-h"><span class="ab-is-ic no">✕</span><span class="mono">OSI is not</span></div>
+      <div class="ab-li no"><i>✕</i>A recovery service</div>
+      <div class="ab-li no"><i>✕</i>A legal authority</div>
+      <div class="ab-li no"><i>✕</i>A private investigator</div>
+      <div class="ab-li no"><i>✕</i>A pay-to-accuse platform</div>
+      <div class="ab-li no"><i>✕</i>A guarantee of fund returns</div>
+    </div>
+  </div>
+
+  <div class="ab-sec-h mono">How OSI works</div>
+  <div class="ab-flow">
+    <div class="ab-step"><span class="ab-n mono">1</span><div class="ab-ic">⌕</div><b>Search the Registry</b><span>Look up cases, wallets, and sealed public records.</span></div>
+    <div class="ab-step"><span class="ab-n mono">2</span><div class="ab-ic">▣</div><b>Open a Case</b><span>Free and wallet-signed. It goes straight into peer review.</span></div>
+    <div class="ab-step"><span class="ab-n mono">3</span><div class="ab-ic">◎</div><b>Analysts Investigate</b><span>Trace fund flows, collect evidence, file reports.</span></div>
+    <div class="ab-step"><span class="ab-n mono">4</span><div class="ab-ic vio">⚖</div><b>Peer Review</b><span>Weighted consensus publishes or closes. One immutable vote each.</span></div>
+    <div class="ab-step"><span class="ab-n mono">5</span><div class="ab-ic ok">✓</div><b>Public Record</b><span>Sealed and signed on-chain, and forever challengeable.</span></div>
+    <div class="ab-step"><span class="ab-n mono">6</span><div class="ab-ic ok">◈</div><b>Optional Support</b><span>Peer-to-peer SOL to the author. Never through OSI.</span></div>
+  </div>
+
+  <div class="ab-memo-band">
+    <span class="ab-band-ic">⛓</span>
+    <div class="ab-band-t"><b>All critical actions are memo-signed on Solana.</b><span>Nothing is hidden. Anyone can verify.</span></div>
+    <button class="ab-band-b" type="button" onclick="showView('prooflog')">View Proof Log ↗</button>
+  </div>
+
+  <div class="ab-sec-h mono">Core principles</div>
+  <div class="ab-rules">
+    <div class="ab-rule"><div class="ab-ic ok">▤</div><b>Public evidence only</b><span>Only public on-chain data and public sources. No private data, no doxxing.</span></div>
+    <div class="ab-rule"><div class="ab-ic vio">◇</div><b>No recovery promise</b><span>OSI documents and traces. It never guarantees the return of any funds.</span></div>
+    <div class="ab-rule"><div class="ab-ic warn">⚖</div><b>Challengeable records</b><span>Every claim can be reviewed and challenged. Weak attribution is flagged, not censored.</span></div>
+    <div class="ab-rule"><div class="ab-ic">✎</div><b>Wallet-signed actions</b><span>Important actions are written as memos and signed on Solana for verifiable transparency.</span></div>
+  </div>
+
+  <div class="ab-cta">
+    <span class="ab-cta-ic">◉</span>
+    <div class="ab-cta-t"><b>Join the open intelligence movement.</b><span>Open cases, analyze, review, and build the record together, in the open.</span></div>
+    <div class="ab-cta-b">
+      <button class="ab-b primary" type="button" onclick="fieldOpenForm()">Open a Case ↗</button>
+      <button class="ab-b" type="button" onclick="showView('records')">Browse Public Records ↗</button>
+    </div>
+  </div>
+</div>
+<aside class="ab-aside" aria-label="Trust model">
+  <div class="lb-card">
+    <div class="fd-h mono">Trust model</div>
+    <div class="ab-tm">
+      <div class="ab-tm-i"><div class="ab-ic ok sm">▤</div><div><b>Transparent</b><span>All records, reviews, and signatures are public and verifiable.</span></div></div>
+      <div class="ab-tm-i"><div class="ab-ic ok sm">◈</div><div><b>Non-custodial</b><span>OSI never holds funds. You remain in control.</span></div></div>
+      <div class="ab-tm-i"><div class="ab-ic ok sm">⛓</div><div><b>Immutable</b><span>Signed memos on Solana create a tamper-proof audit trail.</span></div></div>
+      <div class="ab-tm-i"><div class="ab-ic ok sm">◎</div><div><b>Community-driven</b><span>The record stays strong through open review and scrutiny.</span></div></div>
+    </div>
+  </div>
+  <div class="lb-card">
+    <div class="fd-h mono">Memo standards</div>
+    <div class="ab-tags">
+      <div class="ab-tag"><code>OSI_CASE_OPENED</code><span>a new case is opened</span></div>
+      <div class="ab-tag"><code>OSI_CASE_BACKED</code><span>peer support is pledged</span></div>
+      <div class="ab-tag"><code>OSI_REPORT_SUBMITTED</code><span>a report is filed</span></div>
+      <div class="ab-tag"><code>OSI_ANALYST_VOUCH</code><span>an analyst votes on an item</span></div>
+      <div class="ab-tag"><code>OSI_CHALLENGE_FILED</code><span>a record is challenged</span></div>
+      <div class="ab-tag"><code>OSI_WIRE_DISPATCH_SUBMITTED</code><span>a dispatch is filed</span></div>
+    </div>
+  </div>
+  <div class="lb-card">
+    <div class="fd-h mono">Safety first</div>
+    <div class="ab-safe">
+      <div class="ab-safe-i"><span class="ab-warn">⚠</span>We never DM you first.</div>
+      <div class="ab-safe-i"><span class="ab-warn">⚠</span>We never ask for your funds or private keys.</div>
+      <div class="ab-safe-i"><span class="ab-warn">⚠</span>Anyone claiming to recover funds for a fee is not us.</div>
+    </div>
+  </div>
+</aside>
+</div>
+<div class="ab-deep mono">The fine print · the method, the analyst protocol, and the roadmap follow below</div>
+</div>
+<style id="osi-about-premium">
+/* ============ ABOUT: OPEN INTELLIGENCE MODEL ============ */
+.ab-wrap{max-width:1240px;margin:0 auto;padding:0 22px}
+.ab-console{margin-top:4px}
+@media(min-width:1180px){
+  .ab-console{display:grid;grid-template-columns:minmax(0,1fr) 324px;gap:22px;align-items:start}
+  .ab-main{grid-column:1;grid-row:1;min-width:0}
+  .ab-aside{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:14px;position:sticky;top:96px}
+}
+@media(max-width:1179px){ .ab-aside{display:flex;flex-direction:column;gap:14px;margin-top:22px} }
+.ab-eyebrow{font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--sol)}
+.ab-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(28px,3.2vw,40px);letter-spacing:-.028em;color:var(--ink-bright);margin:12px 0 0}
+.ab-sub{font-size:14px;line-height:1.75;color:var(--ink-dim);max-width:560px;margin:14px 0 0}
+.ab-sec-h{font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--sol);margin:30px 0 14px}
+/* is / is not */
+.ab-isgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:26px}
+@media(max-width:760px){ .ab-isgrid{grid-template-columns:1fr} }
+.ab-is{border:1px solid rgba(20,241,149,.28);border-radius:13px;background:linear-gradient(180deg,rgba(20,241,149,.035),transparent 55%),var(--bg-card);padding:18px 19px 14px}
+.ab-is.not{border-color:rgba(255,120,90,.3);background:linear-gradient(180deg,rgba(255,120,90,.035),transparent 55%),var(--bg-card)}
+.ab-is-h{display:flex;align-items:center;gap:10px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:13px}
+.ab-is-h .mono{color:var(--sol)} .ab-is.not .ab-is-h .mono{color:#ff9d85}
+.ab-is-ic{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px}
+.ab-is-ic.ok{background:rgba(20,241,149,.09);border:1px solid rgba(20,241,149,.3);color:var(--sol)}
+.ab-is-ic.no{background:rgba(255,120,90,.09);border:1px solid rgba(255,120,90,.32);color:#ff9d85}
+.ab-li{display:flex;align-items:center;gap:11px;font-size:13px;color:var(--ink);padding:8px 0;border-bottom:1px solid var(--line)}
+.ab-li:last-child{border-bottom:0}
+.ab-li i{font-style:normal;font-size:10px;width:16px;flex-shrink:0;text-align:center}
+.ab-li.ok i{color:var(--sol)} .ab-li.no i{color:#ff9d85}
+/* flow */
+.ab-flow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;position:relative}
+@media(max-width:1279px){ .ab-flow{grid-template-columns:repeat(3,minmax(0,1fr))} }
+@media(max-width:700px){ .ab-flow{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.ab-step{position:relative;border:1px solid var(--line);border-radius:13px;background:var(--bg-card);padding:18px 15px 16px;transition:border-color .14s,transform .14s}
+.ab-step:hover{border-color:var(--line-bright);transform:translateY(-2px)}
+.ab-n{position:absolute;top:11px;left:12px;width:20px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--ink-dim);border:1px solid var(--line-bright);background:var(--bg-raised)}
+.ab-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.22);color:var(--cyan);margin:8px auto 12px}
+.ab-ic.ok{background:rgba(20,241,149,.07);border-color:rgba(20,241,149,.22);color:var(--sol)}
+.ab-ic.vio{background:rgba(139,92,246,.09);border-color:rgba(139,92,246,.24);color:#b9a2f7}
+.ab-ic.warn{background:rgba(255,176,32,.08);border-color:rgba(255,176,32,.26);color:var(--amber)}
+.ab-ic.sm{width:30px;height:30px;border-radius:9px;font-size:12px;margin:0;flex-shrink:0}
+.ab-step b{display:block;text-align:center;font-family:'Archivo',sans-serif;font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--ink-bright);line-height:1.35}
+.ab-step span{display:block;text-align:center;font-size:10.5px;color:rgba(148,163,184,.55);line-height:1.55;margin-top:7px}
+/* memo band */
+.ab-memo-band{display:flex;align-items:center;gap:14px;border:1px solid rgba(20,241,149,.25);border-radius:13px;background:linear-gradient(90deg,rgba(20,241,149,.05),transparent 60%),var(--bg-card);padding:15px 18px;margin-top:24px;flex-wrap:wrap}
+.ab-band-ic{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(20,241,149,.08);border:1px solid rgba(20,241,149,.3);color:var(--sol);font-size:14px;flex-shrink:0}
+.ab-band-t{flex:1;min-width:220px}
+.ab-band-t b{display:block;font-size:13.5px;color:var(--ink-bright);letter-spacing:-.01em}
+.ab-band-t span{display:block;font-size:11px;color:rgba(148,163,184,.55);margin-top:3px}
+.ab-band-b{border:1px solid rgba(20,241,149,.35);background:transparent;color:var(--sol);border-radius:9px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:10px 16px;cursor:pointer;transition:all .13s}
+.ab-band-b:hover{background:rgba(20,241,149,.08)}
+/* principles */
+.ab-rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:1100px){ .ab-rules{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media(max-width:600px){ .ab-rules{grid-template-columns:1fr} }
+.ab-rule{border:1px solid var(--line);border-radius:13px;background:var(--bg-card);padding:17px 16px}
+.ab-rule .ab-ic{margin:0 0 12px}
+.ab-rule b{display:block;font-family:'Archivo',sans-serif;font-size:13.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink-bright)}
+.ab-rule span{display:block;font-size:11px;color:rgba(148,163,184,.55);line-height:1.6;margin-top:6px}
+/* cta */
+.ab-cta{display:flex;align-items:center;gap:16px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,#0b1320,var(--bg-card));padding:20px 22px;margin-top:28px;flex-wrap:wrap}
+.ab-cta-ic{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(20,241,149,.07);border:1px solid rgba(20,241,149,.25);color:var(--sol);font-size:16px;flex-shrink:0}
+.ab-cta-t{flex:1;min-width:240px}
+.ab-cta-t b{display:block;font-family:'Archivo',sans-serif;font-size:16px;font-weight:800;letter-spacing:-.015em;color:var(--ink-bright)}
+.ab-cta-t span{display:block;font-size:11.5px;color:rgba(148,163,184,.55);margin-top:4px;line-height:1.6}
+.ab-cta-b{display:flex;gap:10px;flex-wrap:wrap}
+.ab-b{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;padding:12px 18px;cursor:pointer;transition:all .13s}
+.ab-b:hover{border-color:var(--line-bright)}
+.ab-b.primary{background:var(--sol);border-color:var(--sol);color:#04140b}
+.ab-b.primary:hover{filter:brightness(1.08)}
+/* aside */
+.ab-tm{padding:8px 15px 12px}
+.ab-tm-i{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.ab-tm-i:last-child{border-bottom:0}
+.ab-tm-i b{display:block;font-size:12.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.ab-tm-i span{display:block;font-size:10.5px;color:rgba(148,163,184,.55);line-height:1.55;margin-top:3px}
+.ab-tags{padding:10px 15px 12px}
+.ab-tag{display:flex;align-items:center;gap:10px;padding:7px 0}
+.ab-tag code{font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.04em;color:var(--sol);background:rgba(20,241,149,.06);border:1px solid rgba(20,241,149,.24);border-radius:6px;padding:4px 8px;white-space:nowrap}
+.ab-tag span{font-size:10px;color:rgba(148,163,184,.55)}
+.ab-safe{padding:8px 15px 14px}
+.ab-safe-i{display:flex;align-items:center;gap:11px;font-size:12px;color:var(--ink-dim);padding:8px 0;border-bottom:1px solid var(--line);line-height:1.5}
+.ab-safe-i:last-child{border-bottom:0}
+.ab-warn{color:var(--amber);font-size:12px;flex-shrink:0}
+.ab-deep{margin:34px 0 6px;text-align:center;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:rgba(148,163,184,.35)}
+</style>
+</section>
 <section class="sec" id="methodology" data-view="methodology">
 <style>
 .mth-intro{font-size:14px;color:var(--ink-dim);line-height:1.7;max-width:760px;margin-bottom:24px}
