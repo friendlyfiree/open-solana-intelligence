@@ -2220,6 +2220,15 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     </div>
   </div>
   <div class="lb-card">
+    <div class="fd-h mono">Evidence grading</div>
+    <div class="ab-tm">
+      <div class="ab-tm-i"><div class="ab-ic ok sm">●</div><div><b>Verified</b><span>A definitive on-chain link: a direct transfer or a transaction the subject itself signed.</span></div></div>
+      <div class="ab-tm-i"><div class="ab-ic sm">●</div><div><b>High confidence</b><span>Strong evidentiary clustering. Timing, amounts and routing converge, without one cryptographic proof.</span></div></div>
+      <div class="ab-tm-i"><div class="ab-ic sm" style="color:rgba(148,163,184,.6);background:rgba(148,163,184,.06);border-color:var(--line)">●</div><div><b>Publicly labeled</b><span>Owner-disclosed and independently sanity-checked. The source is credited, not assumed.</span></div></div>
+      <div class="ab-tm-i"><div class="ab-ic warn sm">⚠</div><div><b>Where the method stops</b><span>Clustering is probabilistic, never certainty. Confidence is graded, never assumed.</span></div></div>
+    </div>
+  </div>
+  <div class="lb-card">
     <div class="fd-h mono">Safety first</div>
     <div class="ab-safe">
       <div class="ab-safe-i"><span class="ab-warn">⚠</span>We never DM you first.</div>
@@ -2229,7 +2238,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   </div>
 </aside>
 </div>
-<div class="ab-deep mono">The fine print · the method, the analyst protocol, and the roadmap follow below</div>
+<div class="ab-deep mono">Where this goes · the roadmap</div>
 </div>
 <style id="osi-about-premium">
 /* ============ ABOUT: OPEN INTELLIGENCE MODEL ============ */
@@ -2317,80 +2326,6 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .ab-deep{margin:34px 0 6px;text-align:center;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:rgba(148,163,184,.35)}
 </style>
 </section>
-<section class="sec" id="methodology" data-view="methodology">
-<style>
-.mth-intro{font-size:14px;color:var(--ink-dim);line-height:1.7;max-width:760px;margin-bottom:24px}
-@keyframes mth-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.mth-conf-h{font-family:'Archivo',sans-serif;font-weight:800;font-size:17px;margin-bottom:13px;letter-spacing:-.01em}
-.mth-conf{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px}
-.mth-tier{border:1px solid var(--line);background:var(--bg-card);padding:16px;border-top:2px solid var(--line-bright)}
-.mth-tier.t-v{border-top-color:var(--sol)}
-.mth-tier.t-h{border-top-color:var(--cyan)}
-.mth-tier.t-l{border-top-color:var(--ink-faint)}
-.mth-tier-h{display:flex;align-items:center;gap:8px;font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;margin-bottom:8px}
-.mth-tier p{font-size:12px;color:var(--ink-faint);line-height:1.6}
-.mth-stop{border:1px solid rgba(255,176,32,.25);background:rgba(255,176,32,.05);border-left:2px solid var(--amber);padding:16px 18px;font-size:13px;color:var(--ink-dim);line-height:1.65}
-.mth-stop b{color:var(--amber)}
-@media(max-width:720px){.mth-conf{grid-template-columns:1fr}}
-</style>
-  <div class="wrap">
-    <div class="hiw">
-      <div class="hiw-kick mono">// how OSI works</div>
-      <h3>Open intelligence, not a paywall</h3>
-      <p class="hiw-lead">When SOL leaves your wallet, or an institution's, and you cannot trace it yourself, the usual options are a paid analyst who answers to one client, or silence. OSI runs the opposite way. Anyone can open a case for free; verified analysts investigate, their peers review the work, and the result becomes a permanent public record anyone can check. The reward here is reputation, not resale, and none of it is a promise to recover what was lost.</p>
-      <div class="hiw-flow">
-        <div class="hiw-node start"><div class="hiw-t">Something needs tracing</div><div class="hiw-s">A drained wallet, a suspicious flow, or a scam payout.</div></div>
-        <div class="hiw-arrow">↓</div>
-        <div class="hiw-node"><div class="hiw-t">Search the open registry</div><div class="hiw-s">Everything already traced is public and free to read.</div></div>
-        <div class="hiw-split">
-          <div class="hiw-leg">
-            <div class="hiw-legtag found">found</div>
-            <div class="hiw-node ok"><div class="hiw-t">Already on the record</div><div class="hiw-s">Read it, cite it, build on it. No fee, no gate.</div></div>
-          </div>
-          <div class="hiw-leg">
-            <div class="hiw-legtag open">not found</div>
-            <div class="hiw-node"><div class="hiw-t">Open a case, free</div><div class="hiw-s">Describe what happened and sign it on-chain. No fee to open. If you later choose to fund a reward, that pledge is your public commitment; OSI never holds it or guarantees payment.</div></div>
-            <div class="hiw-arrow sm">↓</div>
-            <div class="hiw-node"><div class="hiw-t">Analysts investigate</div><div class="hiw-s">Trace funding, custody, and validators directly on-chain.</div></div>
-            <div class="hiw-arrow sm">↓</div>
-            <div class="hiw-node"><div class="hiw-t">Peer review</div><div class="hiw-s">Other analysts vouch; weighted consensus clears the work.</div></div>
-          </div>
-        </div>
-        <div class="hiw-arrow">↓</div>
-        <div class="hiw-node pub"><div class="hiw-t">Published to the public record</div><div class="hiw-s">Open and permanent, with the methodology attached so the technique spreads, not just the result.</div></div>
-        <div class="hiw-arrow">↓</div>
-        <div class="hiw-node"><div class="hiw-t">Optional support · a public track record</div><div class="hiw-s">If the person who opened the case chooses to fund a reward, they release it peer-to-peer. OSI verifies the work, never the payment, and never guarantees it. Mostly what an analyst earns is a signed, public track record.</div></div>
-        <div class="hiw-arrow">↓</div>
-        <div class="hiw-node end"><div class="hiw-t">Everyone gets the intelligence</div><div class="hiw-s">The whole ecosystem can verify it. A closed marketplace stops at the buyer; OSI stops at the public.</div></div>
-      </div>
-    </div>
-    <div class="hiw-div"></div>
-
-    <div class="sec-head">
-      <h2>The method, in the open</h2>
-      <div class="legend"><span class="mono" style="color:var(--ink-faint)">no black boxes · every step reproducible in a block explorer</span></div>
-    </div>
-    <p class="mth-intro">Every attribution here is a chain of evidence anyone can re-walk: anchor on a transaction, follow the funding, map the routing across wallets, cluster the related accounts, and cross-validate before anything is labeled. Nothing is taken on trust. A wrong call is visible and fixable in the open, not buried in a private dataset.</p>
-
-    <div class="mth-conf-h">Confidence is graded, never assumed</div>
-    <div class="mth-conf">
-      <div class="mth-tier t-v">
-        <div class="mth-tier-h"><span class="chip verified"></span>Verified</div>
-        <p>A definitive on-chain link: a direct transfer from a known or labeled wallet, or a transaction the subject itself signed. The strongest tier.</p>
-      </div>
-      <div class="mth-tier t-h">
-        <div class="mth-tier-h"><span class="chip high"></span>High confidence</div>
-        <p>Strong evidentiary clustering. Timing, amounts, the routing pattern and reused addresses all converge, but no single cryptographic proof of ownership.</p>
-      </div>
-      <div class="mth-tier t-l">
-        <div class="mth-tier-h"><span class="chip labeled"></span>Publicly labeled</div>
-        <p>The owner or a connected exchange has publicly disclosed the address. We relay it and run an independent sanity check, but the source is their statement.</p>
-      </div>
-    </div>
-
-    <div class="mth-stop"><b>Where the method stops.</b> Clustering is probabilistic. "High confidence" means the evidence strongly converges, not that ownership is legally proven. Every attribution here can be challenged with better evidence, and that is the point of doing it in the open: a wrong call is visible and fixable, not buried in a private dataset.</div>
-  </div>
-</section>
 
 <section class="sec" id="case-studies" data-view="records">
   <div class="wrap">
@@ -2410,38 +2345,10 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <!-- WALLET REQUESTS -->
     <div class="tab-panel active" id="tab-analysts">
 <style>
-.rec-hero{position:relative;border:1px solid var(--line-bright);border-left:2px solid var(--cyan);background:linear-gradient(120deg,var(--bg-card),var(--bg));padding:30px 28px;overflow:hidden}
-.rec-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(34,211,238,.045),transparent);transform:translateX(-100%);animation:rec-sweep 7s ease-in-out infinite;pointer-events:none}
 @keyframes rec-sweep{0%,100%{transform:translateX(-110%)}50%{transform:translateX(110%)}}
-.rec-ey{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;color:var(--cyan)}
-.rec-ey i{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 1.6s infinite}
-.rec-h{font-family:'Archivo',sans-serif;font-size:clamp(24px,3.4vw,36px);font-weight:900;letter-spacing:-.02em;margin:14px 0 11px;line-height:1.05;max-width:620px}
-.rec-h span{color:var(--cyan)}
-.rec-sub{font-size:14px;color:var(--ink-dim);max-width:580px;line-height:1.6}
-.rec-sub b{color:var(--ink)}
-.rec-cta{margin-top:26px;display:inline-flex;align-items:center;gap:9px;background:var(--cyan);color:var(--bg);border:0;border-radius:8px;padding:13px 20px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.1em;cursor:pointer}
-.rec-cta:hover{background:var(--sol-deep)}
-.rec-h span{color:var(--cyan)}
-.rec-principles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:24px 0 6px}
-.rec-pr{display:flex;gap:11px;align-items:flex-start;border:1px solid var(--line);border-radius:11px;background:linear-gradient(160deg,rgba(34,211,238,.05),rgba(17,23,42,.55));padding:14px 15px;transition:border-color .2s,transform .2s}
-.rec-pr:hover{border-color:rgba(34,211,238,.35);transform:translateY(-2px)}
-.rec-pr-ic{flex:none;width:31px;height:31px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--cyan);background:rgba(34,211,238,.10);border:1px solid rgba(34,211,238,.35);box-shadow:0 0 14px -6px var(--cyan)}
-.rec-pr b{display:block;font-family:'Archivo',sans-serif;font-weight:800;font-size:13.5px;letter-spacing:-.01em;color:var(--ink-bright);margin-bottom:3px}
-.rec-pr>div>span{font-size:11.5px;color:var(--ink-dim);line-height:1.5}
 @media(max-width:680px){.rec-principles{grid-template-columns:1fr}}
 .rec-sec-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-faint);margin:36px 0 14px;display:flex;align-items:center;gap:10px}
 .rec-sec-h::before{content:"";width:22px;height:1px;background:var(--line-bright)}
-.rec-ladder{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:1px solid var(--line)}
-.rec-rung{position:relative;padding:18px 16px;border-right:1px solid var(--line);transition:background .15s}
-.rec-rung:last-child{border-right:0}
-.rec-rung .lv{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--ink-faint)}
-.rec-rung .nm{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;margin-top:9px;letter-spacing:-.01em}
-.rec-rung .rq{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);margin-top:7px;line-height:1.5}
-.rec-rung:hover{background:rgba(34,211,238,.04)}
-.rec-rung.seal{background:rgba(153,69,255,.06);border-left:2px solid var(--violet)}
-.rec-rung.seal .nm{color:#c6a0ff}
-.rec-rung.seal .lv{color:#9d7bd1}
-.rec-rung.seal:hover{background:rgba(153,69,255,.1)}
 .rec-apply{border:1px solid var(--line-bright);border-left:2px solid var(--cyan);background:var(--bg-card);padding:26px}
 .rec-apply h3{font-family:'Archivo',sans-serif;font-weight:800;font-size:19px;margin:0 0 5px}
 .rec-apply .lead{font-size:12.5px;color:var(--ink-faint);margin:0 0 18px;line-height:1.5}
@@ -2453,14 +2360,6 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .rec-go:hover{background:var(--sol-deep)}
 .rec-note{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);margin-top:12px;line-height:1.55}
 .rec-note b{color:var(--ink-dim)}
-.rec-craft{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.rec-card{border:1px solid var(--line);border-left:2px solid var(--line-bright);padding:16px;background:var(--bg-card)}
-.rec-card .ic{font-size:15px;line-height:1}
-.rec-card .t{font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;margin-top:9px}
-.rec-card .d{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);margin-top:7px;line-height:1.5}
-.rec-card.up{border-left-color:var(--cyan)}
-.rec-card.dn{border-left-color:var(--red)}
-.rec-card.seal{border-left-color:var(--violet)}
 .rec-floor-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:36px 0 12px;flex-wrap:wrap}
 .rec-floor-h .ttl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-faint);display:flex;align-items:center;gap:10px}
 .rec-floor-h .ttl::before{content:"";width:22px;height:1px;background:var(--line-bright)}
@@ -2468,15 +2367,6 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .rec-clear:hover{color:var(--ink-dim);border-color:var(--line-bright)}
 .rec-phase{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);border:1px dashed var(--line-bright);border-radius:2px;padding:13px 15px;margin-top:18px;line-height:1.55}
 .rec-phase b{color:var(--cyan)}
-.wiki-model{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin:26px 0 6px}
-.wiki-step{display:flex;gap:13px;align-items:flex-start;border:1px solid var(--line);border-left:2px solid var(--cyan);background:var(--bg-card);border-radius:8px;padding:16px 17px}
-.wiki-step .wn{flex:none;width:24px;height:24px;border-radius:50%;background:rgba(34,211,238,.12);color:var(--cyan);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
-.wiki-step b{display:block;font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;letter-spacing:-.01em;margin-bottom:4px}
-.wiki-step span{font-size:12px;color:var(--ink-dim);line-height:1.55}
-.wiki-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-faint);margin:22px 0 -2px}
-.wiki-step{transition:border-color .2s,transform .2s}
-.wiki-step:hover{border-color:rgba(34,211,238,.35);transform:translateY(-2px)}
-.wiki-note{font-size:12.5px;color:var(--ink-faint);line-height:1.6;border:1px dashed var(--line-bright);border-radius:8px;padding:14px 16px;margin:14px 0 4px}
 @media(max-width:680px){.wiki-model{grid-template-columns:1fr}}
 @media(max-width:720px){.rec-ladder{grid-template-columns:repeat(2,1fr)}.rec-rung{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.rec-craft{grid-template-columns:1fr}.rec-frow{grid-template-columns:1fr}}
 @media (prefers-reduced-motion: reduce){.rec-hero::after{animation:none}.rec-ey i{animation:none}}
@@ -2491,49 +2381,6 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 <div id="review-list"></div>
 <div class="rec-phase">⛓ <b>Phase 2:</b> reputation moves on-chain, a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
     </div>
-  </div>
-</section>
-<section class="sec" id="analyst-protocol" data-view="methodology">
-  <div class="wrap">
-<div class="rec-hero">
-  <div class="rec-ey"><i></i>A SELF-GOVERNING DESK // OPEN ROSTER</div>
-  <div class="rec-h">A record the community <span>writes, checks, and signs.</span></div>
-  <div class="rec-sub">Every case is filed in public and signed on-chain. Verified analysts vouch for or challenge each finding, and nothing is published until enough of them independently agree, so no one person owns the verdict.</div>
-  <div class="rec-principles">
-    <div class="rec-pr"><span class="rec-pr-ic">◎</span><div><b>Public by default</b><span>Every case and memo lives on-chain, free to read and to cite.</span></div></div>
-    <div class="rec-pr"><span class="rec-pr-ic">⚖</span><div><b>Peer-reviewed</b><span>A finding clears independent consensus before it is published.</span></div></div>
-    <div class="rec-pr"><span class="rec-pr-ic">⬢</span><div><b>Open roster</b><span>Anyone can earn a seat by doing the work in daylight.</span></div></div>
-  </div>
-  <button class="rec-cta" onclick="apxOpen()">Apply to the roster →</button>
-</div>
-
-<div class="wiki-eyebrow">// HOW A FINDING CLEARS</div>
-<div class="wiki-model">
-  <div class="wiki-step"><span class="wn">1</span><div><b>Anyone contributes</b><span>Open a case or file a finding. Opening is free, and every submission is signed on-chain so it is attributable.</span></div></div>
-  <div class="wiki-step"><span class="wn">2</span><div><b>Peers review</b><span>Verified analysts vouch for or flag the work. Weak or unproven attribution gets caught here, in the open.</span></div></div>
-  <div class="wiki-step"><span class="wn">3</span><div><b>Consensus publishes</b><span>A finding goes public only when enough independent analysts agree. No single voice decides what is true.</span></div></div>
-  <div class="wiki-step"><span class="wn">4</span><div><b>Always correctable</b><span>Every entry stays open and can be challenged with better evidence. A wrong call is fixed in daylight, not buried.</span></div></div>
-</div>
-<p class="wiki-note">Today a maintainer holds the final seal while the analyst base grows, so nothing slips through unchecked. As the roster grows, that power moves to the network. That is the whole direction of the project: a record no one, including us, can quietly control.</p>
-
-<div class="rec-sec-h">CLEARANCE LADDER</div>
-<div class="rec-ladder">
-  <div class="rec-rung"><div class="lv">TIER I</div><div class="nm">Apprentice</div><div class="rq">Sign up. Start tracing.</div></div>
-  <div class="rec-rung"><div class="lv">TIER II</div><div class="nm">Investigator</div><div class="rq">First cleared reports.</div></div>
-  <div class="rec-rung"><div class="lv">TIER III</div><div class="nm">Detective</div><div class="rq">Consistent, sourced work.</div></div>
-  <div class="rec-rung"><div class="lv">TIER IV</div><div class="nm">Chief Detective</div><div class="rq">Trusted to review others.</div></div>
-  <div class="rec-rung seal"><div class="lv">◆ SEAL</div><div class="nm">Maintainer</div><div class="rq">Holds the final approval.</div></div>
-</div>
-<p class="rec-note">Volume alone does not move you. <b>Quality times accepted work</b> does. Reports that clear peer review, and the community's backing on them, build your standing.</p>
-
-<div class="rec-sec-h">HOW PEER REVIEW WORKS</div>
-<div class="rec-craft">
-  <div class="rec-card up"><div class="ic" style="color:var(--sol)">▲</div><div class="t">Upvote</div><div class="d">Recognized analysts vouch for the evidence quality of a report.</div></div>
-  <div class="rec-card dn"><div class="ic" style="color:var(--red)">▼</div><div class="t">Downvote</div><div class="d">Flag weak attribution or missing proof. Clustering is never certainty.</div></div>
-  <div class="rec-card seal"><div class="ic" style="color:var(--violet)">✓</div><div class="t">Maintainer seal</div><div class="d">Final approval before a report goes public on the record.</div></div>
-</div>
-<p class="rec-note">Peer review is off-chain for now: each vouch is recorded against a verified analyst on the roster, attributable but not yet trustless. Phase 2 moves every score on-chain, signed by the analyst and impossible to forge or farm.</p>
-
   </div>
 </section>
 <div class="fo-modal" id="apx-modal" role="dialog" aria-modal="true" aria-label="Apply to the analyst roster" onclick="if(event.target===this)apxClose()">
@@ -3854,7 +3701,7 @@ async function renderReviewFloor(){
     var msg = tot
       ? (tot+' item'+(tot!==1?'s':'')+' in peer review ('+nR+' report'+(nR!==1?'s':'')+', '+nB+' case'+(nB!==1?'s':'')+'). Verified analysts vote; contributors with one approved report or a case win can read the queue.')
       : 'Queue clear. Nothing is awaiting peer review right now.';
-    host.innerHTML = '<div class="rf-note mono">'+msg+' <a onclick="goCommunity(\'tab-analysts\')" style="color:var(--sol);cursor:pointer">Apply to join the roster \u2192</a></div>';
+    host.innerHTML = '<div class="rf-note mono">'+msg+' <a onclick="apxOpen()" style="color:var(--sol);cursor:pointer">Apply to join the roster \u2192</a></div>';
     return;
   }
   let reports=[], bounties=[], challenges=[];
@@ -6937,29 +6784,7 @@ function pfDownloadPack(caseRef, idx){
 .ep-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 @media(max-width:820px){.ep-grid{grid-template-columns:1fr}}
 .hiw{margin-bottom:30px}
-.hiw-kick{font-size:10px;letter-spacing:.2em;color:var(--ink-faint);margin-bottom:10px}
 .hiw h3{font-family:'Archivo',sans-serif;font-weight:800;font-size:22px;letter-spacing:-.02em;margin-bottom:10px}
-.hiw-lead{font-size:13.5px;color:var(--ink-dim);line-height:1.7;max-width:720px;margin-bottom:26px}
-.hiw-flow{display:flex;flex-direction:column;align-items:center;gap:0}
-.hiw-node{width:100%;max-width:560px;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--line);border-left:2px solid var(--line-bright);border-radius:5px;padding:13px 17px;text-align:center}
-.hiw-t{font-family:'Archivo',sans-serif;font-weight:700;font-size:14px}
-.hiw-s{font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin-top:3px}
-.hiw-node.start{border-left-color:var(--ink-faint)}
-.hiw-node.ok{border-left-color:var(--cyan)}
-.hiw-node.ok .hiw-t{color:var(--cyan)}
-.hiw-node.pub{border-left-color:var(--sol);background:linear-gradient(180deg,rgba(20,241,149,.06),var(--bg-card))}
-.hiw-node.pub .hiw-t{color:var(--sol)}
-.hiw-node.end{border-left-color:var(--sol);border-color:rgba(20,241,149,.4)}
-.hiw-node.end .hiw-t{color:var(--sol)}
-.hiw-arrow{color:var(--ink-faint);font-size:16px;line-height:1;padding:8px 0}
-.hiw-arrow.sm{padding:6px 0;font-size:13px}
-.hiw-split{display:flex;gap:18px;width:100%;max-width:560px;margin:8px 0;align-items:flex-start}
-@media(max-width:620px){.hiw-split{flex-direction:column;align-items:stretch;gap:6px}}
-.hiw-leg{flex:1;display:flex;flex-direction:column;align-items:center;gap:0;min-width:0}
-.hiw-legtag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:2px 9px;border-radius:10px;margin-bottom:9px}
-.hiw-legtag.found{color:var(--cyan);border:1px solid rgba(34,211,238,.4)}
-.hiw-legtag.open{color:var(--amber);border:1px solid rgba(255,176,32,.4)}
-.hiw-div{height:1px;background:var(--line);margin:0 0 34px}
 .sol-mk{width:.82em;height:.64em;display:inline-block;vertical-align:-.04em;fill:var(--sol)}
 .fo-op-n.sol .sol-mk{vertical-align:-.02em}
 .demo-root[hidden]{display:none}
@@ -7208,5 +7033,47 @@ function pfDownloadPack(caseRef, idx){
   }catch(e){ showAll(); }
 })();
 </script>
+<style id="osi-neon-polish">
+/* ============ NEON POLISH: crisp type, living signal colors ============ */
+:root{
+  --red:#ff3d64;
+  --ink-dim:#93a0c4;
+  --ink-faint:#66739a;
+}
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+/* verified green: give it light */
+.fo-op-n.sol, .lp-cell.rep, .lp-pod-rep .n, .fp-stat .n,
+.fd-ic.sol, .lb-rule b.ok, .lb-step .n{text-shadow:0 0 12px rgba(20,241,149,.4)}
+.lp-st.v{box-shadow:0 0 12px rgba(20,241,149,.12), inset 0 0 8px rgba(20,241,149,.05)}
+.cm-lock.ok{color:#2dffab;text-shadow:0 0 10px rgba(20,241,149,.65)}
+.ab-li.ok i, .ab-is-ic.ok{color:#2dffab;text-shadow:0 0 9px rgba(20,241,149,.75)}
+.ab-eyebrow, .ab-sec-h{color:#2dffab;text-shadow:0 0 12px rgba(20,241,149,.35)}
+.ab-band-ic, .ab-cta-ic{box-shadow:0 0 18px rgba(20,241,149,.18)}
+.ab-b.primary{box-shadow:0 6px 22px rgba(20,241,149,.28)}
+.ab-b.primary:hover{box-shadow:0 8px 28px rgba(20,241,149,.4)}
+/* rejection red: neon, unmistakable */
+.cm-lock.bad{color:#ff5c7e;text-shadow:0 0 10px rgba(255,61,100,.7)}
+.cm-fill.rj{background:var(--red)!important;box-shadow:0 0 10px rgba(255,61,100,.55)}
+.ab-li.no i, .ab-is-ic.no{color:#ff6684;text-shadow:0 0 9px rgba(255,61,100,.65)}
+.ab-is.not .ab-is-h .mono{color:#ff8099}
+.lb-rule b.bad{color:#ff6684;text-shadow:0 0 8px rgba(255,61,100,.5)}
+.rf-b.rj:hover{border-color:var(--red);color:#ff6684;box-shadow:0 0 14px rgba(255,61,100,.2)}
+/* cyan action: charged */
+.cm-fill{box-shadow:0 0 10px rgba(34,211,238,.5)}
+.fc-open{box-shadow:0 0 0 rgba(34,211,238,0);transition:all .13s}
+.fo-case:hover .fc-open{box-shadow:0 0 16px rgba(34,211,238,.45)}
+.fo-preview .cf-btn.primary{box-shadow:0 8px 26px rgba(34,211,238,.32)}
+.lb-cta{box-shadow:0 6px 20px rgba(34,211,238,.24)}
+.sb-item.active{text-shadow:0 0 12px rgba(255,122,61,.35)}
+/* amber: warnings only, but alive */
+.ab-warn{text-shadow:0 0 9px rgba(255,176,32,.6)}
+.lp-rank.r1{box-shadow:0 0 14px rgba(255,176,32,.22)}
+.lp-pod.first .lp-pod-rep .n{text-shadow:0 0 16px rgba(255,176,32,.5)}
+.rf-tag.rf-challenge{text-shadow:0 0 8px rgba(255,176,32,.4)}
+/* type clarity */
+.fo-title,.ab-title,.lb-title{color:#f4f7ff}
+.fc-title,.lp-who-t b,.fd-tx b,.ab-step b,.ab-rule b{color:#eef3ff}
+.fq-head,.lb-thead{color:#7d89ad}
+</style>
 </body>
 </html>
