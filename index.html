@@ -1475,15 +1475,75 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 .pl-note{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-faint);padding:20px 0}
 .pl-feed{display:flex;flex-direction:column;gap:2px}
 @media(max-width:640px){.pl-shell{padding:0 15px}.pl-title{font-size:25px}}
+/* ---- proof log console ---- */
+.pl-console{margin-top:2px}
+@media(min-width:1180px){
+  .pl-console{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px;align-items:start}
+  .pl-maincol{grid-column:1;grid-row:1;min-width:0}
+  .pl-aside{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:14px;position:sticky;top:96px}
+}
+@media(max-width:1179px){ .pl-aside{display:flex;flex-direction:column;gap:14px;margin-top:24px} }
+.pl-toolbar{display:flex;align-items:stretch;gap:10px;margin:20px 0 4px;flex-wrap:wrap}
+.pl-search-wrap{flex:1;min-width:220px}
+.pl-fils{flex-wrap:wrap}
+.pl-stats{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:6px;padding:2px 15px 12px}
+.pl-stats .fo-op{min-width:0}
+.pl-leg{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)}
+.pl-leg:last-child{border-bottom:0}
+.pl-leg-ic{width:26px;height:26px;flex-shrink:0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);color:var(--cyan)}
+.pl-leg-ic.ok{background:rgba(20,241,149,.08);border-color:rgba(20,241,149,.25);color:var(--sol)}
+.pl-leg-ic.sol{background:rgba(20,241,149,.07);border-color:rgba(20,241,149,.22);color:var(--sol)}
+.pl-leg-ic.warn{background:rgba(255,176,32,.08);border-color:rgba(255,176,32,.24);color:var(--amber)}
+.pl-leg b{display:block;font-size:12.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.pl-leg span{display:block;font-size:10.5px;color:rgba(148,163,184,.55);line-height:1.5;margin-top:2px}
+.pl-verify{padding:12px 15px 14px}
+.pl-verify-t{font-size:11.5px;color:var(--ink-dim);line-height:1.65;margin:0 0 12px}
 </style>
 <section class="sec" id="prooflog" data-view="prooflog">
   <div class="pl-shell">
-    <div class="pl-hero">
-      <div class="sec-eyebrow">ON-CHAIN VERIFICATION</div>
-      <h2 class="pl-title">Proof Log</h2>
-      <p class="pl-sub">Every important action on OSI is signed by a wallet and written as a memo on Solana: cases opened, reports filed, analyst reviews, challenges, and seals. This log is the public trail, and each entry links to its transaction on Solana, so you never have to take our word for it.</p>
+    <div class="pl-console">
+      <div class="pl-maincol">
+        <div class="pl-hero">
+          <div class="sec-eyebrow">ON-CHAIN VERIFICATION</div>
+          <h2 class="pl-title">Proof Log</h2>
+          <p class="pl-sub">Every important action on OSI is wallet-signed and written as a memo on Solana: cases opened, reports filed, analyst votes, challenges, and seals. This is the public trail, and each entry links to its transaction, so you never have to take our word for it.</p>
+        </div>
+        <div class="pl-toolbar">
+          <div class="pl-search-wrap"><input class="cr-search" id="pl-search" placeholder="Search by wallet, case ID, or action…" oninput="plSearch(this.value)"></div>
+          <div class="rf-tabs pl-fils" id="pl-fils">
+            <button class="rf-tab active" data-f="all" type="button" onclick="plFilter('all')">All</button>
+            <button class="rf-tab" data-f="vote" type="button" onclick="plFilter('vote')">Votes</button>
+            <button class="rf-tab" data-f="report" type="button" onclick="plFilter('report')">Reports</button>
+            <button class="rf-tab" data-f="seal" type="button" onclick="plFilter('seal')">Seals</button>
+            <button class="rf-tab" data-f="support" type="button" onclick="plFilter('support')">Support</button>
+          </div>
+        </div>
+        <div id="pl-body"></div>
+      </div>
+      <aside class="pl-aside" aria-label="Proof log reference">
+        <div class="lb-card">
+          <div class="fd-h mono">Ledger activity</div>
+          <div class="cr-stats pl-stats" id="pl-stats"></div>
+        </div>
+        <div class="lb-card">
+          <div class="fd-h mono">What gets signed</div>
+          <div class="ab-tm">
+            <div class="pl-leg"><span class="pl-leg-ic ok">✓</span><div><b>Analyst vote</b><span>Every approve or challenge in peer review.</span></div></div>
+            <div class="pl-leg"><span class="pl-leg-ic">▤</span><div><b>Report filed</b><span>A researcher submits findings to a case.</span></div></div>
+            <div class="pl-leg"><span class="pl-leg-ic warn">⚖</span><div><b>Challenge</b><span>A published record is contested.</span></div></div>
+            <div class="pl-leg"><span class="pl-leg-ic sol">◈</span><div><b>Peer support</b><span>Wallet-to-wallet SOL, never through OSI.</span></div></div>
+            <div class="pl-leg"><span class="pl-leg-ic ok">✓</span><div><b>Record seal</b><span>A case is published to the archive.</span></div></div>
+          </div>
+        </div>
+        <div class="lb-card">
+          <div class="fd-h mono">Verify it yourself</div>
+          <div class="pl-verify">
+            <p class="pl-verify-t">Every entry carries a live <b>Verify on Solana</b> link to its transaction on Solscan. Nothing here is editable after the fact.</p>
+            <button class="lb-cta ghost" type="button" onclick="showView('records')">Browse public records ›</button>
+          </div>
+        </div>
+      </aside>
     </div>
-    <div id="pl-body"></div>
   </div>
 </section>
 <div class="cr-drawer" id="cr-drawer" aria-hidden="true">
@@ -1791,6 +1851,12 @@ a.fd-ago:hover{color:var(--cyan)}
   .rail-shell > .fo-rail{grid-column:1;grid-row:1}
   .rail-shell .rail-main{grid-column:2;grid-row:1;min-width:0}
   .rail-shell .rail-main > .sec{padding-top:30px}
+  /* inner wrappers must NOT re-center or re-narrow inside the grid cell */
+  .rail-shell .rail-main .wrap,
+  .rail-shell .rail-main .lb-shell,
+  .rail-shell .rail-main .ab-wrap,
+  .rail-shell .rail-main .cr-hwrap,
+  .rail-shell .rail-main .pl-shell{max-width:none;margin-left:0;margin-right:0;padding-left:34px;padding-right:34px}
   #wire-view .vsub{display:none}
   /* console tone across the railed views */
   .rail-shell .sec-eyebrow{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.24em;color:var(--cyan);text-transform:uppercase}
@@ -4944,6 +5010,51 @@ function proofLogSample(){
     { event_type:'report_submitted', actor_wallet:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', item_type:'report', item_id:'OSI-5218', label:'filed report on OSI-5218', created_at:t(360) }
   ];
 }
+var plState = { filter:'all', q:'' };
+var PL_TYPE_GROUP = { analyst_vouch:'vote', report_submitted:'report', wire_dispatch:'report', demand_signal:'support', support:'support', maintainer_seal:'seal' };
+function plGroup(ev){
+  if(ev.event_type==='analyst_vouch' && ev.vote==='challenge') return 'vote';
+  return PL_TYPE_GROUP[ev.event_type] || 'other';
+}
+function plFilter(f){
+  plState.filter=f;
+  document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f===f); });
+  plPaint();
+}
+function plSearch(v){ plState.q=(v||'').trim().toLowerCase(); plPaint(); }
+function plStatsRender(){
+  var host=document.getElementById('pl-stats'); if(!host) return;
+  var evs=window.__plEvents||[];
+  var total=evs.length;
+  var votes=evs.filter(function(e){ return e.event_type==='analyst_vouch'; }).length;
+  var seals=evs.filter(function(e){ return e.event_type==='maintainer_seal'; }).length;
+  var wallets={}; evs.forEach(function(e){ if(e.actor_wallet) wallets[e.actor_wallet]=1; });
+  host.innerHTML =
+      '<div class="fo-op"><div class="fo-op-ic">\u26d3</div><div class="fo-op-n">'+total+'</div><div class="fo-op-l">Signed Actions</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic sol">\u2713</div><div class="fo-op-n sol">'+votes+'</div><div class="fo-op-l">Analyst Votes</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic">\u25ce</div><div class="fo-op-n">'+Object.keys(wallets).length+'</div><div class="fo-op-l">Signers</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic">\u2713</div><div class="fo-op-n">'+seals+'</div><div class="fo-op-l">Records Sealed</div></div>';
+}
+function plPaint(){
+  var host=document.getElementById('pl-body'); if(!host) return;
+  plStatsRender();
+  var evs=(window.__plEvents||[]).slice();
+  var demo=!!window.__plDemo;
+  var q=plState.q;
+  if(q){
+    evs=evs.filter(function(e){
+      var hay=[e.actor_wallet,e.item_id,e.event_type,e.label,e.vote].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
+      return hay.indexOf(q)!==-1;
+    });
+  }
+  if(plState.filter!=='all') evs=evs.filter(function(e){ return plGroup(e)===plState.filter; });
+  var banner = demo
+    ? '<div class="pl-demo">Sample entries \u00b7 demo data. Every signed action the community takes writes a memo on Solana and appears here with a live Verify on Solana link.</div>'
+    : '<div class="pl-live">'+(window.__plEvents||[]).length+' signed action'+((window.__plEvents||[]).length===1?'':'s')+' \u00b7 each verifiable on Solana</div>';
+  host.innerHTML = banner + (evs.length
+    ? ('<div class="ra-feed pl-feed">' + evs.map(raSignedItem).join('') + '</div>')
+    : '<div class="fd-empty mono" style="padding:22px 2px">No signed actions match this search or filter.</div>');
+}
 async function renderProofLog(){
   var host = document.getElementById('pl-body'); if(!host) return;
   host.innerHTML = '<div class="pl-note">Loading signed actions\u2026</div>';
@@ -4951,12 +5062,13 @@ async function renderProofLog(){
   if(typeof SUPA_ON!=='undefined' && SUPA_ON){
     try{ events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=60') || []; }catch(e){}
   }
-  var demo = false;
-  if(!events.length){ demo = true; events = proofLogSample(); }
-  var banner = demo
-    ? '<div class="pl-demo">Sample entries \u00b7 demo data. Every signed action the community takes writes a memo on Solana and appears here with a live Verify on Solana link.</div>'
-    : '<div class="pl-live">'+events.length+' signed action'+(events.length===1?'':'s')+' \u00b7 each verifiable on Solana</div>';
-  host.innerHTML = banner + '<div class="ra-feed pl-feed">' + events.map(raSignedItem).join('') + '</div>';
+  window.__plDemo = false;
+  if(!events.length){ window.__plDemo = true; events = proofLogSample(); }
+  window.__plEvents = events;
+  plState.filter='all'; plState.q='';
+  var s=document.getElementById('pl-search'); if(s) s.value='';
+  document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f==='all'); });
+  plPaint();
 }
 
 function cfDrawerHtml(b){
