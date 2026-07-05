@@ -1227,6 +1227,7 @@ body[data-view="analysts"] .sb-item[data-view="analysts"]{background:rgba(34,211
             <div class="lb-rule"><span>Peer support (SOL)</span><b class="mut">never affects REP</b></div>
             <div class="lb-rule"><span>Weak attribution</span><b class="bad">rejected in review</b></div>
           </div>
+          <div class="lb-cap">Vote power by tier: Apprentice ×1 · Investigator ×2 · Detective ×3 · Chief ×4. <b>4 approve-weight publishes, 4 reject-weight closes; the first to the line locks the item, and every vote is one-shot and immutable within its round.</b> An upheld challenge opens a fresh review round; the old votes stay signed on-chain as history. Analyst authors get a head start: their own standing pre-fills the bar, but at least one independent vote is always required. Published records stay challengeable by anyone, judged under the same consensus.</div>
           <div class="lb-cap">Vote weight is capped to prevent centralization. <button class="lb-link" type="button" onclick="showView('methodology')">Methodology ↗</button></div>
         </div>
         <div class="lb-card">
@@ -1334,6 +1335,27 @@ body[data-view="analysts"] .sb-item[data-view="analysts"]{background:rgba(34,211
 .pf-ava{position:relative}
 .pf-ava-edit{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);font-size:7.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);background:#0a1220;border:1px solid rgba(34,211,238,.35);border-radius:20px;padding:2px 8px;opacity:0;transition:opacity .13s}
 .pf-ava:hover .pf-ava-edit{opacity:1}
+/* ---- peer review queue v2: tabs, dual meter, locks, roles ---- */
+.rf-tabs{display:flex;align-items:center;gap:6px;margin:0 0 12px;flex-wrap:wrap}
+.rf-tab{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;padding:7px 13px;border-radius:100px;border:1px solid var(--line);background:transparent;color:var(--ink-dim);cursor:pointer;transition:all .13s}
+.rf-tab:hover{border-color:var(--line-bright);color:var(--ink)}
+.rf-tab.active{border-color:rgba(34,211,238,.5);background:rgba(34,211,238,.08);color:var(--cyan)}
+.rf-sort{margin-left:auto;font-size:9px;letter-spacing:.08em;color:rgba(148,163,184,.45);text-transform:uppercase}
+.rf-by{font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(148,163,184,.5);margin-left:auto}
+#consensus-floor .rf-tag.rf-challenge{border-color:rgba(255,176,32,.4);background:rgba(255,176,32,.08);color:var(--amber)}
+#consensus-floor .rf-card.locked{opacity:.78}
+#consensus-floor .rf-card.locked::before{background:var(--ink-faint)}
+.rf-mine,.rf-own{font-size:10px;letter-spacing:.04em;color:var(--ink-dim);border:1px dashed var(--line-bright);border-radius:8px;padding:8px 12px;display:inline-block}
+.rf-own{color:rgba(148,163,184,.55)}
+.cm-bar.rj{margin-top:4px;opacity:.85}
+.cm-fill.rj{background:var(--red)!important}
+.cm-lock{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.04em}
+.cm-lock.ok{color:var(--sol)} .cm-lock.bad{color:var(--red)}
+/* records: support + challenge buttons */
+.cr-btn.sup{border-color:rgba(20,241,149,.35);color:var(--sol)}
+.cr-btn.sup:hover{border-color:var(--sol);background:rgba(20,241,149,.06)}
+.cr-btn.chx{border-color:rgba(255,176,32,.35);color:var(--amber)}
+.cr-btn.chx:hover{border-color:var(--amber);background:rgba(255,176,32,.06)}
 </style>
 </section>
 <div class="ap-modal" id="ap-modal" aria-hidden="true">
@@ -2352,6 +2374,22 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 </div>
 
 
+</div>
+</div>
+<div class="fo-modal" id="chx-modal" role="dialog" aria-modal="true" aria-label="Challenge a published record" onclick="if(event.target===this)chxClose()">
+<div class="fo-form">
+<button class="fo-x" type="button" onclick="chxClose()" aria-label="Close">✕</button>
+<div class="rec-sec-h" style="margin-top:2px">CHALLENGE A PUBLISHED RECORD</div>
+<h3 style="margin:6px 0 4px;font-family:'Archivo',sans-serif;font-size:18px;letter-spacing:-.02em" id="chx-title">Challenge this record</h3>
+<div class="lead" style="font-size:12px;color:var(--ink-dim);line-height:1.65;margin-bottom:12px">Anyone can challenge a published record with better evidence. Your challenge is wallet-signed on Solana, then reviewed by verified analysts under the same consensus: <b id="chx-thr"></b> approve-weight upholds it and the record returns to peer review; the same reject-weight dismisses it. You cannot vote on your own challenge.</div>
+<textarea id="chx-reason" rows="4" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:11px 13px;resize:vertical" placeholder="The evidence: which claim is wrong, and what on-chain facts (tx hashes, addresses) contradict it. No accusations without proof."></textarea>
+<div class="fo-form-foot" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px">
+  <span class="mono" style="font-size:9.5px;color:var(--ink-faint)">Signed · attributable · immutable once filed</span>
+  <div style="display:flex;gap:9px">
+    <button class="cr-btn" type="button" onclick="chxClose()">Cancel</button>
+    <button class="cr-btn primary" type="button" onclick="chxSubmit()">⚖ File the challenge</button>
+  </div>
+</div>
 </div>
 </div>
 
@@ -3464,15 +3502,14 @@ function osiBlockClose(){ var m = document.getElementById('osi-block'); if(m){ m
 })();
 
 // ===== CONSENSUS (analyst peer-review / progressive decentralization) =====
-let CONSENSUS_THRESHOLD = 3;
-let CONSENSUS_AUTO = false;
+let CONSENSUS_THRESHOLD = 4;   // weight needed to publish; the same weight of rejections closes an item
+let CONSENSUS_AUTO = true;     // analysts hold near-seal power: consensus publishes without waiting for the maintainer
 window.ANALYST_WEIGHT = window.ANALYST_WEIGHT || {};
 window.VOUCHES = window.VOUCHES || {};
-
-function rfEsc(s){ return String(s==null?'':s).replace(/[\\'"<>]/g,''); }
+// ---- vote power ladder (capped, earned by REP tier):
+//   Tier I Apprentice \u00d71 \u00b7 Tier II Investigator \u00d72 \u00b7 Tier III Detective \u00d73 \u00b7 Tier IV Chief \u00d74
+function analystWeight(wallet){ const w = window.ANALYST_WEIGHT[String(wallet)]; return Math.max(0, Math.min(4, (w==null?0:Number(w)))); }
 function vouchKey(type,id){ return type+'|'+id; }
-function analystWeight(wallet){ const w = window.ANALYST_WEIGHT[String(wallet)]; return (w==null?0:Number(w)); }
-
 async function loadVouches(){
   if(!SUPA_ON) return;
   try{
@@ -3500,83 +3537,212 @@ function myVouch(type,id){
   if(v.reject.indexOf(walletPubkey)!==-1) return 'reject';
   return null;
 }
-function consensusMeter(type,id){
+// author head start: an analyst author's own standing pre-fills the bar,
+// but at least ONE independent vote is always required (no single voice decides).
+function vouchAuthorW(type,row){
+  if(type==='challenge' || !row) return 0;
+  var creator = row.created_by || row.wallet || '';
+  return analystWeight(creator);
+}
+function vouchThreshold(type,id,row){
+  if(type==='challenge') return CONSENSUS_THRESHOLD;
+  return Math.max(1, CONSENSUS_THRESHOLD - vouchAuthorW(type,row));
+}
+// first weight to reach its line locks the item; a locked item takes no more votes
+function vouchDecision(type,id,row){
+  if(row && row.review_status==='rejected') return 'rejected';
+  if(row && row.status==='upheld') return 'published';
+  if(row && row.status==='dismissed') return 'rejected';
+  if(row && row.approved===true && type!=='challenge') return 'published';
   const t = vouchTally(type,id);
-  const pct = Math.min(100, Math.round(t.aw / Math.max(1,CONSENSUS_THRESHOLD) * 100));
-  const need = Math.max(0, CONSENSUS_THRESHOLD - t.aw);
-  const cleared = t.aw >= CONSENSUS_THRESHOLD;
-  const status = cleared ? (CONSENSUS_AUTO ? 'cleared \u00b7 publishing' : 'cleared \u00b7 awaiting maintainer seal') : (need + ' more weight to clear');
-  return '<div class="cm'+(cleared?' done':'')+'">'
-    + '<div class="cm-bar"><div class="cm-fill" style="width:'+pct+'%"></div></div>'
-    + '<div class="cm-meta mono"><span class="cm-w">\u2713 '+t.aw+' / '+CONSENSUS_THRESHOLD+' weight</span>'
-      + '<span class="cm-st">'+status+'</span>'
-      + (t.rw>0 ? ('<span class="cm-rj">\u2715 '+t.rw+'</span>') : '')
+  const thr = vouchThreshold(type,id,row);
+  if(t.aw>=thr && t.aw>=t.rw) return 'published';
+  if(t.rw>=CONSENSUS_THRESHOLD) return 'rejected';
+  return null;
+}
+function consensusMeter(type,id,row){
+  const t = vouchTally(type,id);
+  const dec = vouchDecision(type,id,row);
+  const thr = vouchThreshold(type,id,row);
+  const aW  = vouchAuthorW(type,row);
+  const ap = Math.min(100, Math.round(t.aw / Math.max(1,thr) * 100));
+  const rp = Math.min(100, Math.round(t.rw / Math.max(1,CONSENSUS_THRESHOLD) * 100));
+  const isCh = (type==='challenge');
+  let status;
+  if(dec==='published') status = '<span class="cm-lock ok">'+(isCh?'\u2713 challenge upheld \u00b7 record returns to review':'\u2713 consensus reached \u00b7 published \u00b7 locked')+'</span>';
+  else if(dec==='rejected') status = '<span class="cm-lock bad">'+(isCh?'\u2715 challenge dismissed \u00b7 locked':'\u2715 closed by consensus \u00b7 locked')+'</span>';
+  else {
+    const need = Math.max(0, thr - t.aw);
+    status = '<span class="cm-st">'+need+' more weight to '+(isCh?'uphold':'publish')+(aW>0?(' \u00b7 author standing \u00d7'+aW+' counted'):'')+'</span>';
+  }
+  return '<div class="cm'+(dec?' done':'')+'">'
+    + '<div class="cm-bar"><div class="cm-fill" style="width:'+ap+'%"></div></div>'
+    + (t.rw>0 ? '<div class="cm-bar rj"><div class="cm-fill rj" style="width:'+rp+'%"></div></div>' : '')
+    + '<div class="cm-meta mono"><span class="cm-w">\u2713 '+t.aw+' / '+thr+'</span>'
+      + (t.rw>0 ? ('<span class="cm-rj">\u2715 '+t.rw+' / '+CONSENSUS_THRESHOLD+'</span>') : '')
+      + status
     + '</div></div>';
 }
-async function vouch(type,id,vote){
-  if(!isVerifiedAnalyst(walletPubkey)){ showToast("Only verified analysts can vouch. Apply from the Analysts tab to join the roster."); return; }
-  if(myVouch(type,id)===vote){ showToast("You already vouched "+vote+" on this."); return; }
+async function vouch(type,id,vote,creator){
+  if(!isVerifiedAnalyst(walletPubkey)){ showToast("Only verified analysts can vote. Apply from the Analysts tab, or earn a seat by signed work."); return; }
+  if(creator && walletPubkey && String(creator)===String(walletPubkey)){ showToast("You cannot vote on your own submission."); return; }
+  const row = (window.__rfRows||{})[vouchKey(type,id)] || null;
+  if(vouchDecision(type,id,row)){ showToast("This item is locked \u00b7 consensus already decided."); return; }
+  if(myVouch(type,id)){ showToast("Your vote is on-chain and immutable \u00b7 one vote per item."); return; }
   const _vts = Math.floor(Date.now()/1000);
   const _vmemo = vote==='approve'
-    ? "OSI_ANALYST_VOUCH|item_type="+type+"|item_id="+id+"|vote=approve|analyst="+(walletPubkey||'')+"|ts="+_vts
-    : "OSI_CHALLENGE_FILED|item_type="+type+"|item_id="+id+"|challenger="+(walletPubkey||'')+"|ts="+_vts;
-  withOnchainVote(vote==='approve' ? 'Vouch to publish' : 'File a challenge', _vmemo, async (sig)=>{
+    ? "OSI_ANALYST_VOUCH|item_type="+type+"|item_id="+id+"|vote=approve|weight="+analystWeight(walletPubkey)+"|analyst="+(walletPubkey||'')+"|ts="+_vts
+    : "OSI_CHALLENGE_FILED|item_type="+type+"|item_id="+id+"|weight="+analystWeight(walletPubkey)+"|challenger="+(walletPubkey||'')+"|ts="+_vts;
+  withOnchainVote(vote==='approve' ? 'Vouch to publish' : 'Vote to close', _vmemo, async (sig)=>{
     try{
       await supaPost('vouches', { item_type:type, item_id:id, analyst:walletPubkey, vote:vote });
       recordOnchainEvent({ event_type:'analyst_vouch', item_type:type, item_id:id, vote:vote, label:(vote==='approve'?'approved':'challenged')+' '+type, memo_text:_vmemo, tx_sig:sig });
-      showToast(vote==='approve' ? 'Vouch signed on-chain \u2713' : 'Flag signed on-chain');
+      showToast(vote==='approve' ? 'Vote signed on-chain \u2713 immutable' : 'Rejection signed on-chain \u2713 immutable');
       await loadVouches();
+      const dec = vouchDecision(type,id,row);
+      if(dec==='published') showToast('Consensus reached \u00b7 publishing to the public record \u2713');
+      if(dec==='rejected')  showToast('Consensus reached \u00b7 item closed.');
       renderReviewFloor();
       if(typeof renderActivity==='function'){ try{ renderActivity(); }catch(e){} }
-      if(CONSENSUS_AUTO){ try{ renderFieldOffice(); renderWire(); if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); loadAnalysts(); }catch(e){} }
-    }catch(e){ showToast('Vouch failed (you may have already voted on this).'); }
+      if(dec){ try{ renderFieldOffice(); renderWire(); if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); loadAnalysts(); if(typeof renderCaseRecords==='function') renderCaseRecords(); }catch(e){} }
+    }catch(e){ showToast('Vote rejected by the ledger (one immutable vote per item).'); }
   });
 }
+// ---- contributor tier: 1+ approved report or a case win unlocks read access to the queue ----
+async function osiIsContributor(wallet){
+  if(!wallet || !SUPA_ON) return false;
+  if(window.__contrib && window.__contrib.w===wallet) return window.__contrib.v;
+  var v=false;
+  try{ var r=await supaGet('reports?select=id&wallet=eq.'+encodeURIComponent(wallet)+'&approved=eq.true&limit=1'); if(r&&r.length) v=true; }catch(e){}
+  if(!v){ try{ var b=await supaGet('bounties?select=id&winner_wallet=eq.'+encodeURIComponent(wallet)+'&limit=1'); if(b&&b.length) v=true; }catch(e){} }
+  window.__contrib={w:wallet,v:v};
+  return v;
+}
+// ===== challenges: any wallet can contest a published record; analysts judge it =====
+var chxCtx=null;
+function chxOpen(itemType,itemId,label){
+  if(!walletPubkey){ showToast('Connect your wallet first \u00b7 a challenge must be signed.'); return; }
+  chxCtx={item_type:String(itemType),item_id:String(itemId),item_label:String(label||'')};
+  var t=document.getElementById('chx-title'); if(t) t.textContent='Challenge \u00b7 '+(label||itemId);
+  var th=document.getElementById('chx-thr'); if(th) th.textContent=String(CONSENSUS_THRESHOLD);
+  var r=document.getElementById('chx-reason'); if(r) r.value='';
+  var m=document.getElementById('chx-modal'); if(m){ m.classList.add('open'); document.body.style.overflow='hidden'; }
+  if(r) setTimeout(function(){ try{r.focus();}catch(e){} },60);
+}
+function chxClose(){ var m=document.getElementById('chx-modal'); if(m) m.classList.remove('open'); document.body.style.overflow=''; }
+async function chxSubmit(){
+  if(!chxCtx) return;
+  var reason=(document.getElementById('chx-reason')||{}).value||''; reason=reason.trim();
+  if(reason.length<30){ showToast('Lay out the evidence \u00b7 at least a sentence or two with the on-chain facts.'); return; }
+  if(!rateOk('challenge', 8000)){ showToast('Give it a few seconds.'); return; }
+  var ctx=chxCtx;
+  try{
+    var ex=await supaGet('challenges?select=id&item_type=eq.'+encodeURIComponent(ctx.item_type)+'&item_id=eq.'+encodeURIComponent(ctx.item_id)+'&challenger=eq.'+encodeURIComponent(walletPubkey)+'&status=eq.open&limit=1');
+    if(ex && ex.length){ showToast('You already have an open challenge on this record.'); return; }
+  }catch(e){}
+  var _ts=Math.floor(Date.now()/1000);
+  var memo='OSI_CHALLENGE_FILED|item_type='+ctx.item_type+'|item_id='+ctx.item_id+'|challenger='+(walletPubkey||'')+'|ts='+_ts;
+  withOnchainVote('File a challenge', memo, async function(sig){
+    try{
+      await supaPost('challenges', { item_type:ctx.item_type, item_id:ctx.item_id, item_label:ctx.item_label, challenger:walletPubkey, reason:reason, status:'open' });
+      recordOnchainEvent({ event_type:'analyst_vouch', item_type:'challenge', item_id:ctx.item_id, vote:'reject', label:'challenged a published '+ctx.item_type, memo_text:memo, tx_sig:sig });
+      showToast('\u2696 Challenge filed and signed \u00b7 verified analysts will judge it.');
+      chxClose(); renderReviewFloor();
+    }catch(e){ showToast('Challenge could not be filed \u00b7 the challenges table may not exist yet.'); }
+  });
+}
+// ===== support the author of a published report: wallet-to-wallet, never through OSI =====
+function osiSupportAuthor(wallet, label){
+  if(!wallet){ showToast('This record has no author wallet on file.'); return; }
+  if(typeof openTip==='function'){ openTip(String(wallet), 'supporting the author of '+String(label||'a public record'), 0.1, 'Support the author'); }
+}
+function osiSolanaPayUri(wallet, label){ return 'solana:'+encodeURIComponent(String(wallet||''))+'?label='+encodeURIComponent('OSI \u00b7 support: '+String(label||'public record')); }
+var rfTab='all', rfPageN=1, RF_PER=6;
+function rfSetTab(t){ rfTab=t; rfPageN=1; renderReviewFloor(); }
+function rfSetPage(p){ rfPageN=p|0; renderReviewFloor(); }
 async function renderReviewFloor(){
   const host=document.getElementById('consensus-floor'); if(!host) return;
   if(!SUPA_ON){ host.innerHTML=''; return; }
   const canVouch = isVerifiedAnalyst(walletPubkey);
   const isMaint = !!SUPA_AUTH_TOKEN;
-  if(!(canVouch || isMaint)){
-    // public: only the queue size + an invitation, never the unvetted content
+  let canRead = canVouch || isMaint;
+  if(!canRead && walletPubkey){ try{ canRead = await osiIsContributor(walletPubkey); }catch(e){} }
+  if(!canRead){
     var nR=0, nB=0;
     try{ var r = await supaGet('reports?select=id&approved=eq.false&limit=100'); nR=(r||[]).length; }catch(e){}
     try{ var b = await supaGet('bounties?select=id&approved=eq.false&limit=100'); nB=(b||[]).length; }catch(e){}
     var tot=nR+nB;
     var msg = tot
-      ? (tot+' item'+(tot!==1?'s':'')+' awaiting peer review ('+nR+' report'+(nR!==1?'s':'')+', '+nB+' case'+(nB!==1?'s':'')+'). Verified analysts review and clear this queue before anything reaches the public record.')
+      ? (tot+' item'+(tot!==1?'s':'')+' in peer review ('+nR+' report'+(nR!==1?'s':'')+', '+nB+' case'+(nB!==1?'s':'')+'). Verified analysts vote; contributors with one approved report or a case win can read the queue.')
       : 'Queue clear. Nothing is awaiting peer review right now.';
     host.innerHTML = '<div class="rf-note mono">'+msg+' <a onclick="goCommunity(\'tab-analysts\')" style="color:var(--sol);cursor:pointer">Apply to join the roster \u2192</a></div>';
     return;
   }
-  // verified analyst or maintainer: the full queue
-  let reports=[], bounties=[];
-  try{ reports  = await supaGet('reports?select=id,company,bounty,wallet,summary,created_at&approved=eq.false&order=created_at.desc&limit=30') || []; }catch(e){}
-  try{ bounties = await supaGet('bounties?select=id,target,title,detail,created_at&approved=eq.false&order=created_at.desc&limit=30') || []; }catch(e){}
+  let reports=[], bounties=[], challenges=[];
+  try{ reports  = await supaGet('reports?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
+  try{ bounties = await supaGet('bounties?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
+  try{ challenges = await supaGet('challenges?select=*&status=eq.open&order=created_at.desc&limit=60') || []; }catch(e){}
   await loadVouches();
+  window.__rfRows = {};
   const items=[];
-  reports.forEach(function(r){ items.push({type:'report', id:String(r.id), title:(r.company||r.bounty||'Report'), sub:String(r.summary||'').slice(0,170), tag:'intel', ts:r.created_at}); });
-  bounties.forEach(function(b){ items.push({type:'bounty', id:String(b.id), title:(b.target||b.title||'Case'), sub:String(b.detail||'').slice(0,170), tag:'bounty', ts:b.created_at}); });
-  const note = '<div class="rf-note mono">'+(canVouch
-      ? ('You are a verified analyst \u00b7 your vouch carries weight '+(analystWeight(walletPubkey)||1)+'. '+(CONSENSUS_AUTO?('At '+CONSENSUS_THRESHOLD+' weight an item publishes itself.'):('Cleared items still go to the maintainer for the final seal.')))
-      : ('Maintainer view \u00b7 you hold the final seal. Approve or remove items from the queue below or in the admin panel.'))
-    +'</div>';
+  reports.forEach(function(r){ if(r.review_status==='rejected') return; window.__rfRows['report|'+r.id]=r; items.push({type:'report', id:String(r.id), title:(r.company||r.bounty||'Report'), sub:String(r.summary||'').slice(0,170), tag:'intel', ts:r.created_at, creator:r.wallet||''}); });
+  bounties.forEach(function(b){ if(b.review_status==='rejected') return; window.__rfRows['bounty|'+b.id]=b; items.push({type:'bounty', id:String(b.id), title:(b.target||b.title||'Case'), sub:String(b.detail||'').slice(0,170), tag:'bounty', ts:b.created_at, creator:b.created_by||''}); });
+  challenges.forEach(function(c){ window.__rfRows['challenge|'+c.id]=c; items.push({type:'challenge', id:String(c.id), title:'Challenge \u00b7 '+(c.item_label||c.item_id||'record'), sub:String(c.reason||'').slice(0,170), tag:'challenge', ts:c.created_at, creator:c.challenger||''}); });
+  const role = canVouch
+    ? ('You are a verified analyst \u00b7 vote power \u00d7'+(analystWeight(walletPubkey)||1)+'. One immutable vote per item; '+CONSENSUS_THRESHOLD+' approve-weight publishes, '+CONSENSUS_THRESHOLD+' reject-weight closes. First to the line locks it.')
+    : (isMaint
+        ? 'Maintainer view \u00b7 consensus publishes on its own at '+CONSENSUS_THRESHOLD+' weight; your seal remains the override.'
+        : 'Contributor access \u00b7 you can read the queue because you have cleared work on the record. Voting needs a verified analyst seat.');
+  const note = '<div class="rf-note mono">'+role+'</div>';
   if(!items.length){ host.innerHTML = note + '<div class="rf-empty mono">Queue clear. Nothing awaiting peer review.</div>'; return; }
-  items.sort(function(x,y){ return new Date(y.ts||0)-new Date(x.ts||0); });
-  host.innerHTML = note + items.map(function(it){ return reviewCard(it, canVouch); }).join('');
+  const nCase=items.filter(function(x){return x.type==='bounty';}).length;
+  const nCh=items.filter(function(x){return x.type==='challenge';}).length;
+  const nRep=items.length-nCase-nCh;
+  let list = items.filter(function(x){ if(rfTab==='all') return true; if(rfTab==='cases') return x.type==='bounty'; if(rfTab==='challenges') return x.type==='challenge'; return x.type==='report'; });
+  list.sort(function(x,y){
+    const tx=vouchTally(x.type,x.id), ty=vouchTally(y.type,y.id);
+    const mx=Math.max(tx.aw,tx.rw), my2=Math.max(ty.aw,ty.rw);
+    if(my2!==mx) return my2-mx;
+    return new Date(y.ts||0)-new Date(x.ts||0);
+  });
+  const totalPages=Math.max(1, Math.ceil(list.length/RF_PER));
+  if(rfPageN>totalPages) rfPageN=totalPages; if(rfPageN<1) rfPageN=1;
+  const page=list.slice((rfPageN-1)*RF_PER, (rfPageN-1)*RF_PER+RF_PER);
+  const tabs = '<div class="rf-tabs">'
+    + '<button class="rf-tab'+(rfTab==='all'?' active':'')+'" type="button" onclick="rfSetTab(\'all\')">All \u00b7 '+items.length+'</button>'
+    + '<button class="rf-tab'+(rfTab==='cases'?' active':'')+'" type="button" onclick="rfSetTab(\'cases\')">Cases \u00b7 '+nCase+'</button>'
+    + '<button class="rf-tab'+(rfTab==='reports'?' active':'')+'" type="button" onclick="rfSetTab(\'reports\')">Reports \u00b7 '+nRep+'</button>'
+    + (nCh?('<button class="rf-tab'+(rfTab==='challenges'?' active':'')+'" type="button" onclick="rfSetTab(\'challenges\')">Challenges \u00b7 '+nCh+'</button>'):'')
+    + '<span class="rf-sort mono">sorted by closest to decision</span></div>';
+  let pager='';
+  if(totalPages>1){
+    pager='<div class="fo-pnav" style="justify-content:flex-end;margin-top:10px"><button class="fo-pg" type="button" '+(rfPageN<=1?'disabled':'')+' onclick="rfSetPage('+(rfPageN-1)+')">\u2039</button>';
+    for(var pi=1;pi<=totalPages;pi++){ pager+='<button class="fo-pg n'+(pi===rfPageN?' active':'')+'" type="button" onclick="rfSetPage('+pi+')">'+pi+'</button>'; }
+    pager+='<button class="fo-pg" type="button" '+(rfPageN>=totalPages?'disabled':'')+' onclick="rfSetPage('+(rfPageN+1)+')">\u203a</button></div>';
+  }
+  host.innerHTML = note + tabs + page.map(function(it){ return reviewCard(it, canVouch); }).join('') + pager;
 }
 function reviewCard(it, canVouch){
+  const row=(window.__rfRows||{})[vouchKey(it.type,it.id)]||null;
   const mine = myVouch(it.type, it.id);
-  const btns = canVouch
-    ? '<div class="rf-btns">'
-      + '<button class="rf-b ap'+(mine==='approve'?' on':'')+'" onclick="vouch(\''+it.type+'\',\''+rfEsc(it.id)+'\',\'approve\')">\u2713 Vouch to publish</button>'
-      + '<button class="rf-b rj'+(mine==='reject'?' on':'')+'" onclick="vouch(\''+it.type+'\',\''+rfEsc(it.id)+'\',\'reject\')">\u2715 Flag</button>'
-      + '</div>'
-    : '';
-  return '<div class="rf-card">'
-    + '<div class="rf-top"><span class="rf-tag rf-'+it.tag+'">'+(it.tag==='bounty'?'case':it.tag)+'</span><span class="rf-ttl">'+escapeHtml(it.title)+'</span></div>'
+  const dec = vouchDecision(it.type,it.id,row);
+  const locked = !!dec;
+  const own = (it.creator && walletPubkey && String(it.creator)===String(walletPubkey));
+  let btns='';
+  if(canVouch && !locked){
+    btns = own
+      ? '<div class="rf-btns"><span class="rf-own mono">your submission \u00b7 you cannot vote on your own work</span></div>'
+      : (mine
+        ? '<div class="rf-btns"><span class="rf-mine mono">'+(mine==='approve'?'\u2713 you voted to publish':'\u2715 you voted to close')+' \u00b7 immutable</span></div>'
+        : '<div class="rf-btns">'
+          + '<button class="rf-b ap" onclick="vouch(\''+it.type+'\',\''+rfEsc(it.id)+'\',\'approve\',\''+rfEsc(it.creator||'')+'\')">\u2713 Vouch to publish</button>'
+          + '<button class="rf-b rj" onclick="vouch(\''+it.type+'\',\''+rfEsc(it.id)+'\',\'reject\',\''+rfEsc(it.creator||'')+'\')">\u2715 Vote to close</button>'
+          + '</div>');
+  }
+  return '<div class="rf-card'+(locked?' locked':'')+'">'
+    + '<div class="rf-top"><span class="rf-tag rf-'+it.tag+'">'+(it.tag==='bounty'?'case':(it.tag==='challenge'?'challenge':'report'))+'</span><span class="rf-ttl">'+escapeHtml(it.title)+'</span>'+(it.creator?('<span class="rf-by mono">by '+raShortW(it.creator)+'</span>'):'')+'</div>'
     + (it.sub ? '<div class="rf-sub">'+escapeHtml(it.sub)+'</div>' : '')
-    + consensusMeter(it.type, it.id)
+    + consensusMeter(it.type, it.id, row)
     + btns
   + '</div>';
 }
@@ -4900,7 +5066,7 @@ function foDeckRender(){ try{ foDeckActivity(); }catch(e){} try{ foDeckProof(); 
 
 function fieldOpenForm(){ var m=document.getElementById('fo-modal'); if(!m) return; m.classList.add('open'); document.body.style.overflow='hidden'; var t=document.getElementById('bf-target'); if(t) setTimeout(function(){ try{t.focus();}catch(e){} },60); }
 function fieldCloseForm(){ var m=document.getElementById('fo-modal'); if(m) m.classList.remove('open'); document.body.style.overflow=''; }
-document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ var m=document.getElementById('fo-modal'); if(m && m.classList.contains('open')) fieldCloseForm(); var x=document.getElementById('apx-modal'); if(x && x.classList.contains('open')) apxClose(); } });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ var m=document.getElementById('fo-modal'); if(m && m.classList.contains('open')) fieldCloseForm(); var x=document.getElementById('apx-modal'); if(x && x.classList.contains('open')) apxClose(); var c=document.getElementById('chx-modal'); if(c && c.classList.contains('open')) chxClose(); } });
 
 // RPC endpoints, Helius (fast & reliable, primary), public RPC as automatic fallback.
 // NOTE: this key is visible in the page source, that's unavoidable for a static
@@ -5892,7 +6058,7 @@ async function submitBounty(){
     try{ await sendForm({ _subject:'OSI, New Bounty: '+target, type:'bounty-proposal', target, detail, reward: rewardSol?rewardSol+' SOL':'(none)', by: walletPubkey||'(none)', tx: sig||'(none)' }); }catch(e){}
     clearPickedFile('bf');
     fieldCloseForm();
-    showToast(SUPA_ON?'\u2713 Bounty signed on-chain and submitted, it goes live once a maintainer approves.':'\u2713 Bounty proposed and sent to the maintainer.');
+    showToast(SUPA_ON?'\u2713 Case signed on-chain \u00b7 now in peer review. It publishes when analyst consensus reaches '+CONSENSUS_THRESHOLD+' weight.':'\u2713 Case proposed \u00b7 it enters peer review.');
   });
 }
 
@@ -6428,7 +6594,10 @@ function crCard(r, packs){
     + (date ? '<div class="cr-date">' + date + '</div>' : '')
     + '<div class="cr-sum">' + escapeHtml(String(r.summary||'').slice(0,120)) + '</div>'
     + (ev ? '<div class="cr-evrow">' + ev + '</div>' : '')
-    + '<div class="cr-actions"><button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(\'' + crAttr(r.id) + '\')">Open Case Record</button>' + verify + '</div>'
+    + '<div class="cr-actions"><button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(\'' + crAttr(r.id) + '\')">Open Case Record</button>' + verify
+    + (r.wallet ? ('<button class="cr-btn sup" type="button" title="Wallet-to-wallet SOL, never through OSI" onclick="event.stopPropagation();osiSupportAuthor(\''+crAttr(r.wallet)+'\',\''+crAttr(r.company||r.id)+'\')">\u25ce Support the author</button>') : '')
+    + '<button class="cr-btn chx" type="button" title="Contest this record with better evidence" onclick="event.stopPropagation();chxOpen(\'report\',\''+crAttr(r.id)+'\',\''+crAttr(r.company||r.id)+'\')">\u2696 Challenge</button>'
+    + '</div>'
     + '</div>';
 }
 function crVerify(hash){ if(!hash) return; window.open('https://solscan.io/tx/' + encodeURIComponent(hash), '_blank', 'noopener'); }
