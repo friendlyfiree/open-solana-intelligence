@@ -1444,14 +1444,14 @@ body[data-view="methodology"] #osi-stream,body[data-view="methodology"] .osi-wat
 @media(min-width:1280px){
   #field-view.sec{padding:0}
   #field-view .wrap{display:grid;grid-template-columns:238px minmax(0,1fr) 404px;grid-template-rows:auto auto;gap:0;max-width:none;padding:0;align-items:stretch}
-  #field-view .fo-rail{grid-row:1/3}
+  #field-view .fo-rail{grid-column:1;grid-row:1/3}
   #field-view .fo-deck{grid-column:2/4}
   #field-view .vsub{display:none}
   /* docked, full-height app rail: flush to the left edge */
   #field-view .fo-rail{display:flex;flex-direction:column;position:sticky;top:84px;height:calc(100vh - 84px);overflow-y:auto;padding:24px 15px 16px;background:linear-gradient(180deg,#0a1220,#070d17);border-right:1px solid var(--line)}
   #field-view .fr-net{margin-top:auto}
-  #field-view .fo-main{padding:30px 30px 6px;min-width:0}
-  #field-view .fo-deck{grid-column:2/3;margin:18px 30px 44px 30px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  #field-view .fo-main{grid-column:2;grid-row:1;padding:30px 30px 6px;min-width:0}
+  #field-view .fo-deck{grid-column:2;grid-row:2;margin:18px 30px 44px 30px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
   .fo-cta{display:none}
 }
 /* ---- rail: quiet, dim, one active box ---- */
@@ -1528,7 +1528,7 @@ body[data-view="methodology"] #osi-stream,body[data-view="methodology"] .osi-wat
 .fo-pg:disabled{opacity:.32;cursor:default}
 /* ---- selected case panel: the command post ---- */
 @media(min-width:1280px){
-  .fo-preview{grid-row:1/3;margin:0;top:84px;height:calc(100vh - 84px);max-height:none;border-radius:0;border:0;border-left:1px solid var(--line);padding:0 22px 20px;background:linear-gradient(180deg,#0a1220,#070d17);box-shadow:none;overflow-y:auto}
+  .fo-preview{grid-column:3;grid-row:1/3;margin:0;top:84px;height:calc(100vh - 84px);max-height:none;border-radius:0;border:0;border-left:1px solid var(--line);padding:0 22px 20px;background:linear-gradient(180deg,#0a1220,#070d17);box-shadow:none;overflow-y:auto}
   .fo-preview .fp-k,.fo-preview .fo-prev-empty{margin:0 -22px 16px;padding:14px 22px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--line)}
   .fo-preview .fo-prev-empty{margin-bottom:0;border-bottom:0}
 }
@@ -1581,7 +1581,8 @@ a.fd-ago:hover{color:var(--cyan)}
   body[data-view="prooflog"] .rail-shell[data-shell="prooflog"] > .fo-rail,
   body[data-view="methodology"] .rail-shell[data-shell="methodology"] > .fo-rail{display:flex;flex-direction:column;position:sticky;top:84px;height:calc(100vh - 84px);overflow-y:auto;padding:24px 15px 16px;background:linear-gradient(180deg,#0a1220,#070d17);border-right:1px solid var(--line)}
   .rail-shell .fr-net{margin-top:auto}
-  .rail-shell .rail-main{min-width:0}
+  .rail-shell > .fo-rail{grid-column:1;grid-row:1}
+  .rail-shell .rail-main{grid-column:2;grid-row:1;min-width:0}
   .rail-shell .rail-main > .sec{padding-top:30px}
   #wire-view .vsub{display:none}
   /* console tone across the railed views */
