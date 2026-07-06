@@ -2577,7 +2577,6 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   <button class="rec-clear" onclick="clearMyDrafts()" title="Remove your local draft submissions from this device">Clear my drafts</button>
 </div>
 <div id="consensus-floor"></div>
-<div id="review-list"></div>
 <div class="rec-phase">⛓ <b>Phase 2:</b> reputation moves on-chain, a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
     </div>
   </div>
@@ -6866,29 +6865,22 @@ function reportCardHtml(r){
     </div>`;
 }
 
-// Render the review queue: this visitor's pending submissions + the example,
-// then, if a backend is configured, everyone's maintainer-approved reports.
+// Superseded: the peer review queue is now #consensus-floor (renderReviewFloor),
+// and published reports live in Public Records (renderCaseRecords). This old
+// forum-style list under #review-list duplicated both, so it is retired.
+// Kept as a no-op that clears the mount point so existing call sites stay safe.
 function renderReviewQueue(){
   const host = document.getElementById('review-list');
-  if(!host) return;
-  const userReports = lsGet('stw_reports', []);
-  const all = (Array.isArray(userReports) ? userReports : []).concat(REPORTS_SEED);
-  host.innerHTML = all.map(reportCardHtml).join('');
-  if(SUPA_ON) hydrateReportsFromSupabase();
+  if(host) host.innerHTML = '';
 }
 
 // Pull maintainer-approved reports from the shared backend so every visitor
 // sees them; the submitter still sees their own not-yet-approved reports.
+// Retired alongside renderReviewQueue: published reports are shown in Public
+// Records now, not in this Analysts-tab forum list. No-op keeps callers safe.
 async function hydrateReportsFromSupabase(){
-  try{
-    const dbReports = await supaGet('reports?select=id,bounty,company,wallet,summary,onchain,offchain,tx&approved=eq.true&order=created_at.desc');
-    const approved = (dbReports || []).map(r => Object.assign({}, r, { approved: true }));
-    const approvedIds = new Set(approved.map(r => r.id));
-    const localPending = (lsGet('stw_reports', []) || []).filter(r => !approvedIds.has(r.id));
-    const host = document.getElementById('review-list');
-    if(!host) return;
-    host.innerHTML = approved.concat(localPending).concat(REPORTS_SEED).map(reportCardHtml).join('');
-  }catch(e){ console.warn('OSI: published reports unavailable, showing local view.', e); }
+  const host = document.getElementById('review-list');
+  if(host) host.innerHTML = '';
 }
 
 // Activate a community sub-tab by id (used after submitting research).
