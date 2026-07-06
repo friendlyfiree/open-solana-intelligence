@@ -3923,43 +3923,68 @@ function rfBucket(it){
   if(t.aw>=thr && t.aw>=t.rw) return 'ready';
   return 'pending';
 }
+// Demo queue so the page is never blank: shows how peer review looks when items
+// are pending. Replaced automatically as soon as real Supabase items exist.
+function reviewQueueSample(){
+  var now = Date.now();
+  function t(days){ return new Date(now - days*86400000).toISOString(); }
+  return [
+    { type:'report', id:'DMO-5153', title:'Upexi', creator:'42VqAbcdEfGhXU4y', sub:'On-chain evidence pack regarding suspicious market activity and potential disclosure issues.', ts:t(2),
+      row:{ id:'DMO-5153', company:'Upexi', wallet:'42VqAbcdEfGhXU4y', summary:'On-chain evidence pack regarding suspicious market activity and potential disclosure issues. The report traces a cluster of wallets moving funds through an intermediary before a public announcement.', onchain:'walletAAA111 walletBBB222 walletCCC333 txHashLongEnough1 txHashLongEnough2 txHashLongEnough3', tx:'sig111LongEnoughToCount sig222LongEnoughToCount sig333LongEnoughToCount', created_at:t(2) },
+      votes:{ approve:['DEMO_B'], reject:[] } },
+    { type:'bounty', id:'DMO-5181', title:'Wallet-Drainer Incident', creator:'7vAbCdEfGhLm2a', sub:'Initial evidence and victim reports related to a wallet drainer operating across multiple tokens.', ts:t(3),
+      row:{ id:'DMO-5181', target:'Wallet-Drainer Incident', created_by:'7vAbCdEfGhLm2a', detail:'Initial evidence and victim reports related to a wallet drainer operating across multiple tokens. Victims report a malicious signature request followed by asset movement to a consolidation wallet.', onchain:'drainerWallet1 victimWallet1 victimWallet2 consolidation1 txHashLong1', created_at:t(3) },
+      votes:{ approve:['DEMO_C'], reject:['DEMO_B'] } },
+    { type:'challenge', id:'DMO-4990', title:'Exchange Deposit Attribution', creator:'HjKlMnPq9pQe', sub:'Attribution report linking deposit addresses to exchange clusters is challenged on an intermediary hop.', ts:t(4),
+      row:{ id:'DMO-4990', item_label:'Exchange Deposit Attribution', challenger:'HjKlMnPq9pQe', item_id:'DMO-4990r', reason:'The attribution treats an exchange hot wallet as the endpoint, but the deposit routed through an intermediary the report never addresses. The on-chain path shows one more hop before the exchange.', created_at:t(4) },
+      votes:{ approve:['DEMO_B'], reject:[] } },
+    { type:'report', id:'DMO-5202', title:'Token Team Wallet Movements', creator:'8BvCdEfRtY1', sub:'Analysis of team wallet movements and token unlock events against the published vesting schedule.', ts:t(1),
+      row:{ id:'DMO-5202', company:'Token Team Wallet Movements', wallet:'8BvCdEfRtY1', summary:'Analysis of team wallet movements and token unlock events against the published vesting schedule. Several transfers precede the stated cliff, moving tokens to fresh wallets ahead of the public unlock.', onchain:'teamWallet1 freshWallet1 freshWallet2 txHashLong1 txHashLong2', tx:'sigA1LongEnoughToCount sigA2LongEnoughToCount', created_at:t(1) },
+      votes:{ approve:[], reject:[] } }
+  ];
+}
+function rfInstallDemo(){
+  window.ANALYST_WEIGHT = window.ANALYST_WEIGHT || {};
+  window.VERIFIED_ANALYSTS = window.VERIFIED_ANALYSTS || {};
+  ['DEMO_B','DEMO_C'].forEach(function(w){ if(window.ANALYST_WEIGHT[w]==null) window.ANALYST_WEIGHT[w]=2; window.VERIFIED_ANALYSTS[w]=window.VERIFIED_ANALYSTS[w]||{handle:w}; });
+  var sample=reviewQueueSample();
+  window.VOUCHES = window.VOUCHES || {};
+  sample.forEach(function(it){ window.__rfRows[vouchKey(it.type,it.id)]=it.row; window.VOUCHES[vouchKey(it.type,it.id)]=it.votes; });
+  return sample.map(function(it){ return {type:it.type, id:it.id, title:it.title, sub:it.sub, ts:it.ts, creator:it.creator, _demo:true}; });
+}
 async function renderReviewFloor(){
   const host=document.getElementById('consensus-floor'); if(!host) return;
-  if(!SUPA_ON){ host.innerHTML=''; return; }
   const canVouch = isVerifiedAnalyst(walletPubkey);
   const isMaint = !!SUPA_AUTH_TOKEN;
-  let canRead = canVouch || isMaint;
-  if(!canRead && walletPubkey){ try{ canRead = await osiIsContributor(walletPubkey); }catch(e){} }
-  if(!canRead){
-    var nR=0, nB=0;
-    try{ var r = await supaGet('reports?select=id&approved=eq.false&limit=100'); nR=(r||[]).length; }catch(e){}
-    try{ var b = await supaGet('bounties?select=id&approved=eq.false&limit=100'); nB=(b||[]).length; }catch(e){}
-    var tot=nR+nB;
-    var msg = tot
-      ? (tot+' item'+(tot!==1?'s':'')+' in peer review ('+nR+' report'+(nR!==1?'s':'')+', '+nB+' case'+(nB!==1?'s':'')+'). Verified analysts vote; contributors with one approved report or a case win can read the queue.')
-      : 'Queue clear. Nothing is awaiting peer review right now.';
-    host.innerHTML = '<div class="rvq-note mono">'+msg+' <a onclick="apxOpen()">Apply to join the roster \u2192</a></div>';
-    return;
-  }
   let reports=[], bounties=[], challenges=[];
-  try{ reports  = await supaGet('reports?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
-  try{ bounties = await supaGet('bounties?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
-  try{ challenges = await supaGet('challenges?select=*&status=eq.open&order=created_at.desc&limit=60') || []; }catch(e){}
-  await loadVouches();
+  if(SUPA_ON){
+    try{ reports  = await supaGet('reports?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
+    try{ bounties = await supaGet('bounties?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
+    try{ challenges = await supaGet('challenges?select=*&status=eq.open&order=created_at.desc&limit=60') || []; }catch(e){}
+    await loadVouches();
+  }
   window.__rfRows = {};
   const items=[];
   reports.forEach(function(r){ window.__rfRows['report|'+r.id]=r; items.push({type:'report', id:String(r.id), title:(r.company||r.bounty||'Report'), sub:String(r.summary||'').slice(0,150), ts:r.created_at, creator:r.wallet||''}); });
   bounties.forEach(function(b){ window.__rfRows['bounty|'+b.id]=b; items.push({type:'bounty', id:String(b.id), title:(b.target||b.title||'Case'), sub:String(b.detail||'').slice(0,150), ts:b.created_at, creator:b.created_by||''}); });
   challenges.forEach(function(c){ window.__rfRows['challenge|'+c.id]=c; items.push({type:'challenge', id:String(c.id), title:(c.item_label||c.item_id||'record'), sub:String(c.reason||'').slice(0,150), ts:c.created_at, creator:c.challenger||''}); });
 
+  // never blank: if no real items pend, show the demo queue so visitors and the
+  // jury see how peer review works. Real items replace it the moment they exist.
+  var isDemo=false;
+  if(!items.length){ isDemo=true; rfInstallDemo().forEach(function(x){ items.push(x); }); }
+
   // bucket every item once
   items.forEach(function(it){ it._bucket=rfBucket(it); });
 
-  const role = canVouch
-    ? ('You are a verified analyst \u00b7 vote power \u00d7'+(analystWeight(walletPubkey)||1)+'. One immutable vote per item.')
-    : (isMaint
-        ? 'Maintainer view \u00b7 consensus publishes on its own at '+CONSENSUS_THRESHOLD+' weight; your seal remains the override.'
-        : 'Contributor access \u00b7 you can read the queue because you have cleared work. Voting needs a verified analyst seat.');
+  const role = isDemo
+    ? 'Sample queue \u00b7 demo data showing how peer review works. Real submissions replace these as soon as they are filed.'
+    : (canVouch
+      ? ('You are a verified analyst \u00b7 vote power \u00d7'+(analystWeight(walletPubkey)||1)+'. One immutable vote per item.')
+      : (isMaint
+          ? 'Maintainer view \u00b7 consensus publishes on its own at '+CONSENSUS_THRESHOLD+' weight; your seal remains the override.'
+          : (walletPubkey ? 'Contributor access \u00b7 you can read the queue because you have cleared work. Voting needs a verified analyst seat.'
+                          : 'Connect a verified analyst wallet to cast votes. Anyone can read the queue.')));
 
   const counts = { pending:0, ready:0, disputed:0, rejected:0 };
   items.forEach(function(it){ if(counts[it._bucket]!=null) counts[it._bucket]++; });
@@ -3992,7 +4017,7 @@ async function renderReviewFloor(){
     + '<div class="rvq-search"><span class="rvq-search-ic">\u2315</span><input id="rvq-search-input" placeholder="Search case ID, title, wallet\u2026" value="'+escapeHtml(RF_Q)+'" oninput="rfSearch(this.value)"></div>'
   + '</div>';
 
-  const roleNote='<div class="rvq-note mono">'+role+'</div>';
+  const roleNote='<div class="rvq-note mono'+(isDemo?' demo':'')+'">'+role+'</div>';
 
   let body;
   if(!page.length){
@@ -7666,6 +7691,7 @@ function pfDownloadPack(caseRef, idx){
 .rvq-head .rec-clear{position:absolute;top:2px;right:0}
 #consensus-floor .rvq-note{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.22);border-radius:10px;padding:11px 15px;margin-bottom:14px;line-height:1.6}
 #consensus-floor .rvq-note a{color:var(--sol);cursor:pointer}
+#consensus-floor .rvq-note.demo{color:var(--amber);background:rgba(255,176,32,.05);border-color:rgba(255,176,32,.25)}
 /* tab + search bar */
 .rvq-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px;flex-wrap:wrap}
 .rvq-tabs{display:flex;gap:7px;flex-wrap:wrap}
