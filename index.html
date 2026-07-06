@@ -1481,26 +1481,88 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 /* ---- proof log console ---- */
 .pl-console{margin-top:2px}
 @media(min-width:1180px){
-  .pl-console{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px;align-items:start}
+  .pl-console{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
   .pl-maincol{grid-column:1;grid-row:1;min-width:0}
   .pl-aside{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:14px;position:sticky;top:96px}
 }
 @media(max-width:1179px){ .pl-aside{display:flex;flex-direction:column;gap:14px;margin-top:24px} }
-.pl-toolbar{display:flex;align-items:stretch;gap:10px;margin:20px 0 4px;flex-wrap:wrap}
-.pl-search-wrap{flex:1;min-width:220px}
-.pl-fils{flex-wrap:wrap}
-.pl-stats{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:6px;padding:2px 15px 12px}
-.pl-stats .fo-op{min-width:0}
-.pl-leg{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)}
-.pl-leg:last-child{border-bottom:0}
-.pl-leg-ic{width:26px;height:26px;flex-shrink:0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);color:var(--cyan)}
-.pl-leg-ic.ok{background:rgba(20,241,149,.08);border-color:rgba(20,241,149,.25);color:var(--sol)}
-.pl-leg-ic.sol{background:rgba(20,241,149,.07);border-color:rgba(20,241,149,.22);color:var(--sol)}
-.pl-leg-ic.warn{background:rgba(255,176,32,.08);border-color:rgba(255,176,32,.24);color:var(--amber)}
-.pl-leg b{display:block;font-size:12.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
-.pl-leg span{display:block;font-size:10.5px;color:rgba(148,163,184,.55);line-height:1.5;margin-top:2px}
-.pl-verify{padding:12px 15px 14px}
-.pl-verify-t{font-size:11.5px;color:var(--ink-dim);line-height:1.65;margin:0 0 12px}
+/* dashboard in content column */
+.pl-dash{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:24px}
+@media(max-width:760px){ .pl-dash{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.fo-op-ic.cy{background:rgba(34,211,238,.09);border-color:rgba(34,211,238,.22);color:var(--cyan)}
+.fo-op-ic.vio{background:rgba(139,92,246,.09);border-color:rgba(139,92,246,.24);color:#b9a2f7}
+/* toolbar: filters left, search right */
+.pl-toolbar{display:flex;align-items:center;gap:12px;margin:22px 0 10px;flex-wrap:wrap}
+.pl-fils{flex-wrap:wrap;flex:1}
+.pl-search-wrap{min-width:240px}
+.pl-search-wrap .cr-search{border-radius:10px}
+/* live status strip */
+.pl-strip{display:flex;align-items:center;gap:12px;border:1px solid rgba(20,241,149,.22);border-radius:11px;background:linear-gradient(90deg,rgba(20,241,149,.05),transparent 65%),var(--bg-card);padding:12px 16px;margin-bottom:14px}
+.pl-strip-dot{width:8px;height:8px;border-radius:50%;background:var(--sol);box-shadow:0 0 10px var(--sol);animation:pulse 1.7s infinite;flex-shrink:0}
+.pl-strip-t b{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--sol)}
+.pl-strip-t span{display:block;font-size:11px;color:rgba(148,163,184,.6);margin-top:3px}
+/* timeline */
+.pl-timeline{display:flex;flex-direction:column}
+.plc{display:flex;gap:0;position:relative}
+.plc-rail{width:34px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;position:relative}
+.plc-rail::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--line);transform:translateX(-50%)}
+.plc:first-child .plc-rail::before{top:24px}
+.plc:last-child .plc-rail::before{bottom:calc(100% - 24px)}
+.plc-dot{width:14px;height:14px;border-radius:50%;background:var(--bg);border:2px solid var(--sol);box-shadow:0 0 8px rgba(20,241,149,.4);margin-top:18px;z-index:1;position:relative}
+.plc-body{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--bg-card);padding:15px 16px;margin:6px 0 9px 6px;transition:border-color .13s}
+.plc-body:hover{border-color:var(--line-bright)}
+.plc-main{display:flex;align-items:flex-start;gap:12px}
+.plc-ic{width:38px;height:38px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);color:var(--cyan)}
+.plc-ic.ok{background:rgba(20,241,149,.08);border-color:rgba(20,241,149,.25);color:var(--sol)}
+.plc-ic.vio{background:rgba(139,92,246,.09);border-color:rgba(139,92,246,.24);color:#b9a2f7}
+.plc-ic.warn{background:rgba(255,176,32,.08);border-color:rgba(255,176,32,.24);color:var(--amber)}
+.plc-txt{flex:1;min-width:0}
+.plc-tag{font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--cyan)}
+.plc-tag.ok{color:var(--sol)} .plc-tag.vio{color:#b9a2f7} .plc-tag.warn{color:var(--amber)} .plc-tag.cy{color:var(--cyan)}
+.plc-act{font-size:13px;color:var(--ink);line-height:1.45;margin-top:4px}
+.plc-act b{color:var(--ink-bright);font-weight:700}
+.plc-case{font-size:10px;color:rgba(148,163,184,.55);margin-top:6px}
+.plc-case a{color:var(--cyan);cursor:pointer;text-decoration:none}
+.plc-case a:hover{text-decoration:underline}
+.plc-cn{color:rgba(148,163,184,.75)}
+.plc-meta{text-align:right;flex-shrink:0}
+.plc-ago{font-size:10px;color:rgba(148,163,184,.6)}
+.plc-when{font-size:9px;color:rgba(148,163,184,.4);margin-top:3px}
+.plc-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:13px;padding-top:12px;flex-wrap:wrap}
+.plc-tx{display:flex;align-items:center;gap:10px;min-width:0}
+.plc-tx-l{font-size:8px;letter-spacing:.12em;color:rgba(148,163,184,.45)}
+.plc-tx-r{display:flex;align-items:center;gap:7px}
+.plc-tx-r code{font-size:11px;color:var(--cyan);background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.18);border-radius:5px;padding:3px 8px}
+.plc-copy{background:none;border:1px solid var(--line);border-radius:5px;color:rgba(148,163,184,.6);font-size:10px;padding:3px 6px;cursor:pointer;line-height:1;transition:all .12s}
+.plc-copy:hover{color:var(--cyan);border-color:rgba(34,211,238,.35)}
+.plc-verify{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--sol);border:1px solid rgba(20,241,149,.35);background:rgba(20,241,149,.05);border-radius:8px;padding:8px 14px;text-decoration:none;white-space:nowrap;transition:all .13s}
+.plc-verify:hover{background:rgba(20,241,149,.12);border-color:var(--sol)}
+.plc-verify.off{color:rgba(148,163,184,.4);border-color:var(--line);background:transparent;cursor:default}
+/* memo schema */
+.pl-schema{padding:8px 15px 12px}
+.pl-sc{display:flex;align-items:center;gap:10px;padding:6px 0}
+.pl-sc code{font-size:8.5px;font-weight:700;letter-spacing:.02em;padding:4px 8px;border-radius:6px;white-space:nowrap;color:var(--cyan);background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.2)}
+.pl-sc code.ok{color:var(--sol);background:rgba(20,241,149,.06);border-color:rgba(20,241,149,.22)}
+.pl-sc code.vio{color:#b9a2f7;background:rgba(139,92,246,.07);border-color:rgba(139,92,246,.22)}
+.pl-sc code.warn{color:var(--amber);background:rgba(255,176,32,.06);border-color:rgba(255,176,32,.22)}
+.pl-sc span{font-size:10px;color:rgba(148,163,184,.55)}
+/* verification health */
+.pl-health{padding:6px 15px 12px}
+.pl-hl{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.pl-hl:last-child{border-bottom:0}
+.pl-hl-k{font-size:12px;color:var(--ink-dim)}
+.pl-hl-v{font-size:11.5px;font-family:'JetBrains Mono',monospace}
+.pl-hl-v .ok{color:var(--sol)} .pl-hl-v .mut{color:rgba(148,163,184,.5)}
+.pl-net{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
+.pl-net-dot{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 7px var(--sol)}
+/* last sealed record */
+.pl-sealed{padding:12px 15px 14px}
+.pl-sl-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.pl-sl-id{font-size:11px;font-weight:700;color:var(--sol)}
+.pl-sl-nm{font-family:'Archivo',sans-serif;font-size:13px;font-weight:700;color:var(--ink-bright);letter-spacing:-.01em}
+.pl-sl-meta{font-size:10px;color:rgba(148,163,184,.55);margin-top:7px}
+.pl-sl-btn{display:inline-block;margin-top:11px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:var(--cyan);border:1px solid rgba(34,211,238,.3);border-radius:8px;padding:8px 13px;text-decoration:none;transition:all .13s}
+.pl-sl-btn:hover{background:rgba(34,211,238,.08);border-color:var(--cyan)}
 </style>
 <section class="sec" id="prooflog" data-view="prooflog">
   <div class="pl-shell">
@@ -1509,41 +1571,45 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
         <div class="pl-hero">
           <div class="sec-eyebrow">ON-CHAIN VERIFICATION</div>
           <h2 class="pl-title">Proof Log</h2>
-          <p class="pl-sub">Every important action on OSI is wallet-signed and written as a memo on Solana: cases opened, reports filed, analyst votes, challenges, and seals. This is the public trail, and each entry links to its transaction, so you never have to take our word for it.</p>
+          <p class="pl-sub">Every important action on OSI is wallet-signed and written as a memo on Solana: cases opened, reports filed, analyst votes, challenges, and seals. This log is public, tamper-proof, and verifiable by anyone.</p>
         </div>
+        <div class="cr-stats pl-dash" id="pl-dash"></div>
         <div class="pl-toolbar">
-          <div class="pl-search-wrap"><input class="cr-search" id="pl-search" placeholder="Search by wallet, case ID, or action…" oninput="plSearch(this.value)"></div>
           <div class="rf-tabs pl-fils" id="pl-fils">
             <button class="rf-tab active" data-f="all" type="button" onclick="plFilter('all')">All</button>
-            <button class="rf-tab" data-f="vote" type="button" onclick="plFilter('vote')">Votes</button>
+            <button class="rf-tab" data-f="case" type="button" onclick="plFilter('case')">Cases</button>
             <button class="rf-tab" data-f="report" type="button" onclick="plFilter('report')">Reports</button>
-            <button class="rf-tab" data-f="seal" type="button" onclick="plFilter('seal')">Seals</button>
+            <button class="rf-tab" data-f="vote" type="button" onclick="plFilter('vote')">Reviews</button>
+            <button class="rf-tab" data-f="challenge" type="button" onclick="plFilter('challenge')">Challenges</button>
             <button class="rf-tab" data-f="support" type="button" onclick="plFilter('support')">Support</button>
+            <button class="rf-tab" data-f="seal" type="button" onclick="plFilter('seal')">Seals</button>
           </div>
+          <div class="pl-search-wrap"><input class="cr-search" id="pl-search" placeholder="Search by wallet, case ID, or tx hash…" oninput="plSearch(this.value)"></div>
         </div>
         <div id="pl-body"></div>
+        <div class="fo-pager"><span class="fo-count mono" id="pl-count" aria-live="polite"></span><div class="fo-pnav" id="pl-pnav" role="navigation" aria-label="Proof log pages"></div></div>
       </div>
       <aside class="pl-aside" aria-label="Proof log reference">
         <div class="lb-card">
-          <div class="fd-h mono">Ledger activity</div>
-          <div class="cr-stats pl-stats" id="pl-stats"></div>
-        </div>
-        <div class="lb-card">
-          <div class="fd-h mono">What gets signed</div>
-          <div class="ab-tm">
-            <div class="pl-leg"><span class="pl-leg-ic ok">✓</span><div><b>Analyst vote</b><span>Every approve or challenge in peer review.</span></div></div>
-            <div class="pl-leg"><span class="pl-leg-ic">▤</span><div><b>Report filed</b><span>A researcher submits findings to a case.</span></div></div>
-            <div class="pl-leg"><span class="pl-leg-ic warn">⚖</span><div><b>Challenge</b><span>A published record is contested.</span></div></div>
-            <div class="pl-leg"><span class="pl-leg-ic sol">◈</span><div><b>Peer support</b><span>Wallet-to-wallet SOL, never through OSI.</span></div></div>
-            <div class="pl-leg"><span class="pl-leg-ic ok">✓</span><div><b>Record seal</b><span>A case is published to the archive.</span></div></div>
+          <div class="fd-h mono">How verification works</div>
+          <div class="lb-steps">
+            <div class="lb-step"><span class="n">1</span><div><b>Wallet signs an action</b><span>Contributors sign each action with their wallet.</span></div></div>
+            <div class="lb-step"><span class="n">2</span><div><b>Memo written on Solana</b><span>The action is recorded as a public memo.</span></div></div>
+            <div class="lb-step"><span class="n">3</span><div><b>Transaction is stored</b><span>OSI indexes and verifies the transaction.</span></div></div>
+            <div class="lb-step"><span class="n">4</span><div><b>Anyone can verify</b><span>Every action is verifiable on Solscan.</span></div></div>
           </div>
         </div>
         <div class="lb-card">
-          <div class="fd-h mono">Verify it yourself</div>
-          <div class="pl-verify">
-            <p class="pl-verify-t">Every entry carries a live <b>Verify on Solana</b> link to its transaction on Solscan. Nothing here is editable after the fact.</p>
-            <button class="lb-cta ghost" type="button" onclick="showView('records')">Browse public records ›</button>
-          </div>
+          <div class="fd-h mono">Memo schema</div>
+          <div class="pl-schema" id="pl-schema"></div>
+        </div>
+        <div class="lb-card">
+          <div class="fd-h mono">Verification health</div>
+          <div class="pl-health" id="pl-health"></div>
+        </div>
+        <div class="lb-card" id="pl-sealed-card" style="display:none">
+          <div class="fd-h mono">Last sealed record</div>
+          <div class="pl-sealed" id="pl-sealed"></div>
         </div>
       </aside>
     </div>
@@ -5004,76 +5070,223 @@ function proofLogSample(){
   var now = Date.now();
   function t(mins){ return new Date(now - mins*60000).toISOString(); }
   return [
-    { event_type:'maintainer_seal', actor_wallet:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', item_type:'case', item_id:'OSI-4433', label:'sealed case', created_at:t(9) },
-    { event_type:'analyst_vouch', vote:'approve', actor_wallet:'4Nd1mYh8pQ2rStUvWxYz3aBcDeFgHjKmNpQrStUvWxY', item_type:'case', item_id:'OSI-4433', label:'approved case', created_at:t(31) },
-    { event_type:'report_submitted', actor_wallet:'9zAbCdEfGhJkLmNpQrStUvWxYz2345678aBcDeFgHjK', item_type:'report', item_id:'OSI-4433', label:'filed report on OSI-4433', created_at:t(66) },
-    { event_type:'demand_signal', actor_wallet:'3RtY6uJ8kLmN2pQ4sV7wX9zAbCdEfGhJkLmNpQrStUv', item_type:'case', item_id:'OSI-7706', label:'pledged demand for OSI-7706', created_at:t(120) },
-    { event_type:'analyst_vouch', vote:'challenge', actor_wallet:'5FhGjKlMnBvCxZaSdFgHjKlPoIuYtReWqAsDfGhJkLm', item_type:'report', item_id:'OSI-2185', label:'challenged report', created_at:t(175) },
-    { event_type:'wire_dispatch', actor_wallet:'2WpQeRtYuIoPaSdFgHjKlZxCvBnMqWeRtYuIoPaSdFg', item_type:'report', item_id:'WIRE-19', label:'filed a dispatch on a suspicious cluster', created_at:t(240) },
-    { event_type:'report_submitted', actor_wallet:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', item_type:'report', item_id:'OSI-5218', label:'filed report on OSI-5218', created_at:t(360) }
+    { event_type:'maintainer_seal', actor_wallet:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', item_type:'case', item_id:'OSI-4433', label:'sealed Hyperion DeFi', tx_sig:'5Kd8xQvT2mNpWqR7yZ3aBcDe1fGhJkLmNpQrStUvWxYz4aBcDeFgHjKmNpQrStUvWxYz2mNpWqR7yZ3aBc', created_at:t(9) },
+    { event_type:'analyst_vouch', vote:'approve', actor_wallet:'4Nd1mYh8pQ2rStUvWxYz3aBcDeFgHjKmNpQrStUvWxY', item_type:'case', item_id:'OSI-4433', label:'approved case', tx_sig:'3Ab7Kd8xQvT2mNpWqR7yZ3aBcDe1fGhJkLmNpQrStUvWxYz4aBcDeFgHjKmNpQrStUvWxYz2mNpWqR7yaB', created_at:t(31) },
+    { event_type:'report_submitted', actor_wallet:'9zAbCdEfGhJkLmNpQrStUvWxYz2345678aBcDeFgHjK', item_type:'report', item_id:'OSI-4433', label:'filed report on OSI-4433', tx_sig:'7Yz4aBcDeFgHjKmNpQrStUvWxYz2mNpWqR7yZ3aBcDe1fGhJkLmNpQrStUvWxYz4aBcDeFgHjKmNpQrSt', created_at:t(66) },
+    { event_type:'case_opened', actor_wallet:'3RtY6uJ8kLmN2pQ4sV7wX9zAbCdEfGhJkLmNpQrStUv', item_type:'case', item_id:'OSI-7706', label:'opened case', tx_sig:'9Qr7yZ3aBcDe1fGhJkLmNpQrStUvWxYz4aBcDeFgHjKmNpQrStUvWxYz2mNpWqR7yZ3aBcDe1fGhJkLmNp', created_at:t(95) },
+    { event_type:'demand_signal', actor_wallet:'3RtY6uJ8kLmN2pQ4sV7wX9zAbCdEfGhJkLmNpQrStUv', item_type:'case', item_id:'OSI-7706', label:'pledged demand for OSI-7706', tx_sig:'2Wx8yZ3aBcDe1fGhJkLmNpQrStUvWxYz4aBcDeFgHjKmNpQrStUvWxYz2mNpWqR7yZ3aBcDe1fGhJkLmNp', created_at:t(120) },
+    { event_type:'analyst_vouch', vote:'challenge', actor_wallet:'5FhGjKlMnBvCxZaSdFgHjKlPoIuYtReWqAsDfGhJkLm', item_type:'report', item_id:'OSI-2185', label:'challenged report', tx_sig:'6Hj4aBcDeFgHjKmNpQrStUvWxYz2mNpWqR7yZ3aBcDe1fGhJkLmNpQrStUvWxYz4aBcDeFgHjKmNpQrSt', created_at:t(175) },
+    { event_type:'wire_dispatch', actor_wallet:'2WpQeRtYuIoPaSdFgHjKlZxCvBnMqWeRtYuIoPaSdFg', item_type:'report', item_id:'WIRE-19', label:'filed a dispatch on a suspicious cluster', tx_sig:'8Kl4aBcDeFgHjKmNpQrStUvWxYz2mNpWqR7yZ3aBcDe1fGhJkLmNpQrStUvWxYz4aBcDeFgHjKmNpQrSt', created_at:t(240) },
+    { event_type:'report_submitted', actor_wallet:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', item_type:'report', item_id:'OSI-5218', label:'filed report on OSI-5218', tx_sig:'4Mn4aBcDeFgHjKmNpQrStUvWxYz2mNpWqR7yZ3aBcDe1fGhJkLmNpQrStUvWxYz4aBcDeFgHjKmNpQrSt', created_at:t(360) }
   ];
 }
-var plState = { filter:'all', q:'' };
-var PL_TYPE_GROUP = { analyst_vouch:'vote', report_submitted:'report', wire_dispatch:'report', demand_signal:'support', support:'support', maintainer_seal:'seal' };
+var plState = { filter:'all', q:'', page:1 };
+var PL_PER = 8;
+// event_type -> filter grubu
 function plGroup(ev){
-  if(ev.event_type==='analyst_vouch' && ev.vote==='challenge') return 'vote';
-  return PL_TYPE_GROUP[ev.event_type] || 'other';
+  var t = ev.event_type;
+  if(t==='analyst_vouch') return (ev.vote==='challenge') ? 'challenge' : 'vote';
+  if(t==='report_submitted' || t==='wire_dispatch') return 'report';
+  if(t==='demand_signal' || t==='support') return 'support';
+  if(t==='maintainer_seal') return 'seal';
+  if(t==='case_opened' || t==='case_created') return 'case';
+  return 'other';
+}
+// her memo etiketinin görünen adı + rengi + ikonu
+function plMemo(ev){
+  var g = plGroup(ev);
+  var map = {
+    case:      { tag:'OSI_CASE_OPENED',        ic:'\u25a4', cls:'cy' },
+    report:    { tag:'OSI_REPORT_SUBMITTED',   ic:'\u25a4', cls:'vio' },
+    vote:      { tag:'OSI_REPORT_REVIEWED',    ic:'\u2713', cls:'ok' },
+    challenge: { tag:'OSI_CHALLENGE_FILED',    ic:'\u2696', cls:'warn' },
+    support:   { tag:'OSI_SUPPORT_RECEIVED',   ic:'\u25ce', cls:'ok' },
+    seal:      { tag:'OSI_RECORD_SEALED',      ic:'\u2713', cls:'ok' },
+    other:     { tag:'OSI_SIGNED_ACTION',      ic:'\u2605', cls:'cy' }
+  };
+  // backed case özel: demand_signal aslında case_backed memosu
+  if(ev.event_type==='demand_signal'){ return { tag:'OSI_CASE_BACKED', ic:'\u25ce', cls:'ok' }; }
+  if(ev.event_type==='wire_dispatch'){ return { tag:'OSI_WIRE_DISPATCH_SUBMITTED', ic:'\u25c8', cls:'vio' }; }
+  return map[g] || map.other;
+}
+function plActionLine(ev){
+  var w = raShortW(ev.actor_wallet);
+  var item = ev.item_id ? escapeHtml(String(ev.item_id).slice(0,16)) : '';
+  var type = escapeHtml(ev.item_type||'item');
+  switch(ev.event_type){
+    case 'analyst_vouch': return '<b>'+w+'</b> '+(ev.vote==='approve'?'approved':(ev.vote==='challenge'?'challenged':'reviewed'))+' '+type+(item?(' '+item):'');
+    case 'report_submitted': return '<b>'+w+'</b> submitted a report'+(item?(' for '+item):'');
+    case 'wire_dispatch': return 'Analyst <b>'+w+'</b> filed a dispatch'+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^filed a dispatch on /,'on '))):'');
+    case 'demand_signal': return '<b>'+w+'</b> backed the case'+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^pledged demand for /,'for '))):(item?(' '+item):''));
+    case 'support': return '<b>'+w+'</b> sent '+(ev.amount!=null?(escapeHtml(String(ev.amount))+' '+escapeHtml(ev.token||'SOL')):'support')+(item?(' for '+item):'');
+    case 'maintainer_seal': return 'Maintainer <b>'+w+'</b> sealed '+type+(item?(' '+item):'')+' as a public record';
+    case 'case_opened': case 'case_created': return '<b>'+w+'</b> opened case'+(item?(' '+item):'');
+    default: return '<b>'+w+'</b> signed an action';
+  }
+}
+function plFullDate(ts){
+  var t = new Date(ts||0); if(isNaN(t.getTime())) return '';
+  var d = t.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  var tm = t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  return d+' '+tm+' UTC';
+}
+// zengin timeline kartı (Proof Log'a özel; kompakt raSignedItem ayrı kalır)
+function plTimelineCard(ev){
+  var m = plMemo(ev);
+  var caseId = ev.item_id ? osiCaseId(ev.item_id) : '';
+  var caseName = ev.label ? String(ev.label).replace(/^(filed a dispatch on |pledged demand for |supported |filed report on )/,'').trim() : '';
+  var sig = ev.tx_sig ? String(ev.tx_sig) : '';
+  var sigShort = sig ? (sig.slice(0,6)+'\u2026'+sig.slice(-4)) : '';
+  var when = plFullDate(ev.created_at);
+  var ago = raTimeAgo(ev.created_at);
+  var caseRow = (caseId || caseName)
+    ? '<div class="plc-case mono">Case: '+(caseId?('<a onclick="plGoCase(\''+escapeHtml(String(ev.item_id))+'\')">'+caseId+'</a>'):'')+(caseName?('<span class="plc-cn"> '+escapeHtml(caseName.slice(0,32))+'</span>'):'')+'</div>'
+    : '';
+  var txBlock = sig
+    ? '<div class="plc-tx"><div class="plc-tx-l mono">TX SIGNATURE</div><div class="plc-tx-r"><code class="mono">'+escapeHtml(sigShort)+'</code><button class="plc-copy" type="button" title="Copy signature" onclick="plCopyTx(\''+escapeHtml(sig)+'\')">\u2398</button></div></div>'
+    : '<div class="plc-tx"><div class="plc-tx-l mono">STATUS</div><div class="plc-tx-r"><span class="mono" style="color:var(--ink-faint);font-size:10px">memo pending</span></div></div>';
+  var verifyBtn = sig
+    ? '<a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">View on Solana \u2197</a>'
+    : '<span class="plc-verify off">Awaiting memo</span>';
+  return '<div class="plc" data-g="'+plGroup(ev)+'">'
+    + '<div class="plc-rail"><span class="plc-dot"></span></div>'
+    + '<div class="plc-body">'
+      + '<div class="plc-main">'
+        + '<span class="plc-ic '+m.cls+'">'+m.ic+'</span>'
+        + '<div class="plc-txt">'
+          + '<div class="plc-tag mono '+m.cls+'">'+m.tag+'</div>'
+          + '<div class="plc-act">'+plActionLine(ev)+'</div>'
+          + caseRow
+        + '</div>'
+        + '<div class="plc-meta"><div class="plc-ago mono">'+ago+'</div><div class="plc-when mono">'+when+'</div></div>'
+      + '</div>'
+      + '<div class="plc-foot">'+txBlock+verifyBtn+'</div>'
+    + '</div>'
+  + '</div>';
+}
+function plGoCase(id){
+  var rec = (window.__crRecords||{})[id];
+  if(rec && typeof openCaseRecord==='function'){ showView('records'); setTimeout(function(){ openCaseRecord(id); },120); return; }
+  showView('records');
+}
+function plCopyTx(sig){
+  if(!sig) return;
+  var done=function(){ showToast('Transaction signature copied.'); };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(String(sig)).then(done).catch(function(){ plCopyFallback(sig,done); }); }
+  else plCopyFallback(sig,done);
+}
+function plCopyFallback(text, done){
+  try{ var ta=document.createElement('textarea'); ta.value=String(text); ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
+  catch(e){ showToast('Could not copy automatically.'); }
 }
 function plFilter(f){
-  plState.filter=f;
+  plState.filter=f; plState.page=1;
   document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f===f); });
   plPaint();
 }
-function plSearch(v){ plState.q=(v||'').trim().toLowerCase(); plPaint(); }
-function plStatsRender(){
-  var host=document.getElementById('pl-stats'); if(!host) return;
+function plSearch(v){ plState.q=(v||'').trim().toLowerCase(); plState.page=1; plPaint(); }
+function plSetPage(p){ plState.page=p|0; plPaint(); var b=document.getElementById('pl-body'); if(b){ try{ b.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} } }
+function plDashRender(){
+  var host=document.getElementById('pl-dash'); if(!host) return;
   var evs=window.__plEvents||[];
   var total=evs.length;
-  var votes=evs.filter(function(e){ return e.event_type==='analyst_vouch'; }).length;
-  var seals=evs.filter(function(e){ return e.event_type==='maintainer_seal'; }).length;
-  var wallets={}; evs.forEach(function(e){ if(e.actor_wallet) wallets[e.actor_wallet]=1; });
+  var cases=evs.filter(function(e){ return plGroup(e)==='case'; }).length;
+  var reports=evs.filter(function(e){ return e.event_type==='report_submitted'; }).length;
+  var challenges=evs.filter(function(e){ return plGroup(e)==='challenge'; }).length;
   host.innerHTML =
-      '<div class="fo-op"><div class="fo-op-ic">\u26d3</div><div class="fo-op-n">'+total+'</div><div class="fo-op-l">Signed Actions</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic sol">\u2713</div><div class="fo-op-n sol">'+votes+'</div><div class="fo-op-l">Analyst Votes</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic">\u25ce</div><div class="fo-op-n">'+Object.keys(wallets).length+'</div><div class="fo-op-l">Signers</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic">\u2713</div><div class="fo-op-n">'+seals+'</div><div class="fo-op-l">Records Sealed</div></div>';
+      '<div class="fo-op"><div class="fo-op-ic">\u270e</div><div class="fo-op-n">'+total+'</div><div class="fo-op-l">Signed Actions</div><span class="fo-op-sub">All time</span></div>'
+    + '<div class="fo-op"><div class="fo-op-ic cy">\u25a4</div><div class="fo-op-n">'+cases+'</div><div class="fo-op-l">Cases Opened</div><span class="fo-op-sub">All time</span></div>'
+    + '<div class="fo-op"><div class="fo-op-ic vio">\u25a4</div><div class="fo-op-n">'+reports+'</div><div class="fo-op-l">Reports Filed</div><span class="fo-op-sub">All time</span></div>'
+    + '<div class="fo-op"><div class="fo-op-ic warn">\u2696</div><div class="fo-op-n'+(challenges>0?' warn':'')+'">'+challenges+'</div><div class="fo-op-l">Challenges</div><span class="fo-op-sub">All time</span></div>';
+}
+function plSchemaRender(){
+  var host=document.getElementById('pl-schema'); if(!host) return;
+  var rows=[
+    ['OSI_CASE_OPENED','A new case was opened','cy'],
+    ['OSI_CASE_BACKED','Peer support was pledged','ok'],
+    ['OSI_REPORT_SUBMITTED','A report was submitted','vio'],
+    ['OSI_REPORT_REVIEWED','An analyst voted on it','ok'],
+    ['OSI_CHALLENGE_FILED','A record was challenged','warn'],
+    ['OSI_SUPPORT_RECEIVED','SOL support was received','ok'],
+    ['OSI_WIRE_DISPATCH_SUBMITTED','A dispatch was filed','vio'],
+    ['OSI_RECORD_SEALED','A record was sealed','ok']
+  ];
+  host.innerHTML = rows.map(function(r){ return '<div class="pl-sc"><code class="mono '+r[2]+'">'+r[0]+'</code><span>'+r[1]+'</span></div>'; }).join('');
+}
+function plHealthRender(){
+  var host=document.getElementById('pl-health'); if(!host) return;
+  var live = (typeof SUPA_ON!=='undefined' && SUPA_ON);
+  var evs=window.__plEvents||[];
+  var lastMemo = evs.length ? raTimeAgo(evs[0].created_at) : '\u2014';
+  var rows=[
+    ['RPC status', live?'<span class="ok">Online</span>':'<span class="mut">Demo mode</span>'],
+    ['Indexer', live?'<span class="ok">Synced</span>':'<span class="mut">Sample data</span>'],
+    ['Last memo indexed', '<span class="mono">'+lastMemo+'</span>'],
+    ['Network', '<span class="pl-net"><span class="pl-net-dot"></span>Solana Mainnet</span>']
+  ];
+  host.innerHTML = rows.map(function(r){ return '<div class="pl-hl"><span class="pl-hl-k">'+r[0]+'</span><span class="pl-hl-v">'+r[1]+'</span></div>'; }).join('');
+}
+function plSealedRender(){
+  var card=document.getElementById('pl-sealed-card'); var host=document.getElementById('pl-sealed'); if(!card||!host) return;
+  var seals=(window.__plEvents||[]).filter(function(e){ return e.event_type==='maintainer_seal'; });
+  if(!seals.length){ card.style.display='none'; return; }
+  var s=seals[0];
+  var cid = s.item_id ? osiCaseId(s.item_id) : 'OSI-000000';
+  var name = s.label ? escapeHtml(String(s.label).replace(/^sealed /,'').slice(0,40)) : '';
+  card.style.display='';
+  host.innerHTML = '<div class="pl-sl-top"><span class="pl-sl-id mono">'+cid+'</span>'+(name?('<span class="pl-sl-nm">'+name+'</span>'):'')+'</div>'
+    + '<div class="pl-sl-meta mono">Sealed by '+raShortW(s.actor_wallet)+' \u00b7 '+raTimeAgo(s.created_at)+'</div>'
+    + (s.tx_sig ? ('<a class="pl-sl-btn" href="'+solscanTx(s.tx_sig)+'" target="_blank" rel="noopener">View record \u2197</a>') : '');
 }
 function plPaint(){
   var host=document.getElementById('pl-body'); if(!host) return;
-  plStatsRender();
-  var evs=(window.__plEvents||[]).slice();
+  plDashRender(); plSchemaRender(); plHealthRender(); plSealedRender();
+  var all=(window.__plEvents||[]).slice();
   var demo=!!window.__plDemo;
   var q=plState.q;
+  var evs=all;
   if(q){
     evs=evs.filter(function(e){
-      var hay=[e.actor_wallet,e.item_id,e.event_type,e.label,e.vote].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
+      var hay=[e.actor_wallet,e.item_id,e.event_type,e.label,e.vote,e.tx_sig, e.item_id?osiCaseId(e.item_id):''].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
       return hay.indexOf(q)!==-1;
     });
   }
   if(plState.filter!=='all') evs=evs.filter(function(e){ return plGroup(e)===plState.filter; });
-  var banner = demo
-    ? '<div class="pl-demo">Sample entries \u00b7 demo data. Every signed action the community takes writes a memo on Solana and appears here with a live Verify on Solana link.</div>'
-    : '<div class="pl-live">'+(window.__plEvents||[]).length+' signed action'+((window.__plEvents||[]).length===1?'':'s')+' \u00b7 each verifiable on Solana</div>';
-  host.innerHTML = banner + (evs.length
-    ? ('<div class="ra-feed pl-feed">' + evs.map(raSignedItem).join('') + '</div>')
-    : '<div class="fd-empty mono" style="padding:22px 2px">No signed actions match this search or filter.</div>');
+  var strip = '<div class="pl-strip"><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>Live verification feed</b><span>'+all.length+' signed action'+(all.length===1?'':'s')+' \u00b7 '+(demo?'sample data \u00b7 ':'')+'all memo-verified on Solana mainnet</span></div></div>';
+  var totalPages=Math.max(1, Math.ceil(evs.length/PL_PER));
+  if(plState.page>totalPages) plState.page=totalPages; if(plState.page<1) plState.page=1;
+  var from=(plState.page-1)*PL_PER, page=evs.slice(from, from+PL_PER);
+  host.innerHTML = strip + (page.length
+    ? '<div class="pl-timeline">' + page.map(plTimelineCard).join('') + '</div>'
+    : '<div class="fd-empty mono" style="padding:24px 2px">No signed actions match this search or filter.</div>');
+  var cnt=document.getElementById('pl-count');
+  if(cnt) cnt.textContent = evs.length ? ('Showing '+(from+1)+'\u2013'+(from+page.length)+' of '+evs.length+' action'+(evs.length===1?'':'s')) : '';
+  var pn=document.getElementById('pl-pnav');
+  if(pn){
+    if(totalPages<=1){ pn.innerHTML=''; }
+    else{
+      var ph='<button class="fo-pg" type="button" '+(plState.page<=1?'disabled':'')+' onclick="plSetPage('+(plState.page-1)+')">\u2039</button>';
+      for(var pi=1;pi<=totalPages;pi++){ ph+='<button class="fo-pg n'+(pi===plState.page?' active':'')+'" type="button" onclick="plSetPage('+pi+')">'+pi+'</button>'; }
+      ph+='<button class="fo-pg" type="button" '+(plState.page>=totalPages?'disabled':'')+' onclick="plSetPage('+(plState.page+1)+')">\u203a</button>';
+      pn.innerHTML=ph;
+    }
+  }
 }
 async function renderProofLog(){
   var host = document.getElementById('pl-body'); if(!host) return;
   host.innerHTML = '<div class="pl-note">Loading signed actions\u2026</div>';
   var events = [];
   if(typeof SUPA_ON!=='undefined' && SUPA_ON){
-    try{ events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=60') || []; }catch(e){}
+    try{ events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || []; }catch(e){}
   }
   window.__plDemo = false;
   if(!events.length){ window.__plDemo = true; events = proofLogSample(); }
   window.__plEvents = events;
-  plState.filter='all'; plState.q='';
+  plState.filter='all'; plState.q=''; plState.page=1;
   var s=document.getElementById('pl-search'); if(s) s.value='';
   document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f==='all'); });
   plPaint();
 }
-
 function cfDrawerHtml(b){
   var target = escapeHtml(b.target || b.title || 'case');
   var brief = escapeHtml(b.detail || 'Community intelligence request.');
