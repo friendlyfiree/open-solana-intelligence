@@ -564,42 +564,44 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 </style>
 
 <style id="osi-hero-redesign">
-.osi-home-hero.hero{position:relative;overflow:hidden;text-align:left;background:radial-gradient(100% 76% at 50% -10%,rgba(255,122,61,.15),transparent 52%),linear-gradient(180deg,#0a101d 0%,#070a12 72%);padding:84px 0 34px;border-bottom:1px solid rgba(255,122,61,.16)}
-.osi-home-hero::before{content:"";position:absolute;top:32px;left:50%;width:min(980px,96vw);height:420px;transform:translateX(-50%);z-index:0;pointer-events:none;filter:blur(14px);background:radial-gradient(50% 50% at 50% 50%,rgba(34,211,238,.14),rgba(255,122,61,.08) 48%,transparent 74%)}
-.osi-home-hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.055) 1px,transparent 1px);background-size:52px 52px;-webkit-mask-image:radial-gradient(86% 70% at 50% 36%,#000 22%,transparent 82%);mask-image:radial-gradient(86% 70% at 50% 36%,#000 22%,transparent 82%)}
+body[data-view="registry"]{background:linear-gradient(180deg,#050912 0%,#070b13 44%,#05070d 100%) !important}
+body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[data-view="registry"] .glow{display:none}
+.osi-home-hero.hero{position:relative;overflow:hidden;text-align:left;background:radial-gradient(70% 54% at 50% -8%,rgba(34,211,238,.10),transparent 58%),linear-gradient(180deg,#07101c 0%,#050912 76%);padding:58px 0 30px;border-bottom:1px solid rgba(34,211,238,.14)}
+.osi-home-hero::before{content:"";position:absolute;top:52px;left:50%;width:min(880px,92vw);height:280px;transform:translateX(-50%);z-index:0;pointer-events:none;filter:blur(22px);background:radial-gradient(50% 50% at 50% 50%,rgba(20,241,149,.09),rgba(34,211,238,.07) 45%,transparent 74%)}
+.osi-home-hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.05) 1px,transparent 1px);background-size:48px 48px;-webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.72) 45%,transparent 92%);mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.72) 45%,transparent 92%)}
 .osi-home-hero .wrap{position:relative;z-index:2}
-.osi-home-hero .hero-frame{position:absolute;inset:18px;pointer-events:none;z-index:1}
-.osi-home-hero .hfc{position:absolute;width:28px;height:28px;border-color:rgba(255,122,61,.52);border-style:solid;opacity:.68}
+.osi-home-hero .hero-frame{position:absolute;inset:14px;pointer-events:none;z-index:1}
+.osi-home-hero .hfc{position:absolute;width:22px;height:22px;border-color:rgba(34,211,238,.34);border-style:solid;opacity:.5}
 .osi-home-hero .hfc.tl{top:0;left:0;border-width:2px 0 0 2px}
 .osi-home-hero .hfc.tr{top:0;right:0;border-width:2px 2px 0 0}
 .osi-home-hero .hfc.bl{bottom:0;left:0;border-width:0 0 2px 2px}
 .osi-home-hero .hfc.br{bottom:0;right:0;border-width:0 2px 2px 0}
-.osi-home-hero .osi-hero-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.72fr);gap:30px;align-items:center}
+.osi-home-hero .osi-hero-grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(310px,.7fr);gap:28px;align-items:center}
 .osi-home-hero .hero-main{position:relative;z-index:2;min-width:0}
-.osi-home-hero .hero-inner{max-width:760px;display:flex;flex-direction:column;align-items:flex-start}
+.osi-home-hero .hero-inner{max-width:720px;display:flex;flex-direction:column;align-items:flex-start}
 .osi-home-hero .hero-eyebrow{margin:0;border-radius:3px;background:rgba(8,11,20,.66);border-color:rgba(34,211,238,.28);color:var(--cyan);letter-spacing:0}
-.osi-home-hero .hero-h1-c{font-size:68px;line-height:1.02;font-weight:900;letter-spacing:0;color:var(--ink);margin:18px 0 0;text-shadow:0 20px 60px rgba(0,0,0,.62)}
+.osi-home-hero .hero-h1-c{font-size:58px;line-height:1.03;font-weight:900;letter-spacing:0;color:var(--ink);margin:16px 0 0;text-shadow:0 18px 48px rgba(0,0,0,.58)}
 .osi-home-hero .hero-h1-c .amber-dot{color:var(--acc)}
-.osi-home-hero .hero-sub-c{max-width:640px;margin:20px 0 0;font-family:'JetBrains Mono',monospace;font-size:15.5px;line-height:1.7;color:#b6c0dc;letter-spacing:0}
-.osi-home-hero .hero-trust{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
-.osi-home-hero .hero-trust span{display:inline-flex;align-items:center;min-height:34px;border:1px solid rgba(44,56,96,.9);background:rgba(14,19,32,.72);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;border-radius:3px;padding:8px 10px}
+.osi-home-hero .hero-sub-c{max-width:650px;margin:17px 0 0;font-family:'JetBrains Mono',monospace;font-size:14.5px;line-height:1.65;color:#bac5df;letter-spacing:0}
+.osi-home-hero .hero-trust{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.osi-home-hero .hero-trust span{display:inline-flex;align-items:center;min-height:32px;border:1px solid rgba(44,56,96,.86);background:rgba(9,14,24,.72);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:10.5px;border-radius:3px;padding:7px 10px}
 .osi-home-hero .hero-trust span::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 9px rgba(20,241,149,.7);margin-right:8px;flex:none}
-.osi-home-hero .hero-cta-c{display:flex;gap:12px;justify-content:flex-start;flex-wrap:wrap;margin-top:30px;align-items:center}
+.osi-home-hero .hero-cta-c{display:flex;gap:11px;justify-content:flex-start;flex-wrap:wrap;margin-top:26px;align-items:center}
 .osi-home-hero .hero-cta-c .btn-acc,.osi-home-hero .hero-cta-c .btn-outline{min-height:46px;display:inline-flex;align-items:center;justify-content:center}
-.osi-home-hero .hero-cta-c .btn-acc{position:relative;font-size:15px;padding:14px 26px;box-shadow:0 12px 34px rgba(255,122,61,.34),inset 0 0 0 1px rgba(255,170,94,.45)}
-.osi-home-hero .hero-cta-c .btn-outline{font-size:15px;padding:14px 24px;background:rgba(8,11,20,.52)}
+.osi-home-hero .hero-cta-c .btn-acc{position:relative;font-size:14.5px;padding:13px 24px;box-shadow:0 10px 28px rgba(255,122,61,.26),inset 0 0 0 1px rgba(255,170,94,.42)}
+.osi-home-hero .hero-cta-c .btn-outline{font-size:14.5px;padding:13px 22px;background:rgba(8,11,20,.5)}
 .osi-home-hero .hero-cta-c .btn-acc:focus-visible,.osi-home-hero .hero-cta-c .btn-outline:focus-visible,.osi-home-hero .hero-console:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
-.osi-home-hero .hero-console{margin-top:18px;min-height:42px;background:none;border:1px solid transparent;cursor:pointer;color:#96a3c4;font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:0;display:inline-flex;align-items:center;gap:8px;padding:8px 2px;transition:color .18s,border-color .18s}
+.osi-home-hero .hero-console{margin-top:15px;min-height:40px;background:none;border:1px solid transparent;cursor:pointer;color:#96a3c4;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0;display:inline-flex;align-items:center;gap:8px;padding:7px 2px;transition:color .18s,border-color .18s}
 .osi-home-hero .hero-console:hover{color:var(--ink);border-bottom-color:rgba(255,122,61,.5)}
 .osi-home-hero .hero-console .bg-ic{color:var(--acc);font-size:10px}
-.osi-home-hero .osi-hero-panel{position:relative;overflow:hidden;border:1px solid var(--line-bright);background:linear-gradient(160deg,rgba(17,23,42,.92),rgba(8,11,20,.97));box-shadow:0 24px 70px rgba(0,0,0,.44);padding:18px}
-.osi-home-hero .osi-hero-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,122,61,.45),transparent)}
+.osi-home-hero .osi-hero-panel{position:relative;overflow:hidden;border:1px solid var(--line-bright);background:linear-gradient(160deg,rgba(12,18,32,.94),rgba(6,9,17,.98));box-shadow:0 18px 52px rgba(0,0,0,.4);padding:16px}
+.osi-home-hero .osi-hero-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.46),transparent)}
 .osi-home-hero .osi-hero-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(34,211,238,.035) 1px,transparent 1px),linear-gradient(rgba(34,211,238,.026) 1px,transparent 1px);background-size:28px 28px;opacity:.75}
 .osi-home-hero .sys-k{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:14px;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;color:var(--acc);letter-spacing:0;margin-bottom:12px}
 .osi-home-hero .sys-mode{display:inline-flex;align-items:center;gap:7px;color:var(--ink-faint)}
 .osi-home-hero .sys-mode::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 9px var(--sol)}
 .osi-home-hero .sys-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(2,1fr);border:1px solid var(--line);background:rgba(5,8,15,.62)}
-.osi-home-hero .sys-stat{position:relative;min-height:70px;padding:13px 14px 12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.018),transparent)}
+.osi-home-hero .sys-stat{position:relative;min-height:66px;padding:12px 14px 11px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.018),transparent)}
 .osi-home-hero .sys-stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--cyan),transparent);opacity:.45}
 .osi-home-hero .sys-stat:nth-child(2n){border-right:0}
 .osi-home-hero .sys-stat:nth-last-child(-n+1){border-bottom:0}
@@ -608,30 +610,51 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .osi-home-hero .sys-v.live{color:var(--sol)}
 .osi-home-hero .sys-l{margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);letter-spacing:0;text-transform:uppercase}
 .osi-home-hero .sys-pulse{width:9px;height:9px;border-radius:50%;background:var(--sol);box-shadow:0 0 14px var(--sol);animation:pulse 1.8s infinite;flex:none}
-.osi-home-hero .workflow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:22px}
-.osi-home-hero .workflow-card{position:relative;min-height:122px;border:1px solid var(--line);background:rgba(8,11,20,.62);padding:15px 14px}
-.osi-home-hero .workflow-card::before{content:"";position:absolute;top:9px;left:9px;width:13px;height:13px;border-top:1px solid rgba(255,122,61,.52);border-left:1px solid rgba(255,122,61,.52)}
-.osi-home-hero .wf-n{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:0;margin-bottom:18px}
-.osi-home-hero .wf-t{font-weight:800;font-size:15px;color:var(--ink);letter-spacing:0}
-.osi-home-hero .wf-d{font-size:11.5px;line-height:1.5;color:var(--ink-dim);margin-top:6px}
+.home-clarity{padding:34px 0 8px}
+.home-clarity .wrap{max-width:1120px}
+.home-section-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:18px}
+.home-section-head .sec-sub{margin-bottom:0;max-width:570px}
+.home-flow-grid,.home-trust-grid{display:grid;gap:12px}
+.home-flow-grid{grid-template-columns:repeat(4,1fr)}
+.home-trust-grid{grid-template-columns:repeat(3,1fr)}
+.home-flow-card,.home-trust-card{position:relative;border:1px solid var(--line);border-top-color:var(--line-bright);background:linear-gradient(165deg,rgba(12,18,31,.86),rgba(6,10,18,.94));padding:17px 16px;min-height:138px;box-shadow:0 12px 34px rgba(0,0,0,.18)}
+.home-flow-card::before,.home-trust-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--cyan),transparent);opacity:.5}
+.home-k{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:.08em;text-transform:uppercase;margin-bottom:16px}
+.home-t{font-family:'Archivo',sans-serif;font-size:16px;font-weight:850;color:var(--ink);letter-spacing:-.01em}
+.home-d{font-size:12.3px;line-height:1.55;color:var(--ink-dim);margin-top:7px}
+.home-trust-card{min-height:150px}
+.home-trust-card .home-k{color:var(--sol)}
+.home-final{padding:34px 0 42px}
+.home-final-panel{border:1px solid var(--line-bright);background:linear-gradient(135deg,rgba(13,20,34,.94),rgba(5,8,15,.98));padding:26px 28px;display:flex;align-items:center;justify-content:space-between;gap:18px;box-shadow:0 18px 58px rgba(0,0,0,.28)}
+.home-final h2{font-family:'Archivo',sans-serif;font-size:clamp(24px,3vw,34px);line-height:1.08;letter-spacing:-.025em;margin:0;color:var(--ink-bright)}
+.home-final p{max-width:590px;margin:9px 0 0;color:var(--ink-dim);font-size:13.5px;line-height:1.6}
+.home-final-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.home-final .btn-acc,.home-final .btn-outline{min-height:44px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;padding:12px 20px}
 @media(max-width:980px){
-.osi-home-hero.hero{padding:74px 0 32px}
+.osi-home-hero.hero{padding:54px 0 28px}
 .osi-home-hero .osi-hero-grid{grid-template-columns:1fr;gap:24px}
-.osi-home-hero .hero-h1-c{font-size:56px}
+.osi-home-hero .hero-h1-c{font-size:50px}
 .osi-home-hero .osi-hero-panel{max-width:640px}
-.osi-home-hero .workflow-grid{grid-template-columns:repeat(2,1fr)}
+.home-flow-grid,.home-trust-grid{grid-template-columns:1fr 1fr}
+.home-final-panel{align-items:flex-start;flex-direction:column}
+.home-final-actions{justify-content:flex-start}
 }
 @media(max-width:620px){
-.osi-home-hero.hero{padding:68px 0 30px}
+.osi-home-hero.hero{padding:48px 0 26px}
 .osi-home-hero .hero-frame{inset:10px}
 .osi-home-hero .hfc{width:18px;height:18px}
-.osi-home-hero .hero-h1-c{font-size:40px}
+.osi-home-hero .hero-h1-c{font-size:38px}
 .osi-home-hero .hero-sub-c{font-size:14px;line-height:1.62}
 .osi-home-hero .hero-cta-c .btn-acc,.osi-home-hero .hero-cta-c .btn-outline{width:100%;max-width:320px}
-.osi-home-hero .sys-grid,.osi-home-hero .workflow-grid{grid-template-columns:1fr}
+.osi-home-hero .sys-grid,.home-flow-grid,.home-trust-grid{grid-template-columns:1fr}
 .osi-home-hero .sys-stat,.osi-home-hero .sys-stat:nth-child(2n){border-right:0}
 .osi-home-hero .sys-stat:nth-last-child(-n+1){border-bottom:1px solid var(--line)}
 .osi-home-hero .sys-stat:last-child{border-bottom:0}
+.home-clarity{padding-top:28px}
+.home-section-head{display:block}
+.home-flow-card,.home-trust-card{min-height:0}
+.home-final-panel{padding:22px 20px}
+.home-final .btn-acc,.home-final .btn-outline{width:100%;max-width:320px}
 }
 </style>
 <section class="hero osi-home-hero" data-view="registry">
@@ -641,7 +664,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
       <div class="hero-main hero-inner">
         <div class="eyebrow hero-eyebrow"><span class="live"></span> Public on-chain investigation desk</div>
         <h1 class="hero-h1 hero-h1-c">Public Intelligence for<br>Solana Incidents<span class="amber-dot">.</span></h1>
-        <p class="hero-sub hero-sub-c">Solana scams and exploits, traced in the open and signed on-chain, where the evidence is public and the verdict belongs to no one.</p>
+        <p class="hero-sub hero-sub-c">Open Solana Intelligence turns public scam and exploit evidence into wallet-signed, human-reviewed, and verifiable case records.</p>
         <div class="hero-trust" aria-label="OSI trust signals">
           <span>Wallet-signed records</span>
           <span>Public proof log</span>
@@ -665,16 +688,10 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
         </div>
       </aside>
     </div>
-    <div class="workflow-grid" aria-label="OSI case workflow">
-      <div class="workflow-card"><div class="wf-n">01</div><div class="wf-t">Open a Case</div><div class="wf-d">Start with public wallet, transaction, or incident evidence.</div></div>
-      <div class="workflow-card"><div class="wf-n">02</div><div class="wf-t">Trace the Trail</div><div class="wf-d">Map fund movement and preserve the memo trail.</div></div>
-      <div class="workflow-card"><div class="wf-n">03</div><div class="wf-t">Review Evidence</div><div class="wf-d">Analysts vouch, challenge, and tighten the case record.</div></div>
-      <div class="workflow-card"><div class="wf-n">04</div><div class="wf-t">Seal the Record</div><div class="wf-d">Reviewed evidence becomes a public, verifiable record.</div></div>
-    </div>
   </div>
 </section>
 
-<section class="sec" data-view="registry" id="entry-points">
+<section class="sec" data-view="registry-archive" id="entry-points">
   <div class="wrap">
     <div class="acards">
       <button class="acard reveal" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">
@@ -721,7 +738,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
 </section>
 
-<section class="sec" data-view="registry" id="case-preview">
+<section class="sec" data-view="registry-archive" id="case-preview">
   <div class="wrap">
     <div class="sec-eyebrow">// anatomy of a case</div>
     <h2 class="sec-head-lg">Every case is a public, signed record.</h2>
@@ -765,7 +782,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 
 
 
-<section class="sec" data-view="registry" id="exchange-pack">
+<section class="sec" data-view="registry-archive" id="exchange-pack">
   <div class="wrap">
     <div class="px-panel">
       <div class="px-panel-glow"></div>
@@ -823,7 +840,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
 </section>
 
-<section class="sec" data-view="registry" id="verify-chain">
+<section class="sec" data-view="registry-archive" id="verify-chain">
   <div class="wrap">
     <div class="sec-eyebrow">// signed on solana</div>
     <h2 class="sec-head-lg">Built to be checked, not trusted.</h2>
@@ -866,50 +883,59 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 
 
 <section class="sec" data-view="registry" id="how-osi-works">
-  <div class="wrap">
-    <div class="sec-eyebrow">// how osi works</div>
-    <h2 class="sec-head-lg">From a single wallet to a sealed record.</h2>
-    <div class="how-flow" style="margin-top:30px">
-      <div class="how-step">
-        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
-        <div class="how-t">Submit</div><div class="how-d">Open a case and submit on-chain evidence.</div>
+  <div class="wrap home-clarity">
+    <div class="home-section-head">
+      <div>
+        <div class="sec-eyebrow">// how osi works</div>
+        <h2 class="sec-head-lg">From evidence to public record.</h2>
       </div>
-      <div class="how-step">
-        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="9" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="M8 7l8 1M8 8l1 8"/></svg></div>
-        <div class="how-t">Trace</div><div class="how-d">Map wallets, swaps and exchange deposits.</div>
-      </div>
-      <div class="how-step">
-        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg></div>
-        <div class="how-t">Review</div><div class="how-d">Analysts vouch, flag or challenge claims.</div>
-      </div>
-      <div class="how-step">
-        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="6"/><path d="M9 15l-1 6 4-2 4 2-1-6"/></svg></div>
-        <div class="how-t">Seal</div><div class="how-d">A maintainer seals the finding.</div>
-      </div>
-      <div class="how-step">
-        <div class="how-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#14f195" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 16 0M12 4v8l5 3"/></svg></div>
-        <div class="how-t">Publish</div><div class="how-d">Signed activity goes public, permanently.</div>
-      </div>
+      <p class="sec-sub">A compact workflow for documenting Solana incidents without custody, private DMs, or closed-door verdicts.</p>
+    </div>
+    <div class="home-flow-grid" aria-label="How OSI Works">
+      <div class="home-flow-card"><div class="home-k">01</div><div class="home-t">Open a Case</div><div class="home-d">Submit public Solana evidence without giving OSI custody of funds.</div></div>
+      <div class="home-flow-card"><div class="home-k">02</div><div class="home-t">Trace the Trail</div><div class="home-d">Analysts inspect wallets, transactions, links, and public evidence.</div></div>
+      <div class="home-flow-card"><div class="home-k">03</div><div class="home-t">Review Evidence</div><div class="home-d">Verified analysts vouch, reject, or challenge weak claims.</div></div>
+      <div class="home-flow-card"><div class="home-k">04</div><div class="home-t">Seal the Record</div><div class="home-d">Approved findings become public, memo-verifiable case records.</div></div>
     </div>
   </div>
 </section>
 
 <section class="sec" data-view="registry" id="safeguards">
-  <div class="wrap">
-    <div class="sec-eyebrow">// trust &amp; verification</div>
-    <h2 class="sec-head-lg">Six layers that keep findings honest.</h2>
-    <div class="trust-grid" style="margin-top:24px">
-      <div class="tcard reveal"><div class="tc-ic">&#128737;</div><div class="tc-t">Local Safety Gate</div><div class="tc-d">Seed phrases, private keys and personal data are blocked in your browser before anything is ever submitted.</div></div>
-      <div class="tcard reveal"><div class="tc-ic">&#10003;</div><div class="tc-t">Analyst Vouch</div><div class="tc-d">Verified analysts vouch for or flag each report. Weak claims get caught by peers, not waved through.</div></div>
-      <div class="tcard reveal"><div class="tc-ic">&#9673;</div><div class="tc-t">Maintainer Seal</div><div class="tc-d">A final human check seals a finding into the public record while the analyst roster grows.</div></div>
-      <div class="tcard reveal"><div class="tc-ic">&#9939;</div><div class="tc-t">Signed Memo Trail</div><div class="tc-d">Every key action is a signed Solana memo, public and verifiable on Solscan by anyone.</div></div>
-      <div class="tcard reveal"><div class="tc-ic">&#9878;</div><div class="tc-t">Challenge Reports</div><div class="tc-d">Any record can be challenged with better evidence. Nothing is final, everything stays correctable.</div></div>
-      <div class="tcard warn reveal"><div class="tc-ic">&#9888;</div><div class="tc-t">No Recovery Promise</div><div class="tc-d">OSI traces and documents what happened. It cannot recover funds and never promises to.</div></div>
+  <div class="wrap home-clarity">
+    <div class="home-section-head">
+      <div>
+        <div class="sec-eyebrow">// why trust osi</div>
+        <h2 class="sec-head-lg">Transparent by design.</h2>
+      </div>
+      <p class="sec-sub">OSI is built for public verification, human review, and clear limits on what the platform does.</p>
+    </div>
+    <div class="home-trust-grid" aria-label="Why Trust OSI">
+      <div class="home-trust-card"><div class="home-k">Signed</div><div class="home-t">Signed on Solana</div><div class="home-d">Critical actions can be wallet-signed and indexed through a public proof log.</div></div>
+      <div class="home-trust-card"><div class="home-k">Reviewed</div><div class="home-t">Human-reviewed and challengeable</div><div class="home-d">Records are reviewed by analysts and weak claims can be challenged before publication.</div></div>
+      <div class="home-trust-card"><div class="home-k">Non-custodial</div><div class="home-t">Non-custodial by design</div><div class="home-d">OSI never holds user funds and does not promise recovery or legal certainty.</div></div>
     </div>
   </div>
 </section>
 
-<section class="sec" data-view="registry" id="analyst-ladder">
+<section class="sec" data-view="registry" id="home-final-cta">
+  <div class="wrap">
+    <div class="home-final">
+      <div class="home-final-panel">
+        <div>
+          <h2>Start with evidence. End with a public record.</h2>
+          <p>Open a case, join the analyst layer, or watch the live console to see how OSI turns public Solana evidence into reviewable intelligence.</p>
+        </div>
+        <div class="home-final-actions">
+          <button class="btn-acc" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">Open a Case</button>
+          <button class="btn-outline" onclick="showView('analysts'); setTimeout(function(){ var e=document.getElementById('an-tg'); if(e) e.focus(); }, 320);">Join as Analyst</button>
+          <button class="btn-outline" onclick="demoStart()">View Live Console</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" data-view="registry-archive" id="analyst-ladder">
   <div class="wrap">
     <div class="sec-eyebrow">// analysts &amp; community</div>
     <h2 class="sec-head-lg">Open to contribute. Earned to vouch.</h2>
@@ -2758,7 +2784,7 @@ body[data-view="workspace"] .sb-item[data-view="workspace"]{background:var(--acc
 
 
 
-<section class="sec" data-view="registry" id="sponsors">
+<section class="sec" data-view="registry-archive" id="sponsors">
   <div class="wrap">
     <div class="sec-eyebrow">// ecosystem support</div>
     <h2 class="sec-head-lg" style="font-size:clamp(21px,2.6vw,29px)">Supported by the Solana ecosystem.</h2>
@@ -3237,24 +3263,24 @@ var DEMO_STEPS = [
   { view:'registry', sel:'.hero h1', sel2:'.hero-main', noCursor:true, dur:7000,
     title:'Open Solana Intelligence',
     body:'A guided tour, no wallet and no signup. OSI is an open, community-run desk for on-chain Solana incidents: a drained wallet, a rug, a scam. Anyone opens a case for free, analysts trace it on-chain, and the finding becomes a public record. It never promises to recover funds.' },
-  { view:'registry', sel:'#safeguards .trust-grid', sel2:'#safeguards', dur:8500,
-    title:'What we promise, and what we never will',
-    body:'Three lines we lead with. OSI can trace and document, but it cannot recover funds and never promises to. It will never DM you or ask for your seed phrase. And it follows the money, not the person: no names, no doxxing.' },
-  { view:'registry', sel:'#exchange-pack .ep-flow', sel2:'#exchange-pack', noCursor:true, dur:9500,
-    title:'From one record, three escalation packs',
-    body:'Once a case clears review, OSI turns the public evidence into ready-to-send briefs: a Victim Brief in plain language, an Exchange Pack for a compliance desk, and a Law Enforcement Brief for cyber units. Every pack is AI-assisted and always human-reviewed before it can go out.' },
+  { view:'registry', sel:'#how-osi-works .home-flow-grid', sel2:'#how-osi-works', noCursor:true, dur:8500,
+    title:'How OSI works',
+    body:'Open a case, trace the trail, review the evidence, and seal the record. The homepage now shows the whole flow as four compact steps for a fast reviewer pass.' },
+  { view:'registry', sel:'#safeguards .home-trust-grid', sel2:'#safeguards', dur:9500,
+    title:'Why trust OSI',
+    body:'OSI is built around wallet-signed actions, human review, and non-custodial limits. It documents public evidence without claiming recovery, custody, or legal certainty.' },
   { view:'records', sel:'#case-records .cr-card', sel2:'#records-hero', dur:9000,
     title:'The public case archive',
     body:'Reviewed and sealed cases live here as compact, verifiable records: the case id, an honest status of Reviewed or Sealed, the on-chain evidence, and any reviewed packs. It reads like an intelligence archive, not a feed.' },
   { view:'records', box:'demoBoxRecord', modalMode:true, modalPoint:'.crd-dl', cardLeft:true, dur:11000,
     title:'Open a record, download the packs',
     body:'Open any record and the full dossier slides in: verification on Solana, the summary, the evidence, the analyst-review status, and the reviewed escalation packs ready to download. Drafts are never shown in public, only reviewed work.' },
-  { view:'registry', sel:'#verify-chain .vc-rail', sel2:'#verify-chain', dur:9000,
+  { view:'registry', sel:'.osi-home-hero .osi-hero-panel', sel2:'.osi-home-hero', dur:9000,
     title:'Signed and verifiable on Solana',
-    body:'Every key step writes a signed memo on-chain: case opened, report submitted, analyst vouch, maintainer seal. The trail is public and permanent on Solana, so you never have to take our word for any of it.' },
-  { view:'registry', sel:'#entry-points .acards', sel2:'#entry-points', dur:8000,
-    title:'Three ways in',
-    body:'Open a case if something happened to you, take a case as an analyst, or just read the open record. No gate, no paywall, no signup to look around.' },
+    body:'The live overview frames the system as a read-only status console: open cases, signed actions, public records, analyst reputation, and Solana Mainnet.' },
+  { view:'registry', sel:'#home-final-cta .home-final-actions', sel2:'#home-final-cta', dur:8000,
+    title:'Choose the next step',
+    body:'Open a case, join the analyst layer, or view the live console. The calls to action stay focused on the three actions a reviewer needs to understand first.' },
   { view:'field', sel:'#field-cases > div', sel2:'#field-stats', clickSel:'#field-cases > div', dur:8500,
     title:'The Field Office',
     body:'A live case board. Anyone posts a case for free; analysts claim it and trace the wallets on-chain. The Wire, for unprompted dispatches, sits one tab over.' },
