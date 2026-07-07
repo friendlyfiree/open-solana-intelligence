@@ -563,7 +563,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 </style>
 
 <style id="osi-hero-redesign">
-.osi-home-hero.hero{position:relative;overflow:hidden;text-align:left;background:radial-gradient(100% 76% at 50% -10%,rgba(255,122,61,.15),transparent 52%),linear-gradient(180deg,#0a101d 0%,#070a12 72%);padding:96px 0 46px;border-bottom:1px solid rgba(255,122,61,.16)}
+.osi-home-hero.hero{position:relative;overflow:hidden;text-align:left;background:radial-gradient(100% 76% at 50% -10%,rgba(255,122,61,.15),transparent 52%),linear-gradient(180deg,#0a101d 0%,#070a12 72%);padding:84px 0 34px;border-bottom:1px solid rgba(255,122,61,.16)}
 .osi-home-hero::before{content:"";position:absolute;top:32px;left:50%;width:min(980px,96vw);height:420px;transform:translateX(-50%);z-index:0;pointer-events:none;filter:blur(14px);background:radial-gradient(50% 50% at 50% 50%,rgba(34,211,238,.14),rgba(255,122,61,.08) 48%,transparent 74%)}
 .osi-home-hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.055) 1px,transparent 1px);background-size:52px 52px;-webkit-mask-image:radial-gradient(86% 70% at 50% 36%,#000 22%,transparent 82%);mask-image:radial-gradient(86% 70% at 50% 36%,#000 22%,transparent 82%)}
 .osi-home-hero .wrap{position:relative;z-index:2}
@@ -591,33 +591,37 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .osi-home-hero .hero-console{margin-top:18px;min-height:42px;background:none;border:1px solid transparent;cursor:pointer;color:#96a3c4;font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:0;display:inline-flex;align-items:center;gap:8px;padding:8px 2px;transition:color .18s,border-color .18s}
 .osi-home-hero .hero-console:hover{color:var(--ink);border-bottom-color:rgba(255,122,61,.5)}
 .osi-home-hero .hero-console .bg-ic{color:var(--acc);font-size:10px}
-.osi-home-hero .osi-hero-panel{position:relative;border:1px solid var(--line-bright);background:linear-gradient(160deg,rgba(17,23,42,.9),rgba(8,11,20,.96));box-shadow:0 28px 80px rgba(0,0,0,.46);padding:22px}
+.osi-home-hero .osi-hero-panel{position:relative;overflow:hidden;border:1px solid var(--line-bright);background:linear-gradient(160deg,rgba(17,23,42,.92),rgba(8,11,20,.97));box-shadow:0 24px 70px rgba(0,0,0,.44);padding:18px}
 .osi-home-hero .osi-hero-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,122,61,.45),transparent)}
-.osi-home-hero .sys-k{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;color:var(--acc);letter-spacing:0;margin-bottom:14px}
-.osi-home-hero .sys-grid{display:grid;grid-template-columns:repeat(2,1fr);border:1px solid var(--line);background:rgba(8,11,20,.52)}
-.osi-home-hero .sys-stat{min-height:78px;padding:14px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.osi-home-hero .osi-hero-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(34,211,238,.035) 1px,transparent 1px),linear-gradient(rgba(34,211,238,.026) 1px,transparent 1px);background-size:28px 28px;opacity:.75}
+.osi-home-hero .sys-k{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:14px;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;color:var(--acc);letter-spacing:0;margin-bottom:12px}
+.osi-home-hero .sys-mode{display:inline-flex;align-items:center;gap:7px;color:var(--ink-faint)}
+.osi-home-hero .sys-mode::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 9px var(--sol)}
+.osi-home-hero .sys-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(2,1fr);border:1px solid var(--line);background:rgba(5,8,15,.62)}
+.osi-home-hero .sys-stat{position:relative;min-height:70px;padding:13px 14px 12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.018),transparent)}
+.osi-home-hero .sys-stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--cyan),transparent);opacity:.45}
 .osi-home-hero .sys-stat:nth-child(2n){border-right:0}
 .osi-home-hero .sys-stat:nth-last-child(-n+1){border-bottom:0}
 .osi-home-hero .sys-stat.wide{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;border-right:0}
-.osi-home-hero .sys-v{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:800;color:var(--ink);letter-spacing:0}
+.osi-home-hero .sys-v{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:800;color:var(--ink);letter-spacing:0}
 .osi-home-hero .sys-v.live{color:var(--sol)}
-.osi-home-hero .sys-l{margin-top:5px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);letter-spacing:0;text-transform:uppercase}
+.osi-home-hero .sys-l{margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);letter-spacing:0;text-transform:uppercase}
 .osi-home-hero .sys-pulse{width:9px;height:9px;border-radius:50%;background:var(--sol);box-shadow:0 0 14px var(--sol);animation:pulse 1.8s infinite;flex:none}
-.osi-home-hero .workflow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:28px}
-.osi-home-hero .workflow-card{position:relative;min-height:132px;border:1px solid var(--line);background:rgba(8,11,20,.62);padding:15px 14px}
+.osi-home-hero .workflow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:22px}
+.osi-home-hero .workflow-card{position:relative;min-height:122px;border:1px solid var(--line);background:rgba(8,11,20,.62);padding:15px 14px}
 .osi-home-hero .workflow-card::before{content:"";position:absolute;top:9px;left:9px;width:13px;height:13px;border-top:1px solid rgba(255,122,61,.52);border-left:1px solid rgba(255,122,61,.52)}
 .osi-home-hero .wf-n{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:0;margin-bottom:18px}
 .osi-home-hero .wf-t{font-weight:800;font-size:15px;color:var(--ink);letter-spacing:0}
 .osi-home-hero .wf-d{font-size:11.5px;line-height:1.5;color:var(--ink-dim);margin-top:6px}
 @media(max-width:980px){
-.osi-home-hero.hero{padding:82px 0 40px}
+.osi-home-hero.hero{padding:74px 0 32px}
 .osi-home-hero .osi-hero-grid{grid-template-columns:1fr;gap:24px}
 .osi-home-hero .hero-h1-c{font-size:56px}
 .osi-home-hero .osi-hero-panel{max-width:640px}
 .osi-home-hero .workflow-grid{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:620px){
-.osi-home-hero.hero{padding:74px 0 34px}
+.osi-home-hero.hero{padding:68px 0 30px}
 .osi-home-hero .hero-frame{inset:10px}
 .osi-home-hero .hfc{width:18px;height:18px}
 .osi-home-hero .hero-h1-c{font-size:40px}
@@ -650,13 +654,13 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
         <button class="hero-console" onclick="demoStart()"><span class="bg-ic" aria-hidden="true">&#9654;</span> View Live Console</button>
       </div>
       <aside class="osi-hero-panel" aria-label="Live system overview">
-        <div class="sys-k">Live system overview</div>
+        <div class="sys-k"><span>System status console</span><span class="sys-mode">Read-only</span></div>
         <div class="sys-grid">
-          <div class="sys-stat"><div class="sys-v">Live</div><div class="sys-l">Open Cases</div></div>
-          <div class="sys-stat"><div class="sys-v">Memo</div><div class="sys-l">Signed Actions</div></div>
-          <div class="sys-stat"><div class="sys-v">Public</div><div class="sys-l">Public Records</div></div>
-          <div class="sys-stat"><div class="sys-v">Active</div><div class="sys-l">Active Analysts</div></div>
-          <div class="sys-stat wide"><div><div class="sys-v live">Online</div><div class="sys-l">Solana Mainnet</div></div><span class="sys-pulse" aria-hidden="true"></span></div>
+          <div class="sys-stat"><div class="sys-v">Open Cases</div><div class="sys-l">Live Queue</div></div>
+          <div class="sys-stat"><div class="sys-v">Signed Actions</div><div class="sys-l">Memo Verified</div></div>
+          <div class="sys-stat"><div class="sys-v">Public Records</div><div class="sys-l">Reviewed Archive</div></div>
+          <div class="sys-stat"><div class="sys-v">Analysts</div><div class="sys-l">Reputation Layer</div></div>
+          <div class="sys-stat wide"><div><div class="sys-v live">Network</div><div class="sys-l">Solana Mainnet</div></div><span class="sys-pulse" aria-hidden="true"></span></div>
         </div>
       </aside>
     </div>
