@@ -567,16 +567,33 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 body[data-view="registry"]{background:radial-gradient(900px 360px at 62% 14%,rgba(20,241,149,.075),transparent 62%),radial-gradient(760px 320px at 20% 12%,rgba(34,211,238,.085),transparent 60%),linear-gradient(180deg,#030710 0%,#07101a 38%,#05080f 100%) !important}
 body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[data-view="registry"] .glow{display:none}
 .osi-home-hero.hero{position:relative;overflow:hidden;text-align:left;background:linear-gradient(180deg,rgba(7,16,28,.96) 0%,rgba(5,9,18,.98) 82%);padding:56px 0 28px;border-bottom:1px solid rgba(34,211,238,.14)}
-.osi-home-hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(620px 230px at 65% 14%,rgba(20,241,149,.11),transparent 66%),radial-gradient(520px 210px at 21% 18%,rgba(34,211,238,.10),transparent 68%)}
+.osi-home-hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(620px 230px at 65% 14%,rgba(20,241,149,.095),transparent 66%),radial-gradient(520px 210px at 21% 18%,rgba(34,211,238,.085),transparent 68%)}
 .osi-home-hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.055) 1px,transparent 1px);background-size:42px 42px;-webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.72) 45%,transparent 96%);mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.72) 45%,transparent 96%)}
-.osi-home-hero .wrap{position:relative;z-index:2}
-.osi-home-hero .hero-frame{position:absolute;inset:14px;pointer-events:none;z-index:1}
+.osi-home-hero .wrap{position:relative;z-index:3}
+.osi-home-hero .hero-frame{position:absolute;inset:14px;pointer-events:none;z-index:2}
+.osi-hero-visual{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+.hero-dossier-ghost{position:absolute;left:5.5%;top:34px;width:min(355px,32vw);height:330px;border:1px solid rgba(34,211,238,.15);background:linear-gradient(135deg,rgba(34,211,238,.055),rgba(5,9,18,.02));opacity:.34;transform:rotate(-5deg);box-shadow:0 0 0 1px rgba(255,255,255,.015) inset}
+.hero-dossier-ghost::before{content:"";position:absolute;left:28px;right:28px;top:32px;height:34px;border:1px solid rgba(20,241,149,.13);background:rgba(20,241,149,.025)}
+.hero-dossier-ghost::after{content:"";position:absolute;right:0;top:0;border-width:0 34px 34px 0;border-style:solid;border-color:transparent rgba(34,211,238,.11) transparent transparent}
+.hero-dossier-line{position:absolute;left:28px;right:42px;height:1px;background:linear-gradient(90deg,rgba(124,142,196,.34),transparent)}
+.hero-dossier-line.l1{top:96px}.hero-dossier-line.l2{top:126px;width:62%;right:auto}.hero-dossier-line.l3{top:166px}.hero-dossier-line.l4{top:198px;width:70%;right:auto}.hero-dossier-line.l5{top:246px;width:52%;right:auto}
+.hero-node-map{position:absolute;right:2.5%;top:22px;width:min(680px,58vw);height:385px;opacity:.62}
+.hero-node-map svg{width:100%;height:100%;display:block;overflow:visible}
+.hero-trail{fill:none;stroke:rgba(34,211,238,.36);stroke-width:1;stroke-dasharray:6 8}
+.hero-trail.green{stroke:rgba(20,241,149,.34)}
+.hero-trail.amber{stroke:rgba(255,122,61,.22)}
+.hero-node{fill:#06111d;stroke:rgba(34,211,238,.46);stroke-width:1.2}
+.hero-node.green{stroke:rgba(20,241,149,.58)}
+.hero-node.amber{stroke:rgba(255,122,61,.45)}
+.hero-node-core{fill:rgba(34,211,238,.7);filter:drop-shadow(0 0 6px rgba(34,211,238,.5))}
+.hero-node-core.green{fill:rgba(20,241,149,.72);filter:drop-shadow(0 0 7px rgba(20,241,149,.55))}
+.hero-node-core.amber{fill:rgba(255,122,61,.68);filter:drop-shadow(0 0 5px rgba(255,122,61,.35))}
 .osi-home-hero .hfc{position:absolute;width:22px;height:22px;border-color:rgba(34,211,238,.34);border-style:solid;opacity:.5}
 .osi-home-hero .hfc.tl{top:0;left:0;border-width:2px 0 0 2px}
 .osi-home-hero .hfc.tr{top:0;right:0;border-width:2px 2px 0 0}
 .osi-home-hero .hfc.bl{bottom:0;left:0;border-width:0 0 2px 2px}
 .osi-home-hero .hfc.br{bottom:0;right:0;border-width:0 2px 2px 0}
-.osi-home-hero .osi-hero-grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(340px,.72fr);gap:28px;align-items:center}
+.osi-home-hero .osi-hero-grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(330px,.64fr);gap:28px;align-items:center}
 .osi-home-hero .hero-main{position:relative;z-index:2;min-width:0}
 .osi-home-hero .hero-inner{max-width:720px;display:flex;flex-direction:column;align-items:flex-start}
 .osi-home-hero .hero-eyebrow{margin:0;border-radius:3px;background:rgba(8,11,20,.66);border-color:rgba(34,211,238,.28);color:var(--cyan);letter-spacing:0}
@@ -594,25 +611,24 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
 .osi-home-hero .hero-console{margin-top:15px;min-height:40px;background:none;border:1px solid transparent;cursor:pointer;color:#96a3c4;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0;display:inline-flex;align-items:center;gap:8px;padding:7px 2px;transition:color .16s ease-out,border-color .16s ease-out}
 .osi-home-hero .hero-console:hover{color:var(--ink);border-bottom-color:rgba(255,122,61,.5)}
 .osi-home-hero .hero-console .bg-ic{color:var(--acc);font-size:10px}
-.osi-home-hero .osi-hero-panel{position:relative;overflow:hidden;border:1px solid rgba(66,82,128,.82);background:linear-gradient(160deg,rgba(12,18,32,.95),rgba(5,8,15,.99));box-shadow:0 18px 54px rgba(0,0,0,.42);padding:15px}
-.osi-home-hero .osi-hero-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.62),rgba(20,241,149,.35),transparent)}
-.osi-home-hero .osi-hero-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(34,211,238,.04) 1px,transparent 1px),linear-gradient(rgba(34,211,238,.028) 1px,transparent 1px);background-size:26px 26px;opacity:.78}
-.osi-home-hero .console-top{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.osi-home-hero .osi-hero-panel{position:relative;overflow:hidden;border:1px solid rgba(66,82,128,.55);border-top-color:rgba(34,211,238,.28);background:linear-gradient(160deg,rgba(10,16,28,.74),rgba(5,8,15,.78));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 16px 44px rgba(0,0,0,.30);padding:14px}
+.osi-home-hero .osi-hero-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.44),rgba(20,241,149,.22),transparent)}
+.osi-home-hero .osi-hero-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(34,211,238,.026) 1px,transparent 1px),linear-gradient(rgba(34,211,238,.018) 1px,transparent 1px);background-size:28px 28px;opacity:.62}
+.osi-home-hero .console-top{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
 .osi-home-hero .console-label,.home-record-label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;color:var(--acc);letter-spacing:0;margin-bottom:5px}
-.osi-home-hero .console-top strong{display:block;font-family:'Archivo',sans-serif;font-size:18px;color:var(--ink);letter-spacing:0}
+.osi-home-hero .console-top strong{display:block;font-family:'Archivo',sans-serif;font-size:17px;color:var(--ink);letter-spacing:0}
 .osi-home-hero .sys-mode{display:inline-flex;align-items:center;gap:7px;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;white-space:nowrap}
 .osi-home-hero .sys-mode::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 9px var(--sol)}
-.osi-home-hero .console-screen{position:relative;z-index:1;border:1px solid rgba(44,56,96,.78);background:rgba(3,7,13,.72)}
-.osi-home-hero .console-row{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;min-height:52px;padding:11px 12px;border-bottom:1px solid rgba(44,56,96,.62)}
+.osi-home-hero .console-screen{position:relative;z-index:1;border:1px solid rgba(44,56,96,.58);background:rgba(3,7,13,.46)}
+.osi-home-hero .console-row{display:grid;grid-template-columns:13px 1fr;gap:10px;align-items:center;min-height:45px;padding:9px 11px;border-bottom:1px solid rgba(44,56,96,.48)}
 .osi-home-hero .console-row:last-child{border-bottom:0}
-.osi-home-hero .console-row b{display:block;font-family:'Archivo',sans-serif;font-size:14px;color:var(--ink);letter-spacing:0}
-.osi-home-hero .console-row span span{display:block;margin-top:2px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0}
-.osi-home-hero .console-row i{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--sol);border:1px solid rgba(20,241,149,.24);background:rgba(20,241,149,.07);padding:3px 6px;border-radius:3px;text-transform:uppercase}
-.osi-home-hero .console-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 11px rgba(34,211,238,.7)}
+.osi-home-hero .console-row b{display:block;font-family:'Archivo',sans-serif;font-size:13.5px;color:var(--ink);letter-spacing:0}
+.osi-home-hero .console-row span span{display:block;margin-top:2px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0}
+.osi-home-hero .console-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px rgba(34,211,238,.58)}
 .osi-home-hero .console-row:nth-child(2) .console-dot,.osi-home-hero .console-row:nth-child(5) .console-dot{background:var(--sol);box-shadow:0 0 11px rgba(20,241,149,.72)}
 .osi-home-hero .console-row:nth-child(4) .console-dot{background:var(--acc);box-shadow:0 0 11px rgba(255,122,61,.55)}
-.osi-home-hero .console-footer{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-.osi-home-hero .console-footer span,.home-mini-chip{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);border:1px solid rgba(44,56,96,.8);background:rgba(8,12,21,.7);padding:6px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0}
+.osi-home-hero .console-footer{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+.osi-home-hero .console-footer span,.home-mini-chip{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-faint);border:1px solid rgba(44,56,96,.62);background:rgba(8,12,21,.54);padding:5px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:0}
 .home-record-preview{position:relative;overflow:hidden;padding:28px 0 2px;background:linear-gradient(180deg,rgba(5,9,18,.9),rgba(5,8,15,.55))}
 .home-record-preview::before,.home-clarity::before,.home-final::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.035) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
 .home-record-preview .wrap,.wrap.home-clarity,.home-final .wrap{position:relative;z-index:1;max-width:1120px}
@@ -663,6 +679,8 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
 .osi-home-hero .osi-hero-grid,.record-preview-panel{grid-template-columns:1fr;gap:20px}
 .osi-home-hero .hero-h1-c{font-size:50px}
 .osi-home-hero .osi-hero-panel{max-width:660px}
+.hero-node-map{right:-18%;top:80px;width:78vw;opacity:.28}
+.hero-dossier-ghost{opacity:.18}
 .home-flow-grid,.home-trust-grid{grid-template-columns:1fr 1fr}
 .home-flow-grid::before{display:none}
 .home-final-panel{align-items:flex-start;flex-direction:column}
@@ -676,7 +694,7 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
 .osi-home-hero .hero-sub-c{font-size:14px;line-height:1.62}
 .osi-home-hero .hero-cta-c .btn-acc,.osi-home-hero .hero-cta-c .btn-outline{width:100%;max-width:320px}
 .osi-home-hero .console-row{grid-template-columns:12px 1fr;align-items:start}
-.osi-home-hero .console-row i{grid-column:2;justify-self:start}
+.osi-hero-visual{display:none}
 .home-record-preview{padding-top:24px}
 .record-preview-panel{padding:14px}
 .record-copy h2{font-size:22px}
@@ -692,6 +710,22 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
 </style>
 <section class="hero osi-home-hero" data-view="registry">
   <div class="hero-frame" aria-hidden="true"><span class="hfc tl"></span><span class="hfc tr"></span><span class="hfc bl"></span><span class="hfc br"></span></div>
+  <div class="osi-hero-visual" aria-hidden="true">
+    <div class="hero-dossier-ghost"><span class="hero-dossier-line l1"></span><span class="hero-dossier-line l2"></span><span class="hero-dossier-line l3"></span><span class="hero-dossier-line l4"></span><span class="hero-dossier-line l5"></span></div>
+    <div class="hero-node-map">
+      <svg viewBox="0 0 680 385" role="presentation" focusable="false">
+        <path class="hero-trail" d="M64 246 C154 176 222 190 300 126 S486 76 612 142"/>
+        <path class="hero-trail green" d="M132 86 C214 138 262 238 374 214 S522 224 620 284"/>
+        <path class="hero-trail amber" d="M252 304 C306 252 358 250 422 180 S512 114 584 100"/>
+        <circle class="hero-node" cx="64" cy="246" r="12"/><circle class="hero-node-core" cx="64" cy="246" r="3"/>
+        <circle class="hero-node green" cx="132" cy="86" r="10"/><circle class="hero-node-core green" cx="132" cy="86" r="3"/>
+        <circle class="hero-node" cx="300" cy="126" r="13"/><circle class="hero-node-core" cx="300" cy="126" r="3"/>
+        <circle class="hero-node amber" cx="422" cy="180" r="10"/><circle class="hero-node-core amber" cx="422" cy="180" r="2.8"/>
+        <circle class="hero-node green" cx="620" cy="284" r="12"/><circle class="hero-node-core green" cx="620" cy="284" r="3"/>
+        <circle class="hero-node" cx="612" cy="142" r="9"/><circle class="hero-node-core" cx="612" cy="142" r="2.5"/>
+      </svg>
+    </div>
+  </div>
   <div class="wrap">
     <div class="osi-hero-grid">
       <div class="hero-main hero-inner">
@@ -712,15 +746,15 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
       </div>
       <aside class="osi-hero-panel" aria-label="Case Intelligence Console">
         <div class="console-top">
-          <div><span class="console-label">Case Intelligence Console</span><strong>Registry Pipeline</strong></div>
+          <div><span class="console-label">Read-only status</span><strong>Case Intelligence Console</strong></div>
           <span class="sys-mode">Read-only</span>
         </div>
         <div class="console-screen">
-          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Case Intake</b><span>Live Queue</span></span><i>open</i></div>
-          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Analyst Review</b><span>Consensus Layer</span></span><i>human</i></div>
-          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Proof Log</b><span>Memo Verified</span></span><i>signed</i></div>
-          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Public Record</b><span>Reviewed Archive</span></span><i>sealed</i></div>
-          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Network</b><span>Solana Mainnet</span></span><i>live</i></div>
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Case Intake</b><span>Live Queue</span></span></div>
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Analyst Review</b><span>Consensus Layer</span></span></div>
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Proof Log</b><span>Memo Verified</span></span></div>
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Public Record</b><span>Reviewed Archive</span></span></div>
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Network</b><span>Solana Mainnet</span></span></div>
         </div>
         <div class="console-footer"><span>No custody layer</span><span>Public evidence only</span></div>
       </aside>
