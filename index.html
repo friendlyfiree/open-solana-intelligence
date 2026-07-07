@@ -485,6 +485,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
   </div>
   <nav class="sb-nav" role="tablist" aria-label="Sections">
     <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span>Home</span><span class="sb-c" id="vc-co" style="display:none">3</span></button>
+    <button class="sb-item" data-view="workspace" role="tab" onclick="showView('workspace')"><span>My OSI</span></button>
     <button class="sb-item" data-view="field" role="tab" onclick="showView('field')"><span>Field Office</span></button>
     <button class="sb-item" data-view="records" role="tab" onclick="showView('records')"><span>Public Records</span></button>
     <button class="sb-item" data-view="analysts" role="tab" onclick="showView('analysts')"><span>Analysts</span></button>
@@ -509,7 +510,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .wb-mi:hover{background:var(--bg-card);color:var(--ink)}
 .wb-mi.danger:hover{background:rgba(255,84,112,.12);color:var(--red)}
 </style>
-    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Open profile</button><button class="wb-mi" type="button" role="menuitem" onclick="openSelfProfile();">Proof-of-work CV</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
+    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="showView('workspace');closeWalletMenu();">My OSI</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Open profile</button><button class="wb-mi" type="button" role="menuitem" onclick="openSelfProfile();">Proof-of-work CV</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -2325,6 +2326,42 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div id="admQueue"><div class="adm-muted">Loading...</div></div>
   </div>
 </div></div>
+</section>
+
+<section class="sec osi-workspace" data-view="workspace" id="workspace-view">
+<style id="osi-workspace-shell">
+body[data-view="workspace"] section[data-view="workspace"]{display:block}
+body[data-view="workspace"] .sb-item[data-view="workspace"]{background:var(--acc-soft);color:var(--acc);box-shadow:inset 0 -2px 0 var(--acc)}
+.osi-workspace{min-height:calc(100vh - 84px);padding:38px 0 46px;background:radial-gradient(circle at 18% 0,rgba(34,211,238,.08),transparent 34%),radial-gradient(circle at 88% 12%,rgba(20,241,149,.06),transparent 30%),#070b13}
+.osi-workspace .wrap{max-width:1120px}
+.osi-ws{position:relative;overflow:hidden;border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:linear-gradient(140deg,rgba(13,19,32,.96),rgba(7,11,19,.98));box-shadow:0 22px 70px rgba(0,0,0,.32)}
+.osi-ws::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(34,211,238,.06),transparent 18%,transparent 78%,rgba(255,176,32,.035));pointer-events:none}
+.osi-ws-head{position:relative;display:flex;align-items:flex-start;justify-content:space-between;gap:22px;padding:30px 32px 24px;border-bottom:1px solid var(--line)}
+.osi-ws-kicker{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);margin-bottom:11px}
+.osi-ws h1{font-family:'Archivo',sans-serif;font-size:clamp(28px,4vw,46px);line-height:1.02;letter-spacing:-.03em;margin:0;color:var(--ink-bright)}
+.osi-ws-msg{max-width:650px;margin:13px 0 0;color:var(--ink-dim);font-size:14px;line-height:1.65}
+.osi-ws-side{min-width:210px;border:1px solid var(--line);background:rgba(7,11,19,.72);padding:14px 15px}
+.osi-ws-side .l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+.osi-ws-side .v{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);word-break:break-all}
+.osi-ws-body{position:relative;padding:24px 32px 32px}
+.osi-ws-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.osi-ws-card{min-height:126px;text-align:left;border:1px solid var(--line);border-top-color:var(--line-bright);background:rgba(11,16,27,.82);color:var(--ink);padding:17px 16px;cursor:pointer;display:flex;flex-direction:column;gap:9px;transition:border-color .14s,background .14s,transform .14s}
+.osi-ws-card:hover{border-color:rgba(34,211,238,.45);background:rgba(13,23,36,.94);transform:translateY(-1px)}
+.osi-ws-card:focus-visible,.osi-ws-cta:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.osi-ws-card b{font-family:'Archivo',sans-serif;font-size:15px;letter-spacing:-.01em}
+.osi-ws-card span{font-size:12px;color:var(--ink-dim);line-height:1.5}
+.osi-ws-card i{margin-top:auto;font-family:'JetBrains Mono',monospace;font-size:10px;font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:var(--sol)}
+.osi-ws-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.osi-ws-cta{min-height:42px;border:1px solid var(--line-bright);background:transparent;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;padding:10px 15px;cursor:pointer}
+.osi-ws-cta.primary{background:var(--sol);border-color:var(--sol);color:var(--bg)}
+@media(max-width:900px){body[data-view="workspace"] .sb-item[data-view="workspace"]{box-shadow:inset 0 -2px 0 var(--acc)}.osi-ws-head{flex-direction:column;padding:24px 20px 20px}.osi-ws-side{width:100%;min-width:0}.osi-ws-body{padding:20px}.osi-ws-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.osi-workspace{padding-top:24px}.osi-ws-grid{grid-template-columns:1fr}.osi-ws h1{font-size:30px}}
+</style>
+  <div class="wrap">
+    <div class="osi-ws" id="workspace-shell" aria-live="polite">
+      <div id="workspace-body"></div>
+    </div>
+  </div>
 </section>
 
 <section class="sec" data-view="profile" id="profile-view">
@@ -6231,6 +6268,49 @@ async function withOnchainVote(actionLabel, memoText, onSuccess){
   try{ await onSuccess(sig); }catch(e){ /* the success handler manages its own UI and writes */ }
 }
 
+if(typeof window.OSI_DEBUG_WORKSPACE === 'undefined') window.OSI_DEBUG_WORKSPACE = false;
+function resolveWorkspaceContext(){
+  var wallet = walletPubkey || null;
+  var walletConnected = (typeof getConnectedProvider === 'function') ? !!getConnectedProvider() : !!wallet;
+  var isMaintainer = !!SUPA_AUTH_TOKEN;
+  var verifiedAnalyst = !!(wallet && typeof isVerifiedAnalyst === 'function' && isVerifiedAnalyst(wallet));
+  var analystProfile = (wallet && window.VERIFIED_ANALYSTS) ? (window.VERIFIED_ANALYSTS[String(wallet)] || null) : null;
+  var workspaceRole = 'public';
+
+  if(isMaintainer) workspaceRole = 'maintainer';
+  else if(walletConnected && verifiedAnalyst) workspaceRole = 'analyst';
+  else if(walletConnected) workspaceRole = 'wallet';
+
+  var ctx = {
+    wallet: wallet,
+    walletConnected: walletConnected,
+    isMaintainer: isMaintainer,
+    isVerifiedAnalyst: verifiedAnalyst,
+    analystProfile: analystProfile,
+    workspaceRole: workspaceRole,
+    permissions: {
+      canOpenCase: walletConnected,
+      canSubmitReport: walletConnected,
+      canReview: isMaintainer || (walletConnected && verifiedAnalyst),
+      canVouch: walletConnected && verifiedAnalyst,
+      canAdminApprove: isMaintainer,
+      canSealRecord: isMaintainer
+    }
+  };
+
+  if(window.OSI_DEBUG_WORKSPACE && window.console && typeof window.console.debug === 'function'){
+    window.console.debug('[OSI workspace]', ctx);
+  }
+  return ctx;
+}
+function getWorkspaceRoleLabel(ctx){
+  var role = (ctx && ctx.workspaceRole) || 'public';
+  if(role === 'maintainer') return 'Maintainer Console';
+  if(role === 'analyst') return 'Analyst Desk';
+  if(role === 'wallet') return 'Wallet Workspace';
+  return 'Public Registry';
+}
+
 // Point every [data-mailto] element at the contact address.
 function wireContactLinks(){
   document.querySelectorAll('[data-mailto]').forEach(a=>{
@@ -6359,6 +6439,7 @@ function renderCaseStudies(){
 const VIEW_OF = { registry:'registry', how:'methodology', methodology:'methodology', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
   document.body.dataset.view = v;
+  if(v==='workspace' && typeof renderWorkspace==='function'){ renderWorkspace(); }
   if(v==='profile'){ renderProfile(); }
   if(v==='field'){ renderFieldOffice(); }
   if(v==='wire'){ renderWire(); }
@@ -6366,6 +6447,78 @@ function showView(v){
   if(v==='prooflog'){ renderProofLog(); }
   if(v==='records'){ if(typeof renderCaseRecords==='function' && (typeof demoRecState==='undefined' || demoRecState===null)){ try{ renderCaseRecords(); }catch(e){} } }
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function workspaceShort(addr){
+  if(!addr) return '';
+  if(typeof short === 'function') return short(addr);
+  addr = String(addr);
+  return addr.length > 10 ? addr.slice(0,4) + '...' + addr.slice(-4) : addr;
+}
+function workspaceCard(title, note, action){
+  return '<button class="osi-ws-card" type="button" onclick="'+action+'">'
+    + '<b>'+escapeHtml(title)+'</b>'
+    + '<span>'+escapeHtml(note)+'</span>'
+    + '<i>Open</i>'
+    + '</button>';
+}
+function workspaceCards(items){
+  return '<div class="osi-ws-grid">' + items.map(function(it){ return workspaceCard(it[0], it[1], it[2]); }).join('') + '</div>';
+}
+function renderWorkspace(){
+  var host = document.getElementById('workspace-body');
+  if(!host) return;
+  var ctx = (typeof resolveWorkspaceContext === 'function') ? resolveWorkspaceContext() : { workspaceRole:'public', wallet:null, walletConnected:false, isMaintainer:false, isVerifiedAnalyst:false, permissions:{} };
+  var role = ctx.workspaceRole || 'public';
+  var title = 'OSI Workspace';
+  var msg = 'Connect a wallet to see your cases, signed actions, and role.';
+  var sideLabel = 'Workspace role';
+  var sideValue = (typeof getWorkspaceRoleLabel === 'function') ? getWorkspaceRoleLabel(ctx) : 'Public Registry';
+  var actions = '';
+  var cards = '';
+
+  if(role === 'wallet'){
+    title = 'My OSI';
+    msg = 'Your wallet-linked workspace for case work, report history, and signed activity.';
+    sideLabel = 'Wallet';
+    sideValue = workspaceShort(ctx.wallet);
+    cards = workspaceCards([
+      ['My Cases','Cases opened or filtered to your wallet.',"showView('field');if(typeof fieldMine==='function')fieldMine(true);"],
+      ['My Reports','Reports and profile-linked reviewed work.',"showView('profile')"],
+      ['Signed Actions','Memo-backed actions in the public proof log.',"showView('prooflog')"],
+      ['Case Status','Open and pending case queue.',"showView('field')"]
+    ]);
+  } else if(role === 'analyst'){
+    title = 'Analyst Desk';
+    msg = 'Verified analyst workspace for review, votes, reports, and reputation.';
+    sideLabel = 'Wallet';
+    sideValue = workspaceShort(ctx.wallet);
+    cards = workspaceCards([
+      ['Review Queue','Items awaiting weighted analyst consensus.',"showView('analysts')"],
+      ['My Votes','Signed review activity in the proof log.',"showView('prooflog')"],
+      ['My Reports','Your wallet profile and reviewed work.',"showView('profile')"],
+      ['Reputation','Analyst roster and reputation layer.',"showView('analysts')"]
+    ]);
+  } else if(role === 'maintainer'){
+    title = 'Maintainer Console';
+    msg = 'Maintainer workspace for publishing, moderation, analyst applications, and safety review.';
+    sideLabel = ctx.wallet ? 'Maintainer wallet' : 'Session';
+    sideValue = ctx.wallet ? workspaceShort(ctx.wallet) : 'Supabase auth active';
+    cards = workspaceCards([
+      ['Ready to Publish','Consensus-cleared items and final seals.',"showView('admin')"],
+      ['Pending Reports','Reports awaiting maintainer review.',"showView('admin')"],
+      ['Analyst Applications','Roster applications and verification.',"showView('admin')"],
+      ['Safety Flags','Moderation and escalation review.',"showView('admin')"]
+    ]);
+  } else {
+    actions = '<div class="osi-ws-actions"><button class="osi-ws-cta primary" type="button" onclick="toggleWallet().then(function(){if(typeof renderWorkspace===\'function\')renderWorkspace();})">Connect Wallet</button></div>';
+  }
+
+  var body = cards ? '<div class="osi-ws-body">' + cards + '</div>' : '';
+  host.innerHTML = '<div class="osi-ws-head">'
+    + '<div><div class="osi-ws-kicker mono">'+escapeHtml(sideValue)+'</div><h1>'+escapeHtml(title)+'</h1><p class="osi-ws-msg">'+escapeHtml(msg)+'</p>'+actions+'</div>'
+    + '<aside class="osi-ws-side" aria-label="Workspace context"><div class="l">'+escapeHtml(sideLabel)+'</div><div class="v">'+escapeHtml(sideValue)+'</div></aside>'
+    + '</div>'
+    + body;
 }
 // ===== Wallet profile: a personal console for the connected wallet =====
 function walletButtonClick(){
