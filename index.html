@@ -563,49 +563,108 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 </style>
 
 <style id="osi-hero-redesign">
-.hero{position:relative;overflow:hidden;text-align:center;background:radial-gradient(120% 78% at 50% -8%, #0c1322 0%, #080b14 56%);padding:clamp(60px,11vh,128px) 0 clamp(52px,9vh,108px);border-bottom:1px solid rgba(255,122,61,.10)}
-.hero::before{content:"";position:absolute;top:5%;left:50%;width:min(860px,94vw);height:500px;transform:translateX(-50%);z-index:0;pointer-events:none;filter:blur(10px);background:radial-gradient(50% 50% at 50% 50%, rgba(255,122,61,.18), rgba(255,122,61,.05) 46%, transparent 72%)}
-.hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.045) 1px,transparent 1px);background-size:54px 54px;-webkit-mask-image:radial-gradient(78% 66% at 50% 42%, #000 26%, transparent 80%);mask-image:radial-gradient(78% 66% at 50% 42%, #000 26%, transparent 80%)}
-.hero .wrap{position:relative;z-index:2}
-.hero-frame{position:absolute;inset:16px;pointer-events:none;z-index:1}
-.hfc{position:absolute;width:26px;height:26px;border-color:rgba(255,122,61,.5);border-style:solid;opacity:.6}
-.hfc.tl{top:0;left:0;border-width:2px 0 0 2px}
-.hfc.tr{top:0;right:0;border-width:2px 2px 0 0}
-.hfc.bl{bottom:0;left:0;border-width:0 0 2px 2px}
-.hfc.br{bottom:0;right:0;border-width:0 2px 2px 0}
-.hero-inner{max-width:900px;margin:0 auto;display:flex;flex-direction:column;align-items:center}
-.hero-eyebrow{margin:0 auto}
-.hero-h1-c{font-size:clamp(40px,7.4vw,76px);line-height:1.02;font-weight:900;letter-spacing:-.03em;color:#f6f9ff;margin:20px 0 0;text-shadow:0 2px 44px rgba(0,0,0,.55)}
-.hero-h1-c .amber-dot{color:var(--acc)}
-.hero-sub-c{max-width:600px;margin:22px auto 0;font-family:var(--mono,ui-monospace,monospace);font-size:clamp(14px,1.55vw,16.5px);line-height:1.62;color:#aeb8d6;letter-spacing:.01em}
-.hero-cta-c{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px;align-items:center}
-.hero-cta-c .btn-acc{position:relative;font-size:15px;padding:15px 32px;box-shadow:0 10px 34px rgba(255,122,61,.34), inset 0 0 0 1px rgba(255,170,94,.45)}
-.hero-cta-c .btn-outline{font-size:15px;padding:15px 30px}
-.hero-console{margin-top:22px;background:none;border:none;cursor:pointer;color:#8b96b8;font-family:var(--mono,ui-monospace,monospace);font-size:13px;letter-spacing:.03em;display:inline-flex;align-items:center;gap:8px;transition:color .18s}
-.hero-console:hover{color:#f6f9ff}
-.hero-console .bg-ic{color:var(--acc);font-size:10px}
-@media(max-width:760px){
-.hero{padding:54px 0 46px}
-.hero-frame{inset:10px}
-.hfc{width:18px;height:18px}
-.hero-h1-c{font-size:clamp(34px,9vw,52px)}
-.hero-sub-c{font-size:14px;max-width:92%}
-.hero-cta-c{margin-top:28px;gap:11px}
-.hero-cta-c .btn-acc,.hero-cta-c .btn-outline{width:100%;max-width:300px;justify-content:center}
+.osi-home-hero.hero{position:relative;overflow:hidden;text-align:left;background:radial-gradient(100% 76% at 50% -10%,rgba(255,122,61,.15),transparent 52%),linear-gradient(180deg,#0a101d 0%,#070a12 72%);padding:96px 0 46px;border-bottom:1px solid rgba(255,122,61,.16)}
+.osi-home-hero::before{content:"";position:absolute;top:32px;left:50%;width:min(980px,96vw);height:420px;transform:translateX(-50%);z-index:0;pointer-events:none;filter:blur(14px);background:radial-gradient(50% 50% at 50% 50%,rgba(34,211,238,.14),rgba(255,122,61,.08) 48%,transparent 74%)}
+.osi-home-hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.055) 1px,transparent 1px);background-size:52px 52px;-webkit-mask-image:radial-gradient(86% 70% at 50% 36%,#000 22%,transparent 82%);mask-image:radial-gradient(86% 70% at 50% 36%,#000 22%,transparent 82%)}
+.osi-home-hero .wrap{position:relative;z-index:2}
+.osi-home-hero .hero-frame{position:absolute;inset:18px;pointer-events:none;z-index:1}
+.osi-home-hero .hfc{position:absolute;width:28px;height:28px;border-color:rgba(255,122,61,.52);border-style:solid;opacity:.68}
+.osi-home-hero .hfc.tl{top:0;left:0;border-width:2px 0 0 2px}
+.osi-home-hero .hfc.tr{top:0;right:0;border-width:2px 2px 0 0}
+.osi-home-hero .hfc.bl{bottom:0;left:0;border-width:0 0 2px 2px}
+.osi-home-hero .hfc.br{bottom:0;right:0;border-width:0 2px 2px 0}
+.osi-home-hero .osi-hero-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.72fr);gap:30px;align-items:center}
+.osi-home-hero .hero-main{position:relative;z-index:2;min-width:0}
+.osi-home-hero .hero-inner{max-width:760px;display:flex;flex-direction:column;align-items:flex-start}
+.osi-home-hero .hero-eyebrow{margin:0;border-radius:3px;background:rgba(8,11,20,.66);border-color:rgba(34,211,238,.28);color:var(--cyan);letter-spacing:0}
+.osi-home-hero .hero-h1-c{font-size:68px;line-height:1.02;font-weight:900;letter-spacing:0;color:var(--ink);margin:18px 0 0;text-shadow:0 20px 60px rgba(0,0,0,.62)}
+.osi-home-hero .hero-h1-c .amber-dot{color:var(--acc)}
+.osi-home-hero .hero-sub-c{max-width:640px;margin:20px 0 0;font-family:'JetBrains Mono',monospace;font-size:15.5px;line-height:1.7;color:#b6c0dc;letter-spacing:0}
+.osi-home-hero .hero-trust{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.osi-home-hero .hero-trust span{display:inline-flex;align-items:center;min-height:34px;border:1px solid rgba(44,56,96,.9);background:rgba(14,19,32,.72);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;border-radius:3px;padding:8px 10px}
+.osi-home-hero .hero-trust span::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 9px rgba(20,241,149,.7);margin-right:8px;flex:none}
+.osi-home-hero .hero-cta-c{display:flex;gap:12px;justify-content:flex-start;flex-wrap:wrap;margin-top:30px;align-items:center}
+.osi-home-hero .hero-cta-c .btn-acc,.osi-home-hero .hero-cta-c .btn-outline{min-height:46px;display:inline-flex;align-items:center;justify-content:center}
+.osi-home-hero .hero-cta-c .btn-acc{position:relative;font-size:15px;padding:14px 26px;box-shadow:0 12px 34px rgba(255,122,61,.34),inset 0 0 0 1px rgba(255,170,94,.45)}
+.osi-home-hero .hero-cta-c .btn-outline{font-size:15px;padding:14px 24px;background:rgba(8,11,20,.52)}
+.osi-home-hero .hero-cta-c .btn-acc:focus-visible,.osi-home-hero .hero-cta-c .btn-outline:focus-visible,.osi-home-hero .hero-console:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.osi-home-hero .hero-console{margin-top:18px;min-height:42px;background:none;border:1px solid transparent;cursor:pointer;color:#96a3c4;font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:0;display:inline-flex;align-items:center;gap:8px;padding:8px 2px;transition:color .18s,border-color .18s}
+.osi-home-hero .hero-console:hover{color:var(--ink);border-bottom-color:rgba(255,122,61,.5)}
+.osi-home-hero .hero-console .bg-ic{color:var(--acc);font-size:10px}
+.osi-home-hero .osi-hero-panel{position:relative;border:1px solid var(--line-bright);background:linear-gradient(160deg,rgba(17,23,42,.9),rgba(8,11,20,.96));box-shadow:0 28px 80px rgba(0,0,0,.46);padding:22px}
+.osi-home-hero .osi-hero-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,122,61,.45),transparent)}
+.osi-home-hero .sys-k{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;color:var(--acc);letter-spacing:0;margin-bottom:14px}
+.osi-home-hero .sys-grid{display:grid;grid-template-columns:repeat(2,1fr);border:1px solid var(--line);background:rgba(8,11,20,.52)}
+.osi-home-hero .sys-stat{min-height:78px;padding:14px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.osi-home-hero .sys-stat:nth-child(2n){border-right:0}
+.osi-home-hero .sys-stat:nth-last-child(-n+1){border-bottom:0}
+.osi-home-hero .sys-stat.wide{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;border-right:0}
+.osi-home-hero .sys-v{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:800;color:var(--ink);letter-spacing:0}
+.osi-home-hero .sys-v.live{color:var(--sol)}
+.osi-home-hero .sys-l{margin-top:5px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);letter-spacing:0;text-transform:uppercase}
+.osi-home-hero .sys-pulse{width:9px;height:9px;border-radius:50%;background:var(--sol);box-shadow:0 0 14px var(--sol);animation:pulse 1.8s infinite;flex:none}
+.osi-home-hero .workflow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:28px}
+.osi-home-hero .workflow-card{position:relative;min-height:132px;border:1px solid var(--line);background:rgba(8,11,20,.62);padding:15px 14px}
+.osi-home-hero .workflow-card::before{content:"";position:absolute;top:9px;left:9px;width:13px;height:13px;border-top:1px solid rgba(255,122,61,.52);border-left:1px solid rgba(255,122,61,.52)}
+.osi-home-hero .wf-n{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:0;margin-bottom:18px}
+.osi-home-hero .wf-t{font-weight:800;font-size:15px;color:var(--ink);letter-spacing:0}
+.osi-home-hero .wf-d{font-size:11.5px;line-height:1.5;color:var(--ink-dim);margin-top:6px}
+@media(max-width:980px){
+.osi-home-hero.hero{padding:82px 0 40px}
+.osi-home-hero .osi-hero-grid{grid-template-columns:1fr;gap:24px}
+.osi-home-hero .hero-h1-c{font-size:56px}
+.osi-home-hero .osi-hero-panel{max-width:640px}
+.osi-home-hero .workflow-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:620px){
+.osi-home-hero.hero{padding:74px 0 34px}
+.osi-home-hero .hero-frame{inset:10px}
+.osi-home-hero .hfc{width:18px;height:18px}
+.osi-home-hero .hero-h1-c{font-size:40px}
+.osi-home-hero .hero-sub-c{font-size:14px;line-height:1.62}
+.osi-home-hero .hero-cta-c .btn-acc,.osi-home-hero .hero-cta-c .btn-outline{width:100%;max-width:320px}
+.osi-home-hero .sys-grid,.osi-home-hero .workflow-grid{grid-template-columns:1fr}
+.osi-home-hero .sys-stat,.osi-home-hero .sys-stat:nth-child(2n){border-right:0}
+.osi-home-hero .sys-stat:nth-last-child(-n+1){border-bottom:1px solid var(--line)}
+.osi-home-hero .sys-stat:last-child{border-bottom:0}
 }
 </style>
-<section class="hero" data-view="registry">
+<section class="hero osi-home-hero" data-view="registry">
   <div class="hero-frame" aria-hidden="true"><span class="hfc tl"></span><span class="hfc tr"></span><span class="hfc bl"></span><span class="hfc br"></span></div>
   <div class="wrap">
-    <div class="hero-inner">
-      <div class="eyebrow hero-eyebrow"><span class="live"></span> Public on-chain investigation desk</div>
-      <h1 class="hero-h1 hero-h1-c">Public Intelligence for<br>Solana Incidents<span class="amber-dot">.</span></h1>
-      <p class="hero-sub hero-sub-c">Solana scams and exploits, traced in the open and signed on-chain, where the evidence is public and the verdict belongs to no one.</p>
-      <div class="hero-cta hero-cta-c">
-        <button class="btn-acc" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">Open a Case</button>
-        <button class="btn-outline" onclick="showView('analysts'); setTimeout(function(){ var e=document.getElementById('an-tg'); if(e) e.focus(); }, 320);">Join as Analyst</button>
+    <div class="osi-hero-grid">
+      <div class="hero-main hero-inner">
+        <div class="eyebrow hero-eyebrow"><span class="live"></span> Public on-chain investigation desk</div>
+        <h1 class="hero-h1 hero-h1-c">Public Intelligence for<br>Solana Incidents<span class="amber-dot">.</span></h1>
+        <p class="hero-sub hero-sub-c">Solana scams and exploits, traced in the open and signed on-chain, where the evidence is public and the verdict belongs to no one.</p>
+        <div class="hero-trust" aria-label="OSI trust signals">
+          <span>Wallet-signed records</span>
+          <span>Public proof log</span>
+          <span>Human-reviewed evidence</span>
+          <span>No custody risk</span>
+        </div>
+        <div class="hero-cta hero-cta-c">
+          <button class="btn-acc" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">Open a Case</button>
+          <button class="btn-outline" onclick="showView('analysts'); setTimeout(function(){ var e=document.getElementById('an-tg'); if(e) e.focus(); }, 320);">Join as Analyst</button>
+        </div>
+        <button class="hero-console" onclick="demoStart()"><span class="bg-ic" aria-hidden="true">&#9654;</span> View Live Console</button>
       </div>
-      <button class="hero-console" onclick="demoStart()"><span class="bg-ic">&#9654;</span> Launch the live console</button>
+      <aside class="osi-hero-panel" aria-label="Live system overview">
+        <div class="sys-k">Live system overview</div>
+        <div class="sys-grid">
+          <div class="sys-stat"><div class="sys-v">Live</div><div class="sys-l">Open Cases</div></div>
+          <div class="sys-stat"><div class="sys-v">Memo</div><div class="sys-l">Signed Actions</div></div>
+          <div class="sys-stat"><div class="sys-v">Public</div><div class="sys-l">Public Records</div></div>
+          <div class="sys-stat"><div class="sys-v">Active</div><div class="sys-l">Active Analysts</div></div>
+          <div class="sys-stat wide"><div><div class="sys-v live">Online</div><div class="sys-l">Solana Mainnet</div></div><span class="sys-pulse" aria-hidden="true"></span></div>
+        </div>
+      </aside>
+    </div>
+    <div class="workflow-grid" aria-label="OSI case workflow">
+      <div class="workflow-card"><div class="wf-n">01</div><div class="wf-t">Open a Case</div><div class="wf-d">Start with public wallet, transaction, or incident evidence.</div></div>
+      <div class="workflow-card"><div class="wf-n">02</div><div class="wf-t">Trace the Trail</div><div class="wf-d">Map fund movement and preserve the memo trail.</div></div>
+      <div class="workflow-card"><div class="wf-n">03</div><div class="wf-t">Review Evidence</div><div class="wf-d">Analysts vouch, challenge, and tighten the case record.</div></div>
+      <div class="workflow-card"><div class="wf-n">04</div><div class="wf-t">Seal the Record</div><div class="wf-d">Reviewed evidence becomes a public, verifiable record.</div></div>
     </div>
   </div>
 </section>
