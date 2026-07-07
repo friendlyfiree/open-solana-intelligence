@@ -564,11 +564,11 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 </style>
 
 <style id="osi-hero-redesign">
-body[data-view="registry"]{background:linear-gradient(180deg,#050912 0%,#070b13 44%,#05070d 100%) !important}
+body[data-view="registry"]{background:radial-gradient(900px 360px at 62% 14%,rgba(20,241,149,.075),transparent 62%),radial-gradient(760px 320px at 20% 12%,rgba(34,211,238,.085),transparent 60%),linear-gradient(180deg,#030710 0%,#07101a 38%,#05080f 100%) !important}
 body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[data-view="registry"] .glow{display:none}
-.osi-home-hero.hero{position:relative;overflow:hidden;text-align:left;background:radial-gradient(70% 54% at 50% -8%,rgba(34,211,238,.10),transparent 58%),linear-gradient(180deg,#07101c 0%,#050912 76%);padding:58px 0 30px;border-bottom:1px solid rgba(34,211,238,.14)}
-.osi-home-hero::before{content:"";position:absolute;top:52px;left:50%;width:min(880px,92vw);height:280px;transform:translateX(-50%);z-index:0;pointer-events:none;filter:blur(22px);background:radial-gradient(50% 50% at 50% 50%,rgba(20,241,149,.09),rgba(34,211,238,.07) 45%,transparent 74%)}
-.osi-home-hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.05) 1px,transparent 1px);background-size:48px 48px;-webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.72) 45%,transparent 92%);mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.72) 45%,transparent 92%)}
+.osi-home-hero.hero{position:relative;overflow:hidden;text-align:left;background:linear-gradient(180deg,rgba(7,16,28,.96) 0%,rgba(5,9,18,.98) 82%);padding:56px 0 28px;border-bottom:1px solid rgba(34,211,238,.14)}
+.osi-home-hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(620px 230px at 65% 14%,rgba(20,241,149,.11),transparent 66%),radial-gradient(520px 210px at 21% 18%,rgba(34,211,238,.10),transparent 68%)}
+.osi-home-hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.055) 1px,transparent 1px);background-size:42px 42px;-webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.72) 45%,transparent 96%);mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.72) 45%,transparent 96%)}
 .osi-home-hero .wrap{position:relative;z-index:2}
 .osi-home-hero .hero-frame{position:absolute;inset:14px;pointer-events:none;z-index:1}
 .osi-home-hero .hfc{position:absolute;width:22px;height:22px;border-color:rgba(34,211,238,.34);border-style:solid;opacity:.5}
@@ -576,11 +576,11 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
 .osi-home-hero .hfc.tr{top:0;right:0;border-width:2px 2px 0 0}
 .osi-home-hero .hfc.bl{bottom:0;left:0;border-width:0 0 2px 2px}
 .osi-home-hero .hfc.br{bottom:0;right:0;border-width:0 2px 2px 0}
-.osi-home-hero .osi-hero-grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(310px,.7fr);gap:28px;align-items:center}
+.osi-home-hero .osi-hero-grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(340px,.72fr);gap:28px;align-items:center}
 .osi-home-hero .hero-main{position:relative;z-index:2;min-width:0}
 .osi-home-hero .hero-inner{max-width:720px;display:flex;flex-direction:column;align-items:flex-start}
 .osi-home-hero .hero-eyebrow{margin:0;border-radius:3px;background:rgba(8,11,20,.66);border-color:rgba(34,211,238,.28);color:var(--cyan);letter-spacing:0}
-.osi-home-hero .hero-h1-c{font-size:58px;line-height:1.03;font-weight:900;letter-spacing:0;color:var(--ink);margin:16px 0 0;text-shadow:0 18px 48px rgba(0,0,0,.58)}
+.osi-home-hero .hero-h1-c{font-size:56px;line-height:1.03;font-weight:900;letter-spacing:0;color:var(--ink);margin:16px 0 0;text-shadow:0 18px 48px rgba(0,0,0,.58)}
 .osi-home-hero .hero-h1-c .amber-dot{color:var(--acc)}
 .osi-home-hero .hero-sub-c{max-width:650px;margin:17px 0 0;font-family:'JetBrains Mono',monospace;font-size:14.5px;line-height:1.65;color:#bac5df;letter-spacing:0}
 .osi-home-hero .hero-trust{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
@@ -591,51 +591,80 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
 .osi-home-hero .hero-cta-c .btn-acc{position:relative;font-size:14.5px;padding:13px 24px;box-shadow:0 10px 28px rgba(255,122,61,.26),inset 0 0 0 1px rgba(255,170,94,.42)}
 .osi-home-hero .hero-cta-c .btn-outline{font-size:14.5px;padding:13px 22px;background:rgba(8,11,20,.5)}
 .osi-home-hero .hero-cta-c .btn-acc:focus-visible,.osi-home-hero .hero-cta-c .btn-outline:focus-visible,.osi-home-hero .hero-console:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
-.osi-home-hero .hero-console{margin-top:15px;min-height:40px;background:none;border:1px solid transparent;cursor:pointer;color:#96a3c4;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0;display:inline-flex;align-items:center;gap:8px;padding:7px 2px;transition:color .18s,border-color .18s}
+.osi-home-hero .hero-console{margin-top:15px;min-height:40px;background:none;border:1px solid transparent;cursor:pointer;color:#96a3c4;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0;display:inline-flex;align-items:center;gap:8px;padding:7px 2px;transition:color .16s ease-out,border-color .16s ease-out}
 .osi-home-hero .hero-console:hover{color:var(--ink);border-bottom-color:rgba(255,122,61,.5)}
 .osi-home-hero .hero-console .bg-ic{color:var(--acc);font-size:10px}
-.osi-home-hero .osi-hero-panel{position:relative;overflow:hidden;border:1px solid var(--line-bright);background:linear-gradient(160deg,rgba(12,18,32,.94),rgba(6,9,17,.98));box-shadow:0 18px 52px rgba(0,0,0,.4);padding:16px}
-.osi-home-hero .osi-hero-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.46),transparent)}
-.osi-home-hero .osi-hero-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(34,211,238,.035) 1px,transparent 1px),linear-gradient(rgba(34,211,238,.026) 1px,transparent 1px);background-size:28px 28px;opacity:.75}
-.osi-home-hero .sys-k{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:14px;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;color:var(--acc);letter-spacing:0;margin-bottom:12px}
-.osi-home-hero .sys-mode{display:inline-flex;align-items:center;gap:7px;color:var(--ink-faint)}
+.osi-home-hero .osi-hero-panel{position:relative;overflow:hidden;border:1px solid rgba(66,82,128,.82);background:linear-gradient(160deg,rgba(12,18,32,.95),rgba(5,8,15,.99));box-shadow:0 18px 54px rgba(0,0,0,.42);padding:15px}
+.osi-home-hero .osi-hero-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.62),rgba(20,241,149,.35),transparent)}
+.osi-home-hero .osi-hero-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(34,211,238,.04) 1px,transparent 1px),linear-gradient(rgba(34,211,238,.028) 1px,transparent 1px);background-size:26px 26px;opacity:.78}
+.osi-home-hero .console-top{position:relative;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.osi-home-hero .console-label,.home-record-label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;color:var(--acc);letter-spacing:0;margin-bottom:5px}
+.osi-home-hero .console-top strong{display:block;font-family:'Archivo',sans-serif;font-size:18px;color:var(--ink);letter-spacing:0}
+.osi-home-hero .sys-mode{display:inline-flex;align-items:center;gap:7px;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;white-space:nowrap}
 .osi-home-hero .sys-mode::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 9px var(--sol)}
-.osi-home-hero .sys-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(2,1fr);border:1px solid var(--line);background:rgba(5,8,15,.62)}
-.osi-home-hero .sys-stat{position:relative;min-height:66px;padding:12px 14px 11px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.018),transparent)}
-.osi-home-hero .sys-stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--cyan),transparent);opacity:.45}
-.osi-home-hero .sys-stat:nth-child(2n){border-right:0}
-.osi-home-hero .sys-stat:nth-last-child(-n+1){border-bottom:0}
-.osi-home-hero .sys-stat.wide{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;border-right:0}
-.osi-home-hero .sys-v{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:800;color:var(--ink);letter-spacing:0}
-.osi-home-hero .sys-v.live{color:var(--sol)}
-.osi-home-hero .sys-l{margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);letter-spacing:0;text-transform:uppercase}
-.osi-home-hero .sys-pulse{width:9px;height:9px;border-radius:50%;background:var(--sol);box-shadow:0 0 14px var(--sol);animation:pulse 1.8s infinite;flex:none}
-.home-clarity{padding:34px 0 8px}
-.home-clarity .wrap{max-width:1120px}
+.osi-home-hero .console-screen{position:relative;z-index:1;border:1px solid rgba(44,56,96,.78);background:rgba(3,7,13,.72)}
+.osi-home-hero .console-row{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;min-height:52px;padding:11px 12px;border-bottom:1px solid rgba(44,56,96,.62)}
+.osi-home-hero .console-row:last-child{border-bottom:0}
+.osi-home-hero .console-row b{display:block;font-family:'Archivo',sans-serif;font-size:14px;color:var(--ink);letter-spacing:0}
+.osi-home-hero .console-row span span{display:block;margin-top:2px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0}
+.osi-home-hero .console-row i{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--sol);border:1px solid rgba(20,241,149,.24);background:rgba(20,241,149,.07);padding:3px 6px;border-radius:3px;text-transform:uppercase}
+.osi-home-hero .console-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 11px rgba(34,211,238,.7)}
+.osi-home-hero .console-row:nth-child(2) .console-dot,.osi-home-hero .console-row:nth-child(5) .console-dot{background:var(--sol);box-shadow:0 0 11px rgba(20,241,149,.72)}
+.osi-home-hero .console-row:nth-child(4) .console-dot{background:var(--acc);box-shadow:0 0 11px rgba(255,122,61,.55)}
+.osi-home-hero .console-footer{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.osi-home-hero .console-footer span,.home-mini-chip{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);border:1px solid rgba(44,56,96,.8);background:rgba(8,12,21,.7);padding:6px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0}
+.home-record-preview{position:relative;overflow:hidden;padding:28px 0 2px;background:linear-gradient(180deg,rgba(5,9,18,.9),rgba(5,8,15,.55))}
+.home-record-preview::before,.home-clarity::before,.home-final::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(124,142,196,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.035) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
+.home-record-preview .wrap,.wrap.home-clarity,.home-final .wrap{position:relative;z-index:1;max-width:1120px}
+.wrap.home-clarity > *,.home-final-panel > *{position:relative;z-index:1}
+.record-preview-panel{position:relative;display:grid;grid-template-columns:minmax(0,.72fr) minmax(360px,1fr);gap:18px;align-items:center;border:1px solid rgba(66,82,128,.7);background:linear-gradient(135deg,rgba(11,17,30,.88),rgba(5,8,15,.94));padding:18px;box-shadow:0 18px 48px rgba(0,0,0,.25)}
+.record-preview-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,rgba(34,211,238,.55),rgba(20,241,149,.35),transparent)}
+.record-copy h2{margin:0;font-family:'Archivo',sans-serif;font-size:25px;line-height:1.14;color:var(--ink)}
+.record-copy p{margin:8px 0 0;max-width:460px;font-size:13px;line-height:1.6;color:var(--ink-dim)}
+.record-card{position:relative;border:1px solid rgba(44,56,96,.86);background:rgba(4,8,15,.78);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+.record-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border-bottom:1px solid rgba(44,56,96,.72)}
+.record-card-head b{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);letter-spacing:0}
+.record-card-head .record-status{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sol);border:1px solid rgba(20,241,149,.28);background:rgba(20,241,149,.08);padding:4px 7px;border-radius:3px;text-transform:uppercase}
+.record-track{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:rgba(44,56,96,.58)}
+.record-row{display:flex;align-items:center;gap:10px;min-height:54px;padding:11px 12px;background:rgba(7,11,20,.96)}
+.record-row .rec-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px rgba(34,211,238,.65);flex:none}
+.record-row:nth-child(2) .rec-dot,.record-row:nth-child(5) .rec-dot{background:var(--sol);box-shadow:0 0 10px rgba(20,241,149,.72)}
+.record-row span:not(.rec-dot){display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);text-transform:uppercase}
+.record-row b{display:block;margin-top:2px;font-family:'Archivo',sans-serif;font-size:13px;color:var(--ink);letter-spacing:0}
+.record-seal{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-top:1px solid rgba(44,56,96,.72)}
+.record-seal span{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);text-transform:uppercase}
+.record-seal b{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--acc);text-transform:uppercase}
+.home-clarity{position:relative;padding:34px 0 6px}
 .home-section-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:18px}
 .home-section-head .sec-sub{margin-bottom:0;max-width:570px}
 .home-flow-grid,.home-trust-grid{display:grid;gap:12px}
-.home-flow-grid{grid-template-columns:repeat(4,1fr)}
+.home-flow-grid{position:relative;grid-template-columns:repeat(4,1fr)}
+.home-flow-grid::before{content:"";position:absolute;left:8%;right:8%;top:31px;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.5),rgba(20,241,149,.35),transparent)}
 .home-trust-grid{grid-template-columns:repeat(3,1fr)}
-.home-flow-card,.home-trust-card{position:relative;border:1px solid var(--line);border-top-color:var(--line-bright);background:linear-gradient(165deg,rgba(12,18,31,.86),rgba(6,10,18,.94));padding:17px 16px;min-height:138px;box-shadow:0 12px 34px rgba(0,0,0,.18)}
-.home-flow-card::before,.home-trust-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--cyan),transparent);opacity:.5}
-.home-k{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:.08em;text-transform:uppercase;margin-bottom:16px}
-.home-t{font-family:'Archivo',sans-serif;font-size:16px;font-weight:850;color:var(--ink);letter-spacing:-.01em}
-.home-d{font-size:12.3px;line-height:1.55;color:var(--ink-dim);margin-top:7px}
-.home-trust-card{min-height:150px}
-.home-trust-card .home-k{color:var(--sol)}
-.home-final{padding:34px 0 42px}
-.home-final-panel{border:1px solid var(--line-bright);background:linear-gradient(135deg,rgba(13,20,34,.94),rgba(5,8,15,.98));padding:26px 28px;display:flex;align-items:center;justify-content:space-between;gap:18px;box-shadow:0 18px 58px rgba(0,0,0,.28)}
-.home-final h2{font-family:'Archivo',sans-serif;font-size:clamp(24px,3vw,34px);line-height:1.08;letter-spacing:-.025em;margin:0;color:var(--ink-bright)}
+.home-flow-card,.home-trust-card{position:relative;overflow:hidden;border:1px solid rgba(52,66,105,.82);border-top-color:rgba(93,111,164,.74);background:linear-gradient(165deg,rgba(12,18,31,.9),rgba(5,9,17,.96));padding:16px;min-height:132px;box-shadow:0 12px 34px rgba(0,0,0,.16)}
+.home-flow-card::before,.home-trust-card::before{content:"";position:absolute;left:0;top:0;right:0;height:1px;background:linear-gradient(90deg,rgba(34,211,238,.52),transparent)}
+.flow-top,.trust-top{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.flow-ic,.trust-ic{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid rgba(34,211,238,.32);background:rgba(34,211,238,.08);color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:800;border-radius:3px}
+.home-k{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:0;text-transform:uppercase}
+.home-t{font-family:'Archivo',sans-serif;font-size:16px;font-weight:850;color:var(--ink);letter-spacing:0}
+.home-d{font-size:12.3px;line-height:1.5;color:var(--ink-dim);margin-top:7px}
+.trust-state{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--sol);text-transform:uppercase;border:1px solid rgba(20,241,149,.24);background:rgba(20,241,149,.07);padding:4px 7px;border-radius:3px}
+.home-trust-card{min-height:145px}
+.home-trust-card .trust-ic{border-color:rgba(20,241,149,.30);background:rgba(20,241,149,.075);color:var(--sol)}
+.home-final{position:relative;padding:34px 0 42px}
+.home-final-panel{position:relative;overflow:hidden;border:1px solid rgba(93,111,164,.78);background:radial-gradient(520px 180px at 88% 0%,rgba(20,241,149,.09),transparent 70%),linear-gradient(135deg,rgba(13,20,34,.95),rgba(5,8,15,.99));padding:26px 28px;display:flex;align-items:center;justify-content:space-between;gap:18px;box-shadow:0 18px 58px rgba(0,0,0,.28)}
+.home-final-panel::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,rgba(255,122,61,.6),rgba(34,211,238,.4),transparent)}
+.home-final h2{font-family:'Archivo',sans-serif;font-size:32px;line-height:1.08;letter-spacing:0;margin:0;color:var(--ink-bright)}
 .home-final p{max-width:590px;margin:9px 0 0;color:var(--ink-dim);font-size:13.5px;line-height:1.6}
-.home-final-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.home-final-actions{position:relative;z-index:1;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .home-final .btn-acc,.home-final .btn-outline{min-height:44px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;padding:12px 20px}
 @media(max-width:980px){
 .osi-home-hero.hero{padding:54px 0 28px}
-.osi-home-hero .osi-hero-grid{grid-template-columns:1fr;gap:24px}
+.osi-home-hero .osi-hero-grid,.record-preview-panel{grid-template-columns:1fr;gap:20px}
 .osi-home-hero .hero-h1-c{font-size:50px}
-.osi-home-hero .osi-hero-panel{max-width:640px}
+.osi-home-hero .osi-hero-panel{max-width:660px}
 .home-flow-grid,.home-trust-grid{grid-template-columns:1fr 1fr}
+.home-flow-grid::before{display:none}
 .home-final-panel{align-items:flex-start;flex-direction:column}
 .home-final-actions{justify-content:flex-start}
 }
@@ -646,13 +675,17 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
 .osi-home-hero .hero-h1-c{font-size:38px}
 .osi-home-hero .hero-sub-c{font-size:14px;line-height:1.62}
 .osi-home-hero .hero-cta-c .btn-acc,.osi-home-hero .hero-cta-c .btn-outline{width:100%;max-width:320px}
-.osi-home-hero .sys-grid,.home-flow-grid,.home-trust-grid{grid-template-columns:1fr}
-.osi-home-hero .sys-stat,.osi-home-hero .sys-stat:nth-child(2n){border-right:0}
-.osi-home-hero .sys-stat:nth-last-child(-n+1){border-bottom:1px solid var(--line)}
-.osi-home-hero .sys-stat:last-child{border-bottom:0}
+.osi-home-hero .console-row{grid-template-columns:12px 1fr;align-items:start}
+.osi-home-hero .console-row i{grid-column:2;justify-self:start}
+.home-record-preview{padding-top:24px}
+.record-preview-panel{padding:14px}
+.record-copy h2{font-size:22px}
+.record-card-head{align-items:flex-start;flex-direction:column}
+.record-track,.home-flow-grid,.home-trust-grid{grid-template-columns:1fr}
 .home-clarity{padding-top:28px}
 .home-section-head{display:block}
 .home-flow-card,.home-trust-card{min-height:0}
+.home-final h2{font-size:26px}
 .home-final-panel{padding:22px 20px}
 .home-final .btn-acc,.home-final .btn-outline{width:100%;max-width:320px}
 }
@@ -677,16 +710,47 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
         </div>
         <button class="hero-console" onclick="demoStart()"><span class="bg-ic" aria-hidden="true">&#9654;</span> View Live Console</button>
       </div>
-      <aside class="osi-hero-panel" aria-label="Live system overview">
-        <div class="sys-k"><span>System status console</span><span class="sys-mode">Read-only</span></div>
-        <div class="sys-grid">
-          <div class="sys-stat"><div class="sys-v">Open Cases</div><div class="sys-l">Live Queue</div></div>
-          <div class="sys-stat"><div class="sys-v">Signed Actions</div><div class="sys-l">Memo Verified</div></div>
-          <div class="sys-stat"><div class="sys-v">Public Records</div><div class="sys-l">Reviewed Archive</div></div>
-          <div class="sys-stat"><div class="sys-v">Analysts</div><div class="sys-l">Reputation Layer</div></div>
-          <div class="sys-stat wide"><div><div class="sys-v live">Network</div><div class="sys-l">Solana Mainnet</div></div><span class="sys-pulse" aria-hidden="true"></span></div>
+      <aside class="osi-hero-panel" aria-label="Case Intelligence Console">
+        <div class="console-top">
+          <div><span class="console-label">Case Intelligence Console</span><strong>Registry Pipeline</strong></div>
+          <span class="sys-mode">Read-only</span>
         </div>
+        <div class="console-screen">
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Case Intake</b><span>Live Queue</span></span><i>open</i></div>
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Analyst Review</b><span>Consensus Layer</span></span><i>human</i></div>
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Proof Log</b><span>Memo Verified</span></span><i>signed</i></div>
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Public Record</b><span>Reviewed Archive</span></span><i>sealed</i></div>
+          <div class="console-row"><span class="console-dot" aria-hidden="true"></span><span><b>Network</b><span>Solana Mainnet</span></span><i>live</i></div>
+        </div>
+        <div class="console-footer"><span>No custody layer</span><span>Public evidence only</span></div>
       </aside>
+    </div>
+  </div>
+</section>
+
+<section class="sec home-record-preview" data-view="registry" id="home-record-preview">
+  <div class="wrap">
+    <div class="record-preview-panel">
+      <div class="record-copy">
+        <span class="home-record-label">Example Record Preview</span>
+        <h2>What OSI produces.</h2>
+        <p>A compact public case record: evidence, review status, proof trail, and a clear seal state before publication.</p>
+        <div class="console-footer"><span>Demo data</span><span>No fake metrics</span><span>Built for Solana</span></div>
+      </div>
+      <div class="record-card" aria-label="Demo Case Record">
+        <div class="record-card-head">
+          <span class="home-record-label">Demo Case Record</span>
+          <b>OSI-2026-DEMO</b>
+          <span class="record-status">Reviewed</span>
+        </div>
+        <div class="record-track">
+          <div class="record-row"><span class="rec-dot" aria-hidden="true"></span><div><span>Evidence links</span><b>Public only</b></div></div>
+          <div class="record-row"><span class="rec-dot" aria-hidden="true"></span><div><span>Analyst review</span><b>Challengeable</b></div></div>
+          <div class="record-row"><span class="rec-dot" aria-hidden="true"></span><div><span>Proof log</span><b>Memo-verifiable</b></div></div>
+          <div class="record-row"><span class="rec-dot" aria-hidden="true"></span><div><span>Seal</span><b>Ready for public record</b></div></div>
+        </div>
+        <div class="record-seal"><span>Record state</span><b>Ready for public archive</b></div>
+      </div>
     </div>
   </div>
 </section>
@@ -892,10 +956,10 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
       <p class="sec-sub">A compact workflow for documenting Solana incidents without custody, private DMs, or closed-door verdicts.</p>
     </div>
     <div class="home-flow-grid" aria-label="How OSI Works">
-      <div class="home-flow-card"><div class="home-k">01</div><div class="home-t">Open a Case</div><div class="home-d">Submit public Solana evidence without giving OSI custody of funds.</div></div>
-      <div class="home-flow-card"><div class="home-k">02</div><div class="home-t">Trace the Trail</div><div class="home-d">Analysts inspect wallets, transactions, links, and public evidence.</div></div>
-      <div class="home-flow-card"><div class="home-k">03</div><div class="home-t">Review Evidence</div><div class="home-d">Verified analysts vouch, reject, or challenge weak claims.</div></div>
-      <div class="home-flow-card"><div class="home-k">04</div><div class="home-t">Seal the Record</div><div class="home-d">Approved findings become public, memo-verifiable case records.</div></div>
+      <div class="home-flow-card"><div class="flow-top"><span class="flow-ic">IN</span><span class="home-k">01</span></div><div class="home-t">Open a Case</div><div class="home-d">Submit public evidence. OSI never takes custody.</div></div>
+      <div class="home-flow-card"><div class="flow-top"><span class="flow-ic">TX</span><span class="home-k">02</span></div><div class="home-t">Trace the Trail</div><div class="home-d">Inspect wallets, transactions, links, and public context.</div></div>
+      <div class="home-flow-card"><div class="flow-top"><span class="flow-ic">RV</span><span class="home-k">03</span></div><div class="home-t">Review Evidence</div><div class="home-d">Verified analysts vouch, reject, or challenge weak claims.</div></div>
+      <div class="home-flow-card"><div class="flow-top"><span class="flow-ic">SE</span><span class="home-k">04</span></div><div class="home-t">Seal the Record</div><div class="home-d">Approved findings become memo-verifiable public records.</div></div>
     </div>
   </div>
 </section>
@@ -910,9 +974,9 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
       <p class="sec-sub">OSI is built for public verification, human review, and clear limits on what the platform does.</p>
     </div>
     <div class="home-trust-grid" aria-label="Why Trust OSI">
-      <div class="home-trust-card"><div class="home-k">Signed</div><div class="home-t">Signed on Solana</div><div class="home-d">Critical actions can be wallet-signed and indexed through a public proof log.</div></div>
-      <div class="home-trust-card"><div class="home-k">Reviewed</div><div class="home-t">Human-reviewed and challengeable</div><div class="home-d">Records are reviewed by analysts and weak claims can be challenged before publication.</div></div>
-      <div class="home-trust-card"><div class="home-k">Non-custodial</div><div class="home-t">Non-custodial by design</div><div class="home-d">OSI never holds user funds and does not promise recovery or legal certainty.</div></div>
+      <div class="home-trust-card"><div class="trust-top"><span class="trust-ic">SIG</span><span class="trust-state">Proof log</span></div><div class="home-t">Signed on Solana</div><div class="home-d">Critical actions can be wallet-signed and indexed through a public proof log.</div></div>
+      <div class="home-trust-card"><div class="trust-top"><span class="trust-ic">REV</span><span class="trust-state">Challengeable</span></div><div class="home-t">Human-reviewed and challengeable</div><div class="home-d">Records are reviewed by analysts before publication.</div></div>
+      <div class="home-trust-card"><div class="trust-top"><span class="trust-ic">NC</span><span class="trust-state">No custody</span></div><div class="home-t">Non-custodial by design</div><div class="home-d">OSI never holds user funds and does not promise recovery or legal certainty.</div></div>
     </div>
   </div>
 </section>
@@ -922,6 +986,7 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
     <div class="home-final">
       <div class="home-final-panel">
         <div>
+          <span class="home-record-label">Registry workflow</span>
           <h2>Start with evidence. End with a public record.</h2>
           <p>Open a case, join the analyst layer, or watch the live console to see how OSI turns public Solana evidence into reviewable intelligence.</p>
         </div>
