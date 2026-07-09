@@ -2508,36 +2508,42 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .moc-shell{position:relative;display:grid;grid-template-columns:250px minmax(740px,1fr) 380px;gap:16px;align-items:start;margin-top:4px;width:100%}
 .moc-shell::before{content:"";position:absolute;inset:-22px -26px auto -26px;height:230px;pointer-events:none;background:radial-gradient(circle at 24% 0%,rgba(34,211,238,.11),transparent 34%),linear-gradient(90deg,rgba(20,241,149,.06),transparent 55%);opacity:.9}
 .moc-nav,.moc-main,.moc-panel,.moc-card,.moc-bottom-card{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(7,12,22,.94));border-radius:8px;box-shadow:0 18px 60px rgba(0,0,0,.18)}
-.moc-nav{padding:16px;position:sticky;top:84px}
-.moc-nav-k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);margin:3px 0 12px}
-.moc-nav-btn{width:100%;min-height:40px;display:flex;align-items:center;gap:10px;border:1px solid transparent;background:transparent;color:var(--ink-dim);border-radius:6px;padding:8px 9px;margin-bottom:4px;font-family:'Archivo',sans-serif;font-size:13px;text-align:left;cursor:pointer}
+.moc-nav{padding:14px;position:sticky;top:84px;background:linear-gradient(180deg,rgba(9,16,30,.96),rgba(5,10,19,.98))}
+.moc-nav-k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(34,211,238,.72);margin:3px 0 10px}
+.moc-nav-btn{width:100%;min-height:38px;display:flex;align-items:center;gap:10px;border:1px solid transparent;background:transparent;color:var(--ink-dim);border-radius:6px;padding:7px 9px;margin-bottom:3px;font-family:'Archivo',sans-serif;font-size:13px;text-align:left;cursor:pointer;transition:background-color 120ms ease-out,border-color 120ms ease-out,color 120ms ease-out,box-shadow 120ms ease-out}
 .moc-nav-btn i{width:7px;height:7px;border-radius:50%;background:rgba(148,163,184,.36);box-shadow:0 0 0 1px rgba(148,163,184,.12)}
 .moc-nav-btn:hover,.moc-nav-btn.active{border-color:rgba(34,211,238,.24);background:rgba(34,211,238,.07);color:var(--ink)}
+.moc-nav-btn.active{background:linear-gradient(90deg,rgba(34,211,238,.12),rgba(34,211,238,.035));box-shadow:inset 2px 0 0 var(--cyan)}
 .moc-nav-btn.active i{background:var(--cyan);box-shadow:0 0 14px rgba(34,211,238,.7)}
 .moc-main{padding:0;overflow:hidden}
-.moc-head{position:relative;padding:24px 26px 20px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,rgba(34,211,238,.08),transparent 52%),linear-gradient(180deg,rgba(255,255,255,.025),transparent)}
+.moc-head{position:relative;padding:24px 26px 20px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,rgba(34,211,238,.08),transparent 52%),linear-gradient(180deg,rgba(255,255,255,.025),transparent);overflow:hidden}
+.moc-head::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(34,211,238,.12),transparent 34%),repeating-linear-gradient(90deg,rgba(148,163,184,.055) 0 1px,transparent 1px 56px),repeating-linear-gradient(0deg,rgba(148,163,184,.04) 0 1px,transparent 1px 44px);opacity:.34}
+.moc-head>*{position:relative;z-index:1}
 .moc-kicker{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);margin-bottom:8px}
 .moc-head h2{font-family:'Archivo',sans-serif;font-size:30px;line-height:1.04;margin:0 0 7px;color:var(--ink-bright);letter-spacing:0}
 .moc-head p{margin:0;color:var(--ink-dim);font-size:13.5px;line-height:1.45;max-width:880px}
 .moc-sec{padding:18px 18px 20px;border-top:1px solid rgba(255,255,255,.02)}
 .moc-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
-.moc-card{padding:14px 13px;min-height:92px;border-color:rgba(148,163,184,.18)}
-.moc-card .k{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);line-height:1.35}
+.moc-card{padding:14px 13px;min-height:92px;border-color:rgba(148,163,184,.18);overflow:hidden}
+.moc-card::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:rgba(34,211,238,.32);opacity:.8}
+.moc-card.pending::before{background:rgba(255,176,32,.56)}.moc-card.ok::before{background:rgba(20,241,149,.52)}.moc-card.analyst::before{background:rgba(168,85,247,.52)}.moc-card.danger::before{background:rgba(255,84,112,.52)}.moc-card.system::before{background:rgba(34,211,238,.52)}
+.moc-card .k{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);line-height:1.35;min-height:22px}
 .moc-card .v{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:800;color:var(--ink-bright);margin-top:10px;line-height:1}
 .moc-card .v.na{font-size:11px;font-weight:700;line-height:1.35;color:var(--ink-faint)}
-.moc-card .s{font-size:11px;color:var(--ink-faint);margin-top:8px}
+.moc-card .s{font-size:11px;color:var(--ink-faint);margin-top:8px;line-height:1.35}
 .moc-card.pending{border-color:rgba(255,176,32,.22)}.moc-card.pending .v{color:var(--amber)}
 .moc-card.ok{border-color:rgba(20,241,149,.22)}.moc-card.ok .v{color:var(--sol)}
 .moc-card.analyst{border-color:rgba(168,85,247,.22)}.moc-card.analyst .v{color:#c084fc}
 .moc-card.danger{border-color:rgba(255,84,112,.2)}.moc-card.danger .v{color:var(--red)}
+.moc-card.system{border-color:rgba(34,211,238,.2)}.moc-card.system .v{color:var(--cyan)}
 .moc-table-head,.moc-row{display:grid;grid-template-columns:64px 76px minmax(160px,1.35fr) 94px 78px 54px 58px 76px 18px;gap:8px;align-items:center}
-.moc-table-head{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);padding:0 2px 9px;border-bottom:1px solid var(--line)}
-.moc-row{width:100%;min-height:62px;border:0;border-bottom:1px solid rgba(148,163,184,.11);background:transparent;color:var(--ink-dim);padding:11px 2px;text-align:left;cursor:pointer;font-family:inherit}
-.moc-row:hover,.moc-row.active{background:rgba(34,211,238,.045)}
-.moc-row.active{box-shadow:inset 2px 0 0 var(--cyan)}
+.moc-table-head{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);padding:0 4px 9px;border-bottom:1px solid var(--line)}
+.moc-row{width:100%;min-height:62px;border:0;border-bottom:1px solid rgba(148,163,184,.11);border-radius:6px;background:transparent;color:var(--ink-dim);padding:11px 4px;text-align:left;cursor:pointer;font-family:inherit;transition:background-color 120ms ease-out,box-shadow 120ms ease-out,color 120ms ease-out}
+.moc-row:hover,.moc-row.active{background:linear-gradient(90deg,rgba(34,211,238,.06),rgba(34,211,238,.018))}
+.moc-row.active{box-shadow:inset 3px 0 0 var(--cyan),0 0 0 1px rgba(34,211,238,.08)}
 .moc-row b{display:block;color:var(--ink);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .moc-row span{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.moc-pill{display:inline-flex;width:max-content;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line-bright);border-radius:999px;padding:3px 7px;color:var(--ink-dim)}
+.moc-pill{display:inline-flex;width:max-content;max-width:100%;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line-bright);border-radius:999px;padding:3px 7px;color:var(--ink-dim);white-space:nowrap}
 .moc-pill.report{color:var(--cyan);border-color:rgba(34,211,238,.28);background:rgba(34,211,238,.06)}
 .moc-pill.case{color:var(--sol);border-color:rgba(20,241,149,.26);background:rgba(20,241,149,.055)}
 .moc-pill.analyst{color:#c084fc;border-color:rgba(168,85,247,.28);background:rgba(168,85,247,.06)}
@@ -2545,7 +2551,8 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .moc-pill.pack{color:var(--amber);border-color:rgba(255,176,32,.28);background:rgba(255,176,32,.06)}
 .moc-pill.ok{color:var(--sol);border-color:rgba(20,241,149,.28)}
 .moc-pill.pending{color:var(--amber);border-color:rgba(255,176,32,.28)}
-.moc-chevron{font-size:20px;color:var(--ink-faint);text-align:right}
+.moc-chevron{font-size:0;color:var(--ink-faint);text-align:right}
+.moc-chevron::before{content:"\203A";font-size:20px}
 .moc-empty,.moc-error,.moc-loading{border:1px dashed rgba(148,163,184,.22);border-radius:8px;padding:18px;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;background:rgba(255,255,255,.02)}
 .moc-error{border-color:rgba(255,176,32,.35);color:var(--amber)}
 .moc-panel{padding:0;overflow:hidden;position:sticky;top:84px}
@@ -2559,6 +2566,8 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .moc-detail-row span{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
 .moc-detail-row b{font-size:12px;color:var(--ink-dim);font-weight:700;text-align:right;word-break:break-word}
 .moc-note{border:1px solid rgba(148,163,184,.16);background:rgba(255,255,255,.025);border-radius:8px;padding:12px;font-size:12px;line-height:1.55;color:var(--ink-dim);margin-bottom:14px}
+.moc-evidence{max-height:156px;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(34,211,238,.36) rgba(15,23,42,.35)}
+.moc-evidence b{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);margin-bottom:6px}
 .moc-actions{display:grid;grid-template-columns:1fr;gap:8px}
 .moc-action{min-height:40px;border:1px solid var(--line-bright);background:rgba(255,255,255,.02);border-radius:7px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.04em;cursor:pointer}
 .moc-action:hover{border-color:rgba(34,211,238,.4);color:var(--ink)}
@@ -6647,7 +6656,7 @@ function admConsoleModel(src){
   };
 }
 function admStatCard(label,value,tone,note){
-  return '<div class="moc-card '+(tone||'')+'"><div class="k">'+admEsc(label)+'</div>'+admCount(value)+'<div class="s">'+admEsc(note||'Real rows only')+'</div></div>';
+  return '<div class="moc-card '+(tone||'')+'"><div class="k">'+admEsc(label)+'</div>'+admCount(value)+'<div class="s">'+admEsc(note||'Live source pending')+'</div></div>';
 }
 function admFilterMatches(item,filter){
   if(!filter || filter==='overview' || filter==='queue') return true;
@@ -6667,7 +6676,7 @@ function admConsoleNav(active){
   }).join('')+'</aside>';
 }
 function admQueueHtml(items,selectedKey){
-  if(!items.length) return '<div class="moc-empty">No real items match this section. The console is not showing demo rows.</div>';
+  if(!items.length) return '<div class="moc-empty">No items found for this section.</div>';
   return '<div class="moc-table-head"><span>Type</span><span>ID</span><span>Title / Subject</span><span>Submitter</span><span>Status</span><span>Votes</span><span>Challenges</span><span>Updated</span><span></span></div>'
     + items.map(function(it){
       var cls = it.kind==='case' ? 'case' : it.kind;
@@ -6696,12 +6705,12 @@ function admSelectedHtml(it){
     + '<div class="moc-panel-head"><div class="moc-panel-k">Selected Item</div><span class="moc-pill '+cls+'">'+admEsc(it.kind==='case'?'Case':it.kind)+'</span><h3>'+admEsc(admClip(it.title,80))+'</h3><div class="moc-panel-id">'+admEsc(it.id)+'</div></div>'
     + '<div class="moc-panel-body"><div class="moc-detail">'
     + '<div class="moc-detail-row"><span>Submitter</span><b>'+admEsc(admShortWallet(it.submitter))+'</b></div>'
-    + '<div class="moc-detail-row"><span>Status</span><b>'+admEsc(it.status)+'</b></div>'
+    + '<div class="moc-detail-row"><span>Status</span><b><span class="moc-pill '+(it.status==='Pending review'||it.status==='Application'||it.status==='Ready to review'?'pending':'ok')+'">'+admEsc(it.status)+'</span></b></div>'
     + '<div class="moc-detail-row"><span>Updated</span><b>'+admEsc(admTime(it.updated||it.created))+'</b></div>'
     + '<div class="moc-detail-row"><span>Analyst votes</span><b>'+admEsc(String(it.votes.approve))+' approve / '+admEsc(String(it.votes.reject))+' reject</b></div>'
     + '<div class="moc-detail-row"><span>Challenges</span><b>'+admEsc(challengeLabel)+'</b></div>'
     + '<div class="moc-detail-row"><span>Proof log</span><b>'+admEsc(proofLabel)+'</b></div>'
-    + '</div><div class="moc-note" id="moc-evidence"><b>Evidence summary</b><br>'+admEsc(admClip(evidence,700))+'</div>'
+    + '</div><div class="moc-note moc-evidence" id="moc-evidence"><b>Evidence summary</b>'+admEsc(admClip(evidence,700))+'</div>'
     + '<div class="moc-actions">'
     + '<button class="moc-action" type="button" onclick="admFocusEvidence()">View Evidence</button>'
     + '<button class="moc-action" type="button" onclick="showView(\'prooflog\')">View Proof Log</button>'
@@ -6709,19 +6718,19 @@ function admSelectedHtml(it){
     + '<button class="moc-action" type="button" onclick="showView(\'records\')"'+publicDisabled+'>Open Public Record</button>'
     + '<button class="moc-action" type="button" onclick="admOpenSelectedAnalyst()"'+analystDisabled+'>Open Analyst Profile</button>'
     + '</div><div class="moc-disabled">'
-    + '<button class="moc-action" type="button" disabled>Approve / Reject disabled: Stage 1 read-only</button>'
+    + '<button class="moc-action" type="button" disabled>Approve / Reject disabled: Requires hardened backend</button>'
     + '<button class="moc-action" type="button" disabled>Seal Record disabled: Requires hardened backend review</button>'
     + '</div></div></aside>';
 }
 function admBottomHtml(model){
   var evs = model.sources.events.ok ? (model.events || []) : null;
-  var activity = evs === null ? '<div class="moc-empty">Proof log activity is not available yet.</div>' : (!evs.length ? '<div class="moc-empty">No public signed activity found.</div>' : '<div class="moc-feed">'+evs.slice(0,5).map(function(e){
+  var activity = evs === null ? '<div class="moc-empty">Proof log activity is not connected yet.</div>' : (!evs.length ? '<div class="moc-empty">No public signed activity yet.</div>' : '<div class="moc-feed">'+evs.slice(0,5).map(function(e){
     return '<div class="moc-feed-row"><i class="moc-dot"></i><div><b>'+admEsc(e.label || e.event_type || 'Signed action')+'</b><span>'+admEsc(admShortWallet(e.actor_wallet))+' / '+admEsc(admTime(e.created_at))+'</span></div><span>'+admEsc(e.item_id?admClip(e.item_id,10):'')+'</span></div>';
   }).join('')+'</div>');
   var alerts = model.alerts.length ? '<div class="moc-feed">'+model.alerts.map(function(a){
     return '<div class="moc-feed-row"><i class="moc-dot" style="background:var(--amber);box-shadow:0 0 12px rgba(255,176,32,.5)"></i><div><b>'+admEsc(admClip(a.title,64))+'</b><span>'+admEsc(a.kind)+' / '+admEsc(a.risk.label)+'</span></div><span>'+admEsc(admTime(a.updated||a.created))+'</span></div>';
   }).join('')+'</div>' : '<div class="moc-empty">No open alerts from available real sources.</div>';
-  var health = '<div class="moc-empty">System health telemetry is not connected yet. No TPS, slot, or uptime metrics are displayed in Stage 1.</div>';
+  var health = '<div class="moc-empty">System health telemetry is not connected yet.</div>';
   return '<div class="moc-bottom"><div class="moc-bottom-card"><div class="moc-bottom-h">Activity Feed</div>'+activity+'</div><div class="moc-bottom-card"><div class="moc-bottom-h">Recent Alerts</div>'+alerts+'</div><div class="moc-bottom-card"><div class="moc-bottom-h">Network Integrity</div>'+health+'</div></div>';
 }
 function admRenderConsole(model){
@@ -6736,12 +6745,12 @@ function admRenderConsole(model){
   host.innerHTML = admConsoleNav(filter)
     + '<main class="moc-main"><div class="moc-head"><div class="moc-kicker">Authority Access</div><h2>Maintainer Operations Center</h2><p>Real-time oversight of OSI network integrity, verification, and public record lifecycle.</p></div>'
     + '<section class="moc-sec"><div class="moc-stats">'
-    + admStatCard('Pending Reports',model.counts.reports,'pending','reports.approved=false')
-    + admStatCard('Pending Cases',model.counts.cases,'pending','bounties.approved=false')
-    + admStatCard('Analyst Applications',model.counts.analysts,'analyst','unverified roster rows')
-    + admStatCard('Ready to Publish',model.counts.ready,'ok','escalation packs')
-    + admStatCard('Open Challenges',model.counts.challenges,'danger','status=open')
-    + admStatCard('Safety Flags',model.counts.safety,'danger','source not connected')
+    + admStatCard('Pending Reports',model.counts.reports,'pending','Pending review')
+    + admStatCard('Pending Cases',model.counts.cases,'pending','Awaiting assessment')
+    + admStatCard('Analyst Applications',model.counts.analysts,'analyst','Analyst onboarding')
+    + admStatCard('Ready to Publish',model.counts.ready,'ok','Escalation packs')
+    + admStatCard('Open Challenges',model.counts.challenges,'danger','Open disputes')
+    + admStatCard('Safety Flags',model.counts.safety,'system','No dedicated source yet')
     + '</div></section><section class="moc-sec">'+admQueueHtml(items,window.__admSelectedKey)+admBottomHtml(model)+'</section></main>'
     + admSelectedHtml(selected);
 }
