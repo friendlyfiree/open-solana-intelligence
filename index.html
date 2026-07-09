@@ -1616,111 +1616,140 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 .cf-labels span.current{color:var(--cyan)}
 .cf-stage-note{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);margin:6px 0 16px;line-height:1.4}
 /* ===== Proof Log view ===== */
-.pl-shell{max-width:820px;margin:0 auto;padding:0 22px}
-.pl-hero{margin-bottom:20px}
-.pl-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:34px;letter-spacing:-.02em;margin:8px 0 0;color:var(--ink-bright)}
-.pl-sub{font-size:14px;color:var(--ink-dim);line-height:1.6;margin:12px 0 0;max-width:690px}
-.pl-demo{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);background:rgba(255,176,32,.07);border:1px solid rgba(255,176,32,.28);border-radius:9px;padding:10px 13px;margin-bottom:12px;line-height:1.5}
-.pl-live{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sol);background:rgba(20,241,149,.06);border:1px solid var(--sol-line);border-radius:9px;padding:10px 13px;margin-bottom:12px}
-.pl-note{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-faint);padding:20px 0}
-.pl-feed{display:flex;flex-direction:column;gap:2px}
-@media(max-width:640px){.pl-shell{padding:0 15px}.pl-title{font-size:25px}}
-/* ---- proof log console ---- */
-.pl-console{margin-top:2px}
-@media(min-width:1180px){
-  .pl-console{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
-  .pl-maincol{grid-column:1;grid-row:1;min-width:0}
-  .pl-aside{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:14px;position:sticky;top:96px}
-}
-@media(max-width:1179px){ .pl-aside{display:flex;flex-direction:column;gap:14px;margin-top:24px} }
-/* dashboard in content column */
-.pl-dash{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:24px}
-@media(max-width:760px){ .pl-dash{grid-template-columns:repeat(2,minmax(0,1fr))} }
-.fo-op-ic.cy{background:rgba(34,211,238,.09);border-color:rgba(34,211,238,.22);color:var(--cyan)}
-.fo-op-ic.vio{background:rgba(139,92,246,.09);border-color:rgba(139,92,246,.24);color:#b9a2f7}
-/* toolbar: filters left, search right */
-.pl-toolbar{display:flex;align-items:center;gap:12px;margin:22px 0 10px;flex-wrap:wrap}
-.pl-fils{flex-wrap:wrap;flex:1}
-.pl-search-wrap{min-width:240px}
-.pl-search-wrap .cr-search{border-radius:10px}
-/* live status strip */
-.pl-strip{display:flex;align-items:center;gap:12px;border:1px solid rgba(20,241,149,.22);border-radius:11px;background:linear-gradient(90deg,rgba(20,241,149,.05),transparent 65%),var(--bg-card);padding:12px 16px;margin-bottom:14px}
-.pl-strip-dot{width:8px;height:8px;border-radius:50%;background:var(--sol);box-shadow:0 0 10px var(--sol);animation:pulse 1.7s infinite;flex-shrink:0}
-.pl-strip-t b{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--sol)}
-.pl-strip-t span{display:block;font-size:11px;color:rgba(148,163,184,.6);margin-top:3px}
-/* timeline */
-.pl-timeline{display:flex;flex-direction:column}
-.plc{display:flex;gap:0;position:relative}
-.plc-rail{width:34px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;position:relative}
-.plc-rail::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--line);transform:translateX(-50%)}
-.plc:first-child .plc-rail::before{top:24px}
-.plc:last-child .plc-rail::before{bottom:calc(100% - 24px)}
-.plc-dot{width:14px;height:14px;border-radius:50%;background:var(--bg);border:2px solid var(--sol);box-shadow:0 0 8px rgba(20,241,149,.4);margin-top:18px;z-index:1;position:relative}
-.plc-body{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--bg-card);padding:15px 16px;margin:6px 0 9px 6px;transition:border-color .13s}
-.plc-body:hover{border-color:var(--line-bright)}
-.plc-main{display:flex;align-items:flex-start;gap:12px}
-.plc-ic{width:38px;height:38px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);color:var(--cyan)}
-.plc-ic.ok{background:rgba(20,241,149,.08);border-color:rgba(20,241,149,.25);color:var(--sol)}
-.plc-ic.vio{background:rgba(139,92,246,.09);border-color:rgba(139,92,246,.24);color:#b9a2f7}
-.plc-ic.warn{background:rgba(255,176,32,.08);border-color:rgba(255,176,32,.24);color:var(--amber)}
-.plc-txt{flex:1;min-width:0}
-.plc-tag{font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--cyan)}
-.plc-tag.ok{color:var(--sol)} .plc-tag.vio{color:#b9a2f7} .plc-tag.warn{color:var(--amber)} .plc-tag.cy{color:var(--cyan)}
-.plc-act{font-size:13px;color:var(--ink);line-height:1.45;margin-top:4px}
-.plc-act b{color:var(--ink-bright);font-weight:700}
-.plc-case{font-size:10px;color:rgba(148,163,184,.55);margin-top:6px}
-.plc-case a{color:var(--cyan);cursor:pointer;text-decoration:none}
-.plc-case a:hover{text-decoration:underline}
-.plc-cn{color:rgba(148,163,184,.75)}
-.plc-meta{text-align:right;flex-shrink:0}
-.plc-ago{font-size:10px;color:rgba(148,163,184,.6)}
-.plc-when{font-size:9px;color:rgba(148,163,184,.4);margin-top:3px}
-.plc-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:13px;padding-top:12px;flex-wrap:wrap}
-.plc-tx{display:flex;align-items:center;gap:10px;min-width:0}
-.plc-tx-l{font-size:8px;letter-spacing:.12em;color:rgba(148,163,184,.45)}
-.plc-tx-r{display:flex;align-items:center;gap:7px}
-.plc-tx-r code{font-size:11px;color:var(--cyan);background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.18);border-radius:5px;padding:3px 8px}
-.plc-copy{background:none;border:1px solid var(--line);border-radius:5px;color:rgba(148,163,184,.6);font-size:10px;padding:3px 6px;cursor:pointer;line-height:1;transition:all .12s}
-.plc-copy:hover{color:var(--cyan);border-color:rgba(34,211,238,.35)}
-.plc-verify{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--sol);border:1px solid rgba(20,241,149,.35);background:rgba(20,241,149,.05);border-radius:8px;padding:8px 14px;text-decoration:none;white-space:nowrap;transition:all .13s}
-.plc-verify:hover{background:rgba(20,241,149,.12);border-color:var(--sol)}
-.plc-verify.off{color:rgba(148,163,184,.4);border-color:var(--line);background:transparent;cursor:default}
-/* memo schema */
-.pl-schema{padding:8px 15px 12px}
-.pl-sc{display:flex;align-items:center;gap:10px;padding:6px 0}
-.pl-sc code{font-size:8.5px;font-weight:700;letter-spacing:.02em;padding:4px 8px;border-radius:6px;white-space:nowrap;color:var(--cyan);background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.2)}
-.pl-sc code.ok{color:var(--sol);background:rgba(20,241,149,.06);border-color:rgba(20,241,149,.22)}
-.pl-sc code.vio{color:#b9a2f7;background:rgba(139,92,246,.07);border-color:rgba(139,92,246,.22)}
-.pl-sc code.warn{color:var(--amber);background:rgba(255,176,32,.06);border-color:rgba(255,176,32,.22)}
-.pl-sc span{font-size:10px;color:rgba(148,163,184,.55)}
-/* verification health */
-.pl-health{padding:6px 15px 12px}
-.pl-hl{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
-.pl-hl:last-child{border-bottom:0}
-.pl-hl-k{font-size:12px;color:var(--ink-dim)}
-.pl-hl-v{font-size:11.5px;font-family:'JetBrains Mono',monospace}
-.pl-hl-v .ok{color:var(--sol)} .pl-hl-v .mut{color:rgba(148,163,184,.5)}
-.pl-net{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
-.pl-net-dot{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 7px var(--sol)}
-/* last sealed record */
-.pl-sealed{padding:12px 15px 14px}
-.pl-sl-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-.pl-sl-id{font-size:11px;font-weight:700;color:var(--sol)}
-.pl-sl-nm{font-family:'Archivo',sans-serif;font-size:13px;font-weight:700;color:var(--ink-bright);letter-spacing:-.01em}
-.pl-sl-meta{font-size:10px;color:rgba(148,163,184,.55);margin-top:7px}
-.pl-sl-btn{display:inline-block;margin-top:11px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:var(--cyan);border:1px solid rgba(34,211,238,.3);border-radius:8px;padding:8px 13px;text-decoration:none;transition:all .13s}
-.pl-sl-btn:hover{background:rgba(34,211,238,.08);border-color:var(--cyan)}
+#prooflog{position:relative;overflow:hidden;background:radial-gradient(circle at 84% 6%,rgba(34,211,238,.10),transparent 30%),linear-gradient(180deg,#050914 0%,#07101a 48%,#04070e 100%)}
+#prooflog::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(34,211,238,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.025) 1px,transparent 1px);background-size:38px 38px;mask-image:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,.16));pointer-events:none}
+#prooflog .pl-shell{max-width:1480px;margin:0 auto;padding:0 28px;position:relative;z-index:1}
+#prooflog .pl-hero{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:24px;align-items:center;border:1px solid rgba(34,211,238,.16);border-radius:8px;background:linear-gradient(135deg,rgba(11,18,32,.94),rgba(5,10,19,.92));padding:28px 30px;overflow:hidden}
+#prooflog .pl-hero::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,9,20,.95),rgba(5,9,20,.72) 62%,rgba(5,9,20,.9)),repeating-linear-gradient(90deg,rgba(148,163,184,.045) 0 1px,transparent 1px 54px);pointer-events:none}
+#prooflog .pl-hero-copy,#prooflog .pl-hero-mark{position:relative;z-index:1}
+#prooflog .pl-kicker{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan)}
+#prooflog .pl-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(34px,4vw,54px);line-height:1.02;letter-spacing:0;margin:10px 0 0;color:var(--ink-bright)}
+#prooflog .pl-sub{font-size:15px;color:var(--ink-dim);line-height:1.65;margin:12px 0 0;max-width:840px}
+#prooflog .pl-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+#prooflog .pl-chips span{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink);border:1px solid rgba(34,211,238,.2);background:rgba(34,211,238,.055);border-radius:7px;padding:8px 11px}
+#prooflog .pl-chips span:nth-child(2){border-color:rgba(20,241,149,.24);background:rgba(20,241,149,.055)}
+#prooflog .pl-hero-mark{height:178px;display:flex;align-items:center;justify-content:center}
+#prooflog .pl-orbit{position:absolute;width:180px;height:110px;border:1px solid rgba(34,211,238,.18);border-radius:50%;transform:rotate(-17deg);box-shadow:0 0 0 25px rgba(34,211,238,.018),inset 0 0 28px rgba(34,211,238,.06)}
+#prooflog .pl-shield{width:78px;height:90px;clip-path:polygon(50% 0,88% 15%,82% 68%,50% 100%,18% 68%,12% 15%);border:1px solid rgba(20,241,149,.35);background:linear-gradient(145deg,rgba(20,241,149,.2),rgba(34,211,238,.08));display:flex;align-items:center;justify-content:center;color:var(--ink-bright);font-family:'JetBrains Mono',monospace;font-weight:800;box-shadow:0 0 34px rgba(20,241,149,.14)}
+#prooflog .pl-dash{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin:16px 0 18px}
+#prooflog .pl-stat{min-height:104px;border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(7,12,22,.94));padding:15px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+#prooflog .pl-stat-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#prooflog .pl-stat-ic{width:28px;height:28px;border:1px solid rgba(34,211,238,.22);border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:10px;background:rgba(34,211,238,.06)}
+#prooflog .pl-stat-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+#prooflog .pl-stat-val{font-family:'Archivo',sans-serif;font-size:23px;font-weight:800;color:var(--ink-bright);line-height:1;margin-top:15px}
+#prooflog .pl-stat-val.na{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.35;color:var(--ink-faint);font-weight:600}
+#prooflog .pl-stat-sub{font-size:11px;color:var(--ink-faint);margin-top:6px;line-height:1.35}
+#prooflog .pl-stat.memo .pl-stat-ic,#prooflog .pl-stat.case .pl-stat-ic{color:var(--cyan)}
+#prooflog .pl-stat.review .pl-stat-ic{color:#b9a2f7;border-color:rgba(139,92,246,.26);background:rgba(139,92,246,.07)}
+#prooflog .pl-stat.challenge .pl-stat-ic{color:var(--amber);border-color:rgba(255,176,32,.26);background:rgba(255,176,32,.07)}
+#prooflog .pl-stat.seal .pl-stat-ic,#prooflog .pl-stat.net .pl-stat-ic{color:var(--sol);border-color:rgba(20,241,149,.24);background:rgba(20,241,149,.06)}
+#prooflog .pl-console{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:24px;align-items:start}
+#prooflog .pl-maincol{min-width:0}
+#prooflog .pl-aside{display:flex;flex-direction:column;gap:12px;position:sticky;top:96px}
+#prooflog .pl-toolbar{display:flex;align-items:center;gap:12px;margin:0 0 14px;flex-wrap:wrap;border:1px solid rgba(34,211,238,.14);border-radius:8px;background:rgba(7,12,22,.72);padding:9px}
+#prooflog .pl-fils{flex-wrap:wrap;flex:1}
+#prooflog .pl-search-wrap{min-width:280px;flex:0 1 390px}
+#prooflog .pl-search-wrap .cr-search{height:40px;border-radius:7px;background:rgba(3,7,14,.72);border-color:rgba(148,163,184,.16)}
+#prooflog .pl-strip{display:flex;align-items:center;gap:12px;border:1px solid rgba(34,211,238,.16);border-radius:8px;background:linear-gradient(90deg,rgba(34,211,238,.055),transparent 70%),rgba(7,12,22,.76);padding:12px 14px;margin-bottom:12px}
+#prooflog .pl-strip.ok{border-color:rgba(20,241,149,.24);background:linear-gradient(90deg,rgba(20,241,149,.06),transparent 70%),rgba(7,12,22,.76)}
+#prooflog .pl-strip.err{border-color:rgba(255,91,91,.25);background:linear-gradient(90deg,rgba(255,91,91,.06),transparent 70%),rgba(7,12,22,.76)}
+#prooflog .pl-strip-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px rgba(34,211,238,.55);flex-shrink:0}
+#prooflog .pl-strip.ok .pl-strip-dot{background:var(--sol);box-shadow:0 0 10px rgba(20,241,149,.55)}
+#prooflog .pl-strip.err .pl-strip-dot{background:var(--red);box-shadow:0 0 10px rgba(255,91,91,.5)}
+#prooflog .pl-strip-t b{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+#prooflog .pl-strip-t span{display:block;font-size:11.5px;color:var(--ink-faint);margin-top:3px}
+#prooflog .pl-timeline{position:relative;display:flex;flex-direction:column;gap:10px;padding-left:36px}
+#prooflog .pl-timeline::before{content:"";position:absolute;left:10px;top:12px;bottom:12px;width:1px;background:linear-gradient(180deg,rgba(34,211,238,.04),rgba(34,211,238,.34),rgba(20,241,149,.2),rgba(34,211,238,.04))}
+#prooflog .plc{position:relative}
+#prooflog .plc-dot{position:absolute;left:-33px;top:27px;width:15px;height:15px;border-radius:50%;background:#07101a;border:2px solid var(--cyan);box-shadow:0 0 0 4px rgba(34,211,238,.08),0 0 16px rgba(34,211,238,.4)}
+#prooflog .plc.type-seal .plc-dot,#prooflog .plc.type-support .plc-dot{border-color:var(--sol);box-shadow:0 0 0 4px rgba(20,241,149,.08),0 0 16px rgba(20,241,149,.35)}
+#prooflog .plc.type-challenge .plc-dot{border-color:var(--amber);box-shadow:0 0 0 4px rgba(255,176,32,.08),0 0 16px rgba(255,176,32,.35)}
+#prooflog .plc-body{border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(6,11,21,.96));padding:15px 16px;transition:border-color 120ms ease-out,background-color 120ms ease-out}
+#prooflog .plc-body:hover{border-color:rgba(34,211,238,.32)}
+#prooflog .plc-head{display:grid;grid-template-columns:142px minmax(0,1fr) auto;gap:14px;align-items:start}
+#prooflog .plc-badge{display:inline-flex;align-items:center;justify-content:center;min-height:30px;border:1px solid rgba(34,211,238,.28);border-radius:6px;background:rgba(34,211,238,.06);color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:0 10px;white-space:nowrap}
+#prooflog .plc.type-report .plc-badge,#prooflog .plc.type-review .plc-badge{border-color:rgba(139,92,246,.28);background:rgba(139,92,246,.07);color:#b9a2f7}
+#prooflog .plc.type-challenge .plc-badge{border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.08);color:var(--amber)}
+#prooflog .plc.type-seal .plc-badge,#prooflog .plc.type-support .plc-badge{border-color:rgba(20,241,149,.3);background:rgba(20,241,149,.07);color:var(--sol)}
+#prooflog .plc-title{font-family:'Archivo',sans-serif;font-size:15px;font-weight:800;color:var(--ink-bright);line-height:1.25}
+#prooflog .plc-ref{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#prooflog .plc-ref a{color:var(--cyan);text-decoration:none}
+#prooflog .plc-ref a:hover{text-decoration:underline}
+#prooflog .plc-time{text-align:right;font-family:'JetBrains Mono',monospace;color:var(--ink-faint);font-size:10px;line-height:1.45;white-space:nowrap}
+#prooflog .plc-grid{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;border-top:1px solid var(--line);margin-top:14px;padding-top:13px;align-items:end}
+#prooflog .plc-meta-k{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:rgba(148,163,184,.48);margin-bottom:5px}
+#prooflog .plc-meta-v{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#prooflog .plc-meta-v.ok{color:var(--sol)}
+#prooflog .plc-copy{margin-left:6px;background:none;border:1px solid var(--line);border-radius:5px;color:rgba(148,163,184,.65);font-size:10px;padding:3px 6px;cursor:pointer;line-height:1;transition:border-color 120ms ease-out,color 120ms ease-out}
+#prooflog .plc-copy:hover{color:var(--cyan);border-color:rgba(34,211,238,.35)}
+#prooflog .plc-verify{display:inline-flex;align-items:center;justify-content:center;min-height:38px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:800;color:var(--cyan);border:1px solid rgba(34,211,238,.3);background:rgba(34,211,238,.04);border-radius:7px;padding:0 13px;text-decoration:none;white-space:nowrap;transition:background-color 120ms ease-out,border-color 120ms ease-out,color 120ms ease-out}
+#prooflog .plc-verify:hover{background:rgba(34,211,238,.1);border-color:var(--cyan);color:var(--ink-bright)}
+#prooflog .plc-tx-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+#prooflog .plc-tx-row code{font-size:10.5px;color:var(--cyan);background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.18);border-radius:5px;padding:5px 7px;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+#prooflog .plc-no-tx{display:inline-flex;align-items:center;min-height:38px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);border:1px solid var(--line);border-radius:7px;padding:0 13px;white-space:nowrap}
+#prooflog .pl-empty{border:1px solid rgba(34,211,238,.16);border-radius:8px;background:linear-gradient(180deg,rgba(11,18,32,.9),rgba(6,11,21,.95));padding:36px 24px;text-align:center}
+#prooflog .pl-empty h3{font-family:'Archivo',sans-serif;font-size:20px;color:var(--ink-bright);margin:0}
+#prooflog .pl-empty p{font-size:13px;color:var(--ink-dim);line-height:1.6;margin:8px auto 0;max-width:460px}
+#prooflog .pl-side-card{border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(6,11,21,.96));padding:16px}
+#prooflog .pl-side-title{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);margin-bottom:12px}
+#prooflog .pl-verify-steps{display:grid;gap:10px}
+#prooflog .pl-vstep{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;align-items:start}
+#prooflog .pl-vn{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:1px solid rgba(34,211,238,.24);background:rgba(34,211,238,.07);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);font-weight:800}
+#prooflog .pl-vstep b{display:block;font-size:12.5px;color:var(--ink);line-height:1.25}
+#prooflog .pl-vstep span{display:block;font-size:11px;color:var(--ink-faint);line-height:1.45;margin-top:2px}
+#prooflog .pl-type-list{display:grid;gap:8px}
+#prooflog .pl-type-list div{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ink-dim)}
+#prooflog .pl-type-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px rgba(34,211,238,.45)}
+#prooflog .pl-type-dot.report,#prooflog .pl-type-dot.review{background:#b9a2f7;box-shadow:0 0 10px rgba(139,92,246,.4)}
+#prooflog .pl-type-dot.challenge,#prooflog .pl-type-dot.seal{background:var(--amber);box-shadow:0 0 10px rgba(255,176,32,.38)}
+#prooflog .pl-type-dot.support{background:var(--sol);box-shadow:0 0 10px rgba(20,241,149,.4)}
+#prooflog .pl-schema-note{font-size:11px;color:var(--ink-faint);line-height:1.45;margin:-4px 0 10px}
+#prooflog .pl-schema{display:grid;gap:7px}
+#prooflog .pl-sc code{display:block;font-size:10.5px;font-weight:700;letter-spacing:.03em;padding:7px 9px;border-radius:6px;white-space:nowrap;color:var(--cyan);background:rgba(34,211,238,.055);border:1px solid rgba(34,211,238,.18)}
+#prooflog .pl-sc code.ok{color:var(--sol);background:rgba(20,241,149,.055);border-color:rgba(20,241,149,.2)}
+#prooflog .pl-sc code.vio{color:#b9a2f7;background:rgba(139,92,246,.06);border-color:rgba(139,92,246,.2)}
+#prooflog .pl-sc code.warn{color:var(--amber);background:rgba(255,176,32,.06);border-color:rgba(255,176,32,.22)}
+#prooflog .pl-health{display:grid;gap:10px}
+#prooflog .pl-health-state{display:flex;align-items:flex-start;gap:10px}
+#prooflog .pl-health-dot{width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px rgba(34,211,238,.45);margin-top:3px;flex-shrink:0}
+#prooflog .pl-health-state.ok .pl-health-dot{background:var(--sol);box-shadow:0 0 12px rgba(20,241,149,.45)}
+#prooflog .pl-health-state.err .pl-health-dot{background:var(--red);box-shadow:0 0 12px rgba(255,91,91,.45)}
+#prooflog .pl-health-state b{display:block;font-size:13px;color:var(--ink-bright)}
+#prooflog .pl-health-state span{display:block;font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin-top:3px}
+#prooflog .pl-hl{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:9px}
+#prooflog .pl-hl-k{font-size:11px;color:var(--ink-faint)}
+#prooflog .pl-hl-v{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--ink)}
+#prooflog .pl-net{display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
+#prooflog .pl-net-dot{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 7px var(--sol)}
+#prooflog .pl-disclaimer{display:flex;flex-wrap:wrap;gap:7px 14px;margin-top:18px;border:1px solid rgba(148,163,184,.14);border-radius:8px;background:rgba(7,12,22,.66);padding:12px 14px;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:10px;line-height:1.45}
+#prooflog .pl-disclaimer span{display:inline-flex;align-items:center;gap:8px}
+#prooflog .pl-disclaimer span::before{content:"";width:4px;height:4px;border-radius:50%;background:rgba(148,163,184,.48)}
+@media(max-width:1280px){#prooflog .pl-dash{grid-template-columns:repeat(4,minmax(0,1fr))}#prooflog .pl-console{grid-template-columns:1fr}#prooflog .pl-aside{position:relative;top:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:820px){#prooflog .pl-shell{padding:0 16px}#prooflog .pl-hero{grid-template-columns:1fr;padding:24px 18px}#prooflog .pl-hero-mark{display:none}#prooflog .pl-dash{grid-template-columns:repeat(2,minmax(0,1fr))}#prooflog .pl-aside{grid-template-columns:1fr}#prooflog .pl-toolbar{align-items:stretch;flex-direction:column}#prooflog .pl-search-wrap{min-width:0;flex:auto;width:100%}#prooflog .plc-head{grid-template-columns:1fr;gap:10px}#prooflog .plc-time{text-align:left}#prooflog .plc-grid{grid-template-columns:1fr 1fr}#prooflog .plc-grid .plc-action{grid-column:1/-1}}
+@media(max-width:520px){#prooflog .pl-dash{grid-template-columns:1fr}#prooflog .pl-timeline{padding-left:0}#prooflog .pl-timeline::before,#prooflog .plc-dot{display:none}#prooflog .plc-grid{grid-template-columns:1fr}}
 </style>
 <section class="sec" id="prooflog" data-view="prooflog">
   <div class="pl-shell">
+    <div class="pl-hero">
+      <div class="pl-hero-copy">
+        <div class="pl-kicker mono">OSI &gt; Proof Log</div>
+        <h2 class="pl-title">Proof Log</h2>
+        <p class="pl-sub">Public wallet-signed activity trail for OSI cases, reports, reviews, challenges, support signals, and sealed records.</p>
+        <div class="pl-chips" aria-label="Proof Log trust anchors">
+          <span>Memo-verifiable</span>
+          <span>Wallet-signed</span>
+          <span>Public timeline</span>
+          <span>Solana Mainnet</span>
+        </div>
+      </div>
+      <div class="pl-hero-mark" aria-hidden="true">
+        <div class="pl-orbit"></div>
+        <div class="pl-shield">OSI</div>
+      </div>
+    </div>
+    <div class="pl-dash" id="pl-dash"></div>
     <div class="pl-console">
       <div class="pl-maincol">
-        <div class="pl-hero">
-          <div class="sec-eyebrow">ON-CHAIN VERIFICATION</div>
-          <h2 class="pl-title">Proof Log</h2>
-          <p class="pl-sub">Every important action on OSI is wallet-signed and written as a memo on Solana: cases opened, reports filed, analyst votes, challenges, and seals. This log is public, tamper-proof, and verifiable by anyone.</p>
-        </div>
-        <div class="cr-stats pl-dash" id="pl-dash"></div>
         <div class="pl-toolbar">
           <div class="rf-tabs pl-fils" id="pl-fils">
             <button class="rf-tab active" data-f="all" type="button" onclick="plFilter('all')">All</button>
@@ -1731,32 +1760,47 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
             <button class="rf-tab" data-f="support" type="button" onclick="plFilter('support')">Support</button>
             <button class="rf-tab" data-f="seal" type="button" onclick="plFilter('seal')">Seals</button>
           </div>
-          <div class="pl-search-wrap"><input class="cr-search" id="pl-search" placeholder="Search by wallet, case ID, or tx hash…" oninput="plSearch(this.value)"></div>
+          <div class="pl-search-wrap"><input class="cr-search" id="pl-search" placeholder="Search by wallet / case ID / tx hash" oninput="plSearch(this.value)"></div>
         </div>
         <div id="pl-body"></div>
         <div class="fo-pager"><span class="fo-count mono" id="pl-count" aria-live="polite"></span><div class="fo-pnav" id="pl-pnav" role="navigation" aria-label="Proof log pages"></div></div>
+        <div class="pl-disclaimer">
+          <span>OSI is informational only.</span>
+          <span>No legal advice.</span>
+          <span>No recovery promise.</span>
+          <span>No custody of funds.</span>
+          <span>Public evidence and analyst reviews can still be challenged.</span>
+        </div>
       </div>
       <aside class="pl-aside" aria-label="Proof log reference">
-        <div class="lb-card">
-          <div class="fd-h mono">How verification works</div>
-          <div class="lb-steps">
-            <div class="lb-step"><span class="n">1</span><div><b>Wallet signs an action</b><span>Contributors sign each action with their wallet.</span></div></div>
-            <div class="lb-step"><span class="n">2</span><div><b>Memo written on Solana</b><span>The action is recorded as a public memo.</span></div></div>
-            <div class="lb-step"><span class="n">3</span><div><b>Transaction is stored</b><span>OSI indexes and verifies the transaction.</span></div></div>
-            <div class="lb-step"><span class="n">4</span><div><b>Anyone can verify</b><span>Every action is verifiable on Solscan.</span></div></div>
+        <div class="pl-side-card">
+          <div class="pl-side-title">How verification works</div>
+          <div class="pl-verify-steps">
+            <div class="pl-vstep"><span class="pl-vn">1</span><div><b>Wallet signs action</b><span>The contributor signs the OSI action with their wallet.</span></div></div>
+            <div class="pl-vstep"><span class="pl-vn">2</span><div><b>Memo is written on Solana</b><span>A public memo transaction anchors the signed action.</span></div></div>
+            <div class="pl-vstep"><span class="pl-vn">3</span><div><b>Event is indexed by OSI</b><span>OSI indexes the transaction as a public proof event.</span></div></div>
+            <div class="pl-vstep"><span class="pl-vn">4</span><div><b>Anyone can verify externally</b><span>Real transaction links open through the existing Solana explorer route.</span></div></div>
           </div>
         </div>
-        <div class="lb-card">
-          <div class="fd-h mono">Memo schema</div>
-          <div class="pl-schema" id="pl-schema"></div>
+        <div class="pl-side-card">
+          <div class="pl-side-title">Event Types</div>
+          <div class="pl-type-list">
+            <div><span class="pl-type-dot"></span>Case opened</div>
+            <div><span class="pl-type-dot report"></span>Report submitted</div>
+            <div><span class="pl-type-dot review"></span>Analyst review</div>
+            <div><span class="pl-type-dot challenge"></span>Challenge filed</div>
+            <div><span class="pl-type-dot seal"></span>Record sealed</div>
+            <div><span class="pl-type-dot support"></span>Support signal</div>
+          </div>
         </div>
-        <div class="lb-card">
-          <div class="fd-h mono">Verification health</div>
+        <div class="pl-side-card">
+          <div class="pl-side-title">Integrity Status</div>
           <div class="pl-health" id="pl-health"></div>
         </div>
-        <div class="lb-card" id="pl-sealed-card" style="display:none">
-          <div class="fd-h mono">Last sealed record</div>
-          <div class="pl-sealed" id="pl-sealed"></div>
+        <div class="pl-side-card">
+          <div class="pl-side-title">Memo Schema Examples</div>
+          <div class="pl-schema-note">Documentation examples only. These are not event rows.</div>
+          <div class="pl-schema" id="pl-schema"></div>
         </div>
       </aside>
     </div>
@@ -6126,7 +6170,7 @@ function plHealthRender(){
   var lastMemo = evs.length ? raTimeAgo(evs[0].created_at) : '\u2014';
   var rows=[
     ['RPC status', live?'<span class="ok">Online</span>':'<span class="mut">Demo mode</span>'],
-    ['Indexer', live?'<span class="ok">Synced</span>':'<span class="mut">Sample data</span>'],
+    ['Indexer', live?'<span class="ok">Synced</span>':'<span class="mut">Not connected</span>'],
     ['Last memo indexed', '<span class="mono">'+lastMemo+'</span>'],
     ['Network', '<span class="pl-net"><span class="pl-net-dot"></span>Solana Mainnet</span>']
   ];
@@ -6158,7 +6202,7 @@ function plPaint(){
     });
   }
   if(plState.filter!=='all') evs=evs.filter(function(e){ return plGroup(e)===plState.filter; });
-  var strip = '<div class="pl-strip"><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>Live verification feed</b><span>'+all.length+' signed action'+(all.length===1?'':'s')+' \u00b7 '+(demo?'sample data \u00b7 ':'')+'all memo-verified on Solana mainnet</span></div></div>';
+  var strip = '<div class="pl-strip"><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>Live verification feed</b><span>'+all.length+' signed action'+(all.length===1?'':'s')+' \u00b7 '+(demo?'demo mode \u00b7 ':'')+'indexed proof trail</span></div></div>';
   var totalPages=Math.max(1, Math.ceil(evs.length/PL_PER));
   if(plState.page>totalPages) plState.page=totalPages; if(plState.page<1) plState.page=1;
   var from=(plState.page-1)*PL_PER, page=evs.slice(from, from+PL_PER);
@@ -6182,12 +6226,233 @@ async function renderProofLog(){
   var host = document.getElementById('pl-body'); if(!host) return;
   host.innerHTML = '<div class="pl-note">Loading signed actions\u2026</div>';
   var events = [];
+  var source = 'unavailable';
   if(typeof SUPA_ON!=='undefined' && SUPA_ON){
-    try{ events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || []; }catch(e){}
+    try{ events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || []; source = events.length ? 'loaded' : 'empty'; }catch(e){ events=[]; source='error'; }
   }
   window.__plDemo = false;
-  if(!events.length){ window.__plDemo = true; events = proofLogSample(); }
+  if(!events.length && source!=='error' && window.OSI_DEMO_MODE === true){ window.__plDemo = true; events = proofLogSample(); source='demo'; }
   window.__plEvents = events;
+  window.__plSourceState = source;
+  plState.filter='all'; plState.q=''; plState.page=1;
+  var s=document.getElementById('pl-search'); if(s) s.value='';
+  document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f==='all'); });
+  plPaint();
+}
+// Proof Log v2: live view uses real onchain_events only. Existing sample rows
+// remain available only when window.OSI_DEMO_MODE === true.
+function plDemoMode(){ return window.OSI_DEMO_MODE === true; }
+function plSourceState(){ return window.__plSourceState || 'idle'; }
+function plGroup(ev){
+  var t = String((ev && ev.event_type) || '').toLowerCase();
+  var itemType = String((ev && ev.item_type) || '').toLowerCase();
+  var vote = String((ev && ev.vote) || '').toLowerCase();
+  if(t==='analyst_vouch' && (itemType==='challenge' || vote==='challenge')) return 'challenge';
+  if(t==='analyst_vouch' || t==='review_signed' || t==='analyst_review') return 'vote';
+  if(t==='report_submitted' || t==='wire_dispatch') return 'report';
+  if(t==='demand_signal' || t==='support' || t==='support_signal') return 'support';
+  if(t==='maintainer_seal' || t==='record_sealed' || t==='public_record_sealed') return 'seal';
+  if(t==='case_opened' || t==='case_created' || t==='bounty_opened') return 'case';
+  if(t.indexOf('challenge') !== -1) return 'challenge';
+  return 'other';
+}
+function plMemo(ev){
+  var map = {
+    case:      { tag:'OSI_CASE_OPENED',      title:'Case Opened',      cls:'case' },
+    report:    { tag:'OSI_REPORT_SUBMITTED', title:'Report Submitted', cls:'report' },
+    vote:      { tag:'OSI_REVIEW_SIGNED',    title:'Analyst Review',   cls:'review' },
+    challenge: { tag:'OSI_CHALLENGE_FILED',  title:'Challenge Filed',  cls:'challenge' },
+    support:   { tag:'OSI_SUPPORT_SIGNAL',   title:'Support Signal',   cls:'support' },
+    seal:      { tag:'OSI_RECORD_SEALED',    title:'Record Sealed',    cls:'seal' },
+    other:     { tag:'OSI_SIGNED_ACTION',    title:'Signed Action',    cls:'other' }
+  };
+  return map[plGroup(ev)] || map.other;
+}
+function plCleanLabel(ev){
+  var label = String((ev && ev.label) || '').trim();
+  if(!label) return '';
+  return label
+    .replace(/^filed a dispatch on /i,'Dispatch: ')
+    .replace(/^pledged demand for /i,'Support: ')
+    .replace(/^supported /i,'Support: ')
+    .replace(/^filed report on /i,'Report: ')
+    .replace(/^sealed /i,'Sealed: ');
+}
+function plSignerRole(ev){
+  var g = plGroup(ev);
+  if(g==='vote') return 'Analyst';
+  if(g==='challenge') return 'Challenger';
+  if(g==='seal') return 'Maintainer';
+  if(g==='support') return 'Supporter';
+  if(g==='report') return 'Reporter';
+  if(g==='case') return 'Case opener';
+  return 'Signer';
+}
+function plJsString(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\r?\n/g,' '); }
+function plShortSig(sig){ sig=String(sig||''); return sig ? (sig.slice(0,5)+'...'+sig.slice(-5)) : ''; }
+function plFullDate(ts){
+  var t = new Date(ts||''); if(isNaN(t.getTime())) return '';
+  var d = t.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+  var tm = t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'});
+  return d+' '+tm+' UTC';
+}
+function plAgo(ts){ var t = new Date(ts||''); return isNaN(t.getTime()) ? '' : raTimeAgo(ts); }
+function plMemoStatus(ev){ return ev && ev.tx_sig ? 'Memo-verifiable' : 'No transaction link'; }
+function plReferenceHtml(ev){
+  var raw = ev && ev.item_id != null ? String(ev.item_id) : '';
+  if(!raw) return 'Reference unavailable';
+  var group = plGroup(ev);
+  var display = (group==='case' || group==='vote' || group==='challenge' || group==='seal' || group==='support') ? osiCaseId(raw) : raw;
+  return '<a onclick="plGoCase(\''+plJsString(raw)+'\')">'+escapeHtml(display)+'</a>';
+}
+function plCopyProofValue(text, label){
+  if(!text) return;
+  var done=function(){ showToast((label||'Value')+' copied.'); };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(String(text)).then(done).catch(function(){ plCopyFallback(text,done); }); }
+  else plCopyFallback(text,done);
+}
+function plTimelineCard(ev){
+  ev = ev || {};
+  var m = plMemo(ev);
+  var sig = ev.tx_sig ? String(ev.tx_sig) : '';
+  var wallet = ev.actor_wallet ? String(ev.actor_wallet) : '';
+  var walletCell = wallet
+    ? '<span title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'
+    : '<span>Wallet unavailable</span>';
+  var label = plCleanLabel(ev);
+  var when = plFullDate(ev.created_at);
+  var ago = plAgo(ev.created_at);
+  var txHtml = sig
+    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy signature" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">View on Solana</a></div>'
+    : '<span class="plc-no-tx">No transaction link</span>';
+  return '<div class="plc type-'+m.cls+'" data-g="'+plGroup(ev)+'">'
+    + '<span class="plc-dot" aria-hidden="true"></span>'
+    + '<div class="plc-body">'
+      + '<div class="plc-head">'
+        + '<div><span class="plc-badge">'+m.tag+'</span></div>'
+        + '<div><div class="plc-title">'+m.title+'</div><div class="plc-ref">'+(label?escapeHtml(label):'Signed OSI action')+' - '+plReferenceHtml(ev)+'</div></div>'
+        + '<div class="plc-time">'+(ago?escapeHtml(ago):'Timestamp unavailable')+(when?('<br>'+escapeHtml(when)):'')+'</div>'
+      + '</div>'
+      + '<div class="plc-grid">'
+        + '<div><div class="plc-meta-k">Wallet</div><div class="plc-meta-v">'+walletCell+'</div></div>'
+        + '<div><div class="plc-meta-k">Wallet role</div><div class="plc-meta-v">'+escapeHtml(plSignerRole(ev))+'</div></div>'
+        + '<div><div class="plc-meta-k">Memo status</div><div class="plc-meta-v '+(sig?'ok':'')+'">'+escapeHtml(plMemoStatus(ev))+'</div></div>'
+        + '<div class="plc-action"><div class="plc-meta-k">Transaction</div>'+txHtml+'</div>'
+      + '</div>'
+    + '</div>'
+  + '</div>';
+}
+function plDashRender(){
+  var host=document.getElementById('pl-dash'); if(!host) return;
+  var evs=window.__plEvents||[];
+  var src=plSourceState();
+  var canCount = src==='loaded' || src==='empty' || src==='demo';
+  function val(n){ return canCount ? String(n) : 'Not available yet'; }
+  function stat(cls, ic, label, value, sub){
+    var isNa = value === 'Not available yet';
+    return '<div class="pl-stat '+cls+'"><div class="pl-stat-top"><span class="pl-stat-ic">'+ic+'</span><span class="pl-stat-label">'+label+'</span></div><div><div class="pl-stat-val '+(isNa?'na':'')+'">'+value+'</div><div class="pl-stat-sub">'+sub+'</div></div></div>';
+  }
+  var total=evs.length;
+  var memos=evs.filter(function(e){ return !!e.tx_sig; }).length;
+  var cases=evs.filter(function(e){ return plGroup(e)==='case'; }).length;
+  var reviews=evs.filter(function(e){ return plGroup(e)==='vote'; }).length;
+  var challenges=evs.filter(function(e){ return plGroup(e)==='challenge'; }).length;
+  var seals=evs.filter(function(e){ return plGroup(e)==='seal'; }).length;
+  host.innerHTML =
+      stat('signed','SIG','Signed Actions',val(total),'Wallet-signed records')
+    + stat('memo','MEM','Memo Events',val(memos),'Transaction links indexed')
+    + stat('case','CAS','Case Events',val(cases),'Cases opened')
+    + stat('review','REV','Review Events',val(reviews),'Analyst review actions')
+    + stat('challenge','CHL','Challenge Events',val(challenges),'Challenges filed')
+    + stat('seal','SEA','Sealed Records',val(seals),'Public record seals')
+    + stat('net','SOL','Network','Solana','Mainnet');
+}
+function plSchemaRender(){
+  var host=document.getElementById('pl-schema'); if(!host) return;
+  var rows=[
+    ['OSI_CASE_OPENED','cy'],
+    ['OSI_REPORT_SUBMITTED','vio'],
+    ['OSI_REVIEW_SIGNED','vio'],
+    ['OSI_CHALLENGE_FILED','warn'],
+    ['OSI_RECORD_SEALED','ok'],
+    ['OSI_SUPPORT_SIGNAL','ok']
+  ];
+  host.innerHTML = rows.map(function(r){ return '<div class="pl-sc"><code class="mono '+r[1]+'">'+r[0]+'</code></div>'; }).join('');
+}
+function plHealthRender(){
+  var host=document.getElementById('pl-health'); if(!host) return;
+  var src=plSourceState();
+  var evs=window.__plEvents||[];
+  var stateCls=''; var title='No signed proof events yet'; var body='Wallet-signed OSI actions will appear here after they are recorded.';
+  if(src==='loaded' && evs.length){ stateCls='ok'; title='Live proof source connected'; body=evs.length+' signed proof event'+(evs.length===1?'':'s')+' loaded from the OSI proof index.'; }
+  else if(src==='error'){ stateCls='err'; title='Proof source unavailable'; body='Unable to load signed events right now.'; }
+  else if(src==='unavailable'){ stateCls='err'; title='Proof source unavailable'; body='The signed proof source is not connected in this environment.'; }
+  else if(src==='demo'){ title='Demo mode enabled'; body='Sample proof events are visible because OSI_DEMO_MODE is enabled.'; }
+  var lastMemo = evs.length ? (plAgo(evs[0].created_at)||'Timestamp unavailable') : 'Not available yet';
+  host.innerHTML =
+    '<div class="pl-health-state '+stateCls+'"><span class="pl-health-dot"></span><div><b>'+title+'</b><span>'+body+'</span></div></div>'
+    + '<div class="pl-hl"><span class="pl-hl-k">Last indexed event</span><span class="pl-hl-v">'+escapeHtml(lastMemo)+'</span></div>'
+    + '<div class="pl-hl"><span class="pl-hl-k">Network</span><span class="pl-hl-v"><span class="pl-net"><span class="pl-net-dot"></span>Solana Mainnet</span></span></div>';
+}
+function plPaint(){
+  var host=document.getElementById('pl-body'); if(!host) return;
+  plDashRender(); plSchemaRender(); plHealthRender(); plSealedRender();
+  var all=(window.__plEvents||[]).slice();
+  var src=plSourceState();
+  var q=plState.q;
+  var evs=all;
+  if(q){
+    evs=evs.filter(function(e){
+      var hay=[e.actor_wallet,e.item_id,e.event_type,e.label,e.vote,e.tx_sig, e.item_id?osiCaseId(e.item_id):''].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
+      return hay.indexOf(q)!==-1;
+    });
+  }
+  if(plState.filter!=='all') evs=evs.filter(function(e){ return plGroup(e)===plState.filter; });
+  var stripCls = (src==='loaded' && all.length) ? ' ok' : ((src==='error'||src==='unavailable') ? ' err' : '');
+  var stripTitle = (src==='loaded' && all.length) ? 'Live proof source connected' : (src==='error'||src==='unavailable' ? 'Proof source unavailable' : (src==='demo' ? 'Demo mode enabled' : 'No signed proof events yet'));
+  var stripBody = (src==='loaded' && all.length) ? (all.length+' real signed proof event'+(all.length===1?'':'s')+' loaded from onchain_events.')
+    : (src==='error' ? 'Unable to load signed events right now.'
+    : (src==='unavailable' ? 'Signed proof source is not connected in this environment.'
+    : (src==='demo' ? 'Sample rows are visible only because OSI_DEMO_MODE is enabled.' : 'Wallet-signed OSI actions will appear here after they are recorded.')));
+  var strip = '<div class="pl-strip'+stripCls+'"><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>'+stripTitle+'</b><span>'+stripBody+'</span></div></div>';
+  var totalPages=Math.max(1, Math.ceil(evs.length/PL_PER));
+  if(plState.page>totalPages) plState.page=totalPages; if(plState.page<1) plState.page=1;
+  var from=(plState.page-1)*PL_PER, page=evs.slice(from, from+PL_PER);
+  var emptyTitle = (src==='error'||src==='unavailable') ? 'Proof source unavailable.' : (all.length ? 'No matching proof events found.' : 'No signed proof events found yet.');
+  var emptyBody = (src==='error') ? 'Unable to load signed events right now.'
+    : (src==='unavailable' ? 'The signed proof source is not connected in this environment.'
+    : (all.length ? 'Try another filter or search term.' : 'Wallet-signed OSI actions will appear here after they are recorded.'));
+  host.innerHTML = strip + (page.length
+    ? '<div class="pl-timeline">' + page.map(plTimelineCard).join('') + '</div>'
+    : '<div class="pl-empty"><h3>'+emptyTitle+'</h3><p>'+emptyBody+'</p></div>');
+  var cnt=document.getElementById('pl-count');
+  if(cnt) cnt.textContent = evs.length ? ('Showing '+(from+1)+'-'+(from+page.length)+' of '+evs.length+' action'+(evs.length===1?'':'s')) : '';
+  var pn=document.getElementById('pl-pnav');
+  if(pn){
+    if(totalPages<=1){ pn.innerHTML=''; }
+    else{
+      var ph='<button class="fo-pg" type="button" '+(plState.page<=1?'disabled':'')+' onclick="plSetPage('+(plState.page-1)+')">Prev</button>';
+      for(var pi=1;pi<=totalPages;pi++){ ph+='<button class="fo-pg n'+(pi===plState.page?' active':'')+'" type="button" onclick="plSetPage('+pi+')">'+pi+'</button>'; }
+      ph+='<button class="fo-pg" type="button" '+(plState.page>=totalPages?'disabled':'')+' onclick="plSetPage('+(plState.page+1)+')">Next</button>';
+      pn.innerHTML=ph;
+    }
+  }
+}
+async function renderProofLog(){
+  var host = document.getElementById('pl-body'); if(!host) return;
+  host.innerHTML = '<div class="pl-note">Loading signed proof events...</div>';
+  var events = [];
+  var source = 'unavailable';
+  if(typeof SUPA_ON!=='undefined' && SUPA_ON){
+    try{
+      events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || [];
+      source = events.length ? 'loaded' : 'empty';
+    }catch(e){ events=[]; source='error'; }
+  }
+  window.__plDemo = false;
+  if(!events.length && source!=='error' && plDemoMode()){ window.__plDemo = true; events = proofLogSample(); source='demo'; }
+  window.__plEvents = events;
+  window.__plSourceState = source;
   plState.filter='all'; plState.q=''; plState.page=1;
   var s=document.getElementById('pl-search'); if(s) s.value='';
   document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f==='all'); });
