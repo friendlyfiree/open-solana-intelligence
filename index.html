@@ -2461,8 +2461,13 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .adm-title b{color:var(--ink);font-weight:700}
 .adm-clr{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:8px;padding:4px 9px}
 .adm-card{border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:var(--bg-card);padding:26px;max-width:430px}
+.adm-card.locked{border-left-color:var(--amber);max-width:520px;background:linear-gradient(135deg,rgba(255,176,32,.08),rgba(8,14,26,.94) 42%,rgba(34,211,238,.04))}
 .adm-card h3{font-family:'Archivo',sans-serif;font-size:18px;font-weight:800;margin:0 0 5px}
 .adm-card p{font-size:12.5px;color:var(--ink-faint);margin:0 0 18px;line-height:1.5}
+.adm-access-tag{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(255,176,32,.28);border-radius:999px;padding:4px 8px;margin-bottom:12px}
+.adm-lock-note{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);border-top:1px solid var(--line);padding-top:12px;margin-top:14px;line-height:1.6}
+.adm-lock-note b{color:var(--ink)}
+.adm-lock-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
 .adm-field{display:block;margin-bottom:13px}
 .adm-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--ink-faint);margin-bottom:6px}
 .adm-field input{width:100%;background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;padding:11px 12px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px;outline:0}
@@ -2509,7 +2514,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
   <div id="admLogin">
     <div class="adm-card">
       <h3>Maintainer sign in</h3>
-      <p>Sign in with the OSI maintainer account to review community submissions and publish them to everyone.</p>
+      <p>Maintainer wallet detected. Sign in with the OSI authority account to review community submissions and publish them to everyone.</p>
       <div class="adm-field"><label>EMAIL</label><input id="admEmail" type="email" autocomplete="username" placeholder="you@example.com"></div>
       <div class="adm-field"><label>PASSWORD</label><input id="admPw" type="password" autocomplete="current-password" placeholder="password"></div>
       <button class="adm-go" onclick="admLogin()">SIGN IN</button>
@@ -2607,7 +2612,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     </div>
     <div class="adm-cfg" id="adm-cfg-admin">
       <div class="adm-cfg-h">ADMIN ACCESS WALLET</div>
-      <div class="adm-cfg-s">This only controls who SEES the maintainer lock icon, a convenience, not a security boundary. The real protection is Supabase row-level security plus the maintainer email login: nothing can be approved or changed without that authentication, wallet or not. (Add #ops to the URL to re-reveal the icon if you ever hide your own.)</div>
+      <div class="adm-cfg-s">This wallet is part of the maintainer gate. The console requires both this connected wallet and the Supabase authority session before queues or actions are exposed.</div>
       <div class="adm-cfg-row">
         <input id="admAdminW" placeholder="SOL wallet address">
         <button class="adm-out" onclick="admUseConnectedAdmin()">Use connected</button>
@@ -4496,7 +4501,7 @@ function rfInstallDemo(){
 async function renderReviewFloor(){
   const host=document.getElementById('consensus-floor'); if(!host) return;
   const canVouch = isVerifiedAnalyst(walletPubkey);
-  const isMaint = !!SUPA_AUTH_TOKEN;
+  const isMaint = (typeof resolveMaintainerAccess === 'function') ? resolveMaintainerAccess().allowed : false;
   let reports=[], bounties=[], challenges=[];
   if(SUPA_ON){
     try{ reports  = await supaGet('reports?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
@@ -4706,6 +4711,7 @@ function rvDrawerHtml(type,id,row){
 
 // ----- maintainer: consensus settings -----
 async function admSaveConsensus(){
+  if(!requireMaintainerAccess('Save consensus settings')) return;
   const thr = parseInt((document.getElementById('admConThr').value||'3'),10);
   const auto = document.getElementById('admConAuto').checked ? 'on' : 'off';
   const msg = document.getElementById('admConMsg');
@@ -4985,7 +4991,7 @@ function openAnalystProfile(id){ // leaderboard rows (sample roster)
 function openRosterProfile(wallet){ openProfileCV({ role:'analyst', src:'live', wallet:String(wallet) }); }
 function openSelfProfile(){
   if(!walletPubkey){ if(typeof showToast==='function') showToast('Connect your wallet first (top right).'); return; }
-  var maint = (typeof SUPA_AUTH_TOKEN!=='undefined' && !!SUPA_AUTH_TOKEN) || (OSI_ADMIN_WALLET && walletPubkey===OSI_ADMIN_WALLET);
+  var maint = (typeof resolveMaintainerAccess === 'function') ? resolveMaintainerAccess().allowed : false;
   var role = maint ? 'maintainer' : (isVerifiedAnalyst(walletPubkey) ? 'analyst' : 'user');
   openProfileCV({ role:role, src:'live', wallet:walletPubkey, self:true });
   if(typeof closeWalletMenu==='function') closeWalletMenu();
@@ -5200,6 +5206,7 @@ async function supaUpsertAnalyst(row){
   return true;
 }
 async function admAddAnalyst(){
+  if(!requireMaintainerAccess('Add analyst')) return;
   const wallet=(document.getElementById('admAnWallet').value||'').trim();
   const handle=(document.getElementById('admAnHandle').value||'').trim().replace(/^@/,'');
   const name=(document.getElementById('admAnName').value||'').trim();
@@ -5215,6 +5222,7 @@ async function admAddAnalyst(){
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Failed: '+((e&&e.message)||e)+' (did you run the latest SQL?)'; } }
 }
 async function admSetAnalyst(wallet, on){
+  if(!requireMaintainerAccess(on ? 'Verify analyst' : 'Unverify analyst')) return;
   try{
     await supaPatch('analysts?wallet=eq.'+encodeURIComponent(wallet), { verified:on, approved:on });
     showToast(on?'Analyst verified and on the roster.':'Analyst hidden from the roster.');
@@ -5222,15 +5230,17 @@ async function admSetAnalyst(wallet, on){
   }catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
 }
 async function admDelAnalyst(wallet){
+  if(!requireMaintainerAccess('Remove analyst')) return;
   if(!confirm('Remove this analyst from the roster? This cannot be undone.')) return;
   try{ await supaDelete('analysts?wallet=eq.'+encodeURIComponent(wallet)); showToast('Analyst removed.'); admRefresh(); loadAnalysts(); renderAnalysts(); }
   catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
 }
 
-// ===== Maintainer button: strictly gated (active maintainer session or admin wallet only) =====
+// ===== Maintainer button: visible only to the configured maintainer wallet =====
 function updateAdminButton(){
   const btn=document.getElementById('admLockBtn'); if(!btn) return;
-  const show = (typeof SUPA_AUTH_TOKEN!=='undefined' && !!SUPA_AUTH_TOKEN) || (walletPubkey && OSI_ADMIN_WALLET && walletPubkey===OSI_ADMIN_WALLET);
+  const access = (typeof resolveMaintainerAccess === 'function') ? resolveMaintainerAccess() : { isMaintainerWallet:false };
+  const show = !!access.isMaintainerWallet;
   btn.style.display = show ? '' : 'none';
 }
 function admUseConnectedAdmin(){
@@ -5238,6 +5248,7 @@ function admUseConnectedAdmin(){
   const el=document.getElementById('admAdminW'); if(el) el.value=walletPubkey;
 }
 async function admSaveAdminWallet(){
+  if(!requireMaintainerAccess('Save maintainer wallet')) return;
   const v=(document.getElementById('admAdminW').value||'').trim();
   const msg=document.getElementById('admAdminMsg');
   if(v && !isSolAddr(v)){ if(msg){ msg.style.color='var(--red)'; msg.textContent="That is not a valid Solana address."; } return; }
@@ -5252,6 +5263,7 @@ async function admSaveAdminWallet(){
 
 // ===== Admin: edit a bounty (target, brief, reward, logo) =====
 function admEditBounty(id){
+  if(!requireMaintainerAccess('Edit case')) return;
   const b = (window.__admBounties||[]).find(function(x){ return String(x.id)===String(id); });
   if(!b){ showToast('Bounty not found, hit Refresh and try again.'); return; }
   document.getElementById('aeb-id').value = b.id;
@@ -5266,6 +5278,7 @@ function admEditBounty(id){
 }
 function admCloseEdit(){ const m=document.getElementById('adm-edit-modal'); if(m) m.classList.remove('open'); }
 async function admSaveBounty(){
+  if(!requireMaintainerAccess('Save case')) return;
   const id = document.getElementById('aeb-id').value;
   const target = (document.getElementById('aeb-target').value||'').trim();
   const detail = (document.getElementById('aeb-detail').value||'').trim();
@@ -5313,6 +5326,7 @@ function admUseConnected(){
   const el = document.getElementById('admSupport'); if(el) el.value = walletPubkey;
 }
 async function admSaveSupport(){
+  if(!requireMaintainerAccess('Save support wallet')) return;
   const v = (document.getElementById('admSupport').value || '').trim();
   const msg = document.getElementById('admCfgMsg');
   if(v && !isSolAddr(v)){ if(msg){ msg.style.color='var(--red)'; msg.textContent = "That does not look like a valid Solana address."; } return; }
@@ -6437,38 +6451,139 @@ function supaSignOut(){ SUPA_AUTH_TOKEN = null; }
 
 // ---- Maintainer moderation console (open with the lock icon, or the #admin URL) ----
 function admEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function maintainerShortWallet(addr){
+  addr = String(addr || '');
+  return addr.length > 10 ? addr.slice(0,4) + '...' + addr.slice(-4) : addr;
+}
+function resolveMaintainerAccess(){
+  var wallet = walletPubkey || null;
+  var walletConnected = !!wallet;
+  var adminWallet = (typeof OSI_ADMIN_WALLET !== 'undefined' && OSI_ADMIN_WALLET) ? String(OSI_ADMIN_WALLET).trim() : '';
+  var isMaintainerWallet = !!(walletConnected && adminWallet && String(wallet) === adminWallet);
+  var passwordAuthenticated = !!(typeof SUPA_AUTH_TOKEN !== 'undefined' && SUPA_AUTH_TOKEN);
+  var state = 'no_wallet';
+  if(walletConnected && !isMaintainerWallet) state = 'wrong_wallet';
+  else if(isMaintainerWallet && !passwordAuthenticated) state = 'login_required';
+  else if(isMaintainerWallet && passwordAuthenticated) state = 'allowed';
+  return {
+    walletConnected: walletConnected,
+    wallet: wallet,
+    isMaintainerWallet: isMaintainerWallet,
+    passwordAuthenticated: passwordAuthenticated,
+    allowed: state === 'allowed',
+    state: state
+  };
+}
+function maintainerAccessMessage(ctx, actionName){
+  ctx = ctx || (typeof resolveMaintainerAccess === 'function' ? resolveMaintainerAccess() : {});
+  var prefix = actionName ? (String(actionName) + ': ') : '';
+  if(ctx.state === 'no_wallet') return prefix + 'Connect maintainer wallet.';
+  if(ctx.state === 'wrong_wallet') return prefix + 'Maintainer wallet required.';
+  if(ctx.state === 'login_required') return prefix + 'Authority login required.';
+  return prefix + 'Maintainer access required.';
+}
+function admLockedHtml(ctx){
+  var title = ctx.state === 'wrong_wallet' ? 'Access denied' : 'Maintainer Access Required';
+  var body = ctx.state === 'no_wallet'
+    ? 'Connect the configured maintainer wallet before opening the authority login.'
+    : 'This wallet is not authorized for maintainer operations.';
+  var note = ctx.wallet ? '<div class="adm-lock-note">Connected wallet<br><b>' + admEsc(maintainerShortWallet(ctx.wallet)) + '</b></div>' : '';
+  var action = ctx.state === 'no_wallet'
+    ? '<button class="adm-go" type="button" onclick="toggleWallet().then(function(){if(typeof renderAdminAccess===\'function\')renderAdminAccess({clear:true});})">Connect maintainer wallet</button>'
+    : '<button class="adm-out" type="button" onclick="disconnectWallet()">Disconnect wallet</button>';
+  return '<div class="adm-card locked"><div class="adm-access-tag">Authority gate</div><h3>' + title + '</h3><p>' + body + '</p>' + note + '<div class="adm-lock-actions">' + action + '</div></div>';
+}
+function admLockedHost(){
+  var host = document.getElementById('admLocked');
+  if(host) return host;
+  var login = document.getElementById('admLogin');
+  if(!login || !login.parentNode) return null;
+  host = document.createElement('div');
+  host.id = 'admLocked';
+  login.parentNode.insertBefore(host, login);
+  return host;
+}
+function admClearProtectedData(){
+  var ops = document.getElementById('adm-ops'); if(ops) ops.innerHTML = '';
+  var queue = document.getElementById('admQueue'); if(queue) queue.innerHTML = '';
+  var controls = document.getElementById('esc-pack-controls'); if(controls) controls.innerHTML = '';
+  var out = document.getElementById('esc-out'); if(out) out.value = '';
+  var outWrap = document.getElementById('esc-out-wrap'); if(outWrap) outWrap.style.display = 'none';
+  var status = document.getElementById('esc-status'); if(status) status.textContent = 'Locked';
+  window.__admBounties = [];
+}
+function renderAdminAccess(opts){
+  opts = opts || {};
+  var ctx = resolveMaintainerAccess();
+  var login = document.getElementById('admLogin');
+  var panel = document.getElementById('admPanel');
+  var locked = admLockedHost();
+  if(!login || !panel) return ctx;
+  if(!ctx.allowed){
+    panel.style.display = 'none';
+    admClearProtectedData();
+    if(ctx.state === 'login_required'){
+      if(locked) locked.style.display = 'none';
+      login.style.display = 'block';
+      var msg = document.getElementById('admMsg');
+      if(msg && !msg.textContent) msg.textContent = 'Authority login required. Sign in to continue.';
+    } else {
+      login.style.display = 'none';
+      if(locked){ locked.innerHTML = admLockedHtml(ctx); locked.style.display = 'block'; }
+      var loginMsg = document.getElementById('admMsg'); if(loginMsg) loginMsg.textContent = '';
+    }
+    return ctx;
+  }
+  if(locked) locked.style.display = 'none';
+  login.style.display = 'none';
+  panel.style.display = 'block';
+  var who = document.getElementById('admWho');
+  if(who){ var email = document.getElementById('admEmail'); who.textContent = (email && email.value) ? email.value : 'authority session'; }
+  var su=document.getElementById('admSupport'); if(su) su.value = OSI_SUPPORT_WALLET || '';
+  var aw=document.getElementById('admAdminW'); if(aw) aw.value = OSI_ADMIN_WALLET || '';
+  var ct=document.getElementById('admConThr'); if(ct) ct.value = CONSENSUS_THRESHOLD;
+  var ca=document.getElementById('admConAuto'); if(ca) ca.checked = CONSENSUS_AUTO;
+  if(opts.refresh && typeof admRefresh === 'function') admRefresh();
+  return ctx;
+}
+function requireMaintainerAccess(actionName){
+  var ctx = resolveMaintainerAccess();
+  if(ctx.allowed) return true;
+  if(document.body && document.body.dataset && document.body.dataset.view === 'admin'){
+    try{ renderAdminAccess({clear:true}); }catch(_){}
+  }
+  var msg = maintainerAccessMessage(ctx, actionName);
+  if(typeof showToast === 'function') showToast(msg); else alert(msg);
+  return false;
+}
 function admOpen(){ showView('admin'); }
 async function admLogin(){
   const email=(document.getElementById('admEmail').value||'').trim();
   const pw=document.getElementById('admPw').value||'';
   const msg=document.getElementById('admMsg');
+  const pre = resolveMaintainerAccess();
+  if(pre.state === 'no_wallet' || pre.state === 'wrong_wallet'){ renderAdminAccess({clear:true}); return; }
   if(!SUPA_ON){ msg.textContent='Supabase is not configured yet (check config.js).'; return; }
   if(!email || !pw){ msg.textContent='Enter the maintainer email and password.'; return; }
   msg.textContent='Signing in...';
   try{
     await supaSignIn(email, pw);
+    if(!resolveMaintainerAccess().allowed){ msg.textContent=maintainerAccessMessage(resolveMaintainerAccess()); renderAdminAccess({clear:true}); return; }
     msg.textContent='';
-    document.getElementById('admLogin').style.display='none';
-    document.getElementById('admPanel').style.display='block';
-    document.getElementById('admWho').textContent=email;
-    const su=document.getElementById('admSupport'); if(su) su.value = OSI_SUPPORT_WALLET || '';
-    const aw=document.getElementById('admAdminW'); if(aw) aw.value = OSI_ADMIN_WALLET || '';
-    const ct=document.getElementById('admConThr'); if(ct) ct.value = CONSENSUS_THRESHOLD;
-    const ca=document.getElementById('admConAuto'); if(ca) ca.checked = CONSENSUS_AUTO;
     try{ localStorage.setItem('stw_maint_dev','1'); }catch(_){}
     if(typeof updateAdminButton==='function') updateAdminButton();
-    admRefresh();
+    renderAdminAccess({refresh:true});
   }catch(e){ msg.textContent='Sign-in failed: '+e.message; }
 }
 function admLogout(){
   supaSignOut();
-  document.getElementById('admPanel').style.display='none';
-  document.getElementById('admLogin').style.display='block';
   const pw=document.getElementById('admPw'); if(pw) pw.value='';
+  if(typeof updateAdminButton==='function') updateAdminButton();
+  renderAdminAccess({clear:true});
 }
 async function admOpsStats(){
   var host=document.getElementById('adm-ops'); if(!host) return;
-  if(!SUPA_ON || typeof SUPA_AUTH_TOKEN==='undefined' || !SUPA_AUTH_TOKEN){ host.innerHTML=''; return; }
+  if(!SUPA_ON || !resolveMaintainerAccess().allowed){ host.innerHTML=''; return; }
   async function cnt(q){ try{ var r=await supaGet(q); return (r||[]).length; }catch(e){ return null; } }
   var pr=await cnt('reports?select=id&approved=eq.false&limit=200');
   var pc=await cnt('bounties?select=id&approved=eq.false&limit=200');
@@ -6478,6 +6593,8 @@ async function admOpsStats(){
   host.innerHTML = cell(pr,'Pending reports',true)+cell(pc,'Pending cases',true)+cell(pk,'Packs awaiting review',true)+cell(an,'Verified analysts',false);
 }
 async function admRefresh(){
+  var access = renderAdminAccess({clear:true});
+  if(!access.allowed) return;
   if(typeof admOpsStats==='function'){ try{ admOpsStats(); }catch(e){} }
   const host=document.getElementById('admQueue');
   host.innerHTML='<div class="adm-muted">Loading queue...</div>';
@@ -6527,6 +6644,7 @@ function admRender(reports, requests, bounties, analysts){
   return h;
 }
 async function admResolveBounty(id){
+  if(!requireMaintainerAccess('Resolve case')) return;
   const w = prompt("Paste the winning analyst's wallet address (copy it from their report).\n\nThis marks the bounty resolved and makes the reward button live on the board, so anyone can pay the winner in SOL. Leave blank to clear the winner.");
   if(w===null) return;
   const wallet=(w||'').trim();
@@ -6555,10 +6673,12 @@ function admReflow(){
   try{ if(typeof renderActivity==='function') renderActivity(); }catch(_){}
 }
 async function admSet(table, id, approved){
+  if(!requireMaintainerAccess(approved ? 'Approve item' : 'Unpublish item')) return;
   try{ await supaPatch(table+'?id=eq.'+encodeURIComponent(id), { approved: approved }); showToast(approved?'Published. Now public for everyone.':'Unpublished.'); admRefresh(); admReflow(); }
   catch(e){ showToast('Action failed: '+e.message); }
 }
 async function admDel(table, id){
+  if(!requireMaintainerAccess('Delete item')) return;
   if(!confirm('Delete this permanently? This cannot be undone.')) return;
   try{ await supaDelete(table+'?id=eq.'+encodeURIComponent(id)); showToast('Deleted.'); admRefresh(); admReflow(); }
   catch(e){ showToast('Delete failed: '+e.message); }
@@ -6654,6 +6774,7 @@ function updateWalletUI(){
     const dot = btn.querySelector('.wb-dot'); if(dot) dot.style.display='';
   }
   if(typeof updateAdminButton === 'function') updateAdminButton();
+  if(document.body.dataset.view==='admin' && typeof renderAdminAccess==='function') renderAdminAccess({clear:true});
   if(typeof refreshApplyWalletRow === 'function') refreshApplyWalletRow();
   if(document.body.dataset.view==='profile' && typeof renderProfile==='function') renderProfile();
 }
@@ -6713,7 +6834,8 @@ if(typeof window.OSI_DEBUG_WORKSPACE === 'undefined') window.OSI_DEBUG_WORKSPACE
 function resolveWorkspaceContext(){
   var wallet = walletPubkey || null;
   var walletConnected = (typeof getConnectedProvider === 'function') ? !!getConnectedProvider() : !!wallet;
-  var isMaintainer = !!SUPA_AUTH_TOKEN;
+  var maintainerAccess = (typeof resolveMaintainerAccess === 'function') ? resolveMaintainerAccess() : { allowed:false };
+  var isMaintainer = !!maintainerAccess.allowed;
   var verifiedAnalyst = !!(wallet && typeof isVerifiedAnalyst === 'function' && isVerifiedAnalyst(wallet));
   var analystProfile = (wallet && window.VERIFIED_ANALYSTS) ? (window.VERIFIED_ANALYSTS[String(wallet)] || null) : null;
   var workspaceRole = 'public';
@@ -6880,6 +7002,7 @@ function renderCaseStudies(){
 const VIEW_OF = { registry:'registry', how:'methodology', methodology:'methodology', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
   document.body.dataset.view = v;
+  if(v==='admin' && typeof renderAdminAccess==='function'){ renderAdminAccess({refresh:true}); }
   if(v==='identity' && typeof renderIdentity==='function'){ renderIdentity(); }
   if(v==='workspace' && typeof renderWorkspace==='function'){ renderWorkspace(); }
   if(v==='profile'){ renderProfile(); }
@@ -7179,7 +7302,9 @@ async function disconnectWallet(){
   clearWalletCache();
   if(typeof closeWalletMenu==='function') closeWalletMenu();
   updateWalletUI();
+  if(document.body && document.body.dataset && document.body.dataset.view==='admin' && typeof renderAdminAccess==='function') renderAdminAccess({clear:true});
   if(document.body && document.body.dataset && document.body.dataset.view==='profile') showView('registry');
+  else if(document.body && document.body.dataset && document.body.dataset.view==='identity' && typeof renderIdentity==='function') await renderIdentity();
   if(typeof showToast==='function') showToast('Wallet disconnected.');
 }
 
@@ -7859,6 +7984,7 @@ function escSetOutput(text){
 async function escLoadCases(){
   var sel = document.getElementById('esc-case');
   if(!sel) return;
+  if(!resolveMaintainerAccess().allowed){ escStatus(maintainerAccessMessage(resolveMaintainerAccess()), 'warn'); return; }
   if(typeof SUPA_ON === 'undefined' || !SUPA_ON){ escStatus('Supabase is not configured.', 'warn'); return; }
   escStatus('Loading reviewed cases\u2026', 'busy');
   try{
@@ -7879,7 +8005,7 @@ async function escLoadCases(){
   }
 }
 async function escGenerate(){
-  if(typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ escStatus(ESC_PILOT_MSG, 'warn'); return; }
+  if(!requireMaintainerAccess('Generate escalation pack')){ escStatus(maintainerAccessMessage(resolveMaintainerAccess()), 'warn'); return; }
   var sel = document.getElementById('esc-case');
   var caseRef = sel ? sel.value : '';
   var ev = caseRef ? escCaseEvidence[caseRef] : null;
@@ -7945,6 +8071,7 @@ async function escLoadPacksForCase(caseRef){
   escCurrentPacks = [];
   var host = document.getElementById('esc-pack-controls'); if(host) host.innerHTML='';
   if(!caseRef){ return; }
+  if(!resolveMaintainerAccess().allowed){ escSetOutput(''); escStatus(maintainerAccessMessage(resolveMaintainerAccess()), 'warn'); return; }
   if(typeof SUPA_ON === 'undefined' || !SUPA_ON){ return; }
   try{
     var rows = await supaGet('escalation_packs?case_ref=eq.' + encodeURIComponent(caseRef) + '&select=id,pack_type,content,status,created_at&order=created_at.desc');
@@ -7964,7 +8091,7 @@ async function escLoadPacksForCase(caseRef){
 // Maintainer-only controls shown under a pack: mark reviewed (publish) / seal case.
 function escRenderPackControls(p){
   var host = document.getElementById('esc-pack-controls'); if(!host) return;
-  if(!p || typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ host.innerHTML=''; return; }
+  if(!p || !resolveMaintainerAccess().allowed){ host.innerHTML=''; return; }
   var approved = (p.status === 'approved');
   host.innerHTML =
     (approved
@@ -7974,7 +8101,7 @@ function escRenderPackControls(p){
 }
 
 async function escApprovePack(packId){
-  if(typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ escStatus(ESC_PILOT_MSG, 'warn'); return; }
+  if(!requireMaintainerAccess('Approve escalation pack')){ escStatus(maintainerAccessMessage(resolveMaintainerAccess()), 'warn'); return; }
   try{
     await supaPatch('escalation_packs?id=eq.' + encodeURIComponent(packId), { status:'approved' });
     escStatus('Pack marked reviewed. It can now appear in Public Case Records.', 'ok');
@@ -7984,7 +8111,7 @@ async function escApprovePack(packId){
 }
 
 async function escSealCase(){
-  if(typeof SUPA_AUTH_TOKEN === 'undefined' || !SUPA_AUTH_TOKEN){ escStatus(ESC_PILOT_MSG, 'warn'); return; }
+  if(!requireMaintainerAccess('Seal case')){ escStatus(maintainerAccessMessage(resolveMaintainerAccess()), 'warn'); return; }
   var sel = document.getElementById('esc-case'); var caseRef = sel ? sel.value : '';
   if(!caseRef){ escStatus('Pick a case first.', 'warn'); return; }
   try{
