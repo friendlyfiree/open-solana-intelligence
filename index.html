@@ -4129,6 +4129,66 @@ async function recordOnchainEvent(ev){
     });
   }catch(e){ /* the on-chain memo tx remains the source of truth */ }
 }
+// ============================================================
+//  OSI signed-event helper layer (Stage 1)
+//  Thin, additive wrapper over withOnchainVote + recordOnchainEvent.
+//  New events use the OSI1 memo grammar. No allegation text, rejection
+//  reasons, or AI-Pack content ever goes into the memo or memo_text.
+// ============================================================
+function osiSignerRole(){
+  try{
+    if(typeof resolveMaintainerAccess === 'function' && resolveMaintainerAccess().allowed) return 'maintainer';
+    if(typeof isVerifiedAnalyst === 'function' && isVerifiedAnalyst(walletPubkey)) return 'analyst';
+  }catch(e){}
+  return 'user';
+}
+function osiSanitizeMemoField(v){ return String(v==null?'':v).replace(/[|\r\n]/g,'/').slice(0,64); }
+// OSI1|<EVENT_TYPE>|case=<case_id>|report=<report_id>|actor=<wallet>|role=<role>|ts=<unix>
+function osiBuildMemo(eventType, o){
+  o = o || {};
+  return 'OSI1|' + String(eventType)
+    + '|case='   + osiSanitizeMemoField(o.caseId   || '')
+    + '|report=' + osiSanitizeMemoField(o.reportId || '')
+    + '|actor='  + osiSanitizeMemoField(o.actor || (typeof walletPubkey!=='undefined' ? walletPubkey : '') || 'anon')
+    + '|role='   + osiSanitizeMemoField(o.role  || osiSignerRole())
+    + '|ts='     + (o.ts || Math.floor(Date.now()/1000));
+}
+// Map OSI1 event types to the DB event_type strings the Proof Log reader
+// (plGroup) already recognizes, so no reader change is needed.
+function osiEventTypeToDb(eventType){
+  var m = { CASE_SUBMITTED:'case_opened', REPORT_SUBMITTED:'report_submitted' };
+  return m[String(eventType)] || String(eventType).toLowerCase();
+}
+// Sign an OSI1 memo, then (best-effort) index it into onchain_events.
+// opts: { eventType, actionLabel, caseId, reportId, itemType, itemId,
+//         vote, amount, token, publicLabel, sensitive, onSuccess }
+async function osiSignEvent(opts){
+  opts = opts || {};
+  var ts = Math.floor(Date.now()/1000);
+  var role = osiSignerRole();
+  var memo = osiBuildMemo(opts.eventType, {
+    caseId: opts.caseId, reportId: opts.reportId, role: role, ts: ts
+  });
+  await withOnchainVote(opts.actionLabel || opts.eventType, memo, async function(sig){
+    try{
+      if(typeof recordOnchainEvent === 'function'){
+        recordOnchainEvent({
+          event_type: osiEventTypeToDb(opts.eventType),
+          item_type:  opts.itemType || null,
+          item_id:    opts.itemId || opts.caseId || opts.reportId || null,
+          vote:       opts.vote || null,
+          amount:     (opts.amount != null && opts.amount !== '') ? Number(opts.amount) : null,
+          token:      opts.token || null,
+          // Privacy: sensitive/intake events store NO narrative label or memo_text.
+          label:      opts.sensitive ? null : (opts.publicLabel || null),
+          memo_text:  opts.sensitive ? null : memo,
+          tx_sig:     sig
+        });
+      }
+    }catch(e){ /* on-chain memo tx remains source of truth */ }
+    if(typeof opts.onSuccess === 'function') await opts.onSuccess(sig, memo);
+  });
+}
 function raShortW(w){ w=String(w||''); return w.length>8 ? (w.slice(0,4)+'\u2026'+w.slice(-4)) : (w||'someone'); }
 function raSignedItem(ev){
   var w=raShortW(ev.actor_wallet);
@@ -6070,16 +6130,19 @@ const FIELD_PER_PAGE = 5;
 
 async function renderFieldOffice(){
   if(!document.getElementById('field-cases')) return;
+  var demo = (window.OSI_DEMO_MODE === true);   // sample cards only in demo mode
   let list = [];
+  window.__foError = false;
   if(SUPA_ON){
     try{
       const rows = await supaGet('bounties?select=*&approved=eq.true&order=created_at.desc');
       list = rows || [];
     }catch(e){
-      list = FIELD_SEED.slice();   // network failure: fall back so the board is never blank
+      list = demo ? FIELD_SEED.slice() : [];   // live mode: NO seed cards on failure
+      window.__foError = !demo;
     }
   } else {
-    list = FIELD_SEED.slice();
+    list = demo ? FIELD_SEED.slice() : [];     // live mode without Supabase: clean empty state
   }
   fieldState.data = list;
   drawFieldOffice();
@@ -6120,6 +6183,10 @@ function drawFieldOffice(){
     }
   }
   if(!list.length){
+    if(window.__foError){
+      host.innerHTML='<div class="fo-empty"><div class="fo-empty-h">Cases are temporarily unavailable.</div><p>We could not reach the intelligence network just now. Refresh in a moment.</p><button class="fo-cta" onclick="renderFieldOffice()">Retry</button></div>';
+      return;
+    }
     if(fieldState.mine){
       host.innerHTML='<div class="fo-empty"><div class="fo-empty-h">No cases from this wallet yet.</div><p>Open your first case, it is free and signed with your wallet, so it shows up here as yours.</p><button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button></div>';
       return;
@@ -8601,12 +8668,18 @@ async function submitBounty(){
   if(!rateOk('submit', 6000)){ showToast("Give it a few seconds between submissions."); return; }
   var _sgB = safetyGate(target + "\n" + detail);
   if(!_sgB.ok){ osiBlockShow(_sgB.hits); return; }
-  const memo = "OSI_CASE_OPENED|subject=" + String(target).replace(/\|/g,"/") + "|actor=" + (walletPubkey||"anon") + "|ts=" + Math.floor(Date.now()/1000);
-  withOnchainVote("Open a case", memo, async (sig)=>{
+  const id='bnt_'+Date.now();   // id exists before signing so the memo can reference case=<id>
+  osiSignEvent({
+    eventType: 'CASE_SUBMITTED',
+    actionLabel: 'Open a case',
+    caseId: id,
+    itemType: 'bounty',
+    itemId: id,
+    sensitive: true,            // no subject/allegation in memo, memo_text, or label
+    onSuccess: async (sig)=>{
     let img='';
     try{ img = await uploadPicked('bf'); }
     catch(e){ showToast("Image upload failed, filing the case without it."); }
-    const id='bnt_'+Date.now();
     const mine=lsGet('stw_bounties',[]); mine.unshift({ id, target, detail, reward_sol:rewardSol, image:img, tx: sig||'', sub: SUPA_ON?'\u23f3 awaiting maintainer approval':'proposed here' }); lsSet('stw_bounties',mine);
     ['bf-target','bf-detail','bf-reward'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
     if(SUPA_ON){ try{ const brow = { id, title:target, target, detail, reward_sol:rewardSol, created_by: walletPubkey||'', approved:false }; if(img) brow.image = img; await supaPost('bounties', brow); renderFieldOffice(); }catch(e){ console.warn('OSI: bounty publish failed.',e); } }
@@ -8614,6 +8687,7 @@ async function submitBounty(){
     clearPickedFile('bf');
     fieldCloseForm();
     showToast(SUPA_ON?'\u2713 Case signed on-chain \u00b7 now in peer review. It publishes when analyst consensus reaches '+CONSENSUS_THRESHOLD+' weight.':'\u2713 Case proposed \u00b7 it enters peer review.');
+    }
   });
 }
 
@@ -8666,12 +8740,19 @@ async function submitBountyReport(){
   var _sgR = safetyGate(report);
   if(!_sgR.ok){ osiBlockShow(_sgR.hits); return; }
   const target = applyCtx.target, bid = applyCtx.bid;
-  const memo = "OSI_REPORT_SUBMITTED|case=" + String(target).replace(/\|/g,"/") + "|researcher=" + (walletPubkey||"anon") + "|ts=" + Math.floor(Date.now()/1000);
-  withOnchainVote("Submit report", memo, async (sig)=>{
+  const id = 'rep_' + Date.now();   // id exists before signing so the memo can reference report=<id>
+  osiSignEvent({
+    eventType: 'REPORT_SUBMITTED',
+    actionLabel: 'Submit report',
+    caseId: bid,                    // the case this report is filed under
+    reportId: id,
+    itemType: 'report',
+    itemId: id,
+    sensitive: true,               // no report summary/allegation in memo, memo_text, or label
+    onSuccess: async (sig)=>{
     let att = '';
     try{ att = await uploadPicked('apply'); }
     catch(e){ showToast("Attachment upload failed, submitting without it."); }
-    const id = 'rep_' + Date.now();
     const reports = lsGet('stw_reports', []);
     reports.unshift({ id, bounty: target, company: target, summary: report, onchain: '', offchain: '', attachment: att, wallet: walletPubkey || '', tx: sig || '', up: 0, dn: 0 });
     lsSet('stw_reports', reports);
@@ -8684,6 +8765,7 @@ async function submitBountyReport(){
     openCommunityTab('tab-analysts');
     const q = document.getElementById('review-list'); if(q) q.scrollIntoView({ behavior: 'smooth', block: 'center' });
     showToast("\u2713 Submission signed on-chain and sent, pending maintainer approval.");
+    }
   });
 }
 // On load, restore this browser's boosted/applied bounties + global counts.
