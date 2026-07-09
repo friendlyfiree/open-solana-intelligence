@@ -390,6 +390,7 @@ body[data-view="registry"] section[data-view="registry"],
 body[data-view="methodology"] section[data-view="methodology"],
 body[data-view="field"] section[data-view="field"],
 body[data-view="wire"] section[data-view="wire"],
+body[data-view="identity"] section[data-view="identity"],
 body[data-view="profile"] section[data-view="profile"],
 body[data-view="analysts"] section[data-view="analysts"],
 body[data-view="prooflog"] section[data-view="prooflog"],
@@ -510,7 +511,7 @@ h1 .chain::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:2
 .wb-mi:hover{background:var(--bg-card);color:var(--ink)}
 .wb-mi.danger:hover{background:rgba(255,84,112,.12);color:var(--red)}
 </style>
-    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="showView('workspace');closeWalletMenu();">My OSI</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Open profile</button><button class="wb-mi" type="button" role="menuitem" onclick="openSelfProfile();">Proof-of-work CV</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
+    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="showView('identity');closeWalletMenu();">OSI Identity</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('workspace');closeWalletMenu();">My OSI</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Open profile</button><button class="wb-mi" type="button" role="menuitem" onclick="openSelfProfile();">Proof-of-work CV</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -2641,6 +2642,114 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div id="admQueue"><div class="adm-muted">Loading...</div></div>
   </div>
 </div></div>
+</section>
+
+<section class="sec osi-identity" data-view="identity" id="identity-view">
+<style id="osi-identity-shell">
+body[data-view="identity"] section[data-view="identity"]{display:block}
+.osi-identity{min-height:calc(100vh - 84px);padding:34px 0 48px;position:relative;overflow:hidden;background:radial-gradient(circle at 76% 8%,rgba(34,211,238,.12),transparent 34%),radial-gradient(circle at 18% 4%,rgba(20,241,149,.07),transparent 30%),linear-gradient(180deg,#050914 0%,#07101a 48%,#04070e 100%)}
+.osi-identity::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(34,211,238,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.038) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(180deg,rgba(0,0,0,.72),rgba(0,0,0,.18));pointer-events:none}
+.osi-identity .wrap{max-width:1290px;position:relative;z-index:1}
+.identity-shell{border:1px solid rgba(34,211,238,.18);background:linear-gradient(145deg,rgba(8,14,25,.94),rgba(4,8,15,.97));box-shadow:0 22px 70px rgba(0,0,0,.36);overflow:hidden}
+.identity-hero{position:relative;min-height:188px;padding:32px 34px 0;border-bottom:1px solid var(--line);overflow:hidden}
+.identity-hero::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 72% 44%,rgba(34,211,238,.12),transparent 26%),linear-gradient(90deg,rgba(5,9,20,.94),rgba(5,9,20,.72) 52%,rgba(5,9,20,.94));pointer-events:none}
+.identity-hero::after{content:"";position:absolute;right:92px;top:16px;width:214px;height:128px;border:1px solid rgba(34,211,238,.18);border-radius:50%;transform:rotate(-12deg);box-shadow:0 0 0 26px rgba(34,211,238,.018),0 0 0 52px rgba(20,241,149,.014),inset 0 0 42px rgba(34,211,238,.06);opacity:.8;pointer-events:none}
+.identity-hero-main{position:relative;z-index:1;max-width:760px;padding-bottom:28px}
+.identity-kicker{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);text-transform:uppercase;letter-spacing:0;display:flex;align-items:center;gap:9px;margin-bottom:15px}
+.identity-kicker::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--sol);box-shadow:0 0 10px rgba(20,241,149,.72)}
+.identity-hero h1{font-family:'Archivo',sans-serif;font-size:clamp(34px,5vw,58px);line-height:1.02;letter-spacing:0;margin:0;color:var(--ink-bright)}
+.identity-hero p{max-width:690px;margin:14px 0 0;color:var(--ink-dim);font-size:15px;line-height:1.65}
+.identity-mark{position:absolute;right:40px;bottom:20px;display:grid;grid-template-columns:repeat(5,9px);gap:8px;opacity:.72;z-index:1}
+.identity-mark span{width:5px;height:5px;border-radius:50%;background:rgba(34,211,238,.56);box-shadow:0 0 10px rgba(34,211,238,.4)}
+.identity-mark span:nth-child(3n){background:rgba(20,241,149,.7)}
+.identity-mark span:nth-child(7){background:rgba(255,176,32,.62)}
+.identity-tabs{position:relative;z-index:2;display:flex;align-items:center;gap:22px;overflow-x:auto;padding:0 34px;border-top:1px solid rgba(255,255,255,.02)}
+.identity-tab{min-height:48px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap;cursor:pointer;padding:0 0 1px}
+.identity-tab:hover,.identity-tab.active{color:var(--cyan)}
+.identity-tab.active{border-bottom-color:var(--cyan)}
+.identity-tab:focus-visible,.identity-copy:focus-visible,.identity-action:focus-visible,.identity-connect:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.identity-content{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;padding:16px}
+.identity-stack{display:flex;flex-direction:column;gap:16px}
+.identity-pane{display:none}
+.identity-pane.active{display:block}
+.identity-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:16px}
+.identity-card,.identity-sidebar-panel,.identity-passport{border:1px solid rgba(148,163,184,.16);background:linear-gradient(180deg,rgba(11,18,31,.86),rgba(7,12,22,.92));border-radius:8px}
+.identity-passport{position:relative;overflow:hidden;padding:24px;min-height:238px}
+.identity-passport::before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,rgba(34,211,238,.08),transparent 28%,rgba(20,241,149,.035));pointer-events:none}
+.identity-operator{position:relative;display:grid;grid-template-columns:96px minmax(0,1fr);gap:18px;align-items:center;z-index:1}
+.identity-avatar{width:96px;height:96px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(34,211,238,.44);box-shadow:0 0 0 7px rgba(34,211,238,.05),0 0 32px rgba(34,211,238,.14);overflow:hidden;background:rgba(2,6,13,.8)}
+.identity-avatar .osi-av{border-radius:50% !important}
+.identity-name{font-family:'Archivo',sans-serif;font-weight:900;font-size:26px;line-height:1.1;color:var(--ink-bright);margin:0}
+.identity-wallet-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.identity-wallet-short{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-dim);border:1px solid var(--line);background:rgba(2,6,13,.42);border-radius:6px;padding:6px 8px}
+.identity-copy{min-height:32px;border:1px solid var(--line);background:rgba(34,211,238,.06);color:var(--cyan);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;padding:6px 9px}
+.identity-role{display:inline-flex;align-items:center;gap:7px;margin-top:14px;border:1px solid rgba(34,211,238,.24);background:rgba(34,211,238,.075);color:var(--cyan);border-radius:999px;padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:11px}
+.identity-role::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px rgba(34,211,238,.65)}
+.identity-role.analyst{border-color:rgba(20,241,149,.35);background:rgba(20,241,149,.085);color:var(--sol)}
+.identity-role.analyst::before{background:var(--sol);box-shadow:0 0 8px rgba(20,241,149,.68)}
+.identity-role.maintainer{border-color:rgba(255,176,32,.38);background:rgba(255,176,32,.08);color:var(--amber)}
+.identity-role.maintainer::before{background:var(--amber);box-shadow:0 0 8px rgba(255,176,32,.65)}
+.identity-role.public{color:var(--ink-dim);border-color:var(--line);background:rgba(148,163,184,.06)}
+.identity-role.public::before{background:var(--ink-faint);box-shadow:none}
+.identity-bio{position:relative;z-index:1;margin-top:20px;border-top:1px solid var(--line);padding-top:15px;color:var(--ink-dim);font-size:13px;line-height:1.65}
+.identity-empty{border:1px dashed rgba(148,163,184,.22);background:rgba(2,6,13,.25);border-radius:8px;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.55;padding:13px}
+.identity-card{padding:18px}
+.identity-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:14px}
+.identity-card-title{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);text-transform:uppercase;letter-spacing:0}
+.identity-card-note{font-size:11px;color:var(--ink-faint)}
+.identity-status-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid rgba(148,163,184,.1)}
+.identity-status-row:last-child{border-bottom:0}
+.identity-status-row span:first-child{font-size:12px;color:var(--ink-dim)}
+.identity-status-row b{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);font-weight:700;text-align:right}
+.identity-status-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(20,241,149,.25);background:rgba(20,241,149,.07);color:var(--sol);border-radius:999px;padding:6px 9px;font-family:'JetBrains Mono',monospace;font-size:11px}
+.identity-status-pill.off{border-color:rgba(148,163,184,.18);background:rgba(148,163,184,.06);color:var(--ink-faint)}
+.identity-status-pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.identity-pow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.identity-pow-card{min-height:116px;border:1px solid rgba(148,163,184,.14);background:rgba(4,9,17,.55);border-radius:8px;padding:14px;display:flex;flex-direction:column;justify-content:space-between}
+.identity-pow-k{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0}
+.identity-pow-v{font-family:'JetBrains Mono',monospace;font-size:25px;font-weight:800;color:var(--ink-bright);margin-top:12px}
+.identity-pow-v.unavailable{font-size:12px;font-weight:600;line-height:1.45;color:var(--ink-faint);white-space:normal}
+.identity-pow-s{font-size:11px;color:var(--ink-faint);line-height:1.45;margin-top:9px}
+.identity-activity{display:flex;flex-direction:column;gap:9px}
+.identity-act-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid rgba(148,163,184,.12);background:rgba(2,6,13,.34);border-radius:8px;padding:11px 12px}
+.identity-act-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px rgba(34,211,238,.54)}
+.identity-act-row b{font-size:13px;color:var(--ink)}
+.identity-act-row span{display:block;font-size:11px;color:var(--ink-faint);margin-top:3px}
+.identity-act-row a{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);text-decoration:none}
+.identity-sidebar{display:flex;flex-direction:column;gap:14px}
+.identity-sidebar-panel{padding:17px}
+.identity-side-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);text-transform:uppercase;letter-spacing:0;margin-bottom:14px}
+.identity-side-row{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--ink-dim);font-size:12px;padding:9px 0;border-bottom:1px solid rgba(148,163,184,.1)}
+.identity-side-row:last-child{border-bottom:0}
+.identity-side-row b{font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:12px;text-align:right;word-break:break-all}
+.identity-action{width:100%;min-height:42px;border:1px solid rgba(148,163,184,.16);background:rgba(4,9,17,.52);color:var(--ink);border-radius:6px;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 12px;cursor:pointer;margin-top:8px}
+.identity-action:hover{border-color:rgba(34,211,238,.38);color:var(--cyan)}
+.identity-action small{font-size:10px;color:var(--ink-faint)}
+.identity-connect-state{min-height:430px;display:grid;place-items:center;padding:34px}
+.identity-connect-card{max-width:620px;text-align:center;border:1px solid rgba(34,211,238,.22);background:linear-gradient(145deg,rgba(8,15,28,.92),rgba(3,7,13,.96));border-radius:8px;padding:34px 30px;box-shadow:0 20px 60px rgba(0,0,0,.32)}
+.identity-connect-card .identity-kicker{justify-content:center}
+.identity-connect-card h2{font-family:'Archivo',sans-serif;font-size:34px;letter-spacing:0;margin:0;color:var(--ink-bright)}
+.identity-connect-card p{color:var(--ink-dim);font-size:14px;line-height:1.65;margin:12px auto 22px;max-width:500px}
+.identity-connect{min-height:44px;border:1px solid var(--sol);background:var(--sol);color:#04130c;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:800;padding:11px 16px;cursor:pointer}
+.identity-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.identity-readonly{color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.55}
+.identity-gate-note,.identity-section-note{margin-top:14px}
+@media(max-width:1060px){.identity-content{grid-template-columns:1fr}.identity-sidebar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.identity-grid{grid-template-columns:1fr}.identity-pow{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.osi-identity{padding-top:20px}.identity-hero{padding:24px 20px 0}.identity-hero::after,.identity-mark{display:none}.identity-tabs{padding:0 20px;gap:18px}.identity-content{padding:12px}.identity-sidebar{grid-template-columns:1fr}.identity-operator{grid-template-columns:1fr}.identity-avatar{width:82px;height:82px}.identity-pow{grid-template-columns:1fr}.identity-mini-grid{grid-template-columns:1fr}.identity-hero h1{font-size:36px}}
+</style>
+  <div class="wrap">
+    <div class="identity-shell" id="identity-shell" aria-live="polite">
+      <div id="identity-body">
+        <div class="identity-connect-state">
+          <div class="identity-connect-card">
+            <div class="identity-kicker">OSI Identity</div>
+            <h2>Your Intelligence Passport</h2>
+            <p>Loading wallet-linked identity, role status, and proof-of-work across OSI.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section class="sec osi-workspace" data-view="workspace" id="workspace-view">
@@ -6754,6 +6863,7 @@ function renderCaseStudies(){
 const VIEW_OF = { registry:'registry', how:'methodology', methodology:'methodology', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
   document.body.dataset.view = v;
+  if(v==='identity' && typeof renderIdentity==='function'){ renderIdentity(); }
   if(v==='workspace' && typeof renderWorkspace==='function'){ renderWorkspace(); }
   if(v==='profile'){ renderProfile(); }
   if(v==='field'){ renderFieldOffice(); }
@@ -6762,6 +6872,196 @@ function showView(v){
   if(v==='prooflog'){ renderProofLog(); }
   if(v==='records'){ if(typeof renderCaseRecords==='function' && (typeof demoRecState==='undefined' || demoRecState===null)){ try{ renderCaseRecords(); }catch(e){} } }
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function identityRoleLabel(ctx){
+  var role = (ctx && ctx.workspaceRole) || 'public';
+  if(role === 'maintainer') return 'Maintainer';
+  if(role === 'analyst') return 'Verified Analyst';
+  if(role === 'wallet') return 'Connected Wallet';
+  return 'Public';
+}
+function identityRoleClass(ctx){
+  var role = (ctx && ctx.workspaceRole) || 'public';
+  return role === 'maintainer' ? 'maintainer' : (role === 'analyst' ? 'analyst' : (role === 'wallet' ? 'wallet' : 'public'));
+}
+async function identitySafeGet(path){
+  if(typeof SUPA_ON === 'undefined' || !SUPA_ON) return null;
+  try{ return await supaGet(path) || []; }catch(e){ return null; }
+}
+function identityTabs(){
+  var tabs = [
+    ['overview','Overview'],
+    ['identity','Identity'],
+    ['pow','Proof-of-Work'],
+    ['analyst','Analyst Status'],
+    ['cases','Cases & Reports'],
+    ['settings','Settings']
+  ];
+  return '<div class="identity-tabs" role="tablist" aria-label="OSI Identity sections">'
+    + tabs.map(function(t,i){ return '<button class="identity-tab'+(i===0?' active':'')+'" type="button" role="tab" aria-selected="'+(i===0?'true':'false')+'" data-tab="'+t[0]+'" onclick="identityTab(\''+t[0]+'\')">'+escapeHtml(t[1])+'</button>'; }).join('')
+    + '</div>';
+}
+function identityTab(id){
+  var root = document.getElementById('identity-shell'); if(!root) return;
+  root.querySelectorAll('.identity-tab').forEach(function(b){
+    var on = b.getAttribute('data-tab') === id;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  root.querySelectorAll('.identity-pane').forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-pane') === id); });
+}
+function identityHero(){
+  var dots = ''; for(var i=0;i<20;i++){ dots += '<span></span>'; }
+  return '<div class="identity-hero">'
+    + '<div class="identity-hero-main"><div class="identity-kicker">OSI Identity</div>'
+    + '<h1>Your Intelligence Passport</h1>'
+    + '<p>Wallet-linked identity, role status, and proof-of-work across OSI.</p></div>'
+    + '<div class="identity-mark" aria-hidden="true">'+dots+'</div>'
+    + '</div>';
+}
+function identityUnavailable(text){
+  return '<div class="identity-pow-v unavailable">'+escapeHtml(text || 'Not available yet')+'</div>';
+}
+function identityPowCard(label, value, note){
+  var val = (value === null || value === undefined) ? identityUnavailable('Not available yet') : '<div class="identity-pow-v">'+escapeHtml(String(value))+'</div>';
+  return '<div class="identity-pow-card"><div><div class="identity-pow-k">'+escapeHtml(label)+'</div>'+val+'</div><div class="identity-pow-s">'+escapeHtml(note || 'Real data only')+'</div></div>';
+}
+function identityPowGrid(m){
+  var s = (m && m.stats) || {};
+  return '<div class="identity-pow">'
+    + identityPowCard('Cases Opened', s.casesOpened, 'Visible case rows from this wallet')
+    + identityPowCard('Reports Submitted', s.reportsSubmitted, 'Visible report rows from this wallet')
+    + identityPowCard('Reviews & Vouches', s.reviews, 'Vouches or review events tied to this wallet')
+    + identityPowCard('Challenges Filed', s.challenges, 'Open/public challenge rows where visible')
+    + identityPowCard('Signed Actions', s.signedActions, 'Actual indexed on-chain events only')
+    + identityPowCard('Public Records', s.publicRecords, 'Approved public records authored by wallet')
+    + '</div>';
+}
+function identityEventText(ev){
+  var t = String((ev && ev.event_type) || 'signed_action');
+  if(t === 'wire_dispatch') return 'Filed a Wire dispatch';
+  if(t === 'analyst_vouch') return ev.vote === 'reject' ? 'Filed or supported a challenge' : 'Signed an analyst review';
+  if(t === 'demand_signal') return 'Backed a case';
+  if(t === 'maintainer_seal') return 'Sealed a public record';
+  if(t === 'case_opened') return 'Opened a case';
+  if(t === 'report_submitted') return 'Submitted a report';
+  return 'Signed an OSI action';
+}
+function identityActivity(m){
+  var events = (m && m.events) || [];
+  if(!events.length) return '<div class="identity-empty">No public signed activity yet.</div>';
+  return '<div class="identity-activity">' + events.slice(0,5).map(function(ev){
+    var item = ev.item_id ? ('Item ' + String(ev.item_id).slice(0,16)) : 'Public proof log';
+    var when = (typeof fdAgo === 'function') ? fdAgo(ev.created_at) : '';
+    var link = ev.tx_sig ? '<a href="https://solscan.io/tx/'+encodeURIComponent(String(ev.tx_sig))+'" target="_blank" rel="noopener">Verify</a>' : '<span></span>';
+    return '<div class="identity-act-row"><i class="identity-act-dot"></i><div><b>'+escapeHtml(identityEventText(ev))+'</b><span>'+escapeHtml(item + (when ? (' / ' + when) : ''))+'</span></div>'+link+'</div>';
+  }).join('') + '</div>';
+}
+function identityStatusCard(m){
+  var ctx = m.ctx || {};
+  var connected = !!(ctx.walletConnected && m.wallet);
+  var rows = ''
+    + '<div class="identity-status-row"><span>Wallet connection</span><b>'+(connected ? '<span class="identity-status-pill">Connected</span>' : '<span class="identity-status-pill off">Not connected</span>')+'</b></div>'
+    + '<div class="identity-status-row"><span>Wallet</span><b>'+escapeHtml(m.walletShort || 'Not connected')+'</b></div>'
+    + '<div class="identity-status-row"><span>Verified analyst</span><b>'+escapeHtml(ctx.isVerifiedAnalyst ? 'Verified' : 'Not verified')+'</b></div>'
+    + '<div class="identity-status-row"><span>Maintainer session</span><b>'+escapeHtml(ctx.isMaintainer ? 'Active' : 'Not active')+'</b></div>';
+  if(ctx.isVerifiedAnalyst && m.analystWeight){ rows += '<div class="identity-status-row"><span>Review weight</span><b>x'+escapeHtml(String(m.analystWeight))+'</b></div>'; }
+  if(ctx.isVerifiedAnalyst && m.analystStats && m.analystStats.tier){ rows += '<div class="identity-status-row"><span>Analyst tier</span><b>'+escapeHtml(m.analystStats.tier.name || 'Available')+'</b></div>'; }
+  return '<div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Current Status</div><div class="identity-card-note">Read-only</div></div>'+rows+'</div>';
+}
+function identityPassport(m){
+  var ctx = m.ctx || {};
+  var name = m.displayName || m.walletShort || 'Connected wallet';
+  var av = (typeof osiAvatarSvg === 'function') ? osiAvatarSvg(m.wallet, 88, name, m.avatarUrl || '') : '';
+  var bio = m.bio ? '<div class="identity-bio">'+escapeHtml(m.bio)+'</div>' : '<div class="identity-bio"><div class="identity-empty">No operator bio is available from existing profile or analyst data.</div></div>';
+  return '<div class="identity-passport">'
+    + '<div class="identity-operator"><div class="identity-avatar">'+av+'</div><div>'
+    + '<h2 class="identity-name">'+escapeHtml(name)+'</h2>'
+    + '<div class="identity-wallet-line"><span class="identity-wallet-short">'+escapeHtml(m.walletShort || '')+'</span><button class="identity-copy" type="button" onclick="pfCopy(walletPubkey)">Copy</button></div>'
+    + '<span class="identity-role '+identityRoleClass(ctx)+'">'+escapeHtml(identityRoleLabel(ctx))+'</span>'
+    + '</div></div>' + bio + '</div>';
+}
+function identitySidebar(m){
+  var ctx = m.ctx || {};
+  return '<aside class="identity-sidebar" aria-label="Identity sidebar">'
+    + '<div class="identity-sidebar-panel"><div class="identity-side-title">Wallet &amp; Security</div>'
+    + '<div class="identity-side-row"><span>Connected wallet</span><b>'+escapeHtml(m.walletShort || 'Not connected')+'</b></div>'
+    + '<div class="identity-side-row"><span>Network</span><b>Solana Mainnet</b></div>'
+    + '<div class="identity-side-row"><span>Status</span><b>'+escapeHtml(ctx.walletConnected ? 'Connected' : 'Not connected')+'</b></div></div>'
+    + '<div class="identity-sidebar-panel"><div class="identity-side-title">Profile Visibility</div>'
+    + '<div class="identity-side-row"><span>Public profile</span><b>Not configured</b></div>'
+    + '<div class="identity-readonly">Stage 1 is informational only. No visibility setting is written from this page.</div></div>'
+    + '<div class="identity-sidebar-panel"><div class="identity-side-title">Quick Actions</div>'
+    + '<button class="identity-action" type="button" onclick="showView(\'profile\')"><span>Edit profile</span><small>Existing view</small></button>'
+    + '<button class="identity-action" type="button" onclick="showView(\'profile\')"><span>Update avatar</span><small>Open Profile</small></button>'
+    + '<button class="identity-action" type="button" onclick="openSelfProfile()"><span>Proof-of-Work CV</span><small>Existing modal</small></button>'
+    + '<button class="identity-action" type="button" onclick="showView(\'workspace\')"><span>My OSI</span><small>Workspace</small></button>'
+    + '</div></aside>';
+}
+function identityConnectHtml(ctx){
+  var maint = ctx && ctx.isMaintainer ? '<div class="identity-empty identity-gate-note">Maintainer session is active. Connect a wallet to view the wallet-linked passport.</div>' : '';
+  return identityHero() + '<div class="identity-connect-state"><div class="identity-connect-card"><div class="identity-kicker">Wallet Required</div><h2>Your Intelligence Passport</h2><p>Connect a wallet to see your OSI role, signed actions, public records, and proof-of-work. This page does not create new records or change permissions.</p><button class="identity-connect" type="button" onclick="toggleWallet().then(function(){if(typeof renderIdentity===\'function\')renderIdentity();})">Connect Wallet</button>'+maint+'</div></div>';
+}
+async function identityLoadModel(ctx){
+  var W = String(ctx.wallet || '');
+  var enc = encodeURIComponent(W);
+  var analystProfile = ctx.analystProfile || null;
+  var localName = ''; try{ localName = lsGet('stw_profile_name','') || ''; }catch(e){}
+  var model = { ctx:ctx, wallet:W, walletShort:workspaceShort(W), displayName:localName || workspaceShort(W), bio:'', avatarUrl:'', stats:{ casesOpened:null, reportsSubmitted:null, reviews:null, challenges:null, signedActions:null, publicRecords:null }, events:[], analystWeight:null, analystStats:null };
+  var reads = await Promise.all([
+    identitySafeGet('profiles?select=name&wallet=eq.'+enc+'&limit=1'),
+    identitySafeGet('analysts?select=wallet,handle,name,bio,avatar_url,tier_weight,approved,verified,created_at&wallet=eq.'+enc+'&limit=1'),
+    identitySafeGet('bounties?select=id&created_by=eq.'+enc+'&limit=200'),
+    identitySafeGet('reports?select=id,approved&wallet=eq.'+enc+'&limit=200'),
+    identitySafeGet('reports?select=id&wallet=eq.'+enc+'&approved=eq.true&limit=200'),
+    identitySafeGet('vouches?select=item_id&analyst=eq.'+enc+'&limit=200'),
+    identitySafeGet('challenges?select=id&challenger=eq.'+enc+'&limit=200'),
+    identitySafeGet('onchain_events?select=event_type,item_type,item_id,vote,label,tx_sig,created_at,actor_wallet&actor_wallet=eq.'+enc+'&order=created_at.desc&limit=50'),
+    identitySafeGet('reports?select=wallet&approved=eq.true&limit=500'),
+    identitySafeGet('bounties?select=winner_wallet&winner_wallet=not.is.null&limit=500')
+  ]);
+  var prof = reads[0], analystRows = reads[1], cases = reads[2], reports = reads[3], publicReports = reads[4], vouches = reads[5], challenges = reads[6], events = reads[7], allReports = reads[8], allWins = reads[9];
+  var analystRow = (analystRows && analystRows[0]) ? analystRows[0] : null;
+  if(prof && prof[0] && prof[0].name) model.displayName = String(prof[0].name);
+  else if(localName) model.displayName = localName;
+  else if(analystRow && (analystRow.name || analystRow.handle)) model.displayName = analystRow.name || ('@'+String(analystRow.handle).replace(/^@/,''));
+  else if(analystProfile && (analystProfile.name || analystProfile.handle)) model.displayName = analystProfile.name || ('@'+String(analystProfile.handle).replace(/^@/,''));
+  if(analystRow && analystRow.bio) model.bio = String(analystRow.bio);
+  model.avatarUrl = (typeof osiAvatarUrl === 'function') ? osiAvatarUrl(W, analystRow || analystProfile) : '';
+  model.stats.casesOpened = cases === null ? null : cases.length;
+  model.stats.reportsSubmitted = reports === null ? null : reports.length;
+  model.stats.publicRecords = publicReports === null ? null : publicReports.length;
+  model.stats.challenges = challenges === null ? null : challenges.length;
+  model.events = events === null ? [] : events;
+  model.stats.signedActions = events === null ? null : events.length;
+  if(vouches !== null) model.stats.reviews = vouches.length;
+  else if(events !== null) model.stats.reviews = events.filter(function(e){ return e.event_type === 'analyst_vouch'; }).length;
+  if(ctx.isVerifiedAnalyst && typeof analystWeight === 'function') model.analystWeight = analystWeight(W);
+  if(ctx.isVerifiedAnalyst && allReports !== null && allWins !== null && typeof analystStats === 'function') model.analystStats = analystStats(W, allReports, allWins);
+  return model;
+}
+function identityConnectedHtml(m){
+  var overview = '<div class="identity-pane active" data-pane="overview"><div class="identity-stack"><div class="identity-grid">'+identityPassport(m)+identityStatusCard(m)+'</div><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Proof-of-Work</div><div class="identity-card-note">Real rows only</div></div>'+identityPowGrid(m)+'</div><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Recent Activity</div><div class="identity-card-note">Proof log</div></div>'+identityActivity(m)+'</div></div></div>';
+  var identity = '<div class="identity-pane" data-pane="identity"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Identity Record</div><div class="identity-card-note">Read-only</div></div><div class="identity-mini-grid"><div class="identity-empty">Display name: '+escapeHtml(m.displayName || 'Not set')+'</div><div class="identity-empty">Wallet: '+escapeHtml(m.walletShort || 'Not connected')+'</div><div class="identity-empty">Role: '+escapeHtml(identityRoleLabel(m.ctx))+'</div><div class="identity-empty">Bio: '+escapeHtml(m.bio || 'No bio available from existing data')+'</div></div></div></div>';
+  var pow = '<div class="identity-pane" data-pane="pow"><div class="identity-stack"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Proof-of-Work Cards</div><div class="identity-card-note">No OSI score</div></div>'+identityPowGrid(m)+'</div><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Signed Activity</div><div class="identity-card-note">onchain_events</div></div>'+identityActivity(m)+'</div></div></div>';
+  var analystNote = m.ctx.isVerifiedAnalyst ? 'This wallet is on the verified analyst roster.' : 'This wallet is not currently on the verified analyst roster.';
+  var analyst = '<div class="identity-pane" data-pane="analyst"><div class="identity-stack"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Analyst Status</div><div class="identity-card-note">Roster derived</div></div><div class="identity-empty">'+escapeHtml(analystNote)+'</div></div>'+identityStatusCard(m)+'</div></div>';
+  var cases = '<div class="identity-pane" data-pane="cases"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Cases &amp; Reports</div><div class="identity-card-note">Visible rows</div></div>'+identityPowGrid(m)+'<div class="identity-readonly identity-section-note">Pending or private rows may be hidden by Supabase policies. This page does not expose drafts or private settings.</div></div></div>';
+  var settings = '<div class="identity-pane" data-pane="settings"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Settings</div><div class="identity-card-note">Stage 1</div></div><div class="identity-empty">Settings and privacy controls are not enabled on this read-only page. Use the existing Profile view for currently supported profile fields.</div></div></div>';
+  return identityHero() + identityTabs() + '<div class="identity-content"><main>'+overview+identity+pow+analyst+cases+settings+'</main>'+identitySidebar(m)+'</div>';
+}
+async function renderIdentity(){
+  var host = document.getElementById('identity-body'); if(!host) return;
+  var ctx = (typeof resolveWorkspaceContext === 'function') ? resolveWorkspaceContext() : { workspaceRole:'public', wallet:null, walletConnected:false, isMaintainer:false, isVerifiedAnalyst:false, analystProfile:null };
+  if(!ctx.wallet){
+    host.innerHTML = identityConnectHtml(ctx);
+    return;
+  }
+  host.innerHTML = identityHero() + '<div class="identity-connect-state"><div class="identity-connect-card"><div class="identity-kicker">Loading</div><h2>Your Intelligence Passport</h2><p>Reading existing OSI profile, role, and proof-of-work data.</p></div></div>';
+  var model = await identityLoadModel(ctx);
+  if(document.body && document.body.dataset && document.body.dataset.view === 'identity'){
+    host.innerHTML = identityConnectedHtml(model);
+  }
 }
 function workspaceShort(addr){
   if(!addr) return '';
