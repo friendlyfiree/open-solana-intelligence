@@ -2895,19 +2895,19 @@ body[data-view="identity"] .sb-item[data-view="workspace"]{background:var(--acc-
 
       <div class="abt-sec-h mono">How OSI works</div>
       <section class="abt-flow" aria-label="OSI process flow">
-        <div class="abt-step"><span class="abt-n mono">01</span><b>Search Registry</b><span>Find cases, wallets, transactions, and public records.</span></div>
+        <div class="abt-step"><span class="abt-n mono">01</span><b>Search Registry</b><span>Find wallets, transactions, and public records.</span></div>
         <div class="abt-step"><span class="abt-n mono">02</span><b>Open Case</b><span>Submit public evidence without giving OSI custody.</span></div>
-        <div class="abt-step"><span class="abt-n mono">03</span><b>Analyst Review</b><span>Vetted analysts inspect links, wallets, and claims.</span></div>
-        <div class="abt-step"><span class="abt-n mono">04</span><b>Peer Challenge</b><span>Weak or disputed records can be challenged openly.</span></div>
-        <div class="abt-step"><span class="abt-n mono">05</span><b>Public Record</b><span>Reviewed findings become verifiable case records.</span></div>
+        <div class="abt-step"><span class="abt-n mono">03</span><b>Analyst Review</b><span>Analysts inspect wallets, links, and claims.</span></div>
+        <div class="abt-step"><span class="abt-n mono">04</span><b>Peer Challenge</b><span>Disputed records can be challenged openly.</span></div>
+        <div class="abt-step"><span class="abt-n mono">05</span><b>Public Record</b><span>Reviewed findings become verifiable records.</span></div>
       </section>
 
       <div class="abt-sec-h mono">Core principles</div>
       <section class="abt-rules" aria-label="Core principles">
-        <div class="abt-rule"><div class="abt-rule-k mono">01</div><b>Public evidence only</b><span>OSI works with public on-chain data and publicly available sources.</span></div>
-        <div class="abt-rule"><div class="abt-rule-k mono">02</div><b>Challengeable attribution</b><span>Records can be questioned, corrected, and returned to review.</span></div>
-        <div class="abt-rule"><div class="abt-rule-k mono">03</div><b>Memo-signed proof trail</b><span>Critical actions can be wallet-signed and indexed through the proof log.</span></div>
-        <div class="abt-rule"><div class="abt-rule-k mono">04</div><b>Non-custodial by design</b><span>Users keep control of funds, wallets, and decisions.</span></div>
+        <div class="abt-rule"><div class="abt-rule-k mono">01</div><b>Public evidence only</b><span>On-chain data and publicly available sources only.</span></div>
+        <div class="abt-rule"><div class="abt-rule-k mono">02</div><b>Challengeable attribution</b><span>Claims can be questioned, corrected, and returned to review.</span></div>
+        <div class="abt-rule"><div class="abt-rule-k mono">03</div><b>Memo-signed proof trail</b><span>Critical actions can be wallet-signed and indexed.</span></div>
+        <div class="abt-rule"><div class="abt-rule-k mono">04</div><b>Non-custodial by design</b><span>Users keep control of wallets, funds, and decisions.</span></div>
       </section>
 
       <section class="abt-cta" aria-label="Next steps">
@@ -2923,7 +2923,7 @@ body[data-view="identity"] .sb-item[data-view="workspace"]{background:var(--acc-
         <span>OSI is informational only</span>
         <span>No legal certainty</span>
         <span>No recovery promise</span>
-        <span>No custody of user funds</span>
+        <span>No custody of funds/private keys</span>
         <span>Public evidence can still be challenged</span>
       </div>
     </main>
@@ -3006,18 +3006,22 @@ body[data-view="identity"] .sb-item[data-view="workspace"]{background:var(--acc-
 #about-hero .abt-li i{display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid var(--line-bright);flex-shrink:0}
 #about-hero .abt-li.ok i{border-color:rgba(20,241,149,.45);background:rgba(20,241,149,.09)}
 #about-hero .abt-li.no i{border-color:rgba(255,176,32,.45);background:rgba(255,176,32,.09)}
-#about-hero .abt-sec-h{font-size:10px;color:var(--amber);margin:26px 0 12px}
-#about-hero .abt-flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;position:relative}
-#about-hero .abt-step{position:relative;min-height:132px;padding:18px 14px 15px;overflow:hidden}
-#about-hero .abt-step::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:rgba(34,211,238,.42)}
-#about-hero .abt-n{display:inline-flex;align-items:center;justify-content:center;width:32px;height:24px;border:1px solid rgba(34,211,238,.22);background:rgba(34,211,238,.06);border-radius:999px;color:var(--cyan);font-size:10px;font-weight:800}
-#about-hero .abt-step b{display:block;font-family:'Archivo',sans-serif;font-size:14px;color:var(--ink-bright);margin-top:22px}
-#about-hero .abt-step span:not(.abt-n){display:block;font-size:11.5px;line-height:1.55;color:var(--ink-faint);margin-top:7px}
-#about-hero .abt-rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-#about-hero .abt-rule{padding:16px}
-#about-hero .abt-rule-k{font-size:10px;color:var(--cyan);margin-bottom:16px}
-#about-hero .abt-rule b{display:block;font-family:'Archivo',sans-serif;font-size:14px;color:var(--ink-bright);line-height:1.3}
-#about-hero .abt-rule span{display:block;font-size:11.5px;color:var(--ink-faint);line-height:1.6;margin-top:7px}
+#about-hero .abt-sec-h{font-size:10px;color:var(--amber);margin:24px 0 12px}
+#about-hero .abt-flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;position:relative}
+#about-hero .abt-flow::before{content:"";position:absolute;left:4%;right:4%;top:31px;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.26),rgba(20,241,149,.2),transparent);pointer-events:none}
+#about-hero .abt-step{position:relative;min-height:124px;padding:15px 14px 14px;overflow:hidden;display:flex;flex-direction:column}
+#about-hero .abt-step::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,rgba(34,211,238,.54),rgba(20,241,149,.18))}
+#about-hero .abt-step::after{content:"";position:absolute;top:27px;right:14px;width:6px;height:6px;border-radius:50%;background:rgba(20,241,149,.75);box-shadow:0 0 14px rgba(20,241,149,.38)}
+#about-hero .abt-n{display:inline-flex;align-items:center;justify-content:center;width:34px;height:28px;border:1px solid rgba(34,211,238,.28);background:linear-gradient(180deg,rgba(34,211,238,.11),rgba(20,241,149,.035));border-radius:999px;color:var(--cyan);font-size:10px;font-weight:800;box-shadow:0 0 0 4px rgba(34,211,238,.025)}
+#about-hero .abt-step b{display:block;font-family:'Archivo',sans-serif;font-size:14px;color:var(--ink-bright);margin-top:17px}
+#about-hero .abt-step span:not(.abt-n){display:block;font-size:11.5px;line-height:1.5;color:var(--ink-faint);margin-top:7px}
+#about-hero .abt-rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:stretch}
+#about-hero .abt-rule{position:relative;min-height:142px;padding:17px 16px 16px;overflow:hidden;display:flex;flex-direction:column}
+#about-hero .abt-rule::before{content:"";width:32px;height:32px;border:1px solid rgba(34,211,238,.22);background:radial-gradient(circle at 50% 50%,rgba(20,241,149,.18),rgba(34,211,238,.035) 64%,transparent 66%);border-radius:7px;margin-bottom:14px;box-shadow:inset 0 0 16px rgba(20,241,149,.05)}
+#about-hero .abt-rule::after{content:"";position:absolute;inset:auto 0 0;height:2px;background:linear-gradient(90deg,rgba(34,211,238,.34),transparent)}
+#about-hero .abt-rule-k{position:absolute;top:21px;left:25px;font-size:9px;color:var(--cyan);font-weight:800}
+#about-hero .abt-rule b{display:block;font-family:'Archivo',sans-serif;font-size:14px;color:var(--ink-bright);line-height:1.3;min-height:36px}
+#about-hero .abt-rule span{display:block;font-size:11.5px;color:var(--ink-faint);line-height:1.55;margin-top:auto}
 #about-hero .abt-side-card{padding:17px 17px 14px}
 #about-hero .abt-side-card.safety{border-color:rgba(255,176,32,.2)}
 #about-hero .abt-side-card.proof{border-color:rgba(20,241,149,.2)}
@@ -3039,10 +3043,16 @@ body[data-view="identity"] .sb-item[data-view="workspace"]{background:var(--acc-
 #about-hero .abt-b.primary{background:var(--sol);border-color:var(--sol);color:#04140b}
 #about-hero .abt-b.primary:hover{filter:brightness(1.08)}
 #about-hero .abt-b:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
-#about-hero .abt-disclaimer{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:12px;padding:13px 16px;color:var(--ink-faint);font-size:10px;line-height:1.5}
+#about-hero .abt-disclaimer{display:flex;flex-wrap:wrap;gap:7px 13px;margin-top:10px;padding:11px 14px;color:var(--ink-faint);font-size:10px;line-height:1.45;background:rgba(8,13,24,.72);border-color:rgba(148,163,184,.14)}
 #about-hero .abt-disclaimer span{display:inline-flex;align-items:center;gap:8px}
 #about-hero .abt-disclaimer span::before{content:"";width:4px;height:4px;border-radius:50%;background:rgba(148,163,184,.45)}
-@media(max-width:1180px){#about-hero .abt-shell{grid-template-columns:1fr}#about-hero .abt-aside{position:relative;top:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-hero{grid-template-columns:minmax(0,1fr) 250px}#about-hero .abt-flow{grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
+body[data-view="methodology"] footer{margin-top:18px;padding:16px 0 22px;background:linear-gradient(180deg,rgba(4,7,14,.2),rgba(4,7,14,.74));border-top:1px solid rgba(148,163,184,.12)}
+body[data-view="methodology"] footer .foot{align-items:center;gap:14px}
+body[data-view="methodology"] footer .foot .brand{margin-bottom:0;font-size:11px;letter-spacing:.16em;color:var(--ink-dim)}
+body[data-view="methodology"] footer .foot p,body[data-view="methodology"] footer .warn{display:none}
+body[data-view="methodology"] footer .foot .links{flex-direction:row;align-items:center;gap:8px 14px}
+body[data-view="methodology"] footer .foot .links a{font-size:11px;color:var(--ink-faint)}
+@media(max-width:1180px){#about-hero .abt-shell{grid-template-columns:1fr}#about-hero .abt-aside{position:relative;top:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-hero{grid-template-columns:minmax(0,1fr) 250px}#about-hero .abt-flow{grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-flow::before{display:none}#about-hero .abt-rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:780px){#about-hero .abt-wrap{padding:0 16px}#about-hero .abt-hero{grid-template-columns:1fr;padding:24px 18px}#about-hero .abt-protocol{display:none}#about-hero .abt-boundary{grid-template-columns:1fr}#about-hero .abt-aside{grid-template-columns:1fr}#about-hero .abt-flow{grid-template-columns:1fr}#about-hero .abt-rules{grid-template-columns:1fr}#about-hero .abt-cta{align-items:flex-start;flex-direction:column}#about-hero .abt-cta-b{width:100%}#about-hero .abt-b{width:100%}}
 </style>
 </section>
