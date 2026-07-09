@@ -1726,7 +1726,7 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 #prooflog .pl-disclaimer span::before{content:"";width:4px;height:4px;border-radius:50%;background:rgba(148,163,184,.48)}
 @media(max-width:1280px){#prooflog .pl-dash{grid-template-columns:repeat(4,minmax(0,1fr))}#prooflog .pl-console{grid-template-columns:1fr}#prooflog .pl-aside{position:relative;top:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:820px){#prooflog .pl-shell{padding:0 16px}#prooflog .pl-hero{grid-template-columns:1fr;padding:24px 18px}#prooflog .pl-hero-mark{display:none}#prooflog .pl-dash{grid-template-columns:repeat(2,minmax(0,1fr))}#prooflog .pl-aside{grid-template-columns:1fr}#prooflog .pl-toolbar{align-items:stretch;flex-direction:column}#prooflog .pl-search-wrap{min-width:0;flex:auto;width:100%}#prooflog .plc-head{grid-template-columns:1fr;gap:10px}#prooflog .plc-time{text-align:left}#prooflog .plc-grid{grid-template-columns:1fr 1fr}#prooflog .plc-grid .plc-action{grid-column:1/-1}}
-@media(max-width:520px){#prooflog .pl-dash{grid-template-columns:1fr}#prooflog .pl-timeline{padding-left:0}#prooflog .pl-timeline::before,#prooflog .plc-dot{display:none}#prooflog .plc-grid{grid-template-columns:1fr}}
+@media(max-width:520px){#prooflog .pl-dash{grid-template-columns:1fr}#prooflog .pl-timeline{padding-left:0}#prooflog .pl-timeline::before,#prooflog .plc-dot{display:none}#prooflog .plc-grid{grid-template-columns:1fr}#prooflog .pl-sc code{white-space:normal;overflow-wrap:anywhere;line-height:1.35}}
 </style>
 <section class="sec" id="prooflog" data-view="prooflog">
   <div class="pl-shell">
@@ -6016,7 +6016,8 @@ function cfLifecycle(idx){
 }
 
 // ===== Proof Log: global timeline of signed, on-chain-verifiable actions =====
-function proofLogSample(){
+function proofLogDemoSample(){
+  if(window.OSI_DEMO_MODE !== true) return [];
   var now = Date.now();
   function t(mins){ return new Date(now - mins*60000).toISOString(); }
   return [
@@ -6032,8 +6033,9 @@ function proofLogSample(){
 }
 var plState = { filter:'all', q:'', page:1 };
 var PL_PER = 8;
-// event_type -> filter grubu
-function plGroup(ev){
+// Legacy demo renderer helpers are intentionally not used by the live Proof Log.
+// The active renderer below reads onchain_events and only falls back when OSI_DEMO_MODE is true.
+function plLegacyGroup(ev){
   var t = ev.event_type;
   if(t==='analyst_vouch') return (ev.vote==='challenge') ? 'challenge' : 'vote';
   if(t==='report_submitted' || t==='wire_dispatch') return 'report';
@@ -6043,8 +6045,8 @@ function plGroup(ev){
   return 'other';
 }
 // her memo etiketinin görünen adı + rengi + ikonu
-function plMemo(ev){
-  var g = plGroup(ev);
+function plLegacyMemo(ev){
+  var g = plLegacyGroup(ev);
   var map = {
     case:      { tag:'OSI_CASE_OPENED',        ic:'\u25a4', cls:'cy' },
     report:    { tag:'OSI_REPORT_SUBMITTED',   ic:'\u25a4', cls:'vio' },
@@ -6059,7 +6061,7 @@ function plMemo(ev){
   if(ev.event_type==='wire_dispatch'){ return { tag:'OSI_WIRE_DISPATCH_SUBMITTED', ic:'\u25c8', cls:'vio' }; }
   return map[g] || map.other;
 }
-function plActionLine(ev){
+function plLegacyActionLine(ev){
   var w = raShortW(ev.actor_wallet);
   var item = ev.item_id ? escapeHtml(String(ev.item_id).slice(0,16)) : '';
   var type = escapeHtml(ev.item_type||'item');
@@ -6074,20 +6076,20 @@ function plActionLine(ev){
     default: return '<b>'+w+'</b> signed an action';
   }
 }
-function plFullDate(ts){
+function plLegacyFullDate(ts){
   var t = new Date(ts||0); if(isNaN(t.getTime())) return '';
   var d = t.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   var tm = t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   return d+' '+tm+' UTC';
 }
 // zengin timeline kartı (Proof Log'a özel; kompakt raSignedItem ayrı kalır)
-function plTimelineCard(ev){
-  var m = plMemo(ev);
+function plLegacyTimelineCard(ev){
+  var m = plLegacyMemo(ev);
   var caseId = ev.item_id ? osiCaseId(ev.item_id) : '';
   var caseName = ev.label ? String(ev.label).replace(/^(filed a dispatch on |pledged demand for |supported |filed report on )/,'').trim() : '';
   var sig = ev.tx_sig ? String(ev.tx_sig) : '';
   var sigShort = sig ? (sig.slice(0,6)+'\u2026'+sig.slice(-4)) : '';
-  var when = plFullDate(ev.created_at);
+  var when = plLegacyFullDate(ev.created_at);
   var ago = raTimeAgo(ev.created_at);
   var caseRow = (caseId || caseName)
     ? '<div class="plc-case mono">Case: '+(caseId?('<a onclick="plGoCase(\''+escapeHtml(String(ev.item_id))+'\')">'+caseId+'</a>'):'')+(caseName?('<span class="plc-cn"> '+escapeHtml(caseName.slice(0,32))+'</span>'):'')+'</div>'
@@ -6098,14 +6100,14 @@ function plTimelineCard(ev){
   var verifyBtn = sig
     ? '<a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">View on Solana \u2197</a>'
     : '<span class="plc-verify off">Awaiting memo</span>';
-  return '<div class="plc" data-g="'+plGroup(ev)+'">'
+  return '<div class="plc" data-g="'+plLegacyGroup(ev)+'">'
     + '<div class="plc-rail"><span class="plc-dot"></span></div>'
     + '<div class="plc-body">'
       + '<div class="plc-main">'
         + '<span class="plc-ic '+m.cls+'">'+m.ic+'</span>'
         + '<div class="plc-txt">'
           + '<div class="plc-tag mono '+m.cls+'">'+m.tag+'</div>'
-          + '<div class="plc-act">'+plActionLine(ev)+'</div>'
+          + '<div class="plc-act">'+plLegacyActionLine(ev)+'</div>'
           + caseRow
         + '</div>'
         + '<div class="plc-meta"><div class="plc-ago mono">'+ago+'</div><div class="plc-when mono">'+when+'</div></div>'
@@ -6136,20 +6138,20 @@ function plFilter(f){
 }
 function plSearch(v){ plState.q=(v||'').trim().toLowerCase(); plState.page=1; plPaint(); }
 function plSetPage(p){ plState.page=p|0; plPaint(); var b=document.getElementById('pl-body'); if(b){ try{ b.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} } }
-function plDashRender(){
+function plLegacyDashRender(){
   var host=document.getElementById('pl-dash'); if(!host) return;
   var evs=window.__plEvents||[];
   var total=evs.length;
-  var cases=evs.filter(function(e){ return plGroup(e)==='case'; }).length;
+  var cases=evs.filter(function(e){ return plLegacyGroup(e)==='case'; }).length;
   var reports=evs.filter(function(e){ return e.event_type==='report_submitted'; }).length;
-  var challenges=evs.filter(function(e){ return plGroup(e)==='challenge'; }).length;
+  var challenges=evs.filter(function(e){ return plLegacyGroup(e)==='challenge'; }).length;
   host.innerHTML =
       '<div class="fo-op"><div class="fo-op-ic">\u270e</div><div class="fo-op-n">'+total+'</div><div class="fo-op-l">Signed Actions</div><span class="fo-op-sub">All time</span></div>'
     + '<div class="fo-op"><div class="fo-op-ic cy">\u25a4</div><div class="fo-op-n">'+cases+'</div><div class="fo-op-l">Cases Opened</div><span class="fo-op-sub">All time</span></div>'
     + '<div class="fo-op"><div class="fo-op-ic vio">\u25a4</div><div class="fo-op-n">'+reports+'</div><div class="fo-op-l">Reports Filed</div><span class="fo-op-sub">All time</span></div>'
     + '<div class="fo-op"><div class="fo-op-ic warn">\u2696</div><div class="fo-op-n'+(challenges>0?' warn':'')+'">'+challenges+'</div><div class="fo-op-l">Challenges</div><span class="fo-op-sub">All time</span></div>';
 }
-function plSchemaRender(){
+function plLegacySchemaRender(){
   var host=document.getElementById('pl-schema'); if(!host) return;
   var rows=[
     ['OSI_CASE_OPENED','A new case was opened','cy'],
@@ -6163,7 +6165,7 @@ function plSchemaRender(){
   ];
   host.innerHTML = rows.map(function(r){ return '<div class="pl-sc"><code class="mono '+r[2]+'">'+r[0]+'</code><span>'+r[1]+'</span></div>'; }).join('');
 }
-function plHealthRender(){
+function plLegacyHealthRender(){
   var host=document.getElementById('pl-health'); if(!host) return;
   var live = (typeof SUPA_ON!=='undefined' && SUPA_ON);
   var evs=window.__plEvents||[];
@@ -6188,9 +6190,9 @@ function plSealedRender(){
     + '<div class="pl-sl-meta mono">Sealed by '+raShortW(s.actor_wallet)+' \u00b7 '+raTimeAgo(s.created_at)+'</div>'
     + (s.tx_sig ? ('<a class="pl-sl-btn" href="'+solscanTx(s.tx_sig)+'" target="_blank" rel="noopener">View record \u2197</a>') : '');
 }
-function plPaint(){
+function plLegacyPaint(){
   var host=document.getElementById('pl-body'); if(!host) return;
-  plDashRender(); plSchemaRender(); plHealthRender(); plSealedRender();
+  plLegacyDashRender(); plLegacySchemaRender(); plLegacyHealthRender(); plSealedRender();
   var all=(window.__plEvents||[]).slice();
   var demo=!!window.__plDemo;
   var q=plState.q;
@@ -6201,13 +6203,13 @@ function plPaint(){
       return hay.indexOf(q)!==-1;
     });
   }
-  if(plState.filter!=='all') evs=evs.filter(function(e){ return plGroup(e)===plState.filter; });
+  if(plState.filter!=='all') evs=evs.filter(function(e){ return plLegacyGroup(e)===plState.filter; });
   var strip = '<div class="pl-strip"><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>Live verification feed</b><span>'+all.length+' signed action'+(all.length===1?'':'s')+' \u00b7 '+(demo?'demo mode \u00b7 ':'')+'indexed proof trail</span></div></div>';
   var totalPages=Math.max(1, Math.ceil(evs.length/PL_PER));
   if(plState.page>totalPages) plState.page=totalPages; if(plState.page<1) plState.page=1;
   var from=(plState.page-1)*PL_PER, page=evs.slice(from, from+PL_PER);
   host.innerHTML = strip + (page.length
-    ? '<div class="pl-timeline">' + page.map(plTimelineCard).join('') + '</div>'
+    ? '<div class="pl-timeline">' + page.map(plLegacyTimelineCard).join('') + '</div>'
     : '<div class="fd-empty mono" style="padding:24px 2px">No signed actions match this search or filter.</div>');
   var cnt=document.getElementById('pl-count');
   if(cnt) cnt.textContent = evs.length ? ('Showing '+(from+1)+'\u2013'+(from+page.length)+' of '+evs.length+' action'+(evs.length===1?'':'s')) : '';
@@ -6222,7 +6224,8 @@ function plPaint(){
     }
   }
 }
-async function renderProofLog(){
+async function renderProofLogLegacyDemoOnly(){
+  if(window.OSI_DEMO_MODE !== true) return;
   var host = document.getElementById('pl-body'); if(!host) return;
   host.innerHTML = '<div class="pl-note">Loading signed actions\u2026</div>';
   var events = [];
@@ -6231,13 +6234,13 @@ async function renderProofLog(){
     try{ events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || []; source = events.length ? 'loaded' : 'empty'; }catch(e){ events=[]; source='error'; }
   }
   window.__plDemo = false;
-  if(!events.length && source!=='error' && window.OSI_DEMO_MODE === true){ window.__plDemo = true; events = proofLogSample(); source='demo'; }
+  if(!events.length && source!=='error' && window.OSI_DEMO_MODE === true){ window.__plDemo = true; events = proofLogDemoSample(); source='demo'; }
   window.__plEvents = events;
   window.__plSourceState = source;
   plState.filter='all'; plState.q=''; plState.page=1;
   var s=document.getElementById('pl-search'); if(s) s.value='';
   document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f==='all'); });
-  plPaint();
+  plLegacyPaint();
 }
 // Proof Log v2: live view uses real onchain_events only. Existing sample rows
 // remain available only when window.OSI_DEMO_MODE === true.
@@ -6450,7 +6453,7 @@ async function renderProofLog(){
     }catch(e){ events=[]; source='error'; }
   }
   window.__plDemo = false;
-  if(!events.length && source!=='error' && plDemoMode()){ window.__plDemo = true; events = proofLogSample(); source='demo'; }
+  if(!events.length && source!=='error' && plDemoMode()){ window.__plDemo = true; events = proofLogDemoSample(); source='demo'; }
   window.__plEvents = events;
   window.__plSourceState = source;
   plState.filter='all'; plState.q=''; plState.page=1;
