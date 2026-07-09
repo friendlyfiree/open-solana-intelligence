@@ -2504,6 +2504,77 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .adm-op .n{display:block;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;color:var(--ink-bright);line-height:1}
 .adm-op .n.warn{color:var(--amber)}
 .adm-op .l{display:block;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.09em;color:var(--ink-faint);margin-top:6px;text-transform:uppercase}
+.moc-shell{position:relative;display:grid;grid-template-columns:210px minmax(0,1fr) 300px;gap:18px;align-items:start;margin-top:4px}
+.moc-shell::before{content:"";position:absolute;inset:-20px -22px auto -22px;height:210px;pointer-events:none;background:radial-gradient(circle at 24% 0%,rgba(34,211,238,.11),transparent 34%),linear-gradient(90deg,rgba(20,241,149,.06),transparent 55%);opacity:.9}
+.moc-nav,.moc-main,.moc-panel,.moc-card,.moc-bottom-card{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(7,12,22,.94));border-radius:8px;box-shadow:0 18px 60px rgba(0,0,0,.18)}
+.moc-nav{padding:14px;position:sticky;top:84px}
+.moc-nav-k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);margin:3px 0 12px}
+.moc-nav-btn{width:100%;min-height:40px;display:flex;align-items:center;gap:10px;border:1px solid transparent;background:transparent;color:var(--ink-dim);border-radius:6px;padding:8px 9px;margin-bottom:4px;font-family:'Archivo',sans-serif;font-size:13px;text-align:left;cursor:pointer}
+.moc-nav-btn i{width:7px;height:7px;border-radius:50%;background:rgba(148,163,184,.36);box-shadow:0 0 0 1px rgba(148,163,184,.12)}
+.moc-nav-btn:hover,.moc-nav-btn.active{border-color:rgba(34,211,238,.24);background:rgba(34,211,238,.07);color:var(--ink)}
+.moc-nav-btn.active i{background:var(--cyan);box-shadow:0 0 14px rgba(34,211,238,.7)}
+.moc-main{padding:0;overflow:hidden}
+.moc-head{position:relative;padding:22px 22px 18px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,rgba(34,211,238,.08),transparent 52%),linear-gradient(180deg,rgba(255,255,255,.025),transparent)}
+.moc-kicker{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);margin-bottom:8px}
+.moc-head h2{font-family:'Archivo',sans-serif;font-size:25px;line-height:1.05;margin:0 0 7px;color:var(--ink-bright);letter-spacing:0}
+.moc-head p{margin:0;color:var(--ink-dim);font-size:13px;line-height:1.45;max-width:720px}
+.moc-sec{padding:18px 18px 20px;border-top:1px solid rgba(255,255,255,.02)}
+.moc-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.moc-card{padding:13px 12px;min-height:86px;border-color:rgba(148,163,184,.18)}
+.moc-card .k{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);line-height:1.35}
+.moc-card .v{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:800;color:var(--ink-bright);margin-top:10px;line-height:1}
+.moc-card .v.na{font-size:11px;font-weight:700;line-height:1.35;color:var(--ink-faint)}
+.moc-card .s{font-size:11px;color:var(--ink-faint);margin-top:8px}
+.moc-card.pending{border-color:rgba(255,176,32,.22)}.moc-card.pending .v{color:var(--amber)}
+.moc-card.ok{border-color:rgba(20,241,149,.22)}.moc-card.ok .v{color:var(--sol)}
+.moc-card.analyst{border-color:rgba(168,85,247,.22)}.moc-card.analyst .v{color:#c084fc}
+.moc-card.danger{border-color:rgba(255,84,112,.2)}.moc-card.danger .v{color:var(--red)}
+.moc-table-head,.moc-row{display:grid;grid-template-columns:92px 112px minmax(180px,1fr) 122px 104px 92px 92px 104px 34px;gap:10px;align-items:center}
+.moc-table-head{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);padding:0 2px 9px;border-bottom:1px solid var(--line)}
+.moc-row{width:100%;min-height:58px;border:0;border-bottom:1px solid rgba(148,163,184,.11);background:transparent;color:var(--ink-dim);padding:10px 2px;text-align:left;cursor:pointer;font-family:inherit}
+.moc-row:hover,.moc-row.active{background:rgba(34,211,238,.045)}
+.moc-row.active{box-shadow:inset 2px 0 0 var(--cyan)}
+.moc-row b{display:block;color:var(--ink);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.moc-row span{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.moc-pill{display:inline-flex;width:max-content;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line-bright);border-radius:999px;padding:3px 7px;color:var(--ink-dim)}
+.moc-pill.report{color:var(--cyan);border-color:rgba(34,211,238,.28);background:rgba(34,211,238,.06)}
+.moc-pill.case{color:var(--sol);border-color:rgba(20,241,149,.26);background:rgba(20,241,149,.055)}
+.moc-pill.analyst{color:#c084fc;border-color:rgba(168,85,247,.28);background:rgba(168,85,247,.06)}
+.moc-pill.challenge,.moc-pill.alert{color:var(--red);border-color:rgba(255,84,112,.28);background:rgba(255,84,112,.06)}
+.moc-pill.pack{color:var(--amber);border-color:rgba(255,176,32,.28);background:rgba(255,176,32,.06)}
+.moc-pill.ok{color:var(--sol);border-color:rgba(20,241,149,.28)}
+.moc-pill.pending{color:var(--amber);border-color:rgba(255,176,32,.28)}
+.moc-chevron{font-size:20px;color:var(--ink-faint);text-align:right}
+.moc-empty,.moc-error,.moc-loading{border:1px dashed rgba(148,163,184,.22);border-radius:8px;padding:18px;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;background:rgba(255,255,255,.02)}
+.moc-error{border-color:rgba(255,176,32,.35);color:var(--amber)}
+.moc-panel{padding:0;overflow:hidden;position:sticky;top:84px}
+.moc-panel-head{padding:17px 17px 14px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,rgba(34,211,238,.07),transparent)}
+.moc-panel-k{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:9px}
+.moc-panel h3{font-family:'Archivo',sans-serif;font-size:18px;line-height:1.2;margin:8px 0 4px;color:var(--ink-bright)}
+.moc-panel-id{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint)}
+.moc-panel-body{padding:16px 17px 18px}
+.moc-detail{display:grid;gap:8px;margin-bottom:14px}
+.moc-detail-row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(148,163,184,.1);padding-bottom:8px}
+.moc-detail-row span{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+.moc-detail-row b{font-size:12px;color:var(--ink-dim);font-weight:700;text-align:right;word-break:break-word}
+.moc-note{border:1px solid rgba(148,163,184,.16);background:rgba(255,255,255,.025);border-radius:8px;padding:12px;font-size:12px;line-height:1.55;color:var(--ink-dim);margin-bottom:14px}
+.moc-actions{display:grid;grid-template-columns:1fr;gap:8px}
+.moc-action{min-height:40px;border:1px solid var(--line-bright);background:rgba(255,255,255,.02);border-radius:7px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.04em;cursor:pointer}
+.moc-action:hover{border-color:rgba(34,211,238,.4);color:var(--ink)}
+.moc-action[disabled]{opacity:.58;cursor:not-allowed;color:var(--ink-faint);border-color:rgba(148,163,184,.14)}
+.moc-disabled{margin-top:14px;padding-top:13px;border-top:1px solid var(--line);display:grid;gap:7px}
+.moc-bottom{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin-top:16px}
+.moc-bottom-card{padding:15px;min-height:188px}
+.moc-bottom-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);margin-bottom:12px}
+.moc-feed{display:grid;gap:10px}
+.moc-feed-row{display:grid;grid-template-columns:9px minmax(0,1fr) auto;gap:10px;align-items:start}
+.moc-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px rgba(34,211,238,.6);margin-top:5px}
+.moc-feed-row b{font-size:12px;color:var(--ink);font-weight:700}
+.moc-feed-row span{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);margin-top:2px}
+.moc-evidence-flash{animation:mocFlash 1.2s ease}
+@keyframes mocFlash{0%,100%{border-color:rgba(148,163,184,.16)}30%{border-color:rgba(34,211,238,.55);box-shadow:0 0 0 1px rgba(34,211,238,.2)}}
+@media(max-width:1160px){.moc-shell{grid-template-columns:170px minmax(0,1fr)}.moc-panel{position:relative;top:auto;grid-column:2}.moc-stats{grid-template-columns:repeat(3,1fr)}.moc-table-head{display:none}.moc-row{grid-template-columns:1fr 1fr;gap:6px;padding:12px}.moc-row>*:nth-child(n+5):not(.moc-chevron){display:none}.moc-chevron{display:none}.moc-bottom{grid-template-columns:1fr}}
+@media(max-width:760px){.adm-wrap{max-width:100%}.moc-shell{grid-template-columns:1fr}.moc-nav{position:relative;top:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px}.moc-nav-btn{margin:0}.moc-panel{grid-column:auto}.moc-stats{grid-template-columns:1fr 1fr}.moc-head h2{font-size:21px}.moc-sec{padding:14px}.moc-row{grid-template-columns:1fr}.moc-row>*:nth-child(n+4):not(.moc-chevron){display:none}}
 @media(max-width:620px){ .adm-row{flex-direction:column;align-items:stretch} .adm-acts{justify-content:flex-end} .adm-ops{grid-template-columns:1fr 1fr} }
 </style>
 <div class="wrap"><div class="adm-wrap">
@@ -2522,129 +2593,15 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     </div>
   </div>
   <div id="admPanel" style="display:none">
-    <div class="adm-bar">
-      <div class="adm-who">SIGNED IN &middot; <b id="admWho"></b></div>
-      <div style="display:flex;gap:8px"><button class="adm-out" onclick="admRefresh()">Refresh</button><button class="adm-out" onclick="admLogout()">Sign out</button></div>
+    <div id="admConsole" class="moc-shell" aria-live="polite">
+      <div class="moc-loading">Loading maintainer operations center...</div>
     </div>
-    <div class="adm-ops" id="adm-ops"></div>
-    <style id="osi-escpack">
-.esc-box{border:1px solid var(--line-bright);border-left:2px solid var(--cyan);background:var(--bg-card);padding:18px;margin-bottom:16px;border-radius:8px}
-.esc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.esc-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--cyan);font-weight:700}
-.esc-pill{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;color:var(--cyan);border:1px solid rgba(34,211,238,.35);border-radius:8px;padding:3px 7px}
-.esc-s{font-size:11.5px;color:var(--ink-faint);line-height:1.55;margin:9px 0 14px;max-width:640px}
-.esc-s b{color:var(--ink-dim)}
-.esc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.esc-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--ink-faint);margin-bottom:6px}
-.esc-row{display:flex;gap:8px}
-.esc-row select{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 10px}
-.esc-row select:focus{outline:none;border-color:var(--cyan)}
-.esc-types{display:flex;flex-direction:column;gap:6px}
-.esc-type{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-dim);cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:8px 10px;transition:border-color .15s,color .15s}
-.esc-type:hover{border-color:var(--line-bright);color:var(--ink)}
-.esc-type input{accent-color:var(--cyan);margin:0}
-.esc-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}
-.esc-go{background:var(--cyan);color:#0b0d16;border:0;border-radius:8px;padding:12px 22px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.06em;cursor:pointer;box-shadow:0 6px 20px rgba(34,211,238,.25)}
-.esc-go:hover{filter:brightness(1.08)}
-.esc-go:disabled{opacity:.55;cursor:default;box-shadow:none}
-.esc-status{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim)}
-.esc-status.busy{color:var(--cyan)}
-.esc-status.ok{color:var(--sol)}
-.esc-status.warn{color:var(--amber)}
-.esc-out-wrap{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
-.esc-out-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}
-.esc-badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--amber);border:1px solid rgba(255,176,32,.35);border-radius:8px;padding:4px 8px}
-.esc-out-acts{display:flex;gap:7px}
-.esc-out{width:100%;min-height:260px;resize:vertical;background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;padding:14px;white-space:pre-wrap}
-.esc-out:focus{outline:none;border-color:var(--cyan)}
-.esc-foot{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);line-height:1.5;margin-top:9px}
-@media(max-width:620px){.esc-grid{grid-template-columns:1fr}}
-</style>
-<div class="esc-box" id="esc-box">
-  <div class="esc-head">
-    <div class="esc-h">AI ESCALATION PACK BUILDER</div>
-    <span class="esc-pill">PILOT &middot; MAINTAINER ONLY</span>
-  </div>
-  <div class="esc-s">Turn a reviewed public case into a structured DRAFT brief, compiled only from evidence already on the record. Every pack is AI-assisted and <b>requires your review</b> before it leaves OSI. No recovery is promised, nothing here is legal advice, and generating a pack never seals or publishes anything.</div>
-  <div class="esc-grid">
-    <div class="esc-field">
-      <label>1 &middot; REVIEWED CASE</label>
-      <div class="esc-row">
-        <select id="esc-case" onchange="escLoadPacksForCase(this.value)"><option value="">Load reviewed cases&hellip;</option></select>
-        <button class="adm-out" type="button" onclick="escLoadCases()">&#8635; Load</button>
-      </div>
-    </div>
-    <div class="esc-field">
-      <label>2 &middot; PACK TYPE</label>
-      <div class="esc-types">
-        <label class="esc-type"><input type="radio" name="esc-type" value="victim"><span>Victim Brief</span></label>
-        <label class="esc-type"><input type="radio" name="esc-type" value="exchange"><span>Exchange Pack</span></label>
-        <label class="esc-type"><input type="radio" name="esc-type" value="law_enforcement"><span>Law Enforcement Brief</span></label>
-      </div>
-    </div>
-  </div>
-  <div class="esc-actions">
-    <button class="esc-go" type="button" onclick="escGenerate()">Generate Escalation Pack</button>
-    <span class="esc-status" id="esc-status">Idle</span>
-  </div>
-  <div class="esc-out-wrap" id="esc-out-wrap" style="display:none">
-    <div class="esc-out-bar">
-      <span class="esc-badge" id="esc-badge">ai_generated &middot; review_required</span>
-      <div class="esc-out-acts">
-        <button class="adm-out" type="button" onclick="escCopy()">Copy</button>
-        <button class="adm-out" type="button" onclick="escDownload()">Download .txt</button>
-      </div>
-    </div>
-    <textarea id="esc-out" class="esc-out" readonly spellcheck="false" placeholder="The generated draft will appear here."></textarea>
-    <div class="esc-foot">This draft is unverified AI output. Read every line, remove anything not supported by the public evidence, and confirm the on-chain references before you use or send it.</div>
-    <div class="esc-pack-controls" id="esc-pack-controls"></div>
-  </div>
-</div>
-    <div class="adm-cfg" id="adm-cfg">
-      <div class="adm-cfg-h">SUPPORT / PAYOUT WALLET</div>
-      <div class="adm-cfg-s">The SOL address that receives support across the site. It powers the Support buttons and Solana Pay on every case. Set once, change anytime.</div>
-      <div class="adm-cfg-row">
-        <input id="admSupport" placeholder="SOL wallet address">
-        <button class="adm-out" onclick="admUseConnected()">Use connected</button>
-        <button class="adm-go" onclick="admSaveSupport()">Save</button>
-      </div>
-      <div class="adm-cfg-msg" id="admCfgMsg"></div>
-    </div>
-    <div class="adm-cfg" id="adm-cfg-admin">
-      <div class="adm-cfg-h">ADMIN ACCESS WALLET</div>
-      <div class="adm-cfg-s">This wallet is part of the maintainer gate. The console requires both this connected wallet and the Supabase authority session before queues or actions are exposed.</div>
-      <div class="adm-cfg-row">
-        <input id="admAdminW" placeholder="SOL wallet address">
-        <button class="adm-out" onclick="admUseConnectedAdmin()">Use connected</button>
-        <button class="adm-go" onclick="admSaveAdminWallet()">Save</button>
-      </div>
-      <div class="adm-cfg-msg" id="admAdminMsg"></div>
-    </div>
-    <div class="adm-cfg" id="adm-cfg-analyst">
-      <div class="adm-cfg-h">ADD AN ANALYST</div>
-      <div class="adm-cfg-s">Add a trusted analyst to the public roster. They start at Tier I and earn rank automatically as their reports get approved and their casework closes cases. Applications from others appear in the queue below for you to approve or reject.</div>
-      <div class="adm-cfg-row">
-        <input id="admAnWallet" placeholder="SOL wallet (their identity)">
-        <input id="admAnHandle" placeholder="X / Twitter handle (e.g. @analyst)">
-      </div>
-      <div class="adm-cfg-row" style="margin-top:8px">
-        <input id="admAnName" placeholder="Display name (optional)">
-        <input id="admAnBio" placeholder="One-line bio (optional)">
-      </div>
-      <div style="margin-top:10px"><button class="adm-go" onclick="admAddAnalyst()">Add to roster</button></div>
-      <div class="adm-cfg-msg" id="admAnMsg"></div>
-    </div>
-    <div class="adm-cfg" id="adm-cfg-consensus">
-      <div class="adm-cfg-h">CONSENSUS / PEER REVIEW</div>
-      <div class="adm-cfg-s">Verified analysts vouch on pending items in the Review Floor, each vouch carrying the weight set on its roster row. When approve-weight reaches the threshold an item clears. Turn auto-publish ON to let the network publish without you; OFF keeps your seal final (recommended until vouches are signature-verified).</div>
-      <div class="adm-cfg-row" style="align-items:center">
-        <input id="admConThr" type="number" min="1" max="50" style="max-width:90px" placeholder="3">
-        <label class="adm-con-lab"><input type="checkbox" id="admConAuto"> Auto-publish at threshold</label>
-        <button class="adm-go" onclick="admSaveConsensus()">Save</button>
-      </div>
-      <div class="adm-cfg-msg" id="admConMsg"></div>
-    </div>
-    <div id="admQueue"><div class="adm-muted">Loading...</div></div>
+    <div class="adm-ops" id="adm-ops" style="display:none"></div>
+    <div id="admQueue" style="display:none"></div>
+    <div id="esc-pack-controls" style="display:none"></div>
+    <textarea id="esc-out" style="display:none"></textarea>
+    <div id="esc-out-wrap" style="display:none"></div>
+    <span id="esc-status" style="display:none"></span>
   </div>
 </div></div>
 </section>
@@ -6504,6 +6461,7 @@ function admLockedHost(){
   return host;
 }
 function admClearProtectedData(){
+  var consoleHost = document.getElementById('admConsole'); if(consoleHost) consoleHost.innerHTML = '<div class="moc-loading">Maintainer access locked.</div>';
   var ops = document.getElementById('adm-ops'); if(ops) ops.innerHTML = '';
   var queue = document.getElementById('admQueue'); if(queue) queue.innerHTML = '';
   var controls = document.getElementById('esc-pack-controls'); if(controls) controls.innerHTML = '';
@@ -6511,6 +6469,8 @@ function admClearProtectedData(){
   var outWrap = document.getElementById('esc-out-wrap'); if(outWrap) outWrap.style.display = 'none';
   var status = document.getElementById('esc-status'); if(status) status.textContent = 'Locked';
   window.__admBounties = [];
+  window.__admConsoleModel = null;
+  window.__admSelectedKey = null;
 }
 function renderAdminAccess(opts){
   opts = opts || {};
@@ -6581,6 +6541,214 @@ function admLogout(){
   if(typeof updateAdminButton==='function') updateAdminButton();
   renderAdminAccess({clear:true});
 }
+async function admSafeGet(path){
+  try{ return { ok:true, rows:(await supaGet(path)) || [] }; }
+  catch(e){ return { ok:false, rows:[], error:e }; }
+}
+function admShortWallet(w){ return w ? (typeof short === 'function' ? short(w) : maintainerShortWallet(w)) : 'Unknown'; }
+function admTime(v){ return v ? ((typeof fdAgo === 'function') ? fdAgo(v) : new Date(v).toLocaleDateString()) : 'Unknown'; }
+function admClip(s,n){ s=String(s==null?'':s).trim(); return s.length>n ? s.slice(0,n-1)+'...' : s; }
+function admCount(v){ return v === null || v === undefined ? '<span class="v na">Not available yet</span>' : '<span class="v">'+admEsc(String(v))+'</span>'; }
+function admVouchSummary(type,id,vouches){
+  var a=0,r=0;
+  (vouches||[]).forEach(function(v){
+    if(String(v.item_type)===String(type) && String(v.item_id)===String(id)){
+      if(v.vote==='reject') r++; else a++;
+    }
+  });
+  return { approve:a, reject:r, total:a+r };
+}
+function admChallengeList(type,id,challenges){
+  return (challenges||[]).filter(function(c){ return String(c.item_type||'')===String(type) && String(c.item_id||'')===String(id); });
+}
+function admProofList(type,id,events){
+  return (events||[]).filter(function(e){ return String(e.item_type||'')===String(type) && String(e.item_id||'')===String(id); });
+}
+function admStatusFor(kind,row){
+  if(kind==='pack') return row.status === 'approved' ? 'Reviewed pack' : 'Ready to review';
+  if(kind==='challenge') return row.status ? String(row.status) : 'Open';
+  if(kind==='analyst') return (row.approved && row.verified) ? 'Verified' : 'Application';
+  if(row.sealed) return 'Sealed';
+  if(row.approved) return 'Published';
+  return 'Pending review';
+}
+function admRiskFor(item){
+  if(item.challengeCount>0 || item.kind==='challenge') return { label:'Disputed', cls:'challenge' };
+  if(item.kind==='pack') return { label:item.status.indexOf('Ready')===0?'Review':'Reviewed', cls:item.status.indexOf('Ready')===0?'pending':'ok' };
+  if(item.status==='Pending review' || item.status==='Application') return { label:'Pending', cls:'pending' };
+  if(item.status==='Sealed' || item.status==='Published' || item.status==='Verified') return { label:'Reviewed', cls:'ok' };
+  return { label:'Monitor', cls:'' };
+}
+function admMakeItem(kind,row,ctx){
+  var id = String(kind==='analyst' ? (row.wallet||row.id||'analyst') : (row.id||row.case_ref||'item'));
+  var title = kind==='report' ? (row.company || row.bounty || row.title || id)
+    : kind==='case' ? (row.target || row.title || id)
+    : kind==='analyst' ? (row.name || row.handle || row.wallet || id)
+    : kind==='challenge' ? (row.item_label || row.item_id || id)
+    : (row.pack_type || row.case_ref || id);
+  var submitter = kind==='report' ? row.wallet
+    : kind==='case' ? (row.created_by || row.wallet)
+    : kind==='analyst' ? row.wallet
+    : kind==='challenge' ? row.challenger
+    : '';
+  var itemType = kind==='case' ? 'bounty' : (kind==='pack' ? 'report' : kind);
+  var itemId = kind==='pack' ? row.case_ref : id;
+  var votes = admVouchSummary(itemType, itemId, ctx.vouches);
+  var challengeRows = admChallengeList(itemType, itemId, ctx.challenges);
+  var proofs = admProofList(itemType, itemId, ctx.events);
+  var status = admStatusFor(kind,row);
+  var summary = row.summary || row.detail || row.reason || row.bio || row.content || '';
+  var evidence = [row.onchain,row.offchain,row.tx,row.attachment,row.link].filter(Boolean).join(' / ');
+  var it = {
+    key:kind+'|'+id,
+    kind:kind,
+    id:id,
+    title:String(title || id),
+    submitter:submitter || '',
+    status:status,
+    votes:votes,
+    challengeCount:challengeRows.length,
+    challenges:challengeRows,
+    proofEvents:proofs,
+    created:row.created_at || row.updated_at || '',
+    updated:row.updated_at || row.created_at || '',
+    summary:String(summary || ''),
+    evidence:String(evidence || ''),
+    row:row,
+    isPublic:!!(row.approved || row.sealed || row.status==='approved')
+  };
+  it.risk = admRiskFor(it);
+  return it;
+}
+function admConsoleModel(src){
+  var reports=src.reports.rows||[], bounties=src.bounties.rows||[], analysts=src.analysts.rows||[], challenges=src.challenges.rows||[], packs=src.packs.rows||[], events=src.events.rows||[], vouches=src.vouches.rows||[];
+  var ctx = { challenges:challenges, events:events, vouches:vouches };
+  var items=[];
+  reports.filter(function(r){ return !r.approved || r.sealed || admChallengeList('report',r.id,challenges).length; }).forEach(function(r){ items.push(admMakeItem('report',r,ctx)); });
+  bounties.filter(function(b){ return !b.approved || admChallengeList('bounty',b.id,challenges).length; }).forEach(function(b){ items.push(admMakeItem('case',b,ctx)); });
+  analysts.filter(function(a){ return !(a.approved && a.verified); }).forEach(function(a){ items.push(admMakeItem('analyst',a,ctx)); });
+  challenges.filter(function(c){ return !c.status || c.status==='open'; }).forEach(function(c){ items.push(admMakeItem('challenge',c,ctx)); });
+  packs.filter(function(p){ return p.status !== 'approved'; }).forEach(function(p){ items.push(admMakeItem('pack',p,ctx)); });
+  items.sort(function(a,b){ return new Date(b.updated||b.created||0) - new Date(a.updated||a.created||0); });
+  return {
+    sources:src,
+    items:items,
+    events:events,
+    alerts:items.filter(function(i){ return i.kind==='challenge' || i.challengeCount>0 || i.risk.cls==='challenge'; }).slice(0,6),
+    counts:{
+      reports:src.reports.ok ? reports.filter(function(r){ return !r.approved; }).length : null,
+      cases:src.bounties.ok ? bounties.filter(function(b){ return !b.approved; }).length : null,
+      analysts:src.analysts.ok ? analysts.filter(function(a){ return !(a.approved && a.verified); }).length : null,
+      ready:src.packs.ok ? packs.filter(function(p){ return p.status !== 'approved'; }).length : null,
+      challenges:src.challenges.ok ? challenges.filter(function(c){ return !c.status || c.status==='open'; }).length : null,
+      safety:null
+    }
+  };
+}
+function admStatCard(label,value,tone,note){
+  return '<div class="moc-card '+(tone||'')+'"><div class="k">'+admEsc(label)+'</div>'+admCount(value)+'<div class="s">'+admEsc(note||'Real rows only')+'</div></div>';
+}
+function admFilterMatches(item,filter){
+  if(!filter || filter==='overview' || filter==='queue') return true;
+  if(filter==='cases') return item.kind==='case';
+  if(filter==='reports') return item.kind==='report';
+  if(filter==='analysts') return item.kind==='analyst';
+  if(filter==='ready') return item.kind==='pack';
+  if(filter==='challenges') return item.kind==='challenge';
+  if(filter==='safety') return item.risk.cls==='challenge';
+  if(filter==='proof') return item.proofEvents && item.proofEvents.length;
+  return false;
+}
+function admConsoleNav(active){
+  var nav=[['overview','Overview'],['queue','Review Queue'],['cases','Pending Cases'],['reports','Pending Reports'],['analysts','Analyst Applications'],['ready','Ready to Publish'],['challenges','Challenges'],['safety','Safety Flags'],['proof','Proof Log Review'],['settings','Settings'],['audit','Audit Trail']];
+  return '<aside class="moc-nav"><div class="moc-nav-k">Command Center</div>'+nav.map(function(n){
+    return '<button class="moc-nav-btn '+(active===n[0]?'active':'')+'" type="button" onclick="admConsoleFilter(\''+n[0]+'\')"><i></i><span>'+admEsc(n[1])+'</span></button>';
+  }).join('')+'</aside>';
+}
+function admQueueHtml(items,selectedKey){
+  if(!items.length) return '<div class="moc-empty">No real items match this section. The console is not showing demo rows.</div>';
+  return '<div class="moc-table-head"><span>Type</span><span>ID</span><span>Title / Subject</span><span>Submitter</span><span>Status</span><span>Votes</span><span>Challenges</span><span>Updated</span><span></span></div>'
+    + items.map(function(it){
+      var cls = it.kind==='case' ? 'case' : it.kind;
+      return '<button class="moc-row '+(it.key===selectedKey?'active':'')+'" type="button" onclick="admSelectItem(\''+admEsc(String(it.key).replace(/\\/g,'\\\\').replace(/'/g,"\\'"))+'\')">'
+        + '<span class="moc-pill '+cls+'">'+admEsc(it.kind==='case'?'Case':it.kind)+'</span>'
+        + '<span>'+admEsc(admClip(it.id,18))+'</span>'
+        + '<b>'+admEsc(admClip(it.title,72))+'</b>'
+        + '<span title="'+admEsc(it.submitter)+'">'+admEsc(admShortWallet(it.submitter))+'</span>'
+        + '<span class="moc-pill '+(it.status==='Pending review'||it.status==='Application'||it.status==='Ready to review'?'pending':'ok')+'">'+admEsc(it.status)+'</span>'
+        + '<span>'+admEsc(String(it.votes.total))+'</span>'
+        + '<span>'+admEsc(String(it.challengeCount))+'</span>'
+        + '<span>'+admEsc(admTime(it.updated||it.created))+'</span>'
+        + '<span class="moc-chevron">›</span>'
+        + '</button>';
+    }).join('');
+}
+function admSelectedHtml(it){
+  if(!it) return '<aside class="moc-panel"><div class="moc-panel-body"><div class="moc-empty">Select a queue item to inspect its record.</div></div></aside>';
+  var cls = it.kind==='case' ? 'case' : it.kind;
+  var evidence = it.evidence || it.summary || 'No evidence summary available in visible fields.';
+  var proofLabel = it.proofEvents.length ? (it.proofEvents.length + ' proof log event(s)') : 'No linked proof events found';
+  var challengeLabel = it.challengeCount ? (it.challengeCount + ' open challenge(s)') : 'No linked challenges';
+  var publicDisabled = it.isPublic ? '' : ' disabled';
+  var analystDisabled = it.kind==='analyst' && it.submitter ? '' : ' disabled';
+  return '<aside class="moc-panel" aria-label="Selected maintainer item">'
+    + '<div class="moc-panel-head"><div class="moc-panel-k">Selected Item</div><span class="moc-pill '+cls+'">'+admEsc(it.kind==='case'?'Case':it.kind)+'</span><h3>'+admEsc(admClip(it.title,80))+'</h3><div class="moc-panel-id">'+admEsc(it.id)+'</div></div>'
+    + '<div class="moc-panel-body"><div class="moc-detail">'
+    + '<div class="moc-detail-row"><span>Submitter</span><b>'+admEsc(admShortWallet(it.submitter))+'</b></div>'
+    + '<div class="moc-detail-row"><span>Status</span><b>'+admEsc(it.status)+'</b></div>'
+    + '<div class="moc-detail-row"><span>Updated</span><b>'+admEsc(admTime(it.updated||it.created))+'</b></div>'
+    + '<div class="moc-detail-row"><span>Analyst votes</span><b>'+admEsc(String(it.votes.approve))+' approve / '+admEsc(String(it.votes.reject))+' reject</b></div>'
+    + '<div class="moc-detail-row"><span>Challenges</span><b>'+admEsc(challengeLabel)+'</b></div>'
+    + '<div class="moc-detail-row"><span>Proof log</span><b>'+admEsc(proofLabel)+'</b></div>'
+    + '</div><div class="moc-note" id="moc-evidence"><b>Evidence summary</b><br>'+admEsc(admClip(evidence,700))+'</div>'
+    + '<div class="moc-actions">'
+    + '<button class="moc-action" type="button" onclick="admFocusEvidence()">View Evidence</button>'
+    + '<button class="moc-action" type="button" onclick="showView(\'prooflog\')">View Proof Log</button>'
+    + '<button class="moc-action" type="button" onclick="showView(\'analysts\')">Open Full Review</button>'
+    + '<button class="moc-action" type="button" onclick="showView(\'records\')"'+publicDisabled+'>Open Public Record</button>'
+    + '<button class="moc-action" type="button" onclick="admOpenSelectedAnalyst()"'+analystDisabled+'>Open Analyst Profile</button>'
+    + '</div><div class="moc-disabled">'
+    + '<button class="moc-action" type="button" disabled>Approve / Reject disabled: Stage 1 read-only</button>'
+    + '<button class="moc-action" type="button" disabled>Seal Record disabled: Requires hardened backend review</button>'
+    + '</div></div></aside>';
+}
+function admBottomHtml(model){
+  var evs = model.sources.events.ok ? (model.events || []) : null;
+  var activity = evs === null ? '<div class="moc-empty">Proof log activity is not available yet.</div>' : (!evs.length ? '<div class="moc-empty">No public signed activity found.</div>' : '<div class="moc-feed">'+evs.slice(0,5).map(function(e){
+    return '<div class="moc-feed-row"><i class="moc-dot"></i><div><b>'+admEsc(e.label || e.event_type || 'Signed action')+'</b><span>'+admEsc(admShortWallet(e.actor_wallet))+' / '+admEsc(admTime(e.created_at))+'</span></div><span>'+admEsc(e.item_id?admClip(e.item_id,10):'')+'</span></div>';
+  }).join('')+'</div>');
+  var alerts = model.alerts.length ? '<div class="moc-feed">'+model.alerts.map(function(a){
+    return '<div class="moc-feed-row"><i class="moc-dot" style="background:var(--amber);box-shadow:0 0 12px rgba(255,176,32,.5)"></i><div><b>'+admEsc(admClip(a.title,64))+'</b><span>'+admEsc(a.kind)+' / '+admEsc(a.risk.label)+'</span></div><span>'+admEsc(admTime(a.updated||a.created))+'</span></div>';
+  }).join('')+'</div>' : '<div class="moc-empty">No open alerts from available real sources.</div>';
+  var health = '<div class="moc-empty">System health telemetry is not connected yet. No TPS, slot, or uptime metrics are displayed in Stage 1.</div>';
+  return '<div class="moc-bottom"><div class="moc-bottom-card"><div class="moc-bottom-h">Activity Feed</div>'+activity+'</div><div class="moc-bottom-card"><div class="moc-bottom-h">Recent Alerts</div>'+alerts+'</div><div class="moc-bottom-card"><div class="moc-bottom-h">Network Integrity</div>'+health+'</div></div>';
+}
+function admRenderConsole(model){
+  var host=document.getElementById('admConsole'); if(!host) return;
+  window.__admConsoleModel = model;
+  var filter = window.__admConsoleFilter || 'overview';
+  var items = model.items.filter(function(it){ return admFilterMatches(it,filter); });
+  if(filter==='settings' || filter==='audit') items = [];
+  var selected = items.find(function(it){ return it.key===window.__admSelectedKey; }) || items[0] || null;
+  window.__admSelectedKey = selected ? selected.key : null;
+  host.className = 'moc-shell';
+  host.innerHTML = admConsoleNav(filter)
+    + '<main class="moc-main"><div class="moc-head"><div class="moc-kicker">Authority Access</div><h2>Maintainer Operations Center</h2><p>Real-time oversight of OSI network integrity, verification, and public record lifecycle.</p></div>'
+    + '<section class="moc-sec"><div class="moc-stats">'
+    + admStatCard('Pending Reports',model.counts.reports,'pending','reports.approved=false')
+    + admStatCard('Pending Cases',model.counts.cases,'pending','bounties.approved=false')
+    + admStatCard('Analyst Applications',model.counts.analysts,'analyst','unverified roster rows')
+    + admStatCard('Ready to Publish',model.counts.ready,'ok','escalation packs')
+    + admStatCard('Open Challenges',model.counts.challenges,'danger','status=open')
+    + admStatCard('Safety Flags',model.counts.safety,'danger','source not connected')
+    + '</div></section><section class="moc-sec">'+admQueueHtml(items,window.__admSelectedKey)+admBottomHtml(model)+'</section></main>'
+    + admSelectedHtml(selected);
+}
+function admConsoleFilter(filter){ window.__admConsoleFilter = filter || 'overview'; window.__admSelectedKey = null; if(window.__admConsoleModel) admRenderConsole(window.__admConsoleModel); }
+function admSelectItem(key){ window.__admSelectedKey = key; if(window.__admConsoleModel) admRenderConsole(window.__admConsoleModel); }
+function admCurrentSelected(){ var m=window.__admConsoleModel; if(!m) return null; return (m.items||[]).find(function(it){ return it.key===window.__admSelectedKey; }) || null; }
+function admFocusEvidence(){ var el=document.getElementById('moc-evidence'); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('moc-evidence-flash'); setTimeout(function(){ el.classList.remove('moc-evidence-flash'); },1300); }
+function admOpenSelectedAnalyst(){ var it=admCurrentSelected(); if(it && it.kind==='analyst' && it.submitter && typeof openRosterProfile==='function') openRosterProfile(it.submitter); else showView('analysts'); }
 async function admOpsStats(){
   var host=document.getElementById('adm-ops'); if(!host) return;
   if(!SUPA_ON || !resolveMaintainerAccess().allowed){ host.innerHTML=''; return; }
@@ -6595,18 +6763,24 @@ async function admOpsStats(){
 async function admRefresh(){
   var access = renderAdminAccess({clear:true});
   if(!access.allowed) return;
-  if(typeof admOpsStats==='function'){ try{ admOpsStats(); }catch(e){} }
-  const host=document.getElementById('admQueue');
-  host.innerHTML='<div class="adm-muted">Loading queue...</div>';
+  const host=document.getElementById('admConsole');
+  if(host){ host.className='moc-shell'; host.innerHTML='<div class="moc-loading">Loading real maintainer data...</div>'; }
   try{
-    const reports = await supaGet('reports?select=*&order=created_at.desc');
-    let requests=[]; try{ requests = await supaGet('requests?select=*&order=created_at.desc'); }catch(_){}
-    let bounties=[]; try{ bounties = await supaGet('bounties?select=*&order=created_at.desc'); }catch(_){}
-    let analysts=[]; try{ analysts = await supaGet('analysts?select=*&order=created_at.desc'); }catch(_){}
-    window.__admBounties = bounties || [];
-    host.innerHTML = admRender(reports||[], requests||[], bounties||[], analysts||[]);
+    const reads = await Promise.all([
+      admSafeGet('reports?select=*&order=created_at.desc&limit=200'),
+      admSafeGet('bounties?select=*&order=created_at.desc&limit=200'),
+      admSafeGet('analysts?select=*&order=created_at.desc&limit=300'),
+      admSafeGet('challenges?select=*&order=created_at.desc&limit=200'),
+      admSafeGet('escalation_packs?select=*&order=created_at.desc&limit=200'),
+      admSafeGet('vouches?select=item_type,item_id,analyst,vote&limit=1000'),
+      admSafeGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,label,tx_sig,created_at&order=created_at.desc&limit=80')
+    ]);
+    if(!resolveMaintainerAccess().allowed){ renderAdminAccess({clear:true}); return; }
+    const model = admConsoleModel({ reports:reads[0], bounties:reads[1], analysts:reads[2], challenges:reads[3], packs:reads[4], vouches:reads[5], events:reads[6] });
+    window.__admBounties = reads[1].rows || [];
+    admRenderConsole(model);
   }catch(e){
-    host.innerHTML='<div class="adm-err">Could not load the queue ('+admEsc(e.message)+').<br><br>Most likely the admin SQL policies have not been run yet, or this account is not the maintainer. Run osi_admin_setup.sql in the Supabase SQL Editor, then refresh.</div>';
+    if(host) host.innerHTML='<div class="moc-error">Could not load the operations center ('+admEsc(e.message)+'). Recheck maintainer access and Supabase policies, then refresh.</div>';
   }
 }
 function admItem(kind, table, r){
