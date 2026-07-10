@@ -5848,6 +5848,7 @@ async function admSaveBounty(){
   let image = (document.getElementById('aeb-image').value||'').trim();
   const msg = document.getElementById('aeb-msg');
   if(!target){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Target cannot be empty.'; } return; }
+  osiSignEvent({ eventType:'CASE_EDITED', actionLabel:'Save case', caseId: id, itemType:'bounty', itemId: id, sensitive:true, onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
   try{
     try{ const up = await uploadPicked('aeb'); if(up) image = up; }catch(e){ if(msg) msg.textContent='Logo upload failed, saving the rest\u2026'; }
@@ -5855,6 +5856,7 @@ async function admSaveBounty(){
     if(msg){ msg.style.color='var(--sol)'; msg.textContent='\u2713 Saved.'; }
     admCloseEdit(); admRefresh(); admReflow();
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Save failed: '+((e&&e.message)||e); } }
+  }});
 }
 
 // ===== Support / payout wallet (maintainer-set, stored globally in Supabase) =====
@@ -7684,17 +7686,19 @@ async function admResolveBounty(id){
   const w = prompt("Paste the winning analyst's wallet address (copy it from their report).\n\nThis marks the bounty resolved and makes the reward button live on the board, so anyone can pay the winner in SOL. Leave blank to clear the winner.");
   if(w===null) return;
   const wallet=(w||'').trim();
+  if(wallet && (wallet.length<32 || wallet.length>46)){ showToast("That does not look like a Solana wallet address."); return; }
+  osiSignEvent({ eventType:'CASE_RESOLVED', actionLabel:'Resolve case', caseId: id, itemType:'bounty', itemId: id, sensitive:true, onSuccess: async (sig)=>{
   if(!wallet){
     try{ await supaPatch('bounties?id=eq.'+encodeURIComponent(id), { winner_wallet:null, winner_label:null }); showToast('Winner cleared.'); admRefresh(); admReflow(); }
     catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
     return;
   }
-  if(wallet.length<32 || wallet.length>46){ showToast("That does not look like a Solana wallet address."); return; }
   try{
     await supaPatch('bounties?id=eq.'+encodeURIComponent(id), { winner_wallet: wallet, winner_label: short(wallet) });
     showToast('Bounty resolved. The reward button is now live on the board.');
     admRefresh(); admReflow();
   }catch(e){ showToast('Could not resolve: '+((e&&e.message)||e)); }
+  }});
 }
 
 function admReflow(){
@@ -7718,8 +7722,10 @@ async function admSet(table, id, approved){
 async function admDel(table, id){
   if(!requireMaintainerAccess('Delete item')) return;
   if(!confirm('Delete this permanently? This cannot be undone.')) return;
+  osiSignEvent({ eventType:'RECORD_DELETED', actionLabel:'Delete item', caseId: (table==='bounties'?id:''), reportId: (table==='reports'?id:''), itemType: (table==='reports'?'report':(table==='bounties'?'bounty':String(table||'item'))), itemId: id, sensitive:true, onSuccess: async (sig)=>{
   try{ await supaDelete(table+'?id=eq.'+encodeURIComponent(id)); showToast('Deleted.'); admRefresh(); admReflow(); }
   catch(e){ showToast('Delete failed: '+e.message); }
+  }});
 }
 document.addEventListener('DOMContentLoaded', function(){ if(location.hash==='#admin'){ try{ showView('admin'); }catch(_){} } });
 window.addEventListener('hashchange', function(){ if(location.hash==='#admin'){ try{ showView('admin'); }catch(_){} } });
