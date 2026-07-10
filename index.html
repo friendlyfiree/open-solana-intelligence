@@ -9177,9 +9177,9 @@ async function escLoadCases(){
 // Stage 3: secure AI Pack access helpers
 //  - proof: wallet signature, purpose "OSI AI Pack Access v1" (cached 90s)
 //  - public_meta: metadata-only list for Public Records (never content)
-//  - get/download: full pack content ONLY for maintainer (JWT), the case
-//    owner, or a verified analyst, via the osi-ai-pack Edge Function. Anon
-//    can no longer read pack content (RLS no longer exposes it).
+//  - get/download: full pack content ONLY for a maintainer (JWT) or a
+//    server-verified analyst, via the osi-ai-pack Edge Function. Anon and
+//    ordinary connected wallets get metadata only (RLS no longer exposes it).
 // ============================================================
 async function osiAiPackProof(){
   if(window.__osiAiPackProof && window.__osiAiPackProof.proof && window.__osiAiPackProof.proof.wallet===walletPubkey && (Date.now()-window.__osiAiPackProof.at < 90000)){
@@ -9211,8 +9211,9 @@ async function osiAiPackPublicMeta(){
 }
 // Full pack content for AUTHORIZED callers only. Maintainers authenticate with
 // their Supabase session JWT; everyone else signs a wallet proof (the server
-// admits only the case owner or a verified analyst). Returns the JSON body or
-// throws an Error whose .status carries the HTTP code.
+// admits ONLY a verified analyst — a wallet merely appearing on a report does
+// not qualify). Returns the JSON body or throws an Error whose .status carries
+// the HTTP code.
 async function osiAiPackGet(caseRef, packType){
   var url = SUPABASE_URL + '/functions/v1/osi-ai-pack';
   var maint = (typeof resolveMaintainerAccess==='function') ? resolveMaintainerAccess().allowed : false;
@@ -9242,7 +9243,7 @@ async function osiAiPackDownload(caseRef, packType){
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }catch(e){
     var st = e && e.status;
-    var msg = (st===403 || st===401) ? 'This escalation pack is available to the case owner, verified analysts, and maintainers.'
+    var msg = (st===403 || st===401) ? 'Available to verified analysts and maintainers.'
       : (st===404) ? 'No reviewed pack is available for this case.'
       : 'Could not retrieve the pack right now.';
     if(typeof showToast==='function') showToast(msg); else if(typeof alert==='function') alert(msg);
@@ -9796,7 +9797,8 @@ async function pfRenderCases(addr){
 }
 function pfDownloadPack(caseRef, idx){
   var packs = (window.__pfPacks || {})[caseRef] || []; var p = packs[idx]; if(!p) return;
-  // Owner-authorized fetch (wallet proof) via the secure osi-ai-pack "get" path.
+  // Authorized fetch via the secure osi-ai-pack "get" path (verified analyst or
+  // maintainer only; a wallet appearing on the report is not sufficient).
   osiAiPackDownload(caseRef, p.pack_type);
 }
 

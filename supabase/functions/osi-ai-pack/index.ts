@@ -10,9 +10,9 @@
 //                     fields fetched server-side (never client-supplied), with
 //                     a prompt-injection-hardened, evidence-bound prompt. Stores
 //                     the pack as status='review_required'. Never auto-approves.
-//   "get"          -> full pack content for report owner / verified analyst /
-//                     maintainer only. This is the ONLY path to full content —
-//                     RLS no longer exposes `content` to anon.
+//   "get"          -> full pack content for verified analyst / maintainer only.
+//                     This is the ONLY path to full content — RLS no longer
+//                     exposes `content` to anon.
 //   "public_meta"  -> metadata only (case_ref, pack_type, status) for approved
 //                     packs. No content. For the public "AI Pack reviewed"
 //                     indicator.
@@ -27,10 +27,11 @@
 //   - Error bodies are neutral codes; evidence and generated content are never
 //     logged.
 //
-// Deploy: name `osi-ai-pack`, "Verify JWT" OFF (analysts/owners authenticate by
-// wallet signature). Required secret: ANTHROPIC_API_KEY. SUPABASE_URL and
-// SUPABASE_SERVICE_ROLE_KEY are auto-injected. Optional: OSI_AIPACK_MODEL
-// (default claude-opus-4-8), OSI_AIPACK_ALLOWED_ORIGIN (CORS, default "*").
+// Deploy: name `osi-ai-pack`, "Verify JWT" OFF (verified analysts authenticate
+// by wallet signature). Required secrets: ANTHROPIC_API_KEY and OSI_AIPACK_MODEL
+// (no default — generation fails closed if unset; the model is never read from
+// the request). SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are auto-injected.
+// Optional: OSI_AIPACK_ALLOWED_ORIGIN (CORS, default "*").
 // ============================================================================
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
@@ -42,7 +43,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ALLOWED_ORIGIN = Deno.env.get("OSI_AIPACK_ALLOWED_ORIGIN") ?? "*";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const MODEL = Deno.env.get("OSI_AIPACK_MODEL") ?? "claude-opus-4-8";
+// Model is a server-side secret with NO fallback and is NEVER read from the
+// request. If unset, generation fails closed (neutral config error) rather than
+// calling a guessed model.
+const MODEL = Deno.env.get("OSI_AIPACK_MODEL") ?? "";
 
 const PURPOSE = "OSI AI Pack Access v1";
 const MAX_AGE_MS = 120_000;
@@ -180,7 +184,9 @@ async function handleGenerate(
     signer = proof.wallet!;
   }
 
-  if (!ANTHROPIC_API_KEY) return jsonResponse(500, { ok: false, error: "not_configured" });
+  // Fail closed if the model or API key is not configured server-side. Do not
+  // call Anthropic and do not store a pack.
+  if (!ANTHROPIC_API_KEY || !MODEL) return jsonResponse(500, { ok: false, error: "not_configured" });
 
   // Fetch evidence server-side. Never trust client-supplied evidence.
   const { data: rows, error: rerr } = await admin.from("reports")
@@ -198,7 +204,7 @@ async function handleGenerate(
     "REPORT_NARRATIVE (submitted allegation): " + (clip(report.summary, 8000) || "Not provided"),
     "ON_CHAIN_REFERENCES (as submitted): " + (clip(report.onchain, 4000) || clip(report.tx, 2000) || "Not provided"),
     "OFF_CHAIN_REFERENCES (as submitted): " + (clip(report.offchain, 4000) || "Not provided"),
-    "REPORTER_WALLET: " + (clip(report.wallet, 100) || "Not provided"),
+    "WALLET_ON_RECORD (as submitted, unverified — not proof of submitter identity): " + (clip(report.wallet, 100) || "Not provided"),
   ].join("\n");
 
   const userContent =
@@ -265,23 +271,19 @@ async function handleGet(
   const packType = clip(body.pack_type, 40);
   if (!caseRef) return jsonResponse(400, { error: "missing_case" });
 
-  // Look up the report owner for owner-authorization.
-  const { data: rrows } = await admin.from("reports").select("id,wallet").eq("id", caseRef).limit(1);
-  const report = rrows && rrows[0];
-  if (!report) return jsonResponse(404, { reason: "not_found" });
-
-  // Authorize: maintainer JWT, verified analyst, or the report owner.
-  let authorized = false;
+  // Authorize: maintainer JWT OR server-verified analyst ONLY.
+  // `reports` has no cryptographically bound submitter/owner column; reports.wallet
+  // is the reported/target wallet, NOT proof of who filed the case, so it must
+  // never grant content access. Ordinary connected wallets get metadata only.
+  // Owner access can be added later ONLY once a real submitter-ownership field
+  // (securely bound at submission time) exists.
   if (await isMaintainer(authHeader)) {
-    authorized = true;
+    // maintainer Supabase session — allowed
   } else {
     const proof = verifyProof(body);
     if (!proof.ok) return jsonResponse(403, { reason: proof.reason ?? "unauthorized" });
-    if (String(report.wallet ?? "") === proof.wallet) authorized = true;
-    else if (await isVerifiedAnalyst(proof.wallet!)) authorized = true;
-    else return jsonResponse(403, { reason: "not_authorized" });
+    if (!(await isVerifiedAnalyst(proof.wallet!))) return jsonResponse(403, { reason: "not_authorized" });
   }
-  if (!authorized) return jsonResponse(403, { reason: "not_authorized" });
 
   let q = admin.from("escalation_packs")
     .select("id,pack_type,content,status,created_at")
