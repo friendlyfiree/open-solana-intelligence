@@ -44,7 +44,7 @@ function plSealedRender(){
   var name = s.label ? escapeHtml(String(s.label).replace(/^sealed /,'').slice(0,40)) : '';
   card.style.display='';
   host.innerHTML = '<div class="pl-sl-top"><span class="pl-sl-id mono">'+cid+'</span>'+(name?('<span class="pl-sl-nm">'+name+'</span>'):'')+'</div>'
-    + '<div class="pl-sl-meta mono">Sealed by '+raShortW(s.actor_wallet)+' \u00b7 '+raTimeAgo(s.created_at)+'</div>'
+    + '<div class="pl-sl-meta mono">Sealed by '+escapeHtml(raShortW(s.actor_wallet))+' \u00b7 '+raTimeAgo(s.created_at)+'</div>'
     + (s.tx_sig ? ('<a class="pl-sl-btn" href="'+solscanTx(s.tx_sig)+'" target="_blank" rel="noopener">View record \u2197</a>') : '');
 }
 // Proof Log v2: live view uses real onchain_events only. Existing sample rows
@@ -459,7 +459,7 @@ async function foDeckProof(){
       var sig=String(ev.tx_sig||'');
       var right=sig ? ('<a class="fd-ago mono" href="https://solscan.io/tx/'+encodeURIComponent(sig)+'" target="_blank" rel="noopener">'+escapeHtml(sig.slice(0,4)+'\u2026'+sig.slice(-4))+' \u2197</a>')
                     : ('<span class="fd-ago mono">'+fdAgo(ev.created_at)+'</span>');
-      return '<div class="fd-it"><span class="fd-ic sol">\u26d3</span><div class="fd-tx"><b>'+escapeHtml(String(ev.event_type||'SIGNED_ACTION'))+'</b><span>by '+raShortW(ev.actor_wallet)+' \u00b7 '+fdAgo(ev.created_at)+'</span></div>'+right+'</div>';
+      return '<div class="fd-it"><span class="fd-ic sol">\u26d3</span><div class="fd-tx"><b>'+escapeHtml(String(ev.event_type||'SIGNED_ACTION'))+'</b><span>by '+escapeHtml(raShortW(ev.actor_wallet))+' \u00b7 '+fdAgo(ev.created_at)+'</span></div>'+right+'</div>';
     }).join('');
   }catch(e){ host.innerHTML='<div class="fd-empty mono">Proof log unavailable right now.</div>'; }
 }
@@ -472,7 +472,7 @@ async function foDeckAnalysts(){
     if(!ws.length){ host.innerHTML='<div class="fd-empty mono">No verified analysts on the roster yet. Be the first to join.</div>'; return; }
     host.innerHTML=ws.slice(0,3).map(function(w){
       var a=m[w]||{}; var nm=escapeHtml(a.handle||a.name||raShortW(w));
-      return '<div class="fd-it"><span class="fd-ic vio">\u25ce</span><div class="fd-tx"><b>'+nm+'</b><span class="mono">'+raShortW(w)+'</span></div><span class="fd-ago mono">\u2605 verified</span></div>';
+      return '<div class="fd-it"><span class="fd-ic vio">\u25ce</span><div class="fd-tx"><b>'+nm+'</b><span class="mono">'+escapeHtml(raShortW(w))+'</span></div><span class="fd-ago mono">\u2605 verified</span></div>';
     }).join('') + '<div class="fd-count mono">'+ws.length+' verified analyst'+(ws.length===1?'':'s')+' on the roster</div>';
   }catch(e){ host.innerHTML='<div class="fd-empty mono">Roster unavailable right now.</div>'; }
 }
