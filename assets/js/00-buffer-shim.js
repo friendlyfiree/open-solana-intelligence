@@ -1,0 +1,1 @@
+try{ if(!window.Buffer && window.buffer && window.buffer.Buffer){ window.Buffer = window.buffer.Buffer; } }catch(e){}
