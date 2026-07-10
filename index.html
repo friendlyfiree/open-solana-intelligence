@@ -5259,6 +5259,7 @@ async function admSaveConsensus(){
   const auto = document.getElementById('admConAuto').checked ? 'on' : 'off';
   const msg = document.getElementById('admConMsg');
   if(isNaN(thr) || thr<1){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Threshold must be 1 or more.'; } return; }
+  osiSignEvent({ eventType:'CONFIG_CHANGED', actionLabel:'Save consensus settings', itemType:'config', itemId:'consensus', sensitive:true, onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
   try{
     await supaUpsertConfig('consensus_threshold', String(thr));
@@ -5267,6 +5268,7 @@ async function admSaveConsensus(){
     if(msg){ msg.style.color='var(--sol)'; msg.textContent = '\u2713 Saved. ' + (auto==='on' ? ('Items now auto-publish at '+thr+' approve-weight.') : 'Auto-publish off, your seal stays final.'); }
     renderReviewFloor();
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Failed: '+((e&&e.message)||e); } }
+  }});
 }
 
 // ===== ANALYST ROSTER (founder-curated, level earned by verified work) =====
@@ -5765,6 +5767,7 @@ async function admAddAnalyst(){
   const bio=(document.getElementById('admAnBio').value||'').trim();
   const msg=document.getElementById('admAnMsg');
   if(!isSolAddr(wallet)){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Enter a valid Solana wallet address.'; } return; }
+  osiSignEvent({ eventType:'ANALYST_VERIFIED', actionLabel:'Add analyst', itemType:'analyst', itemId: wallet, publicLabel:'Analyst verified', onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Adding\u2026'; }
   try{
     await supaUpsertAnalyst({ wallet:wallet, handle:handle||null, name:name||null, bio:bio||null, verified:true, approved:true });
@@ -5772,20 +5775,25 @@ async function admAddAnalyst(){
     ['admAnWallet','admAnHandle','admAnName','admAnBio'].forEach(function(id){ const e=document.getElementById(id); if(e) e.value=''; });
     admRefresh(); loadAnalysts(); renderAnalysts();
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Failed: '+((e&&e.message)||e)+' (did you run the latest SQL?)'; } }
+  }});
 }
 async function admSetAnalyst(wallet, on){
   if(!requireMaintainerAccess(on ? 'Verify analyst' : 'Unverify analyst')) return;
+  osiSignEvent({ eventType: on?'ANALYST_VERIFIED':'ANALYST_REVOKED', actionLabel: on?'Verify analyst':'Unverify analyst', itemType:'analyst', itemId: wallet, sensitive: !on, publicLabel: (on?'Analyst verified':null), onSuccess: async (sig)=>{
   try{
     await supaPatch('analysts?wallet=eq.'+encodeURIComponent(wallet), { verified:on, approved:on });
     showToast(on?'Analyst verified and on the roster.':'Analyst hidden from the roster.');
     admRefresh(); loadAnalysts(); renderAnalysts();
   }catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
+  }});
 }
 async function admDelAnalyst(wallet){
   if(!requireMaintainerAccess('Remove analyst')) return;
   if(!confirm('Remove this analyst from the roster? This cannot be undone.')) return;
+  osiSignEvent({ eventType:'ANALYST_REVOKED', actionLabel:'Remove analyst', itemType:'analyst', itemId: wallet, sensitive:true, onSuccess: async (sig)=>{
   try{ await supaDelete('analysts?wallet=eq.'+encodeURIComponent(wallet)); showToast('Analyst removed.'); admRefresh(); loadAnalysts(); renderAnalysts(); }
   catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
+  }});
 }
 
 // ===== Maintainer button: visible only to the configured maintainer wallet =====
@@ -5804,6 +5812,7 @@ async function admSaveAdminWallet(){
   const v=(document.getElementById('admAdminW').value||'').trim();
   const msg=document.getElementById('admAdminMsg');
   if(v && !isSolAddr(v)){ if(msg){ msg.style.color='var(--red)'; msg.textContent="That is not a valid Solana address."; } return; }
+  osiSignEvent({ eventType:'CONFIG_CHANGED', actionLabel:'Save maintainer wallet', itemType:'config', itemId:'admin_wallet', sensitive:true, onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
   try{
     await supaUpsertConfig('admin_wallet', v);
@@ -5811,6 +5820,7 @@ async function admSaveAdminWallet(){
     updateAdminButton();
     if(msg){ msg.style.color='var(--sol)'; msg.textContent = OSI_ADMIN_WALLET ? ('\u2713 Saved. The maintainer button now appears only when '+short(OSI_ADMIN_WALLET)+' is connected.') : '\u2713 Cleared. The button stays visible until you set a wallet.'; }
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Save failed: '+((e&&e.message)||e); } }
+  }});
 }
 
 // ===== Admin: edit a bounty (target, brief, reward, logo) =====
@@ -5882,6 +5892,7 @@ async function admSaveSupport(){
   const v = (document.getElementById('admSupport').value || '').trim();
   const msg = document.getElementById('admCfgMsg');
   if(v && !isSolAddr(v)){ if(msg){ msg.style.color='var(--red)'; msg.textContent = "That does not look like a valid Solana address."; } return; }
+  osiSignEvent({ eventType:'CONFIG_CHANGED', actionLabel:'Save support wallet', itemType:'config', itemId:'support_wallet', sensitive:true, onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent = 'Saving…'; }
   try{
     await supaUpsertConfig('support_wallet', v);
@@ -5890,6 +5901,7 @@ async function admSaveSupport(){
     try{ renderCaseStudies(); }catch(e){}
     try{ renderWire(); }catch(e){}
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent = 'Save failed: ' + ((e && e.message) || e); } }
+  }});
 }
 
 // ===== THE WIRE: open community intelligence, filed without a bounty =====
@@ -7698,8 +7710,10 @@ function admReflow(){
 }
 async function admSet(table, id, approved){
   if(!requireMaintainerAccess(approved ? 'Approve item' : 'Unpublish item')) return;
+  osiSignEvent({ eventType: approved?'MAINTAINER_APPROVAL':'MAINTAINER_REJECTION', actionLabel: approved?'Approve item':'Unpublish item', caseId: (table==='bounties'?id:''), reportId: (table==='reports'?id:''), itemType: (table==='reports'?'report':(table==='bounties'?'bounty':String(table||'item'))), itemId: id, sensitive: !approved, publicLabel: (approved?'Maintainer approved':null), onSuccess: async (sig)=>{
   try{ await supaPatch(table+'?id=eq.'+encodeURIComponent(id), { approved: approved }); showToast(approved?'Published. Now public for everyone.':'Unpublished.'); admRefresh(); admReflow(); }
   catch(e){ showToast('Action failed: '+e.message); }
+  }});
 }
 async function admDel(table, id){
   if(!requireMaintainerAccess('Delete item')) return;
@@ -9141,23 +9155,28 @@ function escRenderPackControls(p){
 
 async function escApprovePack(packId){
   if(!requireMaintainerAccess('Approve escalation pack')){ escStatus(maintainerAccessMessage(resolveMaintainerAccess()), 'warn'); return; }
+  var _packCaseRef = (typeof escCurrentPacks!=='undefined' && escCurrentPacks) ? ((escCurrentPacks.find(function(p){ return String(p.id)===String(packId); })||{}).case_ref||'') : '';
+  osiSignEvent({ eventType:'ESCALATION_PACK_APPROVED', actionLabel:'Approve escalation pack', reportId:_packCaseRef, itemType:'report', itemId: packId, sensitive:true, onSuccess: async (sig)=>{
   try{
     await supaPatch('escalation_packs?id=eq.' + encodeURIComponent(packId), { status:'approved' });
     escStatus('Pack marked reviewed. It can now appear in Public Case Records.', 'ok');
     var sel = document.getElementById('esc-case'); if(sel) await escLoadPacksForCase(sel.value);
     if(typeof renderCaseRecords === 'function') renderCaseRecords();
   }catch(e){ escStatus('Could not update the pack. Check you are signed in as a maintainer.', 'warn'); }
+  }});
 }
 
 async function escSealCase(){
   if(!requireMaintainerAccess('Seal case')){ escStatus(maintainerAccessMessage(resolveMaintainerAccess()), 'warn'); return; }
   var sel = document.getElementById('esc-case'); var caseRef = sel ? sel.value : '';
   if(!caseRef){ escStatus('Pick a case first.', 'warn'); return; }
+  osiSignEvent({ eventType:'RECORD_SEALED', actionLabel:'Seal case', reportId: caseRef, itemType:'report', itemId: caseRef, publicLabel:'Record sealed', onSuccess: async (sig)=>{
   try{
     await supaPatch('reports?id=eq.' + encodeURIComponent(caseRef), { sealed:true });
     escStatus('Case sealed. It now shows as Sealed in Public Case Records.', 'ok');
     if(typeof renderCaseRecords === 'function') renderCaseRecords();
   }catch(e){ escStatus('Could not seal the case. Check you are signed in as a maintainer.', 'warn'); }
+  }});
 }
 
 // ---- Public Case Records (premium intelligence archive + drawer) ----
