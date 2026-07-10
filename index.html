@@ -4919,17 +4919,21 @@ async function vouch(type,id,vote,creator){
     : "OSI_CHALLENGE_FILED|item_type="+type+"|item_id="+id+"|weight="+analystWeight(walletPubkey)+"|challenger="+(walletPubkey||'')+"|ts="+_vts;
   withOnchainVote(vote==='approve' ? 'Vouch to publish' : 'Vote to close', _vmemo, async (sig)=>{
     try{
-      await supaPost('vouches', { item_type:type, item_id:id, analyst:walletPubkey, vote:vote });
+      // Keep the signed proof-log event (Stage 1 behavior; onchain_events insert).
       recordOnchainEvent({ event_type:'analyst_vouch', item_type:type, item_id:id, vote:vote, label:(vote==='approve'?'approved':'challenged')+' '+type, memo_text:_vmemo, tx_sig:sig });
-      showToast(vote==='approve' ? 'Vote signed on-chain \u2713 immutable' : 'Rejection signed on-chain \u2713 immutable');
+      // Stage 2C: the vote + any publication are performed server-side by the
+      // verified Edge Function (no direct anon vouches insert, no anon publish).
+      var _res = await osiReviewAction({ item_type:type, item_id:id, vote:(vote==='approve'?'approve':'challenge'), tx_sig:sig });
+      if(_res && (_res.reports||_res.bounties||_res.challenges)){
+        window.__osiIntake = { at: Date.now(), data: { reports:_res.reports||[], bounties:_res.bounties||[], challenges:_res.challenges||[] } };
+      }
+      showToast('Review action recorded.');
+      if(_res && _res.published) showToast('Record approved for public review.');
       await loadVouches();
-      const dec = vouchDecision(type,id,row);
-      if(dec==='published') showToast('Consensus reached \u00b7 publishing to the public record \u2713');
-      if(dec==='rejected')  showToast('Consensus reached \u00b7 item closed.');
       renderReviewFloor();
       if(typeof renderActivity==='function'){ try{ renderActivity(); }catch(e){} }
-      if(dec){ try{ renderFieldOffice(); renderWire(); if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); loadAnalysts(); if(typeof renderCaseRecords==='function') renderCaseRecords(); }catch(e){} }
-    }catch(e){ showToast('Vote rejected by the ledger (one immutable vote per item).'); }
+      if(_res && _res.published){ try{ renderFieldOffice(); renderWire(); if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); loadAnalysts(); if(typeof renderCaseRecords==='function') renderCaseRecords(); }catch(e){} }
+    }catch(e){ showToast((e && e.status===403) ? 'Analyst access required \u00b7 verify your analyst wallet.' : 'Could not record the review action. Please try again.'); }
   });
 }
 // ---- contributor tier: 1+ approved report or a case win unlocks read access to the queue ----
@@ -5057,6 +5061,11 @@ function osiB64(bytes){
   return btoa(s);
 }
 async function osiAnalystIntakeProof(){
+  // Reuse a recent proof (well inside the server's 120s window) so unlocking the
+  // floor and then voting does not trigger a second signMessage prompt.
+  if(window.__osiProof && window.__osiProof.proof && window.__osiProof.proof.wallet===walletPubkey && (Date.now()-window.__osiProof.at < 90000)){
+    return window.__osiProof.proof;
+  }
   var prov = (typeof getConnectedProvider==='function') ? getConnectedProvider() : (typeof getProvider==='function'?getProvider():null);
   if(!walletPubkey || !prov){
     if(typeof toggleWallet==='function'){ try{ await toggleWallet(); }catch(e){} }
@@ -5067,7 +5076,22 @@ async function osiAnalystIntakeProof(){
   var msg = 'OSI Analyst Intake Access v1\nwallet: '+walletPubkey+'\nissued: '+Date.now()+'\nnonce: '+(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2));
   var res = await prov.signMessage(new TextEncoder().encode(msg), 'utf8');
   var sigBytes = (res && res.signature) ? res.signature : res;
-  return { wallet: walletPubkey, message: msg, signature: osiB64(sigBytes) };
+  var proof = { wallet: walletPubkey, message: msg, signature: osiB64(sigBytes) };
+  window.__osiProof = { at: Date.now(), proof: proof };
+  return proof;
+}
+// Stage 2C: record a verified analyst review action (approve/challenge) through
+// the secure Edge Function. Identity is the wallet signMessage proof; tx_sig is
+// the on-chain memo reference (required, but never trusted as identity). The DB
+// write + any publication happen server-side (service role), never anon.
+async function osiReviewAction(o){
+  var proof = await osiAnalystIntakeProof();
+  var url = SUPABASE_URL + '/functions/v1/osi-analyst-intake';
+  var headers = { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SUPABASE_ANON_KEY };
+  var payload = { mode:'review_action', wallet:proof.wallet, message:proof.message, signature:proof.signature, item_type:o.item_type, item_id:o.item_id, vote:o.vote, tx_sig:o.tx_sig };
+  var res = await fetch(url, { method:'POST', headers: headers, body: JSON.stringify(payload) });
+  if(!res.ok){ var er=new Error('review_'+res.status); er.status=res.status; throw er; }
+  return await res.json();
 }
 // Fetch pending intake from the secure endpoint. Caches per session so tab
 // switches / pagination do not re-prompt Phantom; pass {force:true} to refresh.
