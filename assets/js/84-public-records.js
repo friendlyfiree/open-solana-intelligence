@@ -4,7 +4,24 @@
 window.__crRecords = {};
 window.__crPacks = {};
 
-function crAttr(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+// Escapes a value for use inside a JS string that is itself inside a
+// double-quoted HTML on* attribute (e.g. onclick="f(&quot;VALUE&quot;)" or
+// onclick="f('VALUE')"). Must neutralise BOTH the JS-string delimiters (' and ")
+// and the surrounding HTML attribute delimiter (") — a raw " would otherwise
+// close the attribute and allow handler injection. Order: JS-escape backslash
+// and both quotes, flatten newlines, then HTML-escape so the escaped " becomes
+// \&quot; (safe in the attribute) and </>/& cannot start markup/entities.
+function crAttr(s){
+  return String(s==null?'':s)
+    .replace(/\\/g,'\\\\')
+    .replace(/'/g,"\\'")
+    .replace(/"/g,'\\"')
+    .replace(/\r?\n/g,' ')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
 function osiCaseId(id){ var s=String(id==null?'':id).replace(/[^a-zA-Z0-9]/g,'').toUpperCase(); return 'OSI-' + (s ? s.slice(0,6) : '000000'); }
 function crCountTokens(v){ if(!v) return 0; return String(v).split(/[\s,;\n]+/).filter(function(x){ return x && x.length>3; }).length; }
 function crStatus(r){

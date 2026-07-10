@@ -85,7 +85,7 @@ async function osiSignEvent(opts){
 }
 function raShortW(w){ w=String(w||''); return w.length>8 ? (w.slice(0,4)+'\u2026'+w.slice(-4)) : (w||'someone'); }
 function raSignedItem(ev){
-  var w=raShortW(ev.actor_wallet);
+  var w=escapeHtml(raShortW(ev.actor_wallet));
   var item=escapeHtml(String(ev.item_id||'').slice(0,12));
   var type=escapeHtml(ev.item_type||'item');
   var ic='\u2605', label, signed='Signed memo';

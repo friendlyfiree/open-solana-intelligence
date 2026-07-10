@@ -218,7 +218,7 @@ async function lbActions(){
     host.innerHTML=evs.map(function(ev){
       var sig=String(ev.tx_sig||'');
       var right=sig?('<a class="fd-ago mono" href="https://solscan.io/tx/'+encodeURIComponent(sig)+'" target="_blank" rel="noopener">'+escapeHtml(sig.slice(0,4)+'\u2026'+sig.slice(-4))+' \u2197</a>'):('<span class="fd-ago mono">'+fdAgo(ev.created_at)+'</span>');
-      return '<div class="fd-it"><span class="fd-ic vio">\u25ce</span><div class="fd-tx"><b>'+escapeHtml(String(ev.event_type||'SIGNED_ACTION'))+'</b><span>'+raShortW(ev.actor_wallet)+' \u00b7 '+fdAgo(ev.created_at)+'</span></div>'+right+'</div>';
+      return '<div class="fd-it"><span class="fd-ic vio">\u25ce</span><div class="fd-tx"><b>'+escapeHtml(String(ev.event_type||'SIGNED_ACTION'))+'</b><span>'+escapeHtml(raShortW(ev.actor_wallet))+' \u00b7 '+fdAgo(ev.created_at)+'</span></div>'+right+'</div>';
     }).join('');
   }catch(e){ host.innerHTML='<div class="fd-empty mono">Proof log unavailable right now.</div>'; }
 }

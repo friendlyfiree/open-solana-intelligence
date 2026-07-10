@@ -248,7 +248,7 @@ function reviewCard(it, canVouch){
     + '<div class="rvc-left">'
       + '<div class="rvc-badges">'+typeBadge+statusBadge+'</div>'
       + '<div class="rvc-ttl">'+escapeHtml(cid)+' \u00b7 '+escapeHtml(it.title)+'</div>'
-      + '<div class="rvc-by mono">Submitted by '+raShortW(it.creator)+' \u00b7 '+raTimeAgo(it.ts)+'</div>'
+      + '<div class="rvc-by mono">Submitted by '+escapeHtml(raShortW(it.creator))+' \u00b7 '+raTimeAgo(it.ts)+'</div>'
       + (it.sub? '<div class="rvc-sum">'+escapeHtml(it.sub)+'</div>' : '')
       + chips
     + '</div>'
@@ -306,7 +306,7 @@ function rvDrawerHtml(type,id,row){
   return '<div class="rvd-head">'
       + '<div class="rvd-badges"><span class="rvc-type '+(type==='bounty'?'case':(type==='challenge'?'chal':'report'))+'">'+typeLabel+'</span><span class="rvd-cid mono">'+escapeHtml(cid)+'</span></div>'
       + '<h3 class="rvd-title">'+title+'</h3>'
-      + '<div class="rvd-by mono">Submitted by '+raShortW(creator)+' \u00b7 '+raTimeAgo(row.created_at)+'</div>'
+      + '<div class="rvd-by mono">Submitted by '+escapeHtml(raShortW(creator))+' \u00b7 '+raTimeAgo(row.created_at)+'</div>'
     + '</div>'
     + '<div class="rvd-meter">'+meter+'</div>'
     + '<div class="rvd-sec"><div class="rvd-sec-h mono">'+(type==='challenge'?'CHALLENGE REASONING':'FULL REPORT')+'</div><div class="rvd-body-txt">'+fullText+'</div></div>'
