@@ -86,6 +86,108 @@ async function loadPending() {
   };
 }
 
+// Publication threshold: number of DISTINCT verified-analyst approvals required
+// to publish a target. Read from osi_config (no schema change); defaults to 1.
+// The existing weight-based consensus_threshold is left untouched for the
+// client consensus meter; Stage 2C publication uses this simple count.
+async function publishThreshold(): Promise<number> {
+  try {
+    const { data } = await admin.from("osi_config").select("value")
+      .eq("key", "analyst_publish_min_approvals").limit(1);
+    const v = data && data[0] ? parseInt(String(data[0].value), 10) : NaN;
+    if (Number.isFinite(v) && v >= 1) return v;
+  } catch { /* fall back to default */ }
+  return 1;
+}
+
+// Count distinct wallets that (a) have an 'approve' vouch on this item AND
+// (b) are currently verified+approved analysts. Ignores stale/non-verified
+// votes so the count is a true verified-analyst approval count.
+async function countVerifiedApprovals(itemType: string, itemId: string): Promise<number> {
+  const { data: votes } = await admin.from("vouches")
+    .select("analyst,vote").eq("item_type", itemType).eq("item_id", itemId).eq("vote", "approve");
+  const wallets = Array.from(new Set((votes ?? []).map((v) => String(v.analyst)).filter(Boolean)));
+  if (!wallets.length) return 0;
+  const { data: verified } = await admin.from("analysts")
+    .select("wallet").in("wallet", wallets).eq("verified", true).eq("approved", true);
+  const vset = new Set((verified ?? []).map((a) => String(a.wallet)));
+  return wallets.filter((w) => vset.has(w)).length;
+}
+
+// review_action: record a verified analyst's approve/challenge vote (server-side,
+// service role) and publish the target if the approval threshold is met. Errors
+// are neutral codes only — never echo report/case narrative.
+async function handleReviewAction(
+  body: Record<string, unknown>,
+  wallet: string,
+): Promise<Response> {
+  const itemType = String(body.item_type ?? "");
+  const itemId = String(body.item_id ?? "");
+  const vote = String(body.vote ?? "");
+  const txSig = String(body.tx_sig ?? "");
+
+  if (itemType !== "report" && itemType !== "bounty" && itemType !== "challenge") {
+    return jsonResponse(400, { reason: "bad_item_type" });
+  }
+  if (vote !== "approve" && vote !== "challenge") return jsonResponse(400, { reason: "bad_vote" });
+  if (!itemId) return jsonResponse(400, { reason: "missing_item" });
+  if (!txSig) return jsonResponse(400, { reason: "missing_tx" }); // tx_sig required, but is NOT identity
+
+  // vouches stores 'approve' | 'reject' (client meter reads that); a 'challenge'
+  // action is stored as 'reject'.
+  const dbVote = vote === "approve" ? "approve" : "reject";
+
+  // Challenge items (uphold/dismiss votes on the challenges table) are recorded
+  // only — they never publish a report/bounty. Handled here so review-floor
+  // challenge voting keeps working without any anon vouches insert.
+  if (itemType === "challenge") {
+    await admin.from("vouches").delete()
+      .eq("item_type", itemType).eq("item_id", itemId).eq("analyst", wallet);
+    const { error: cErr } = await admin.from("vouches")
+      .insert({ item_type: itemType, item_id: itemId, analyst: wallet, vote: dbVote });
+    if (cErr) return jsonResponse(500, { error: "vote_failed" });
+    const cData = await loadPending();
+    return jsonResponse(200, { role: "analyst", recorded: true, published: false, ...cData });
+  }
+
+  const table = itemType === "report" ? "reports" : "bounties";
+  const { data: rows, error: lookupErr } = await admin.from(table)
+    .select("id,approved,review_status").eq("id", itemId).limit(1);
+  if (lookupErr) return jsonResponse(500, { error: "lookup_failed" });
+  const target = rows && rows[0];
+  if (!target) return jsonResponse(404, { reason: "not_found" });
+
+  const alreadyPublic = target.approved === true;
+
+  // Dedupe: replace any prior vote from this analyst on this item, then insert.
+  await admin.from("vouches").delete()
+    .eq("item_type", itemType).eq("item_id", itemId).eq("analyst", wallet);
+  const { error: voteErr } = await admin.from("vouches")
+    .insert({ item_type: itemType, item_id: itemId, analyst: wallet, vote: dbVote });
+  if (voteErr) return jsonResponse(500, { error: "vote_failed" });
+
+  // Publish only on approve, only if not already public, only at/over threshold.
+  let published = alreadyPublic;
+  if (!alreadyPublic && vote === "approve") {
+    const [threshold, approvals] = await Promise.all([
+      publishThreshold(),
+      countVerifiedApprovals(itemType, itemId),
+    ]);
+    if (approvals >= threshold) {
+      const patch = itemType === "report"
+        ? { approved: true, review_status: "approved" }
+        : { approved: true, review_status: "approved_public" };
+      const { error: pubErr } = await admin.from(table).update(patch).eq("id", itemId);
+      if (pubErr) return jsonResponse(500, { error: "publish_failed" });
+      published = true;
+    }
+  }
+  // A 'challenge' vote never publishes.
+
+  const data = await loadPending(); // refreshed lists so the client updates without re-signing
+  return jsonResponse(200, { role: "analyst", recorded: true, published, ...data });
+}
+
 // Maintainer path: a valid Supabase user session (the app's only authenticated
 // role). The publishable anon key is NOT a user JWT, so getUser rejects it.
 async function isMaintainer(authHeader: string | null): Promise<boolean> {
@@ -174,6 +276,11 @@ serve(async (req: Request): Promise<Response> => {
   const analyst = rows && rows[0];
   if (!analyst || analyst.verified !== true || analyst.approved !== true) {
     return jsonResponse(403, { reason: "not_verified" });
+  }
+
+  // Verified analyst: either take a review action, or list pending intake.
+  if (body && body.mode === "review_action") {
+    return await handleReviewAction(body, proof.wallet!);
   }
 
   const data = await loadPending();
