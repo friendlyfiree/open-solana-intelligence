@@ -106,8 +106,6 @@ body{
 .modal-sub{font-size:12px;color:var(--violet);margin-top:4px}
 .apply-wallet{font-size:11.5px;color:var(--ink-dim);padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.02)}
 .apply-wallet.connected{color:var(--sol);border-color:rgba(20,241,149,.35);background:rgba(20,241,149,.05)}
-.rc-bounty{display:inline-block;margin-top:5px;font-size:10px;color:var(--violet);background:rgba(153,69,255,.1);border:1px solid rgba(153,69,255,.25);padding:2px 7px;border-radius:5px}
-.report-card.approved{border-color:rgba(20,241,149,.35)}
 
 /* requests */
 .req-list{display:flex;flex-direction:column;gap:9px;margin-bottom:22px}
@@ -129,23 +127,6 @@ body{
 .rk{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sol);font-weight:700;background:rgba(20,241,149,.08);border:1px solid rgba(20,241,149,.2);border-radius:4px;padding:2px 6px;margin-top:1px}
 .analyst{display:flex;align-items:center;gap:14px;padding:18px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px}
 .av{width:42px;height:42px;border-radius:10px;background:var(--bg-raised);border:1px solid var(--line-bright);display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:var(--ink-dim);flex-shrink:0}
-.report-card{background:var(--bg-card);border:1px solid var(--line);border-radius:12px;padding:20px}
-.rc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
-.rc-co{font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.rc-by{font-size:11px;color:var(--ink-faint);margin-top:5px}
-.rc-score{display:flex;gap:8px;flex-shrink:0}
-.vote-up,.vote-dn{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;padding:8px 13px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;border:1px solid var(--line-bright);background:var(--bg)}
-.vote-up{color:var(--sol)}
-.vote-up:hover:not(:disabled){background:rgba(20,241,149,.12);border-color:var(--sol)}
-.vote-dn{color:var(--red)}
-.vote-dn:hover:not(:disabled){background:rgba(255,84,112,.12);border-color:var(--red)}
-.vote-up:disabled,.vote-dn:disabled{opacity:.4;cursor:default}
-.rc-sum{font-size:13.5px;color:var(--ink-dim);line-height:1.55;margin-bottom:14px}
-.rc-proof{display:flex;gap:8px;flex-wrap:wrap}
-.proof-tag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;padding:4px 9px;border-radius:5px;letter-spacing:.03em}
-.proof-tag.onchain{color:var(--sol);background:rgba(20,241,149,.08);border:1px solid rgba(20,241,149,.25)}
-.proof-tag.offchain{color:var(--cyan);background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25)}
-.proof-tag.conf{color:var(--amber);background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.25)}
 
 /* ---- top bar ---- */
 header{
@@ -1169,7 +1150,6 @@ body[data-view="records"] .sb-item[data-view="records"]{background:rgba(34,211,2
 <style id="osi-caserecords">
 .cr-card{position:relative;border:1px solid var(--line);border-radius:12px;background:linear-gradient(165deg,rgba(20,27,48,.55),rgba(12,16,29,.6));padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:border-color .2s,transform .2s,box-shadow .2s}
 .cr-card:hover{border-color:var(--line-bright);transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.3)}
-.cr-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .cr-cid{font-size:10px;letter-spacing:.08em;color:var(--ink-faint)}
 .cr-status{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:20px;border:1px solid var(--line-bright)}
 .cr-sealed{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.07)}
@@ -1177,7 +1157,6 @@ body[data-view="records"] .sb-item[data-view="records"]{background:rgba(34,211,2
 .cr-pending{color:var(--ink-faint)}
 .cr-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:16px;color:var(--ink-bright);letter-spacing:-.01em;line-height:1.2}
 .cr-date{font-size:10px;color:var(--ink-faint);font-family:'JetBrains Mono',monospace}
-.cr-sum{font-size:12px;color:var(--ink-dim);line-height:1.45;flex:1}
 .cr-evrow{display:flex;flex-wrap:wrap;gap:6px}
 .cr-ev{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-dim);border:1px solid var(--line);border-radius:5px;padding:4px 7px}
 .cr-ev.amber{color:var(--acc2,#ff9a52);border-color:rgba(255,122,61,.3)}
@@ -1263,23 +1242,10 @@ body.cr-drawer-lock{overflow:hidden}
 /* case grid: 2-column, forensic density */
 #case-records{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:22px}
 @media(max-width:900px){ #case-records{grid-template-columns:1fr} }
-.cr-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.cr-chal{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(255,176,32,.35);background:rgba(255,176,32,.07);border-radius:20px;padding:3px 8px}
 .cr-date .sep{margin:0 5px;color:rgba(148,163,184,.35)}
-.cr-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0;margin:2px 0}
-.cr-m{display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px}
-.cr-m i{font-style:normal;font-size:12px;color:var(--cyan)}
-.cr-m b{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--ink-bright)}
-.cr-m span{font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:rgba(148,163,184,.5)}
-.cr-tags{display:flex;flex-wrap:wrap;gap:6px}
-.cr-tag{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-faint);border:1px solid var(--line);border-radius:20px;padding:3px 9px}
-.cr-tag.ok{color:var(--sol);border-color:rgba(20,241,149,.3);background:rgba(20,241,149,.05)}
-.cr-tag.amber{color:var(--amber);border-color:rgba(255,176,32,.3);background:rgba(255,176,32,.05)}
 .cr-actions.secondary{border-top:0;padding-top:0;margin-top:-3px}
 .cr-actions.secondary .cr-btn{opacity:.85}
 .cr-btn.outline{color:var(--ink-dim)}
-.cr-foot{display:flex;align-items:center;gap:7px;font-size:9.5px;color:rgba(148,163,184,.5);border-top:1px solid var(--line);padding-top:10px;margin-top:2px}
-.cr-foot .sep{color:rgba(148,163,184,.35)}
 .cr-copy{background:none;border:1px solid var(--line);border-radius:5px;color:rgba(148,163,184,.6);font-size:10px;padding:2px 5px;cursor:pointer;line-height:1;transition:all .12s}
 .cr-copy:hover{color:var(--cyan);border-color:rgba(34,211,238,.35)}
 .cr-arrow{margin-left:auto;color:rgba(148,163,184,.4);font-size:13px}
@@ -1731,8 +1697,6 @@ body[data-view="analysts"] .sb-item[data-view="analysts"]{background:rgba(34,211
 .cm-lock{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.04em}
 .cm-lock.ok{color:var(--sol)} .cm-lock.bad{color:var(--red)}
 /* records: support + challenge buttons */
-.cr-btn.sup{border-color:rgba(20,241,149,.35);color:var(--sol)}
-.cr-btn.sup:hover{border-color:var(--sol);background:rgba(20,241,149,.06)}
 .cr-btn.chx{border-color:rgba(255,176,32,.35);color:var(--amber)}
 .cr-btn.chx:hover{border-color:var(--amber);background:rgba(255,176,32,.06)}
 </style>
@@ -2032,9 +1996,6 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 .file-prev{margin-top:11px}
 .file-prev img{max-width:100%;max-height:200px;border-radius:4px;border:1px solid var(--line);display:block}
 .file-prev .file-doc{font-size:11px;color:var(--ink-dim);background:var(--bg-raised);border:1px solid var(--line);border-radius:3px;padding:9px 12px;display:inline-block}
-.rc-att-wrap{margin:10px 0 2px}
-.rc-att{display:inline-block;border:1px solid var(--line);border-radius:4px;overflow:hidden;max-width:260px}
-.rc-att img{display:block;max-width:100%;max-height:180px;object-fit:cover}
 </style>
   <div class="wrap">
 <aside class="fo-rail" aria-label="Field Office navigation">
@@ -2782,30 +2743,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .adm-who b{color:var(--sol)}
 .adm-out{background:none;border:1px solid var(--line-bright);border-radius:8px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;padding:7px 12px;cursor:pointer}
 .adm-out:hover{color:var(--ink);border-color:var(--ink-faint)}
-.adm-sec{margin-bottom:26px}
-.adm-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-faint);border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:11px;display:flex;align-items:center;gap:9px}
-.adm-h span{color:var(--sol);font-weight:700}
-.adm-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 16px;border:1px solid var(--line);border-left:2px solid var(--line-bright);background:var(--bg-card);margin-bottom:8px}
-.adm-meta{min-width:0}
-.adm-t{font-size:14px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-.adm-kind{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);border:1px solid var(--line-bright);border-radius:8px;padding:2px 6px}
-.adm-s{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-faint);margin-top:5px;word-break:break-word;line-height:1.45}
-.adm-acts{display:flex;gap:7px;flex-shrink:0}
-.adm-b{border:1px solid var(--line-bright);border-radius:8px;background:none;font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 11px;cursor:pointer;white-space:nowrap;color:var(--ink-dim)}
-.adm-b.ok{border-color:rgba(20,241,149,.5);color:var(--sol)}
-.adm-b.ok:hover{background:var(--sol);color:var(--bg)}
-.adm-b.warn{border-color:rgba(255,176,32,.4);color:var(--amber)}
-.adm-b.warn:hover{background:var(--amber);color:var(--bg)}
-.adm-b.del{border-color:rgba(255,84,112,.4);color:var(--red)}
-.adm-b.del:hover{background:var(--red);color:#fff}
-.adm-muted{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-faint);padding:10px 2px}
 .adm-err{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:8px;padding:14px;line-height:1.55;background:rgba(255,176,32,.05)}
-.adm-ops{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:22px}
-.adm-ops:empty{display:none}
-.adm-op{background:var(--bg-card);padding:12px 13px}
-.adm-op .n{display:block;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;color:var(--ink-bright);line-height:1}
-.adm-op .n.warn{color:var(--amber)}
-.adm-op .l{display:block;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.09em;color:var(--ink-faint);margin-top:6px;text-transform:uppercase}
 .moc-shell{position:relative;display:grid;grid-template-columns:250px minmax(740px,1fr) 380px;gap:16px;align-items:start;margin-top:4px;width:100%}
 .moc-shell::before{content:"";position:absolute;inset:-22px -26px auto -26px;height:230px;pointer-events:none;background:radial-gradient(circle at 24% 0%,rgba(34,211,238,.11),transparent 34%),linear-gradient(90deg,rgba(20,241,149,.06),transparent 55%);opacity:.9}
 .moc-nav,.moc-main,.moc-panel,.moc-card,.moc-bottom-card{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(7,12,22,.94));border-radius:8px;box-shadow:0 18px 60px rgba(0,0,0,.18)}
@@ -2886,7 +2824,6 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 @keyframes mocFlash{0%,100%{border-color:rgba(148,163,184,.16)}30%{border-color:rgba(34,211,238,.55);box-shadow:0 0 0 1px rgba(34,211,238,.2)}}
 @media(max-width:1420px){.moc-shell{grid-template-columns:240px minmax(0,1fr)}.moc-panel{position:relative;top:auto;grid-column:2}.moc-stats{grid-template-columns:repeat(3,1fr)}.moc-table-head{display:none}.moc-row{grid-template-columns:1.2fr 1fr;gap:6px;padding:12px}.moc-row>*:nth-child(n+5):not(.moc-chevron){display:none}.moc-chevron{display:none}.moc-bottom{grid-template-columns:1fr}}
 @media(max-width:860px){#admin-view .wrap{padding-left:16px;padding-right:16px}.adm-wrap{width:100%}.moc-shell{grid-template-columns:1fr}.moc-nav{position:relative;top:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px}.moc-nav-btn{margin:0}.moc-panel{grid-column:auto}.moc-stats{grid-template-columns:1fr 1fr}.moc-head h2{font-size:24px}.moc-sec{padding:14px}.moc-row{grid-template-columns:1fr}.moc-row>*:nth-child(n+4):not(.moc-chevron){display:none}}
-@media(max-width:620px){ .adm-row{flex-direction:column;align-items:stretch} .adm-acts{justify-content:flex-end} .adm-ops{grid-template-columns:1fr 1fr} }
 </style>
 <div class="wrap"><div class="adm-wrap">
   <div class="adm-top">
@@ -2907,7 +2844,6 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
     <div id="admConsole" class="moc-shell" aria-live="polite">
       <div class="moc-loading">Loading maintainer operations center...</div>
     </div>
-    <div class="adm-ops" id="adm-ops" style="display:none"></div>
     <div id="admQueue" style="display:none"></div>
     <div id="esc-pack-controls" style="display:none"></div>
     <textarea id="esc-out" style="display:none"></textarea>
@@ -3781,8 +3717,6 @@ body[data-view="methodology"] footer .foot .links a{font-size:11px;color:var(--i
 .tip-cancel{display:inline-block;background:transparent;border:0;color:var(--ink-faint);text-decoration:underline;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10.5px;margin-top:8px}
 .tip-cancel:hover{color:var(--ink-dim)}
 .tip-note{font-size:9.5px;color:var(--ink-faint);line-height:1.6;margin-top:16px;border-top:1px solid var(--line);padding-top:13px}
-.rc-tip{margin-left:8px;background:transparent;border:1px solid rgba(20,241,149,.35);color:var(--sol);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;padding:5px 11px;border-radius:2px;cursor:pointer}
-.rc-tip:hover{background:rgba(20,241,149,.12)}
 .bounty.resolved{border-left:2px solid var(--sol)}
 .tip-pay-toggle{width:100%;margin-top:11px;background:transparent;border:1px solid var(--line-bright);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;padding:10px;border-radius:2px;cursor:pointer;transition:all .13s}
 .tip-pay-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
@@ -4941,16 +4875,6 @@ async function vouch(type,id,vote,creator){
     }catch(e){ showToast((e && e.status===403) ? 'Analyst access required \u00b7 verify your analyst wallet.' : 'Could not record the review action. Please try again.'); }
   });
 }
-// ---- contributor tier: 1+ approved report or a case win unlocks read access to the queue ----
-async function osiIsContributor(wallet){
-  if(!wallet || !SUPA_ON) return false;
-  if(window.__contrib && window.__contrib.w===wallet) return window.__contrib.v;
-  var v=false;
-  try{ var r=await supaGet('reports?select=id&wallet=eq.'+encodeURIComponent(wallet)+'&approved=eq.true&limit=1'); if(r&&r.length) v=true; }catch(e){}
-  if(!v){ try{ var b=await supaGet('bounties?select=id&winner_wallet=eq.'+encodeURIComponent(wallet)+'&limit=1'); if(b&&b.length) v=true; }catch(e){} }
-  window.__contrib={w:wallet,v:v};
-  return v;
-}
 // ===== challenges: any wallet can contest a published record; analysts judge it =====
 var chxCtx=null;
 function chxOpen(itemType,itemId,label){
@@ -4984,15 +4908,6 @@ async function chxSubmit(){
     }catch(e){ showToast('Challenge could not be filed \u00b7 the challenges table may not exist yet.'); }
   });
 }
-// ===== disabled: reports.wallet is the reported/target wallet, not a proven author =====
-// A record's wallet is NOT a securely bound submitter/owner, so it must never
-// receive "support". This is kept as a safe no-op so any cached markup cannot
-// send funds to an ambiguous wallet. Voluntary support goes only to the
-// explicitly configured OSI support wallet (see openTip callers).
-function osiSupportAuthor(wallet, label){
-  if(typeof showToast==='function') showToast('Direct support to an individual isn’t available. Voluntary support goes to the configured OSI wallet only.');
-}
-function osiSolanaPayUri(wallet, label){ return 'solana:'+encodeURIComponent(String(wallet||''))+'?label='+encodeURIComponent('OSI \u00b7 support: '+String(label||'public record')); }
 var rfTab='pending', rfPageN=1, RF_PER=6;
 var RF_Q='';
 function rfSetTab(t){ rfTab=t; rfPageN=1; renderReviewFloor(); }
@@ -5409,8 +5324,6 @@ async function loadAnalysts(){
   }catch(e){ /* table may not exist yet */ }
 }
 function isVerifiedAnalyst(wallet){ return !!(wallet && window.VERIFIED_ANALYSTS && window.VERIFIED_ANALYSTS[String(wallet)]); }
-function analystTag(wallet){ return isVerifiedAnalyst(wallet) ? ' <span class="va-tag" title="Verified analyst">\u2605 analyst</span>' : ''; }
-
 function analystStats(wallet, reports, bounties){
   const w = String(wallet);
   const authored = reports.filter(function(r){ return String(r.wallet)===w; }).length;
@@ -6240,13 +6153,6 @@ async function supaUpload(file){
   if(!res.ok) throw new Error('upload ' + res.status);
   return SUPABASE_URL + '/storage/v1/object/public/' + OSI_BUCKET + '/' + path;
 }
-function attachmentTag(url){
-  const safe = safeUrl(url); if(!safe) return '';
-  const isImg = /\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(safe);
-  if(isImg) return '<a class="rc-att" href="'+escapeHtml(safe)+'" target="_blank" rel="noopener"><img src="'+escapeHtml(safe)+'" alt="evidence" loading="lazy"></a>';
-  return '<a class="proof-tag onchain" href="'+escapeHtml(safe)+'" target="_blank" rel="noopener">\uD83D\uDCCE attachment \u2197</a>';
-}
-
 // ===== THE FIELD OFFICE: the bounty operations hub =====
 // Curated launch cases (real untraced DAT targets). Also a fallback when Supabase
 // is unavailable. User-filed cases come from Supabase and merge in by id.
@@ -6531,99 +6437,11 @@ function proofLogDemoSample(){
 }
 var plState = { filter:'all', q:'', page:1 };
 var PL_PER = 8;
-// Legacy demo renderer helpers are intentionally not used by the live Proof Log.
-// The active renderer below reads onchain_events and only falls back when OSI_DEMO_MODE is true.
-function plLegacyGroup(ev){
-  var t = ev.event_type;
-  if(t==='analyst_vouch') return (ev.vote==='challenge') ? 'challenge' : 'vote';
-  if(t==='report_submitted' || t==='wire_dispatch') return 'report';
-  if(t==='demand_signal' || t==='support') return 'support';
-  if(t==='maintainer_seal') return 'seal';
-  if(t==='case_opened' || t==='case_created') return 'case';
-  return 'other';
-}
-// her memo etiketinin görünen adı + rengi + ikonu
-function plLegacyMemo(ev){
-  var g = plLegacyGroup(ev);
-  var map = {
-    case:      { tag:'OSI_CASE_OPENED',        ic:'\u25a4', cls:'cy' },
-    report:    { tag:'OSI_REPORT_SUBMITTED',   ic:'\u25a4', cls:'vio' },
-    vote:      { tag:'OSI_REPORT_REVIEWED',    ic:'\u2713', cls:'ok' },
-    challenge: { tag:'OSI_CHALLENGE_FILED',    ic:'\u2696', cls:'warn' },
-    support:   { tag:'OSI_SUPPORT_RECEIVED',   ic:'\u25ce', cls:'ok' },
-    seal:      { tag:'OSI_RECORD_SEALED',      ic:'\u2713', cls:'ok' },
-    other:     { tag:'OSI_SIGNED_ACTION',      ic:'\u2605', cls:'cy' }
-  };
-  // backed case özel: demand_signal aslında case_backed memosu
-  if(ev.event_type==='demand_signal'){ return { tag:'OSI_CASE_BACKED', ic:'\u25ce', cls:'ok' }; }
-  if(ev.event_type==='wire_dispatch'){ return { tag:'OSI_WIRE_DISPATCH_SUBMITTED', ic:'\u25c8', cls:'vio' }; }
-  return map[g] || map.other;
-}
-function plLegacyActionLine(ev){
-  var w = raShortW(ev.actor_wallet);
-  var item = ev.item_id ? escapeHtml(String(ev.item_id).slice(0,16)) : '';
-  var type = escapeHtml(ev.item_type||'item');
-  switch(ev.event_type){
-    case 'analyst_vouch': return '<b>'+w+'</b> '+(ev.vote==='approve'?'approved':(ev.vote==='challenge'?'challenged':'reviewed'))+' '+type+(item?(' '+item):'');
-    case 'report_submitted': return '<b>'+w+'</b> submitted a report'+(item?(' for '+item):'');
-    case 'wire_dispatch': return 'Analyst <b>'+w+'</b> filed a dispatch'+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^filed a dispatch on /,'on '))):'');
-    case 'demand_signal': return '<b>'+w+'</b> backed the case'+(ev.label?(' '+escapeHtml(String(ev.label).replace(/^pledged demand for /,'for '))):(item?(' '+item):''));
-    case 'support': return '<b>'+w+'</b> sent '+(ev.amount!=null?(escapeHtml(String(ev.amount))+' '+escapeHtml(ev.token||'SOL')):'support')+(item?(' for '+item):'');
-    case 'maintainer_seal': return 'Maintainer <b>'+w+'</b> sealed '+type+(item?(' '+item):'')+' as a public record';
-    case 'case_opened': case 'case_created': return '<b>'+w+'</b> opened case'+(item?(' '+item):'');
-    default: return '<b>'+w+'</b> signed an action';
-  }
-}
-function plLegacyFullDate(ts){
-  var t = new Date(ts||0); if(isNaN(t.getTime())) return '';
-  var d = t.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  var tm = t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-  return d+' '+tm+' UTC';
-}
 // zengin timeline kartı (Proof Log'a özel; kompakt raSignedItem ayrı kalır)
-function plLegacyTimelineCard(ev){
-  var m = plLegacyMemo(ev);
-  var caseId = ev.item_id ? osiCaseId(ev.item_id) : '';
-  var caseName = ev.label ? String(ev.label).replace(/^(filed a dispatch on |pledged demand for |supported |filed report on )/,'').trim() : '';
-  var sig = ev.tx_sig ? String(ev.tx_sig) : '';
-  var sigShort = sig ? (sig.slice(0,6)+'\u2026'+sig.slice(-4)) : '';
-  var when = plLegacyFullDate(ev.created_at);
-  var ago = raTimeAgo(ev.created_at);
-  var caseRow = (caseId || caseName)
-    ? '<div class="plc-case mono">Case: '+(caseId?('<a onclick="plGoCase(\''+escapeHtml(String(ev.item_id))+'\')">'+caseId+'</a>'):'')+(caseName?('<span class="plc-cn"> '+escapeHtml(caseName.slice(0,32))+'</span>'):'')+'</div>'
-    : '';
-  var txBlock = sig
-    ? '<div class="plc-tx"><div class="plc-tx-l mono">TX SIGNATURE</div><div class="plc-tx-r"><code class="mono">'+escapeHtml(sigShort)+'</code><button class="plc-copy" type="button" title="Copy signature" onclick="plCopyTx(\''+escapeHtml(sig)+'\')">\u2398</button></div></div>'
-    : '<div class="plc-tx"><div class="plc-tx-l mono">STATUS</div><div class="plc-tx-r"><span class="mono" style="color:var(--ink-faint);font-size:10px">memo pending</span></div></div>';
-  var verifyBtn = sig
-    ? '<a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">View on Solana \u2197</a>'
-    : '<span class="plc-verify off">Awaiting memo</span>';
-  return '<div class="plc" data-g="'+plLegacyGroup(ev)+'">'
-    + '<div class="plc-rail"><span class="plc-dot"></span></div>'
-    + '<div class="plc-body">'
-      + '<div class="plc-main">'
-        + '<span class="plc-ic '+m.cls+'">'+m.ic+'</span>'
-        + '<div class="plc-txt">'
-          + '<div class="plc-tag mono '+m.cls+'">'+m.tag+'</div>'
-          + '<div class="plc-act">'+plLegacyActionLine(ev)+'</div>'
-          + caseRow
-        + '</div>'
-        + '<div class="plc-meta"><div class="plc-ago mono">'+ago+'</div><div class="plc-when mono">'+when+'</div></div>'
-      + '</div>'
-      + '<div class="plc-foot">'+txBlock+verifyBtn+'</div>'
-    + '</div>'
-  + '</div>';
-}
 function plGoCase(id){
   var rec = (window.__crRecords||{})[id];
   if(rec && typeof openCaseRecord==='function'){ showView('records'); setTimeout(function(){ openCaseRecord(id); },120); return; }
   showView('records');
-}
-function plCopyTx(sig){
-  if(!sig) return;
-  var done=function(){ showToast('Transaction signature copied.'); };
-  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(String(sig)).then(done).catch(function(){ plCopyFallback(sig,done); }); }
-  else plCopyFallback(sig,done);
 }
 function plCopyFallback(text, done){
   try{ var ta=document.createElement('textarea'); ta.value=String(text); ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
@@ -6636,46 +6454,6 @@ function plFilter(f){
 }
 function plSearch(v){ plState.q=(v||'').trim().toLowerCase(); plState.page=1; plPaint(); }
 function plSetPage(p){ plState.page=p|0; plPaint(); var b=document.getElementById('pl-body'); if(b){ try{ b.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} } }
-function plLegacyDashRender(){
-  var host=document.getElementById('pl-dash'); if(!host) return;
-  var evs=window.__plEvents||[];
-  var total=evs.length;
-  var cases=evs.filter(function(e){ return plLegacyGroup(e)==='case'; }).length;
-  var reports=evs.filter(function(e){ return e.event_type==='report_submitted'; }).length;
-  var challenges=evs.filter(function(e){ return plLegacyGroup(e)==='challenge'; }).length;
-  host.innerHTML =
-      '<div class="fo-op"><div class="fo-op-ic">\u270e</div><div class="fo-op-n">'+total+'</div><div class="fo-op-l">Signed Actions</div><span class="fo-op-sub">All time</span></div>'
-    + '<div class="fo-op"><div class="fo-op-ic cy">\u25a4</div><div class="fo-op-n">'+cases+'</div><div class="fo-op-l">Cases Opened</div><span class="fo-op-sub">All time</span></div>'
-    + '<div class="fo-op"><div class="fo-op-ic vio">\u25a4</div><div class="fo-op-n">'+reports+'</div><div class="fo-op-l">Reports Filed</div><span class="fo-op-sub">All time</span></div>'
-    + '<div class="fo-op"><div class="fo-op-ic warn">\u2696</div><div class="fo-op-n'+(challenges>0?' warn':'')+'">'+challenges+'</div><div class="fo-op-l">Challenges</div><span class="fo-op-sub">All time</span></div>';
-}
-function plLegacySchemaRender(){
-  var host=document.getElementById('pl-schema'); if(!host) return;
-  var rows=[
-    ['OSI_CASE_OPENED','A new case was opened','cy'],
-    ['OSI_CASE_BACKED','Peer support was pledged','ok'],
-    ['OSI_REPORT_SUBMITTED','A report was submitted','vio'],
-    ['OSI_REPORT_REVIEWED','An analyst voted on it','ok'],
-    ['OSI_CHALLENGE_FILED','A record was challenged','warn'],
-    ['OSI_SUPPORT_RECEIVED','SOL support was received','ok'],
-    ['OSI_WIRE_DISPATCH_SUBMITTED','A dispatch was filed','vio'],
-    ['OSI_RECORD_SEALED','A record was sealed','ok']
-  ];
-  host.innerHTML = rows.map(function(r){ return '<div class="pl-sc"><code class="mono '+r[2]+'">'+r[0]+'</code><span>'+r[1]+'</span></div>'; }).join('');
-}
-function plLegacyHealthRender(){
-  var host=document.getElementById('pl-health'); if(!host) return;
-  var live = (typeof SUPA_ON!=='undefined' && SUPA_ON);
-  var evs=window.__plEvents||[];
-  var lastMemo = evs.length ? raTimeAgo(evs[0].created_at) : '\u2014';
-  var rows=[
-    ['RPC status', live?'<span class="ok">Online</span>':'<span class="mut">Demo mode</span>'],
-    ['Indexer', live?'<span class="ok">Synced</span>':'<span class="mut">Not connected</span>'],
-    ['Last memo indexed', '<span class="mono">'+lastMemo+'</span>'],
-    ['Network', '<span class="pl-net"><span class="pl-net-dot"></span>Solana Mainnet</span>']
-  ];
-  host.innerHTML = rows.map(function(r){ return '<div class="pl-hl"><span class="pl-hl-k">'+r[0]+'</span><span class="pl-hl-v">'+r[1]+'</span></div>'; }).join('');
-}
 function plSealedRender(){
   var card=document.getElementById('pl-sealed-card'); var host=document.getElementById('pl-sealed'); if(!card||!host) return;
   var seals=(window.__plEvents||[]).filter(function(e){ return e.event_type==='maintainer_seal'; });
@@ -6687,58 +6465,6 @@ function plSealedRender(){
   host.innerHTML = '<div class="pl-sl-top"><span class="pl-sl-id mono">'+cid+'</span>'+(name?('<span class="pl-sl-nm">'+name+'</span>'):'')+'</div>'
     + '<div class="pl-sl-meta mono">Sealed by '+raShortW(s.actor_wallet)+' \u00b7 '+raTimeAgo(s.created_at)+'</div>'
     + (s.tx_sig ? ('<a class="pl-sl-btn" href="'+solscanTx(s.tx_sig)+'" target="_blank" rel="noopener">View record \u2197</a>') : '');
-}
-function plLegacyPaint(){
-  var host=document.getElementById('pl-body'); if(!host) return;
-  plLegacyDashRender(); plLegacySchemaRender(); plLegacyHealthRender(); plSealedRender();
-  var all=(window.__plEvents||[]).slice();
-  var demo=!!window.__plDemo;
-  var q=plState.q;
-  var evs=all;
-  if(q){
-    evs=evs.filter(function(e){
-      var hay=[e.actor_wallet,e.item_id,e.event_type,e.label,e.vote,e.tx_sig, e.item_id?osiCaseId(e.item_id):''].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
-      return hay.indexOf(q)!==-1;
-    });
-  }
-  if(plState.filter!=='all') evs=evs.filter(function(e){ return plLegacyGroup(e)===plState.filter; });
-  var strip = '<div class="pl-strip"><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>Live verification feed</b><span>'+all.length+' signed action'+(all.length===1?'':'s')+' \u00b7 '+(demo?'demo mode \u00b7 ':'')+'indexed proof trail</span></div></div>';
-  var totalPages=Math.max(1, Math.ceil(evs.length/PL_PER));
-  if(plState.page>totalPages) plState.page=totalPages; if(plState.page<1) plState.page=1;
-  var from=(plState.page-1)*PL_PER, page=evs.slice(from, from+PL_PER);
-  host.innerHTML = strip + (page.length
-    ? '<div class="pl-timeline">' + page.map(plLegacyTimelineCard).join('') + '</div>'
-    : '<div class="fd-empty mono" style="padding:24px 2px">No signed actions match this search or filter.</div>');
-  var cnt=document.getElementById('pl-count');
-  if(cnt) cnt.textContent = evs.length ? ('Showing '+(from+1)+'\u2013'+(from+page.length)+' of '+evs.length+' action'+(evs.length===1?'':'s')) : '';
-  var pn=document.getElementById('pl-pnav');
-  if(pn){
-    if(totalPages<=1){ pn.innerHTML=''; }
-    else{
-      var ph='<button class="fo-pg" type="button" '+(plState.page<=1?'disabled':'')+' onclick="plSetPage('+(plState.page-1)+')">\u2039</button>';
-      for(var pi=1;pi<=totalPages;pi++){ ph+='<button class="fo-pg n'+(pi===plState.page?' active':'')+'" type="button" onclick="plSetPage('+pi+')">'+pi+'</button>'; }
-      ph+='<button class="fo-pg" type="button" '+(plState.page>=totalPages?'disabled':'')+' onclick="plSetPage('+(plState.page+1)+')">\u203a</button>';
-      pn.innerHTML=ph;
-    }
-  }
-}
-async function renderProofLogLegacyDemoOnly(){
-  if(window.OSI_DEMO_MODE !== true) return;
-  var host = document.getElementById('pl-body'); if(!host) return;
-  host.innerHTML = '<div class="pl-note">Loading signed actions\u2026</div>';
-  var events = [];
-  var source = 'unavailable';
-  if(typeof SUPA_ON!=='undefined' && SUPA_ON){
-    try{ events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || []; source = events.length ? 'loaded' : 'empty'; }catch(e){ events=[]; source='error'; }
-  }
-  window.__plDemo = false;
-  if(!events.length && source!=='error' && window.OSI_DEMO_MODE === true){ window.__plDemo = true; events = proofLogDemoSample(); source='demo'; }
-  window.__plEvents = events;
-  window.__plSourceState = source;
-  plState.filter='all'; plState.q=''; plState.page=1;
-  var s=document.getElementById('pl-search'); if(s) s.value='';
-  document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f==='all'); });
-  plLegacyPaint();
 }
 // Proof Log v2: live view uses real onchain_events only. Existing sample rows
 // remain available only when window.OSI_DEMO_MODE === true.
@@ -7175,12 +6901,10 @@ function fieldOpenForm(){ var m=document.getElementById('fo-modal'); if(!m) retu
 function fieldCloseForm(){ var m=document.getElementById('fo-modal'); if(m) m.classList.remove('open'); document.body.style.overflow=''; }
 document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ var m=document.getElementById('fo-modal'); if(m && m.classList.contains('open')) fieldCloseForm(); var x=document.getElementById('apx-modal'); if(x && x.classList.contains('open')) apxClose(); var c=document.getElementById('chx-modal'); if(c && c.classList.contains('open')) chxClose(); var rv=document.getElementById('rv-drawer'); if(rv && rv.classList.contains('open')) rvClose(); } });
 
-// RPC endpoints, Helius (fast & reliable, primary), public RPC as automatic fallback.
+// RPC endpoints. Helius plus public RPCs, used via RPC_FALLBACKS below.
 // NOTE: this key is visible in the page source, that's unavoidable for a static
 // site. Protect it by locking allowed domains in your Helius dashboard.
 const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=6cb1f3a8-f0cc-404b-a403-37afd1f3f427";
-const PUBLIC_RPC = "https://api.mainnet-beta.solana.com";
-const SOL_RPC = HELIUS_RPC; // primary for balance reads
 // Multiple CORS-friendly public RPCs so one flaky endpoint never blocks signing.
 // Phantom itself broadcasts the transaction; these are only used to fetch a recent blockhash.
 const RPC_FALLBACKS = [
@@ -7448,7 +7172,6 @@ function admLockedHost(){
 }
 function admClearProtectedData(){
   var consoleHost = document.getElementById('admConsole'); if(consoleHost) consoleHost.innerHTML = '<div class="moc-loading">Maintainer access locked.</div>';
-  var ops = document.getElementById('adm-ops'); if(ops) ops.innerHTML = '';
   var queue = document.getElementById('admQueue'); if(queue) queue.innerHTML = '';
   var controls = document.getElementById('esc-pack-controls'); if(controls) controls.innerHTML = '';
   var out = document.getElementById('esc-out'); if(out) out.value = '';
@@ -7735,17 +7458,6 @@ function admSelectItem(key){ window.__admSelectedKey = key; if(window.__admConso
 function admCurrentSelected(){ var m=window.__admConsoleModel; if(!m) return null; return (m.items||[]).find(function(it){ return it.key===window.__admSelectedKey; }) || null; }
 function admFocusEvidence(){ var el=document.getElementById('moc-evidence'); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('moc-evidence-flash'); setTimeout(function(){ el.classList.remove('moc-evidence-flash'); },1300); }
 function admOpenSelectedAnalyst(){ var it=admCurrentSelected(); if(it && it.kind==='analyst' && it.submitter && typeof openRosterProfile==='function') openRosterProfile(it.submitter); else showView('analysts'); }
-async function admOpsStats(){
-  var host=document.getElementById('adm-ops'); if(!host) return;
-  if(!SUPA_ON || !resolveMaintainerAccess().allowed){ host.innerHTML=''; return; }
-  async function cnt(q){ try{ var r=await supaGet(q); return (r||[]).length; }catch(e){ return null; } }
-  var pr=await cnt('reports?select=id&approved=eq.false&limit=200');
-  var pc=await cnt('bounties?select=id&approved=eq.false&limit=200');
-  var pk=await cnt('escalation_packs?select=id&status=eq.draft&limit=200');
-  var an=await cnt('analysts?select=wallet&limit=500');
-  function cell(n,l,warn){ var v=(n===null?'-':n); return '<div class="adm-op"><span class="n'+(warn&&n>0?' warn':'')+'">'+v+'</span><span class="l">'+l+'</span></div>'; }
-  host.innerHTML = cell(pr,'Pending reports',true)+cell(pc,'Pending cases',true)+cell(pk,'Packs awaiting review',true)+cell(an,'Verified analysts',false);
-}
 async function admRefresh(){
   var access = renderAdminAccess({clear:true});
   if(!access.allowed) return;
@@ -7768,40 +7480,6 @@ async function admRefresh(){
   }catch(e){
     if(host) host.innerHTML='<div class="moc-error">Could not load the operations center ('+admEsc(e.message)+'). Recheck maintainer access and Supabase policies, then refresh.</div>';
   }
-}
-function admItem(kind, table, r){
-  const approved = !!r.approved;
-  const id = admEsc(kind==='analyst' ? r.wallet : r.id);
-  if(kind==='analyst'){
-    const h = r.handle ? ('@'+String(r.handle).replace(/^@/,'')) : '';
-    const title = admEsc(r.name || h || r.wallet);
-    const sub = admEsc((h?h+'  \u00b7  ':'') + (r.wallet?String(r.wallet).slice(0,12)+'\u2026  ':'') + String(r.bio||r.link||'').slice(0,140));
-    const acts = approved
-      ? '<button class="adm-b warn" onclick="admSetAnalyst(\''+id+'\',false)">Unpublish</button><button class="adm-b del" onclick="admDelAnalyst(\''+id+'\')">Remove</button>'
-      : '<button class="adm-b ok" onclick="admSetAnalyst(\''+id+'\',true)">Approve analyst</button><button class="adm-b del" onclick="admDelAnalyst(\''+id+'\')">Reject</button>';
-    return '<div class="adm-row"><div class="adm-meta"><div class="adm-t">'+title+'<span class="adm-kind">analyst</span></div><div class="adm-s">'+sub+'</div></div><div class="adm-acts">'+acts+'</div></div>';
-  }
-  const title = kind==='report' ? admEsc(r.company || r.bounty || r.id) : (kind==='bounty' ? admEsc(r.target || r.title || r.id) : admEsc(r.name || r.id));
-  const sub = kind==='report'
-    ? admEsc((r.wallet ? ('wallet ' + String(r.wallet).slice(0,12) + '...  ') : '') + String(r.summary||'').slice(0,160))
-    : (kind==='bounty' ? admEsc('bounty proposal \u00b7 ' + String(r.detail||'').slice(0,150)) : 'wallet investigation request');
-  const acts = approved
-    ? '<button class="adm-b warn" onclick="admSet(\''+table+'\',\''+id+'\',false)">Unpublish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Delete</button>'
-    : '<button class="adm-b ok" onclick="admSet(\''+table+'\',\''+id+'\',true)">Approve &amp; publish</button><button class="adm-b del" onclick="admDel(\''+table+'\',\''+id+'\')">Reject</button>';
-  let extra='';
-  if(kind==='bounty'){ extra = '<button class="adm-b" onclick="admEditBounty(\''+id+'\')">Edit</button>'; if(approved){ extra += r.winner_wallet ? '<button class="adm-b" onclick="admResolveBounty(\''+id+'\')">Change winner</button>' : '<button class="adm-b ok" onclick="admResolveBounty(\''+id+'\')">Set winner</button>'; } }
-  return '<div class="adm-row"><div class="adm-meta"><div class="adm-t">'+title+'<span class="adm-kind">'+kind+'</span></div><div class="adm-s">'+sub+'</div></div><div class="adm-acts">'+acts+extra+'</div></div>';
-}
-function admRender(reports, requests, bounties, analysts){
-  const pend=[], pub=[];
-  reports.forEach(function(r){ (r.approved?pub:pend).push(admItem('report','reports',r)); });
-  requests.forEach(function(r){ (r.approved?pub:pend).push(admItem('request','requests',r)); });
-  (bounties||[]).forEach(function(r){ (r.approved?pub:pend).push(admItem('bounty','bounties',r)); });
-  (analysts||[]).forEach(function(r){ (r.approved?pub:pend).push(admItem('analyst','analysts',r)); });
-  let h='';
-  h+='<div class="adm-sec"><div class="adm-h">PENDING REVIEW <span>'+pend.length+'</span></div>'+(pend.length?pend.join(''):'<div class="adm-muted">Nothing waiting. Clear desk.</div>')+'</div>';
-  h+='<div class="adm-sec"><div class="adm-h">PUBLISHED <span>'+pub.length+'</span></div>'+(pub.length?pub.join(''):'<div class="adm-muted">Nothing published yet.</div>')+'</div>';
-  return h;
 }
 async function admResolveBounty(id){
   if(!requireMaintainerAccess('Resolve case')) return;
@@ -7829,7 +7507,6 @@ function admReflow(){
   try{ if(typeof renderRequests==='function') renderRequests(); }catch(_){}
   try{ if(typeof hydrateRequestsFromSupabase==='function') hydrateRequestsFromSupabase(); }catch(_){}
   try{ if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); }catch(_){}
-  try{ if(typeof hydrateLatestIntel==='function') hydrateLatestIntel(); }catch(_){}
   try{ if(typeof renderFieldOffice==='function') renderFieldOffice(); }catch(_){}
   try{ if(typeof renderWire==='function') renderWire(); }catch(_){}
   try{ if(typeof renderActivity==='function') renderActivity(); }catch(_){}
@@ -7855,8 +7532,6 @@ window.addEventListener('hashchange', function(){ if(location.hash==='#admin'){ 
 
 // review queue seed, one clearly-labelled example so the scoring UI stays
 // demonstrable; real submissions render above it as "pending review".
-const REPORTS_SEED = [];
-
 let walletPubkey = null;                 // connected wallet address (string)
 
 function getProvider(){
@@ -8072,7 +7747,6 @@ window.addEventListener('load', function(){
 });
 
 renderCaseStudies();
-hydrateLatestIntel();
 if(typeof renderCaseRecords==='function') renderCaseRecords();
 syncTabCounts();
 renderRequests();
@@ -8090,9 +7764,6 @@ loadPrice();
 // ---- case studies (data-driven, collapsible) ----
 function toggleCase(el){ el.closest('.co').classList.toggle('open'); }
 
-// ---- Latest Intelligence: front-page showcase of newly published reports ----
-
-async function hydrateLatestIntel(){ /* superseded by renderCaseRecords (Public Case Records) */ return; }
 
 function openReport(kind, id){
   if(kind==='case'){
@@ -9131,75 +8802,6 @@ async function hydrateRequestsFromSupabase(){
   }catch(e){ console.warn('OSI: global board unavailable, showing local view.', e); }
 }
 
-function scoreReport(btn, dir){
-  const label = dir>0 ? "Upvote" : "Downvote";
-  const co = (btn.closest('.report-card')||document).querySelector('.rc-co');
-  const memo = "OSI report " + (dir>0?"upvote":"downvote") + ": " + ((co && co.textContent.trim().slice(0,80)) || "attribution review");
-  withOnchainVote(label, memo, (sig)=>{
-    const span = btn.querySelector('span');
-    let n = parseInt(span.textContent);
-    span.textContent = n+1;
-    btn.style.opacity = "1";
-    btn.disabled = true;
-    // one vote per wallet (UI): dim the opposite button
-    const sib = btn.parentElement.querySelectorAll('button');
-    sib.forEach(b=>{ if(b!==btn) b.disabled=true; });
-    if(sig){
-      btn.title = "Recorded on-chain";
-      const row = btn.closest('.rc-score');
-      if(row && !row.querySelector('.tx-link')){
-        const note = document.createElement('a');
-        note.className = "tx-link mono";
-        note.href = "https://solscan.io/tx/"+sig;
-        note.target = "_blank"; note.rel = "noopener";
-        note.style.cssText = "font-size:9px;color:var(--sol);text-decoration:none;align-self:center";
-        note.textContent = "↗ ✓";
-        row.appendChild(note);
-      }
-    }
-  });
-}
-
-
-
-// One report card. Three states: the seed example, a pending submission
-// (local, or in Supabase awaiting approval), and an approved report a
-// maintainer has published for everyone.
-function reportCardHtml(r){
-  const onUrl = safeUrl(r.onchain), offUrl = safeUrl(r.offchain);
-  const onP = onUrl ? `<a class="proof-tag onchain" href="${escapeHtml(onUrl)}" target="_blank" rel="noopener">⛓ on-chain proof ↗</a>` : '';
-  const offP = offUrl ? `<a class="proof-tag offchain" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">▤ off-chain proof ↗</a>` : '';
-  const attBlock = r.attachment ? `<div class="rc-att-wrap">${attachmentTag(r.attachment)}</div>` : '';
-  const tick = r.ticker ? `<span class="ticker">${escapeHtml(r.ticker)}</span>` : '';
-  const who = r.wallet ? short(r.wallet) : 'you';
-  const txLink = r.tx ? ` <a class="mono" href="https://solscan.io/tx/${escapeHtml(r.tx)}" target="_blank" rel="noopener" style="color:var(--sol);text-decoration:none;font-size:9px">↗ signed ✓</a>` : '';
-  const bountyTag = r.bounty ? `<div class="rc-bounty mono">🎯 ${escapeHtml(r.bounty)}</div>` : '';
-  // Stage 4: no "Tip in SOL" to a report's wallet. reports.wallet is the
-  // reported/target wallet, not a proven author/reporter, so it is never a
-  // support recipient. Voluntary support goes only to the configured OSI wallet.
-  const tipBtn = '';
-  let by, conf;
-  if(r.example){ by = `<span style="color:var(--amber)">example</span> · illustrates how scoring works`; conf = '◑ pending verification'; }
-  else if(r.approved){ by = `by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span>${analystTag(r.wallet)} · <span style="color:var(--sol)">◆ approved by maintainer</span>`; conf = '✓ published'; }
-  else { by = `by <span style="color:var(--cyan)" title="${escapeHtml(r.wallet || '')}">${escapeHtml(who)}</span> · ⏳ pending review`; conf = '◑ pending verification'; }
-  return `<div class="report-card${r.approved ? ' approved' : ''}" style="margin-bottom:11px">
-      <div class="rc-top">
-        <div>
-          <div class="rc-co">${escapeHtml(r.company)} ${tick}</div>
-          <div class="rc-by mono">${by}${txLink}</div>
-          ${bountyTag}
-        </div>
-        <div class="rc-score">
-          <button class="vote-up" onclick="scoreReport(this,1)">▲ <span>${r.up || 0}</span></button>
-          <button class="vote-dn" onclick="scoreReport(this,-1)">▼ <span>${r.dn || 0}</span></button>
-        </div>
-      </div>
-      <div class="rc-sum">${escapeHtml(r.summary)}</div>
-      ${attBlock}
-      <div class="rc-proof">${onP}${offP}<span class="proof-tag conf">${conf}</span>${tipBtn}</div>
-    </div>`;
-}
-
 // Superseded: the peer review queue is now #consensus-floor (renderReviewFloor),
 // and published reports live in Public Records (renderCaseRecords). This old
 // forum-style list under #review-list duplicated both, so it is retired.
@@ -9466,7 +9068,6 @@ function escDownload(){
 //  - maintainer: mark a pack reviewed (publish) and seal a case
 //  - Public Case Records archive + profile "My case records"
 // ============================================================
-var ESC_PILOT_MSG = "AI escalation packs are currently maintainer-reviewed during the pilot.";
 var escCurrentPacks = [];
 
 function escPackLabel(t){ return t==='victim' ? 'Victim brief' : (t==='exchange' ? 'Exchange pack' : (t==='law_enforcement' ? 'Law-enforcement brief' : String(t||'Pack'))); }
@@ -9612,21 +9213,6 @@ function crPage(p){
   crState.page=p|0; crPaint();
   var h=document.getElementById('case-records'); if(h){ try{ h.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
 }
-/* Legacy Public Records renderers are quarantined. Do not call in the live Public Records path. */
-function crRenderStatsLegacyRecordsUnused(){
-  return;
-  var host=document.getElementById('cr-stats'); if(!host) return;
-  var reports=window.__crList||[];
-  var reviewed=reports.length;
-  var memo=reports.filter(function(r){ return !!r.tx; }).length;
-  var evLinks=reports.reduce(function(s,r){ return s+crEvidenceCount(r); },0);
-  var openCh=window.__crOpenChallengeCount||0;
-  host.innerHTML =
-      '<div class="fo-op"><div class="fo-op-ic">▣</div><div class="fo-op-n">'+reviewed+'</div><div class="fo-op-l">Reviewed Records</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic sol">⛓</div><div class="fo-op-n sol">'+memo+'</div><div class="fo-op-l">Memo-Verified</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic">◈</div><div class="fo-op-n">'+evLinks+'</div><div class="fo-op-l">Evidence Links</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic warn">⚖</div><div class="fo-op-n'+(openCh>0?' warn':'')+'">'+openCh+'</div><div class="fo-op-l">Open Challenges</div></div>';
-}
 function crRenderStats(){
   var host=document.getElementById('cr-stats'); if(!host) return;
   var reports=window.__crList||[];
@@ -9642,46 +9228,6 @@ function crRenderStats(){
     + '<div class="fo-op"><div class="fo-op-ic">MEM</div>'+val(memo, memo==null?'cr-stat-na':'')+'<div class="fo-op-l">Memo-linked</div></div>'
     + '<div class="fo-op"><div class="fo-op-ic warn">CHL</div>'+val(openCh, openCh==null?'cr-stat-na':(openCh>0?'warn':''))+'<div class="fo-op-l">Open Challenges</div></div>'
     + '<div class="fo-op"><div class="fo-op-ic sol">SOL</div><div class="fo-op-n sol">Solana</div><div class="fo-op-l">Mainnet</div></div>';
-}
-function crPaintLegacyRecordsUnused(){
-  return;
-  var host = document.getElementById('case-records'); if(!host) return;
-  crRenderStats();
-  var reports = (window.__crList || []).slice();
-  var chSet = window.__crChallenged || {};
-  var q = crState.q;
-  if(q){
-    reports = reports.filter(function(r){
-      var hay=[r.company,r.wallet,r.id,r.tx,r.onchain,osiCaseId(r.id)].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
-      return hay.indexOf(q)!==-1;
-    });
-  }
-  if(crState.filter==='sealed') reports = reports.filter(function(r){ return !!r.sealed; });
-  else if(crState.filter==='reviewed') reports = reports.filter(function(r){ return !r.sealed; });
-  else if(crState.filter==='challenged') reports = reports.filter(function(r){ return !!chSet[String(r.id)]; });
-  if(crState.sort==='oldest') reports.sort(function(a,b){ return new Date(a.created_at||0)-new Date(b.created_at||0); });
-  else if(crState.sort==='evidence') reports.sort(function(a,b){ return crEvidenceCount(b)-crEvidenceCount(a); });
-  else reports.sort(function(a,b){ return new Date(b.created_at||0)-new Date(a.created_at||0); });
-  var totalPages=Math.max(1, Math.ceil(reports.length/CR_PER));
-  if(crState.page>totalPages) crState.page=totalPages; if(crState.page<1) crState.page=1;
-  var from=(crState.page-1)*CR_PER, page=reports.slice(from, from+CR_PER);
-  host.innerHTML = page.length
-    ? page.map(function(r){ return crCard(r, (window.__crPacks||{})[r.id] || []); }).join('')
-    : ((window.__crList||[]).length
-        ? '<div class="fd-empty mono" style="grid-column:1/-1;padding:22px 4px">No records match this search or filter.</div>'
-        : '<div class="cr-noyet"><div class="cr-noyet-ic">▤</div><b>No public records yet.</b><span>When a case clears peer review and gets sealed, it is published here, signed and verifiable on Solana.</span><button class="cr-btn primary" type="button" onclick="fieldOpenForm()">Open the first case</button></div>');
-  var cnt=document.getElementById('cr-count');
-  if(cnt) cnt.textContent = reports.length ? ('Showing '+(from+1)+'\u2013'+(from+page.length)+' of '+reports.length+' record'+(reports.length===1?'':'s')) : '';
-  var pn=document.getElementById('cr-pnav');
-  if(pn){
-    if(totalPages<=1){ pn.innerHTML=''; }
-    else{
-      var ph='<button class="fo-pg" type="button" '+(crState.page<=1?'disabled':'')+' onclick="crPage('+(crState.page-1)+')" aria-label="Previous page">\u2039</button>';
-      for(var pi=1; pi<=totalPages; pi++){ ph+='<button class="fo-pg n'+(pi===crState.page?' active':'')+'" type="button" onclick="crPage('+pi+')">'+pi+'</button>'; }
-      ph+='<button class="fo-pg" type="button" '+(crState.page>=totalPages?'disabled':'')+' onclick="crPage('+(crState.page+1)+')" aria-label="Next page">\u203a</button>';
-      pn.innerHTML=ph;
-    }
-  }
 }
 function crPaint(){
   var host = document.getElementById('case-records'); if(!host) return;
@@ -9743,43 +9289,6 @@ function crCopyTx(hash){
   else{ crCopyFallback(full, done); }
 }
 
-function crCardLegacyRecordsUnused(r, packs){
-  return '';
-  var st = crStatus(r);
-  var cid = osiCaseId(r.id);
-  var title = escapeHtml(r.company || ('Case ' + String(r.id).slice(0,6)));
-  var date = crDate(r.created_at);
-  var upd = r.updated_at ? ('Updated ' + fdAgo(r.updated_at)) : '';
-  var hash = crTxSig(r);
-  var evCount = crEvidenceCount(r);
-  var revCount = crAnalystReviews(r);
-  var sealCount = r.sealed ? 1 : 0;
-  var challenged = !!((window.__crChallenged||{})[String(r.id)]);
-  var tags = '<span class="cr-tag">On-chain evidence</span><span class="cr-tag ok">Public record</span>' + (packs.length ? ('<span class="cr-tag amber">' + packs.length + ' pack' + (packs.length>1?'s':'') + '</span>') : '');
-  var verify = hash ? ('<button class="cr-btn outline" type="button" onclick="event.stopPropagation();crVerify(\''+crAttr(hash)+'\')">Verify on Solana \u2197</button>') : '';
-  var copyBtn = hash ? ('<button class="cr-copy" type="button" title="Copy transaction signature" onclick="event.stopPropagation();crCopyTx(\''+crAttr(hash)+'\')">\u2398</button>') : '';
-  return '<div class="cr-card" data-cid="'+crAttr(r.id)+'" role="button" tabindex="0" onclick="openCaseRecord(\''+crAttr(r.id)+'\')" onkeydown="if(event.key===\'Enter\'){openCaseRecord(\''+crAttr(r.id)+'\');}">'
-    + '<div class="cr-top"><span class="cr-cid mono">'+cid+'</span><div class="cr-badges"><span class="cr-status '+st.cls+'">'+st.txt+'</span>'+(challenged?'<span class="cr-chal">\u26a0 Under challenge</span>':'')+'</div></div>'
-    + '<div class="cr-title">'+title+'</div>'
-    + '<div class="cr-date mono">'+(date||'')+(upd?(' <span class="sep">\u00b7</span> '+upd):'')+'</div>'
-    + '<div class="cr-sum">' + escapeHtml(String(r.summary||'').slice(0,150)) + '</div>'
-    + '<div class="cr-metrics">'
-      + '<div class="cr-m"><i>\u26d3</i><b>'+evCount+'</b><span>Evidence Links</span></div>'
-      + '<div class="cr-m"><i>\u25ce</i><b>'+revCount+'</b><span>Analyst Review'+(revCount===1?'':'s')+'</span></div>'
-      + '<div class="cr-m"><i>\u2713</i><b>'+sealCount+'</b><span>Maintainer Seal</span></div>'
-    + '</div>'
-    + '<div class="cr-tags">'+tags+'</div>'
-    + '<div class="cr-actions"><button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(\''+crAttr(r.id)+'\')">Open Case Record</button>' + verify + '</div>'
-    + '<div class="cr-actions secondary">'
-      /* Stage 4: removed "Support the author" \u2014 it sent to reports.wallet (the
-         reported/target wallet), not a proven author. No individual-recipient tip. */
-      + '<button class="cr-btn chx" type="button" title="Contest this record with better evidence" onclick="event.stopPropagation();chxOpen(\'report\',\''+crAttr(r.id)+'\',\''+crAttr(r.company||r.id)+'\')">\u2696 Challenge</button>'
-    + '</div>'
-    + (hash ? ('<div class="cr-foot mono">Signed via memo <span class="sep">\u00b7</span> Tx ' + escapeHtml(String(hash).slice(0,4)+'\u2026'+String(hash).slice(-4)) + ' ' + copyBtn + '</div>') : '')
-  + '</div>';
-}
-function crVerifyLegacyRecordsUnused(hash){ return; }
-
 function openCaseRecord(id){
   var r = (window.__crRecords||{})[id]; if(!r) return;
   var packs = (window.__crPacks||{})[id] || [];
@@ -9791,39 +9300,6 @@ function openCaseRecord(id){
 }
 function closeCaseDrawer(){ var d=document.getElementById('cr-drawer'); if(d){ d.classList.remove('open'); d.setAttribute('aria-hidden','true'); } document.body.classList.remove('cr-drawer-lock'); }
 
-function crDrawerHtmlLegacyRecordsUnused(r, packs){
-  return '';
-  var st = crStatus(r);
-  var cid = osiCaseId(r.id);
-  var title = escapeHtml(r.company || ('Case ' + String(r.id).slice(0,6)));
-  var date = crDate(r.created_at);
-  var hash = crTxSig(r);
-  var verifyRow = hash
-    ? '<div class="crd-verify"><span class="crd-vk">\u2713 Solana Memo</span><a class="crd-vlink" href="https://solscan.io/tx/' + encodeURIComponent(hash) + '" target="_blank" rel="noopener">' + escapeHtml(String(hash).slice(0,16)) + '\u2026 \u2197</a></div>'
-    : '<div class="crd-verify"><span class="crd-vk">Verification</span><span class="mono" style="color:var(--ink-faint);font-size:11px">Pending on-chain reference</span></div>';
-  var packRows = packs.length
-    ? packs.map(function(p,i){ return '<div class="crd-pack"><div><div class="crd-pack-t">' + escapeHtml(escPackLabel(p.pack_type)) + '</div><div class="crd-pack-d">Reviewed escalation pack</div></div><button class="crd-dl" type="button" onclick="crDownloadPack(\'' + crAttr(r.id) + '\',' + i + ')">Download</button></div>'; }).join('')
-    : '<div class="crd-empty">No reviewed packs published for this case yet.</div>';
-  var evParts = [];
-  if(r.tx) evParts.push('Transaction reference on file');
-  if(r.onchain) evParts.push('On-chain notes recorded');
-  if(r.offchain) evParts.push('Off-chain context recorded');
-  var ev = evParts.length ? evParts.join(' \u00b7 ') : 'Evidence summarized above';
-  return ''
-    + '<div class="crd-head"><span class="cr-cid mono">' + cid + '</span><span class="cr-status ' + st.cls + '">' + st.txt + '</span></div>'
-    + '<h3 class="crd-title">' + title + '</h3>'
-    + (date ? '<div class="crd-meta mono">' + date + '</div>' : '')
-    + '<div class="crd-block"><div class="crd-h">VERIFICATION</div>' + verifyRow + '</div>'
-    + '<div class="crd-block"><div class="crd-h">SUMMARY</div><p class="crd-sum">' + escapeHtml(r.summary || 'No summary provided.') + '</p></div>'
-    + '<div class="crd-block"><div class="crd-h">EVIDENCE</div><div class="crd-ev">' + escapeHtml(ev) + '</div></div>'
-    + '<div class="crd-block"><div class="crd-h">ANALYST REVIEW</div><div class="crd-rev"><span class="crd-rev-dot"></span>' + (st.txt==='Under review' ? 'Awaiting maintainer review' : 'Reviewed by an OSI maintainer') + '</div></div>'
-    + '<div class="crd-block"><div class="crd-h">ESCALATION PACKS <span class="crd-h-sub">AI-assisted, human-reviewed</span></div>' + packRows + '</div>'
-    + '<div class="crd-actions">'
-      + (hash ? '<a class="crd-act primary" href="https://solscan.io/tx/' + encodeURIComponent(hash) + '" target="_blank" rel="noopener">Verify on Solana \u2197</a>' : '')
-      + '<button class="crd-act" type="button" onclick="crCopySummary(\'' + crAttr(r.id) + '\')">Copy summary</button>'
-    + '</div>'
-    + '<div class="crd-disc">OSI provides information only. No legal advice, and no recovery is promised.</div>';
-}
 function crShort(v){
   v = String(v || '');
   if(!v) return '';
@@ -10122,7 +9598,6 @@ function pfDownloadPack(caseRef, idx){
 @media(max-width:720px){.demo-card{width:320px}}
 .adm-con-lab{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);cursor:pointer;white-space:nowrap}
 .adm-con-lab input{width:auto;cursor:pointer}
-.va-tag{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.06em;color:var(--sol);border:1px solid var(--sol-deep);border-radius:3px;padding:1px 5px;white-space:nowrap}
 </style>
 <div class="adm-edit" id="adm-edit-modal">
   <div class="adm-edit-box">
