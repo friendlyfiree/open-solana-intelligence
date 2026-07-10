@@ -4129,6 +4129,66 @@ async function recordOnchainEvent(ev){
     });
   }catch(e){ /* the on-chain memo tx remains the source of truth */ }
 }
+// ============================================================
+//  OSI signed-event helper layer (Stage 1)
+//  Thin, additive wrapper over withOnchainVote + recordOnchainEvent.
+//  New events use the OSI1 memo grammar. No allegation text, rejection
+//  reasons, or AI-Pack content ever goes into the memo or memo_text.
+// ============================================================
+function osiSignerRole(){
+  try{
+    if(typeof resolveMaintainerAccess === 'function' && resolveMaintainerAccess().allowed) return 'maintainer';
+    if(typeof isVerifiedAnalyst === 'function' && isVerifiedAnalyst(walletPubkey)) return 'analyst';
+  }catch(e){}
+  return 'user';
+}
+function osiSanitizeMemoField(v){ return String(v==null?'':v).replace(/[|\r\n]/g,'/').slice(0,64); }
+// OSI1|<EVENT_TYPE>|case=<case_id>|report=<report_id>|actor=<wallet>|role=<role>|ts=<unix>
+function osiBuildMemo(eventType, o){
+  o = o || {};
+  return 'OSI1|' + String(eventType)
+    + '|case='   + osiSanitizeMemoField(o.caseId   || '')
+    + '|report=' + osiSanitizeMemoField(o.reportId || '')
+    + '|actor='  + osiSanitizeMemoField(o.actor || (typeof walletPubkey!=='undefined' ? walletPubkey : '') || 'anon')
+    + '|role='   + osiSanitizeMemoField(o.role  || osiSignerRole())
+    + '|ts='     + (o.ts || Math.floor(Date.now()/1000));
+}
+// Map OSI1 event types to the DB event_type strings the Proof Log reader
+// (plGroup) already recognizes, so no reader change is needed.
+function osiEventTypeToDb(eventType){
+  var m = { CASE_SUBMITTED:'case_opened', REPORT_SUBMITTED:'report_submitted' };
+  return m[String(eventType)] || String(eventType).toLowerCase();
+}
+// Sign an OSI1 memo, then (best-effort) index it into onchain_events.
+// opts: { eventType, actionLabel, caseId, reportId, itemType, itemId,
+//         vote, amount, token, publicLabel, sensitive, onSuccess }
+async function osiSignEvent(opts){
+  opts = opts || {};
+  var ts = Math.floor(Date.now()/1000);
+  var role = osiSignerRole();
+  var memo = osiBuildMemo(opts.eventType, {
+    caseId: opts.caseId, reportId: opts.reportId, role: role, ts: ts
+  });
+  await withOnchainVote(opts.actionLabel || opts.eventType, memo, async function(sig){
+    try{
+      if(typeof recordOnchainEvent === 'function'){
+        recordOnchainEvent({
+          event_type: osiEventTypeToDb(opts.eventType),
+          item_type:  opts.itemType || null,
+          item_id:    opts.itemId || opts.caseId || opts.reportId || null,
+          vote:       opts.vote || null,
+          amount:     (opts.amount != null && opts.amount !== '') ? Number(opts.amount) : null,
+          token:      opts.token || null,
+          // Privacy: sensitive/intake events store NO narrative label or memo_text.
+          label:      opts.sensitive ? null : (opts.publicLabel || null),
+          memo_text:  opts.sensitive ? null : memo,
+          tx_sig:     sig
+        });
+      }
+    }catch(e){ /* on-chain memo tx remains source of truth */ }
+    if(typeof opts.onSuccess === 'function') await opts.onSuccess(sig, memo);
+  });
+}
 function raShortW(w){ w=String(w||''); return w.length>8 ? (w.slice(0,4)+'\u2026'+w.slice(-4)) : (w||'someone'); }
 function raSignedItem(ev){
   var w=raShortW(ev.actor_wallet);
@@ -4983,17 +5043,103 @@ function rfInstallDemo(){
   sample.forEach(function(it){ window.__rfRows[vouchKey(it.type,it.id)]=it.row; window.VOUCHES[vouchKey(it.type,it.id)]=it.votes; });
   return sample.map(function(it){ return {type:it.type, id:it.id, title:it.title, sub:it.sub, ts:it.ts, creator:it.creator, _demo:true}; });
 }
+// ============================================================
+//  Secure analyst/maintainer intake (Stage 2B)
+//  Pending case/report intake is RLS-protected (Stage 2A). Verified analysts
+//  prove wallet ownership with an off-chain signed message; the maintainer uses
+//  the existing Supabase session. The Edge Function osi-analyst-intake verifies
+//  server-side and returns pending rows. The client checks below are UI hints
+//  only — never the security boundary.
+// ============================================================
+function osiB64(bytes){
+  var u = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes||[]);
+  var s=''; for(var i=0;i<u.length;i++) s += String.fromCharCode(u[i]);
+  return btoa(s);
+}
+async function osiAnalystIntakeProof(){
+  var prov = (typeof getConnectedProvider==='function') ? getConnectedProvider() : (typeof getProvider==='function'?getProvider():null);
+  if(!walletPubkey || !prov){
+    if(typeof toggleWallet==='function'){ try{ await toggleWallet(); }catch(e){} }
+    prov = (typeof getConnectedProvider==='function') ? getConnectedProvider() : (typeof getProvider==='function'?getProvider():null);
+  }
+  if(!walletPubkey || !prov){ var e0=new Error('no_wallet'); e0.status=401; throw e0; }
+  if(typeof prov.signMessage !== 'function'){ var e1=new Error('This wallet cannot sign messages.'); e1.status=400; throw e1; }
+  var msg = 'OSI Analyst Intake Access v1\nwallet: '+walletPubkey+'\nissued: '+Date.now()+'\nnonce: '+(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2));
+  var res = await prov.signMessage(new TextEncoder().encode(msg), 'utf8');
+  var sigBytes = (res && res.signature) ? res.signature : res;
+  return { wallet: walletPubkey, message: msg, signature: osiB64(sigBytes) };
+}
+// Fetch pending intake from the secure endpoint. Caches per session so tab
+// switches / pagination do not re-prompt Phantom; pass {force:true} to refresh.
+async function osiAnalystIntakeFetch(opts){
+  opts = opts || {};
+  if(!opts.force && window.__osiIntake && (Date.now()-window.__osiIntake.at < 300000)){ return window.__osiIntake.data; }
+  var url = SUPABASE_URL + '/functions/v1/osi-analyst-intake';
+  var headers = { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY };
+  var maint = (typeof resolveMaintainerAccess==='function') ? resolveMaintainerAccess().allowed : false;
+  var body;
+  if(maint && SUPA_AUTH_TOKEN){
+    headers['Authorization'] = 'Bearer ' + SUPA_AUTH_TOKEN;   // maintainer: Supabase session JWT
+    body = '{}';
+  } else {
+    headers['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY; // analyst: gateway apikey; auth is the wallet proof
+    body = JSON.stringify(await osiAnalystIntakeProof());
+  }
+  var res = await fetch(url, { method:'POST', headers: headers, body: body });
+  if(!res.ok){ var er=new Error('intake_'+res.status); er.status=res.status; throw er; }
+  var data = await res.json();
+  window.__osiIntake = { at: Date.now(), data: data };
+  window.__osiIntakeState = null;
+  return data;
+}
+async function osiIntakeUnlock(){
+  window.__osiIntakeState = null;
+  try{ await osiAnalystIntakeFetch({ force:true }); }
+  catch(e){ window.__osiIntakeState = (e && e.status===403) ? 'not_verified' : 'unavailable'; }
+  try{ renderReviewFloor(); }catch(e){}
+}
+// Gated / unauthorized states — reuse existing empty-state styling, no redesign.
+function rfGatedHtml(state){
+  var note, action='';
+  if(state==='no_wallet'){
+    note='Connect a wallet to access the analyst review floor.';
+    action='<button class="fo-cta" type="button" onclick="toggleWallet().then(function(){try{renderReviewFloor();}catch(e){}})">Connect wallet</button><a class="rvq-apply-link" onclick="apxOpen()" style="margin-left:12px;color:var(--sol);cursor:pointer;text-decoration:none">Apply as analyst →</a>';
+  } else if(state==='not_verified'){
+    note='Analyst access required · this wallet is not on the verified roster.';
+    action='<a class="rvq-apply-link" onclick="apxOpen()" style="color:var(--sol);cursor:pointer;text-decoration:none">Apply as analyst →</a>';
+  } else if(state==='needs_unlock'){
+    note='Verify your analyst wallet to load the pending review floor.';
+    action='<button class="fo-cta" type="button" onclick="osiIntakeUnlock()">Unlock review floor</button>';
+  } else {
+    note='Analyst intake temporarily unavailable. Please try again in a moment.';
+    action='<button class="fo-cta" type="button" onclick="osiIntakeUnlock()">Retry</button>';
+  }
+  return '<div class="rvq-empty mono">'+note+'<div style="margin-top:14px">'+action+'</div></div>';
+}
 async function renderReviewFloor(){
   const host=document.getElementById('consensus-floor'); if(!host) return;
   const canVouch = isVerifiedAnalyst(walletPubkey);
   const isMaint = (typeof resolveMaintainerAccess === 'function') ? resolveMaintainerAccess().allowed : false;
   let reports=[], bounties=[], challenges=[];
-  if(SUPA_ON){
-    try{ reports  = await supaGet('reports?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
-    try{ bounties = await supaGet('bounties?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
-    try{ challenges = await supaGet('challenges?select=*&status=eq.open&order=created_at.desc&limit=60') || []; }catch(e){}
-    await loadVouches();
+  // Stage 2B: pending intake is RLS-protected. Read it only through the secure
+  // Edge Function (verified analyst via wallet signature, or maintainer via JWT).
+  // Never fall back to anon pending reads.
+  var intakeState='ok';
+  var demoMode = (window.OSI_DEMO_MODE === true);
+  if(SUPA_ON && !demoMode){
+    var cacheFresh = !!(window.__osiIntake && (Date.now()-window.__osiIntake.at < 300000));
+    if(!walletPubkey){ intakeState='no_wallet'; }
+    else if(!canVouch && !isMaint){ intakeState='not_verified'; }
+    else if(cacheFresh || isMaint){
+      try{ var _d = await osiAnalystIntakeFetch(); reports=_d.reports||[]; bounties=_d.bounties||[]; challenges=_d.challenges||[]; intakeState='ok'; }
+      catch(e){ intakeState = (e && e.status===403) ? 'not_verified' : 'unavailable'; }
+    }
+    else if(window.__osiIntakeState==='not_verified'){ intakeState='not_verified'; }
+    else if(window.__osiIntakeState==='unavailable'){ intakeState='unavailable'; }
+    else { intakeState='needs_unlock'; }   // verified analyst, not yet unlocked this session
   }
+  if(intakeState !== 'ok'){ host.innerHTML = rfGatedHtml(intakeState); return; }
+  if(SUPA_ON){ try{ await loadVouches(); }catch(e){} }
   window.__rfRows = {};
   const items=[];
   reports.forEach(function(r){ window.__rfRows['report|'+r.id]=r; items.push({type:'report', id:String(r.id), title:(r.company||r.bounty||'Report'), sub:String(r.summary||'').slice(0,150), ts:r.created_at, creator:r.wallet||''}); });
@@ -5199,6 +5345,7 @@ async function admSaveConsensus(){
   const auto = document.getElementById('admConAuto').checked ? 'on' : 'off';
   const msg = document.getElementById('admConMsg');
   if(isNaN(thr) || thr<1){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Threshold must be 1 or more.'; } return; }
+  osiSignEvent({ eventType:'CONFIG_CHANGED', actionLabel:'Save consensus settings', itemType:'config', itemId:'consensus', sensitive:true, onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
   try{
     await supaUpsertConfig('consensus_threshold', String(thr));
@@ -5207,6 +5354,7 @@ async function admSaveConsensus(){
     if(msg){ msg.style.color='var(--sol)'; msg.textContent = '\u2713 Saved. ' + (auto==='on' ? ('Items now auto-publish at '+thr+' approve-weight.') : 'Auto-publish off, your seal stays final.'); }
     renderReviewFloor();
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Failed: '+((e&&e.message)||e); } }
+  }});
 }
 
 // ===== ANALYST ROSTER (founder-curated, level earned by verified work) =====
@@ -5705,6 +5853,7 @@ async function admAddAnalyst(){
   const bio=(document.getElementById('admAnBio').value||'').trim();
   const msg=document.getElementById('admAnMsg');
   if(!isSolAddr(wallet)){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Enter a valid Solana wallet address.'; } return; }
+  osiSignEvent({ eventType:'ANALYST_VERIFIED', actionLabel:'Add analyst', itemType:'analyst', itemId: wallet, publicLabel:'Analyst verified', onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Adding\u2026'; }
   try{
     await supaUpsertAnalyst({ wallet:wallet, handle:handle||null, name:name||null, bio:bio||null, verified:true, approved:true });
@@ -5712,20 +5861,25 @@ async function admAddAnalyst(){
     ['admAnWallet','admAnHandle','admAnName','admAnBio'].forEach(function(id){ const e=document.getElementById(id); if(e) e.value=''; });
     admRefresh(); loadAnalysts(); renderAnalysts();
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Failed: '+((e&&e.message)||e)+' (did you run the latest SQL?)'; } }
+  }});
 }
 async function admSetAnalyst(wallet, on){
   if(!requireMaintainerAccess(on ? 'Verify analyst' : 'Unverify analyst')) return;
+  osiSignEvent({ eventType: on?'ANALYST_VERIFIED':'ANALYST_REVOKED', actionLabel: on?'Verify analyst':'Unverify analyst', itemType:'analyst', itemId: wallet, sensitive: !on, publicLabel: (on?'Analyst verified':null), onSuccess: async (sig)=>{
   try{
     await supaPatch('analysts?wallet=eq.'+encodeURIComponent(wallet), { verified:on, approved:on });
     showToast(on?'Analyst verified and on the roster.':'Analyst hidden from the roster.');
     admRefresh(); loadAnalysts(); renderAnalysts();
   }catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
+  }});
 }
 async function admDelAnalyst(wallet){
   if(!requireMaintainerAccess('Remove analyst')) return;
   if(!confirm('Remove this analyst from the roster? This cannot be undone.')) return;
+  osiSignEvent({ eventType:'ANALYST_REVOKED', actionLabel:'Remove analyst', itemType:'analyst', itemId: wallet, sensitive:true, onSuccess: async (sig)=>{
   try{ await supaDelete('analysts?wallet=eq.'+encodeURIComponent(wallet)); showToast('Analyst removed.'); admRefresh(); loadAnalysts(); renderAnalysts(); }
   catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
+  }});
 }
 
 // ===== Maintainer button: visible only to the configured maintainer wallet =====
@@ -5744,6 +5898,7 @@ async function admSaveAdminWallet(){
   const v=(document.getElementById('admAdminW').value||'').trim();
   const msg=document.getElementById('admAdminMsg');
   if(v && !isSolAddr(v)){ if(msg){ msg.style.color='var(--red)'; msg.textContent="That is not a valid Solana address."; } return; }
+  osiSignEvent({ eventType:'CONFIG_CHANGED', actionLabel:'Save maintainer wallet', itemType:'config', itemId:'admin_wallet', sensitive:true, onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
   try{
     await supaUpsertConfig('admin_wallet', v);
@@ -5751,6 +5906,7 @@ async function admSaveAdminWallet(){
     updateAdminButton();
     if(msg){ msg.style.color='var(--sol)'; msg.textContent = OSI_ADMIN_WALLET ? ('\u2713 Saved. The maintainer button now appears only when '+short(OSI_ADMIN_WALLET)+' is connected.') : '\u2713 Cleared. The button stays visible until you set a wallet.'; }
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Save failed: '+((e&&e.message)||e); } }
+  }});
 }
 
 // ===== Admin: edit a bounty (target, brief, reward, logo) =====
@@ -5778,6 +5934,7 @@ async function admSaveBounty(){
   let image = (document.getElementById('aeb-image').value||'').trim();
   const msg = document.getElementById('aeb-msg');
   if(!target){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Target cannot be empty.'; } return; }
+  osiSignEvent({ eventType:'CASE_EDITED', actionLabel:'Save case', caseId: id, itemType:'bounty', itemId: id, sensitive:true, onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
   try{
     try{ const up = await uploadPicked('aeb'); if(up) image = up; }catch(e){ if(msg) msg.textContent='Logo upload failed, saving the rest\u2026'; }
@@ -5785,6 +5942,7 @@ async function admSaveBounty(){
     if(msg){ msg.style.color='var(--sol)'; msg.textContent='\u2713 Saved.'; }
     admCloseEdit(); admRefresh(); admReflow();
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Save failed: '+((e&&e.message)||e); } }
+  }});
 }
 
 // ===== Support / payout wallet (maintainer-set, stored globally in Supabase) =====
@@ -5822,6 +5980,7 @@ async function admSaveSupport(){
   const v = (document.getElementById('admSupport').value || '').trim();
   const msg = document.getElementById('admCfgMsg');
   if(v && !isSolAddr(v)){ if(msg){ msg.style.color='var(--red)'; msg.textContent = "That does not look like a valid Solana address."; } return; }
+  osiSignEvent({ eventType:'CONFIG_CHANGED', actionLabel:'Save support wallet', itemType:'config', itemId:'support_wallet', sensitive:true, onSuccess: async (sig)=>{
   if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent = 'Saving…'; }
   try{
     await supaUpsertConfig('support_wallet', v);
@@ -5830,6 +5989,7 @@ async function admSaveSupport(){
     try{ renderCaseStudies(); }catch(e){}
     try{ renderWire(); }catch(e){}
   }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent = 'Save failed: ' + ((e && e.message) || e); } }
+  }});
 }
 
 // ===== THE WIRE: open community intelligence, filed without a bounty =====
@@ -6070,16 +6230,19 @@ const FIELD_PER_PAGE = 5;
 
 async function renderFieldOffice(){
   if(!document.getElementById('field-cases')) return;
+  var demo = (window.OSI_DEMO_MODE === true);   // sample cards only in demo mode
   let list = [];
+  window.__foError = false;
   if(SUPA_ON){
     try{
       const rows = await supaGet('bounties?select=*&approved=eq.true&order=created_at.desc');
       list = rows || [];
     }catch(e){
-      list = FIELD_SEED.slice();   // network failure: fall back so the board is never blank
+      list = demo ? FIELD_SEED.slice() : [];   // live mode: NO seed cards on failure
+      window.__foError = !demo;
     }
   } else {
-    list = FIELD_SEED.slice();
+    list = demo ? FIELD_SEED.slice() : [];     // live mode without Supabase: clean empty state
   }
   fieldState.data = list;
   drawFieldOffice();
@@ -6120,6 +6283,10 @@ function drawFieldOffice(){
     }
   }
   if(!list.length){
+    if(window.__foError){
+      host.innerHTML='<div class="fo-empty"><div class="fo-empty-h">Cases are temporarily unavailable.</div><p>We could not reach the intelligence network just now. Refresh in a moment.</p><button class="fo-cta" onclick="renderFieldOffice()">Retry</button></div>';
+      return;
+    }
     if(fieldState.mine){
       host.innerHTML='<div class="fo-empty"><div class="fo-empty-h">No cases from this wallet yet.</div><p>Open your first case, it is free and signed with your wallet, so it shows up here as yours.</p><button class="fo-cta" onclick="fieldOpenForm()">+ Open a case</button></div>';
       return;
@@ -7605,17 +7772,19 @@ async function admResolveBounty(id){
   const w = prompt("Paste the winning analyst's wallet address (copy it from their report).\n\nThis marks the bounty resolved and makes the reward button live on the board, so anyone can pay the winner in SOL. Leave blank to clear the winner.");
   if(w===null) return;
   const wallet=(w||'').trim();
+  if(wallet && (wallet.length<32 || wallet.length>46)){ showToast("That does not look like a Solana wallet address."); return; }
+  osiSignEvent({ eventType:'CASE_RESOLVED', actionLabel:'Resolve case', caseId: id, itemType:'bounty', itemId: id, sensitive:true, onSuccess: async (sig)=>{
   if(!wallet){
     try{ await supaPatch('bounties?id=eq.'+encodeURIComponent(id), { winner_wallet:null, winner_label:null }); showToast('Winner cleared.'); admRefresh(); admReflow(); }
     catch(e){ showToast('Failed: '+((e&&e.message)||e)); }
     return;
   }
-  if(wallet.length<32 || wallet.length>46){ showToast("That does not look like a Solana wallet address."); return; }
   try{
     await supaPatch('bounties?id=eq.'+encodeURIComponent(id), { winner_wallet: wallet, winner_label: short(wallet) });
     showToast('Bounty resolved. The reward button is now live on the board.');
     admRefresh(); admReflow();
   }catch(e){ showToast('Could not resolve: '+((e&&e.message)||e)); }
+  }});
 }
 
 function admReflow(){
@@ -7631,14 +7800,18 @@ function admReflow(){
 }
 async function admSet(table, id, approved){
   if(!requireMaintainerAccess(approved ? 'Approve item' : 'Unpublish item')) return;
+  osiSignEvent({ eventType: approved?'MAINTAINER_APPROVAL':'MAINTAINER_REJECTION', actionLabel: approved?'Approve item':'Unpublish item', caseId: (table==='bounties'?id:''), reportId: (table==='reports'?id:''), itemType: (table==='reports'?'report':(table==='bounties'?'bounty':String(table||'item'))), itemId: id, sensitive: !approved, publicLabel: (approved?'Maintainer approved':null), onSuccess: async (sig)=>{
   try{ await supaPatch(table+'?id=eq.'+encodeURIComponent(id), { approved: approved }); showToast(approved?'Published. Now public for everyone.':'Unpublished.'); admRefresh(); admReflow(); }
   catch(e){ showToast('Action failed: '+e.message); }
+  }});
 }
 async function admDel(table, id){
   if(!requireMaintainerAccess('Delete item')) return;
   if(!confirm('Delete this permanently? This cannot be undone.')) return;
+  osiSignEvent({ eventType:'RECORD_DELETED', actionLabel:'Delete item', caseId: (table==='bounties'?id:''), reportId: (table==='reports'?id:''), itemType: (table==='reports'?'report':(table==='bounties'?'bounty':String(table||'item'))), itemId: id, sensitive:true, onSuccess: async (sig)=>{
   try{ await supaDelete(table+'?id=eq.'+encodeURIComponent(id)); showToast('Deleted.'); admRefresh(); admReflow(); }
   catch(e){ showToast('Delete failed: '+e.message); }
+  }});
 }
 document.addEventListener('DOMContentLoaded', function(){ if(location.hash==='#admin'){ try{ showView('admin'); }catch(_){} } });
 window.addEventListener('hashchange', function(){ if(location.hash==='#admin'){ try{ showView('admin'); }catch(_){} } });
@@ -8601,12 +8774,18 @@ async function submitBounty(){
   if(!rateOk('submit', 6000)){ showToast("Give it a few seconds between submissions."); return; }
   var _sgB = safetyGate(target + "\n" + detail);
   if(!_sgB.ok){ osiBlockShow(_sgB.hits); return; }
-  const memo = "OSI_CASE_OPENED|subject=" + String(target).replace(/\|/g,"/") + "|actor=" + (walletPubkey||"anon") + "|ts=" + Math.floor(Date.now()/1000);
-  withOnchainVote("Open a case", memo, async (sig)=>{
+  const id='bnt_'+Date.now();   // id exists before signing so the memo can reference case=<id>
+  osiSignEvent({
+    eventType: 'CASE_SUBMITTED',
+    actionLabel: 'Open a case',
+    caseId: id,
+    itemType: 'bounty',
+    itemId: id,
+    sensitive: true,            // no subject/allegation in memo, memo_text, or label
+    onSuccess: async (sig)=>{
     let img='';
     try{ img = await uploadPicked('bf'); }
     catch(e){ showToast("Image upload failed, filing the case without it."); }
-    const id='bnt_'+Date.now();
     const mine=lsGet('stw_bounties',[]); mine.unshift({ id, target, detail, reward_sol:rewardSol, image:img, tx: sig||'', sub: SUPA_ON?'\u23f3 awaiting maintainer approval':'proposed here' }); lsSet('stw_bounties',mine);
     ['bf-target','bf-detail','bf-reward'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
     if(SUPA_ON){ try{ const brow = { id, title:target, target, detail, reward_sol:rewardSol, created_by: walletPubkey||'', approved:false }; if(img) brow.image = img; await supaPost('bounties', brow); renderFieldOffice(); }catch(e){ console.warn('OSI: bounty publish failed.',e); } }
@@ -8614,6 +8793,7 @@ async function submitBounty(){
     clearPickedFile('bf');
     fieldCloseForm();
     showToast(SUPA_ON?'\u2713 Case signed on-chain \u00b7 now in peer review. It publishes when analyst consensus reaches '+CONSENSUS_THRESHOLD+' weight.':'\u2713 Case proposed \u00b7 it enters peer review.');
+    }
   });
 }
 
@@ -8666,12 +8846,19 @@ async function submitBountyReport(){
   var _sgR = safetyGate(report);
   if(!_sgR.ok){ osiBlockShow(_sgR.hits); return; }
   const target = applyCtx.target, bid = applyCtx.bid;
-  const memo = "OSI_REPORT_SUBMITTED|case=" + String(target).replace(/\|/g,"/") + "|researcher=" + (walletPubkey||"anon") + "|ts=" + Math.floor(Date.now()/1000);
-  withOnchainVote("Submit report", memo, async (sig)=>{
+  const id = 'rep_' + Date.now();   // id exists before signing so the memo can reference report=<id>
+  osiSignEvent({
+    eventType: 'REPORT_SUBMITTED',
+    actionLabel: 'Submit report',
+    caseId: bid,                    // the case this report is filed under
+    reportId: id,
+    itemType: 'report',
+    itemId: id,
+    sensitive: true,               // no report summary/allegation in memo, memo_text, or label
+    onSuccess: async (sig)=>{
     let att = '';
     try{ att = await uploadPicked('apply'); }
     catch(e){ showToast("Attachment upload failed, submitting without it."); }
-    const id = 'rep_' + Date.now();
     const reports = lsGet('stw_reports', []);
     reports.unshift({ id, bounty: target, company: target, summary: report, onchain: '', offchain: '', attachment: att, wallet: walletPubkey || '', tx: sig || '', up: 0, dn: 0 });
     lsSet('stw_reports', reports);
@@ -8684,6 +8871,7 @@ async function submitBountyReport(){
     openCommunityTab('tab-analysts');
     const q = document.getElementById('review-list'); if(q) q.scrollIntoView({ behavior: 'smooth', block: 'center' });
     showToast("\u2713 Submission signed on-chain and sent, pending maintainer approval.");
+    }
   });
 }
 // On load, restore this browser's boosted/applied bounties + global counts.
@@ -9059,23 +9247,28 @@ function escRenderPackControls(p){
 
 async function escApprovePack(packId){
   if(!requireMaintainerAccess('Approve escalation pack')){ escStatus(maintainerAccessMessage(resolveMaintainerAccess()), 'warn'); return; }
+  var _packCaseRef = (typeof escCurrentPacks!=='undefined' && escCurrentPacks) ? ((escCurrentPacks.find(function(p){ return String(p.id)===String(packId); })||{}).case_ref||'') : '';
+  osiSignEvent({ eventType:'ESCALATION_PACK_APPROVED', actionLabel:'Approve escalation pack', reportId:_packCaseRef, itemType:'report', itemId: packId, sensitive:true, onSuccess: async (sig)=>{
   try{
     await supaPatch('escalation_packs?id=eq.' + encodeURIComponent(packId), { status:'approved' });
     escStatus('Pack marked reviewed. It can now appear in Public Case Records.', 'ok');
     var sel = document.getElementById('esc-case'); if(sel) await escLoadPacksForCase(sel.value);
     if(typeof renderCaseRecords === 'function') renderCaseRecords();
   }catch(e){ escStatus('Could not update the pack. Check you are signed in as a maintainer.', 'warn'); }
+  }});
 }
 
 async function escSealCase(){
   if(!requireMaintainerAccess('Seal case')){ escStatus(maintainerAccessMessage(resolveMaintainerAccess()), 'warn'); return; }
   var sel = document.getElementById('esc-case'); var caseRef = sel ? sel.value : '';
   if(!caseRef){ escStatus('Pick a case first.', 'warn'); return; }
+  osiSignEvent({ eventType:'RECORD_SEALED', actionLabel:'Seal case', reportId: caseRef, itemType:'report', itemId: caseRef, publicLabel:'Record sealed', onSuccess: async (sig)=>{
   try{
     await supaPatch('reports?id=eq.' + encodeURIComponent(caseRef), { sealed:true });
     escStatus('Case sealed. It now shows as Sealed in Public Case Records.', 'ok');
     if(typeof renderCaseRecords === 'function') renderCaseRecords();
   }catch(e){ escStatus('Could not seal the case. Check you are signed in as a maintainer.', 'warn'); }
+  }});
 }
 
 // ---- Public Case Records (premium intelligence archive + drawer) ----
