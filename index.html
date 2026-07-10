@@ -5043,17 +5043,103 @@ function rfInstallDemo(){
   sample.forEach(function(it){ window.__rfRows[vouchKey(it.type,it.id)]=it.row; window.VOUCHES[vouchKey(it.type,it.id)]=it.votes; });
   return sample.map(function(it){ return {type:it.type, id:it.id, title:it.title, sub:it.sub, ts:it.ts, creator:it.creator, _demo:true}; });
 }
+// ============================================================
+//  Secure analyst/maintainer intake (Stage 2B)
+//  Pending case/report intake is RLS-protected (Stage 2A). Verified analysts
+//  prove wallet ownership with an off-chain signed message; the maintainer uses
+//  the existing Supabase session. The Edge Function osi-analyst-intake verifies
+//  server-side and returns pending rows. The client checks below are UI hints
+//  only — never the security boundary.
+// ============================================================
+function osiB64(bytes){
+  var u = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes||[]);
+  var s=''; for(var i=0;i<u.length;i++) s += String.fromCharCode(u[i]);
+  return btoa(s);
+}
+async function osiAnalystIntakeProof(){
+  var prov = (typeof getConnectedProvider==='function') ? getConnectedProvider() : (typeof getProvider==='function'?getProvider():null);
+  if(!walletPubkey || !prov){
+    if(typeof toggleWallet==='function'){ try{ await toggleWallet(); }catch(e){} }
+    prov = (typeof getConnectedProvider==='function') ? getConnectedProvider() : (typeof getProvider==='function'?getProvider():null);
+  }
+  if(!walletPubkey || !prov){ var e0=new Error('no_wallet'); e0.status=401; throw e0; }
+  if(typeof prov.signMessage !== 'function'){ var e1=new Error('This wallet cannot sign messages.'); e1.status=400; throw e1; }
+  var msg = 'OSI Analyst Intake Access v1\nwallet: '+walletPubkey+'\nissued: '+Date.now()+'\nnonce: '+(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2));
+  var res = await prov.signMessage(new TextEncoder().encode(msg), 'utf8');
+  var sigBytes = (res && res.signature) ? res.signature : res;
+  return { wallet: walletPubkey, message: msg, signature: osiB64(sigBytes) };
+}
+// Fetch pending intake from the secure endpoint. Caches per session so tab
+// switches / pagination do not re-prompt Phantom; pass {force:true} to refresh.
+async function osiAnalystIntakeFetch(opts){
+  opts = opts || {};
+  if(!opts.force && window.__osiIntake && (Date.now()-window.__osiIntake.at < 300000)){ return window.__osiIntake.data; }
+  var url = SUPABASE_URL + '/functions/v1/osi-analyst-intake';
+  var headers = { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY };
+  var maint = (typeof resolveMaintainerAccess==='function') ? resolveMaintainerAccess().allowed : false;
+  var body;
+  if(maint && SUPA_AUTH_TOKEN){
+    headers['Authorization'] = 'Bearer ' + SUPA_AUTH_TOKEN;   // maintainer: Supabase session JWT
+    body = '{}';
+  } else {
+    headers['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY; // analyst: gateway apikey; auth is the wallet proof
+    body = JSON.stringify(await osiAnalystIntakeProof());
+  }
+  var res = await fetch(url, { method:'POST', headers: headers, body: body });
+  if(!res.ok){ var er=new Error('intake_'+res.status); er.status=res.status; throw er; }
+  var data = await res.json();
+  window.__osiIntake = { at: Date.now(), data: data };
+  window.__osiIntakeState = null;
+  return data;
+}
+async function osiIntakeUnlock(){
+  window.__osiIntakeState = null;
+  try{ await osiAnalystIntakeFetch({ force:true }); }
+  catch(e){ window.__osiIntakeState = (e && e.status===403) ? 'not_verified' : 'unavailable'; }
+  try{ renderReviewFloor(); }catch(e){}
+}
+// Gated / unauthorized states — reuse existing empty-state styling, no redesign.
+function rfGatedHtml(state){
+  var note, action='';
+  if(state==='no_wallet'){
+    note='Connect a wallet to access the analyst review floor.';
+    action='<button class="fo-cta" type="button" onclick="toggleWallet().then(function(){try{renderReviewFloor();}catch(e){}})">Connect wallet</button><a class="rvq-apply-link" onclick="apxOpen()" style="margin-left:12px;color:var(--sol);cursor:pointer;text-decoration:none">Apply as analyst →</a>';
+  } else if(state==='not_verified'){
+    note='Analyst access required · this wallet is not on the verified roster.';
+    action='<a class="rvq-apply-link" onclick="apxOpen()" style="color:var(--sol);cursor:pointer;text-decoration:none">Apply as analyst →</a>';
+  } else if(state==='needs_unlock'){
+    note='Verify your analyst wallet to load the pending review floor.';
+    action='<button class="fo-cta" type="button" onclick="osiIntakeUnlock()">Unlock review floor</button>';
+  } else {
+    note='Analyst intake temporarily unavailable. Please try again in a moment.';
+    action='<button class="fo-cta" type="button" onclick="osiIntakeUnlock()">Retry</button>';
+  }
+  return '<div class="rvq-empty mono">'+note+'<div style="margin-top:14px">'+action+'</div></div>';
+}
 async function renderReviewFloor(){
   const host=document.getElementById('consensus-floor'); if(!host) return;
   const canVouch = isVerifiedAnalyst(walletPubkey);
   const isMaint = (typeof resolveMaintainerAccess === 'function') ? resolveMaintainerAccess().allowed : false;
   let reports=[], bounties=[], challenges=[];
-  if(SUPA_ON){
-    try{ reports  = await supaGet('reports?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
-    try{ bounties = await supaGet('bounties?select=*&approved=eq.false&order=created_at.desc&limit=60') || []; }catch(e){}
-    try{ challenges = await supaGet('challenges?select=*&status=eq.open&order=created_at.desc&limit=60') || []; }catch(e){}
-    await loadVouches();
+  // Stage 2B: pending intake is RLS-protected. Read it only through the secure
+  // Edge Function (verified analyst via wallet signature, or maintainer via JWT).
+  // Never fall back to anon pending reads.
+  var intakeState='ok';
+  var demoMode = (window.OSI_DEMO_MODE === true);
+  if(SUPA_ON && !demoMode){
+    var cacheFresh = !!(window.__osiIntake && (Date.now()-window.__osiIntake.at < 300000));
+    if(!walletPubkey){ intakeState='no_wallet'; }
+    else if(!canVouch && !isMaint){ intakeState='not_verified'; }
+    else if(cacheFresh || isMaint){
+      try{ var _d = await osiAnalystIntakeFetch(); reports=_d.reports||[]; bounties=_d.bounties||[]; challenges=_d.challenges||[]; intakeState='ok'; }
+      catch(e){ intakeState = (e && e.status===403) ? 'not_verified' : 'unavailable'; }
+    }
+    else if(window.__osiIntakeState==='not_verified'){ intakeState='not_verified'; }
+    else if(window.__osiIntakeState==='unavailable'){ intakeState='unavailable'; }
+    else { intakeState='needs_unlock'; }   // verified analyst, not yet unlocked this session
   }
+  if(intakeState !== 'ok'){ host.innerHTML = rfGatedHtml(intakeState); return; }
+  if(SUPA_ON){ try{ await loadVouches(); }catch(e){} }
   window.__rfRows = {};
   const items=[];
   reports.forEach(function(r){ window.__rfRows['report|'+r.id]=r; items.push({type:'report', id:String(r.id), title:(r.company||r.bounty||'Report'), sub:String(r.summary||'').slice(0,150), ts:r.created_at, creator:r.wallet||''}); });
