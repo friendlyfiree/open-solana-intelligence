@@ -18,7 +18,7 @@
 | Submit case | – | ✅ | (owner) | ✅ | ✅ | ✅ | EF sig; RLS insert private | Memo `CASE_SUBMITTED` | none |
 | Initial review (per analyst) | – | – | ❌ own | ✅ | ✅ | ✅ | EF; owner excluded | Sig `CASE_INITIAL_REVIEW_CAST` | – |
 | Open case (outcome) | – | – | ❌ | ✅(1) | ✅ | ✅ | EF ≥1 | Memo `CASE_OPENED` | case public |
-| Safety block | – | – | – | – | – | ✅ / server policy | EF maintainer/policy | Memo/Sys `CASE_SAFETY_BLOCKED` | private neutral notice |
+| Safety block | – | – | – | – | – | ✅ / server policy | EF maintainer/policy | Memo `CASE_SAFETY_BLOCKED` (class A) | private neutral notice |
 | Normal initial reject | – | – | ❌ | quorum | quorum | ✅ | EF ≥2 indep | Memo `CASE_INITIAL_REVIEW_REJECTED` | private; appeal |
 | Propose resolution | – | – | ❌ decisive | quorum | ✅ | ✅ finalize | EF ≥2 indep + maintainer | Memo `RESOLUTION_PROPOSED` | winner shown |
 | Seal | – | – | – | fallback-only | – | ✅ | EF ≥2 indep + maintainer | Memo `RECORD_SEALED` | sealed badge |
@@ -29,20 +29,19 @@
 
 | Operation | wallet | author | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
-| Submit report / new version | ✅ | ✅ | ✅ | ✅ | EF sig; RLS insert private version | Memo `REPORT_SUBMITTED` (v1) / Sig (revisions) |
+| Submit report / new version (v1 & every revision) | ✅ | ✅ | ✅ | ✅ | EF sig; RLS insert private version | Memo `CASE_REPORT_VERSION_SUBMITTED` |
 | View pending version | – | ✅ (proof) | ✅ | ✅ | EF owner-proof/analyst/maintainer | Sig |
 | Review exact version | – | ❌ own | ✅ | ✅ | EF verify analyst; **author≠reviewer**; targets `case_report_versions.id` | Sig `CASE_REPORT_REVIEW_CAST`/`_REVISED` |
-| Publish version (outcome) | – | ❌ | quorum | finalize | EF ≥2 indep + weight | Memo `REPORT_PUBLISHED` |
-| Unpublish | – | – | quorum | ✅ | EF ≥2 indep | Memo `REPORT_UNPUBLISHED`* |
+| Publish version (outcome) | – | ❌ | quorum | finalize | EF ≥2 indep + weight; advances header `current_published_version_id` (never set-once) | Memo `REPORT_PUBLISHED` |
+| Reject version (outcome) | – | ❌ | quorum | finalize | EF ≥2 indep | Memo `REPORT_REJECTED` |
+| Publish a **corrected** version | – | ❌ | quorum | finalize | EF ≥2 indep + weight; prior published version keeps history, resolution stays bound to its exact version | Memo `REPORT_PUBLISHED` (new version) |
 | Select winning version | – | ❌ | quorum | ✅ | EF ≥2 indep + maintainer; exact version | Memo `REPORT_SELECTED_WINNING` |
-
-*`REPORT_UNPUBLISHED` is a class-A outcome if used; retained from V1 semantics.
 
 ## 3. Wire
 
 | Operation | wallet | wire_author | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
-| Submit wire report / version | ✅ | (author) | ✅ | ✅ | EF sig | Memo `REPORT_SUBMITTED`-equiv |
+| Submit wire report / version (v1 & every revision) | ✅ | (author) | ✅ | ✅ | EF sig | Memo `WIRE_REPORT_VERSION_SUBMITTED` |
 | Review exact wire version | ✅→❌ own | ❌ own | ✅ | ✅ | EF; **author excluded** | Sig `WIRE_REPORT_REVIEW_CAST`/`_REVISED` |
 | Publish (outcome) | – | ❌ | quorum | finalize | EF ≥2 indep + weight | Memo `WIRE_REPORT_PUBLISHED` |
 | Promote to case | – | – | ✅ | ✅ | EF analyst/maintainer | Memo `WIRE_PROMOTED` |
@@ -52,21 +51,23 @@
 
 | Operation | wallet | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|
-| Submit challenge | ✅ | ✅ | ✅ | EF sig + reason + evidence_ref + rate-limit + one-active + cooldown | Sig `CHALLENGE_SUBMITTED` |
-| Accept admissibility (→ pauses sealing) | – | ✅ | ✅ | EF analyst/maintainer | Sig `CHALLENGE_ADMISSIBILITY_ACCEPTED` |
+| Submit challenge | ✅ | ✅ | ✅ | EF sig + reason + **`evidence_item_id` FK** (URL first becomes an `evidence_items` row) + **exactly-one typed target FK** + rate-limit + one-active + cooldown; sets `admissibility_ttl_at` | Sig `CHALLENGE_SUBMITTED` |
+| Accept admissibility (→ pauses sealing) | – | ✅ | ✅ | EF analyst/maintainer; sets `review_deadline_at` | Sig `CHALLENGE_ADMISSIBILITY_ACCEPTED` |
+| Reject admissibility (inadmissible) | – | ✅ | ✅ | EF analyst/maintainer; **no penalty**; no pause | Sig `CHALLENGE_ADMISSIBILITY_REJECTED` |
 | Judge (per analyst) | – | ✅ | ✅ | EF analyst | Sig `CHALLENGE_REVIEW_CAST`/`_REVISED` |
 | Accept/reject (outcome) | – | quorum | finalize | EF ≥2 indep | Memo `CHALLENGE_ACCEPTED`/`CHALLENGE_REJECTED` |
-| Withdraw own | challenger | – | – | EF sig | Sig |
+| Withdraw own (any non-terminal state) | challenger | – | – | EF sig; **not after a final accepted/rejected outcome** | Sig `CHALLENGE_WITHDRAWN` |
+| Expire (timeout) | – | – | – | system on `admissibility_ttl_at`/`review_deadline_at`; releases pause | Sys `CHALLENGE_EXPIRED` |
 
-Submission alone never pauses sealing; only `open`/`under_review` do.
+Submission alone never pauses sealing; only `open`/`under_review` do. No non-terminal state is stuck — each has a TTL/escalation path.
 
 ## 5. Analyst application & lifecycle
 
 | Operation | self | analyst | senior | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
-| Submit application (Path A) | ✅ | – | – | – | EF sig; RLS insert `analyst_applications` | Sig `ANALYST_APPLICATION_SUBMITTED` |
-| Resubmit/revise application | ✅ | – | – | – | EF | Sig |
-| Review application | – | ✅ | ✅ | ✅ | EF | Sig `ANALYST_APPLICATION_REVIEWED` |
+| Submit application version (Path A, v1) | ✅ | – | – | – | EF sig; RLS insert `analyst_applications` + immutable `analyst_application_versions` | Sig `ANALYST_APPLICATION_VERSION_SUBMITTED` |
+| Resubmit/revise application (new version) | ✅ | – | – | – | EF; new `analyst_application_versions` (`supersedes_version_id`) | Sig `ANALYST_APPLICATION_VERSION_SUBMITTED` |
+| Review application version | – | ✅ | ✅ | ✅ | EF; targets exact `analyst_application_versions.id` | Sig `ANALYST_APPLICATION_REVIEW_CAST`/`_REVISED` |
 | Path B derivation | (auto) | – | – | – | server-derived from resolved case | Sys `ANALYST_CANDIDATE` |
 | Promote candidate→probationary | – | – | ✅ (future ≥3 senior, flag) | ✅ | EF; **server-derived eligibility**, no discretionary tier | Memo `ANALYST_PROBATION` |
 | Verify | – | – | – | ✅ | EF maintainer double-gate | Memo `ANALYST_VERIFIED` |
@@ -78,12 +79,13 @@ Submission alone never pauses sealing; only `open`/`under_review` do.
 | Operation | owner | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|
 | Generate draft | ✅ (own case) | ✅ | ✅ | EF `osi-ai-pack generate`, server evidence; case/version approved | Sys `PACK_SUBMITTED` |
-| Owner feedback (advisory) | ✅ | – | – | EF; stored outside `ai_pack_reviews`, **uncounted** | Sig (advisory) |
+| Owner feedback (advisory) | ✅ | – | – | EF; writes `ai_pack_owner_feedback` (**not** `ai_pack_reviews`), **uncounted**, owner-only | Sig `AI_PACK_OWNER_FEEDBACK_SUBMITTED` |
 | View `content_owner_safe` | ✅ own | ✅ | ✅ | EF authorization | – |
 | View `content_analyst_restricted` | ❌ | ✅ | ✅ | EF | – |
 | View public brief | public | public | public | RLS (approved) | – |
 | Attest support/dispute/request_revision | ❌ own | ✅ (≠creator) | ✅ | EF `ai_pack_reviews`, reviewer≠creator | Sig `AI_PACK_REVIEW_CAST`/`_REVISED` |
 | Approve version (outcome) | ❌ | quorum (≠creator) | finalize | EF ≥2 indep, creator excluded | Memo `AI_PACK_APPROVED` |
+| Reject version (outcome) | ❌ | quorum (≠creator) | finalize | EF ≥2 indep, creator excluded | Memo `AI_PACK_REJECTED` (class A) |
 
 ## 7. Reward & Support
 

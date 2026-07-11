@@ -35,7 +35,7 @@ Nonce-protected, signature-proof Edge endpoint (`OWNER_STATUS_PROOF`). **No broa
 Component **profile only**. **No headline accuracy/probability score.** *Sec medium · UX high · Impl small.*
 
 ### D8 — Case owner Pack review — **RESOLVED**
-Owner feedback is **advisory and uncounted** (stored outside `ai_pack_reviews`). Owner is never an analyst attester on their own Pack. *Sec medium · UX medium.*
+Owner feedback is **advisory and uncounted**, stored in the first-class table **`ai_pack_owner_feedback`** (never in `ai_pack_reviews`), event `AI_PACK_OWNER_FEEDBACK_SUBMITTED` (class B). Owner is never an analyst attester on their own Pack; feedback contributes zero weight and never changes the confidence profile automatically. *Sec medium · UX medium.*
 
 ### D9 — `OSI_CASE_BACKED` — **RESOLVED**
 **Retire** the narrative-bearing memo. No subject text in any replacement. Any demand signal has **no governance/ranking consequence** and no subject narrative. *Sec medium (memo leak) · UX low.*
@@ -43,8 +43,8 @@ Owner feedback is **advisory and uncounted** (stored outside `ai_pack_reviews`).
 ### D10 — Wire rewards — **RESOLVED**
 The Wire has **no rewards**. A Wire Report must first be **promoted to a Case** before a reward may be pledged. *Sec low · UX medium.*
 
-### D11 — Challenge eligibility — **RESOLVED**
-Any connected wallet may **submit**, but **only an admissible challenge (`open`/`under_review`) pauses sealing** (correction #5). Rate limit + one-active-per-(wallet,target) + evidence requirement + cooldown. No auto-penalty for honestly rejected challenges. *Sec medium (spam) · UX medium.*
+### D11 — Challenge eligibility & lifecycle — **RESOLVED**
+Any connected wallet may **submit**, but **only an admissible challenge (`open`/`under_review`) pauses sealing** (correction #5). Targets are **real typed FKs** (exactly-one-of `case_id`/`case_report_version_id`/`wire_report_version_id`/`ai_pack_version_id`/`resolution_id`, CHECK-enforced); evidence is an **`evidence_items` FK** (a URL is first inserted as an `evidence_items` row, `kind='url'`). Rate limit + one-active-per-(wallet,target) + cooldown. **No stuck states** (correction #6): `submitted`/`admissibility_review` carry an `admissibility_ttl_at`, `open`/`under_review` a `review_deadline_at`; a timeout emits `CHALLENGE_EXPIRED` (Sys) and releases the sealing pause. Withdrawal (`CHALLENGE_WITHDRAWN`) is allowed in any non-terminal state but **never after a final accepted/rejected outcome**. No auto-penalty for honestly rejected/expired challenges; bad-faith needs a separate explicit determination. *Sec medium (spam) · UX medium.*
 
 ### D12 — Ancillary legacy tables — **RESOLVED (migration policy)**
 Retire/archive `bounty_boosts` after preserving history (with D9); fold `profiles` into `analyst_profiles` only where identity mapping is reliable; inventory `requests`/`request_votes`; migrate only records with a clear V2 meaning; preserve uncertain records in read-only legacy/archive views; never invent mappings. *Mig medium.*

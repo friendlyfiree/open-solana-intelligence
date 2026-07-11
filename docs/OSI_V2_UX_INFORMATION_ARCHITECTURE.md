@@ -22,18 +22,20 @@ Filters: `Open investigations` · `In review` · `Resolved` · `Sealed` · `Mine
 |---|---|---|---|---|
 | **Open a Case** | Field Office | connected wallet | Case submit → `CASE_SUBMITTED` | "Connect a wallet to open a Case" |
 | **Add evidence** | Evidence tab | owner/analyst on open case | insert `evidence_items` + link | "Case must be open to add evidence" |
-| **Submit Report** | Reports tab | connected wallet, case open | new `case_report_versions` v1 → `REPORT_SUBMITTED` | "Case not open yet" |
-| **Submit Report revision** | Reports tab | report author, version in `revision_requested` | new version (`supersedes_version_id`) | "Only the author can revise; no revision requested" |
+| **Submit Report** | Reports tab | connected wallet, case open | new `case_report_versions` v1 → Memo `CASE_REPORT_VERSION_SUBMITTED` | "Case not open yet" |
+| **Submit Report revision** | Reports tab | report author, version in `revision_requested` | new version (`supersedes_version_id`) → Memo `CASE_REPORT_VERSION_SUBMITTED` | "Only the author can revise; no revision requested" |
 | **Review this version** | Reports tab | analyst, **not author** | `case_report_reviews` cast → Sig | "Authors can't review their own report" / "Verified analysts only" |
 | **Propose resolution candidate** | Reports/Votes | analyst quorum context | `resolution_reviews` select | "Needs published report versions" |
 | **Review resolution candidate** | Votes tab | analyst, not author/owner | `resolution_reviews` cast | "Owner/author excluded" |
 | **Finalize winning Report** | Votes/maintainer | maintainer after quorum | `REPORT_SELECTED_WINNING` (exact version) | "Approve — needs 1 more independent analyst" |
-| **Submit challenge** | Challenges tab | connected wallet | `challenges` submit → `CHALLENGE_SUBMITTED` | "One active challenge per target; cooldown active" |
-| **Challenge pending admissibility** | Challenges tab | (display) | shows `submitted`/`admissibility_review` — **not yet pausing sealing** | — |
-| **Review challenge** | Challenges tab | analyst | admissibility accept / `challenge_reviews` cast | "Verified analysts only" |
+| **Submit challenge** | Challenges tab | connected wallet | `challenges` submit (typed target FK + `evidence_item_id`) → `CHALLENGE_SUBMITTED` | "One active challenge per target; cooldown active" |
+| **Challenge pending admissibility** | Challenges tab | (display) | shows `submitted`/`admissibility_review` + admissibility countdown — **not yet pausing sealing** | — |
+| **Withdraw challenge** | Challenges tab | challenger, non-terminal state | `challenges` → `CHALLENGE_WITHDRAWN` | "Cannot withdraw after a final outcome" |
+| **Review challenge** | Challenges tab | analyst | admissibility accept/reject / `challenge_reviews` cast | "Verified analysts only" |
 | **Generate AI Pack** | AI Pack tab | owner/analyst/maintainer, case has approved evidence | `osi-ai-pack generate` → `PACK_SUBMITTED` | "Needs approved case evidence" |
 | **Submit Pack revision** | AI Pack tab | version creator, `revision_requested` | new `ai_pack_versions` | "Only the creator can resubmit" |
 | **Review Pack version** | AI Pack tab | analyst, **not creator** | `ai_pack_reviews` cast → Sig | "Creators can't review their own pack" |
+| **Submit Pack owner feedback** | AI Pack tab | proven Case owner | `ai_pack_owner_feedback` → Sig `AI_PACK_OWNER_FEEDBACK_SUBMITTED` (advisory, uncounted) | "Only the Case owner may submit feedback" |
 | **Approve Pack after quorum** | AI Pack tab | maintainer, ≥2 independent (creator excluded) | `AI_PACK_APPROVED` | "Approve — needs 1 more independent analyst" |
 | **Send pledged reward** | Reward tab | case owner, winner assigned | `reward_payments` confirmed tx → `REWARD_PAID` | "No winner assigned yet" |
 | **Support Report Author** | Reports/Overview | any wallet | `support_events` (author) → `SUPPORT_SENT` | "Connect a wallet" |
@@ -42,7 +44,7 @@ Filters: `Open investigations` · `In review` · `Resolved` · `Sealed` · `Mine
 Tab contents: **Overview** (public summary, stage timeline, key dates, reward chip, counts) · **Evidence** (public evidence; restricted gated; reported wallets labeled *reported/unverified*) · **Reports** (versions with status; published bodies public; pending gated; reviews target exact version) · **AI Pack** (per AI Pack Trust Model §9) · **Votes** (decision totals + **public analyst attribution** — handle, wallet, decision, weight snapshot, timestamp, proof type; quorum two-gate meter) · **Challenges** (admissibility state, pause indicator, open challenge form) · **Reward** (pledge/status, winning version + author, resolution date, challenge deadline, payment status; never "paid" pre-confirmation) · **Proof Log** (this Case's receipts with honest proof-type labels).
 
 ## 4. The Wire (report-first, no rewards)
-"Publish a Wire Report" (finding-first). Card: title, author, review state, support chip (display only). Filters: category, newest (**no most-supported sort**). Published Wire Report → "Promote to Case" (analyst/maintainer). Author cannot review own.
+"Publish a Wire Report" (finding-first) → new `wire_report_versions` → Memo `WIRE_REPORT_VERSION_SUBMITTED` (v1 & every revision). Card: title, author, review state, support chip (display only). Filters: category, newest (**no most-supported sort**). Published Wire Report → "Promote to Case" (analyst/maintainer). Author cannot review own.
 
 ## 5. Wire Report Detail
 Tabs: Overview · Evidence · Reviews (totals + public attribution) · Challenges · Support · Proof Log. "Support author" (voluntary, non-influencing). Evidence is first-class (`wire_report_version_evidence`).
@@ -51,7 +53,7 @@ Tabs: Overview · Evidence · Reviews (totals + public attribution) · Challenge
 Archive of published/resolved/sealed public outcomes (Cases + published Wire Reports). Card: public_ref, title, category, status (Reviewed/Resolved/Sealed), analyst review summary + **public attribution**, challenge state, AI Pack availability (metadata), "Open record." No support-based ordering.
 
 ## 7. Analysts
-Tabs: **Roster** (verified analysts, tier, contribution stats) · **Review Floor** (analyst-gated: pending Cases/Report versions/Wire versions/Challenges/Packs; each shows two-gate progress + self-review exclusion) · **Apply** (Path A → `analyst_applications`) · **Path B status** (contributor→candidate progress). Locked state for non-analysts links to Apply.
+Tabs: **Roster** (verified analysts, tier, contribution stats) · **Review Floor** (analyst-gated: pending Cases/Report versions/Wire versions/Challenges/Packs; each shows two-gate progress + self-review exclusion) · **Apply** (Path A → `analyst_applications` header + immutable `analyst_application_versions`; each submit/revision is a new version) · **Path B status** (contributor→candidate progress). Locked state for non-analysts links to Apply.
 
 ## 8. Analyst Profile
 Identity, tier, bounded weight, contribution ledger (accepted/winning/reversals — transparent, server-derived), attestation history, support-received (display only, no influence). No fake metrics.
@@ -60,7 +62,7 @@ Identity, tier, bounded weight, contribution ledger (accepted/winning/reversals 
 Unified timeline over `event_receipts` (OSI1/legacy/OSI2). Honest proof-type labels: **Memo-anchored on Solana** (real tx), **Wallet-signed & server-verified** (signMessage receipt), **System event**, **Legacy / not server-verified**. Filters by event type/target/proof type. Standing "provenance, not verdict" note. No hardcoded "confirmed."
 
 ## 10. My OSI (owner/author dashboard, owner-proof) — exact-version status
-Sections: **My Cases** · **My Case Reports** (with exact version + review status + winning flag) · **My Wire Reports** (with version + review status) · **My AI Packs** (version/lifecycle/stale) · **My Challenges** (state) · **My analyst applications** (status/revisions) · **Rewards & Payments** (pledges made/owed; rewards owed as winner; payment status) · **Support Received** (voluntary, display only). Private data only via fresh signature proof.
+Sections: **My Cases** · **My Case Reports** (exact current version, current published version, review status, winning flag — publication history preserved) · **My Wire Reports** (version + review status) · **My AI Packs** (version/lifecycle/per-layer stale) · **My Challenges** (state + admissibility/review countdown) · **My analyst applications** (application status, **exact current version**, revision requests, **prior submitted versions**, per-version review state — over `analyst_applications` + immutable `analyst_application_versions`) · **Rewards & Payments** (pledges made/owed; rewards owed as winner; payment status) · **Support Received** (voluntary, display only). Private data only via fresh signature proof.
 
 ## 11. Maintainer Operations Center
 Sections: pending initial reviews, safety-block queue, quorum-ready finalizations, analyst application/verification queue, AI Pack approvals, challenge adjudications, resolution/seal actions, config, emergency halt, fallback-governance dashboard (disabled first release). **Every action is a real signed mutation** wired to the modeled Edge paths — no "Requires hardened backend" placeholders. Disabled actions state the exact unmet prerequisite.

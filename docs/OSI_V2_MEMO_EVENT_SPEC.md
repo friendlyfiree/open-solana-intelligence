@@ -31,7 +31,7 @@ For **signMessage** decisions (class B) the *signed message* uses the same field
 |---|---|---|
 | `ver` | grammar version | integer, starts `1` |
 | `event_type` | see registry §4 | canonical UPPER_SNAKE |
-| `t` target_type | `case`/`report_version`/`wire_version`/`resolution`/`challenge`/`pack_version`/`analyst`/`application`/`reward`/`config` | enum |
+| `t` target_type | `case`/`report_version`/`wire_version`/`resolution`/`challenge`/`pack_version`/`pack_owner_feedback`/`analyst`/`application_version`/`reward`/`config` | enum |
 | `id` target_ref | **short public ref** (e.g. `OSI-7F3A2C`) or version ref, never private uuid, never narrative | ≤ 24 chars |
 | `a` actor_wallet | signer base58 | – |
 | `r` actor_role | `owner`/`analyst`/`senior`/`maintainer`/`service` | enum |
@@ -45,30 +45,42 @@ Memos and any public field **never** contain: incident narrative, allegations, p
 
 ## 3. Transport class per action
 
+Each canonical event has **exactly one** class (A / B / Sys) — no `A or Sys`, `Sys/Memo`, or `Memo/Sig` alternatives anywhere.
+
 | Action | Class | Proof type | Memo? |
 |---|---|---|---|
 | Case submission | A | solana_memo | ✅ `CASE_SUBMITTED` |
 | Case opening | A | solana_memo | ✅ `CASE_OPENED` |
-| Case safety block | A or Sys | solana_memo *or* system_event (honest label) | ✅/❌ `CASE_SAFETY_BLOCKED` |
+| Case safety block | A | solana_memo | ✅ `CASE_SAFETY_BLOCKED` (auditable maintainer/policy action; carries only refs+hash, no narrative; the blocked Case content stays private) |
 | Case initial review (per analyst) | B | wallet_signed_server_verified | ❌ `CASE_INITIAL_REVIEW_CAST` / `_REVISED` |
 | Case initial rejection (outcome) | A | solana_memo | ✅ `CASE_INITIAL_REVIEW_REJECTED` |
+| **Case Report version submission (v1 & every revision)** | A | solana_memo | ✅ `CASE_REPORT_VERSION_SUBMITTED` |
 | Report review (per analyst) | B | wallet_signed_server_verified | ❌ `CASE_REPORT_REVIEW_CAST` / `_REVISED` |
 | Report publication (outcome) | A | solana_memo | ✅ `REPORT_PUBLISHED` |
+| **Report rejection (outcome)** | A | solana_memo | ✅ `REPORT_REJECTED` |
+| **Wire Report version submission (v1 & every revision)** | A | solana_memo | ✅ `WIRE_REPORT_VERSION_SUBMITTED` |
 | Wire review (per analyst) | B | wallet_signed_server_verified | ❌ `WIRE_REPORT_REVIEW_CAST` / `_REVISED` |
 | Wire publication (outcome) | A | solana_memo | ✅ `WIRE_REPORT_PUBLISHED` |
+| Wire promoted to a new Case | A | solana_memo | ✅ `WIRE_PROMOTED` |
 | Resolution review (per analyst) | B | wallet_signed_server_verified | ❌ `RESOLUTION_REVIEW_CAST` / `_REVISED` |
 | Resolution proposed / winner selected | A | solana_memo | ✅ `RESOLUTION_PROPOSED`, `REPORT_SELECTED_WINNING` |
 | Challenge submitted | B | wallet_signed_server_verified | ❌ `CHALLENGE_SUBMITTED` |
 | Challenge admissibility accepted | B | wallet_signed_server_verified | ❌ `CHALLENGE_ADMISSIBILITY_ACCEPTED` |
+| Challenge admissibility rejected | B | wallet_signed_server_verified | ❌ `CHALLENGE_ADMISSIBILITY_REJECTED` |
 | Challenge review (per analyst) | B | wallet_signed_server_verified | ❌ `CHALLENGE_REVIEW_CAST` / `_REVISED` |
+| Challenge withdrawn | B | wallet_signed_server_verified | ❌ `CHALLENGE_WITHDRAWN` |
+| Challenge expired (timeout) | Sys | system_event | ❌ `CHALLENGE_EXPIRED` |
 | Challenge accepted/rejected (outcome) | A | solana_memo | ✅ `CHALLENGE_ACCEPTED` / `CHALLENGE_REJECTED` |
 | Case resolved/reopened/sealed/halted | A | solana_memo | ✅ `CASE_RESOLVED`/`CASE_REOPENED`/`RECORD_SEALED`/`CASE_HALTED` |
-| Analyst application submitted | B | wallet_signed_server_verified | ❌ `ANALYST_APPLICATION_SUBMITTED` |
-| Analyst application reviewed | B | wallet_signed_server_verified | ❌ `ANALYST_APPLICATION_REVIEWED` |
+| **Analyst application version submission (v1 & revisions)** | B | wallet_signed_server_verified | ❌ `ANALYST_APPLICATION_VERSION_SUBMITTED` |
+| **Analyst application review (per reviewer)** | B | wallet_signed_server_verified | ❌ `ANALYST_APPLICATION_REVIEW_CAST` / `_REVISED` |
+| Analyst probation/senior (lifecycle) | A | solana_memo | ✅ `ANALYST_PROBATION` / `ANALYST_SENIOR` |
 | Analyst verified/revoked (outcome) | A | solana_memo | ✅ `ANALYST_VERIFIED` / `ANALYST_REVOKED` |
 | AI Pack generation | Sys | system_event | ❌ `PACK_SUBMITTED` (not a truth decision) |
 | AI Pack review (per analyst) | B | wallet_signed_server_verified | ❌ `AI_PACK_REVIEW_CAST` / `_REVISED` |
+| **AI Pack owner feedback (advisory, uncounted)** | B | wallet_signed_server_verified | ❌ `AI_PACK_OWNER_FEEDBACK_SUBMITTED` |
 | AI Pack approval (outcome) | A | solana_memo | ✅ `AI_PACK_APPROVED` |
+| **AI Pack rejection (outcome)** | A | solana_memo | ✅ `AI_PACK_REJECTED` (single proof class — correction #7) |
 | AI Pack attach / supersede / stale | Sys | system_event | ❌ `PACK_ATTACHED`/`PACK_SUPERSEDED`/`PACK_STALE` |
 | Owner status proof read | B | wallet_signed_server_verified | ❌ `OWNER_STATUS_PROOF` |
 | Reward pledged / paid | A | solana_memo | ✅ `REWARD_PLEDGED` / `REWARD_PAID` |
@@ -78,21 +90,21 @@ Memos and any public field **never** contain: incident narrative, allegations, p
 ## 4. Canonical event-type registry (`OSI2`)
 
 **Server-verified signMessage receipts (class B):**
-`CASE_INITIAL_REVIEW_CAST, CASE_INITIAL_REVIEW_REVISED, CASE_REPORT_REVIEW_CAST, CASE_REPORT_REVIEW_REVISED, WIRE_REPORT_REVIEW_CAST, WIRE_REPORT_REVIEW_REVISED, RESOLUTION_REVIEW_CAST, RESOLUTION_REVIEW_REVISED, CHALLENGE_SUBMITTED, CHALLENGE_ADMISSIBILITY_ACCEPTED, CHALLENGE_REVIEW_CAST, CHALLENGE_REVIEW_REVISED, AI_PACK_REVIEW_CAST, AI_PACK_REVIEW_REVISED, ANALYST_APPLICATION_SUBMITTED, ANALYST_APPLICATION_REVIEWED, OWNER_STATUS_PROOF.`
+`CASE_INITIAL_REVIEW_CAST, CASE_INITIAL_REVIEW_REVISED, CASE_REPORT_REVIEW_CAST, CASE_REPORT_REVIEW_REVISED, WIRE_REPORT_REVIEW_CAST, WIRE_REPORT_REVIEW_REVISED, RESOLUTION_REVIEW_CAST, RESOLUTION_REVIEW_REVISED, CHALLENGE_SUBMITTED, CHALLENGE_ADMISSIBILITY_ACCEPTED, CHALLENGE_ADMISSIBILITY_REJECTED, CHALLENGE_REVIEW_CAST, CHALLENGE_REVIEW_REVISED, CHALLENGE_WITHDRAWN, AI_PACK_REVIEW_CAST, AI_PACK_REVIEW_REVISED, AI_PACK_OWNER_FEEDBACK_SUBMITTED, ANALYST_APPLICATION_VERSION_SUBMITTED, ANALYST_APPLICATION_REVIEW_CAST, ANALYST_APPLICATION_REVIEW_REVISED, OWNER_STATUS_PROOF.`
 
 **Solana-Memo-anchored outcomes (class A):**
-`CASE_SUBMITTED, CASE_OPENED, CASE_SAFETY_BLOCKED, CASE_INITIAL_REVIEW_REJECTED, REPORT_PUBLISHED, WIRE_REPORT_PUBLISHED, RESOLUTION_PROPOSED, REPORT_SELECTED_WINNING, CHALLENGE_ACCEPTED, CHALLENGE_REJECTED, CASE_RESOLVED, CASE_REOPENED, RECORD_SEALED, CASE_HALTED, ANALYST_VERIFIED, ANALYST_REVOKED, ANALYST_PROBATION, ANALYST_SENIOR, AI_PACK_APPROVED, REWARD_PLEDGED, REWARD_PAID, SUPPORT_SENT, CONFIG_CHANGED.`
+`CASE_SUBMITTED, CASE_OPENED, CASE_SAFETY_BLOCKED, CASE_INITIAL_REVIEW_REJECTED, CASE_REPORT_VERSION_SUBMITTED, REPORT_PUBLISHED, REPORT_REJECTED, WIRE_REPORT_VERSION_SUBMITTED, WIRE_REPORT_PUBLISHED, WIRE_PROMOTED, RESOLUTION_PROPOSED, REPORT_SELECTED_WINNING, CHALLENGE_ACCEPTED, CHALLENGE_REJECTED, CASE_RESOLVED, CASE_REOPENED, RECORD_SEALED, CASE_HALTED, ANALYST_PROBATION, ANALYST_SENIOR, ANALYST_VERIFIED, ANALYST_REVOKED, AI_PACK_APPROVED, AI_PACK_REJECTED, REWARD_PLEDGED, REWARD_PAID, SUPPORT_SENT, CONFIG_CHANGED.`
 
 **System events (class Sys):**
-`CASE_QUORUM_READY, REPORT_REJECTED, AI_PACK_REJECTED, PACK_SUBMITTED, PACK_ATTACHED, PACK_SUPERSEDED, PACK_STALE, REWARD_ASSIGNED, ANALYST_CANDIDATE.`
+`CASE_QUORUM_READY, CHALLENGE_EXPIRED, PACK_SUBMITTED, PACK_ATTACHED, PACK_SUPERSEDED, PACK_STALE, REWARD_ASSIGNED, ANALYST_CANDIDATE.`
 
-These names are **canonical and identical** across all documents. No old name is retained once a canonical name is chosen. `CASE_SAFETY_BLOCKED` (moderation) and `CASE_INITIAL_REVIEW_REJECTED` (factual) are **never** used interchangeably.
+These names are **canonical and identical** across all documents, each with **exactly one** class. No old name is retained once a canonical name is chosen. Notable resolutions in this revision (correction #10): `CASE_REPORT_VERSION_SUBMITTED` / `WIRE_REPORT_VERSION_SUBMITTED` replace the ambiguous generic `REPORT_SUBMITTED`; `REPORT_REJECTED` and `AI_PACK_REJECTED` are **class A** governance outcomes (no longer "Sys/Memo"); `CASE_SAFETY_BLOCKED` is **class A** (no longer "A or Sys"); `CHALLENGE_EXPIRED` is the single `Sys` timeout event; `ANALYST_APPLICATION_VERSION_SUBMITTED` + `ANALYST_APPLICATION_REVIEW_CAST`/`_REVISED` replace `ANALYST_APPLICATION_SUBMITTED`/`ANALYST_APPLICATION_REVIEWED`. `CASE_SAFETY_BLOCKED` (moderation) and `CASE_INITIAL_REVIEW_REJECTED` (factual) are **never** used interchangeably.
 
 ## 5. Migration from current grammars
 Current production emits three grammars: (a) `OSI1|<TYPE>|case=|report=|actor=|role=|ts=`; (b) `OSI1|SUPPORT_SENT|from=|to=|amount=|ts=`; (c) legacy `OSI_ANALYST_VOUCH|…`, `OSI_CHALLENGE_FILED|…`, `OSI_CASE_BACKED|…`.
 - **Never rewrite historical on-chain memos.** The Proof Log parser accepts OSI1 + legacy `OSI_*` + OSI2 permanently.
 - Imported rows → `event_receipts{event_version:OSI1|legacy, server_verified:false, proof_type:legacy_imported}`.
-- Reader mapping: legacy `analyst_vouch`→`CASE_REPORT_REVIEW_CAST` (display), `support`→`SUPPORT_SENT`, `maintainer_seal`→`RECORD_SEALED`.
+- Reader mapping (display only): legacy `analyst_vouch`→`CASE_REPORT_REVIEW_CAST`, `support`→`SUPPORT_SENT`, `maintainer_seal`→`RECORD_SEALED`, and any generic legacy report-submission memo → `CASE_REPORT_VERSION_SUBMITTED` / `WIRE_REPORT_VERSION_SUBMITTED` by lane. The ambiguous generic `REPORT_SUBMITTED` name is **retired** for new writes; **new OSI2 writes use only the canonical names** in §4 — legacy parsing maps old names for display but never emits them.
 - **`OSI_CASE_BACKED` retired** (D9): it embeds `subject=<target text>`; V2 removes narrative from memos. Any replacement demand signal is a class-Sys receipt with **no subject text and no governance/ranking consequence**.
 
 ## 6. Off-chain payload (`event_receipts`)

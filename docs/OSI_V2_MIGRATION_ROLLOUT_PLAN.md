@@ -1,6 +1,6 @@
 # OSI V2 — Migration & Rollout Plan
 
-**Status:** Blueprint / design-only. **No SQL is created or executed here. No production data, Supabase state, or deployment configuration is touched.** This is an *additive* strategy: new tables and compatibility views alongside the current schema, never destructive renames. The **authoritative V2 table count is 29** (identical in `OSI_V2_DOMAIN_MODEL.md §1`, `OSI_V2_README.md`, and the final report).
+**Status:** Blueprint / design-only. **No SQL is created or executed here. No production data, Supabase state, or deployment configuration is touched.** This is an *additive* strategy: new tables and compatibility views alongside the current schema, never destructive renames. The **authoritative V2 table count is 32** (identical in `OSI_V2_DOMAIN_MODEL.md §1`, `OSI_V2_README.md`, and the final report).
 
 **Hard gate (locked, D14 / Stage-5):** `OSI_V2_WRITES_ENABLED` stays **false** and **no V2 write cutover happens before step 9 is verified.** Steps 1–8 are read-only or infrastructure-only. See §3.
 
@@ -20,20 +20,20 @@
 | `osi_config` | governance config | reuse |
 | `bounty_boosts`, `request_votes`, `requests`, `profiles` | ancillary/legacy | evaluate for retirement (D12) |
 
-## 2. Target tables (the authoritative 29)
+## 2. Target tables (the authoritative 32)
 
 Per `OSI_V2_DOMAIN_MODEL.md §1`, grouped exactly as there:
 
 - **Case & Report headers/versions (5):** `cases`, `case_reports`, `case_report_versions`, `wire_reports`, `wire_report_versions`
-- **Evidence (4):** `evidence_items`, `case_evidence_links`, `case_report_version_evidence`, `wire_report_version_evidence`
+- **Evidence & Pack evidence manifests (5):** `evidence_items`, `case_evidence_links`, `case_report_version_evidence`, `wire_report_version_evidence`, `ai_pack_version_evidence`
 - **Governance reviews — typed, real FKs (7):** `case_initial_reviews`, `case_report_reviews`, `wire_report_reviews`, `resolution_reviews`, `challenge_reviews`, `ai_pack_reviews`, `analyst_application_reviews`
 - **Resolution & challenge (2):** `case_resolutions`, `challenges`
-- **Analyst (4):** `analyst_applications`, `analyst_profiles`, `analyst_contributions`, `analyst_reputation_snapshots`
-- **AI Pack (2):** `ai_packs`, `ai_pack_versions`
+- **Analyst (5):** `analyst_applications`, `analyst_application_versions`, `analyst_profiles`, `analyst_contributions`, `analyst_reputation_snapshots`
+- **AI Pack (3):** `ai_packs`, `ai_pack_versions`, `ai_pack_owner_feedback`
 - **Money (3):** `reward_pledges`, `reward_payments`, `support_events`
 - **Proof & config (2):** `event_receipts`, `osi_config`
 
-`osi_config` is reused; the other 28 are additive-new. No current table is renamed or dropped during migration.
+`osi_config` is reused; the other 31 are additive-new. No current table is renamed or dropped during migration. The three tables added in this revision (`analyst_application_versions`, `ai_pack_owner_feedback`, `ai_pack_version_evidence`) have **no v1 predecessor** — they are created empty and populated only by native V2 writes.
 
 ---
 
@@ -105,6 +105,9 @@ The order is fixed. **No V2 write is enabled before step 9 is verified.** Steps 
 
 - Crosswalk completeness — every migrated row maps or is queued.
 - No orphan `case_reports`/`case_report_versions` (all have `case_id`/`report_id`).
+- Every `analyst_application_reviews` row targets an immutable `analyst_application_versions.id` (never a bare header).
+- Every `ai_pack_versions` row has a complete `ai_pack_version_evidence` manifest and consistent per-layer manifest hashes; `ai_pack_owner_feedback` never appears in `ai_pack_reviews`.
+- Every `challenges` row has exactly one non-null typed target FK and a real `evidence_item_id`; no non-terminal challenge lacks a TTL/deadline.
 - No pending row publicly readable (RLS default-deny test).
 - Reputation sanity — no weight > 3.00; probationary = 0.50; no inflation from ambiguous history.
 - Proof Log parity — every legacy `onchain_events` row present as a `legacy_imported`, `server_verified=false` receipt.
