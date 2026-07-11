@@ -2,7 +2,9 @@
 
 **Status:** Blueprint / design-only. No SQL is created or executed by this document. Types below are *proposed*; final DDL is produced only after `OSI_V2_OPEN_DECISIONS.md` is signed off and the Stage-5 write-gate work is complete.
 
-**Authoritative table count: 32** (this number is identical in `OSI_V2_README.md`, `OSI_V2_STATE_MACHINES.md`, `OSI_V2_MIGRATION_ROLLOUT_PLAN.md`, `OSI_V2_CURRENT_MAPPING_APPENDIX.md`, `OSI_V2_AI_PACK_TRUST_MODEL.md`, and the final report). Every one of the 32 is fully defined in this document — the blueprint models **every persistent action before SQL design begins**; no required entity is deferred "to implementation."
+**Authoritative domain-table count: 32** (identical in `OSI_V2_README.md`, `OSI_V2_STATE_MACHINES.md`, `OSI_V2_MIGRATION_ROLLOUT_PLAN.md`, `OSI_V2_CURRENT_MAPPING_APPENDIX.md`, `OSI_V2_AI_PACK_TRUST_MODEL.md`, and the final report). Every one of the 32 is fully defined here — the blueprint models **every persistent domain action before SQL design begins**; no required domain entity is deferred "to implementation."
+
+**Mandatory infrastructure tables are NOT hidden inside that count.** In addition to the 32 domain tables, the physical model **must** include named, private, service-only infrastructure tables that carry no domain data: the **Stage-5 security store `osi_nonces`** (§9, replay/idempotency ledger — a stateless nonce check is forbidden) and the **migration-only** `migration_crosswalk` + `migration_manual_queue` (`OSI_V2_MIGRATION_ROLLOUT_PLAN.md`). These are counted and named separately; the "32" refers to domain entities only and never conceals required security or migration infrastructure.
 
 Conventions: `uuid` PK, **server-generated** (no client-supplied ids); `wallet` = base58 Solana pubkey; timestamps `timestamptz`; every table has `created_at`, mutable tables add `updated_at`. **Ownership is proven by wallet signature, never inferred from a stored wallet value.**
 
@@ -72,7 +74,7 @@ Every typed review table has: `id uuid PK`, a **typed FK** to its target (named 
 **No `reward_pledge_id`, no `resolution_id`** on `cases` (single-source-of-truth, §5). The reward and resolution point *to* the case. Indexes: `(stage)`, `(visibility,stage)`, `(submitted_by_wallet)`, `(category)`, `(risk_tier)`, GIN `(subject_refs)`.
 
 ### `case_reports` (header)
-`id`, `case_id uuid FK→cases NOT NULL` (a Report belongs to exactly one Case), `author_wallet`, `current_version_id uuid nullable` (latest submitted version), `current_published_version_id uuid nullable` (**advances only via the quorum-authorized publication transition; never set-once, never client-writable** — correction #4), `status enum report_status`. **No `is_winning`** (winner is authoritative in `case_resolutions`, §5). Index `(case_id,status)`, `(author_wallet)`.
+`id`, `case_id uuid FK→cases NOT NULL` (a Report belongs to exactly one Case), `author_wallet`, `current_version_id uuid nullable` (latest submitted version), `current_published_version_id uuid nullable` (**advances only via the quorum-authorized publication transition; never set-once, never client-writable** — correction #4), `status enum report_status`. **No `is_winning`** (winner is authoritative in `case_resolutions`, §5). **Same-parent integrity (correction #8):** both `current_version_id` and `current_published_version_id` must reference a `case_report_versions` row whose `report_id = this.id` (composite FK `(id, current_version_id) → case_report_versions(report_id, id)` / trigger); a pointer to another Report's version is rejected. Index `(case_id,status)`, `(author_wallet)`.
 
 ### `case_report_versions` (immutable)
 `id`, `report_id uuid FK→case_reports`, `version_no int`, `created_by_wallet`, `body_private text`, `content_public_safe text nullable`, `evidence_snapshot_hash text`, `supersedes_version_id uuid nullable` (predecessor), `superseded_by_version_id uuid nullable` (successor once a corrected version publishes), `revision_reason_code text nullable`, `lifecycle_state enum version_status` (`draft`/`submitted`/`in_review`/`published`/`rejected`/`revision_requested`/`superseded`), `published_at timestamptz nullable`, `superseded_at timestamptz nullable`, `publication_receipt_id uuid FK→event_receipts nullable`, `event_receipt_id`. Unique `(report_id, version_no)`. **Immutable content** except controlled lifecycle-state transitions and the append-only `superseded_by_version_id`/`superseded_at` set when a later version publishes. Full publication history (who published which version, when, and its receipt) is retained per version — republication never erases it (correction #4).
@@ -84,7 +86,7 @@ Same shape as `case_reports`/`case_report_versions` minus `case_id`; `wire_repor
 `id`, `kind enum` (`onchain_tx`/`wallet`/`url`/`document`/`token`), `ref text` (validated: tx sig / wallet / https url), `is_public bool`, `sha256 text` (content/reference hash), `added_by_wallet`. **Immutable.** One canonical evidence row; reused via link tables. Index `(kind)`, `(sha256)`.
 
 ### `case_evidence_links` / `case_report_version_evidence` / `wire_report_version_evidence`
-Join tables binding an `evidence_items.id` to (respectively) a `cases.id`, a `case_report_versions.id`, or a `wire_report_versions.id`, each with `added_by_wallet`, `created_at`. Real FKs both sides. AI Pack versions reference an **ordered evidence set hash** computed over the relevant links (see `ai_pack_versions.evidence_snapshot_hash`). This models **Wire evidence as first-class**, not a UI concept.
+Join tables binding an `evidence_items.id` to (respectively) a `cases.id`, a `case_report_versions.id`, or a `wire_report_versions.id`, each with `added_by_wallet`, `created_at`. Real FKs both sides. AI Pack version provenance is **not** a single generic snapshot hash — it is the immutable per-layer manifest `ai_pack_version_evidence` plus three `*_manifest_hash` fields on `ai_pack_versions` (§`ai_pack_version_evidence`, correction #8). This models **Wire evidence as first-class**, not a UI concept.
 
 ### `case_initial_reviews`  *(typed review; contract §3.0)*
 FK: `case_id uuid FK→cases`. `decision enum` (`approve_open`/`reject`/`needs_more`). Opens a Case (approve) or normal-rejects it (see safety-block split, State Machines §1). Partial unique `(case_id, reviewer_wallet) WHERE is_active`.
@@ -95,11 +97,13 @@ FK: `report_version_id uuid FK→case_report_versions`. `decision enum` (`approv
 ### `wire_report_reviews`  *(typed)*
 FK: `wire_report_version_id uuid FK→wire_report_versions`. Same decision enum.
 
-### `resolution_reviews`  *(typed — new, correction #1)*
-FK: `resolution_id uuid FK→case_resolutions`, plus `winning_report_version_id uuid FK→case_report_versions` (binds to the exact proposed winning version). `decision enum` (`select`/`object`/`abstain`). Proves which analysts selected the winner, each weight snapshot, count+weight gates met, author/owner exclusion, and full history.
+### `resolution_reviews`  *(typed — correction #1; ordering fixed, correction #2)*
+FK: `resolution_id uuid FK→case_resolutions` (**the resolution row exists first**, created in `selection_open` — see the ordering rule below), plus `candidate_report_version_id uuid FK→case_report_versions` (the **exact candidate** winning version the reviewer is selecting). `decision enum` (`select`/`object`/`abstain`). **Same-Case integrity (composite):** the candidate version's Report must belong to the resolution's Case — enforced by a composite FK / trigger `resolution.case_id == candidate_report_version.report.case_id` (a candidate from another Case is rejected). Partial unique `(resolution_id, reviewer_wallet) WHERE is_active`. Proves which analysts selected which candidate, each weight snapshot, count+weight gates met, author/owner exclusion, and full immutable history.
 
-### `challenge_reviews`  *(typed)*
-FK: `challenge_id uuid FK→challenges`. `decision enum` (`accept`/`reject`). Distinct from admissibility (which is a challenge state transition, §challenges).
+**Executable ordering (no chicken-and-egg, correction #2):** the `case_resolutions` row is created **when the Case reaches `ready_for_finalization`** (part of the atomic `CASE_QUORUM_READY` transition), in state `selection_open` with `winning_report_version_id = NULL`. Analysts then cast `resolution_reviews` against that existing resolution, each naming an exact candidate version. `winning_report_version_id` is set **only** by the server from the quorum tally (the candidate version that reaches ≥2 independent `select` + Σweight ≥ 2.50, author/owner excluded) at maintainer finalization — never chosen freely by the maintainer, never invented. See `case_resolutions` state rules below.
+
+### `challenge_reviews`  *(typed; two phases, correction #4)*
+FK: `challenge_id uuid FK→challenges`. `phase enum` (`merit`/`bad_faith`) + `decision enum` (merit phase: `accept`/`reject`; bad-faith phase: `bad_faith`/`not_bad_faith`). **Eligibility (server-enforced):** the reviewer must be an **eligible independent analyst** and **must not be the challenger** (`reviewer_wallet != challenges.challenger_wallet`), and (for a challenge targeting an item) must not be that item's author/owner/creator. Both phases require the two-gate quorum (≥2 independent analysts **and** Σweight ≥ 2.50). Bad-faith is a **separate phase** that can run only after a challenge is rejected/withdrawn/expired; its rows are immutable-historical with `reason_code` and receipts. Partial unique `(challenge_id, reviewer_wallet, phase) WHERE is_active`. The admissibility decision is a distinct challenge state transition (§challenges), also barred to the challenger.
 
 ### `ai_pack_reviews`  *(typed)*
 FK: `pack_version_id uuid FK→ai_pack_versions`. `decision enum` (`support`/`dispute`/`request_revision`/`approve`). Reviewer ≠ version creator (server-enforced). **Case-owner feedback is NOT stored here** — see `ai_pack_owner_feedback` note below.
@@ -107,8 +111,15 @@ FK: `pack_version_id uuid FK→ai_pack_versions`. `decision enum` (`support`/`di
 ### `analyst_application_reviews`  *(typed)*
 FK: `application_version_id uuid FK→analyst_application_versions` (targets an **exact immutable application version**, not merely the header — correction #2). `decision enum` (`approve`/`reject`/`request_revision`). Partial unique `(application_version_id, reviewer_wallet) WHERE is_active`.
 
-### `case_resolutions`
-`id`, `case_id uuid FK→cases` (partial unique active), `winning_report_version_id uuid FK→case_report_versions` (authoritative winner — **exact version, bound permanently; a later published correction of the same Report never re-points a finalized resolution**, correction #4), `proposed_by_wallet`, `challenge_window_ends_at timestamptz`, `state enum` (`proposed`/`in_challenge_window`/`sealed`/`reopened`/`resolved_legacy`), `finalized_by enum` (`quorum_maintainer`/`fallback`), `event_receipt_id`. `resolved_legacy` is used only by migration (D2). Partial unique `(case_id) WHERE state <> 'reopened'`.
+### `case_resolutions`  *(ordering & winner-integrity, correction #2)*
+`id`, `case_id uuid FK→cases`, `winning_report_version_id uuid FK→case_report_versions **nullable**` (authoritative winner — **exact version, set once by the server from the quorum tally; bound permanently; a later published correction of the same Report never re-points a finalized resolution**, correction #4), `proposed_by_wallet nullable`, `challenge_window_ends_at timestamptz nullable`, `state enum` (`selection_open`/`proposed`/`in_challenge_window`/`sealed`/`reopened`/`resolved_legacy`), `finalized_by enum nullable` (`quorum_maintainer`/`fallback`), `event_receipt_id`.
+
+- **`selection_open`** — created at `ready_for_finalization`; `winning_report_version_id` is NULL; analysts cast `resolution_reviews` on candidate versions.
+- **Winner-set CHECK (native resolutions may not finalize without a winner):** `state IN ('proposed','in_challenge_window','sealed') ⇒ winning_report_version_id IS NOT NULL`.
+- **`resolved_legacy` may have no winning Report version** (migration only, D2): `winning_report_version_id` may be NULL only when `state='resolved_legacy'`.
+- **Maintainer cannot replace/invent the winner:** the transition `selection_open → proposed` sets `winning_report_version_id` from the server-computed quorum result; the server rejects any value that is not the quorum-winning candidate. Later Report corrections never repoint a finalized resolution (correction #4).
+
+Partial unique `(case_id) WHERE state NOT IN ('reopened','resolved_legacy')` (one live resolution per Case). `resolved_legacy` is used only by migration (D2).
 
 ### `challenges`  *(typed FK targets, correction #5)*
 Governance-critical challenge targets are **real foreign keys**, not an untyped `target_type`+`target_id` pair. Columns:
@@ -116,14 +127,14 @@ Governance-critical challenge targets are **real foreign keys**, not an untyped 
 - **Typed nullable target FKs (exactly one non-null):** `case_id uuid FK→cases nullable`, `case_report_version_id uuid FK→case_report_versions nullable`, `wire_report_version_id uuid FK→wire_report_versions nullable`, `ai_pack_version_id uuid FK→ai_pack_versions nullable`, `resolution_id uuid FK→case_resolutions nullable`. **CHECK: exactly one of the five target FKs is non-null.**
 - `target_kind enum` (`case`/`case_report_version`/`wire_report_version`/`ai_pack_version`/`resolution`) — **derived/stored with a consistency CHECK against which FK is set; it never replaces the real FK.**
 - **Evidence FK (not a raw URL):** `evidence_item_id uuid FK→evidence_items NOT NULL`. An external URL must first be inserted as a validated `evidence_items` row (`kind='url'`); the challenge row has **no untyped evidence-URL alternative** (correction #5).
-- `state enum` (`submitted`/`admissibility_review`/`open`/`under_review`/`accepted`/`rejected`/`withdrawn`/`expired`), `admitted_by_wallet nullable`.
+- `state enum` (`submitted`/`admissibility_review`/`open`/`under_review`/`accepted`/`rejected`/`withdrawn`/`expired`), `admitted_by_wallet nullable` (**must differ from `challenger_wallet`** — the admissibility actor is never the challenger, server-enforced).
 - **Lifecycle TTL / no-stuck-state fields (correction #6):** `admissibility_ttl_at timestamptz` (deadline for `submitted`/`admissibility_review`), `review_deadline_at timestamptz nullable` (configurable deadline/escalation for `open`/`under_review`), `expired_reason enum nullable` (`admissibility_timeout`/`review_timeout`).
-- `cooldown_key text` (rate limiting), `bad_faith_flag bool default false` (**set only by an explicit separate bad-faith determination, never automatically**), `opened_receipt_id`, `resolved_receipt_id`.
+- `cooldown_key text` (rate limiting), `bad_faith_state enum` (`none`/`under_review`/`confirmed`/`dismissed`, **server-derived from the bad-faith phase of `challenge_reviews` — never a freely writable boolean**; only a `confirmed` bad-faith quorum sets a penalty; honest rejection/withdrawal/expiry leave it `none`), `opened_receipt_id`, `resolved_receipt_id`, `bad_faith_receipt_id nullable`.
 
 **Only `open`/`under_review` pause sealing.** Submission and inadmissible challenges never pause sealing. Every non-terminal state has a TTL or explicit next action (§ State Machines §5). Partial unique: one active challenge per `(challenger_wallet, target_kind, <the set target FK>) WHERE state IN (submitted,admissibility_review,open,under_review)`. `event_receipts` for challenges stay polymorphic (provenance timeline, not the authoritative target store). Index `(target_kind,state)`, `(state,admissibility_ttl_at)`, `(state,review_deadline_at)`.
 
 ### `analyst_applications`  *(header/lifecycle, correction #2/#8)*
-`id`, `applicant_wallet`, `origin enum` (`path_a_direct`/`path_b_derived`), `status enum` (`submitted`/`in_review`/`revision_requested`/`approved`/`rejected`/`withdrawn`), `current_version_id uuid FK→analyst_application_versions nullable` (pointer to latest submitted version), `event_receipt_id`. **The header holds lifecycle only; submitted content lives in immutable `analyst_application_versions`.** Reviews live in `analyst_application_reviews` and target an exact application version. `analyst_profiles` is created/updated only on the relevant lifecycle transition — **never** an application shortcut. Index `(applicant_wallet,status)`.
+`id`, `applicant_wallet`, `origin enum` (`path_a_direct`/`path_b_derived`), `status enum` (`submitted`/`in_review`/`revision_requested`/`approved`/`rejected`/`withdrawn`), `current_version_id uuid FK→analyst_application_versions nullable` (pointer to latest submitted version). **Same-parent integrity (correction #8):** `current_version_id` must reference an `analyst_application_versions` row whose `application_id = this.id` (composite FK / trigger). `event_receipt_id`. **The header holds lifecycle only; submitted content lives in immutable `analyst_application_versions`.** Reviews live in `analyst_application_reviews` and target an exact application version; **the applicant may never review their own application version** (server-enforced `reviewer_wallet != applicant_wallet`). `analyst_profiles` is created/updated only on the relevant lifecycle transition — **never** an application shortcut. Index `(applicant_wallet,status)`.
 
 ### `analyst_application_versions`  *(new — immutable application content, correction #2)*
 `id`, `application_id uuid FK→analyst_applications`, `version_no int`, `expertise_public jsonb` (public-safe), `details_restricted jsonb` (restricted), `created_by_wallet`, `supersedes_version_id uuid nullable` (predecessor), `revision_reason_code text nullable`, `submitted_at timestamptz`, `event_receipt_id`. Unique `(application_id, version_no)`. **Immutable.** A revision creates a **new** version; prior application contents and their reviews remain available for audit. Reviews FK to `analyst_application_versions.id`, never to the header.
@@ -138,7 +149,7 @@ Governance-critical challenge targets are **real foreign keys**, not an untyped 
 `id`, `analyst_wallet`, `as_of`, `weight numeric(4,2)` ∈ [0.50,3.00], `component_breakdown jsonb`, `algo_version`. Immutable. Latest caches to `analyst_profiles.weight_cached`.
 
 ### `ai_packs` (header)
-`id`, `case_id uuid FK→cases NOT NULL` (AI Pack is **per Case**), `pack_type enum` (`victim`/`exchange`/`law_enforcement`), `current_version_id uuid nullable`. Unique `(case_id,pack_type)`. No standalone lifecycle field — currency is derived from the current version (§ correction #11). Uncounted owner feedback lives in the first-class `ai_pack_owner_feedback` table (below), never in `ai_pack_reviews`.
+`id`, `case_id uuid FK→cases NOT NULL` (AI Pack is **per Case**), `pack_type enum` (`victim`/`exchange`/`law_enforcement`), `current_version_id uuid nullable`. Unique `(case_id,pack_type)`. **Same-parent integrity (correction #8):** `current_version_id` must reference an `ai_pack_versions` row whose `pack_id = this.id` (composite FK / trigger). No standalone lifecycle field — currency is derived from the current version (§ correction #11). Uncounted owner feedback lives in the first-class `ai_pack_owner_feedback` table (below), never in `ai_pack_reviews`.
 
 ### `ai_pack_versions` (immutable content; controlled state)
 `id`, `pack_id uuid FK→ai_packs`, `version_no int`, **three evidence-manifest hashes (correction #8):** `public_evidence_manifest_hash text` (sha256 over the ordered `ai_pack_version_evidence` rows with `access_scope='public'`), `owner_safe_evidence_manifest_hash text` (over `public`+`owner_safe`), `analyst_restricted_evidence_manifest_hash text` (over the allowed restricted scopes), `content_public_brief text`, `content_owner_safe text`, `content_analyst_restricted text`, `model text`, `created_by_wallet`, `created_by_role`, `lifecycle_state enum` (`draft`/`review_required`/`revision_requested`/`supported`/`disputed`/`approved`/`rejected`/`attached_to_resolution`/`superseded`), `is_stale bool default false`, `stale_at timestamptz nullable`, `stale_reason text nullable`, `superseded_by_version_id uuid nullable`, `confidence_profile jsonb`, `event_receipt_id`. Unique `(pack_id,version_no)`. Each content layer is generated **only** from evidence at its allowed scope, and staleness is checked **per layer** against that layer's manifest hash (correction #8). **Staleness is orthogonal** to lifecycle (correction #11): an `approved`/`attached_to_resolution` version may become `is_stale=true` while its historical lifecycle remains visible. Three content layers (correction #12).
@@ -147,7 +158,15 @@ Governance-critical challenge targets are **real foreign keys**, not an untyped 
 `id`, `pack_version_id uuid FK→ai_pack_versions`, `owner_wallet`, `feedback_type enum` (`correction_request`/`clarification`/`evidence_note`), `public_safe_summary text nullable`, `feedback_restricted text nullable`, `is_active bool default true`, `superseded_by uuid nullable` (self-FK; a revised note supersedes the prior), `event_receipt_id`, `created_at`. **Rules (all server-enforced):** only the **proven Case owner** of the pack's Case may insert; it is **advisory only**; it contributes **zero** voting weight; it **never** appears in `ai_pack_reviews`; it **never** changes the Evidence Confidence Profile automatically; it **never** approves or rejects a Pack. `feedback_restricted` stays restricted (owner+analyst+maintainer). Canonical event `AI_PACK_OWNER_FEEDBACK_SUBMITTED` (class B). Partial unique `(pack_version_id, owner_wallet) WHERE is_active` (one active note per owner per version; revisions supersede).
 
 ### `ai_pack_version_evidence`  *(new — immutable per-layer manifest, correction #8)*
-`id`, `pack_version_id uuid FK→ai_pack_versions`, `evidence_item_id uuid FK→evidence_items`, `access_scope enum` (`public`/`owner_safe`/`analyst_restricted`), `ordinal int` (manifest order), `evidence_hash_at_generation text` (the evidence item's hash captured at generation), `created_at`. **Immutable for an existing pack version.** Unique `(pack_version_id, evidence_item_id)`; index `(pack_version_id, access_scope, ordinal)`. This is the authoritative record of **which evidence items and hashes produced each output layer**: the public brief may use only `public` rows; owner-safe may use `public`+`owner_safe`; analyst-restricted may use its allowed scopes but **never** secrets, keys, illegal-access data, or highly sensitive personal information. The three `*_manifest_hash` fields on `ai_pack_versions` are computed from these rows, making each version reproducible without exposing restricted evidence publicly.
+`id`, `pack_version_id uuid FK→ai_pack_versions`, `evidence_item_id uuid FK→evidence_items`, `access_scope enum` (`public`/`owner_safe`/`analyst_restricted`), `ordinal int` (manifest order), `evidence_hash_at_generation text` (the evidence item's hash captured at generation), `created_at`. **Immutable for an existing pack version.** Unique `(pack_version_id, evidence_item_id)`; index `(pack_version_id, access_scope, ordinal)`.
+
+**Server-enforced eligibility for an evidence item to enter the manifest (all must hold — correction #8):**
+1. **Same Case** — the `evidence_items` row is linked to the pack's Case (via `case_evidence_links` / a relevant `*_version_evidence`); evidence from another Case is rejected.
+2. **Permitted scope** — the assigned `access_scope` is allowed for the item; **`access_scope='public'` may reference only `evidence_items.is_public = true`** (a public-scope row can never point at non-public evidence).
+3. **Validated hash** — `evidence_hash_at_generation` equals the item's current validated `sha256` at generation time.
+4. **Not blocked** — the item is not moderation-blocked / not prohibited content (no secrets, keys, illegal-access material, or highly sensitive personal data at any scope).
+
+This is the authoritative record of **which evidence items and hashes produced each output layer**: the public brief may use only `public` rows; owner-safe may use `public`+`owner_safe`; analyst-restricted may use its allowed scopes under rule 4. The three `*_manifest_hash` fields on `ai_pack_versions` are computed from these rows, making each version reproducible without exposing restricted evidence publicly.
 
 ### `reward_pledges`
 `id`, `case_id uuid FK→cases` unique, `pledger_wallet`, `amount_lamports bigint`, `token`, `state enum` (`pledged`/`assigned`/`paid`/`cancelled`/`expired`), `winning_report_version_id uuid FK nullable`, `created_receipt_id`. Records intent; **no custody**.
@@ -217,7 +236,8 @@ erDiagram
   case_report_versions ||--o{ case_report_version_evidence : cites
   case_report_versions ||--o{ case_report_reviews : reviewed_by
   case_resolutions ||--o{ resolution_reviews : selected_by
-  case_resolutions }o--|| case_report_versions : winning_version
+  resolution_reviews }o--|| case_report_versions : candidate_version
+  case_resolutions }o--o| case_report_versions : winning_version
   wire_reports ||--o{ wire_report_versions : versions
   wire_report_versions ||--o{ wire_report_version_evidence : cites
   wire_report_versions ||--o{ wire_report_reviews : reviewed_by
@@ -260,13 +280,14 @@ erDiagram
     uuid id PK
     uuid report_id FK
     int version_no
-    enum status
+    enum lifecycle_state
     text evidence_snapshot_hash
+    timestamptz published_at
   }
   case_resolutions {
     uuid id PK
     uuid case_id FK
-    uuid winning_report_version_id FK
+    uuid winning_report_version_id FK "nullable until quorum"
     enum state
   }
   ai_pack_versions {
@@ -312,7 +333,20 @@ erDiagram
     enum access_scope
     int ordinal
   }
+  osi_config {
+    text key PK
+    jsonb value
+  }
+  osi_nonces {
+    text nonce PK
+    text purpose
+    text idempotency_key
+    timestamptz expires_at
+    timestamptz consumed_at
+  }
 ```
+
+*(`osi_config` is a standalone configuration entity — one of the 32 domain tables. `osi_nonces` is shown for completeness as the mandatory Stage-5 security-infrastructure table (§9); it is **not** among the 32 domain tables.)*
 
 ## 8. Source-of-truth rules
 - **Authorization** = server (signature + `analyst_profiles`/maintainer) + RLS. Never client state.
@@ -324,3 +358,32 @@ erDiagram
 - **Payment** = `reward_payments.state='confirmed'` with real `tx_sig`; a receipt alone is not payment proof.
 - **AI Pack currency** = `ai_packs.current_version_id` + version `is_stale`.
 - **Proof authenticity** = `event_receipts.server_verified=true` (native V2) vs `false` (legacy import).
+
+## 9. Security & migration infrastructure tables (NOT among the 32 domain tables)
+These carry no domain data and are **private, service-role-only** (RLS default-deny to everyone else). They are named explicitly here so the security model is not hidden behind the domain count (correction #3 / #5).
+
+### `osi_nonces`  *(Stage-5 replay/idempotency ledger — mandatory; a stateless nonce check is forbidden)*
+| field | type | notes |
+|---|---|---|
+| `nonce` | text **PK / unique** | server-issued single-use value |
+| `purpose` | text | must equal the `event_type` being authorized |
+| `actor_wallet` | text | the signer the nonce was issued to |
+| `target_type` | text | bound target kind |
+| `target_id` | uuid | bound target id/version |
+| `payload_hash` | text | sha256 of the exact off-chain payload |
+| `idempotency_key` | text **unique** | dedupes safe client retries to one effect |
+| `issued_at` | timestamptz | |
+| `expires_at` | timestamptz | freshness/expiry window |
+| `consumed_at` | timestamptz nullable | set exactly once |
+| `consumed_by_receipt_id` | uuid nullable | the `event_receipts` row created on consumption |
+
+**Semantics (all server-enforced, service-only):**
+- **Uniqueness** — `nonce` and `idempotency_key` are unique; a duplicate insert is rejected.
+- **Binding** — a consume must match `purpose = event_type`, `actor_wallet`, `target_type`, `target_id`, `payload_hash`, and `now() < expires_at`; any mismatch is rejected.
+- **Atomic single consumption** — consumption is a compare-and-set: `UPDATE osi_nonces SET consumed_at = now(), consumed_by_receipt_id = :r WHERE nonce = :n AND consumed_at IS NULL RETURNING 1`; zero rows returned ⇒ already consumed ⇒ **replay rejected**.
+- **Atomic receipt creation** — nonce consumption and the `event_receipts` insert happen in **one transaction**; either both commit or neither does (no receipt without a consumed nonce; no consumed nonce without a receipt).
+- **Idempotency** — a retry with the same `idempotency_key` returns the original `consumed_by_receipt_id` instead of creating a second effect.
+- **Replay-test requirement** — the Stage-5 gate (`OSI_V2_MIGRATION_ROLLOUT_PLAN.md` step 10) must include tests proving: reused nonce rejected, expired nonce rejected, wrong-target/purpose/payload rejected, concurrent double-consume yields exactly one receipt, and idempotent retry yields one effect.
+
+### Migration-only infrastructure (defined in `OSI_V2_MIGRATION_ROLLOUT_PLAN.md`)
+`migration_crosswalk` (durable old-id ↔ new-id map, retained for audit) and `migration_manual_queue` (unclassifiable legacy rows awaiting owner/maintainer categorization). Private, service-only; not domain entities.

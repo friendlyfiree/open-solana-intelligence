@@ -17,13 +17,16 @@
 | View own private case | – | – | ✅ (proof) | ✅ | ✅ | ✅ | EF `OWNER_STATUS_PROOF` / analyst / maintainer | Sig | – |
 | Submit case | – | ✅ | (owner) | ✅ | ✅ | ✅ | EF sig; RLS insert private | Memo `CASE_SUBMITTED` | none |
 | Initial review (per analyst) | – | – | ❌ own | ✅ | ✅ | ✅ | EF; owner excluded | Sig `CASE_INITIAL_REVIEW_CAST` | – |
-| Open case (outcome) | – | – | ❌ | ✅(1) | ✅ | ✅ | EF ≥1 | Memo `CASE_OPENED` | case public |
-| Safety block | – | – | – | – | – | ✅ / server policy | EF maintainer/policy | Memo `CASE_SAFETY_BLOCKED` (class A) | private neutral notice |
-| Normal initial reject | – | – | ❌ | quorum | quorum | ✅ | EF ≥2 indep | Memo `CASE_INITIAL_REVIEW_REJECTED` | private; appeal |
-| Propose resolution | – | – | ❌ decisive | quorum | ✅ | ✅ finalize | EF ≥2 indep + maintainer | Memo `RESOLUTION_PROPOSED` | winner shown |
-| Seal | – | – | – | fallback-only | – | ✅ | EF ≥2 indep + maintainer | Memo `RECORD_SEALED` | sealed badge |
+| Open case (outcome) | – | – | ❌ | ✅(1) | ✅ | ✅ | EF ≥1 indep (**no maintainer gate**) | Memo `CASE_OPENED` | case public |
+| Safety block | – | – | – | – | – | ✅ / server policy | EF maintainer/policy (moderation, no factual quorum) | Memo `CASE_SAFETY_BLOCKED` (class A) | private neutral notice |
+| Safety-block lift | – | – | – | – | – | ✅ | EF maintainer | Memo `CASE_SAFETY_LIFTED` | re-enters review |
+| Normal initial reject | – | – | ❌ | quorum | quorum | (counts as analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**) | Memo `CASE_INITIAL_REVIEW_REJECTED` | private; appeal |
+| Appeal a rejection | – | – | ✅ (owner) | – | – | – | EF owner sig | Sig `CASE_APPEAL_SUBMITTED` | re-enters review |
+| Propose resolution / select winner | – | – | ❌ decisive | quorum | ✅ | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**; winner = server quorum tally | Memo `RESOLUTION_PROPOSED` → `REPORT_SELECTED_WINNING` | winner shown |
+| Seal | – | – | – | fallback-only | – | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer** | Memo `RECORD_SEALED` | sealed badge |
 | Halt (emergency) | – | – | – | – | – | ✅/fallback | EF maintainer | Memo `CASE_HALTED` | frozen |
-| Reopen | – | – | appeal | quorum | quorum | ✅ | EF ≥2 indep | Memo `CASE_REOPENED` | reopened |
+| Resume from halt | – | – | – | – | – | ✅ | EF maintainer | Memo `CASE_RESUMED` | resumed |
+| Reopen | – | – | appeal | quorum | quorum | ✅ | EF ≥2 indep **+ Σweight** | Memo `CASE_REOPENED` | reopened |
 
 ## 2. Report + versions
 
@@ -32,18 +35,19 @@
 | Submit report / new version (v1 & every revision) | ✅ | ✅ | ✅ | ✅ | EF sig; RLS insert private version | Memo `CASE_REPORT_VERSION_SUBMITTED` |
 | View pending version | – | ✅ (proof) | ✅ | ✅ | EF owner-proof/analyst/maintainer | Sig |
 | Review exact version | – | ❌ own | ✅ | ✅ | EF verify analyst; **author≠reviewer**; targets `case_report_versions.id` | Sig `CASE_REPORT_REVIEW_CAST`/`_REVISED` |
-| Publish version (outcome) | – | ❌ | quorum | finalize | EF ≥2 indep + weight; advances header `current_published_version_id` (never set-once) | Memo `REPORT_PUBLISHED` |
-| Reject version (outcome) | – | ❌ | quorum | finalize | EF ≥2 indep | Memo `REPORT_REJECTED` |
-| Publish a **corrected** version | – | ❌ | quorum | finalize | EF ≥2 indep + weight; prior published version keeps history, resolution stays bound to its exact version | Memo `REPORT_PUBLISHED` (new version) |
-| Select winning version | – | ❌ | quorum | ✅ | EF ≥2 indep + maintainer; exact version | Memo `REPORT_SELECTED_WINNING` |
+| Publish version (outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**); advances header `current_published_version_id` (never set-once) | Memo `REPORT_PUBLISHED` |
+| Reject version (outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight** (**no maintainer gate**) | Memo `REPORT_REJECTED` |
+| Author post-publication correction | – | ✅ | – | – | EF author sig; new version → normal review | Memo `CASE_REPORT_VERSION_SUBMITTED` |
+| Publish a **corrected** version | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight** (**no maintainer gate**); prior published version keeps history, resolution stays bound to its exact version | Memo `REPORT_PUBLISHED` (new version) |
+| Select winning version | – | ❌ | quorum | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**; server sets winner from quorum tally | Memo `REPORT_SELECTED_WINNING` |
 
 ## 3. Wire
 
 | Operation | wallet | wire_author | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
 | Submit wire report / version (v1 & every revision) | ✅ | (author) | ✅ | ✅ | EF sig | Memo `WIRE_REPORT_VERSION_SUBMITTED` |
-| Review exact wire version | ✅→❌ own | ❌ own | ✅ | ✅ | EF; **author excluded** | Sig `WIRE_REPORT_REVIEW_CAST`/`_REVISED` |
-| Publish (outcome) | – | ❌ | quorum | finalize | EF ≥2 indep + weight | Memo `WIRE_REPORT_PUBLISHED` |
+| Review exact wire version | ❌ | ❌ own | ✅ | ✅ | EF verify **eligible analyst**; **ordinary connected wallets cannot write `wire_report_reviews`**; **author excluded** | Sig `WIRE_REPORT_REVIEW_CAST`/`_REVISED` |
+| Publish (outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**) | Memo `WIRE_REPORT_PUBLISHED` |
 | Promote to case | – | – | ✅ | ✅ | EF analyst/maintainer | Memo `WIRE_PROMOTED` |
 | Support author | ✅ | – | ✅ | ✅ | EF support endpoint | Memo `SUPPORT_SENT` (no ranking effect) |
 
@@ -52,14 +56,16 @@
 | Operation | wallet | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|
 | Submit challenge | ✅ | ✅ | ✅ | EF sig + reason + **`evidence_item_id` FK** (URL first becomes an `evidence_items` row) + **exactly-one typed target FK** + rate-limit + one-active + cooldown; sets `admissibility_ttl_at` | Sig `CHALLENGE_SUBMITTED` |
-| Accept admissibility (→ pauses sealing) | – | ✅ | ✅ | EF analyst/maintainer; sets `review_deadline_at` | Sig `CHALLENGE_ADMISSIBILITY_ACCEPTED` |
-| Reject admissibility (inadmissible) | – | ✅ | ✅ | EF analyst/maintainer; **no penalty**; no pause | Sig `CHALLENGE_ADMISSIBILITY_REJECTED` |
-| Judge (per analyst) | – | ✅ | ✅ | EF analyst | Sig `CHALLENGE_REVIEW_CAST`/`_REVISED` |
-| Accept/reject (outcome) | – | quorum | finalize | EF ≥2 indep | Memo `CHALLENGE_ACCEPTED`/`CHALLENGE_REJECTED` |
+| Accept admissibility (→ pauses sealing) | – | ✅ | ✅ | EF analyst/maintainer, **`admitted_by_wallet≠challenger`**; sets `review_deadline_at` | Sig `CHALLENGE_ADMISSIBILITY_ACCEPTED` |
+| Reject admissibility (inadmissible) | – | ✅ | ✅ | EF analyst/maintainer, **≠challenger**; **no penalty**; no pause | Sig `CHALLENGE_ADMISSIBILITY_REJECTED` |
+| Merit review (per analyst) | – | ✅ | ✅ | EF **eligible independent analyst, ≠challenger** (and ≠ target author/owner/creator); `challenge_reviews{phase:merit}` | Sig `CHALLENGE_REVIEW_CAST`/`_REVISED` |
+| Accept/reject (outcome) | – | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.50** (**no maintainer gate**); target-specific consequence (State Machines §5.1) | Memo `CHALLENGE_ACCEPTED`/`CHALLENGE_REJECTED` |
+| Bad-faith review (per analyst) | – | ✅ | ✅ | EF **eligible independent analyst, ≠challenger**; only on a rejected/withdrawn/expired challenge; `challenge_reviews{phase:bad_faith}` | Sig `CHALLENGE_BAD_FAITH_REVIEW_CAST`/`_REVISED` |
+| Bad-faith outcome | – | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.50**; sets `bad_faith_state` (server-derived) | Memo `CHALLENGE_BAD_FAITH_CONFIRMED`/`CHALLENGE_BAD_FAITH_DISMISSED` |
 | Withdraw own (any non-terminal state) | challenger | – | – | EF sig; **not after a final accepted/rejected outcome** | Sig `CHALLENGE_WITHDRAWN` |
 | Expire (timeout) | – | – | – | system on `admissibility_ttl_at`/`review_deadline_at`; releases pause | Sys `CHALLENGE_EXPIRED` |
 
-Submission alone never pauses sealing; only `open`/`under_review` do. No non-terminal state is stuck — each has a TTL/escalation path.
+Submission alone never pauses sealing; only `open`/`under_review` do. No non-terminal state is stuck — each has a TTL/escalation path. **The challenger is excluded from admissibility, merit review, and bad-faith review of their own challenge.** Honest rejection/withdrawal/expiry carries **no automatic penalty**; a penalty follows only a **confirmed** bad-faith quorum.
 
 ## 5. Analyst application & lifecycle
 
@@ -67,7 +73,7 @@ Submission alone never pauses sealing; only `open`/`under_review` do. No non-ter
 |---|---|---|---|---|---|---|
 | Submit application version (Path A, v1) | ✅ | – | – | – | EF sig; RLS insert `analyst_applications` + immutable `analyst_application_versions` | Sig `ANALYST_APPLICATION_VERSION_SUBMITTED` |
 | Resubmit/revise application (new version) | ✅ | – | – | – | EF; new `analyst_application_versions` (`supersedes_version_id`) | Sig `ANALYST_APPLICATION_VERSION_SUBMITTED` |
-| Review application version | – | ✅ | ✅ | ✅ | EF; targets exact `analyst_application_versions.id` | Sig `ANALYST_APPLICATION_REVIEW_CAST`/`_REVISED` |
+| Review application version | – | ✅ | ✅ | ✅ | EF eligible reviewer; **`reviewer_wallet≠applicant_wallet` (applicant cannot review own application)**; targets exact `analyst_application_versions.id` | Sig `ANALYST_APPLICATION_REVIEW_CAST`/`_REVISED` |
 | Path B derivation | (auto) | – | – | – | server-derived from resolved case | Sys `ANALYST_CANDIDATE` |
 | Promote candidate→probationary | – | – | ✅ (future ≥3 senior, flag) | ✅ | EF; **server-derived eligibility**, no discretionary tier | Memo `ANALYST_PROBATION` |
 | Verify | – | – | – | ✅ | EF maintainer double-gate | Memo `ANALYST_VERIFIED` |
@@ -84,8 +90,8 @@ Submission alone never pauses sealing; only `open`/`under_review` do. No non-ter
 | View `content_analyst_restricted` | ❌ | ✅ | ✅ | EF | – |
 | View public brief | public | public | public | RLS (approved) | – |
 | Attest support/dispute/request_revision | ❌ own | ✅ (≠creator) | ✅ | EF `ai_pack_reviews`, reviewer≠creator | Sig `AI_PACK_REVIEW_CAST`/`_REVISED` |
-| Approve version (outcome) | ❌ | quorum (≠creator) | finalize | EF ≥2 indep, creator excluded | Memo `AI_PACK_APPROVED` |
-| Reject version (outcome) | ❌ | quorum (≠creator) | finalize | EF ≥2 indep, creator excluded | Memo `AI_PACK_REJECTED` (class A) |
+| Approve version (outcome) | ❌ | quorum (≠creator) | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**, creator excluded | Memo `AI_PACK_APPROVED` |
+| Reject version (outcome) | ❌ | quorum (≠creator) | (analyst only) | EF ≥2 indep **+ Σweight ≥2.50** (**no maintainer gate**), creator excluded | Memo `AI_PACK_REJECTED` (class A) |
 
 ## 7. Reward & Support
 
@@ -109,4 +115,10 @@ For any **public** governance decision (public Cases, published Reports/Wire Rep
 `service` (Edge Function service-role key) is the only writer for publication, review tallies, resolution finalization, pack storage, reputation snapshots, and **all `event_receipts` inserts** (server-only Proof Log write — closes the current anon-writable gap). Never in client code. RLS denies anon/user writes to these.
 
 ## 11. Enforcement summary
-Signature-verified identity for all owner/analyst actions (ed25519, purpose+target+payload-hash bound, server-issued nonce, freshness). Analyst authorization = server `analyst_profiles` lookup. Maintainer = double-gate + auth-UUID RLS. Quorum/weight computed server-side. Pending privacy = RLS default-deny + owner-proof Edge path. No support-based ranking anywhere.
+Signature-verified identity for all owner/analyst actions (ed25519, purpose+target+payload-hash bound, **server-issued single-use nonce persisted/consumed in `osi_nonces`**, freshness). Analyst authorization = server `analyst_profiles` lookup. Maintainer = double-gate + auth-UUID RLS. Quorum/weight computed server-side. Pending privacy = RLS default-deny + owner-proof Edge path. No support-based ranking anywhere.
+
+**Counted-review eligibility (correction #6 — applies to every counted Report / Wire / resolution / challenge / AI-Pack / application review):**
+- Only **eligible verified analysts** cast counted reviews; **ordinary connected wallets never write any `*_reviews` table** (they may only *submit* Cases/Reports/Wire Reports/challenges and voluntary support).
+- **Maintainer status alone confers no analyst voting weight.** A maintainer's vote is counted **only if the same wallet is separately analyst-eligible**, and then only after all exclusions pass; the maintainer *finalization* act (for resolution/winner, AI-Pack approval, seal) is distinct from casting a weighted analyst vote.
+- **Server-enforced exclusions on every counted review:** author (Report/Wire), owner (Case/resolution), creator (AI Pack), applicant (analyst application), and challenger (challenge admissibility/merit/bad-faith) are excluded from deciding their own item — enforced in the Edge Function, never by a hidden button.
+- **Both gates shown:** every outcome that requires them lists `≥N_min independent` **and** `Σweight ≥ W_thr`; the three maintainer-gated outcomes (resolution/winner, AI-Pack approval, seal) additionally require a maintainer signature. No other outcome adds a maintainer gate (D5).

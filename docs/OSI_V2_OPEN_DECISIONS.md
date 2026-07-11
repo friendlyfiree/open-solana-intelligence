@@ -10,7 +10,7 @@ Legend: **Sec** security · **UX** · **Impl** effort · **Mig** migration.
 Rule-based classification (investigation `detail`/parent → Case; standalone finding → Wire) **plus a manual review queue** for ambiguous records. No invented mapping. *Sec low · UX high · Impl medium · Mig high.*
 
 ### D2 — Legacy bounty winner without a Report — **RESOLVED**
-Represent as `case_resolutions.state = 'resolved_legacy'`. **Do not create a fake/synthetic Report.** Legacy payout references may remain linked to the historical winner wallet in a read-only legacy view. *Sec low · UX medium · Impl medium · Mig high.*
+Represent as `case_resolutions.state = 'resolved_legacy'` with `winning_report_version_id = NULL` (the **only** state where a NULL winner is allowed — a native resolution may not finalize without one, `OSI_V2_DOMAIN_MODEL.md`). **Do not create a fake/synthetic Report.** Legacy payout references may remain linked to the historical winner wallet in a read-only legacy view. *Sec low · UX medium · Impl medium · Mig high.*
 
 ### D3 — Maintainer-absence fallback governance — **DEFERRED (feature flag)**
 Designed (Voting Model §5; State Machines §8) but **disabled in first release**: `OSI_V2_FALLBACK_GOVERNANCE=false`. High-risk outcomes remain maintainer-finalized initially. *Sec high · UX medium · Impl high · Mig low.*
@@ -25,7 +25,8 @@ Tier model live; full formula runs in **shadow mode** producing snapshots for co
 - AI Pack approval: ≥2 independent (creator excluded) + maintainer, Σweight ≥ 2.50.
 - Challenge accept/reject: ≥2 independent, Σweight ≥ 2.50.
 - Seal: ≥2 + maintainer, Σweight ≥ 2.50.
-- Case initial open: ≥1, Σweight ≥ 0.50. Normal initial rejection: ≥2.
+- Case initial open: ≥1, Σweight ≥ 0.50. Normal initial rejection: ≥2, Σweight ≥ 2.00.
+- **A maintainer signature is required for exactly three outcomes: resolution / winning-Report selection, AI-Pack approval, and seal.** No maintainer gate is added to Case Report / Wire Report publication or rejection, Case initial open/rejection, or challenge accept/reject — those finalize on the analyst two-gate alone. Maintainer status alone confers no analyst weight (`OSI_V2_VOTING_REPUTATION_MODEL.md §2`).
 These are listed identically in `OSI_V2_VOTING_REPUTATION_MODEL.md §5`. *Sec high · UX medium · Impl small · Mig low. Exact numbers are an **implementation detail requiring measurement** and may be tuned via `osi_config` without a schema change.*
 
 ### D6 — Owner private reads — **RESOLVED**
@@ -53,7 +54,7 @@ Retire/archive `bounty_boosts` after preserving history (with D9); fold `profile
 One primary winning Report version → one reward recipient initially. Supporting contributors receive **attribution only**; no automatic split payment in the first implementation. *Sec low · UX medium.*
 
 ### D14 — Replay/authenticity — **RESOLVED**
-**Stage-5 enforcement is required before `OSI_V2_WRITES_ENABLED` is set true** (see `OSI_V2_MIGRATION_ROLLOUT_PLAN.md`). Native V2 receipts are created `server_verified=true`; imported legacy remain `false`. *Sec high · Impl high.*
+**Stage-5 enforcement is required before `OSI_V2_WRITES_ENABLED` is set true** (migration step 10; see `OSI_V2_MIGRATION_ROLLOUT_PLAN.md`). Nonces are issued, bound, expired, and **atomically consumed exactly once** in the mandatory private store **`osi_nonces`** (`OSI_V2_DOMAIN_MODEL.md §9`); a **stateless nonce check is forbidden**; consumption and the receipt insert commit in one transaction; replay tests (reused/expired/wrong-target/concurrent-double-consume/idempotent-retry) are part of the gate. Native V2 receipts are created `server_verified=true`; imported legacy remain `false`. *Sec high · Impl high.*
 
 ### D15 — Analyst decision transport — **RESOLVED**
 **Hybrid model:** individual decisions = `signMessage` + server-verified receipt; final public governance outcome = Solana Memo. Proof Log distinguishes the four proof types (`OSI_V2_MEMO_EVENT_SPEC.md §1`). *Sec high · UX medium · Impl medium.*

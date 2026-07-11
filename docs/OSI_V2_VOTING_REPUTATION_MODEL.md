@@ -15,10 +15,12 @@
 
 Any critical outcome (publish, reject-final, resolve, pack-approve, seal, challenge-accept) requires **BOTH**:
 
-1. **Count gate:** `independent_approving_analysts ≥ N_min` (distinct wallets, author/owner excluded, de-collusioned). `N_min = 2` (standard), `3` (high-risk).
+1. **Count gate:** `independent_approving_analysts ≥ N_min` (distinct **eligible verified analyst** wallets; **author/owner/creator/applicant/challenger excluded** from deciding their own item; de-collusioned). `N_min = 2` (standard), `3` (high-risk).
 2. **Weight gate:** `Σ weight(approvers) ≥ W_thr` where `W_thr` scales with risk tier.
 
 Because max weight is 3.00 and `N_min ≥ 2`, **no single analyst can satisfy the count gate.** Weight can accelerate consensus but never bypass the count gate. This is the mathematical guarantee behind P3.
+
+**Maintainer weight rule (correction #6):** *maintainer status alone confers no voting weight.* A maintainer contributes to the count/weight gates **only if the same wallet is separately analyst-eligible** (verified + approved), and then subject to every exclusion above. The maintainer *finalization* signature required for the three maintainer-gated outcomes (resolution/winner, AI-Pack approval, seal — D5) is a distinct act and is **not** an analyst vote. Ordinary connected wallets never contribute counted weight.
 
 ## 3. Contribution score (formula option)
 

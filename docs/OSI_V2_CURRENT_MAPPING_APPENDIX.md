@@ -13,7 +13,7 @@
 | `reports` (Wire dispatch, `submitIntel`, `bounty:''`) | `wire_reports` (header) + `wire_report_versions` v1 | high | report-first |
 | `reports` (standalone approved, investigation-like) | `cases` **or** `wire_reports` | low | **⚠ D1 decision → manual queue** |
 | `vouches` | typed review tables (`case_report_reviews` / `wire_report_reviews`), historical `is_active` | high | imported as historical decisions; **receipts `server_verified=false`** |
-| `challenges` | `challenges` v2 (remapped ids, admissibility states) | high | id crosswalk needed |
+| `challenges` | `challenges` v2 (physical **`challenges_v2`** to avoid the v1 name collision; untyped `item_type`/`item_id` → **one typed target FK** + `evidence_items` FK; admissibility states) | high | id crosswalk + target-type resolution |
 | `escalation_packs` (`case_ref`=report id) | `ai_packs` (per Case) + `ai_pack_versions` | medium | **⚠ depends on report→Case map** |
 | `onchain_events` | `event_receipts` (verbatim import; `proof_type='legacy_imported'`, `server_verified=false`) | high | keep legacy memo + version |
 | `analysts` | `analyst_profiles` | high | status from `verified`/`approved` |
@@ -23,7 +23,9 @@
 | `request_votes`, `requests` | (evaluate, D12) | — | **⚠ decision** |
 | `profiles` | fold into `analyst_profiles` | medium | **⚠ decision** |
 
-New V2 tables with **no v1 predecessor** (created additively, not mapped from legacy): `case_report_versions`, `wire_report_versions`, `evidence_items`, `case_evidence_links`, `case_report_version_evidence`, `wire_report_version_evidence`, `ai_pack_version_evidence`, `case_initial_reviews`, `resolution_reviews`, `challenge_reviews`, `ai_pack_reviews`, `analyst_application_reviews`, `case_resolutions`, `analyst_applications`, `analyst_application_versions`, `analyst_reputation_snapshots`, `ai_pack_owner_feedback`, `reward_pledges`, `reward_payments`, `support_events`. (Legacy `vouches` seeds only the two report-review tables; other typed reviews start empty. The three tables promoted to first-class in this revision — `analyst_application_versions`, `ai_pack_owner_feedback`, `ai_pack_version_evidence` — start empty and are populated only by native V2 writes.)
+New V2 tables with **no v1 predecessor** (created additively, not mapped from legacy): `case_report_versions`, `wire_report_versions`, `evidence_items`, `case_evidence_links`, `case_report_version_evidence`, `wire_report_version_evidence`, `ai_pack_version_evidence`, `case_initial_reviews`, `resolution_reviews`, `challenge_reviews`, `ai_pack_reviews`, `analyst_application_reviews`, `case_resolutions`, `analyst_applications`, `analyst_application_versions`, `analyst_reputation_snapshots`, `ai_pack_owner_feedback`, `reward_pledges`, `reward_payments`, `support_events`. (Legacy `vouches` seeds only the two report-review tables; other typed reviews start empty.)
+
+**Infrastructure tables (NOT among the 32 domain tables, no v1 predecessor):** `osi_nonces` (Stage-5 replay/idempotency), `migration_crosswalk`, `migration_manual_queue` — private, service-only (`OSI_V2_DOMAIN_MODEL.md §9`, `OSI_V2_MIGRATION_ROLLOUT_PLAN.md §2.2`).
 
 ## 2. Fields
 

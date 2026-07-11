@@ -45,6 +45,8 @@ Each pack version has an **immutable evidence manifest** in the real table **`ai
 
 Rules: the public brief may cite **only** `public` evidence; owner-safe may add `owner_safe`; analyst-restricted may use its allowed scopes but **never** secrets, keys, illegal-access material, or highly sensitive personal information. Versions are immutable content. **Staleness is checked per layer**: a background job recomputes each scope's manifest from current Case evidence and compares it to the stored per-layer hash → on drift sets `is_stale` (and records which layer drifted in `stale_reason`). A version is **reproducible**: the manifest shows exactly which evidence items and hashes produced each output layer, without exposing restricted evidence publicly.
 
+**Server-enforced eligibility for an evidence item to enter the manifest (all must hold — correction #8, mirrored in `OSI_V2_DOMAIN_MODEL.md`):** (1) **same Case** — the item is linked to the pack's Case; (2) **permitted scope** — and **`access_scope='public'` may reference only `evidence_items.is_public=true`** (a public-scope row can never point at non-public evidence); (3) **validated hash** — `evidence_hash_at_generation` equals the item's validated `sha256` at generation; (4) **not blocked** — not moderation-blocked / prohibited. The Edge Function rejects any manifest row that fails these; owner feedback and creator input never override them.
+
 ## 5. Three content/access layers (correction #12)
 
 | Field | Audience | Contents | Excludes |
