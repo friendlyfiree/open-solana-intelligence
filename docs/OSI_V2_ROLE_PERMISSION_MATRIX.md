@@ -1,121 +1,110 @@
 # OSI V2 — Role & Permission Matrix
 
-**Status:** Blueprint / design-only. Every privileged row names a **server-side enforcement point**. A hidden or disabled button is never authorization (P10).
+**Status:** Blueprint / design-only. Every privileged row names a **server-side enforcement point**. A hidden or disabled button is never authorization (P10). Proof column uses the hybrid model (D15): **Memo** = Solana memo outcome; **Sig** = signMessage + server-verified receipt; **Sys** = system event.
 
 ## Roles
+`anon` · `wallet` (connected ordinary) · `case_owner` (proven) · `report_author` (proven) · `wire_author` (proven) · `contributor` · `candidate` · `probationary` · `analyst` (verified+approved) · `senior` · `adm_wallet_only` (admin wallet, no auth) · `adm_auth_only` (auth, wrong wallet) · `maintainer` (double-gate) · `service` (Edge Function).
 
-| Role | Definition |
-|---|---|
-| `anon` | not connected |
-| `wallet` | connected ordinary Phantom wallet |
-| `case_owner` | proven `submitted_by_wallet` of a case |
-| `report_author` | proven `author_wallet` of a case/wire report |
-| `wire_author` | proven author of a wire report |
-| `contributor` | ≥1 accepted contribution, no voting power |
-| `candidate` | `analyst_candidate` (Path B derived) |
-| `probationary` | `probationary_analyst`, weight 0.50 |
-| `analyst` | `verified_analyst` (verified=true, approved=true) |
-| `senior` | `senior_analyst` (higher cap, quorum-eligible) |
-| `adm_wallet_only` | admin wallet connected, **no** Supabase auth |
-| `adm_auth_only` | Supabase maintainer session, **wrong** wallet |
-| `maintainer` | admin wallet **AND** Supabase auth (double-gate) |
-| `service` | Edge Function service-role (server only) |
-
-**Server enforcement legend:** `EF=osi-*` Edge Function verifies (wallet signature and/or Supabase JWT + `analyst_profiles`/maintainer); `RLS` = row policy; `EF+RLS` both. Client checks are UX-only.
+**Server enforcement legend:** `EF` = Edge Function verifies (signature and/or Supabase JWT + `analyst_profiles`/maintainer); `RLS` = row policy; client checks are UX-only.
 
 ---
 
-## 1. Case operations
+## 1. Case
 
-| Operation | anon | wallet | case_owner | analyst | senior | maintainer | Server enforcement | Signature | Proof Log | Public effect |
-|---|---|---|---|---|---|---|---|---|---|---|
-| View public (open+) case | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | RLS (visibility=public) | – | – | – |
-| View own private case | – | – | ✅ (proof) | ✅ | ✅ | ✅ | EF owner-proof / analyst / maintainer | signMessage | – | – |
-| Submit case | – | ✅ | (becomes owner) | ✅ | ✅ | ✅ | EF verify sig; RLS insert visibility=private | memo | `CASE_SUBMITTED` | none |
-| Initial approve→open | – | – | ❌ (own) | ✅ | ✅ | ✅ | EF analyst/maintainer; **owner excluded** | memo | `CASE_OPENED` | case public |
-| Propose resolution | – | – | ❌ decisive | ✅ (quorum) | ✅ | ✅ finalize | EF ≥2 indep + maintainer | memo | `RESOLUTION_PROPOSED` | winner shown |
-| Seal | – | – | – | quorum-only via fallback | – | ✅ | EF ≥2 indep + maintainer | memo | `RECORD_SEALED` | sealed badge |
-| Emergency halt | – | – | – | – | – | ✅ (or fallback) | EF maintainer | memo | `CASE_HALTED` | frozen |
-| Reopen | – | – | appeal | quorum | quorum | ✅ | EF ≥2 indep | memo | `CASE_REOPENED` | reopened |
+| Operation | anon | wallet | owner | analyst | senior | maintainer | Enforcement | Proof | Public consequence |
+|---|---|---|---|---|---|---|---|---|---|
+| View public case | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | RLS visibility=public | – | – |
+| View own private case | – | – | ✅ (proof) | ✅ | ✅ | ✅ | EF `OWNER_STATUS_PROOF` / analyst / maintainer | Sig | – |
+| Submit case | – | ✅ | (owner) | ✅ | ✅ | ✅ | EF sig; RLS insert private | Memo `CASE_SUBMITTED` | none |
+| Initial review (per analyst) | – | – | ❌ own | ✅ | ✅ | ✅ | EF; owner excluded | Sig `CASE_INITIAL_REVIEW_CAST` | – |
+| Open case (outcome) | – | – | ❌ | ✅(1) | ✅ | ✅ | EF ≥1 | Memo `CASE_OPENED` | case public |
+| Safety block | – | – | – | – | – | ✅ / server policy | EF maintainer/policy | Memo/Sys `CASE_SAFETY_BLOCKED` | private neutral notice |
+| Normal initial reject | – | – | ❌ | quorum | quorum | ✅ | EF ≥2 indep | Memo `CASE_INITIAL_REVIEW_REJECTED` | private; appeal |
+| Propose resolution | – | – | ❌ decisive | quorum | ✅ | ✅ finalize | EF ≥2 indep + maintainer | Memo `RESOLUTION_PROPOSED` | winner shown |
+| Seal | – | – | – | fallback-only | – | ✅ | EF ≥2 indep + maintainer | Memo `RECORD_SEALED` | sealed badge |
+| Halt (emergency) | – | – | – | – | – | ✅/fallback | EF maintainer | Memo `CASE_HALTED` | frozen |
+| Reopen | – | – | appeal | quorum | quorum | ✅ | EF ≥2 indep | Memo `CASE_REOPENED` | reopened |
 
-## 2. Report operations
+## 2. Report + versions
 
-| Operation | anon | wallet | author | analyst | maintainer | Enforcement | Sig | Proof Log |
-|---|---|---|---|---|---|---|---|---|
-| Submit report to open case | – | ✅ | ✅ | ✅ | ✅ | EF sig; RLS insert private | memo | `REPORT_SUBMITTED` |
-| View pending report | – | – | ✅ (proof) | ✅ | ✅ | EF owner-proof/analyst/maintainer | signMessage | – |
-| Review report | – | – | ❌ own | ✅ | ✅ | EF verify analyst; **author≠reviewer**; RLS | signMessage(+memo) | `REPORT_REVIEWED` |
-| Publish report | – | – | ❌ | quorum | finalize | EF ≥2 indep + weight | memo | `REPORT_PUBLISHED` |
-| Unpublish | – | – | – | quorum | ✅ | EF ≥2 indep | memo | `REPORT_UNPUBLISHED` |
-| Select winning | – | – | ❌ | quorum | ✅ | EF ≥2 indep + maintainer | memo | `REPORT_SELECTED_WINNING` |
-
-## 3. Wire operations
-
-| Operation | wallet | wire_author | analyst | maintainer | Enforcement | Proof Log |
+| Operation | wallet | author | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
-| Submit wire report | ✅ | (becomes author) | ✅ | ✅ | EF sig | `WIRE_SUBMITTED` |
-| Review wire report | ✅→❌ own | ❌ own | ✅ | ✅ | EF analyst; **author excluded** | `WIRE_REVIEWED` |
-| Publish wire report | – | ❌ | quorum | finalize | EF ≥2 indep + weight | `WIRE_PUBLISHED` |
-| Promote to case | – | – | ✅ | ✅ | EF analyst/maintainer | `WIRE_PROMOTED` |
-| Support wire author | ✅ | – | ✅ | ✅ | EF (support endpoint) | `SUPPORT_SENT` |
+| Submit report / new version | ✅ | ✅ | ✅ | ✅ | EF sig; RLS insert private version | Memo `REPORT_SUBMITTED` (v1) / Sig (revisions) |
+| View pending version | – | ✅ (proof) | ✅ | ✅ | EF owner-proof/analyst/maintainer | Sig |
+| Review exact version | – | ❌ own | ✅ | ✅ | EF verify analyst; **author≠reviewer**; targets `case_report_versions.id` | Sig `CASE_REPORT_REVIEW_CAST`/`_REVISED` |
+| Publish version (outcome) | – | ❌ | quorum | finalize | EF ≥2 indep + weight | Memo `REPORT_PUBLISHED` |
+| Unpublish | – | – | quorum | ✅ | EF ≥2 indep | Memo `REPORT_UNPUBLISHED`* |
+| Select winning version | – | ❌ | quorum | ✅ | EF ≥2 indep + maintainer; exact version | Memo `REPORT_SELECTED_WINNING` |
 
-## 4. Challenge operations
+*`REPORT_UNPUBLISHED` is a class-A outcome if used; retained from V1 semantics.
 
-| Operation | wallet | analyst | maintainer | Enforcement | Sig | Proof Log |
+## 3. Wire
+
+| Operation | wallet | wire_author | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
-| Open challenge | ✅ | ✅ | ✅ | EF sig + reason + evidence_ref | memo | `CHALLENGE_OPENED` |
-| Judge challenge | – | ✅ | ✅ | EF analyst quorum | signMessage | `CHALLENGE_REVIEWED` |
-| Accept/reject (final) | – | quorum | finalize | EF ≥2 indep | memo | `CHALLENGE_ACCEPTED/REJECTED` |
-| Withdraw own | challenger | – | – | EF sig | – | receipt |
+| Submit wire report / version | ✅ | (author) | ✅ | ✅ | EF sig | Memo `REPORT_SUBMITTED`-equiv |
+| Review exact wire version | ✅→❌ own | ❌ own | ✅ | ✅ | EF; **author excluded** | Sig `WIRE_REPORT_REVIEW_CAST`/`_REVISED` |
+| Publish (outcome) | – | ❌ | quorum | finalize | EF ≥2 indep + weight | Memo `WIRE_REPORT_PUBLISHED` |
+| Promote to case | – | – | ✅ | ✅ | EF analyst/maintainer | Memo `WIRE_PROMOTED` |
+| Support author | ✅ | – | ✅ | ✅ | EF support endpoint | Memo `SUPPORT_SENT` (no ranking effect) |
 
-## 5. Analyst lifecycle
+## 4. Challenge (admissibility gate)
 
-| Operation | self | analyst | senior | maintainer | Enforcement | Notes |
-|---|---|---|---|---|---|---|
-| Apply (Path A) | ✅ | – | – | – | EF sig; RLS insert `analyst_profiles{status:candidate,verified:false}` | no weight |
-| Path B derivation | (auto) | – | – | – | server-derived from resolved case | never auto-verifies |
-| Promote candidate→probationary | – | – | ✅(≥2) | ✅ | EF senior-quorum or maintainer | weight 0.50 |
-| Verify | – | – | – | ✅ | EF maintainer double-gate | `ANALYST_VERIFIED` |
-| Revoke | – | – | – | ✅ | EF maintainer | freezes reviews |
-| **Self-verify** | ❌ | ❌ | ❌ | ❌ | impossible by design | P3 |
-
-## 6. AI Pack operations
-
-| Operation | case_owner | analyst | maintainer | Enforcement | Proof Log |
+| Operation | wallet | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|
-| Generate draft | ✅ (own case, server evidence) | ✅ | ✅ | EF `osi-ai-pack generate`; report/case approved | none (no memo) |
-| View restricted content | ✅ (own case) | ✅ | ✅ | EF `get` — **owner/analyst/maintainer only** | – |
-| View public brief | public | public | public | RLS/public_meta (approved only) | – |
-| Attest support/dispute | ❌ own | ✅ (not own creation) | ✅ | EF `ai_pack_reviews`, reviewer≠creator | receipt |
-| Approve pack | ❌ own | quorum (not own) | finalize | EF ≥2 indep (creator excluded) | `ESCALATION_PACK_APPROVED` |
-| Download restricted | ✅ own | ✅ | ✅ | EF authorization | – |
+| Submit challenge | ✅ | ✅ | ✅ | EF sig + reason + evidence_ref + rate-limit + one-active + cooldown | Sig `CHALLENGE_SUBMITTED` |
+| Accept admissibility (→ pauses sealing) | – | ✅ | ✅ | EF analyst/maintainer | Sig `CHALLENGE_ADMISSIBILITY_ACCEPTED` |
+| Judge (per analyst) | – | ✅ | ✅ | EF analyst | Sig `CHALLENGE_REVIEW_CAST`/`_REVISED` |
+| Accept/reject (outcome) | – | quorum | finalize | EF ≥2 indep | Memo `CHALLENGE_ACCEPTED`/`CHALLENGE_REJECTED` |
+| Withdraw own | challenger | – | – | EF sig | Sig |
 
-**Owner restriction:** case owner may generate/view/download their pack but **cannot** approve it or contribute analyst confidence weight (Constitution §14).
+Submission alone never pauses sealing; only `open`/`under_review` do.
+
+## 5. Analyst application & lifecycle
+
+| Operation | self | analyst | senior | maintainer | Enforcement | Proof |
+|---|---|---|---|---|---|---|
+| Submit application (Path A) | ✅ | – | – | – | EF sig; RLS insert `analyst_applications` | Sig `ANALYST_APPLICATION_SUBMITTED` |
+| Resubmit/revise application | ✅ | – | – | – | EF | Sig |
+| Review application | – | ✅ | ✅ | ✅ | EF | Sig `ANALYST_APPLICATION_REVIEWED` |
+| Path B derivation | (auto) | – | – | – | server-derived from resolved case | Sys `ANALYST_CANDIDATE` |
+| Promote candidate→probationary | – | – | ✅ (future ≥3 senior, flag) | ✅ | EF; **server-derived eligibility**, no discretionary tier | Memo `ANALYST_PROBATION` |
+| Verify | – | – | – | ✅ | EF maintainer double-gate | Memo `ANALYST_VERIFIED` |
+| Revoke | – | – | – | ✅ | EF maintainer | Memo `ANALYST_REVOKED` |
+| **Self-verify** | ❌ | ❌ | ❌ | ❌ | impossible by design | – |
+
+## 6. AI Pack
+
+| Operation | owner | analyst | maintainer | Enforcement | Proof |
+|---|---|---|---|---|---|
+| Generate draft | ✅ (own case) | ✅ | ✅ | EF `osi-ai-pack generate`, server evidence; case/version approved | Sys `PACK_SUBMITTED` |
+| Owner feedback (advisory) | ✅ | – | – | EF; stored outside `ai_pack_reviews`, **uncounted** | Sig (advisory) |
+| View `content_owner_safe` | ✅ own | ✅ | ✅ | EF authorization | – |
+| View `content_analyst_restricted` | ❌ | ✅ | ✅ | EF | – |
+| View public brief | public | public | public | RLS (approved) | – |
+| Attest support/dispute/request_revision | ❌ own | ✅ (≠creator) | ✅ | EF `ai_pack_reviews`, reviewer≠creator | Sig `AI_PACK_REVIEW_CAST`/`_REVISED` |
+| Approve version (outcome) | ❌ | quorum (≠creator) | finalize | EF ≥2 indep, creator excluded | Memo `AI_PACK_APPROVED` |
 
 ## 7. Reward & Support
 
-| Operation | case_owner | wallet | analyst | maintainer | Enforcement | Proof Log |
+| Operation | owner | wallet | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
-| Pledge reward | ✅ | – | – | – | EF sig; records intent (no custody) | `REWARD_PLEDGED` |
-| Send reward (to winner) | ✅ | – | – | – | client tx + EF records on **RPC confirm** | `REWARD_PAID` |
-| Voluntary support (author/analyst) | – | ✅ | ✅ | ✅ | EF support endpoint, confirmed tx | `SUPPORT_SENT` |
-| Cancel pledge (pre-assign) | ✅ | – | – | – | EF | receipt |
+| Pledge reward | ✅ | – | – | – | EF sig; intent, no custody | Memo `REWARD_PLEDGED` |
+| Send reward to winner | ✅ | – | – | – | client tx + EF records on RPC confirm | Memo `REWARD_PAID` |
+| Voluntary support author/analyst | – | ✅ | ✅ | ✅ | EF support endpoint, confirmed tx; **no ranking/discovery effect** | Memo `SUPPORT_SENT` |
 
-## 8. The two "half-maintainer" roles (critical)
+## 8. Public analyst attribution (correction #14 / D16)
+For any **public** governance decision (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges), the public view shows for each participating analyst: **public profile/handle, wallet, decision, weight snapshot used, timestamp, proof type** (`solana_memo` / `wallet_signed_server_verified` / `system_event`), and a public-safe receipt/tx reference. Restricted always: private notes, private evidence, moderation reason detail, sensitive reason text. Pre-open/private queue shows **counts only**.
+
+## 9. The two half-maintainer roles
 
 | Operation | `adm_wallet_only` | `adm_auth_only` | Reason |
 |---|---|---|---|
-| Any maintainer mutation | ❌ | ❌ | `resolveMaintainerAccess` requires **wallet AND Supabase auth**; server RLS restricts writes to the maintainer auth UUID |
-| See Ops Center | ❌ (locked) | ❌ (locked) | double-gate |
+| Any maintainer mutation | ❌ | ❌ | `resolveMaintainerAccess` needs **wallet AND auth**; RLS restricts writes to the maintainer auth UUID |
+| Ops Center | locked | locked | double-gate |
 
-Both are treated exactly as an ordinary connected wallet until **both** conditions hold. This preserves the current double-gate.
+## 10. Service role
+`service` (Edge Function service-role key) is the only writer for publication, review tallies, resolution finalization, pack storage, reputation snapshots, and **all `event_receipts` inserts** (server-only Proof Log write — closes the current anon-writable gap). Never in client code. RLS denies anon/user writes to these.
 
-## 9. Service role
-`service` (Edge Function service-role key) is the only writer for: publication, review tallies, pack storage, reputation snapshots, and Proof Log receipts. **Never present in client code.** RLS denies anon/user writes to these; the Edge Function is the single authorization funnel.
-
-## 10. Enforcement summary
-- **Signature-verified identity** for all owner/analyst actions (ed25519, purpose-bound, freshness window; Stage-5 replay binding compatible).
-- **Analyst authorization** = server lookup `analyst_profiles.verified AND approved AND status active`, never client state.
-- **Maintainer** = double-gate + RLS-restricted auth UUID.
-- **Quorum/weight** computed server-side from `reviews`/`analyst_reputation_snapshots`; the client cannot assert a threshold met.
-- **Pending privacy** = RLS default-deny + owner-proof Edge path; no broad public SELECT on private rows.
+## 11. Enforcement summary
+Signature-verified identity for all owner/analyst actions (ed25519, purpose+target+payload-hash bound, server-issued nonce, freshness). Analyst authorization = server `analyst_profiles` lookup. Maintainer = double-gate + auth-UUID RLS. Quorum/weight computed server-side. Pending privacy = RLS default-deny + owner-proof Edge path. No support-based ranking anywhere.

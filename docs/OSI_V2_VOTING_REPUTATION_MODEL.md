@@ -49,7 +49,7 @@ weight = clamp( 0.50 + 2.50 · ( 1 − exp(−Q / K) ), 0.50, 3.00 )
 Apply on each snapshot: `Q ← Q · exp(−idle_days/365)`. An analyst inactive ~1 year drifts back toward 0.50 (floor), never below.
 
 ### 3.2 Snapshotting
-Weight is recomputed into `analyst_reputation_snapshots` on a schedule and after each finalized contribution; the value used in any tally is the **snapshot at review time** (stored on the `reviews.weight` row) so historical tallies are immutable and auditable.
+Weight is recomputed into `analyst_reputation_snapshots` on a schedule and after each finalized contribution; the value used in any tally is the **snapshot at decision time** (stored on the typed review row's `weight` column — `case_report_reviews.weight`, `resolution_reviews.weight`, etc.) so historical tallies are immutable and auditable. **Voluntary support never contributes to `Q`, weight, or any tally (P7, correction #15).**
 
 ## 4. Tier model (simpler first-implementation option)
 
@@ -59,7 +59,9 @@ Weight is recomputed into `analyst_reputation_snapshots` on a schedule and after
 | Analyst I | ≥3 accepted contributions, 0 reversals in last 5 | 1.00 | yes |
 | Analyst II | ≥8 accepted, ≥1 winning, reversal-rate <10% | 1.50 | yes |
 | Senior | ≥20 accepted, ≥3 winning, reversal-rate <5%, ≥90d tenure | 2.25 | yes, eligible for high-risk quorum |
-| Distinguished | maintainer-endorsed + ≥40 accepted | 3.00 | yes |
+| Distinguished | **server-derived** ≥40 accepted + ≥6 winning + reversal-rate <5% | 3.00 | yes |
+
+Tiers are **server-derived from documented thresholds**, never granted by discretionary maintainer preference (correction #9). Maintainer/governance only confirms policy and abuse checks before a server-eligible promotion is applied.
 
 Demotion: a reversal or policy violation drops one tier (min Probationary). Tiers are a discretized view of the formula; the count gate applies identically.
 
@@ -67,16 +69,20 @@ Demotion: a reversal or policy violation drops one tier (min Probationary). Tier
 
 | Outcome | risk tier | `N_min` (independent) | `W_thr` (weight sum) |
 |---|---|---|---|
-| Open case (initial review) | any | 1 | 0.50 |
+| Open case (initial approve) | any | 1 | 0.50 |
+| Normal initial rejection | any | 2 | 2.00 |
 | Publish report | standard | 2 | 2.00 |
 | Publish report | high | 3 | 4.00 |
 | Resolve / select winning | standard | 2 + maintainer | 2.50 |
-| Resolve | high | 3 + maintainer | 4.50 |
+| Resolve / select winning | high | 3 + maintainer | 4.50 |
 | Approve AI Pack | any | 2 (creator excluded) + maintainer | 2.50 |
-| Accept challenge | any | 2 | 2.50 |
+| Accept/reject challenge | any | 2 | 2.50 |
 | Seal | any | 2 + maintainer | 2.50 |
 
-**Maintainer-absence fallback** (governance proposal, product-owner-gated): replace "+ maintainer" with `N_min+1` independent analysts **and** `W_thr + 1.5` **and** a 72-hour waiting period with no new active challenge. Marked as a proposal in `OSI_V2_OPEN_DECISIONS.md`; not enabled by default.
+These are the locked initial defaults (`OSI_V2_OPEN_DECISIONS.md` D5); exact numbers are tunable via `osi_config` (measurement detail) without schema change. **Safety/moderation blocking is NOT on this table** — it is a maintainer/server-policy action requiring no factual analyst quorum (State Machines §1); it must never be presented as a factual review outcome.
+
+### 5.1 Maintainer-absence fallback (governance, DEFERRED behind `OSI_V2_FALLBACK_GOVERNANCE=false`)
+Designed but **disabled in the first release** (D3). When enabled: replace "+ maintainer" with `N_min+1` independent analysts **and** `W_thr + 1.5` **and** a 72-hour waiting period with no active challenge. High-risk outcomes remain maintainer-required initially. **Analyst-lifecycle fallback** (future): candidate/probationary promotion by ≥3 eligible senior analysts + a weight threshold + a waiting/objection period + no active governance challenge + logged outcome; high-risk authority changes stay maintainer-required. **No analyst weight tier is awarded by discretionary maintainer preference — eligibility is server-derived from documented contribution thresholds; human governance only confirms policy/abuse checks (correction #9).**
 
 ## 6. Worked examples
 

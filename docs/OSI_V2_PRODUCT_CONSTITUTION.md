@@ -41,6 +41,8 @@ OSI **must reject, refuse to host, or design against** all of the following, at 
 
 A Case or Report that requires any prohibited action must be blocked at the **intake safety gate** (client pre-check) and again at the **server authorization point** (Edge Function / RLS). A hidden button is never authorization.
 
+A **safety block** (a moderation/policy refusal of prohibited content) is **never** the same event as a **normal initial-review rejection** (a factual "not enough here to open" quorum outcome). A safety block requires no factual analyst quorum, produces a neutral private notice, and must never be presented as a factual review verdict; a normal rejection is a quorum outcome and is appealable. The two are separate states and separate memo events throughout the design (`OSI_V2_STATE_MACHINES.md §1`).
+
 ## 4. Immutable product principles
 
 These principles are constitutional. Changing any of them is a governance decision recorded in `OSI_V2_OPEN_DECISIONS.md`, never a silent code change.
@@ -50,7 +52,7 @@ These principles are constitutional. Changing any of them is a governance decisi
 - **P3 — No self-decisive authority.** No actor may be the sole authority for publication, rejection, AI-Pack approval, or resolution — of their own contribution or in general. Critical outcomes require **≥ 2 independent analyst wallets**.
 - **P4 — Quality-adjusted, bounded reputation.** Analyst voting power is derived from *quality-adjusted* history and is mathematically bounded to **[0.50, 3.00]**. Weight can never let one analyst finalize a critical outcome alone.
 - **P5 — Maintainer is a finalizer, not the truth.** The normal path is analyst quorum → `ready_for_finalization` → maintainer signed finalization → publication. A stricter no-maintainer fallback is designed but gated behind product-owner approval.
-- **P6 — Process, not verdict.** The Proof Log records *actions and provenance*. It is not a legal or factual verdict. Public copy must never imply otherwise.
+- **P6 — Process, not verdict.** The Proof Log records *actions and provenance*. It is not a legal or factual verdict. Public copy must never imply otherwise. The Proof Log labels each receipt by its **honest proof type** — Memo-anchored on Solana, wallet-signed and server-verified, system-generated, or legacy-imported-not-server-verified — and **never** presents a wallet-signed receipt as an on-chain transaction (hybrid signature model, D15).
 - **P7 — Non-custodial payments.** Rewards and voluntary support are always direct wallet-to-wallet, confirmed on-chain, never escrowed. Support never influences review, ranking, weight, publication, or resolution.
 - **P8 — Evidence-bound AI.** AI Packs summarize *only* server-approved Case evidence. Generation is never a truth decision, never auto-approves, never auto-publishes. Full/restricted content is authorized-only; the public sees minimized metadata and a public-safe brief.
 - **P9 — Minimal, privacy-preserving memos.** On-chain memos carry only minimal references (versioned type + target ref + actor + role + ts + hashes). Never narrative, allegation, personal data, private evidence, keys, or analyst notes.
@@ -91,6 +93,7 @@ Two strictly separate money flows, with distinct statuses and events:
 
 - Pending/private Cases and Reports are never exposed through a broad public RLS policy. Owner access is via **wallet-signed ownership proof**, not by trusting a stored wallet field or a reported target wallet.
 - Public process visibility (stage, counts, decision totals, attestations, challenge state, Proof Log, pledged reward) becomes available only **after** a valid initial-review approval; **private Report content stays restricted** even then.
+- For a **public** governance decision, analyst participation is **publicly attributed**: the public view shows each participating analyst's public profile/handle, wallet, decision, voting-weight snapshot, timestamp, and proof type, with a public-safe receipt/tx reference. Private notes, private evidence, detailed moderation reasons, and sensitive reason text stay restricted; pre-open/private-queue activity may show only counts (D16). OSI does not describe normal public decisions as "anonymized."
 - Restricted AI Pack content is available only to authorized Case owner / verified analysts / maintainer and still excludes secrets and highly sensitive personal information.
 - No service-role key and no model API key ever enters client code.
 

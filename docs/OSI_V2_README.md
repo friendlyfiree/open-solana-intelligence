@@ -1,6 +1,10 @@
 # OSI V2 — Architecture Blueprint (index)
 
-**Design-and-documentation only.** These documents define the constitutional and technical contract for the next version of Open Solana Intelligence. **No production code, `index.html`, CSS, Edge Function, SQL, or Supabase state is changed by this stage.** Nothing here is implemented; implementation begins only after the entity model, state machines, permissions, voting model, AI Pack trust model, memo spec, and migration plan agree with each other and the open decisions are signed off.
+**Design-and-documentation only.** These documents define the constitutional and technical contract for the next version of Open Solana Intelligence. **No production code, `index.html`, CSS, Edge Function, SQL, or Supabase state is changed by this stage.** Nothing here is implemented; implementation begins only after the entity model, state machines, permissions, voting model, AI Pack trust model, memo spec, and migration plan agree with each other and the decision register is signed off.
+
+**Revision note:** this set was revised after product-owner and security review. Key locked decisions now baked in across all documents: the **hybrid signature model** (individual analyst decisions are `signMessage` + server-verified receipts; public governance outcomes are Solana Memo anchored — D15), the **Stage-5 write gate** (`OSI_V2_WRITES_ENABLED` stays false until replay protection and receipt authenticity are verified — D14), **typed FK-backed review tables** (not one polymorphic `reviews` table), **Report/Wire versioning** (immutable versions, mutable headers), **public analyst attribution** (D16), and a single **authoritative table count of 29** used identically in every document. See `OSI_V2_OPEN_DECISIONS.md` for the full D1–D16 register.
+
+**Authoritative entity count: 29 tables** — defined once in `OSI_V2_DOMAIN_MODEL.md §1` and referenced identically everywhere.
 
 Read in this order:
 
@@ -13,7 +17,7 @@ Read in this order:
 7. **[OSI_V2_MEMO_EVENT_SPEC.md](./OSI_V2_MEMO_EVENT_SPEC.md)** — canonical `OSI2` grammar, transport classes, per-action requirements, legacy migration, privacy rules.
 8. **[OSI_V2_UX_INFORMATION_ARCHITECTURE.md](./OSI_V2_UX_INFORMATION_ARCHITECTURE.md)** — pages, Case Detail tabs, My OSI sections, states, mobile, terminology contract.
 9. **[OSI_V2_MIGRATION_ROLLOUT_PLAN.md](./OSI_V2_MIGRATION_ROLLOUT_PLAN.md)** — additive migration, compat views, flags, staged rollout, rollback, cutover risks.
-10. **[OSI_V2_OPEN_DECISIONS.md](./OSI_V2_OPEN_DECISIONS.md)** — every unresolved product-owner decision with options + recommendation.
+10. **[OSI_V2_OPEN_DECISIONS.md](./OSI_V2_OPEN_DECISIONS.md)** — the **decision register**: D1–D16, each marked RESOLVED / DEFERRED (feature flag) / IMPLEMENTATION DETAIL (requires measurement).
 11. **[OSI_V2_CURRENT_MAPPING_APPENDIX.md](./OSI_V2_CURRENT_MAPPING_APPENDIX.md)** — current table/field/UI → V2 destination, with flagged ambiguities.
 
 **Core shift:** from a mix of reports/bounties/votes/packs into a **Case-centered** protocol — Case is the primary entity, a bounty is an optional non-custodial reward pledge on a Case, Reports belong to exactly one Case, the Wire is a separate report-first lane, and every critical outcome needs ≥2 independent bounded-weight analysts plus (normal path) maintainer finalization.

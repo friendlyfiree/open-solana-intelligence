@@ -1,94 +1,96 @@
 # OSI V2 — AI Pack Trust Model
 
-**Status:** Blueprint / design-only. Builds on the deployed `osi-ai-pack` Edge Function; no Edge Function behavior is changed by this document. AI Pack generation is **never** a truth decision (Constitution P8, §14).
+**Status:** Blueprint / design-only. Builds on the deployed `osi-ai-pack` Edge Function; no Edge Function behavior is changed. AI Pack generation is **never** a truth decision (Constitution P8, §14). Event names are canonical per `OSI_V2_MEMO_EVENT_SPEC.md`.
 
 ---
 
 ## 1. Creators & restrictions
 
-| Creator | May generate | May approve own pack | Contributes analyst weight to own pack | Sees restricted analyst notes |
+| Creator | Generate draft | Approve own version | Contributes counted weight to own version | Sees `content_analyst_restricted` |
 |---|---|---|---|---|
-| **Case owner** | ✅ draft from server-approved evidence | ❌ | ❌ | ❌ |
+| **Case owner** | ✅ (own case, server-approved evidence) | ❌ | ❌ (feedback advisory/uncounted) | ❌ |
 | **Verified analyst** | ✅ | ❌ (own creation) | ❌ (own) | ✅ |
-| **Maintainer** | ✅ | ❌ alone (cannot make own pack high-confidence solo) | n/a | ✅ |
+| **Maintainer** | ✅ | ❌ alone (cannot make own version approved/high-confidence solo) | n/a | ✅ |
 
-**Self-review prohibition (hard):** a reviewer/attester may never review or approve a version they created; enforced server-side in `ai_pack_reviews` (`reviewer_wallet != version.created_by_wallet`). Approval count **excludes** the creator (P3).
+**Self-review prohibition (hard):** a reviewer may never review/approve a version they created (`ai_pack_reviews.reviewer_wallet != version.created_by_wallet`, server-enforced). Approval count **excludes** the creator. Maintainer finalization cannot replace the analyst quorum.
 
-## 2. Reviewer restrictions
-- Only verified analysts (weight ≥ 0.50) and the maintainer may attest.
-- One active attestation per (version, reviewer); changes are historical (`superseded_by`).
-- Case owner attestations, if allowed at all, are **advisory and uncounted** (never contribute confidence weight).
+## 2. Review model (correction #13)
+- **Case owners** may: request/generate a draft, view owner-authorized content, submit **owner feedback**, and request correction. Owner feedback is **advisory and uncounted** — stored separately (an `ai_pack_owner_feedback` advisory record), **never** in `ai_pack_reviews`, and never called an analyst attestation.
+- Only eligible **independent analysts** contribute counted Pack review weight (`ai_pack_reviews`, decisions `support`/`dispute`/`request_revision`/`approve`).
+- Historical, non-erasing: changed decisions insert a new active row + `superseded_by`.
 
-## 3. Evidence snapshots & versioning
-- Each `ai_pack_versions` row stores `evidence_snapshot_hash` = `sha256` over the **ordered, canonicalized set of public Case evidence** (`case_evidence` where relevant) used to generate it.
-- Versions are **immutable** except controlled `state` transitions.
-- **Stale detection:** a background check compares the current Case evidence hash to each approved/current version's `evidence_snapshot_hash`. On drift → version `state=stale`, header shows "stale — regenerate," and the pack loses "current" status until a new version is generated and re-reviewed.
+## 3. Expanded lifecycle (correction #11) with orthogonal staleness
+`ai_pack_versions.lifecycle_state`: `draft → review_required → (revision_requested | supported | disputed) → (approved | rejected) → attached_to_resolution → superseded`.
 
-## 4. States (see State Machines §7)
-`draft → review_required → (supported | disputed) → approved → attached_to_resolution → superseded`, plus `stale`. A version can only be **public** (public-safe brief) once `approved`.
+**Staleness is a separate axis**, not a lifecycle state — fields `is_stale`, `stale_at`, `stale_reason`, `superseded_by_version_id`. An `approved`/`attached_to_resolution` version may become `is_stale=true` (evidence drift) while its lifecycle history remains fully visible. `stale` is **never** used to erase whether a version was approved or attached.
 
-## 5. Two outputs
+Exact transitions:
+- **request_revision:** ≥1 analyst → `revision_requested`; creator resubmits → **new version** (v+1), old version `superseded`.
+- **mixed support/dispute:** the tally is net; `disputed` if unresolved disputes stand; dispute resolution is a quorum outcome.
+- **rejection:** quorum (≥2 independent) → `rejected` (`AI_PACK_REJECTED`, class-Sys/Memo); a new version may be generated later.
+- **approval:** quorum (≥2 independent, creator excluded) + maintainer → `approved` (`AI_PACK_APPROVED`, memo); public brief becomes public.
+- **attachment:** on resolution selection → `attached_to_resolution` (`PACK_ATTACHED`).
+- **supersession:** a newer approved version → prior `superseded` (`PACK_SUPERSEDED`).
+- **staleness:** evidence hash drift → `is_stale=true` (`PACK_STALE`), independent of lifecycle.
 
-| Output | Audience | Contents | Excludes |
+## 4. Evidence snapshots & versioning
+Each `ai_pack_versions` stores `evidence_snapshot_hash` = sha256 over the **ordered, canonicalized public evidence set** (`case_evidence_links` / relevant `*_version_evidence`). Versions are immutable content. A background check compares current Case evidence hash vs the version hash → on drift sets `is_stale`.
+
+## 5. Three content/access layers (correction #12)
+
+| Field | Audience | Contents | Excludes |
 |---|---|---|---|
-| **Public-safe brief** (`content_public_brief`) | public (after approval, via `public_meta`-style path) | only public evidence, neutral framing, disclaimer | private evidence, analyst notes, restricted context, any personal data |
-| **Restricted escalation pack** (`content_restricted`) | authorized case owner / verified analysts / maintainer (via `get`) | lawful operational context, restricted-but-lawful references | secrets, seed phrases, keys, highly sensitive personal information |
+| `content_public_brief` | public (after approval) | public evidence only, neutral framing, disclaimer | private evidence, notes, restricted context, personal data |
+| `content_owner_safe` | Case owner (+analyst+maintainer) for their Case | owner-relevant summary, no analyst-only notes | analyst-only notes, secrets |
+| `content_analyst_restricted` | verified analyst / maintainer | lawful operational context | secrets, seed phrases, keys, prohibited personal info, illegal-access material |
 
-Neither output may state guilt, criminality, legal certainty, or recovery. Both carry the standing disclaimer.
+Private analyst review reasons/notes live in **`ai_pack_reviews.reason_code`** (restricted), **not** embedded in the Pack body. No tier ever exposes secrets/keys/prohibited personal data.
+
+Access enforcement (server):
+- public → `content_public_brief` only, and only if `approved`.
+- Case owner → public brief + `content_owner_safe` (their Case), via owner-proof.
+- verified analyst/maintainer → `content_analyst_restricted` via signature/JWT auth.
+- creator approval restriction still applies.
 
 ## 6. Evidence Confidence Profile (NOT an accuracy %)
+Stored in `ai_pack_versions.confidence_profile` (jsonb). **Explicitly NOT** legal certainty, probability of guilt, model confidence, or automatic truth verification. **Component profile only — no single headline accuracy/probability score** (D7, correction #13).
 
-A transparent, component-based profile stored in `ai_pack_versions.confidence_profile` (jsonb). **Explicitly NOT** legal certainty, NOT probability of guilt, NOT model confidence, NOT automatic truth verification. Components (each 0–100, with caps and provenance):
-
-| Component | Meaning | Source | Cap rule |
+| Component | Meaning | Source | Cap |
 |---|---|---|---|
-| `public_verifiability` | share of cited evidence that is publicly checkable (on-chain tx, public URL) | evidence set | capped by fraction of `is_public` evidence |
-| `onchain_reproducibility` | cited tx/wallets that resolve on a public RPC/explorer | server re-check | 0 if any cited tx unresolvable |
-| `evidence_coverage` | completeness vs the Case's declared questions | analyst grade | ≤ median analyst coverage mark |
-| `source_consistency` | independent sources agreeing | analyst grade | ≤ number of independent corroborations · scaling |
-| `analyst_attestation` | weighted independent analyst support | `ai_pack_reviews` | **count-gated**: 0 until ≥2 independent supporters (creator excluded) |
+| `public_verifiability` | share of cited evidence publicly checkable | evidence set | ≤ fraction `is_public` |
+| `onchain_reproducibility` | cited tx/wallets resolvable on public RPC | server re-check | 0 if any cited tx unresolvable |
+| `evidence_coverage` | completeness vs the Case's questions | analyst grade | ≤ median analyst coverage mark |
+| `source_consistency` | independent sources agreeing | analyst grade | ≤ corroboration scaling |
+| `analyst_attestation` | weighted independent analyst support | `ai_pack_reviews` | **count-gated: 0 until ≥2 independent supporters (creator excluded)** |
 
-**Composite** is shown as a **profile (radar/bars), not a single number**, to avoid an "accuracy score." If the product owner insists on one headline number, it must be labeled "Review Signal" and be the *minimum* of the count-gated components (so it cannot be inflated by any single input).
+Displayed as a radar/bars profile, never one number. Owner/creator inputs never raise it; re-generation resets attestation to 0; on-chain components are server-recomputed.
 
-### Anti-gaming
-- `analyst_attestation` is 0 until the two-gate count is met (creator excluded).
-- Owner/creator inputs never raise the profile.
-- Re-generation resets attestation components to 0 (new version = new review).
-- On-chain components are server-recomputed, not model-claimed.
-
-### Examples
-- **Strong:** all cited tx resolve on-chain, 3 independent analysts support, high coverage → high `public_verifiability`/`onchain_reproducibility`, `analyst_attestation` populated. Profile shows strong verifiability, explicitly *not* "true."
-- **Weak:** off-chain-only claims, 1 supporter → `analyst_attestation=0` (count gate unmet), `onchain_reproducibility=0`. Profile shows "insufficient independent verification."
-
-## 7. Attestations & attribution
-Every review/approval/version change is attributable via `ai_pack_reviews` + an `event_receipts` row. The public brief may show **anonymized-but-attributable** analyst attestation totals; it never shows private reason codes.
-
-## 8. Public display & downloads
+## 7. Public display & downloads
 
 | Surface | Shows |
 |---|---|
-| Public Records Case Detail → AI Pack tab | pack existence, type, `state`, public-safe brief (if approved), confidence *profile*, disclaimer, "stale" badge if applicable |
-| `public_meta` endpoint | `case_id, pack_type, state, version_no, created_at` — **no content** |
-| Restricted `get` | full restricted content — **only** owner/analyst/maintainer, via signature/JWT auth |
-| Download | public brief: public; restricted: authorized only |
+| Case Detail → AI Pack tab | existence, type, `lifecycle_state`, public brief (if approved), confidence profile, disclaimer, `is_stale` badge, version history |
+| public metadata endpoint | `case_id, pack_type, lifecycle_state, version_no, created_at, is_stale` — **no content** |
+| restricted `get` | `content_analyst_restricted` — analyst/maintainer only |
+| owner `get` | `content_owner_safe` — case owner only |
+| download | public brief public; owner-safe → owner; restricted → analyst/maintainer |
 
-## 9. Memo / event requirements
-- **Generation:** no Solana memo (not a truth decision) — server receipt `PACK_SUBMITTED` only.
-- **Attestation (support/dispute/request_revision):** signMessage + server receipt (`PACK_SUPPORTED`/`PACK_DISPUTED`).
-- **Approval:** memo `ESCALATION_PACK_APPROVED` (Solana tx) + receipt (governance-relevant, matches current signed behavior).
-- **Attach to resolution / supersede / stale:** server receipts.
+## 8. Memo / event requirements
+Generation = class-Sys `PACK_SUBMITTED` (no memo). Attestation = class-B `AI_PACK_REVIEW_CAST`/`_REVISED`. Approval = class-A memo `AI_PACK_APPROVED`. Attach/supersede/stale = class-Sys.
 
-## 10. Exact UI states & button rules (Case Detail → AI Pack tab)
+## 9. UI states & button rules (Case Detail → AI Pack tab)
 
-| State | Owner sees | Analyst sees | Maintainer sees |
+| State | Owner | Analyst | Maintainer |
 |---|---|---|---|
 | no pack | "Generate draft" (if case has approved evidence) | "Generate draft" | "Generate draft" |
-| generating | spinner, buttons disabled | same | same |
-| `review_required` | "Awaiting analyst review" + own draft (restricted view) | "Review" / "Support" / "Dispute" / "Request revision" (**not if own**) | + "Approve" (disabled until quorum; **not own alone**) |
-| `supported` (quorum partial) | progress meter | attest buttons | "Approve" enabled when ≥2 independent + weight (creator excluded) |
-| `approved` | "View public brief", "Download restricted" | same + attest history | + "Attach to resolution" |
-| `disputed` | banner "under dispute" | dispute detail | resolve dispute path |
-| `stale` | "Evidence changed — regenerate" | same | same |
-| unauthorized viewer (public) | public brief only (if approved) + profile + disclaimer | — | — |
+| generating | spinner, disabled | same | same |
+| `review_required` | own draft (owner-safe) + "Submit feedback" (advisory) / "Request correction" | "Review": Support/Dispute/Request revision (**hidden if own**) | + "Approve" (disabled until quorum; **not own alone**) |
+| `revision_requested` | "Resubmit revision" (if creator) | shows requested changes | same |
+| `supported` (partial) | progress meter | attest buttons | "Approve" enabled at ≥2 independent + weight (creator excluded) |
+| `disputed` | "under dispute" banner | dispute detail | resolve-dispute path |
+| `approved` | "View public brief", "Download owner-safe" | + "Download restricted", attest history | + "Attach to resolution" |
+| `rejected` | "Rejected — regenerate?" | rejection detail | same |
+| `is_stale` (any) | "Evidence changed — regenerate" + prior state still shown | same | same |
+| public viewer | public brief only (if approved) + profile + disclaimer | — | — |
 
-Button truthfulness rule: no button may imply publication/approval it cannot perform; "Approve" is disabled with an explanation when the count/weight gate is unmet, never a silent no-op. This directly fixes the current dormant/hidden AI-Pack UI.
+**Disabled buttons state the exact unmet prerequisite** (e.g., "Approve — needs 1 more independent analyst"); never a silent no-op or a placeholder implying it works. This fixes the current unreachable AI-Pack UI.
