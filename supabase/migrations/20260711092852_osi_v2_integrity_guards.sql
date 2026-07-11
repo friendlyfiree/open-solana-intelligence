@@ -1789,7 +1789,16 @@ declare
 begin
   target_value := (to_jsonb(new)->>target_column)::uuid;
 
-  select event_version, event_type, target_type, target_id, actor_wallet
+  select
+    event_version,
+    event_type,
+    target_type,
+    target_id,
+    actor_wallet,
+    actor_role,
+    decision,
+    weight,
+    reason_code
     into receipt
     from public.event_receipts
    where id = new.event_receipt_id;
@@ -1824,9 +1833,34 @@ begin
 
   if receipt.target_type is distinct from expected_target_type
      or receipt.target_id is distinct from target_value::text
-     or receipt.actor_wallet is distinct from new.reviewer_wallet then
-    raise exception 'Review receipt is not bound to the exact reviewer and target'
+     or receipt.actor_wallet is distinct from new.reviewer_wallet
+     or receipt.decision is distinct from new.decision
+     or receipt.reason_code is distinct from new.reason_code
+     or (
+       new.weight > 0
+       and receipt.weight is distinct from new.weight
+     )
+     or (
+       new.weight = 0
+       and receipt.weight is not null
+     ) then
+    raise exception 'Review receipt is not bound to exact reviewer, target, decision, weight and reason'
       using errcode = '23514';
+  end if;
+
+  if tg_table_name = 'case_initial_reviews'
+     and to_jsonb(new)->>'reviewer_role' = 'maintainer'
+     and receipt.actor_role is distinct from 'maintainer' then
+    raise exception 'Maintainer initial review requires maintainer receipt role'
+      using errcode = '42501';
+  end if;
+
+  if not (
+    tg_table_name = 'case_initial_reviews'
+    and to_jsonb(new)->>'reviewer_role' = 'maintainer'
+  ) and receipt.actor_role not in ('analyst', 'senior') then
+    raise exception 'Counted review receipt requires analyst/senior role'
+      using errcode = '42501';
   end if;
 
   if has_history and receipt.event_type is distinct from revised_event then

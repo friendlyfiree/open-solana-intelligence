@@ -1886,6 +1886,90 @@ create table public.migration_manual_queue (
 create index migration_manual_queue_status_idx
   on public.migration_manual_queue (status, created_at);
 
+-- PostgreSQL does not create indexes for referencing FK columns. These
+-- nullable-pointer/self-history indexes keep exact-version joins and FK checks
+-- bounded without indexing null rows that have no relationship yet.
+create index ai_pack_owner_feedback_superseded_by_idx
+  on public.ai_pack_owner_feedback (superseded_by)
+  where superseded_by is not null;
+create index ai_pack_reviews_superseded_by_idx
+  on public.ai_pack_reviews (superseded_by)
+  where superseded_by is not null;
+create index ai_pack_versions_superseded_by_idx
+  on public.ai_pack_versions (superseded_by_version_id)
+  where superseded_by_version_id is not null;
+create index ai_packs_current_version_idx
+  on public.ai_packs (current_version_id)
+  where current_version_id is not null;
+create index analyst_application_reviews_superseded_by_idx
+  on public.analyst_application_reviews (superseded_by)
+  where superseded_by is not null;
+create index analyst_application_versions_supersedes_idx
+  on public.analyst_application_versions (supersedes_version_id)
+  where supersedes_version_id is not null;
+create index analyst_applications_current_version_idx
+  on public.analyst_applications (current_version_id)
+  where current_version_id is not null;
+create index analyst_applications_event_receipt_idx
+  on public.analyst_applications (event_receipt_id)
+  where event_receipt_id is not null;
+create index analyst_profiles_verified_receipt_idx
+  on public.analyst_profiles (verified_receipt_id)
+  where verified_receipt_id is not null;
+create index case_initial_reviews_superseded_by_idx
+  on public.case_initial_reviews (superseded_by)
+  where superseded_by is not null;
+create index case_report_reviews_superseded_by_idx
+  on public.case_report_reviews (superseded_by)
+  where superseded_by is not null;
+create index case_report_versions_superseded_by_idx
+  on public.case_report_versions (superseded_by_version_id)
+  where superseded_by_version_id is not null;
+create index case_report_versions_supersedes_idx
+  on public.case_report_versions (supersedes_version_id)
+  where supersedes_version_id is not null;
+create index case_reports_current_published_idx
+  on public.case_reports (current_published_version_id)
+  where current_published_version_id is not null;
+create index case_reports_current_version_idx
+  on public.case_reports (current_version_id)
+  where current_version_id is not null;
+create index challenge_reviews_superseded_by_idx
+  on public.challenge_reviews (superseded_by)
+  where superseded_by is not null;
+create index challenges_v2_bad_faith_receipt_idx
+  on public.challenges_v2 (bad_faith_receipt_id)
+  where bad_faith_receipt_id is not null;
+create index challenges_v2_opened_receipt_idx
+  on public.challenges_v2 (opened_receipt_id)
+  where opened_receipt_id is not null;
+create index challenges_v2_resolved_receipt_idx
+  on public.challenges_v2 (resolved_receipt_id)
+  where resolved_receipt_id is not null;
+create index challenges_v2_submitted_receipt_idx
+  on public.challenges_v2 (submitted_receipt_id);
+create index resolution_reviews_superseded_by_idx
+  on public.resolution_reviews (superseded_by)
+  where superseded_by is not null;
+create index support_events_receipt_idx
+  on public.support_events (event_receipt_id)
+  where event_receipt_id is not null;
+create index wire_report_reviews_superseded_by_idx
+  on public.wire_report_reviews (superseded_by)
+  where superseded_by is not null;
+create index wire_report_versions_superseded_by_idx
+  on public.wire_report_versions (superseded_by_version_id)
+  where superseded_by_version_id is not null;
+create index wire_report_versions_supersedes_idx
+  on public.wire_report_versions (supersedes_version_id)
+  where supersedes_version_id is not null;
+create index wire_reports_current_published_idx
+  on public.wire_reports (current_published_version_id)
+  where current_published_version_id is not null;
+create index wire_reports_current_version_idx
+  on public.wire_reports (current_version_id)
+  where current_version_id is not null;
+
 -- osi_config is the only intentional V1 table reuse. This creates the minimal
 -- compatible shape only for a clean local database; on production the existing
 -- table and its data remain untouched.

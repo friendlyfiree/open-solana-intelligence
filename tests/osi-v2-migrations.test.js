@@ -14,6 +14,7 @@ const expectedFiles = [
   '20260711092711_osi_v2_additive_schema.sql',
   '20260711092852_osi_v2_integrity_guards.sql',
   '20260711092856_osi_v2_default_deny.sql',
+  '20260711182949_osi_v2_stage5_nonce_receipts.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -27,6 +28,10 @@ const integrity = sqlByFile[expectedFiles[1]] || '';
 const deny = sqlByFile[expectedFiles[2]] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
+const proofCore = fs.readFileSync(
+  path.join(root, 'supabase', 'functions', '_shared', 'osi-v2-proof-core.mjs'),
+  'utf8',
+);
 
 let pass = 0;
 let fail = 0;
@@ -66,6 +71,10 @@ for (const functionName of ['osi-analyst-intake', 'osi-ai-pack']) {
     ).test(config),
   );
 }
+ok(
+  'osi-v2-proof custom wallet auth config is explicit',
+  /\[functions\.osi-v2-proof\][\s\S]*?verify_jwt\s*=\s*false/i.test(config),
+);
 
 const logicalDomainTables = [
   'cases',
@@ -193,6 +202,17 @@ ok('8 system events', (registry.system_event || []).length === 8);
 const allEvents = Object.values(registry).flat();
 ok('65 canonical events', allEvents.length === 65);
 ok('canonical event classes do not overlap', new Set(allEvents).size === 65);
+const proofPurposeBlock = proofCore.match(
+  /export const CLASS_B_PURPOSES = new Set\(\[([\s\S]*?)\]\);/,
+);
+const proofPurposes = proofPurposeBlock
+  ? [...proofPurposeBlock[1].matchAll(/"([A-Z][A-Z0-9_]+)"/g)].map((match) => match[1])
+  : [];
+ok(
+  'Edge proof purpose allowlist exactly matches canonical class B',
+  JSON.stringify([...proofPurposes].sort())
+    === JSON.stringify([...(registry.wallet_signed_server_verified || [])].sort()),
+);
 for (const event of [
   'CASE_REPORT_VERSION_SUBMITTED',
   'WIRE_REPORT_VERSION_SUBMITTED',
@@ -235,9 +255,39 @@ for (const required of [
   'osi_v2_validate_reward_payment_insert',
   'osi_v2_validate_support_target',
   'osi_v2_guard_config_write',
+  'osi_v2_guard_nonce_update',
+  'osi_v2_issue_nonce',
+  'osi_v2_consume_signed_nonce',
 ]) {
   ok('required integrity guard exists: ' + required, allSql.includes(required));
 }
+
+ok(
+  'Stage-5 nonce stores only a keyed request fingerprint',
+  allSql.includes('request_fingerprint_hash text not null')
+    && !allSql.includes('request_ip text'),
+);
+ok(
+  'Stage-5 proof switch fails closed',
+  /\('OSI_V2_PROOF_ENABLED',\s*'false'/i.test(allSql)
+    && !/\('OSI_V2_PROOF_ENABLED',\s*'true'/i.test(allSql),
+);
+ok(
+  'nonce issuance serializes idempotency and rate-limit dimensions',
+  allSql.includes("'osi2-idempotency:'")
+    && allSql.includes("'osi2-wallet:'")
+    && allSql.includes("'osi2-fingerprint:'"),
+);
+ok(
+  'signed receipt insertion and nonce consumption share one SQL function',
+  /create function osi_private\.osi_v2_consume_signed_nonce[\s\S]*insert into public\.event_receipts[\s\S]*update public\.osi_nonces/i.test(allSql),
+);
+ok(
+  'receipt-consumption helper is outside exposed API schemas',
+  allSql.includes('create schema if not exists osi_private')
+    && !/create function public\.osi_v2_consume_signed_nonce/i.test(allSql)
+    && !/schemas\s*=\s*\[[^\]]*osi_private/i.test(config),
+);
 
 for (const requiredNonceField of [
   'purpose',

@@ -392,6 +392,9 @@ verify_jwt = false
 [functions.osi-ai-pack]
 verify_jwt = false
 
+[functions.osi-v2-proof]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
