@@ -196,7 +196,8 @@ jobs:
           # Capture counts of the legacy V1 data tables so we can prove they are
           # unchanged after the additive deploy. osi_config is intentionally
           # excluded here because the migrations add V2 flag keys to it.
-          psql -Atq -F'|' -f - > /tmp/v1_baseline.txt <<'SQL'
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1_baseline.txt <<'SQL'
+          begin;
           do $$
           declare
             t text;
@@ -216,6 +217,7 @@ jobs:
             end loop;
           end $$;
           select tbl || '|' || n from _v1_counts order by tbl;
+          commit;
           SQL
           echo "V1 baseline (table|rows):"
           cat /tmp/v1_baseline.txt
@@ -237,7 +239,16 @@ jobs:
           echo "== supabase migration list --linked =="
           supabase migration list --linked || true
           echo "== remote schema_migrations count (authoritative) =="
-          psql -Atqc "select coalesce(( select count(*) from supabase_migrations.schema_migrations where to_regclass('supabase_migrations.schema_migrations') is not null),0)"
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare c bigint := 0;
+          begin
+            if to_regclass('supabase_migrations.schema_migrations') is not null then
+              execute 'select count(*) from supabase_migrations.schema_migrations' into c;
+            end if;
+            raise notice 'remote schema_migrations count: %', c;
+          end $$;
+          SQL
 
       - name: Require empty remote migration history
         run: |
@@ -604,7 +615,8 @@ jobs:
       - name: Verify V1 baseline row counts are unchanged (additive-only)
         run: |
           set -euo pipefail
-          psql -Atq -F'|' -f - > /tmp/v1_after.txt <<'SQL'
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1_after.txt <<'SQL'
+          begin;
           do $$
           declare
             t text; c bigint;
@@ -623,6 +635,7 @@ jobs:
             end loop;
           end $$;
           select tbl || '|' || n from _v1_counts order by tbl;
+          commit;
           SQL
           echo "== V1 counts after deploy (table|rows) =="
           cat /tmp/v1_after.txt
