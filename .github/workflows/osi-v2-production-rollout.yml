@@ -1,0 +1,646 @@
+name: OSI V2 Production Rollout
+
+# Manual-only, exact-version production deployment of the OSI V2 additive
+# foundation to the pinned Supabase project. It applies EXACTLY the five
+# additive repository migrations (schema, integrity guards, default-deny RLS,
+# Stage-5 nonce/receipts, read-only legacy classification), verifies them, runs
+# read-only post-deployment security checks, and then runs the read-only legacy
+# classifier (preview + apply, twice, proving idempotency).
+#
+# SAFETY CONTRACT (enforced below and by review):
+#   * Trigger is workflow_dispatch ONLY. No push / pull_request / schedule /
+#     automatic production trigger exists in this file.
+#   * A typed confirmation input is required, and the SUPABASE_PROJECT_ID secret
+#     must equal the hard-pinned project ref, or the run aborts before linking.
+#   * The pinned Supabase CLI (2.109.1) links ONLY to the pinned project ref.
+#   * db push runs in --dry-run first; the run HARD-STOPS unless the dry-run is
+#     EXACTLY the five expected migrations, in order, and nothing else.
+#   * Remote migration history must be empty before push, or the run aborts.
+#   * OSI_V2_WRITES_ENABLED and OSI_V2_PROOF_ENABLED are asserted to stay
+#     'false'. This workflow NEVER writes them or any other flag.
+#   * NEVER runs: db reset, migration repair, seed, DROP, TRUNCATE, DELETE,
+#     Edge Function deploy, or Vercel deploy. The only writes performed are the
+#     five migrations (additive DDL) and the classifier, which writes ONLY to
+#     public.migration_crosswalk and public.migration_manual_queue.
+#   * Secrets are never printed. psql auth uses PGPASSWORD (never argv/URL) and
+#     the Supabase CLI reads SUPABASE_ACCESS_TOKEN / SUPABASE_DB_PASSWORD from
+#     the environment. No --debug / verbose-fetch modes are enabled.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY-afibxpniwfnavdobecrn to authorize this production run'
+        required: true
+        default: ''
+
+# Least privilege: the job only reads the checked-out code and talks to Supabase
+# over the network using secrets. It never writes back to the repository.
+permissions:
+  contents: read
+
+# Only one production rollout may run at a time. cancel-in-progress is false so a
+# deployment in flight is never interrupted; a second dispatch queues behind it.
+concurrency:
+  group: osi-v2-production-rollout
+  cancel-in-progress: false
+
+env:
+  # Hard-pinned production project ref. The workflow links ONLY to this ref and
+  # refuses to run if the SUPABASE_PROJECT_ID secret does not match it.
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  SUPABASE_CLI_VERSION: 2.109.1
+  # Ordered list of the exact five migrations this workflow is allowed to apply.
+  EXPECTED_MIGRATION_VERSIONS: >-
+    20260711092711
+    20260711092852
+    20260711092856
+    20260711182949
+    20260712002518
+
+jobs:
+  rollout:
+    name: Deploy exact five migrations and run read-only classifier
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Secrets consumed by the Supabase CLI and psql. GitHub masks these in
+      # logs; PGPASSWORD keeps the DB password out of process arguments.
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Validate confirmation input
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm }}" != "DEPLOY-${EXPECTED_PROJECT_REF}" ]; then
+            echo "::error::Confirmation phrase mismatch. Expected DEPLOY-${EXPECTED_PROJECT_REF}."
+            exit 1
+          fi
+          echo "Confirmation accepted."
+
+      - name: Check out repository at the dispatched ref
+        uses: actions/checkout@v4
+
+      - name: Verify required secrets are present (never printed)
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PROJECT_ID_SECRET; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Secret $name is ABSENT."
+              missing=1
+            else
+              echo "$name: PRESENT"
+            fi
+          done
+          [ "$missing" -eq 0 ] || { echo "::error::One or more required secrets are absent."; exit 1; }
+
+      - name: Confirm project identity before any write
+        run: |
+          set -euo pipefail
+          if [ "$PROJECT_ID_SECRET" != "$EXPECTED_PROJECT_REF" ]; then
+            echo "::error::SUPABASE_PROJECT_ID does not match the pinned ref ${EXPECTED_PROJECT_REF}. Aborting before link."
+            exit 1
+          fi
+          echo "Project ref confirmed: ${EXPECTED_PROJECT_REF}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Show tool versions
+        run: |
+          set -euo pipefail
+          node --version
+          supabase --version
+          psql --version
+
+      - name: Verify repository contains EXACTLY the five expected migration files
+        run: |
+          set -euo pipefail
+          cd supabase/migrations
+          expected="20260711092711_osi_v2_additive_schema.sql
+          20260711092852_osi_v2_integrity_guards.sql
+          20260711092856_osi_v2_default_deny.sql
+          20260711182949_osi_v2_stage5_nonce_receipts.sql
+          20260712002518_osi_v2_legacy_classification.sql"
+          actual="$(ls -1 *.sql | LC_ALL=C sort)"
+          expected_sorted="$(printf '%s\n' "$expected" | sed 's/^[[:space:]]*//' | LC_ALL=C sort)"
+          if [ "$actual" != "$expected_sorted" ]; then
+            echo "::error::Migration set does not match the exact five expected files."
+            echo "--- expected ---"; printf '%s\n' "$expected_sorted"
+            echo "--- actual ---";   printf '%s\n' "$actual"
+            exit 1
+          fi
+          echo "Exactly the five expected migration files are present:"
+          printf '%s\n' "$actual"
+
+      - name: Resolve session pooler connection (host/port/user only; no secrets)
+        run: |
+          set -euo pipefail
+          resp="$(curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          # Extract only non-secret connection coordinates for the PRIMARY pooler.
+          coords="$(printf '%s' "$resp" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type","")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name","postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coords"
+          if [ -z "${PGHOST:-}" ] || [ -z "${PGPORT:-}" ] || [ -z "${PGUSER:-}" ]; then
+            echo "::error::Failed to resolve pooler connection coordinates."
+            exit 1
+          fi
+          # Sanity: host must be the pinned project's Supabase pooler.
+          case "$PGHOST" in
+            *.pooler.supabase.com) : ;;
+            *) echo "::error::Resolved pooler host '$PGHOST' is not a Supabase pooler."; exit 1 ;;
+          esac
+          case "$PGUSER" in
+            "postgres.${EXPECTED_PROJECT_REF}") : ;;
+            *) echo "::error::Resolved pooler user does not target the pinned ref."; exit 1 ;;
+          esac
+          {
+            echo "PGHOST=$PGHOST"
+            echo "PGPORT=$PGPORT"
+            echo "PGUSER=$PGUSER"
+            echo "PGDATABASE=${PGDATABASE:-postgres}"
+          } >> "$GITHUB_ENV"
+          echo "Resolved pooler: host=$PGHOST port=$PGPORT user=$PGUSER db=${PGDATABASE:-postgres}"
+
+      - name: Verify database connectivity (read-only)
+        run: |
+          set -euo pipefail
+          who="$(psql -Atqc "select current_user")"
+          echo "Connected as DB role: $who"
+          case "$who" in
+            postgres|service_role|supabase_admin) : ;;
+            *) echo "::error::Unexpected DB role '$who'; classifier is service-only."; exit 1 ;;
+          esac
+
+      - name: Snapshot V1 baseline row counts (pre-deploy, read-only)
+        run: |
+          set -euo pipefail
+          # Capture counts of the legacy V1 data tables so we can prove they are
+          # unchanged after the additive deploy. osi_config is intentionally
+          # excluded here because the migrations add V2 flag keys to it.
+          psql -Atq -F'|' -f - > /tmp/v1_baseline.txt <<'SQL'
+          do $$
+          declare
+            t text;
+            c bigint;
+            tbls text[] := array[
+              'reports','bounties','challenges','vouches','escalation_packs',
+              'onchain_events','analysts','profiles','requests','request_votes',
+              'bounty_boosts'
+            ];
+          begin
+            create temp table _v1_counts(tbl text primary key, n bigint) on commit drop;
+            foreach t in array tbls loop
+              if to_regclass('public.'||t) is not null then
+                execute format('select count(*) from public.%I', t) into c;
+                insert into _v1_counts values (t, c);
+              end if;
+            end loop;
+          end $$;
+          select tbl || '|' || n from _v1_counts order by tbl;
+          SQL
+          echo "V1 baseline (table|rows):"
+          cat /tmp/v1_baseline.txt
+
+      - name: Link ONLY to the pinned production project
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          linked="$(cat supabase/.temp/project-ref 2>/dev/null || true)"
+          if [ "$linked" != "$EXPECTED_PROJECT_REF" ]; then
+            echo "::error::Linked project ref '$linked' is not the pinned ref ${EXPECTED_PROJECT_REF}."
+            exit 1
+          fi
+          echo "Linked only to: $linked"
+
+      - name: Inspect linked remote migration history
+        run: |
+          set -euo pipefail
+          echo "== supabase migration list --linked =="
+          supabase migration list --linked || true
+          echo "== remote schema_migrations count (authoritative) =="
+          psql -Atqc "select coalesce(( select count(*) from supabase_migrations.schema_migrations where to_regclass('supabase_migrations.schema_migrations') is not null),0)"
+
+      - name: Require empty remote migration history
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare c bigint := 0;
+          begin
+            if to_regclass('supabase_migrations.schema_migrations') is not null then
+              execute 'select count(*) from supabase_migrations.schema_migrations' into c;
+            end if;
+            if c <> 0 then
+              raise exception 'Remote migration history is NOT empty (% rows). Stopping without deploying.', c;
+            end if;
+            raise notice 'Remote migration history is empty as expected.';
+          end $$;
+          SQL
+
+      - name: db push --dry-run must equal EXACTLY the five migrations in order
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/dry_run.txt
+          # Extract 14-digit migration versions in the order printed, de-duped.
+          # Versions are followed by '_' in filenames, so no trailing word
+          # boundary is used; a 14-digit run starting with 20 is the version.
+          got="$(grep -oE '20[0-9]{12}' /tmp/dry_run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          want="$(echo "$EXPECTED_MIGRATION_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          echo "Dry-run versions (in order): [$got]"
+          echo "Expected versions (in order): [$want]"
+          if [ "$got" != "$want" ]; then
+            echo "::error::Dry-run does not contain exactly the five expected migrations in order. Stopping without deploying."
+            exit 1
+          fi
+          echo "Dry-run matches exactly the five expected migrations, in order."
+
+      - name: db push (apply the five additive migrations)
+        run: |
+          set -euo pipefail
+          supabase db push --linked --yes
+
+      - name: Verify remote migration history == exactly the five versions in order
+        run: |
+          set -euo pipefail
+          got="$(psql -Atqc "select version from supabase_migrations.schema_migrations order by version" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          want="$(echo "$EXPECTED_MIGRATION_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          echo "Remote history versions: [$got]"
+          echo "Expected versions:       [$want]"
+          if [ "$got" != "$want" ]; then
+            echo "::error::Remote migration history does not match the exact five versions."
+            exit 1
+          fi
+          echo "Remote migration history verified: exactly the five expected versions."
+
+      - name: Post-deployment security checks (read-only assertions)
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare
+            t text;
+            relid oid;
+            missing text[] := '{}';
+            norls  text[] := '{}';
+            v2_tables text[] := array[
+              'event_receipts','cases','case_reports','case_report_versions',
+              'wire_reports','wire_report_versions','evidence_items',
+              'case_evidence_links','case_report_version_evidence',
+              'wire_report_version_evidence','ai_pack_version_evidence',
+              'case_initial_reviews','case_report_reviews','wire_report_reviews',
+              'resolution_reviews','challenge_reviews','ai_pack_reviews',
+              'analyst_application_reviews','case_resolutions','challenges_v2',
+              'analyst_applications','analyst_application_versions',
+              'analyst_profiles','analyst_contributions',
+              'analyst_reputation_snapshots','ai_packs','ai_pack_versions',
+              'ai_pack_owner_feedback','reward_pledges','reward_payments',
+              'support_events','osi_nonces','migration_crosswalk',
+              'migration_manual_queue'
+            ];
+            priv_funcs text[] := array[
+              'osi_v2_norm_label','osi_v2_build_legacy_snapshot',
+              'osi_v2_legacy_decisions','osi_v2_preview_legacy_classification',
+              'osi_v2_apply_legacy_classification'
+            ];
+            writes_flag text;
+            proof_flag text;
+          begin
+            -- (1) All expected V2 + infra tables exist with RLS enabled AND forced.
+            foreach t in array v2_tables loop
+              relid := to_regclass('public.'||t);
+              if relid is null then
+                missing := missing || t;
+              elsif not exists (
+                select 1 from pg_class
+                where oid = relid and relrowsecurity and relforcerowsecurity
+              ) then
+                norls := norls || t;
+              end if;
+            end loop;
+            if array_length(missing,1) is not null then
+              raise exception 'Missing expected V2/infra tables: %', missing;
+            end if;
+            if array_length(norls,1) is not null then
+              raise exception 'RLS not enabled+forced on: %', norls;
+            end if;
+
+            -- (2) osi_config reused and RLS enabled.
+            if to_regclass('public.osi_config') is null then
+              raise exception 'public.osi_config is missing';
+            end if;
+            if not exists (
+              select 1 from pg_class
+              where oid = to_regclass('public.osi_config') and relrowsecurity
+            ) then
+              raise exception 'RLS not enabled on public.osi_config';
+            end if;
+
+            -- (3) A representative additive constraint exists (integrity guards
+            --     applied): challenges_v2 has its primary key.
+            if not exists (
+              select 1 from pg_constraint
+              where conrelid = to_regclass('public.challenges_v2') and contype = 'p'
+            ) then
+              raise exception 'Expected primary key constraint on challenges_v2 not found';
+            end if;
+
+            -- (4) Private schema + all classifier functions exist.
+            if to_regnamespace('osi_private') is null then
+              raise exception 'osi_private schema is missing';
+            end if;
+            foreach t in array priv_funcs loop
+              if not exists (
+                select 1 from pg_proc p
+                join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname = 'osi_private' and p.proname = t
+              ) then
+                raise exception 'Private function osi_private.% is missing', t;
+              end if;
+            end loop;
+
+            -- (5) V2 gate flags fail closed.
+            select value into writes_flag from public.osi_config where key = 'OSI_V2_WRITES_ENABLED';
+            select value into proof_flag  from public.osi_config where key = 'OSI_V2_PROOF_ENABLED';
+            if writes_flag is distinct from 'false' then
+              raise exception 'OSI_V2_WRITES_ENABLED is % (expected false)', coalesce(writes_flag,'<null>');
+            end if;
+            if proof_flag is distinct from 'false' then
+              raise exception 'OSI_V2_PROOF_ENABLED is % (expected false)', coalesce(proof_flag,'<null>');
+            end if;
+
+            -- (6) anon/authenticated cannot reach the private classifier.
+            if has_schema_privilege('anon','osi_private','USAGE') then
+              raise exception 'anon has USAGE on osi_private';
+            end if;
+            if has_schema_privilege('authenticated','osi_private','USAGE') then
+              raise exception 'authenticated has USAGE on osi_private';
+            end if;
+            if has_function_privilege('anon','osi_private.osi_v2_apply_legacy_classification()','EXECUTE') then
+              raise exception 'anon can EXECUTE osi_v2_apply_legacy_classification';
+            end if;
+            if has_function_privilege('authenticated','osi_private.osi_v2_apply_legacy_classification()','EXECUTE') then
+              raise exception 'authenticated can EXECUTE osi_v2_apply_legacy_classification';
+            end if;
+            if has_function_privilege('anon','osi_private.osi_v2_preview_legacy_classification()','EXECUTE') then
+              raise exception 'anon can EXECUTE osi_v2_preview_legacy_classification';
+            end if;
+            if has_function_privilege('authenticated','osi_private.osi_v2_preview_legacy_classification()','EXECUTE') then
+              raise exception 'authenticated can EXECUTE osi_v2_preview_legacy_classification';
+            end if;
+
+            raise notice 'Post-deployment security checks passed.';
+          end $$;
+          SQL
+
+      - name: Assert all V2 domain + infra tables are empty (pre-classifier)
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare
+            t text; c bigint; bad text[] := '{}';
+            v2_tables text[] := array[
+              'event_receipts','cases','case_reports','case_report_versions',
+              'wire_reports','wire_report_versions','evidence_items',
+              'case_evidence_links','case_report_version_evidence',
+              'wire_report_version_evidence','ai_pack_version_evidence',
+              'case_initial_reviews','case_report_reviews','wire_report_reviews',
+              'resolution_reviews','challenge_reviews','ai_pack_reviews',
+              'analyst_application_reviews','case_resolutions','challenges_v2',
+              'analyst_applications','analyst_application_versions',
+              'analyst_profiles','analyst_contributions',
+              'analyst_reputation_snapshots','ai_packs','ai_pack_versions',
+              'ai_pack_owner_feedback','reward_pledges','reward_payments',
+              'support_events','osi_nonces','migration_crosswalk',
+              'migration_manual_queue'
+            ];
+          begin
+            foreach t in array v2_tables loop
+              execute format('select count(*) from public.%I', t) into c;
+              if c <> 0 then bad := bad || (t || '=' || c); end if;
+            end loop;
+            if array_length(bad,1) is not null then
+              raise exception 'Expected all V2/infra tables empty before classifier, but found: %', bad;
+            end if;
+            raise notice 'All V2 domain + infra tables are empty pre-classifier.';
+          end $$;
+          SQL
+
+      - name: Legacy classification preview (aggregate-only, read-only)
+        run: |
+          set -euo pipefail
+          echo "== aggregate classification preview (action | scope | reason_code | count) =="
+          psql -v ON_ERROR_STOP=1 -A -F' | ' -P footer=off \
+            -c "select action, scope, reason_code, item_count
+                from osi_private.osi_v2_preview_legacy_classification()
+                order by action, scope, reason_code"
+
+      - name: Apply legacy classification (run 1)
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -A -t -F'|' -P footer=off \
+            -c "select action, scope, reason_code, item_count
+                from osi_private.osi_v2_apply_legacy_classification()
+                order by action, scope, reason_code" \
+            | LC_ALL=C sort > /tmp/apply_run1.txt
+          echo "== apply run 1 aggregate =="
+          cat /tmp/apply_run1.txt
+          psql -Atqc "select 'crosswalk='||count(*) from public.migration_crosswalk" > /tmp/counts_run1.txt
+          psql -Atqc "select 'manual_queue='||count(*) from public.migration_manual_queue" >> /tmp/counts_run1.txt
+          echo "== row counts after run 1 =="
+          cat /tmp/counts_run1.txt
+
+      - name: Apply legacy classification (run 2) and prove idempotency
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -A -t -F'|' -P footer=off \
+            -c "select action, scope, reason_code, item_count
+                from osi_private.osi_v2_apply_legacy_classification()
+                order by action, scope, reason_code" \
+            | LC_ALL=C sort > /tmp/apply_run2.txt
+          echo "== apply run 2 aggregate =="
+          cat /tmp/apply_run2.txt
+          psql -Atqc "select 'crosswalk='||count(*) from public.migration_crosswalk" > /tmp/counts_run2.txt
+          psql -Atqc "select 'manual_queue='||count(*) from public.migration_manual_queue" >> /tmp/counts_run2.txt
+          echo "== row counts after run 2 =="
+          cat /tmp/counts_run2.txt
+
+          echo "== idempotency: run1 vs run2 aggregate diff (expect none) =="
+          if ! diff -u /tmp/apply_run1.txt /tmp/apply_run2.txt; then
+            echo "::error::Classifier is NOT idempotent: run 1 and run 2 aggregates differ."
+            exit 1
+          fi
+          echo "== idempotency: run1 vs run2 row-count diff (expect none) =="
+          if ! diff -u /tmp/counts_run1.txt /tmp/counts_run2.txt; then
+            echo "::error::Classifier is NOT idempotent: row counts changed between runs."
+            exit 1
+          fi
+          echo "Idempotency proven: identical aggregates and identical row counts across two applies."
+
+      - name: Prove complete accounting and that no V2 domain table received data
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare
+            n_decisions bigint;
+            n_accounted bigint;
+            n_unaccounted bigint;
+            n_invented bigint;
+            n_crosswalk bigint;
+            n_queue bigint;
+            t text; c bigint; bad text[] := '{}';
+            -- Every table that must remain empty (V2 domain + osi_nonces). The two
+            -- classification infra tables are intentionally excluded.
+            empty_tables text[] := array[
+              'event_receipts','cases','case_reports','case_report_versions',
+              'wire_reports','wire_report_versions','evidence_items',
+              'case_evidence_links','case_report_version_evidence',
+              'wire_report_version_evidence','ai_pack_version_evidence',
+              'case_initial_reviews','case_report_reviews','wire_report_reviews',
+              'resolution_reviews','challenge_reviews','ai_pack_reviews',
+              'analyst_application_reviews','case_resolutions','challenges_v2',
+              'analyst_applications','analyst_application_versions',
+              'analyst_profiles','analyst_contributions',
+              'analyst_reputation_snapshots','ai_packs','ai_pack_versions',
+              'ai_pack_owner_feedback','reward_pledges','reward_payments',
+              'support_events','osi_nonces'
+            ];
+          begin
+            -- (A) Only the two infra tables received data; every domain/proof
+            --     table remains empty.
+            foreach t in array empty_tables loop
+              execute format('select count(*) from public.%I', t) into c;
+              if c <> 0 then bad := bad || (t || '=' || c); end if;
+            end loop;
+            if array_length(bad,1) is not null then
+              raise exception 'A V2 domain/proof table received data (must be empty): %', bad;
+            end if;
+
+            -- (B) Complete accounting: the set of legacy rows written to the two
+            --     infra tables equals the classifier's full decision universe
+            --     (nothing dropped, nothing invented). Uses the classifier's own
+            --     read of the legacy source, so numbers are proven not forced.
+            create temp table _acct_universe on commit drop as
+              select distinct legacy_table, legacy_id
+              from osi_private.osi_v2_legacy_decisions();
+
+            create temp table _acct_written on commit drop as
+              select legacy_table, legacy_id from public.migration_crosswalk
+              union
+              select legacy_table, legacy_id from public.migration_manual_queue;
+
+            select count(*) into n_decisions from _acct_universe;
+
+            select count(*) into n_unaccounted
+            from _acct_universe u
+            where not exists (
+              select 1 from _acct_written w
+              where w.legacy_table = u.legacy_table and w.legacy_id = u.legacy_id
+            );
+
+            select count(*) into n_invented
+            from _acct_written w
+            where not exists (
+              select 1 from _acct_universe u
+              where u.legacy_table = w.legacy_table and u.legacy_id = w.legacy_id
+            );
+
+            select count(*) into n_accounted from _acct_written;
+            select count(*) into n_crosswalk from public.migration_crosswalk;
+            select count(*) into n_queue from public.migration_manual_queue;
+
+            if n_unaccounted <> 0 then
+              raise exception '% legacy source row(s) are unaccounted (missing from crosswalk and queue).', n_unaccounted;
+            end if;
+            if n_invented <> 0 then
+              raise exception '% written row(s) do not correspond to any legacy source row (invented mapping).', n_invented;
+            end if;
+
+            raise notice 'ACCOUNTING: legacy_source_rows=% distinct_accounted=% crosswalk_rows=% manual_queue_rows=% unaccounted=% invented=%',
+              n_decisions, n_accounted, n_crosswalk, n_queue, n_unaccounted, n_invented;
+            raise notice 'Complete accounting proven; classification data landed ONLY in migration_crosswalk and migration_manual_queue.';
+          end $$;
+          SQL
+
+      - name: Report classification breakdown (crosswalk + queue)
+        run: |
+          set -euo pipefail
+          echo "== migration_crosswalk by (v2_table, confidence) =="
+          psql -A -F' | ' -P footer=off \
+            -c "select v2_table, confidence, count(*) as rows
+                from public.migration_crosswalk
+                group by v2_table, confidence order by v2_table, confidence"
+          echo "== migration_manual_queue by reason_code =="
+          psql -A -F' | ' -P footer=off \
+            -c "select reason_code, status, count(*) as rows
+                from public.migration_manual_queue
+                group by reason_code, status order by reason_code"
+          echo "== totals =="
+          psql -A -F' | ' -P footer=off \
+            -c "select
+                  (select count(*) from public.migration_crosswalk)      as crosswalk_rows,
+                  (select count(*) from public.migration_manual_queue)    as manual_queue_rows"
+
+      - name: Verify V1 baseline row counts are unchanged (additive-only)
+        run: |
+          set -euo pipefail
+          psql -Atq -F'|' -f - > /tmp/v1_after.txt <<'SQL'
+          do $$
+          declare
+            t text; c bigint;
+            tbls text[] := array[
+              'reports','bounties','challenges','vouches','escalation_packs',
+              'onchain_events','analysts','profiles','requests','request_votes',
+              'bounty_boosts'
+            ];
+          begin
+            create temp table _v1_counts(tbl text primary key, n bigint) on commit drop;
+            foreach t in array tbls loop
+              if to_regclass('public.'||t) is not null then
+                execute format('select count(*) from public.%I', t) into c;
+                insert into _v1_counts values (t, c);
+              end if;
+            end loop;
+          end $$;
+          select tbl || '|' || n from _v1_counts order by tbl;
+          SQL
+          echo "== V1 counts after deploy (table|rows) =="
+          cat /tmp/v1_after.txt
+          if ! diff -u /tmp/v1_baseline.txt /tmp/v1_after.txt; then
+            echo "::error::V1 baseline row counts changed after deploy. The migration must be additive-only."
+            exit 1
+          fi
+          echo "V1 preservation verified: baseline row counts unchanged."
+
+      - name: Final flag re-assertion (writes/proof remain false)
+        run: |
+          set -euo pipefail
+          w="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")"
+          p="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")"
+          echo "OSI_V2_WRITES_ENABLED=$w"
+          echo "OSI_V2_PROOF_ENABLED=$p"
+          if [ "$w" != "false" ] || [ "$p" != "false" ]; then
+            echo "::error::A V2 gate flag is not false after rollout."
+            exit 1
+          fi
+          echo "Rollout complete: schema deployed, classifier applied idempotently, gates remain closed."
