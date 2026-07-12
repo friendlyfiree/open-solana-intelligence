@@ -395,6 +395,13 @@ verify_jwt = false
 [functions.osi-v2-proof]
 verify_jwt = false
 
+# Read-only V2 Case slice. Performs its own strict authorization (anonymous
+# public-only reads, HMAC-challenge + Ed25519 wallet proofs, and a maintainer
+# double-gate that validates its Supabase JWT in-function), so the gateway JWT
+# check stays off exactly like the siblings above.
+[functions.osi-v2-case-read]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
