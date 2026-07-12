@@ -1,0 +1,99 @@
+name: OSI V2 Case-Read Function Deploy
+
+# Manual-only deployment of the read-only osi-v2-case-read Edge Function to the
+# pinned production project, followed by an anonymous smoke test.
+#
+# SAFETY CONTRACT:
+#   * workflow_dispatch ONLY — no push / pull_request / schedule trigger.
+#   * Typed confirmation required; SUPABASE_PROJECT_ID must equal the pinned
+#     ref or the run aborts before any deploy.
+#   * Deploys EXACTLY one function (osi-v2-case-read) from the checked-out
+#     commit with the pinned CLI. No database migration, no db push, no other
+#     function, no Vercel action, no flag change.
+#   * verify_jwt=false comes from supabase/config.toml and is passed
+#     explicitly: the function performs its own strict authorization
+#     (anonymous public-only reads, HMAC+Ed25519 signed reads, and a
+#     maintainer double-gate that validates its Supabase JWT in-function).
+#   * Secrets are never printed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY-FUNCTION-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-function-deploy
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  FUNCTION_SLUG: osi-v2-case-read
+
+jobs:
+  deploy:
+    name: Deploy osi-v2-case-read and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Validate confirmation input
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm }}" != "DEPLOY-FUNCTION-${EXPECTED_PROJECT_REF}" ]; then
+            echo "::error::Confirmation phrase mismatch."
+            exit 1
+          fi
+
+      - name: Check out repository at the dispatched ref
+        uses: actions/checkout@v4
+
+      - name: Verify secrets are present and the project ref is pinned
+        run: |
+          set -euo pipefail
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::SUPABASE_ACCESS_TOKEN ABSENT."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::SUPABASE_PROJECT_ID does not match the pinned ref."; exit 1; }
+          [ -f "supabase/functions/${FUNCTION_SLUG}/index.ts" ] || { echo "::error::Function source missing."; exit 1; }
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Deploy exactly the one read-only function
+        run: |
+          set -euo pipefail
+          supabase functions deploy "$FUNCTION_SLUG" \
+            --project-ref "$EXPECTED_PROJECT_REF" \
+            --no-verify-jwt \
+            --use-api
+
+      - name: Anonymous smoke test (public-only, deny-by-default)
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/${FUNCTION_SLUG}"
+          echo "== list_public_cases (expect ok:true, empty cases) =="
+          body="$(curl -sS --max-time 30 -X POST "$base" -H 'Content-Type: application/json' \
+            -d '{"op":"list_public_cases"}')"
+          echo "$body"
+          echo "$body" | grep -q '"ok":true' || { echo "::error::list_public_cases failed"; exit 1; }
+          echo "== get_public_case for a private ref (expect 404 not_found_or_private) =="
+          code="$(curl -sS --max-time 30 -o /tmp/resp.json -w '%{http_code}' -X POST "$base" \
+            -H 'Content-Type: application/json' \
+            -d '{"op":"get_public_case","public_ref":"OSI-DOESNOTEXIST0"}')"
+          cat /tmp/resp.json; echo
+          [ "$code" = "404" ] || { echo "::error::expected 404 for private/unknown ref, got $code"; exit 1; }
+          echo "== maintainer overview without any gate (expect 403) =="
+          code="$(curl -sS --max-time 30 -o /tmp/resp.json -w '%{http_code}' -X POST "$base" \
+            -H 'Content-Type: application/json' \
+            -d '{"op":"maintainer_case_overview"}')"
+          cat /tmp/resp.json; echo
+          [ "$code" = "403" ] || { echo "::error::expected 403 for ungated maintainer op, got $code"; exit 1; }
+          echo "Smoke test passed: public empty list, private ref hidden, maintainer gate closed."
