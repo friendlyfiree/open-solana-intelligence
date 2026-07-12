@@ -1,0 +1,72 @@
+name: OSI V2 Foundation
+
+# Validation gate for the OSI V2 foundation (additive schema, default-deny RLS,
+# Stage-5 nonce/replay/receipt infrastructure). It runs entirely against a
+# disposable local Supabase database. It never touches a production project:
+# there are no secrets, no `supabase link`, and no linked-project commands.
+# OSI_V2_WRITES_ENABLED and OSI_V2_PROOF_ENABLED remain false in committed config.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: this gate only needs to read the checked-out code.
+permissions:
+  contents: read
+
+# Cancel superseded runs for the same ref so only the latest commit is validated.
+concurrency:
+  group: osi-v2-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  foundation:
+    name: Stage-5 foundation validation
+    runs-on: ubuntu-latest
+    env:
+      # Standard Supabase local database endpoint (see supabase/config.toml db.port).
+      OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Show tool versions
+        run: |
+          node --version
+          supabase --version
+          psql --version
+
+      - name: Dependency-free unit tests
+        run: |
+          node tests/osi-v2-migrations.test.js
+          node tests/osi-v2-proof-core.test.mjs
+          node tests/xss-escaping.test.js
+
+      - name: Start disposable local database (PostgreSQL 17)
+        run: supabase db start
+
+      - name: Apply migrations from zero (no seed)
+        run: supabase db reset --local --no-seed
+
+      - name: Database lint (errors only)
+        run: supabase db lint --local --level error
+
+      - name: pgTAP database tests
+        run: supabase test db
+
+      - name: Two-connection nonce concurrency and replay integration test
+        run: bash tests/osi-v2-concurrency.test.sh
+
+      - name: Always stop and discard the disposable database
+        if: always()
+        run: supabase stop --no-backup
