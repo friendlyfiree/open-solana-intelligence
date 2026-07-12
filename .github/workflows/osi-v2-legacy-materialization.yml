@@ -1,0 +1,405 @@
+name: OSI V2 Legacy Materialization
+
+# Manual-only, resumable production run for OSI V2 rollout step 6: deploy the one
+# additive materialization migration and run the read-only, fail-closed legacy ->
+# V2 materializer. It applies ONLY the new migration, then runs the service-only
+# materializer twice, proving idempotency, complete accounting, V1 preservation,
+# manual-queue preservation and that every V2 write/proof gate stays disabled.
+#
+# SAFETY CONTRACT (enforced below and by review):
+#   * Trigger is workflow_dispatch ONLY. No push / pull_request / schedule.
+#   * A typed confirmation input is required, and SUPABASE_PROJECT_ID must equal
+#     the hard-pinned project ref, or the run aborts before linking.
+#   * Pinned Supabase CLI 2.109.1; links ONLY to the pinned project ref.
+#   * Remote history must be EXACTLY the five prior versions (fresh deploy) or
+#     EXACTLY the six versions (already applied -> resume, skip push). Any other
+#     history shape aborts. On deploy, db push --dry-run must equal EXACTLY the
+#     one new migration.
+#   * The materializer writes ONLY cases / case_reports / case_report_versions /
+#     legacy_imported event_receipts. It NEVER enables OSI_V2_WRITES_ENABLED /
+#     OSI_V2_PROOF_ENABLED, NEVER touches the manual queue, ai_packs,
+#     reward_pledges or any analyst/review/resolution/payment table, and NEVER
+#     runs db reset, repair, seed, DROP, TRUNCATE, DELETE, Edge Function or
+#     Vercel deploys.
+#   * Secrets are never printed. psql auth uses PGPASSWORD (never argv/URL).
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type BACKFILL-afibxpniwfnavdobecrn to authorize this production run'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+# Only one materialization run at a time; an in-flight run is never interrupted.
+concurrency:
+  group: osi-v2-legacy-materialization
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  SUPABASE_CLI_VERSION: 2.109.1
+  # Migration history that must exist BEFORE this stage (the completed rollout).
+  FIVE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518
+  # The single new migration this stage deploys.
+  NEW_VERSION: '20260712121301'
+  # Migration history that must exist AFTER this stage.
+  SIX_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301
+
+jobs:
+  materialize:
+    name: Deploy materialization migration and run the fail-closed materializer
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Validate confirmation input
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm }}" != "BACKFILL-${EXPECTED_PROJECT_REF}" ]; then
+            echo "::error::Confirmation phrase mismatch. Expected BACKFILL-${EXPECTED_PROJECT_REF}."
+            exit 1
+          fi
+          echo "Confirmation accepted."
+
+      - name: Check out repository at the dispatched ref
+        uses: actions/checkout@v4
+
+      - name: Verify required secrets are present (never printed)
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PROJECT_ID_SECRET; do
+            if [ -z "${!name:-}" ]; then echo "::error::Secret $name is ABSENT."; missing=1;
+            else echo "$name: PRESENT"; fi
+          done
+          [ "$missing" -eq 0 ] || { echo "::error::One or more required secrets are absent."; exit 1; }
+
+      - name: Confirm project identity before any write
+        run: |
+          set -euo pipefail
+          if [ "$PROJECT_ID_SECRET" != "$EXPECTED_PROJECT_REF" ]; then
+            echo "::error::SUPABASE_PROJECT_ID does not match the pinned ref ${EXPECTED_PROJECT_REF}. Aborting."
+            exit 1
+          fi
+          echo "Project ref confirmed: ${EXPECTED_PROJECT_REF}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Show tool versions
+        run: |
+          set -euo pipefail
+          node --version
+          supabase --version
+          psql --version
+
+      - name: Verify the new migration file exists in the repository
+        run: |
+          set -euo pipefail
+          f="supabase/migrations/${NEW_VERSION}_osi_v2_legacy_materialization.sql"
+          [ -f "$f" ] || { echo "::error::Expected migration file $f is missing."; exit 1; }
+          for v in $FIVE_VERSIONS; do
+            ls supabase/migrations/${v}_*.sql >/dev/null 2>&1 || { echo "::error::Prior migration $v missing from repo."; exit 1; }
+          done
+          echo "New migration present: $(basename "$f")"
+
+      - name: Resolve session pooler connection (host/port/user only; no secrets)
+        run: |
+          set -euo pipefail
+          resp="$(curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coords="$(printf '%s' "$resp" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type","")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name","postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coords"
+          if [ -z "${PGHOST:-}" ] || [ -z "${PGPORT:-}" ] || [ -z "${PGUSER:-}" ]; then
+            echo "::error::Failed to resolve pooler connection coordinates."; exit 1
+          fi
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Resolved host '$PGHOST' is not a Supabase pooler."; exit 1 ;; esac
+          case "$PGUSER" in "postgres.${EXPECTED_PROJECT_REF}") : ;; *) echo "::error::Resolved pooler user does not target the pinned ref."; exit 1 ;; esac
+          {
+            echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=${PGDATABASE:-postgres}"
+          } >> "$GITHUB_ENV"
+          echo "Resolved pooler: host=$PGHOST port=$PGPORT user=$PGUSER db=${PGDATABASE:-postgres}"
+
+      - name: Verify database connectivity (read-only)
+        run: |
+          set -euo pipefail
+          who="$(psql -Atqc "select current_user")"
+          echo "Connected as DB role: $who"
+          case "$who" in postgres|service_role|supabase_admin) : ;; *) echo "::error::Unexpected DB role '$who'."; exit 1 ;; esac
+
+      - name: Snapshot pre-run invariants (V1 counts, manual queue, crosswalk, flags)
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/pre_v1.txt <<'SQL'
+          begin;
+          do $$
+          declare t text; c bigint;
+            tbls text[] := array['reports','bounties','challenges','vouches','escalation_packs',
+                                 'onchain_events','analysts','profiles','requests','request_votes','bounty_boosts'];
+          begin
+            create temp table _v1c(tbl text primary key, n bigint) on commit drop;
+            foreach t in array tbls loop
+              if to_regclass('public.'||t) is not null then
+                execute format('select count(*) from public.%I', t) into c;
+                insert into _v1c values (t, c);
+              end if;
+            end loop;
+          end $$;
+          select tbl || '|' || n from _v1c order by tbl;
+          commit;
+          SQL
+          echo "== V1 baseline (table|rows) =="; cat /tmp/pre_v1.txt
+          psql -Atqc "select count(*) from public.migration_manual_queue" > /tmp/pre_queue.txt
+          psql -Atqc "select count(*) from public.migration_crosswalk" > /tmp/pre_crosswalk.txt
+          echo "manual_queue=$(cat /tmp/pre_queue.txt) crosswalk=$(cat /tmp/pre_crosswalk.txt)"
+
+      - name: Link ONLY to the pinned production project
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          linked="$(cat supabase/.temp/project-ref 2>/dev/null || true)"
+          [ "$linked" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked ref '$linked' is not ${EXPECTED_PROJECT_REF}."; exit 1; }
+          echo "Linked only to: $linked"
+
+      - name: Inspect remote migration history and choose mode (deploy or resume)
+        run: |
+          set -euo pipefail
+          echo "== supabase migration list --linked =="
+          supabase migration list --linked || true
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          five="$(echo "$FIVE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          six="$(echo "$SIX_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          echo "Remote history: [$got]"
+          if [ "$got" = "$five" ]; then
+            echo "MODE=deploy" >> "$GITHUB_ENV"
+            echo "Mode: deploy (remote is exactly the five prior versions)."
+          elif [ "$got" = "$six" ]; then
+            echo "MODE=resume" >> "$GITHUB_ENV"
+            echo "Mode: resume (new migration already applied; will skip db push)."
+          else
+            echo "::error::Remote migration history is neither the five prior nor the six expected versions. Refusing to proceed."
+            exit 1
+          fi
+
+      - name: Dry-run must equal EXACTLY the new migration (deploy mode only)
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/dry.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/dry.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          if [ "$got" != "$NEW_VERSION" ]; then
+            echo "::error::Dry-run is not exactly the single new migration ($NEW_VERSION). Got: [$got]. Stopping."
+            exit 1
+          fi
+          echo "Dry-run matches exactly the new migration."
+
+      - name: Apply the new migration (deploy mode only)
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --yes
+
+      - name: Verify remote migration history == exactly the six versions in order
+        run: |
+          set -euo pipefail
+          got="$(psql -Atqc "select version from supabase_migrations.schema_migrations order by version" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          six="$(echo "$SIX_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          echo "Remote history: [$got]"
+          [ "$got" = "$six" ] || { echo "::error::Remote history is not the exact six versions."; exit 1; }
+          echo "Remote migration history verified: the exact six versions."
+
+      - name: Post-migration security check (private functions + flags)
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          begin
+            if to_regnamespace('osi_private') is null then raise exception 'osi_private missing'; end if;
+            if not exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                           where n.nspname='osi_private' and p.proname='osi_v2_apply_materialization')
+              then raise exception 'materializer function missing'; end if;
+            if has_schema_privilege('anon','osi_private','USAGE')
+               or has_schema_privilege('authenticated','osi_private','USAGE')
+              then raise exception 'anon/authenticated must not have USAGE on osi_private'; end if;
+            if has_function_privilege('anon','osi_private.osi_v2_apply_materialization()','EXECUTE')
+               or has_function_privilege('authenticated','osi_private.osi_v2_apply_materialization()','EXECUTE')
+              then raise exception 'anon/authenticated must not execute the materializer'; end if;
+            if (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED') is distinct from 'false'
+              then raise exception 'V2 gate flags must remain false'; end if;
+            raise notice 'security checks passed';
+          end $$;
+          SQL
+
+      - name: Aggregate materialization preview (read-only)
+        run: |
+          set -euo pipefail
+          echo "== preview (action | v2_table | reason_code | count) =="
+          psql -v ON_ERROR_STOP=1 -A -F' | ' -P footer=off \
+            -c "select action, v2_table, reason_code, item_count
+                from osi_private.osi_v2_preview_materialization()
+                order by action, v2_table, reason_code"
+
+      - name: Apply materialization (run 1)
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -A -t -F'|' -P footer=off \
+            -c "select action, v2_table, reason_code, item_count
+                from osi_private.osi_v2_apply_materialization()
+                order by action, v2_table, reason_code" \
+            | LC_ALL=C sort > /tmp/apply1.txt
+          echo "== apply run 1 =="; cat /tmp/apply1.txt
+          psql -Atqc "select 'cases='||count(*) from public.cases" > /tmp/tc1.txt
+          psql -Atqc "select 'case_reports='||count(*) from public.case_reports" >> /tmp/tc1.txt
+          psql -Atqc "select 'case_report_versions='||count(*) from public.case_report_versions" >> /tmp/tc1.txt
+          psql -Atqc "select 'event_receipts='||count(*) from public.event_receipts" >> /tmp/tc1.txt
+          echo "== table counts after run 1 =="; cat /tmp/tc1.txt
+
+      - name: Apply materialization (run 2) and prove idempotency
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -A -t -F'|' -P footer=off \
+            -c "select action, v2_table, reason_code, item_count
+                from osi_private.osi_v2_apply_materialization()
+                order by action, v2_table, reason_code" \
+            | LC_ALL=C sort > /tmp/apply2.txt
+          echo "== apply run 2 =="; cat /tmp/apply2.txt
+          psql -Atqc "select 'cases='||count(*) from public.cases" > /tmp/tc2.txt
+          psql -Atqc "select 'case_reports='||count(*) from public.case_reports" >> /tmp/tc2.txt
+          psql -Atqc "select 'case_report_versions='||count(*) from public.case_report_versions" >> /tmp/tc2.txt
+          psql -Atqc "select 'event_receipts='||count(*) from public.event_receipts" >> /tmp/tc2.txt
+          echo "== table counts after run 2 =="; cat /tmp/tc2.txt
+          if ! diff -u /tmp/apply1.txt /tmp/apply2.txt; then echo "::error::Materializer not idempotent: aggregates differ."; exit 1; fi
+          if ! diff -u /tmp/tc1.txt /tmp/tc2.txt; then echo "::error::Materializer not idempotent: table counts changed."; exit 1; fi
+          echo "Idempotency proven: identical aggregates and identical table counts across two applies."
+
+      - name: Prove complete accounting and containment
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare
+            n_plan_mat bigint; n_actual bigint;
+            t text; c bigint; leaked text[] := '{}';
+            must_be_empty text[] := array[
+              'wire_reports','wire_report_versions','evidence_items','case_evidence_links',
+              'case_report_version_evidence','wire_report_version_evidence','ai_pack_version_evidence',
+              'case_initial_reviews','case_report_reviews','wire_report_reviews','resolution_reviews',
+              'challenge_reviews','ai_pack_reviews','analyst_application_reviews','case_resolutions',
+              'challenges_v2','analyst_applications','analyst_application_versions','analyst_profiles',
+              'analyst_contributions','analyst_reputation_snapshots','ai_packs','ai_pack_versions',
+              'ai_pack_owner_feedback','reward_pledges','reward_payments','support_events','osi_nonces'
+            ];
+          begin
+            -- Containment: only the four allowed target tables may hold rows.
+            foreach t in array must_be_empty loop
+              execute format('select count(*) from public.%I', t) into c;
+              if c <> 0 then leaked := leaked || (t || '=' || c); end if;
+            end loop;
+            if array_length(leaked,1) is not null then
+              raise exception 'Materialization leaked into forbidden tables: %', leaked;
+            end if;
+
+            -- Accounting: every plan 'materialize' row now exists in its target table.
+            select count(*) into n_plan_mat from osi_private.osi_v2_materialize_plan() where decision='materialize';
+            select
+              (select count(*) from public.cases)
+              + (select count(*) from public.case_reports)
+              + (select count(*) from public.case_report_versions)
+              + (select count(*) from public.event_receipts
+                   where id in (select v2_id from public.migration_crosswalk where entity_kind='event_receipt'))
+              into n_actual;
+            if n_plan_mat <> n_actual then
+              raise exception 'Accounting mismatch: plan materialize=% but materialized crosswalk rows=%', n_plan_mat, n_actual;
+            end if;
+
+            -- Every imported receipt is legacy / server_verified=false.
+            if (select count(*) from public.event_receipts where server_verified
+                  or proof_type <> 'legacy_imported' or event_version <> 'legacy') <> 0 then
+              raise exception 'A materialized receipt is not legacy_imported/server_verified=false';
+            end if;
+            -- Imported Cases are private/draft; no publication pointer was set.
+            if (select count(*) from public.cases where visibility <> 'private' or stage <> 'draft') <> 0 then
+              raise exception 'A materialized Case is not private/draft';
+            end if;
+            if (select count(*) from public.case_reports where current_published_version_id is not null) <> 0 then
+              raise exception 'A materialized Case Report has a publication pointer';
+            end if;
+            raise notice 'Accounting + containment proven: plan_materialize=% classified_targets=%', n_plan_mat, n_actual;
+          end $$;
+          SQL
+
+      - name: Report actual materialized and skipped counts
+        run: |
+          set -euo pipefail
+          echo "== materialized rows per target table =="
+          psql -A -F' | ' -P footer=off -c "select 'cases' t, count(*) from public.cases
+            union all select 'case_reports', count(*) from public.case_reports
+            union all select 'case_report_versions', count(*) from public.case_report_versions
+            union all select 'event_receipts', count(*) from public.event_receipts order by 1"
+          echo "== skip reasons =="
+          psql -A -F' | ' -P footer=off -c "select reason_code, count(*)
+            from osi_private.osi_v2_materialize_plan() where decision='skip' group by 1 order by 1"
+
+      - name: Prove V1 counts, manual queue and crosswalk are unchanged
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/post_v1.txt <<'SQL'
+          begin;
+          do $$
+          declare t text; c bigint;
+            tbls text[] := array['reports','bounties','challenges','vouches','escalation_packs',
+                                 'onchain_events','analysts','profiles','requests','request_votes','bounty_boosts'];
+          begin
+            create temp table _v1c(tbl text primary key, n bigint) on commit drop;
+            foreach t in array tbls loop
+              if to_regclass('public.'||t) is not null then
+                execute format('select count(*) from public.%I', t) into c;
+                insert into _v1c values (t, c);
+              end if;
+            end loop;
+          end $$;
+          select tbl || '|' || n from _v1c order by tbl;
+          commit;
+          SQL
+          echo "== V1 after (table|rows) =="; cat /tmp/post_v1.txt
+          if ! diff -u /tmp/pre_v1.txt /tmp/post_v1.txt; then echo "::error::V1 baseline row counts changed."; exit 1; fi
+          q_after="$(psql -Atqc "select count(*) from public.migration_manual_queue")"
+          x_after="$(psql -Atqc "select count(*) from public.migration_crosswalk")"
+          [ "$q_after" = "$(cat /tmp/pre_queue.txt)" ] || { echo "::error::manual_queue changed ($(cat /tmp/pre_queue.txt) -> $q_after)."; exit 1; }
+          [ "$x_after" = "$(cat /tmp/pre_crosswalk.txt)" ] || { echo "::error::crosswalk changed ($(cat /tmp/pre_crosswalk.txt) -> $x_after)."; exit 1; }
+          echo "V1 preserved; manual_queue unchanged ($q_after); crosswalk unchanged ($x_after)."
+
+      - name: Final flag re-assertion (writes/proof remain false)
+        run: |
+          set -euo pipefail
+          w="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")"
+          p="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")"
+          echo "OSI_V2_WRITES_ENABLED=$w  OSI_V2_PROOF_ENABLED=$p"
+          [ "$w" = "false" ] && [ "$p" = "false" ] || { echo "::error::A V2 gate flag is not false."; exit 1; }
+          echo "Materialization complete: deterministic legacy rows materialized, gates remain closed."

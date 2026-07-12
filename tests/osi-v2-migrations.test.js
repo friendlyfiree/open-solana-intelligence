@@ -16,6 +16,7 @@ const expectedFiles = [
   '20260711092856_osi_v2_default_deny.sql',
   '20260711182949_osi_v2_stage5_nonce_receipts.sql',
   '20260712002518_osi_v2_legacy_classification.sql',
+  '20260712121301_osi_v2_legacy_materialization.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
