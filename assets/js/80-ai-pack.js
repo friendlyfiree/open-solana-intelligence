@@ -81,7 +81,7 @@ async function osiAiPackPublicMeta(){
 }
 // Full pack content for AUTHORIZED callers only. Maintainers authenticate with
 // their Supabase session JWT; everyone else signs a wallet proof (the server
-// admits ONLY a verified analyst — a wallet merely appearing on a report does
+// admits ONLY a verified analyst; a wallet merely appearing on a report does
 // not qualify). Returns the JSON body or throws an Error whose .status carries
 // the HTTP code.
 async function osiAiPackGet(caseRef, packType){

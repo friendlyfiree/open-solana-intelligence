@@ -17,6 +17,7 @@ const expectedFiles = [
   '20260711182949_osi_v2_stage5_nonce_receipts.sql',
   '20260712002518_osi_v2_legacy_classification.sql',
   '20260712121301_osi_v2_legacy_materialization.sql',
+  '20260713045903_osi_v2_case_lifecycle.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -28,6 +29,7 @@ const sqlByFile = Object.fromEntries(
 const schema = sqlByFile[expectedFiles[0]] || '';
 const integrity = sqlByFile[expectedFiles[1]] || '';
 const deny = sqlByFile[expectedFiles[2]] || '';
+const lifecycle = sqlByFile[expectedFiles.at(-1)] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const proofCore = fs.readFileSync(
@@ -114,6 +116,7 @@ const logicalDomainTables = [
 ];
 const infraTables = [
   'osi_nonces',
+  'osi_read_nonces',
   'migration_crosswalk',
   'migration_manual_queue',
 ];
@@ -122,14 +125,14 @@ const expectedPhysicalTables = logicalDomainTables
   .concat(infraTables)
   .sort();
 
-const createdTables = [...schema.matchAll(
+const createdTables = [...allSql.matchAll(
   /create\s+table(?:\s+if\s+not\s+exists)?\s+public\.([a-z0-9_]+)/gi,
 )].map((match) => match[1]).sort();
 
 ok('32 logical domain tables', logicalDomainTables.length === 32);
-ok('3 separate infrastructure tables', infraTables.length === 3);
+ok('4 separate infrastructure tables', infraTables.length === 4);
 ok(
-  '35 expected physical tables represented',
+  '36 expected physical tables represented',
   JSON.stringify(createdTables) === JSON.stringify(expectedPhysicalTables),
   createdTables.join(', '),
 );
@@ -153,7 +156,11 @@ for (const pattern of destructivePatterns) {
 for (const table of expectedPhysicalTables.filter((name) => name !== 'osi_config')) {
   ok(
     'default-deny list includes ' + table,
-    deny.includes("'" + table + "'"),
+    deny.includes("'" + table + "'")
+      || (table === 'osi_read_nonces'
+        && /alter table public\.osi_read_nonces enable row level security/i.test(lifecycle)
+        && /alter table public\.osi_read_nonces force row level security/i.test(lifecycle)
+        && /revoke all privileges on table public\.osi_read_nonces from public, anon, authenticated/i.test(lifecycle)),
   );
 }
 ok(
@@ -260,6 +267,13 @@ for (const required of [
   'osi_v2_guard_nonce_update',
   'osi_v2_issue_nonce',
   'osi_v2_consume_signed_nonce',
+  'osi_v2_issue_read_nonce',
+  'osi_v2_consume_read_nonce',
+  'osi_v2_issue_case_nonce',
+  'osi_v2_commit_case_submission',
+  'osi_v2_commit_case_review',
+  'osi_v2_commit_case_open',
+  'osi_v2_case_review_quorum',
 ]) {
   ok('required integrity guard exists: ' + required, allSql.includes(required));
 }
@@ -273,6 +287,43 @@ ok(
   'Stage-5 proof switch fails closed',
   /\('OSI_V2_PROOF_ENABLED',\s*'false'/i.test(allSql)
     && !/\('OSI_V2_PROOF_ENABLED',\s*'true'/i.test(allSql),
+);
+ok(
+  'broad V2 write flag remains false while the Case gate is exact',
+  !/\('OSI_V2_WRITES_ENABLED',\s*'true'/i.test(allSql)
+    && /\('OSI_V2_CASE_WRITES_ENABLED',\s*'true'/i.test(lifecycle)
+    && lifecycle.includes("where key = 'OSI_V2_CASE_WRITES_ENABLED'"),
+);
+ok(
+  'durable read nonce consumption is one atomic conditional update',
+  /create function osi_private\.osi_v2_consume_read_nonce[\s\S]*update public\.osi_read_nonces[\s\S]*consumed_at is null[\s\S]*return found/i.test(lifecycle),
+);
+ok(
+  'Case opening models analyst count+weight and full-maintainer readiness independently',
+  lifecycle.includes('analyst_count >= 1 and total_weight >= 0.50')
+    && lifecycle.includes('maintainer_count >= 1')
+    && /osi_v2_commit_case_open[\s\S]*osi_v2_case_review_quorum/i.test(lifecycle),
+);
+ok(
+  'maintainer review has zero analyst weight and may issue CASE_OPENED on its own verified path',
+  lifecycle.includes("review_weight := 0")
+    && lifecycle.includes("opening_review.reviewer_role = 'maintainer'")
+    && lifecycle.includes('quorum_row.maintainer_ready')
+    && !lifecycle.includes("Maintainer status alone cannot open a Case"),
+);
+ok(
+  'Case idempotency binds retries to the exact target',
+  lifecycle.includes("existing.target_id is distinct from p_target_id")
+    && lifecycle.includes('Idempotency key is bound to another exact Case action'),
+);
+ok(
+  'unfinished initial rejection outcome fails closed in the database',
+  lifecycle.includes("p_decision not in ('approve_open', 'needs_more')")
+    && lifecycle.includes('Initial rejection outcome is not enabled in this Case slice'),
+);
+ok(
+  'all submission-bound Case content is immutable',
+  /new\.title is distinct from old\.title[\s\S]*new\.category is distinct from old\.category[\s\S]*new\.summary_public is distinct from old\.summary_public[\s\S]*new\.details_restricted is distinct from old\.details_restricted/i.test(lifecycle),
 );
 ok(
   'nonce issuance serializes idempotency and rate-limit dimensions',

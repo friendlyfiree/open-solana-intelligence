@@ -21,6 +21,8 @@ documents as the source of truth, in this order:
 5. The remaining `docs/OSI_V2_*.md` specifications
 6. The legacy V1 implementation, only as a compatibility reference
 
+Read `docs/OSI_DELIVERY_BRIEF.md` before every task.
+
 Do not silently weaken or reinterpret a product invariant. If two accepted
 documents conflict, identify the conflict in the task report and implement the
 safer, least-privileged option when it can be done without changing product

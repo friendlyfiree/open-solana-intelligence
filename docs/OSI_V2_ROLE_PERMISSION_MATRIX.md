@@ -16,8 +16,8 @@
 | View public case | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | RLS visibility=public | – | – |
 | View own private case | – | – | ✅ (proof) | ✅ | ✅ | ✅ | EF `OWNER_STATUS_PROOF` / analyst / maintainer | Sig | – |
 | Submit case | – | ✅ | (owner) | ✅ | ✅ | ✅ | EF sig; RLS insert private | Memo `CASE_SUBMITTED` | none |
-| Initial review (per analyst) | – | – | ❌ own | ✅ | ✅ | ✅ | EF; owner excluded | Sig `CASE_INITIAL_REVIEW_CAST` | – |
-| Open case (outcome) | – | – | ❌ | ✅(1) | ✅ | ✅ | EF ≥1 indep (**no maintainer gate**) | Memo `CASE_OPENED` | case public |
+| Initial review (eligible analyst or full maintainer) | – | – | ❌ own | ✅ | ✅ | ✅ | EF analyst eligibility or maintainer double-gate; owner excluded | Sig `CASE_INITIAL_REVIEW_CAST` | – |
+| Open case (outcome) | – | – | ❌ | ✅(1) | ✅ | ✅ | EF analyst ≥1 + Σweight ≥0.50 **OR** full maintainer wallet+auth; opening actor owns active `approve_open` | Memo `CASE_OPENED` | case public; not truth/guilt approval |
 | Safety block | – | – | – | – | – | ✅ / server policy | EF maintainer/policy (moderation, no factual quorum) | Memo `CASE_SAFETY_BLOCKED` (class A) | private neutral notice |
 | Safety-block lift | – | – | – | – | – | ✅ | EF maintainer | Memo `CASE_SAFETY_LIFTED` | re-enters review |
 | Normal initial reject | – | – | ❌ | quorum | quorum | (counts as analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**) | Memo `CASE_INITIAL_REVIEW_REJECTED` | private; appeal |
@@ -102,7 +102,7 @@ Submission alone never pauses sealing; only `open`/`under_review` do. No non-ter
 | Voluntary support author/analyst | – | ✅ | ✅ | ✅ | EF support endpoint, confirmed tx; **no ranking/discovery effect** | Memo `SUPPORT_SENT` |
 
 ## 8. Public analyst attribution (correction #14 / D16)
-For any **public** governance decision (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges), the public view shows for each participating analyst: **public profile/handle, wallet, decision, weight snapshot used, timestamp, proof type** (`solana_memo` / `wallet_signed_server_verified` / `system_event`), and a public-safe receipt/tx reference. Restricted always: private notes, private evidence, moderation reason detail, sensitive reason text. Pre-open/private queue shows **counts only**.
+For any **public** governance decision (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges), the public view shows for each participating analyst or full initial-open maintainer: **role, public profile/handle where applicable, wallet, decision, weight snapshot used (maintainer initial-open = 0), timestamp, proof type** (`solana_memo` / `wallet_signed_server_verified` / `system_event`), and a public-safe receipt/tx reference. Restricted always: private notes, private evidence, moderation reason detail, sensitive reason text. Pre-open/private queue shows **counts only**.
 
 ## 9. The two half-maintainer roles
 
@@ -119,6 +119,6 @@ Signature-verified identity for all owner/analyst actions (ed25519, purpose+targ
 
 **Counted-review eligibility (correction #6 — applies to every counted Report / Wire / resolution / challenge / AI-Pack / application review):**
 - Only **eligible verified analysts** cast counted reviews; **ordinary connected wallets never write any `*_reviews` table** (they may only *submit* Cases/Reports/Wire Reports/challenges and voluntary support).
-- **Maintainer status alone confers no analyst voting weight.** A maintainer's vote is counted **only if the same wallet is separately analyst-eligible**, and then only after all exclusions pass; the maintainer *finalization* act (for resolution/winner, AI-Pack approval, seal) is distinct from casting a weighted analyst vote.
+- **Maintainer status alone confers no analyst voting weight.** A maintainer's vote is counted **only if the same wallet is separately analyst-eligible**, and then only after all exclusions pass. The single exception is the independent full-maintainer Case initial-open path: its review stores weight `0`, requires both maintainer gates, and authorizes only public investigation. It does not count as an analyst vote or imply truth/guilt. The maintainer *finalization* act (for resolution/winner, AI-Pack approval, seal) remains distinct from casting a weighted analyst vote.
 - **Server-enforced exclusions on every counted review:** author (Report/Wire), owner (Case/resolution), creator (AI Pack), applicant (analyst application), and challenger (challenge admissibility/merit/bad-faith) are excluded from deciding their own item — enforced in the Edge Function, never by a hidden button.
-- **Both gates shown:** every outcome that requires them lists `≥N_min independent` **and** `Σweight ≥ W_thr`; the three maintainer-gated outcomes (resolution/winner, AI-Pack approval, seal) additionally require a maintainer signature. No other outcome adds a maintainer gate (D5).
+- **Both gates shown:** every analyst-quorum outcome that requires them lists `≥N_min independent` **and** `Σweight ≥ W_thr`; the three maintainer-gated outcomes (resolution/winner, AI-Pack approval, seal) additionally require a maintainer signature. Case initial open alone also permits full maintainer approval as an alternative to, not an added gate on, its analyst path (D5).

@@ -1,0 +1,325 @@
+name: OSI V2 Native Case Production
+
+# Manual-only rollout of the first native V2 Case lifecycle. This workflow is
+# intentionally separate from GitHub merge and Vercel deployment. It accepts
+# only the exact reviewed migration after the six accepted V2 migrations.
+# It never resets a remote database, repairs history, drops data, seeds data,
+# or performs a broad data rewrite.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CASE-DEPLOY-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-native-case-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  NEW_VERSION: '20260713045903'
+  SIX_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301
+  SEVEN_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean local Case lifecycle gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Require exact confirmation and main branch
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "CASE-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out exact dispatched commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Record and verify exact branch and commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          head_sha="$(git rev-parse HEAD)"
+          main_sha="$(git rev-parse origin/main)"
+          echo "Branch: ${GITHUB_REF_NAME}"
+          echo "Commit: ${head_sha}"
+          [ "$head_sha" = "$main_sha" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+
+      - name: Set up Node.js and Deno
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.4.1
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Verify exact migration set
+        run: |
+          set -euo pipefail
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$SEVEN_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || {
+            echo "::error::Repository migration set is not the exact expected seven versions."; exit 1;
+          }
+          test -f "supabase/migrations/${NEW_VERSION}_osi_v2_case_lifecycle.sql"
+
+      - name: Dependency-free application and security tests
+        run: |
+          set -euo pipefail
+          node tests/osi-v2-migrations.test.js
+          node tests/osi-v2-proof-core.test.mjs
+          node tests/xss-escaping.test.js
+          node tests/osi-v2-case-read.test.mjs
+          node tests/osi-v2-case-write.test.mjs
+          node tests/osi-v2-case-ui.test.js
+          deno check supabase/functions/osi-v2-case-read/index.ts
+          deno check supabase/functions/osi-v2-case-write/index.ts
+
+      - name: Start disposable local PostgreSQL 17
+        run: supabase db start
+
+      - name: Apply every migration from zero without seed
+        run: supabase db reset --local --no-seed
+
+      - name: Database lint
+        run: supabase db lint --local --level error
+
+      - name: RLS, authorization, lifecycle, replay, and receipt pgTAP tests
+        run: supabase test db
+
+      - name: Real two-connection write and read replay tests
+        run: bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact migration, functions, and production smoke
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Check out the exact validated main commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify deployment credentials without printing values
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || {
+            echo "::error::SUPABASE_PROJECT_ID does not match the pinned project."; exit 1;
+          }
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Require maintainer double-gate secret name
+        run: |
+          set -euo pipefail
+          supabase secrets list --project-ref "$EXPECTED_PROJECT_REF" | grep -q 'OSI_MAINTAINER_AUTH_UUID' || {
+            echo "::error::Required maintainer auth secret is absent; no deployment performed."; exit 1;
+          }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          resp="$(curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coords="$(printf '%s' "$resp" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coords"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          {
+            echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"
+          } >> "$GITHUB_ENV"
+          echo "Pinned pooler coordinates verified for ${EXPECTED_PROJECT_REF}."
+
+      - name: Verify remote connectivity and snapshot V1 counts
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count
+          from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          echo "V1 baseline captured for 11 tables."
+
+      - name: Link only to the pinned production project
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || {
+            echo "::error::Linked project does not match the pinned ref."; exit 1;
+          }
+
+      - name: Inspect local and remote migration status
+        run: |
+          set -euo pipefail
+          supabase migration list --linked
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          six="$(echo "$SIX_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          seven="$(echo "$SEVEN_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$six" ]; then echo "MODE=deploy" >> "$GITHUB_ENV";
+          elif [ "$got" = "$seven" ]; then echo "MODE=resume" >> "$GITHUB_ENV";
+          else echo "::error::Remote history is not the exact six-before or seven-after state."; exit 1; fi
+
+      - name: Record forward-disable plan before any production write
+        run: |
+          echo "Disable plan: reviewed forward migration sets only OSI_V2_CASE_WRITES_ENABLED=false."
+          echo "Edge writes then fail closed; additive populated tables and receipts are retained."
+          echo "No DROP, reset, repair, truncation, or data rewrite is an acceptable rollback."
+
+      - name: Dry-run must contain exactly the Case migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/case-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/case-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ] || {
+            echo "::error::Dry-run is not exactly ${NEW_VERSION}."; exit 1;
+          }
+
+      - name: Apply exactly the additive Case migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: supabase db push --linked --yes
+
+      - name: Verify migration, flags, RLS, grants, and indexes
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare got text;
+          begin
+            select string_agg(version, ' ' order by version) into got from supabase_migrations.schema_migrations;
+            if got <> '20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903'
+              then raise exception 'unexpected migration history'; end if;
+            if (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED') is distinct from 'true'
+              then raise exception 'feature flags are not in the exact safe state'; end if;
+            if not exists (select 1 from pg_class where oid='public.osi_read_nonces'::regclass and relrowsecurity and relforcerowsecurity)
+              then raise exception 'read nonce RLS is not forced'; end if;
+            if has_table_privilege('anon','public.osi_read_nonces','SELECT')
+               or has_table_privilege('authenticated','public.osi_read_nonces','SELECT')
+              then raise exception 'read nonce table is client-readable'; end if;
+            if has_function_privilege('authenticated','public.osi_v2_commit_case_submission(text,text,text,text,text,text,bigint,jsonb,text,text,timestamptz)','EXECUTE')
+              then raise exception 'authenticated role can commit a Case directly'; end if;
+            if to_regclass('public.event_receipts_native_tx_sig_uidx') is null
+               or to_regclass('public.case_initial_reviews_active_uidx') is null
+              then raise exception 'required uniqueness indexes are absent'; end if;
+          end $$;
+          SQL
+
+      - name: Deploy exactly the paired Case read and write functions
+        run: |
+          set -euo pipefail
+          supabase functions deploy osi-v2-case-read --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy osi-v2-case-write --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Anonymous public, privacy, and fail-closed smoke tests
+        run: |
+          set -euo pipefail
+          read_url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-case-read"
+          write_url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-case-write"
+          body="$(curl -sS --max-time 30 -X POST "$read_url" -H 'Content-Type: application/json' -d '{"op":"list_public_cases"}')"
+          echo "$body" | grep -q '"ok":true' || { echo "::error::public Case list failed"; exit 1; }
+          if echo "$body" | grep -Eq 'details_restricted|submitted_by_wallet|reason_code'; then
+            echo "::error::public Case response contains a restricted field"; exit 1;
+          fi
+          code="$(curl -sS --max-time 30 -o /tmp/private.json -w '%{http_code}' -X POST "$read_url" \
+            -H 'Content-Type: application/json' -d '{"op":"get_public_case","public_ref":"OSI-DOESNOTEXIST0"}')"
+          [ "$code" = "404" ] || { echo "::error::private/unknown Case did not return 404"; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/maintainer.json -w '%{http_code}' -X POST "$read_url" \
+            -H 'Content-Type: application/json' -d '{"op":"maintainer_case_overview"}')"
+          [ "$code" = "403" ] || { echo "::error::ungated maintainer read was not denied"; exit 1; }
+          caps="$(curl -sS --max-time 30 -X POST "$write_url" -H 'Content-Type: application/json' \
+            -d '{"op":"actor_capabilities","wallet":"9xQeWvG816bUx9EPfEzjW5eC4oe9hMLxZQW6vMVnL8vS"}')"
+          echo "$caps" | grep -q '"case_writes_enabled":true' || { echo "::error::Case function gate unavailable"; exit 1; }
+          echo "$caps" | grep -q '"maintainer_access":false' || { echo "::error::half-maintainer gate did not fail closed"; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/bad-wallet.json -w '%{http_code}' -X POST "$write_url" \
+            -H 'Content-Type: application/json' -d '{"op":"prepare_case","wallet":"bad","case":{},"idempotency_key":"smoke-no-write-0001"}')"
+          [ "$code" = "400" ] || { echo "::error::invalid wallet was not rejected before nonce issuance"; exit 1; }
+          echo "Anonymous privacy, maintainer denial, feature gate, and validation smoke tests passed."
+
+      - name: Prove V1 row counts are unchanged
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count
+          from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          cmp /tmp/v1-before.txt /tmp/v1-after.txt || {
+            echo "::error::A V1 row count changed during the additive rollout."; exit 1;
+          }
+          echo "All 11 V1 baseline row counts are unchanged."

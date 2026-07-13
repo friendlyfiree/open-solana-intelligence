@@ -185,6 +185,82 @@ fi
 RECEIPT_COUNT_AFTER="$(psql_run -c "select count(*) from public.event_receipts where nonce = '$NONCE';")"
 assert_eq "still exactly one receipt after replay attempts" "1" "$RECEIPT_COUNT_AFTER"
 
+# --- durable read nonce: two app instances race the same wallet proof ---------
+# This catches the old failure mode where each Edge Function instance kept its
+# own in-memory replay cache and accepted the same signed challenge once.
+READ_NONCE="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+READ_C1_OUT="$WORKDIR/read-conn1.out"
+READ_C2_OUT="$WORKDIR/read-conn2.out"
+READ_HOLD_MARKER="$WORKDIR/read-conn1-holding.marker"
+
+psql_run >/dev/null <<SQL
+select public.osi_v2_issue_read_nonce(
+  '$READ_NONCE', 'CASE_READ_AUTHORIZED_CASE', '$WALLET', 'case',
+  'OSI-READRACE01', '$(printf 'd%.0s' $(seq 1 64))'
+);
+SQL
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+select public.osi_v2_consume_read_nonce(
+  '$READ_NONCE', 'CASE_READ_AUTHORIZED_CASE', '$WALLET', 'case', 'OSI-READRACE01')
+\g $READ_C1_OUT
+\! touch $READ_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+READ_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$READ_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "read connection 1 never reached the holding state"
+    wait "$READ_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+select public.osi_v2_consume_read_nonce(
+  '$READ_NONCE', 'CASE_READ_AUTHORIZED_CASE', '$WALLET', 'case', 'OSI-READRACE01')
+\g $READ_C2_OUT
+commit;
+SQL
+READ_CONN2_PID=$!
+
+sleep 1
+READ_RACE_WAITERS="$(psql_run -c "
+  select count(*) from pg_stat_activity
+   where wait_event_type = 'Lock'
+     and query ilike '%osi_v2_consume_read_nonce%';")"
+if [ "${READ_RACE_WAITERS:-0}" -ge 1 ]; then
+  pass "second read verifier genuinely blocked on the durable nonce row"
+else
+  fail "second read verifier did not block on the durable nonce row"
+fi
+
+wait "$READ_CONN1_PID"
+wait "$READ_CONN2_PID"
+READ_RESULT_1="$(tr -d '[:space:]' < "$READ_C1_OUT")"
+READ_RESULT_2="$(tr -d '[:space:]' < "$READ_C2_OUT")"
+assert_eq "first app instance consumes the read proof" "t" "$READ_RESULT_1"
+assert_eq "second app instance rejects the same read proof" "f" "$READ_RESULT_2"
+
+READ_CHANGED_TARGET="$(psql_run -c "
+  select public.osi_v2_consume_read_nonce(
+    '$READ_NONCE', 'CASE_READ_AUTHORIZED_CASE', '$WALLET', 'case', 'OSI-CHANGED01');")"
+assert_eq "changed read target cannot reuse the proof" "f" "$READ_CHANGED_TARGET"
+
+READ_RECEIPTS="$(psql_run -c "select count(*) from public.event_receipts where nonce = '$READ_NONCE';")"
+assert_eq "read authorization does not fabricate a Proof Log receipt" "0" "$READ_RECEIPTS"
+
 # --- verdict ------------------------------------------------------------------
 echo "----"
 if [ "$failures" -eq 0 ]; then

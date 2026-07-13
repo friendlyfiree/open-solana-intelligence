@@ -7,12 +7,11 @@
 //   - read-challenge build/parse/binding: expiry, wrong purpose, wrong target,
 //     wallet mismatch, tampering
 //   - a full Ed25519 sign/verify round-trip over a real challenge string
-//   - DTO minimization: no private/internal field can appear in a public DTO,
-//     and a version body is returned only to its own author wallet
+//   - DTO minimization: no private/internal field can appear in a public DTO;
+//     public governance attribution/tx proofs remain visible by specification
 //   - stored-XSS escaping in the new V2 frontend renderer
-//   - static no-mutation guarantee: the Edge Function source contains SELECT
-//     access only (no insert/update/delete/upsert/rpc) and never enables the
-//     V2 write/proof flags.
+//   - durable read nonce wiring: no in-memory replay cache, exactly the
+//     service-only issue/consume RPCs, and no domain-table mutation call.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -168,6 +167,7 @@ const caseRow = {
   title: "Fixture case",
   category: "legacy_import",
   summary_public: "Public-safe summary",
+  details_restricted: "SECRET owner intake detail",
   submitted_by_wallet: OWNER,
   stage: "open_public",
   visibility: "public",
@@ -201,6 +201,9 @@ const receipt = {
   event_type: "LEGACY_CASE_OPENED",
   target_type: "case",
   target_id: caseRow.public_ref,
+  actor_wallet: OWNER,
+  actor_role: "owner",
+  decision: "open",
   proof_type: "legacy_imported",
   memo_ref: "legacy memo text",
   tx_sig: REAL_TX,
@@ -211,19 +214,51 @@ const receipt = {
 const pub = core.publicCaseDto(caseRow, [report], { [report.id]: [version] }, [receipt]);
 const pubLeaks = core.collectForbiddenKeys(pub);
 ok("public DTO leaks no forbidden key", pubLeaks.size === 0, [...pubLeaks].join(","));
-ok("public DTO never contains the private body or any wallet",
-  !JSON.stringify(pub).includes("SECRET") && !JSON.stringify(pub).includes(OWNER)
-    && !JSON.stringify(pub).includes(STRANGER));
+ok("public DTO never contains private Case or Report content",
+  !JSON.stringify(pub).includes("SECRET"));
+ok("public DTO keeps public governance attribution",
+  pub.proof_log[0].actor_wallet === OWNER && pub.proof_log[0].decision === "open");
 ok("public DTO keeps the exact legacy label",
   pub.proof_log[0].label === "Legacy / not server-verified");
+
+const maintainerReceipt = {
+  event_type: "CASE_OPENED",
+  target_type: "case",
+  target_id: caseRow.public_ref,
+  actor_wallet: STRANGER,
+  actor_role: "maintainer",
+  decision: "open",
+  weight: null,
+  reason_code: "SECRET restricted reason",
+  proof_type: "solana_memo",
+  memo_ref: "SECRET raw memo",
+  payload_hash: "f".repeat(64),
+  nonce: "SECRET nonce",
+  signature: "SECRET signature",
+  tx_sig: REAL_TX,
+  server_verified: true,
+  occurred_at: "2026-01-05T00:00:00Z",
+};
+const maintainerPub = core.publicCaseDto(
+  caseRow, [report], { [report.id]: [version] }, [maintainerReceipt], [], [],
+);
+ok("public DTO exposes honest full-maintainer CASE_OPENED attribution",
+  maintainerPub.proof_log[0].actor_role === "maintainer"
+    && maintainerPub.proof_log[0].label === "Memo-anchored on Solana"
+    && maintainerPub.proof_log[0].weight === null);
+ok("public maintainer proof leaks no restricted receipt fields",
+  core.collectForbiddenKeys(maintainerPub).size === 0
+    && !JSON.stringify(maintainerPub).includes("SECRET"));
 
 const ownerView = core.authorizedCaseDto(caseRow, [report], { [report.id]: [version] }, [receipt],
   { kind: "owner", wallet: OWNER });
 ok("case owner does NOT receive another author's private body",
-  !JSON.stringify(ownerView).includes("SECRET"));
+  !JSON.stringify(ownerView).includes("private findings body"));
 ok("case owner sees version metadata (length, hash, state)",
   ownerView.reports[0].versions[0].body_length === version.body_private.length
     && ownerView.reports[0].versions[0].lifecycle_state === "submitted");
+ok("case owner receives their restricted Case intake detail",
+  ownerView.details_restricted === caseRow.details_restricted);
 
 const authorView = core.authorizedCaseDto(caseRow, [report], { [report.id]: [version] }, [receipt],
   { kind: "owner", wallet: STRANGER });
@@ -238,12 +273,18 @@ const overview = core.maintainerOverviewDto({
   receiptTotals: { "Legacy / not server-verified": 1 },
   crosswalkCount: 43,
   manualQueueCount: 14,
-  flags: { OSI_V2_WRITES_ENABLED: "false", OSI_V2_PROOF_ENABLED: "false" },
+  flags: {
+    OSI_V2_WRITES_ENABLED: "false",
+    OSI_V2_PROOF_ENABLED: "false",
+    OSI_V2_CASE_WRITES_ENABLED: "true",
+  },
 });
 ok("maintainer overview never contains a private body",
-  !JSON.stringify(overview).includes("SECRET"));
-ok("maintainer overview reports both flags verbatim",
-  overview.flags.OSI_V2_WRITES_ENABLED === "false" && overview.flags.OSI_V2_PROOF_ENABLED === "false");
+  !JSON.stringify(overview).includes("private findings body"));
+ok("maintainer overview reports broad and exact Case flags verbatim",
+  overview.flags.OSI_V2_WRITES_ENABLED === "false"
+    && overview.flags.OSI_V2_PROOF_ENABLED === "false"
+    && overview.flags.OSI_V2_CASE_WRITES_ENABLED === "true");
 
 // ---------------------------------------------------------------------------
 // Stored-XSS escaping in the V2 frontend renderer.
@@ -266,15 +307,18 @@ ok("v2 escapeHtml neutralises a script payload",
   !escapeHtml("</script><img src=x onerror=alert(1)>").includes("<"));
 
 // ---------------------------------------------------------------------------
-// Static guarantees on the Edge Function source: SELECT-only, no flag writes,
-// wired to the correct minimal columns, verify_jwt declared in config.
+// Static guarantees on the Edge Function source: durable nonce consumption,
+// no domain mutation builder calls, no flag writes, explicit auth config.
 // ---------------------------------------------------------------------------
 const fnSource = readFileSync(join(root, "supabase/functions/osi-v2-case-read/index.ts"), "utf8");
-// The in-memory replay cache is a Map — its .delete() is not a DB mutation.
-const dbSource = fnSource.split("\n").filter((line) => !line.includes("consumedNonces")).join("\n");
-for (const forbidden of [".insert(", ".update(", ".delete(", ".upsert(", ".rpc("]) {
-  ok("edge function performs no mutation call: " + forbidden, !dbSource.includes(forbidden));
+for (const forbidden of [".insert(", ".update(", ".delete(", ".upsert("]) {
+  ok("edge function performs no domain mutation builder call: " + forbidden, !fnSource.includes(forbidden));
 }
+ok("read replay protection is database-backed",
+  fnSource.includes('rpc("osi_v2_issue_read_nonce"')
+    && fnSource.includes('rpc("osi_v2_consume_read_nonce"'));
+ok("read function has no in-memory replay cache",
+  !fnSource.includes("consumedNonces") && !fnSource.includes("replayCheckAndConsume"));
 ok("edge function never writes the V2 flags",
   !/OSI_V2_(WRITES|PROOF)_ENABLED'?\s*[,)]?\s*(=|value)/.test(fnSource)
     || !/\.(update|insert|upsert)\(/.test(fnSource));

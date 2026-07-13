@@ -7,7 +7,7 @@ window.__crPacks = {};
 // Escapes a value for use inside a JS string that is itself inside a
 // double-quoted HTML on* attribute (e.g. onclick="f(&quot;VALUE&quot;)" or
 // onclick="f('VALUE')"). Must neutralise BOTH the JS-string delimiters (' and ")
-// and the surrounding HTML attribute delimiter (") — a raw " would otherwise
+// and the surrounding HTML attribute delimiter ("); a raw " would otherwise
 // close the attribute and allow handler injection. Order: JS-escape backslash
 // and both quotes, flatten newlines, then HTML-escape so the escaped " becomes
 // \&quot; (safe in the attribute) and </>/& cannot start markup/entities.

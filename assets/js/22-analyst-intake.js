@@ -5,7 +5,7 @@
 //  prove wallet ownership with an off-chain signed message; the maintainer uses
 //  the existing Supabase session. The Edge Function osi-analyst-intake verifies
 //  server-side and returns pending rows. The client checks below are UI hints
-//  only — never the security boundary.
+//  only, never the security boundary.
 // ============================================================
 function osiB64(bytes){
   var u = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes||[]);
@@ -74,7 +74,7 @@ async function osiIntakeUnlock(){
   catch(e){ window.__osiIntakeState = (e && e.status===403) ? 'not_verified' : 'unavailable'; }
   try{ renderReviewFloor(); }catch(e){}
 }
-// Gated / unauthorized states — reuse existing empty-state styling, no redesign.
+// Gated / unauthorized states: reuse existing empty-state styling, no redesign.
 function rfGatedHtml(state){
   var note, action='';
   if(state==='no_wallet'){

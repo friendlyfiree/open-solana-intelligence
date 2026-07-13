@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
 <title>Open Solana Intelligence · community-verified on-chain investigation</title>
 <meta name="description" content="OSI (Open Solana Intelligence) turns public Solana incident evidence into reviewed, on-chain verifiable case records and escalation packs for victims, exchanges, and law enforcement. Public, signed via Solana Memo. Information only, no recovery promised.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,6 +14,7 @@
 <script src="./assets/js/00-buffer-shim.js"></script>
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 <link rel="stylesheet" href="./assets/css/00-theme-base.css">
+<link rel="stylesheet" href="./assets/css/v2-case-integration.css">
 </head>
 <body data-view="registry" data-sub="tab-analysts">
 <canvas id="osi-stream" aria-hidden="true"></canvas>
@@ -33,8 +35,8 @@
   </div>
   <nav class="sb-nav" role="tablist" aria-label="Sections">
     <button class="sb-item" data-view="registry" role="tab" onclick="showView('registry')"><span>Home</span><span class="sb-c" id="vc-co" style="display:none">3</span></button>
-    <button class="sb-item" data-view="workspace" role="tab" onclick="showView('workspace')"><span>My OSI</span></button>
     <button class="sb-item" data-view="field" role="tab" onclick="showView('field')"><span>Field Office</span></button>
+    <button class="sb-item" data-view="wire" role="tab" onclick="showView('wire')"><span>The Wire</span></button>
     <button class="sb-item" data-view="records" role="tab" onclick="showView('records')"><span>Public Records</span></button>
     <button class="sb-item" data-view="analysts" role="tab" onclick="showView('analysts')"><span>Analysts</span></button>
     <button class="sb-item" data-view="prooflog" role="tab" onclick="showView('prooflog')"><span>Proof Log</span></button>
@@ -51,7 +53,7 @@
     <div class="sb-net" title="Solana Mainnet &middot; non-custodial &middot; memo-verified"><div class="sb-net-h mono">NETWORK</div><div class="sb-net-r"><span class="sb-net-dot"></span>Solana Mainnet</div><div class="sb-net-s mono">non-custodial · memo-verified</div></div>
     <button class="sb-demo" onclick="demoStart()" title="Guided briefing, no wallet needed"><span>▶</span> Briefing</button>
 <link rel="stylesheet" href="./assets/css/10-shell-hero.css">
-    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="showView('identity');closeWalletMenu();">OSI Identity</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('workspace');closeWalletMenu();">My OSI</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Open Profile</button><button class="wb-mi" type="button" role="menuitem" onclick="openSelfProfile();">Proof-of-Work CV</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
+    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button><button class="wb-mi" type="button" role="menuitem" disabled title="Case Report intake ships in the next gated V2 slice">My Reports <span class="osi-menu-lock">next gate</span></button><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Profile</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('identity');closeWalletMenu();">Settings</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -87,7 +89,7 @@
         </div>
         <div class="hero-cta hero-cta-c">
           <button class="btn-acc" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">Open a Case</button>
-          <button class="btn-outline" onclick="showView('analysts'); setTimeout(function(){ var e=document.getElementById('an-tg'); if(e) e.focus(); }, 320);">Join as Analyst</button>
+          <button class="btn-outline" onclick="showView('field')">Explore Field Office</button>
         </div>
         <button class="hero-console" onclick="demoStart()"><span class="bg-ic" aria-hidden="true">&#9654;</span> View Live Console</button>
       </div>
@@ -686,7 +688,6 @@
 <aside class="fo-rail" aria-label="Field Office navigation">
   <div class="fr-g mono">Field Office</div>
   <button class="fr-i active" id="fr-fieldoffice" type="button" onclick="fieldMine(false)"><span class="fr-ic">▣</span>Cases</button>
-  <button class="fr-i" id="fr-mycases" type="button" onclick="fieldMine(true)"><span class="fr-ic">◈</span>My Cases<span class="fr-c" id="fr-myc" style="display:none">0</span></button>
   <button class="fr-i" type="button" onclick="fieldOpenForm()"><span class="fr-ic">＋</span>Open Case</button>
   <button class="fr-i" type="button" onclick="showView('wire')"><span class="fr-ic">≋</span>The Wire</button>
   <div class="fr-wire-note">Independent intelligence signals before formal cases.</div>
@@ -718,29 +719,29 @@
     </div>
 
     <div class="fo-toolbar">
-      <div class="fo-search-wrap"><input class="fo-search" id="fo-search" placeholder="Search cases by company, wallet, or keyword..." oninput="fieldSearch(this.value)"></div>
+      <div class="fo-search-wrap"><input class="fo-search" id="fo-search" placeholder="Search public Cases by reference, title, or summary" oninput="fieldSearch(this.value)"></div>
       <label class="fo-sel"><span class="fo-sel-l mono">Status</span>
         <select onchange="fieldFilter(this.value)" aria-label="Filter by status">
-          <option value="open" selected>Open</option>
-          <option value="resolved">Closed</option>
           <option value="all">All</option>
+          <option value="open_public" selected>Open public</option>
+          <option value="resolved">Resolved</option>
+          <option value="sealed">Sealed</option>
         </select>
       </label>
       <label class="fo-sel"><span class="fo-sel-l mono">Sort</span>
         <select onchange="fieldSort(this.value)" aria-label="Sort cases">
-          <option value="reward" selected>Reward</option>
-          <option value="boosts">Demand</option>
-          <option value="newest">Newest</option>
+          <option value="newest" selected>Newest</option>
+          <option value="oldest">Oldest</option>
         </select>
       </label>
     </div>
 
-    <div class="fq-head mono" aria-hidden="true"><span>Case ID</span><span>Title</span><span>Stage</span><span>Support</span><span>Backers</span><span>Deadline</span><span></span></div>
+    <div class="fq-head osi-v2-head mono" aria-hidden="true"><span>Case ID</span><span>Title</span><span>Stage</span><span>Category</span><span>Reviews</span><span>Proof</span><span></span></div>
 <div class="fo-cases" id="field-cases"></div>
 <div class="fo-pager"><span class="fo-count mono" id="fo-count" aria-live="polite"></span><div class="fo-pnav" id="fo-pnav" role="navigation" aria-label="Case pages"></div></div>
   </div>
 <aside class="fo-preview" id="fo-preview" aria-label="Selected case"><div class="fo-prev-empty mono">Select a case from the queue to preview it here.</div></aside>
-<div class="fo-deck" id="fo-deck" aria-label="Operations overview">
+<div class="fo-deck" id="fo-deck" aria-label="Operations overview" hidden>
   <div class="fd-card">
     <div class="fd-h mono">Latest activity</div>
     <div class="fd-body" id="fd-activity"><div class="fd-empty mono">Loading case activity…</div></div>
@@ -761,29 +762,38 @@
 <link rel="stylesheet" href="./assets/css/30-views.css">
 </section>
 <div class="fo-modal" id="fo-modal" role="dialog" aria-modal="true" aria-label="File a new case" onclick="if(event.target===this)fieldCloseForm()">
-<div class="fo-form" id="field-form">
+<form class="fo-form osi-case-form" id="field-form" autocomplete="off" onsubmit="osiV2SubmitCase(event)">
       <button class="fo-x" type="button" onclick="fieldCloseForm()" aria-label="Close">✕</button>
-      <div class="fo-form-h">⊹ File a new case</div>
-      <p class="fo-form-sub">Tell us what happened, or what needs tracing. After a maintainer reviews it, the case goes live on the board where the community can back it or work it. Opening is free and signed with your wallet. Keep it to on-chain facts, no seed phrases, no names.</p>
+      <div class="fo-form-h">File a private Case</div>
+      <p class="fo-form-sub">Your wallet anchors the submission with a Solana Memo. The Case remains private until an eligible analyst reviews it and anchors the public-open outcome. OSI provides process provenance, not a verdict or recovery promise.</p>
       <div class="fo-grid2">
-        <input id="bf-target" class="fo-in" placeholder="What happened, or what needs tracing  ·  e.g. my wallet was drained, or a scam to trace">
-        <input id="bf-reward" class="fo-in" type="number" step="0.1" min="0" placeholder="Optional reward in SOL  ·  released by you, peer-to-peer">
+        <label class="osi-field"><span>Category</span><select id="v2-case-category" class="fo-in" required><option value="wallet_drain">Wallet drain</option><option value="token_risk">Token risk</option><option value="protocol_incident">Protocol incident</option><option value="social_engineering">Social engineering</option><option value="market_manipulation">Market manipulation</option><option value="other">Other</option></select></label>
+        <label class="osi-field"><span>Neutral title</span><input id="v2-case-title" class="fo-in" type="text" minlength="8" maxlength="160" required placeholder="Unexpected transfer pattern for review"></label>
       </div>
-      <textarea id="bf-detail" class="fo-in fo-ta" placeholder="The details  ·  the wallet or transaction involved, when it happened, where the funds went if you know. On-chain facts and tx hashes only. No seed phrases, no private keys, no names."></textarea>
-      <div class="file-drop" id="bf-file-drop">
-        <input type="file" id="bf-image" accept="image/*" style="display:none" onchange="onPickFile('bf')">
-        <button type="button" class="file-btn" onclick="document.getElementById('bf-image').click()">🖼 Add an image  ·  logo, chart, screenshot</button>
-        <span class="file-name mono" id="bf-file-name"></span>
-        <div class="file-prev" id="bf-file-prev"></div>
-      </div>
+      <label class="osi-field"><span>Public summary</span><textarea id="v2-case-summary" class="fo-in fo-ta" minlength="40" maxlength="2000" required placeholder="A neutral, public-safe description. Do not name private people or assert guilt."></textarea><small>Visible only after analyst approval and the confirmed CASE_OPENED Memo.</small></label>
+      <label class="osi-field"><span>Restricted details</span><textarea id="v2-case-details" class="fo-in fo-ta" minlength="40" maxlength="12000" required placeholder="Context for the owner and authorized reviewers. Never include a seed phrase, private key, private messages, or prohibited personal data."></textarea><small>Private by default. Never returned by the anonymous API.</small></label>
+      <fieldset class="osi-evidence-set"><legend>Structured evidence references</legend><div class="fo-grid2"><label class="osi-field"><span>Wallet addresses</span><textarea id="v2-case-wallets" class="fo-in" rows="3" placeholder="One Solana address per line"></textarea></label><label class="osi-field"><span>Transaction signatures</span><textarea id="v2-case-transactions" class="fo-in" rows="3" placeholder="One Solana signature per line"></textarea></label></div><label class="osi-field"><span>HTTPS evidence links</span><textarea id="v2-case-urls" class="fo-in" rows="2" placeholder="One public HTTPS URL per line"></textarea></label></fieldset>
+      <label class="osi-field osi-reward-field"><span>Optional reward intent in SOL</span><input id="v2-case-reward" class="fo-in" type="number" step="0.000000001" min="0" max="1000000" placeholder="0"><small>This records non-binding intent only. It is not a pledge, transfer, escrow, or payment.</small></label>
+      <label class="osi-case-confirm"><input id="v2-case-confirm" type="checkbox" required><span>I confirm this submission contains no seed phrase, private key, illegal-access material, doxxing, or unsupported guilt claim.</span></label>
+      <div class="osi-form-status mono" id="v2-case-form-status" role="status" aria-live="polite"></div>
       <div class="fo-form-foot">
-        <span class="fo-form-note">Free to open. OSI traces and documents, it cannot recover funds and never promises to.</span>
+        <span class="fo-form-note">Network fee only. OSI receives no funds and never takes custody.</span>
         <div style="display:flex;gap:8px">
-          <button class="fo-cancel" onclick="fieldCloseForm()">Cancel</button>
-          <button class="fo-file-btn" onclick="osiSubmitGuard('case', submitBounty)">File the case →</button>
+          <button class="fo-cancel" type="button" onclick="fieldCloseForm()">Cancel</button>
+          <button class="fo-file-btn" id="v2-case-submit" type="submit">Review and sign</button>
         </div>
       </div>
-    </div>
+    </form>
+</div>
+
+<div class="osi-case-drawer" id="osi-case-drawer" role="dialog" aria-modal="true" aria-labelledby="osi-case-title" hidden>
+  <button class="osi-case-scrim" type="button" tabindex="-1" onclick="osiV2CloseCase()" aria-label="Close Case detail"></button>
+  <article class="osi-case-panel">
+    <header class="osi-case-panel-head"><div><div class="mono osi-case-ref" id="osi-case-ref"></div><h2 id="osi-case-title">Case</h2><div class="osi-case-state" id="osi-case-state"></div></div><button class="osi-case-close" type="button" onclick="osiV2CloseCase()" aria-label="Close">✕</button></header>
+    <nav class="osi-case-tabs" id="osi-case-tabs" aria-label="Case detail sections"></nav>
+    <div class="osi-case-content" id="osi-case-content"></div>
+    <footer class="osi-case-actions" id="osi-case-actions"></footer>
+  </article>
 </div>
 
 
@@ -1360,6 +1370,7 @@
 <script src="./assets/js/74-community-cases.js"></script>
 <script src="./assets/js/80-ai-pack.js"></script>
 <script src="./assets/js/84-public-records.js"></script>
+<script src="./assets/js/v2-case-integration.js"></script>
 <script src="./assets/js/99-app.js"></script>
 <link rel="stylesheet" href="./assets/css/50-late-components.css">
 <div class="adm-edit" id="adm-edit-modal">

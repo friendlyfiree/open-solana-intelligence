@@ -6,15 +6,11 @@
 // minimized DTO builders. Crypto (HMAC, Ed25519) and database access stay in
 // the Edge Function; signature verification reuses osi-v2-proof-core.mjs.
 //
-// Design note (recorded decision): the Stage-5 SQL nonce infrastructure is NOT
-// reused for read authorization because osi_v2_issue_nonce fails closed while
-// OSI_V2_PROOF_ENABLED=false (which must remain false in this slice) and
-// osi_v2_consume_signed_nonce inserts an event_receipts row — a V2 domain
-// write, which this read-only slice must never perform. Instead the Edge
-// Function mints an HMAC-authenticated, single-purpose, exact-target-bound
-// challenge with a hard <=120s expiry, verifies the wallet's Ed25519 signature
-// over the full challenge server-side, and suppresses replays best-effort
-// in-instance. No database write of any kind occurs.
+// Read authorization uses its own durable osi_read_nonces infrastructure table
+// because a read proof must not create a governance receipt. The Edge Function
+// mints an HMAC-authenticated, exact-target-bound challenge with a hard <=120s
+// expiry, verifies Ed25519 first, then atomically consumes the database nonce.
+// This makes cross-instance replay a hard denial without mutating domain data.
 
 export const READ_CHALLENGE_VERSION = "1";
 export const READ_CHALLENGE_PREFIX = "OSI2-READ";
@@ -23,6 +19,7 @@ export const READ_CHALLENGE_MAX_TTL_SECONDS = 120;
 export const READ_PURPOSES = new Set([
   "CASE_READ_MY_CASES",
   "CASE_READ_AUTHORIZED_CASE",
+  "CASE_READ_REVIEW_QUEUE",
   "CASE_READ_MAINTAINER_OVERVIEW",
 ]);
 
@@ -188,24 +185,72 @@ function publicVersionDto(version) {
 }
 
 function publicReceiptDto(receipt) {
-  return {
+  const txSig = proofLabel(receipt) === PROOF_LABELS.solana_memo
+    ? String(receipt.tx_sig ?? "") : "";
+  const dto = {
     label: proofLabel(receipt),
     event_type: String(receipt.event_type ?? ""),
+    actor_wallet: String(receipt.actor_wallet ?? ""),
+    actor_role: String(receipt.actor_role ?? ""),
+    decision: receipt.decision == null ? null : String(receipt.decision),
+    weight: receipt.weight == null ? null : Number(receipt.weight),
     occurred_at: isoOrNull(receipt.occurred_at),
+  };
+  if (txSig) {
+    dto.tx_sig = txSig;
+    dto.solscan_url = "https://solscan.io/tx/" + txSig;
+  }
+  return dto;
+}
+
+function publicEvidenceDto(evidence) {
+  return {
+    kind: String(evidence.kind ?? ""),
+    ref: String(evidence.ref ?? ""),
+    sha256: String(evidence.sha256 ?? ""),
   };
 }
 
+function reviewDto(review, includeReason) {
+  const dto = {
+    reviewer_wallet: String(review.reviewer_wallet ?? ""),
+    decision: String(review.decision ?? ""),
+    reviewer_role: String(review.reviewer_role ?? ""),
+    weight: Number(review.weight ?? 0),
+    is_active: review.is_active === true,
+    created_at: isoOrNull(review.created_at),
+    proof_label: proofLabel(review.receipt ?? {}),
+  };
+  if (includeReason) dto.reason_code = review.reason_code == null ? null : String(review.reason_code);
+  return dto;
+}
+
 // The ONLY fields an anonymous caller may ever see for a genuinely public
-// Case. No uuid, no wallets, no bodies, no hashes, no memo text, no tx data.
-export function publicCaseDto(caseRow, reports = [], versionsByReport = {}, receipts = []) {
+// Case. Receipt actor wallets and validated Memo transaction signatures are
+// public provenance; internal UUIDs, private bodies, payload hashes, raw memo
+// text, nonces, signatures, and restricted reason codes remain excluded.
+export function publicCaseDto(
+  caseRow,
+  reports = [],
+  versionsByReport = {},
+  receipts = [],
+  evidence = [],
+  reviews = [],
+) {
   return {
     public_ref: String(caseRow.public_ref ?? ""),
     title: String(caseRow.title ?? ""),
     summary: String(caseRow.summary_public ?? ""),
+    category: String(caseRow.category ?? ""),
     stage: String(caseRow.stage ?? ""),
     visibility: String(caseRow.visibility ?? ""),
     created_at: isoOrNull(caseRow.created_at),
     sealed_at: isoOrNull(caseRow.sealed_at),
+    evidence: evidence
+      .filter((item) => item.is_public === true && item.moderation_state === "approved")
+      .map(publicEvidenceDto),
+    reviews: reviews.filter((review) => review.is_active === true)
+      .map((review) => reviewDto(review, false)),
     reports: reports.map((report) => ({
       status: String(report.status ?? ""),
       current_version: publicVersionDto(
@@ -235,26 +280,33 @@ function authorizedVersionDto(version, actorWallet) {
   return dto;
 }
 
-function authorizedReceiptDto(receipt) {
-  return {
-    label: proofLabel(receipt),
-    event_type: String(receipt.event_type ?? ""),
-    target_type: String(receipt.target_type ?? ""),
-    occurred_at: isoOrNull(receipt.occurred_at),
-    tx_sig: receipt.tx_sig ? String(receipt.tx_sig) : null,
-    memo: receipt.memo_ref ? String(receipt.memo_ref) : null,
-    server_verified: receipt.server_verified === true,
-  };
+function authorizedReceiptDto(receipt, includeReason) {
+  const dto = publicReceiptDto(receipt);
+  dto.target_type = String(receipt.target_type ?? "");
+  dto.memo = receipt.memo_ref ? String(receipt.memo_ref) : null;
+  dto.server_verified = receipt.server_verified === true;
+  if (includeReason) dto.reason_code = receipt.reason_code == null ? null : String(receipt.reason_code);
+  return dto;
 }
 
 // Fields an authorized actor (proven owner, verified analyst on an in-scope
 // Case, or full maintainer) may see. Still minimized: no migration metadata,
 // no service internals; the private body only for its own author.
-export function authorizedCaseDto(caseRow, reports = [], versionsByReport = {}, receipts = [], actor = {}) {
+export function authorizedCaseDto(
+  caseRow,
+  reports = [],
+  versionsByReport = {},
+  receipts = [],
+  actor = {},
+  evidence = [],
+  reviews = [],
+) {
+  const includeRestrictedReviewFields = actor.kind === "analyst" || actor.kind === "maintainer";
   return {
     public_ref: String(caseRow.public_ref ?? ""),
     title: String(caseRow.title ?? ""),
     summary: String(caseRow.summary_public ?? ""),
+    details_restricted: String(caseRow.details_restricted ?? ""),
     category: String(caseRow.category ?? ""),
     stage: String(caseRow.stage ?? ""),
     visibility: String(caseRow.visibility ?? ""),
@@ -263,6 +315,10 @@ export function authorizedCaseDto(caseRow, reports = [], versionsByReport = {}, 
     created_at: isoOrNull(caseRow.created_at),
     updated_at: isoOrNull(caseRow.updated_at),
     sealed_at: isoOrNull(caseRow.sealed_at),
+    reward_intent_lamports: caseRow.reward_intent_lamports == null
+      ? null : Number(caseRow.reward_intent_lamports),
+    evidence: evidence.map(publicEvidenceDto),
+    reviews: reviews.map((review) => reviewDto(review, includeRestrictedReviewFields)),
     reports: reports.map((report) => ({
       author_wallet: String(report.author_wallet ?? ""),
       status: String(report.status ?? ""),
@@ -273,7 +329,7 @@ export function authorizedCaseDto(caseRow, reports = [], versionsByReport = {}, 
         .sort((left, right) => (left.version_no ?? 0) - (right.version_no ?? 0))
         .map((version) => authorizedVersionDto(version, actor.wallet)),
     })),
-    proof_log: receipts.map(authorizedReceiptDto),
+    proof_log: receipts.map((receipt) => authorizedReceiptDto(receipt, includeRestrictedReviewFields)),
   };
 }
 
@@ -310,6 +366,7 @@ export function maintainerOverviewDto(input) {
     flags: {
       OSI_V2_WRITES_ENABLED: String(flags.OSI_V2_WRITES_ENABLED ?? ""),
       OSI_V2_PROOF_ENABLED: String(flags.OSI_V2_PROOF_ENABLED ?? ""),
+      OSI_V2_CASE_WRITES_ENABLED: String(flags.OSI_V2_CASE_WRITES_ENABLED ?? ""),
     },
     cases: cases.map((caseRow) => authorizedCaseDto(
       caseRow,
@@ -327,8 +384,8 @@ export const PUBLIC_FORBIDDEN_KEYS = Object.freeze([
   "submitted_by_wallet",
   "author_wallet",
   "created_by_wallet",
-  "actor_wallet",
   "anchor_wallet",
+  "details_restricted",
   "body_private",
   "content_owner_safe",
   "content_analyst_restricted",
@@ -336,9 +393,9 @@ export const PUBLIC_FORBIDDEN_KEYS = Object.freeze([
   "payload_hash",
   "memo_ref",
   "memo",
-  "tx_sig",
   "nonce",
   "signature",
+  "reason_code",
   "legacy_id",
   "legacy_table",
   "v2_id",

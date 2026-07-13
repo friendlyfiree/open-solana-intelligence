@@ -54,7 +54,7 @@ Each canonical event has **exactly one** class (A / B / Sys) — no `A or Sys`, 
 | Case submission | A | solana_memo | ✅ `CASE_SUBMITTED` |
 | Case opening | A | solana_memo | ✅ `CASE_OPENED` |
 | Case safety block | A | solana_memo | ✅ `CASE_SAFETY_BLOCKED` (auditable maintainer/policy action; carries only refs+hash, no narrative; the blocked Case content stays private) |
-| Case initial review (per analyst) | B | wallet_signed_server_verified | ❌ `CASE_INITIAL_REVIEW_CAST` / `_REVISED` |
+| Case initial review (eligible analyst or full maintainer) | B | wallet_signed_server_verified | ❌ `CASE_INITIAL_REVIEW_CAST` / `_REVISED` |
 | Case initial rejection (outcome) | A | solana_memo | ✅ `CASE_INITIAL_REVIEW_REJECTED` |
 | Case withdrawn (owner, pre-open) | B | wallet_signed_server_verified | ❌ `CASE_WITHDRAWN` |
 | Case safety block lifted | A | solana_memo | ✅ `CASE_SAFETY_LIFTED` |
