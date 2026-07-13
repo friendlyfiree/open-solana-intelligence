@@ -35,6 +35,11 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.4.1
+
       - name: Install pinned Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -54,6 +59,12 @@ jobs:
           node tests/osi-v2-case-read.test.mjs
           node tests/osi-v2-case-write.test.mjs
           node tests/osi-v2-case-ui.test.js
+          node tests/osi-session-access.test.js
+          node tests/osi-v2-analyst-core.test.mjs
+          node tests/osi-v2-analyst-ui.test.js
+          deno check supabase/functions/osi-v2-case-read/index.ts
+          deno check supabase/functions/osi-v2-case-write/index.ts
+          deno check supabase/functions/osi-v2-analyst/index.ts
 
       - name: Start disposable local database (PostgreSQL 17)
         run: supabase db start

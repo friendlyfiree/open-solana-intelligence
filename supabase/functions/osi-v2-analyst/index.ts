@@ -156,7 +156,9 @@ function bytesFromBase64(value: unknown): Uint8Array {
 }
 
 async function sha256Bytes(bytes: Uint8Array): Promise<string> {
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  const owned = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(owned).set(bytes);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", owned));
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
@@ -182,7 +184,10 @@ async function normalizedApplication(body: Row) {
 
 async function uploadAvatar(wallet: string, image: ImageBinding | null): Promise<string | null> {
   if (!image) return null;
-  const path = (await sha256HexUtf8(wallet)) + "/avatar";
+  // The object key is immutable and content-addressed. A failed database
+  // commit can leave an unreferenced object, but can never replace the avatar
+  // referenced by the last committed profile version.
+  const path = (await sha256HexUtf8(wallet)) + "/" + image.sha256;
   const { error } = await admin.storage.from(AVATAR_BUCKET).upload(path, image.bytes, {
     contentType: image.mime,
     cacheControl: "3600",
@@ -194,7 +199,7 @@ async function uploadAvatar(wallet: string, image: ImageBinding | null): Promise
   if (!url.startsWith(SUPABASE_URL + "/storage/v1/object/public/" + AVATAR_BUCKET + "/")) {
     throw new Error("avatar_url_invalid");
   }
-  return url + "?v=" + image.sha256.slice(0, 16);
+  return url;
 }
 
 async function issueAnalystNonce(args: Row) {

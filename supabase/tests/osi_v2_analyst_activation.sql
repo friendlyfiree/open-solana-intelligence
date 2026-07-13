@@ -18,8 +18,8 @@ select is(
 );
 select is(
   (select value from public.osi_config where key = 'OSI_V2_ANALYST_WRITES_ENABLED'),
-  'false',
-  'analyst writes fail closed after migration'
+  'true',
+  'reviewed analyst slice is enabled independently of broad V2 writes'
 );
 select is(
   (select value from public.osi_config where key = 'OSI_V2_FALLBACK_GOVERNANCE'),

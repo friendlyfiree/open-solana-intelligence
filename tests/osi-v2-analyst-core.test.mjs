@@ -99,8 +99,9 @@ ok(!("payload_hash" in dto.proof_history[0]) && !("nonce" in dto.proof_history[0
 ok(edge.includes("authenticatedMaintainerId") && edge.includes("configuredAdminWallet") && edge.includes("fullMaintainer"), "every maintainer operation has a double-gate primitive");
 ok((edge.match(/await fullMaintainer\(req, wallet\)/g) ?? []).length >= 5, "maintainer reads and writes independently revalidate both gates");
 ok(edge.includes("target.application.applicant_wallet === wallet") && sql.includes("application_row.applicant_wallet = bound_nonce.actor_wallet"), "self-review is denied in Edge and database layers");
-ok(edge.includes("inspectProfileImage") && edge.includes("sha256HexUtf8(wallet)) + \"/avatar\""), "avatar bytes and deterministic owner path are enforced");
-ok(sql.includes("OSI_V2_ANALYST_WRITES_ENABLED', 'false'"), "analyst rollout flag defaults false");
+ok(edge.includes("inspectProfileImage") && edge.includes('sha256HexUtf8(wallet)) + \"/\" + image.sha256'), "avatar bytes and immutable owner/content path are enforced");
+ok(sql.includes("OSI_V2_ANALYST_WRITES_ENABLED', 'true'"), "reviewed analyst slice is enabled by its exact migration");
+ok(edge.includes("data?.[0]?.value === \"true\""), "missing or malformed analyst rollout state still fails closed");
 ok(sql.includes("weight_cached = 0.50") && sql.includes("tier_code = 'probationary'"), "database derives exact probationary weight and tier");
 ok(sql.includes("force row level security") || fs.readFileSync(path.join(root, "supabase/migrations/20260711092856_osi_v2_default_deny.sql"), "utf8").includes("analyst_application_reviews"), "analyst tables remain under forced default-deny RLS");
 ok(!edge.includes("select(\"*\")"), "gateway avoids select-star projections");

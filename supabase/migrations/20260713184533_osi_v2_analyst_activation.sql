@@ -7,7 +7,7 @@ set local lock_timeout = '5s';
 set local statement_timeout = '120s';
 
 insert into public.osi_config (key, value, updated_at)
-values ('OSI_V2_ANALYST_WRITES_ENABLED', 'false', statement_timestamp())
+values ('OSI_V2_ANALYST_WRITES_ENABLED', 'true', statement_timestamp())
 on conflict (key) do nothing;
 
 create function osi_private.osi_v2_valid_profile_expertise(value jsonb)

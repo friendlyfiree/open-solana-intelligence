@@ -34,6 +34,10 @@ const lifecycle = sqlByFile['20260713045903_osi_v2_case_lifecycle.sql'] || '';
 const analystActivation = sqlByFile['20260713184533_osi_v2_analyst_activation.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
+const analystProductionWorkflow = fs.readFileSync(
+  path.join(root, '.github', 'workflows', 'osi-v2-analyst-production.yml'),
+  'utf8',
+);
 const proofCore = fs.readFileSync(
   path.join(root, 'supabase', 'functions', '_shared', 'osi-v2-proof-core.mjs'),
   'utf8',
@@ -328,9 +332,10 @@ ok(
   /new\.title is distinct from old\.title[\s\S]*new\.category is distinct from old\.category[\s\S]*new\.summary_public is distinct from old\.summary_public[\s\S]*new\.details_restricted is distinct from old\.details_restricted/i.test(lifecycle),
 );
 ok(
-  'analyst slice fails closed behind a dedicated flag',
-  analystActivation.includes("('OSI_V2_ANALYST_WRITES_ENABLED', 'false'")
-    && analystActivation.includes("where key = 'OSI_V2_ANALYST_WRITES_ENABLED'"),
+  'analyst slice is independently enabled and malformed flag state fails closed',
+  analystActivation.includes("('OSI_V2_ANALYST_WRITES_ENABLED', 'true'")
+    && analystActivation.includes("where key = 'OSI_V2_ANALYST_WRITES_ENABLED'")
+    && analystActivation.includes("value = 'true'"),
 );
 ok(
   'analyst application versions use exact Stage-5 binding',
@@ -358,6 +363,23 @@ ok(
   analystActivation.includes("'osi-analyst-avatars'")
     && analystActivation.includes("array['image/png', 'image/jpeg']")
     && !/create policy[\s\S]*osi-analyst-avatars/i.test(analystActivation),
+);
+ok(
+  'analyst production workflow is manual, main-only, and exact-migration pinned',
+  analystProductionWorkflow.includes('workflow_dispatch:')
+    && !analystProductionWorkflow.includes('pull_request:')
+    && !analystProductionWorkflow.includes('push:')
+    && analystProductionWorkflow.includes('refs/heads/main')
+    && analystProductionWorkflow.includes("NEW_VERSION: '20260713184533'")
+    && analystProductionWorkflow.includes('Dry-run must contain only the analyst migration'),
+);
+ok(
+  'analyst production workflow validates then deploys only its function',
+  analystProductionWorkflow.includes('needs: validate')
+    && analystProductionWorkflow.includes('supabase test db')
+    && analystProductionWorkflow.includes('bash tests/osi-v2-concurrency.test.sh')
+    && analystProductionWorkflow.includes('functions deploy osi-v2-analyst')
+    && !analystProductionWorkflow.includes('functions deploy osi-v2-case-write'),
 );
 ok(
   'nonce issuance serializes idempotency and rate-limit dimensions',

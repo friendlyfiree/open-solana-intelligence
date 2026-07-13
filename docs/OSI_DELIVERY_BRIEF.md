@@ -63,16 +63,16 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - The frontend is static HTML, modular CSS, and classic JavaScript.
 - The repository has no package-manager manifest or frontend build step.
 - Supabase PostgreSQL and Edge Functions provide the backend.
-- Six accepted additive V2 migrations precede the native Case slice.
-- Those migrations cover schema, guards, default deny, Stage-5, and legacy materialization.
-- The production Case read function is reachable and fail-closed.
-- At this revision, the public V2 Case registry returns zero public Cases.
+- Seven accepted additive V2 migrations precede the native analyst activation slice.
+- Those migrations cover schema, guards, default deny, Stage-5, legacy materialization, and native Case lifecycle.
+- The production Case read and write functions are reachable and fail closed.
 - The mature production shell responds successfully.
-- The native Case lifecycle migration and write function are a merge/deploy candidate.
+- The native analyst activation migration and function are a merge/deploy candidate.
 - Production is unchanged until the reviewed PR is merged and rollout gates pass.
 - Broad `OSI_V2_WRITES_ENABLED` remains false.
 - Broad `OSI_V2_PROOF_ENABLED` remains false.
 - The Case slice uses exact `OSI_V2_CASE_WRITES_ENABLED` gating.
+- The analyst slice uses exact `OSI_V2_ANALYST_WRITES_ENABLED` gating.
 - Missing, malformed, or unavailable flags fail closed.
 
 ## 4. Global information architecture
@@ -89,8 +89,8 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - The wallet menu exposes My Cases.
 - The wallet menu exposes My Reports only when its real gate exists.
 - The wallet menu exposes My Reviews.
-- The wallet menu exposes Profile.
-- The wallet menu exposes Settings.
+- The wallet menu exposes My Profile.
+- The wallet menu exposes My Applications.
 - The wallet menu exposes Disconnect.
 - Operations Center is visible only to a full maintainer.
 - A full maintainer requires configured admin wallet plus maintainer auth UUID.
@@ -191,9 +191,29 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Proof Log shows actor, role, decision, weight, timestamp, and receipt link when available.
 - Proof Log explicitly states that provenance is not a truth or legal verdict.
 
-## 8. Next roadmap gates
+## 8. Native analyst activation milestone
 
-- Merge and deploy the reviewed Case lifecycle slice first.
+- Public analyst profiles use an explicit least-privilege DTO.
+- Public fields are handle, display name, bio, expertise, safe links, safe owned avatar, status, tier, weight, contributions, and proof history.
+- Pending application versions, restricted application evidence, nonces, signatures, payload hashes, and private notes are never public.
+- Profile images accept only validated PNG or JPEG bytes from 64 to 1024 pixels and at most 512 KB.
+- Browser roles cannot mutate the analyst avatar bucket directly.
+- Application submission creates an immutable exact version with Stage-5 nonce, payload, signature, replay, and idempotency binding.
+- Revisions create a new version and preserve prior versions and decisions.
+- My Applications uses a fresh signed single-use private read.
+- The Operations Center application queue requires both maintainer gates and a fresh signed queue read.
+- Application reviews target one exact current version and preserve prior decisions.
+- The applicant cannot review or activate their own application.
+- The canonical application decisions are approve, reject, and request revision; abstain is unavailable in this model.
+- Maintainer application reviews have governance weight zero.
+- Approval does not allow a client-selected tier or weight.
+- `ANALYST_PROBATION` requires a separate confirmed canonical Solana Memo from the full maintainer.
+- The probation transition derives `probationary_analyst`, tier `probationary`, and weight exactly 0.50 on the server.
+- Support never changes status, tier, weight, ordering, review priority, or reputation.
+
+## 9. Next roadmap gates
+
+- Merge and deploy the reviewed analyst activation slice only after clean CI and preview verification.
 - Run a soak period with broad V2 writes still disabled.
 - Add immutable Case Report intake next.
 - Add exact-version Report review after Report intake.
@@ -201,12 +221,12 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Add resolution proposal and nullable-state checks.
 - Add finalized resolution and seven-day challenge window.
 - Add accepted-challenge effects exactly as the blueprint specifies.
-- Add analyst application and reputation snapshot flows.
+- Add reputation snapshot progression after real attributable contributions exist.
 - Add AI Pack and The Wire write flows after their evidence scopes are enforced.
 - Add reward, support, My OSI expansion, and Operations Center later.
 - Retire legacy writes only after soak, reconciliation, and explicit cutover approval.
 
-## 9. Production operation rules
+## 10. Production operation rules
 
 - Start from verified current `main` on a dedicated `codex/` task branch.
 - Never commit directly to `main`.
@@ -221,6 +241,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Confirm the dry-run contains only the exact expected migrations in order.
 - Record the disable and forward-fix plan.
 - Case rollback means set only the Case feature gate false through a reviewed forward fix.
+- Analyst rollback means set only the analyst feature gate false through a reviewed forward fix.
 - Rollback never pretends a populated schema can be safely dropped.
 - Verify schema, RLS, flags, and smoke reads after deployment.
 - Deploy Edge Functions only from the exact reviewed commit.
