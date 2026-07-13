@@ -3,13 +3,13 @@
 //
 // Every rendered field passes through escapeHtml. No API response is written
 // to console. The only backend is the osi-v2-case-read Edge Function, which
-// authorizes every call server-side; this file holds no privileged key —
+// authorizes every call server-side; this file holds no privileged key.
 // only the publishable anon key from 01-public-config.js.
 //
 // Active buttons: Connect Wallet, Unlock My Cases, Refresh, View authorized
 // Case, Return to Field Office, maintainer Sign in / Sign out, Unlock
 // overview. Every V2 write control is rendered disabled with its exact unmet
-// prerequisite — OSI_V2_WRITES_ENABLED is false in production.
+// prerequisite. OSI_V2_WRITES_ENABLED is false in production.
 // ============================================================================
 
 "use strict";
@@ -28,9 +28,9 @@ function shortWallet(w) {
   return w.length > 12 ? w.slice(0, 4) + "…" + w.slice(-4) : w;
 }
 function fmtDate(iso) {
-  if (!iso) return "—";
+  if (!iso) return "Not recorded";
   var d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "Not recorded";
   return d.toISOString().slice(0, 10);
 }
 function chipClassForLabel(label) {
@@ -163,7 +163,7 @@ function errorState(retryFnName) {
     offline ? "You are offline" : "The registry could not be reached",
     offline
       ? "Reconnect to the network, then retry. Nothing shown here is live data."
-      : "The read API returned an error. This page never shows placeholder data — retry when ready.",
+      : "The read API returned an error. This page never shows placeholder data. Retry when ready.",
     '<button class="btn" onclick="' + retryFnName + '()">Refresh</button>'
   );
 }
@@ -197,7 +197,7 @@ function viewHead(kicker, title, lede) {
 function renderFieldOffice() {
   mainEl().innerHTML =
     viewHead("Field Office", "Public Case registry",
-      "Community-reviewed V2 Cases with wallet-signed provenance. Only genuinely public Cases appear here — nothing is staged or simulated.") +
+      "Community-reviewed V2 Cases with wallet-signed provenance. Only genuinely public Cases appear here. Nothing is staged or simulated.") +
     '<div class="toolbar">' +
     '<button class="btn" onclick="loadFieldOffice()">Refresh</button>' +
     '<div class="spacer"></div>' +
@@ -216,7 +216,7 @@ function loadFieldOffice() {
     if (!cases.length) {
       body.innerHTML = stateHtml(
         "empty", "◈", "No public Cases yet",
-        "The V2 registry is live and this list reads real production data — there are currently zero publicly visible Cases. " +
+        "The V2 registry is live and this list reads real production data. There are currently zero publicly visible Cases. " +
         "Imported Cases exist in private draft state, readable only by their owners (My OSI) and the maintainer (Operations Center).",
         '<div class="mono">list_public_cases · live · 0 rows</div>'
       );
@@ -299,7 +299,7 @@ function publicCaseDetailHtml(c) {
 function renderWire() {
   mainEl().innerHTML =
     viewHead("The Wire", "Standalone dispatches",
-      "The Wire carries standalone V2 findings that do not require a Case. It reads the live V2 registry — no legacy material is re-labeled as a Wire dispatch.") +
+      "The Wire carries standalone V2 findings that do not require a Case. It reads the live V2 registry. No legacy material is re-labeled as a Wire dispatch.") +
     stateHtml("empty", "◈", "No V2 Wire dispatches yet",
       "The V2 Wire tables are live and empty. Historical V1 wire material remains available, unchanged and clearly labeled, in the " +
       '<a href="./legacy.html">V1 archive</a>.',
@@ -313,7 +313,7 @@ function renderMyOsi() {
   var connected = !!walletPubkey;
   mainEl().innerHTML =
     viewHead("My OSI", "Your Cases",
-      "Prove control of your wallet with a fresh signature to read your own private Cases. The signature authorizes a single short-lived read — it writes nothing and costs nothing.") +
+      "Prove control of your wallet with a fresh signature to read your own private Cases. The signature authorizes a single short-lived read. It writes nothing and costs nothing.") +
     '<div class="panel"><h3 class="panel-h">Wallet</h3>' +
     (connected
       ? '<div class="gate-row"><span class="gate-dot ok"></span><span class="mono">' + escapeHtml(shortWallet(walletPubkey)) + "</span> connected</div>" +
@@ -357,7 +357,7 @@ function unlockMyCases() {
   }).catch(function (e) {
     var text = e && e.message === "signature_rejected"
       ? "Signature request was dismissed in the wallet. Nothing was unlocked."
-      : "Unlock failed — " + (navigator.onLine === false ? "you appear to be offline." : "the read API could not be reached.");
+      : "Unlock failed: " + (navigator.onLine === false ? "you appear to be offline." : "the read API could not be reached.");
     if (msg) { msg.className = "form-msg err"; msg.textContent = text; }
     if (body) body.innerHTML = "";
   });
@@ -417,12 +417,12 @@ function renderOperations() {
   var connected = !!walletPubkey;
   mainEl().innerHTML =
     viewHead("Operations Center", "Maintainer inspection",
-      "Read-only oversight of the live V2 registry. Access requires BOTH the maintainer Supabase sign-in and a fresh signature from the configured admin wallet — either alone is denied.") +
+      "Read-only oversight of the live V2 registry. Access requires BOTH the maintainer Supabase sign-in and a fresh signature from the configured admin wallet. Either alone is denied.") +
     '<div class="panel"><h3 class="panel-h">Maintainer gates</h3>' +
     '<div class="gate-row"><span class="gate-dot ' + (authed ? "ok" : "") + '"></span>Gate 1 · Supabase maintainer session: ' +
     (authed ? '<strong>signed in</strong> <span class="mono">(' + escapeHtml(maintainerEmail || "") + ')</span>' : "not signed in") + "</div>" +
     '<div class="gate-row"><span class="gate-dot ' + (connected ? "ok" : "") + '"></span>Gate 2 · Admin wallet signature: ' +
-    (connected ? '<span class="mono">' + escapeHtml(shortWallet(walletPubkey)) + "</span> connected — signature requested at unlock" : "no wallet connected") + "</div>" +
+    (connected ? '<span class="mono">' + escapeHtml(shortWallet(walletPubkey)) + "</span> connected; signature requested at unlock" : "no wallet connected") + "</div>" +
     (authed
       ? '<div class="toolbar" style="margin-top:10px">' +
         '<button class="btn btn-primary" onclick="unlockOverview()">Unlock overview</button>' +
@@ -470,7 +470,7 @@ function unlockOverview() {
         reason === "half_maintainer_wallet_only" ? "Denied: valid admin wallet signature, but no maintainer sign-in (half-maintainer)." :
         reason === "half_maintainer_auth_only" ? "Denied: signed in, but the connected wallet is not the configured admin wallet (half-maintainer)." :
         reason === "maintainer_denied" ? "Denied: neither maintainer gate is satisfied." :
-        reason === "expired" ? "The challenge expired — unlock again." :
+        reason === "expired" ? "The challenge expired. Unlock again." :
         "Unlock failed (" + escapeHtml(String(reason || res.status)) + ").";
       if (msg) { msg.className = "form-msg err"; msg.textContent = friendly; }
       if (body) body.innerHTML = "";
@@ -481,7 +481,7 @@ function unlockOverview() {
   }).catch(function (e) {
     var text = e && e.message === "signature_rejected"
       ? "Signature request was dismissed in the wallet. Nothing was unlocked."
-      : "Unlock failed — the read API could not be reached.";
+      : "Unlock failed. The read API could not be reached.";
     if (msg) { msg.className = "form-msg err"; msg.textContent = text; }
     if (body) body.innerHTML = "";
   });
@@ -555,6 +555,6 @@ document.addEventListener("DOMContentLoaded", function () {
     provider.connect({ onlyIfTrusted: true }).then(function (res) {
       var key = res && res.publicKey ? res.publicKey.toString() : null;
       if (key) { walletPubkey = key; updateWalletUi(); renderCurrentView(); }
-    }).catch(function () { /* not trusted yet — fine */ });
+    }).catch(function () { /* not trusted yet; fine */ });
   }
 });

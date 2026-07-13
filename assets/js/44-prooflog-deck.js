@@ -412,7 +412,6 @@ function osiRailHtml(active){
   function it(key,ic,label,on){ return '<button class="fr-i'+(active===key?' active':'')+'" type="button" onclick="'+on+'"><span class="fr-ic">'+ic+'</span>'+label+'</button>'; }
   return '<div class="fr-g mono">Field Office</div>'
     + it('field','\u25a3','Cases',"showView('field');fieldMine(false)")
-    + it('mycases','\u25c8','My Cases',"showView('field');fieldMine(true)")
     + it('open','\uff0b','Open Case',"fieldOpenForm()")
     + it('wire','\u224b','The Wire',"showView('wire')")
     + '<div class="fr-g mono">Intelligence</div>'

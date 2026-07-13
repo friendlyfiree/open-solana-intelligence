@@ -53,7 +53,7 @@ body[data-view="registry"] .px-aurora,body[data-view="registry"] .px-scan,body[d
 .osi-home-hero .wrap{position:relative;z-index:3}
 .osi-home-hero .hero-frame{position:absolute;inset:14px;pointer-events:none;z-index:2}
 .osi-hero-visual{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}
-.osi-hero-world{position:absolute;inset:-128px -168px -76px 14%;background-image:url("osi-hero-globe.png");background-repeat:no-repeat;background-position:right center;background-size:cover;opacity:.96;filter:saturate(1.18) contrast(1.08) brightness(1.08)}
+.osi-hero-world{display:none}
 .osi-hero-world::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#020711 0%,rgba(2,7,17,.96) 15%,rgba(2,7,17,.56) 34%,rgba(2,7,17,.10) 62%,rgba(2,7,17,.10) 86%,rgba(2,7,17,.28) 100%)}
 .osi-hero-world::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(2,7,17,.13) 0%,transparent 20%,transparent 72%,#05080f 100%),radial-gradient(620px 250px at 67% 40%,rgba(34,211,238,.13),transparent 74%)}
 .hero-grid-texture{position:absolute;inset:0;background-image:linear-gradient(rgba(124,142,196,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(124,142,196,.04) 1px,transparent 1px);background-size:44px 44px;opacity:.46;-webkit-mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.72) 32%,rgba(0,0,0,.32) 76%,transparent 100%);mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.72) 32%,rgba(0,0,0,.32) 76%,transparent 100%)}

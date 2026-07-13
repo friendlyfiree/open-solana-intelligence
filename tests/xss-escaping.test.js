@@ -26,6 +26,7 @@ function loadFn(file, name) {
 
 const crAttr = loadFn('assets/js/84-public-records.js', 'crAttr');
 const escapeHtml = loadFn('assets/js/50-core-supabase.js', 'escapeHtml');
+const escapeV2Case = loadFn('assets/js/v2-case-integration.js', 'esc');
 
 let pass = 0, fail = 0;
 const ok = (n, c, extra) => { if (c) { pass++; } else { fail++; console.log('FAIL ' + n + (extra ? ' :: ' + extra : '')); } };
@@ -74,6 +75,10 @@ for (const p of payloads) {
 
 // escapeHtml covers all five significant chars.
 ok('escapeHtml full coverage', escapeHtml('<>&"\'') === '&lt;&gt;&amp;&quot;&#39;', escapeHtml('<>&"\''));
+ok('V2 Case rendering escapes all HTML-significant characters',
+  escapeV2Case('<img src=x onerror="alert(1)">\'&') ===
+    '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&#39;&amp;',
+  escapeV2Case('<img src=x onerror="alert(1)">\'&'));
 
 console.log((fail ? 'FAILED: ' + fail : 'OK') + ' (' + pass + ' assertions passed, ' + fail + ' failed)');
 process.exit(fail ? 1 : 0);
