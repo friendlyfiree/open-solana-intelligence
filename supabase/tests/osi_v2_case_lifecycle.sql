@@ -115,15 +115,19 @@ select lives_ok(
   'an eligible analyst fixture is created with the minimum live weight'
 );
 
-select is(
-  (
-    with issued as materialized (
+select lives_ok(
+  $test$
+    create temporary table osi_case_submission_nonce_issued on commit drop as
       select * from public.osi_v2_issue_case_nonce(
       repeat('s', 32), 'CASE_SUBMITTED',
       '11111111111111111111111111111112', 'owner', null,
       repeat('a', 64), 'case-submit-pgtap-0001', repeat('2', 64)
       )
-    )
+  $test$,
+  'owner receives an exact-bound Case submission nonce'
+);
+select is(
+  (
     select jsonb_build_object(
       'nonce', n.nonce,
       'purpose', n.purpose,
@@ -136,7 +140,7 @@ select is(
       'idempotency_key', n.idempotency_key,
       'request_fingerprint_hash', n.request_fingerprint_hash
     )
-      from issued
+      from pg_temp.osi_case_submission_nonce_issued as issued
       join public.osi_nonces as n on n.nonce = issued.issued_nonce
   ),
   jsonb_build_object(
@@ -172,19 +176,21 @@ select lives_ok(
 );
 select is(
   (
-    select stage || ':' || visibility from public.cases
+    select jsonb_build_object(
+      'stage', stage,
+      'visibility', visibility,
+      'details_restricted', details_restricted
+    )
+      from public.cases
      where id = (select target_id::uuid from public.osi_nonces where nonce = repeat('s', 32))
   ),
-  'initial_review:private',
-  'new Case is private and awaiting initial review'
-);
-select is(
-  (
-    select details_restricted from public.cases
-     where id = (select target_id::uuid from public.osi_nonces where nonce = repeat('s', 32))
+  jsonb_build_object(
+    'stage', 'initial_review',
+    'visibility', 'private',
+    'details_restricted',
+      'Restricted context visible only to the owner and authorized reviewers.'
   ),
-  'Restricted context visible only to the owner and authorized reviewers.',
-  'restricted intake detail is stored separately from the public summary'
+  'new Case is private and stores restricted detail outside the public summary'
 );
 select ok(
   (
