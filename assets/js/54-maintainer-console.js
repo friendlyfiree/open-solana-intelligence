@@ -130,6 +130,8 @@ function admClearProtectedData(){
   window.__admBounties = [];
   window.__admConsoleModel = null;
   window.__admSelectedKey = null;
+  var analystQueue = document.getElementById('osi-analyst-ops');
+  if(analystQueue) analystQueue.innerHTML = '<div class="moc-loading">Unlock both maintainer gates to load exact application versions.</div>';
 }
 function renderAdminAccess(opts){
   opts = opts || {};
@@ -176,7 +178,13 @@ function requireMaintainerAccess(actionName){
   if(typeof showToast === 'function') showToast(msg); else alert(msg);
   return false;
 }
-function admOpen(){ showView('admin'); refreshMaintainerGate().then(function(){renderAdminAccess();}); }
+function admOpen(){
+  showView('admin');
+  refreshMaintainerGate().then(function(){
+    var access=renderAdminAccess();
+    if(access.allowed && typeof osiAnalystLoadMaintainerQueue==='function') osiAnalystLoadMaintainerQueue();
+  });
+}
 async function admLogin(){
   const email=(document.getElementById('admEmail').value||'').trim();
   const pw=document.getElementById('admPw').value||'';
@@ -194,6 +202,7 @@ async function admLogin(){
     try{ localStorage.setItem('stw_maint_dev','1'); }catch(_){}
     if(typeof updateAdminButton==='function') updateAdminButton();
     renderAdminAccess({refresh:true});
+    if(typeof osiAnalystLoadMaintainerQueue==='function') osiAnalystLoadMaintainerQueue();
   }catch(e){ msg.textContent='Sign-in failed: '+e.message; }
 }
 async function admLogout(){
@@ -369,9 +378,6 @@ function admSelectedHtml(it){
     + '<button class="moc-action" type="button" onclick="showView(\'analysts\')">Open Full Review</button>'
     + '<button class="moc-action" type="button" onclick="showView(\'records\')"'+publicDisabled+'>Open Public Record</button>'
     + '<button class="moc-action" type="button" onclick="admOpenSelectedAnalyst()"'+analystDisabled+'>Open Analyst Profile</button>'
-    + '</div><div class="moc-disabled">'
-    + '<button class="moc-action" type="button" disabled>Approve / Reject disabled: Requires hardened backend</button>'
-    + '<button class="moc-action" type="button" disabled>Seal Record disabled: Requires hardened backend review</button>'
     + '</div></div></aside>';
 }
 function admBottomHtml(model){

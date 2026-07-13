@@ -32,11 +32,7 @@ function drawWire(){
   const host=document.getElementById('wire-cases'); if(!host) return;
   wireStats(wireState.data);
   let list = wireState.data.slice();
-  if(wireState.sort==='supported'){
-    list.sort(function(a,b){ return (((window.boostCounts||{})[b.id])||0) - (((window.boostCounts||{})[a.id])||0); });
-  } else {
-    list.sort(function(a,b){ if(a.premium!==b.premium) return a.premium?-1:1; return new Date(b.created_at||0) - new Date(a.created_at||0); });
-  }
+  list.sort(function(a,b){ if(a.premium!==b.premium) return a.premium?-1:1; return new Date(b.created_at||0) - new Date(a.created_at||0); });
   if(!list.length){
     host.innerHTML = '<div class="wire-empty"><div class="wire-empty-h">The wire is quiet</div><p>No dispatches yet. Be the first to file one. Trace something nobody asked about and publish it here.</p><button class="wire-cta" onclick="wireOpenForm()">+ File a dispatch</button></div>';
     return;
@@ -61,13 +57,13 @@ function wireCard(d){
     // Voluntary support to the configured OSI wallet only (no per-dispatch wallet).
     if(OSI_SUPPORT_WALLET){ actions += '<button class="wr-act ghost" type="button" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\'OSI project support\',0.5,\'\\u25ce Voluntary support\')">\u25ce Support</button>'; }
   } else {
-    actions += '<button class="wr-act ghost" type="button" onclick="stakeBoost(this)">\u2191 Back</button>';
+    actions += '<button class="wr-act ghost" type="button" onclick="stakeBoost(this)">Signal interest</button>';
     // Stage 4: removed "Support the analyst" to a dispatch's self-declared wallet
     // (unverified, ambiguous). Support routes only to the configured OSI wallet.
   }
   return '<div class="wire-card bounty'+(d.premium?' premium':'')+'" data-bid="'+id+'">'
     + '<span class="fc-stripe"></span>'
-    + '<div class="wr-head"><span class="wr-st '+status+'">'+statusLabel+'</span><span class="wr-by mono">by '+author+'</span><span class="wr-back mono"><span class="b-reward"><span class="n">'+count+'</span></span> backing</span></div>'
+    + '<div class="wr-head"><span class="wr-st '+status+'">'+statusLabel+'</span><span class="wr-by mono">by '+author+'</span><span class="wr-back mono"><span class="b-reward"><span class="n">'+count+'</span></span> interest signals</span></div>'
     + '<div class="fc-title b-target wr-title">'+subject+'</div>'
     + (snippet ? '<div class="wr-snip">'+snippet+'</div>' : '')
     + '<div class="wr-acts">'+actions+'</div>'
@@ -83,7 +79,7 @@ function wireStats(list){
     + '<div class="wire-op"><div class="wire-op-n">'+flag+'</div><div class="wire-op-l">Flagship reports</div></div>'
     + '<div class="wire-op"><div class="wire-op-n">'+comm+'</div><div class="wire-op-l">Community filings</div></div>';
 }
-function wireSort(s){ wireState.sort=s; document.querySelectorAll('.wire-sort').forEach(function(b){ b.classList.toggle('active', b.dataset.s===s); }); drawWire(); }
+function wireSort(){ wireState.sort='newest'; document.querySelectorAll('.wire-sort').forEach(function(b){ b.classList.toggle('active', b.dataset.s==='newest'); }); drawWire(); }
 function wireOpenForm(){ const f=document.getElementById('wire-form'); if(f){ f.hidden=false; f.scrollIntoView({behavior:'smooth',block:'center'}); const t=document.getElementById('wire-subject-in'); if(t) t.focus(); } }
 function wireCloseForm(){ const f=document.getElementById('wire-form'); if(f) f.hidden=true; }
 

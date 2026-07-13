@@ -62,19 +62,11 @@ async function renderAnalysts(){
 // ===== Analyst Proof-of-Work Leaderboard (Round 1a) =====
 // Reputation is earned from reviewed work only. Peer support (SOL) is voluntary and
 // NEVER affects reputation or vote weight. Vote weight is capped. Identity signals are
-// optional and do not by themselves confer trust. Demo data is only available when
-// window.OSI_DEMO_MODE === true; live mode stays empty until real rows exist.
+// optional and do not by themselves confer trust. The mature application now
+// renders only authoritative V2 analyst profile DTOs.
 var LB_IS_DEMO = false;
-var LEADERBOARD_SAMPLE = [
-  { id:'a1', wallet:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', handle:'chainseer', name:'chainseer', tier:2, reviewed:34, reports:9, challenges:5, memo:71, weight:1.75, badges:['Verified','10+ reviews','First seal','Challenge accepted'], x:true, linkedin:true, joined:'Feb 2026', peer:2.4, risk:0 },
-  { id:'a2', wallet:'4Nd1mYh8pQ2rStUvWxYz3aBcDeFgHjKmNpQrStUvWxY', handle:'memo_maria', name:'memo.maria', tier:2, reviewed:26, reports:5, challenges:4, memo:53, weight:1.5, badges:['Verified','Peer reviewer','Clean record'], x:false, linkedin:true, joined:'Feb 2026', peer:0.8, risk:0 },
-  { id:'a3', wallet:'9zAbCdEfGhJkLmNpQrStUvWxYz2345678aBcDeFgHjK', handle:'solsleuth', name:'solsleuth', tier:2, reviewed:22, reports:6, challenges:3, memo:48, weight:1.5, badges:['Verified','6 approved reports'], x:true, linkedin:false, joined:'Mar 2026', peer:1.1, risk:0 },
-  { id:'a4', wallet:'3RtY6uJ8kLmN2pQ4sV7wX9zAbCdEfGhJkLmNpQrStUv', handle:'rugtracer', name:'rugtracer', tier:1, reviewed:15, reports:4, challenges:2, memo:30, weight:1.25, badges:['Verified','Tracer'], x:true, linkedin:false, joined:'Mar 2026', peer:0.5, risk:0 },
-  { id:'a5', wallet:'5FhGjKlMnBvCxZaSdFgHjKlPoIuYtReWqAsDfGhJkLm', handle:'', name:'', tier:1, reviewed:12, reports:3, challenges:1, memo:22, weight:1.25, badges:['Verified','Wallet-only'], x:false, linkedin:false, joined:'Apr 2026', peer:0, risk:0 },
-  { id:'a6', wallet:'2WpQeRtYuIoPaSdFgHjKlZxCvBnMqWeRtYuIoPaSdFg', handle:'degen_dt', name:'degen.dt', tier:0, reviewed:6, reports:1, challenges:0, memo:9, weight:1.0, badges:['New analyst'], x:true, linkedin:false, joined:'Apr 2026', peer:0.2, risk:0 }
-];
-// transparent reputation: reviewed work + approved reports + successful challenges + signed actions
-function lbRep(a){ return (a.reviewed||0)*4 + (a.reports||0)*10 + (a.challenges||0)*8 + (a.memo||0)*1; }
+var LEADERBOARD_SAMPLE = [];
+function lbRep(){ return null; }
 function lbTier(i){ return ANALYST_TIERS[Math.max(0, Math.min(ANALYST_TIERS.length-1, i||0))]; }
 function lbList(){
   if(window.__realLb && window.__realLb.length){ window.__lbList = window.__realLb; return window.__realLb; }
@@ -108,7 +100,7 @@ function osiAvatarSvg(seed, size, name, url){
     +'<text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="Archivo,sans-serif" font-weight="800" font-size="'+fs+'" fill="rgba(6,10,18,.9)">'+escapeHtml(ch)+'</text>'
   +'</svg>';
 }
-var LB_REP_TIP='REP = reviewed cases \u00d74 + approved reports \u00d710 + successful challenges \u00d78 + signed actions \u00d71. Peer support never affects REP.';
+var LB_REP_TIP='Reputation is displayed only when the authoritative server model supplies it.';
 function lbStatus(a){ var v=(a.verified!==undefined)? !!a.verified : !!(a.handle||a.name); return v?'<span class="lp-st v">Verified</span>':'<span class="lp-st w">Wallet-only</span>'; }
 function lbTierLine(a){ var t=lbTier(a.tier); return '<span class="lp-tier '+t.cls+'">Tier '+t.t+' \u00b7 '+escapeHtml(t.name)+'</span>'; }
 function lbName(a){ return a.name ? escapeHtml(a.name) : escapeHtml(short(a.wallet)); }
@@ -340,8 +332,7 @@ async function cvLoadLive(ctx){
   }
   var xp = authored*15 + won*60;
   m.tier = entry ? cvTierByXp(xp) : (ctx.role==='maintainer' ? {name:'Maintainer',cls:'pf-l4',t:'M'} : {name:'Contributor',cls:'pf-l1',t:'-'});
-  m.rep = (m.stats.reports!=null || m.stats.reviewed!=null || m.stats.signed!=null)
-        ? ((m.stats.reports||0)*10 + (m.stats.reviewed||0)*4 + (m.stats.signed||0)) : null;
+  m.rep = entry && entry.rep!=null ? Number(entry.rep) : null;
   // self-only local signals
   if(ctx.self){
     try{ m.selfBacked = Object.keys(lsGet('stw_boosted',{})||{}).length; }catch(e){ m.selfBacked = null; }
