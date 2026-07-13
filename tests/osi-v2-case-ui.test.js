@@ -69,8 +69,16 @@ ok('maintainer control uses the mature shell button id',
   app.includes("getElementById('admLockBtn')"));
 ok('owners are told self-review is unavailable',
   app.includes('Case owners cannot self-review'));
-ok('maintainer-only review is described as weight zero',
-  app.includes('Maintainer status alone has weight 0'));
+ok('maintainer review is an honest weight-zero independent open path',
+  app.includes('full maintainer path has analyst weight 0') &&
+  app.includes('independently authorizes initial open'));
+ok('maintainer receives the real review and CASE_OPENED route',
+  app.includes('Full maintainer initial-open review') &&
+  app.includes("route:route,case_ref:ref") &&
+  app.includes('committed.actor_open_ready'));
+ok('initial open copy remains explicit that it is not truth or guilt approval',
+  app.includes('it does not determine truth or guilt') &&
+  app.includes('it is not a truth or guilt decision'));
 ok('unfinished rejection outcome is absent from review choices',
   !app.includes('<option value="reject">'));
 ok('unfinished rejection outcome is explicitly explained',

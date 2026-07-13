@@ -138,7 +138,7 @@
     var visible=rows.slice((state.page-1)*PAGE_SIZE,state.page*PAGE_SIZE);
     if(!visible.length){
       var emptyTitle=state.mode==='public'?'No public V2 Cases yet':(state.mode==='mine'?'No Cases for this wallet':'No Cases currently await this wallet');
-      var emptyBody=state.mode==='public'?'The registry is live and reads production data. A Case appears only after a real analyst threshold and confirmed CASE_OPENED Memo.':(state.mode==='mine'?'Open a Case to create a private, wallet-anchored record.':'Only private initial-review Cases available under server-derived authorization appear here.');
+      var emptyBody=state.mode==='public'?'The registry is live and reads production data. A Case appears only after an eligible analyst threshold or full maintainer approval, plus a confirmed CASE_OPENED Memo.':(state.mode==='mine'?'Open a Case to create a private, wallet-anchored record.':'Only private initial-review Cases available under server-derived authorization appear here.');
       host.innerHTML='<div class="osi-v2-empty"><b>'+esc(emptyTitle)+'</b><span>'+esc(emptyBody)+'</span></div>';
     }else{
       host.innerHTML=visible.map(function(item){
@@ -279,7 +279,7 @@
       formStatus('Confirming the exact signer, Memo, target, payload hash, and mainnet transaction...');
       var committed=await commitWithConfirmation({op:'commit_case',wallet:wallet,case:payload,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig});
       formStatus('Private Case created with an immutable submission receipt.','success');
-      showToast('Case '+committed.case.public_ref+' is private and awaiting eligible analyst review.');
+      showToast('Case '+committed.case.public_ref+' is private and awaiting eligible analyst or full maintainer review.');
       state.caseIdempotency='';form.reset();
       setTimeout(function(){fieldCloseFormV2();osiV2OpenMyCases();},650);
     }catch(error){formStatus(userError(error),'error');}
@@ -352,17 +352,21 @@
     var html=state.tab==='overview'?overview(item):state.tab==='evidence'?evidence(item):state.tab==='reports'?reports(item):state.tab==='reviews'?reviews(item):state.tab==='resolution'?resolution(item):state.tab==='proof'?proof(item):reward(item);
     var content=document.getElementById('osi-case-content');content.setAttribute('role','tabpanel');content.innerHTML=html;
   }
-  function reviewReady(item){
+  function activeOpeningRoute(item){
+    var wallet=String(walletPubkey||'');var caps=state.capabilities||{};
+    var own=(item.reviews||[]).find(function(row){return row.is_active===true&&row.decision==='approve_open'&&String(row.reviewer_wallet)===wallet;});
+    if(!own)return'';
+    if(own.reviewer_role==='maintainer')return caps.maintainer_access===true?'maintainer':'';
     var approvals=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.reviewer_role==='analyst'&&row.decision==='approve_open';});
-    return approvals.length>=1&&approvals.reduce(function(sum,row){return sum+Number(row.weight||0);},0)>=0.5;
+    return caps.analyst_eligible===true&&approvals.length>=1&&approvals.reduce(function(sum,row){return sum+Number(row.weight||0);},0)>=0.5?'analyst':'';
   }
   function renderActions(){
     var host=document.getElementById('osi-case-actions');var item=state.current;if(!host||!item)return;
     if(state.mode==='review'&&item.visibility==='private'){
-      var canOpen=state.actorRole==='analyst'&&reviewReady(item);
-      host.innerHTML='<span class="osi-action-help">Reviews use signMessage. Public opening is a separate confirmed Solana Memo and requires a counted analyst threshold.</span><button class="osi-action" type="button" onclick="osiV2ComposeReview()">Record review</button>'+(canOpen?'<button class="osi-action primary" type="button" onclick="osiV2AnchorOpen()">Anchor public open</button>':'');
+      var openingRoute=activeOpeningRoute(item);
+      host.innerHTML='<span class="osi-action-help">Reviews use signMessage. Public opening requires either the analyst threshold or a full double-gated maintainer approval, then a separate confirmed Solana Memo. It authorizes public investigation only; it does not determine truth or guilt.</span><button class="osi-action" type="button" onclick="osiV2ComposeReview()">Record review</button>'+(openingRoute?'<button class="osi-action primary" type="button" onclick="osiV2AnchorOpen()">Anchor public open</button>':'');
     }else if(item.visibility==='private'){
-      host.innerHTML='<span class="osi-action-help">Private and awaiting eligible analyst review. Case owners cannot self-review.</span><button class="osi-action" disabled title="Requires an eligible independent analyst">Awaiting analyst</button>';
+      host.innerHTML='<span class="osi-action-help">Private and awaiting an eligible analyst or full maintainer review. Case owners cannot self-review.</span><button class="osi-action" disabled title="Requires an eligible analyst or full maintainer">Awaiting review</button>';
     }else{
       host.innerHTML='<span class="osi-action-help">Public because the open outcome has a confirmed canonical Memo receipt.</span><button class="osi-action" type="button" onclick="osiV2ShowTab(\'proof\')">Inspect proof</button>';
     }
@@ -372,8 +376,8 @@
     var caps=state.capabilities||await refreshCapabilities()||{};
     var host=document.getElementById('osi-review-compose');if(!host)return;
     var route=caps.analyst_eligible?'analyst':'maintainer';
-    var routeChoices=caps.analyst_eligible&&caps.maintainer_access?'<label>Credential route<select id="osi-review-route"><option value="analyst">Counted analyst review</option><option value="maintainer">Uncounted maintainer acknowledgement</option></select></label>':'<input id="osi-review-route" type="hidden" value="'+route+'">';
-    host.innerHTML='<div class="osi-review-form"><div class="osi-review-route">'+(route==='analyst'?'This decision uses the server-derived analyst weight.':'Maintainer status alone has weight 0 and cannot open a Case. Both maintainer credentials are required.')+'</div>'+routeChoices+'<label>Decision<select id="osi-review-decision"><option value="approve_open">Approve public open</option><option value="needs_more">Needs more evidence</option></select></label><label>Reason code<select id="osi-review-reason"><option value="public_scope_clear">Public scope clear</option><option value="needs_more_evidence">Needs more evidence</option><option value="unsafe_or_prohibited">Unsafe or prohibited</option><option value="duplicate_or_out_of_scope">Duplicate or out of scope</option></select></label><p class="osi-action-help">A rejection outcome is unavailable until its separate quorum transition is implemented.</p><button class="osi-action primary" id="osi-review-submit" type="button">Sign and record review</button><div class="osi-form-status mono" id="osi-review-status" role="status"></div></div>';
+    var routeChoices=caps.analyst_eligible&&caps.maintainer_access?'<label>Credential route<select id="osi-review-route"><option value="analyst">Counted analyst review</option><option value="maintainer">Full maintainer initial-open review</option></select></label>':'<input id="osi-review-route" type="hidden" value="'+route+'">';
+    host.innerHTML='<div class="osi-review-form"><div class="osi-review-route">'+(route==='analyst'?'This decision uses the server-derived analyst weight.':'The full maintainer path has analyst weight 0 but independently authorizes initial open after both maintainer gates pass.')+' Opening starts a public investigation; it is not a truth or guilt decision.</div>'+routeChoices+'<label>Decision<select id="osi-review-decision"><option value="approve_open">Approve public open</option><option value="needs_more">Needs more evidence</option></select></label><label>Reason code<select id="osi-review-reason"><option value="public_scope_clear">Public scope clear</option><option value="needs_more_evidence">Needs more evidence</option><option value="unsafe_or_prohibited">Unsafe or prohibited</option><option value="duplicate_or_out_of_scope">Duplicate or out of scope</option></select></label><p class="osi-action-help">A rejection outcome is unavailable until its separate quorum transition is implemented.</p><button class="osi-action primary" id="osi-review-submit" type="button">Sign and record review</button><div class="osi-form-status mono" id="osi-review-status" role="status"></div></div>';
     document.getElementById('osi-review-submit').addEventListener('click',submitReview);
   }
   function reviewStatus(text,kind){var node=document.getElementById('osi-review-status');if(node){node.textContent=text;node.className='osi-form-status mono '+(kind||'');}}
@@ -383,7 +387,7 @@
     try{
       var wallet=await ensureWallet();var route=document.getElementById('osi-review-route').value;
       var review={case_ref:state.current.public_ref,decision:document.getElementById('osi-review-decision').value,reason_code:document.getElementById('osi-review-reason').value};
-      if(route==='maintainer'&&review.decision!=='approve_open')throw new Error('Maintainer acknowledgement can only record approve_open with weight 0.');
+      if(route==='maintainer'&&review.decision!=='approve_open')throw new Error('The full maintainer path can only record approve_open.');
       reviewStatus('Preparing an exact single-use review message...');
       var prepared=await api(WRITE_URL,{op:'prepare_review',wallet:wallet,route:route,review:review,idempotency_key:randomKey('review')});
       reviewStatus('Sign the review message. This is not an on-chain transaction.');
@@ -394,19 +398,21 @@
       await openSignedCollection('review');
       var refreshed=state.cases.find(function(item){return item.public_ref===review.case_ref;});
       if(refreshed)await openCase(refreshed.public_ref);
-      if(committed.open_ready&&route==='analyst'&&review.decision==='approve_open'&&confirm('The analyst threshold is ready. Anchor CASE_OPENED on Solana now? This uses only the standard network fee.')) await anchorOpen();
+      if(committed.actor_open_ready&&review.decision==='approve_open'&&confirm('This initial-open path is ready. Anchor CASE_OPENED on Solana now? This uses only the standard network fee.')) await anchorOpen(route);
     }catch(error){reviewStatus(userError(error),'error');}
     finally{state.reviewBusy=false;if(button)button.disabled=false;}
   }
-  async function anchorOpen(){
+  async function anchorOpen(route){
     if(state.reviewBusy||!state.current)return;
     state.reviewBusy=true;
     try{
       var wallet=await ensureWallet();var ref=state.current.public_ref;
+      route=route||activeOpeningRoute(state.current);
+      if(!route)throw new Error('not_eligible_reviewer');
       showToast('Preparing the canonical CASE_OPENED Memo...');
-      var prepared=await api(WRITE_URL,{op:'prepare_open',wallet:wallet,case_ref:ref,idempotency_key:randomKey('open')});
+      var prepared=await api(WRITE_URL,{op:'prepare_open',wallet:wallet,route:route,case_ref:ref,idempotency_key:randomKey('open')});
       var txSig=await castOnchainVote(prepared.memo);
-      var committed=await commitWithConfirmation({op:'commit_open',wallet:wallet,case_ref:ref,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig});
+      var committed=await commitWithConfirmation({op:'commit_open',wallet:wallet,route:route,case_ref:ref,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig});
       showToast('Case '+committed.case.public_ref+' is now public with confirmed Memo proof.');
       closeCase();await loadPublicCases();await openCase(ref);
     }catch(error){showToast(userError(error));}

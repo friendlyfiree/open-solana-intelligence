@@ -294,7 +294,8 @@ $$;
 -- issuance remain disabled. Absence or any value other than literal true
 -- fails closed in every RPC below.
 -- Class-A anchor actors are exact: the owner wallet anchors CASE_SUBMITTED;
--- the counted approving analyst wallet anchors CASE_OPENED.
+-- the eligible approving analyst or full double-gated maintainer wallet
+-- anchors CASE_OPENED through its own active approve_open review.
 insert into public.osi_config (key, value, updated_at)
 values ('OSI_V2_CASE_WRITES_ENABLED', 'true', statement_timestamp())
 on conflict (key) do nothing;
@@ -314,27 +315,63 @@ as $$
 $$;
 
 create function osi_private.osi_v2_case_review_quorum(p_case_id uuid)
-returns table (analyst_count bigint, total_weight numeric, ready boolean)
+returns table (
+  analyst_count bigint,
+  total_weight numeric,
+  maintainer_count bigint,
+  analyst_ready boolean,
+  maintainer_ready boolean,
+  ready boolean
+)
 language sql
 stable
 security invoker
 set search_path = ''
 as $$
+  with qualified as (
+    select
+      review.reviewer_wallet,
+      review.weight,
+      review.reviewer_role = 'analyst'
+        and profile.status in ('probationary_analyst', 'verified_analyst', 'senior_analyst')
+        and profile.verified = true
+        and profile.approved = true
+        and receipt.actor_role in ('analyst', 'senior')
+        as analyst_approval,
+      review.reviewer_role = 'maintainer'
+        and review.weight = 0
+        and receipt.actor_role = 'maintainer'
+        as maintainer_approval
+    from public.case_initial_reviews as review
+    left join public.analyst_profiles as profile
+      on profile.wallet = review.reviewer_wallet
+    join public.event_receipts as receipt
+      on receipt.id = review.event_receipt_id
+     and receipt.target_type = 'case'
+     and receipt.target_id = review.case_id::text
+     and receipt.actor_wallet = review.reviewer_wallet
+     and receipt.decision = 'approve_open'
+     and receipt.event_type in ('CASE_INITIAL_REVIEW_CAST', 'CASE_INITIAL_REVIEW_REVISED')
+     and receipt.proof_type = 'wallet_signed_server_verified'
+     and receipt.server_verified = true
+    where review.case_id = p_case_id
+      and review.is_active = true
+      and review.decision = 'approve_open'
+  ), totals as (
+    select
+      count(distinct reviewer_wallet) filter (where analyst_approval) as analyst_count,
+      coalesce(sum(weight) filter (where analyst_approval), 0) as total_weight,
+      count(distinct reviewer_wallet) filter (where maintainer_approval) as maintainer_count
+    from qualified
+  )
   select
-    count(distinct review.reviewer_wallet),
-    coalesce(sum(review.weight), 0),
-    count(distinct review.reviewer_wallet) >= 1
-      and coalesce(sum(review.weight), 0) >= 0.50
-  from public.case_initial_reviews as review
-  join public.analyst_profiles as profile
-    on profile.wallet = review.reviewer_wallet
-   and profile.status in ('probationary_analyst', 'verified_analyst', 'senior_analyst')
-   and profile.verified = true
-   and profile.approved = true
-  where review.case_id = p_case_id
-    and review.is_active = true
-    and review.reviewer_role = 'analyst'
-    and review.decision = 'approve_open'
+    analyst_count,
+    total_weight,
+    maintainer_count,
+    analyst_count >= 1 and total_weight >= 0.50,
+    maintainer_count >= 1,
+    (analyst_count >= 1 and total_weight >= 0.50) or maintainer_count >= 1
+  from totals
 $$;
 
 create function osi_private.osi_v2_issue_case_nonce(
@@ -450,9 +487,9 @@ begin
         raise exception 'Actor is not an eligible analyst' using errcode = '42501';
       end if;
     elsif p_actor_role = 'maintainer' then
-      if p_purpose not in ('CASE_INITIAL_REVIEW_CAST', 'CASE_INITIAL_REVIEW_REVISED') then
-        raise exception 'Maintainer status alone cannot open a Case' using errcode = '42501';
-      end if;
+      -- The service-only Edge boundary admits this role only after the
+      -- configured admin wallet and maintainer auth UUID both match.
+      null;
     else
       raise exception 'Actor role is not eligible for Case review' using errcode = '42501';
     end if;
@@ -471,7 +508,27 @@ begin
     if p_purpose = 'CASE_OPENED' then
       select * into quorum_row
         from osi_private.osi_v2_case_review_quorum(case_row.id);
-      if quorum_row.ready is distinct from true
+      if p_actor_role = 'maintainer' then
+        if quorum_row.maintainer_ready is distinct from true
+           or not exists (
+             select 1
+             from public.case_initial_reviews as review
+             join public.event_receipts as receipt on receipt.id = review.event_receipt_id
+             where review.case_id = case_row.id
+               and review.reviewer_wallet = p_actor_wallet
+               and review.reviewer_role = 'maintainer'
+               and review.decision = 'approve_open'
+               and review.weight = 0
+               and review.is_active = true
+               and receipt.actor_wallet = p_actor_wallet
+               and receipt.actor_role = 'maintainer'
+               and receipt.proof_type = 'wallet_signed_server_verified'
+               and receipt.server_verified = true
+           ) then
+          raise exception 'Case opening is not ready for this full maintainer'
+            using errcode = '42501';
+        end if;
+      elsif quorum_row.analyst_ready is distinct from true
          or not exists (
            select 1 from public.case_initial_reviews
            where case_id = case_row.id
@@ -658,6 +715,8 @@ returns table (
   public_ref text,
   review_id uuid,
   receipt_id uuid,
+  analyst_ready boolean,
+  maintainer_ready boolean,
   open_ready boolean,
   idempotent_replay boolean
 )
@@ -708,7 +767,8 @@ begin
     select * into quorum_row
       from osi_private.osi_v2_case_review_quorum(bound_nonce.target_id::uuid);
     return query select existing_receipt.public_ref, new_review_id,
-      existing_receipt.id, quorum_row.ready, true;
+      existing_receipt.id, quorum_row.analyst_ready,
+      quorum_row.maintainer_ready, quorum_row.ready, true;
     return;
   end if;
   if statement_timestamp() > bound_nonce.expires_at then
@@ -740,7 +800,7 @@ begin
     review_weight := profile.weight_cached;
   elsif p_actor_role = 'maintainer' then
     if p_decision <> 'approve_open' then
-      raise exception 'Maintainer initial review is an uncounted approval acknowledgement only'
+      raise exception 'Maintainer initial review supports approve_open only'
         using errcode = '42501';
     end if;
     review_role := 'maintainer';
@@ -796,6 +856,7 @@ begin
 
   select * into quorum_row from osi_private.osi_v2_case_review_quorum(case_row.id);
   return query select case_row.public_ref, new_review_id, new_receipt_id,
+    quorum_row.analyst_ready, quorum_row.maintainer_ready,
     quorum_row.ready, false;
 end
 $$;
@@ -821,6 +882,7 @@ declare
   existing_receipt public.event_receipts%rowtype;
   case_row public.cases%rowtype;
   profile public.analyst_profiles%rowtype;
+  opening_review public.case_initial_reviews%rowtype;
   quorum_row record;
   new_receipt_id uuid := gen_random_uuid();
   receipt_role text;
@@ -854,25 +916,35 @@ begin
   end if;
 
   select * into case_row from public.cases where id = bound_nonce.target_id::uuid for update;
-  select * into profile from public.analyst_profiles where wallet = bound_nonce.actor_wallet;
+  select * into opening_review from public.case_initial_reviews
+   where case_id = case_row.id
+     and reviewer_wallet = bound_nonce.actor_wallet
+     and decision = 'approve_open'
+     and is_active = true;
   select * into quorum_row from osi_private.osi_v2_case_review_quorum(case_row.id);
   if case_row.id is null or case_row.stage <> 'initial_review' or case_row.visibility <> 'private'
-     or profile.wallet is null
-     or profile.status not in ('probationary_analyst', 'verified_analyst', 'senior_analyst')
-     or profile.verified is not true or profile.approved is not true
-     or quorum_row.ready is distinct from true
-     or not exists (
-       select 1 from public.case_initial_reviews
-       where case_id = case_row.id
-         and reviewer_wallet = bound_nonce.actor_wallet
-         and reviewer_role = 'analyst'
-         and decision = 'approve_open'
-         and is_active = true
-     ) then
+     or case_row.submitted_by_wallet = bound_nonce.actor_wallet
+     or opening_review.id is null then
     raise exception 'Case opening authorization or quorum is not valid'
       using errcode = '42501';
   end if;
-  receipt_role := case when profile.status = 'senior_analyst' then 'senior' else 'analyst' end;
+  if opening_review.reviewer_role = 'maintainer' then
+    if quorum_row.maintainer_ready is distinct from true then
+      raise exception 'Full maintainer opening path is not ready' using errcode = '42501';
+    end if;
+    receipt_role := 'maintainer';
+  elsif opening_review.reviewer_role = 'analyst' then
+    select * into profile from public.analyst_profiles where wallet = bound_nonce.actor_wallet;
+    if profile.wallet is null
+       or profile.status not in ('probationary_analyst', 'verified_analyst', 'senior_analyst')
+       or profile.verified is not true or profile.approved is not true
+       or quorum_row.analyst_ready is distinct from true then
+      raise exception 'Analyst opening path is not ready' using errcode = '42501';
+    end if;
+    receipt_role := case when profile.status = 'senior_analyst' then 'senior' else 'analyst' end;
+  else
+    raise exception 'Case opening review role is invalid' using errcode = '42501';
+  end if;
 
   insert into public.event_receipts (
     id, event_version, event_type, target_type, target_id, public_ref,
@@ -969,6 +1041,7 @@ create function public.osi_v2_commit_case_review(
 )
 returns table (
   public_ref text, review_id uuid, receipt_id uuid,
+  analyst_ready boolean, maintainer_ready boolean,
   open_ready boolean, idempotent_replay boolean
 )
 language sql security invoker set search_path = ''
@@ -1080,6 +1153,6 @@ comment on function osi_private.osi_v2_issue_case_nonce(
 ) is 'Case-scoped Stage-5 nonce issuance; independent from the disabled broad V2 proof/write gates.';
 comment on function osi_private.osi_v2_commit_case_open(
   text, text, text, text, timestamptz
-) is 'Atomically consumes a verified CASE_OPENED memo nonce and publishes only after active analyst count+weight quorum.';
+) is 'Atomically consumes a verified CASE_OPENED memo nonce and publishes after either active analyst count+weight quorum or an active full double-gated maintainer approval.';
 
 commit;

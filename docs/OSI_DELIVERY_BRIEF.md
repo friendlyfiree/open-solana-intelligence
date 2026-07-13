@@ -175,19 +175,16 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - The owner can retrieve it through My Cases after a fresh wallet proof.
 - Eligible analysts can cast or revise typed initial reviews.
 - An analyst approval uses the server-derived live weight snapshot.
-- A full maintainer may record an approval acknowledgement with weight zero.
-- Maintainer status alone cannot satisfy analyst quorum or open a Case.
-- A maintainer who is separately analyst-eligible must use the analyst path to count.
-- This is the least-privileged resolution of an accepted-document conflict.
-- The higher-order Constitution and role rules deny maintainer status its own weight.
-- The physical schema and implementation contract still require a maintainer initial-review path.
-- The implementation preserves that path without allowing unilateral publication.
+- A full maintainer may record an `approve_open` review with analyst weight zero.
+- Full maintainer means the configured admin wallet and exact Supabase maintainer auth UUID both pass; either half-maintainer is denied.
+- That active full-maintainer approval is an independent initial-open path and does not require an analyst profile.
+- Maintainer status still confers no analyst count or voting weight in any analyst quorum.
 - Initial rejection is disabled until its counted outcome transition exists.
 - `needs_more` remains revisable and does not fabricate a terminal outcome.
-- Public opening requires at least one counted analyst and total weight of at least 0.50.
-- The opening analyst must own an active counted approval on that Case.
+- Public opening requires either at least one counted analyst with total weight at least 0.50, or one active full-maintainer `approve_open` review.
+- The opening wallet must own the active approval for the path it uses.
 - `CASE_OPENED` requires a separate confirmed canonical Solana Memo.
-- The counted approving analyst wallet is the class-A anchor actor for `CASE_OPENED`.
+- The qualifying analyst or full-maintainer wallet is the class-A anchor actor for `CASE_OPENED`.
 - Only that atomic transition changes stage to `open_public` and visibility to public.
 - Field Office then reads the Case through the public projection.
 - Proof Log distinguishes Memo proof from wallet-signature proof.

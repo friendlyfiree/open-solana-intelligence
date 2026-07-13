@@ -54,7 +54,7 @@ A **header** row is the logical, mutable pointer; **version** rows are immutable
 ## 3. Field definitions (proposed)
 
 ### 3.0 Common review-row contract (shared by all 7 typed review tables)
-Every typed review table has: `id uuid PK`, a **typed FK** to its target (named per table), `reviewer_wallet text`, `decision <enum per table>`, `weight numeric(4,2)` (reviewer weight snapshot ∈ [0.50,3.00] at decision time), `reason_code text` (structured, no narrative), `is_active bool`, `superseded_by uuid nullable` (self-FK), `event_receipt_id uuid FK→event_receipts`, `created_at`. **History rule:** a changed decision inserts a **new** row and sets the prior row's `superseded_by` + `is_active=false`; rows are never deleted. **Active constraint:** partial unique on `(<target_fk>, reviewer_wallet) WHERE is_active`.
+Every typed review table has: `id uuid PK`, a **typed FK** to its target (named per table), `reviewer_wallet text`, `decision <enum per table>`, `weight numeric(4,2)` (eligible-analyst weight snapshot ∈ [0.50,3.00] at decision time; the full-maintainer `case_initial_reviews.approve_open` alternative stores `0` because it is role authority, not analyst weight), `reason_code text` (structured, no narrative), `is_active bool`, `superseded_by uuid nullable` (self-FK), `event_receipt_id uuid FK→event_receipts`, `created_at`. **History rule:** a changed decision inserts a **new** row and sets the prior row's `superseded_by` + `is_active=false`; rows are never deleted. **Active constraint:** partial unique on `(<target_fk>, reviewer_wallet) WHERE is_active`.
 
 ### `cases`
 | field | type | notes |

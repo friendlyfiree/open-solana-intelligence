@@ -53,6 +53,13 @@ ok("exact Case message binding passes",
 ok("wrong purpose is rejected",
   core.validateCaseEventBinding(message, { ...binding, purpose: "CASE_OPENED" }, NOW + 10).reason
     === "wrong_purpose");
+ok("wrong exact Case is rejected",
+  core.validateCaseEventBinding(message, { ...binding, public_ref: "OSI-FFFFFFFFFFFF" }, NOW + 10).reason
+    === "wrong_public_ref");
+ok("wrong exact actor is rejected",
+  core.validateCaseEventBinding(message, {
+    ...binding, actor_wallet: "11111111111111111111111111111112",
+  }, NOW + 10).reason === "wrong_actor_wallet");
 ok("expired event is rejected",
   core.validateCaseEventBinding(message, binding, NOW + 121).reason === "expired");
 ok("message tampering is rejected",
@@ -149,9 +156,15 @@ ok("full maintainer requires both independent gates",
     && core.maintainerGate(false, WALLET, WALLET).reason === "half_maintainer_wallet_only"
     && core.maintainerGate(true, WALLET, "11111111111111111111111111111112").reason
       === "half_maintainer_auth_only");
+ok("ordinary wallet has no maintainer mutation path",
+  core.maintainerGate(false, WALLET, "11111111111111111111111111111112").reason
+    === "maintainer_denied");
 
 const edgeSource = readFileSync(
   join(root, "supabase", "functions", "osi-v2-case-write", "index.ts"), "utf8",
+);
+const migrationSource = readFileSync(
+  join(root, "supabase", "migrations", "20260713045903_osi_v2_case_lifecycle.sql"), "utf8",
 );
 ok("Case Edge Function never selects broad star", !edgeSource.includes('select("*")'));
 ok("Case Edge Function uses only the Case-specific write flag",
@@ -165,6 +178,41 @@ ok("all three native Case effects use service-only RPCs",
 ok("maintainer auth UUID is explicit and fail-closed",
   edgeSource.includes("OSI_MAINTAINER_AUTH_UUID")
     && edgeSource.includes("data?.user?.id === MAINTAINER_AUTH_UUID"));
+ok("prepare and commit open both resolve the requested analyst or maintainer route",
+  (edgeSource.match(/resolveReviewActor\(req, wallet, safeText\(body\.route\)\)/g) ?? []).length >= 4
+    && edgeSource.includes("async function commitOpen(req: Request"));
+ok("CASE_OPENED payload binds actor role and the independent opening path",
+  edgeSource.includes("actor_role: actorRole")
+    && edgeSource.includes('opening_path: actorRole === "maintainer" ? "maintainer" : "analyst"')
+    && edgeSource.includes("maintainer_double_gate_required"));
+ok("half-maintainer reasons remain explicit on the server path",
+  core.maintainerGate.toString().includes("half_maintainer_wallet_only")
+    && core.maintainerGate.toString().includes("half_maintainer_auth_only")
+    && edgeSource.includes("maintainer.reason"));
+ok("owner exclusion is checked before review and open mutation",
+  (edgeSource.match(/submitted_by_wallet === wallet/g) ?? []).length >= 3);
+ok("database readiness models analyst and full-maintainer paths independently",
+  migrationSource.includes("analyst_ready boolean")
+    && migrationSource.includes("maintainer_ready boolean")
+    && migrationSource.includes("analyst_count >= 1 and total_weight >= 0.50")
+    && migrationSource.includes("maintainer_count >= 1"));
+ok("eligible analyst opening remains tied to an active weighted approval",
+  migrationSource.includes("quorum_row.analyst_ready")
+    && migrationSource.includes("reviewer_role = 'analyst'")
+    && migrationSource.includes("review_weight := profile.weight_cached"));
+ok("full maintainer opens from a verified weight-zero approval without an analyst profile",
+  migrationSource.includes("opening_review.reviewer_role = 'maintainer'")
+    && migrationSource.includes("quorum_row.maintainer_ready")
+    && migrationSource.includes("receipt_role := 'maintainer'")
+    && !migrationSource.includes("Maintainer status alone cannot open a Case"));
+ok("review and open receipts preserve exact maintainer proof attribution",
+  migrationSource.includes("p_reason_code, 'wallet_signed_server_verified'")
+    && migrationSource.includes("'CASE_OPENED'")
+    && migrationSource.includes("'solana_memo'")
+    && migrationSource.includes("bound_nonce.actor_wallet, receipt_role, 'open'"));
+ok("consumed nonces reject changed signed review and open transaction proof",
+  migrationSource.includes("Consumed review nonce cannot change signed decision")
+    && migrationSource.includes("Consumed open nonce cannot change transaction proof"));
 ok("Case gateway never logs payloads", !/console\.log/.test(edgeSource));
 
 console.log((fail ? "FAILED: " + fail : "OK")

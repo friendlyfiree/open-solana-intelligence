@@ -389,17 +389,32 @@ async function commitReview(req: Request, body: Row): Promise<Response> {
   if (error || !data?.[0]) return rpcFailure(error);
   return jsonResponse(200, {
     ok: true, public_ref: data[0].public_ref, actor_role: actor.role,
+    analyst_ready: data[0].analyst_ready === true,
+    maintainer_ready: data[0].maintainer_ready === true,
     open_ready: data[0].open_ready === true,
+    actor_open_ready: actor.role === "maintainer"
+      ? data[0].maintainer_ready === true
+      : data[0].analyst_ready === true && input.decision === "approve_open",
     proof: { label: "Wallet-signed & server-verified" },
     idempotent_replay: data[0].idempotent_replay === true,
-    next_step: data[0].open_ready === true
-      ? "An eligible approving analyst must anchor CASE_OPENED on Solana."
-      : "Waiting for the analyst count and weight threshold.",
+    next_step: actor.role === "maintainer" && data[0].maintainer_ready === true
+      ? "This full maintainer may anchor CASE_OPENED on Solana."
+      : data[0].analyst_ready === true && input.decision === "approve_open"
+      ? "This eligible approving analyst may anchor CASE_OPENED on Solana."
+      : "Waiting for either the analyst threshold or a full maintainer approval.",
   });
 }
 
-function openPayload(caseRef: string) {
-  return { case_ref: caseRef, outcome: "open", required_count: 1, required_weight: "0.50" };
+function openPayload(caseRef: string, actorRole: string) {
+  return {
+    case_ref: caseRef,
+    outcome: "open",
+    actor_role: actorRole,
+    opening_path: actorRole === "maintainer" ? "maintainer" : "analyst",
+    analyst_required_count: 1,
+    analyst_required_weight: "0.50",
+    maintainer_double_gate_required: actorRole === "maintainer",
+  };
 }
 
 async function prepareOpen(req: Request, body: Row): Promise<Response> {
@@ -410,31 +425,36 @@ async function prepareOpen(req: Request, body: Row): Promise<Response> {
   let idempotencyKey: string;
   try { idempotencyKey = validateIdempotencyKey(body.idempotency_key); }
   catch { return jsonResponse(400, { ok: false, error: "bad_idempotency_key" }); }
-  const role = await analystRole(wallet);
-  if (!role) return jsonResponse(403, { ok: false, error: "eligible_analyst_required" });
+  const actor = await resolveReviewActor(req, wallet, safeText(body.route));
+  if (!actor.ok) return jsonResponse(403, { ok: false, error: actor.reason });
   const found = await caseRow(publicRef);
   if (found.error || !found.row) return jsonResponse(404, { ok: false, error: "not_found_or_denied" });
-  const hash = await payloadHash(openPayload(publicRef));
+  if (found.row.submitted_by_wallet === wallet) {
+    return jsonResponse(403, { ok: false, error: "self_review_denied" });
+  }
+  const hash = await payloadHash(openPayload(publicRef, actor.role));
   const { data, error } = await issueCaseNonce({
     p_nonce: randomNonce(), p_purpose: "CASE_OPENED", p_actor_wallet: wallet,
-    p_actor_role: role, p_target_id: found.row.id, p_payload_hash: hash,
+    p_actor_role: actor.role, p_target_id: found.row.id, p_payload_hash: hash,
     p_idempotency_key: idempotencyKey, p_request_fingerprint_hash: await fingerprint(req),
   });
   if (error || !data?.[0]) return rpcFailure(error);
   const issued = data[0];
   const binding = {
     purpose: "CASE_OPENED", public_ref: publicRef, actor_wallet: wallet,
-    actor_role: role, decision: "open", nonce: issued.issued_nonce,
+    actor_role: actor.role, decision: "open", nonce: issued.issued_nonce,
     payload_hash: hash, issued_at: isoSeconds(issued.issued_at),
     expires_at: isoSeconds(issued.expires_at),
   };
   return jsonResponse(200, {
     ok: true, nonce: issued.issued_nonce, payload_hash: hash,
+    actor_role: actor.role,
+    opening_path: actor.role === "maintainer" ? "maintainer" : "analyst",
     memo: canonicalCaseEventMessage(binding), expires_at: binding.expires_at,
   });
 }
 
-async function commitOpen(body: Row): Promise<Response> {
+async function commitOpen(req: Request, body: Row): Promise<Response> {
   if (!await caseWritesEnabled()) return jsonResponse(503, { ok: false, error: "case_writes_disabled" });
   const wallet = safeText(body.wallet);
   const publicRef = safeText(body.case_ref);
@@ -442,17 +462,20 @@ async function commitOpen(body: Row): Promise<Response> {
   const memo = safeText(body.memo);
   const txSig = safeText(body.tx_sig);
   try { validateWallet(wallet); } catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
-  const role = await analystRole(wallet);
-  if (!role) return jsonResponse(403, { ok: false, error: "eligible_analyst_required" });
+  const actor = await resolveReviewActor(req, wallet, safeText(body.route));
+  if (!actor.ok) return jsonResponse(403, { ok: false, error: actor.reason });
   const found = await caseRow(publicRef);
   if (found.error || !found.row) return jsonResponse(404, { ok: false, error: "not_found_or_denied" });
-  const hash = await payloadHash(openPayload(publicRef));
+  if (found.row.submitted_by_wallet === wallet) {
+    return jsonResponse(403, { ok: false, error: "self_review_denied" });
+  }
+  const hash = await payloadHash(openPayload(publicRef, actor.role));
   const nonceResult = await loadBoundNonce(nonce);
   const bound = nonceResult.row;
   if (nonceResult.error || !bound || bound.purpose !== "CASE_OPENED") {
     return jsonResponse(409, { ok: false, error: "unknown_or_wrong_nonce" });
   }
-  const binding = proofBinding(bound, publicRef, role, "open");
+  const binding = proofBinding(bound, publicRef, actor.role, "open");
   const exact = validateCaseEventBinding(memo, binding, Math.floor(Date.now() / 1000));
   if (!exact.ok || bound.actor_wallet !== wallet || bound.target_id !== found.row.id || bound.payload_hash !== hash) {
     return jsonResponse(409, { ok: false, error: "proof_binding_rejected" });
@@ -466,6 +489,8 @@ async function commitOpen(body: Row): Promise<Response> {
   if (error || !data?.[0]) return rpcFailure(error);
   return jsonResponse(200, {
     ok: true, case: { public_ref: data[0].public_ref, stage: "open_public", visibility: "public" },
+    actor_role: actor.role,
+    opening_path: actor.role === "maintainer" ? "maintainer" : "analyst",
     proof: { label: "Memo-anchored on Solana", tx_sig: txSig },
     idempotent_replay: data[0].idempotent_replay === true,
   });
@@ -481,7 +506,8 @@ async function actorCapabilities(req: Request, body: Row): Promise<Response> {
     ok: true, case_writes_enabled: enabled, analyst_eligible: !!role,
     analyst_role: role || null, maintainer_access: maintainer.ok === true,
     maintainer_gate: maintainer.ok ? "full" : maintainer.reason,
-    maintainer_review_effect: "uncounted_acknowledgement",
+    maintainer_review_effect: "independent_initial_open_path",
+    maintainer_can_open: maintainer.ok === true,
   });
 }
 
@@ -512,7 +538,7 @@ serve(async (req: Request): Promise<Response> => {
     case "prepare_review": return await prepareReview(req, body);
     case "commit_review": return await commitReview(req, body);
     case "prepare_open": return await prepareOpen(req, body);
-    case "commit_open": return await commitOpen(body);
+    case "commit_open": return await commitOpen(req, body);
     case "actor_capabilities": return await actorCapabilities(req, body);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });
   }

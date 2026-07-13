@@ -25,8 +25,8 @@ Tier model live; full formula runs in **shadow mode** producing snapshots for co
 - AI Pack approval: ≥2 independent (creator excluded) + maintainer, Σweight ≥ 2.50.
 - Challenge accept/reject: ≥2 independent, Σweight ≥ 2.50.
 - Seal: ≥2 + maintainer, Σweight ≥ 2.50.
-- Case initial open: ≥1, Σweight ≥ 0.50. Normal initial rejection: ≥2, Σweight ≥ 2.00.
-- **A maintainer signature is required for exactly three outcomes: resolution / winning-Report selection, AI-Pack approval, and seal.** No maintainer gate is added to Case Report / Wire Report publication or rejection, Case initial open/rejection, or challenge accept/reject — those finalize on the analyst two-gate alone. Maintainer status alone confers no analyst weight (`OSI_V2_VOTING_REPUTATION_MODEL.md §2`).
+- Case initial open: either ≥1 independent eligible analyst with Σweight ≥ 0.50, **or** one full double-gated maintainer `approve_open` review at analyst weight 0 followed by that wallet's `CASE_OPENED` Memo. Normal initial rejection: ≥2 analysts, Σweight ≥ 2.00.
+- **A maintainer signature is required as an additional gate for exactly three outcomes: resolution / winning-Report selection, AI-Pack approval, and seal.** No maintainer gate is added to Case Report / Wire Report publication or rejection, Case initial rejection, or challenge accept/reject. Case initial open is the sole independent-path exception above; it authorizes public investigation and is never a truth/guilt decision (`OSI_V2_VOTING_REPUTATION_MODEL.md §2`).
 These are listed identically in `OSI_V2_VOTING_REPUTATION_MODEL.md §5`. *Sec high · UX medium · Impl small · Mig low. Exact numbers are an **implementation detail requiring measurement** and may be tuned via `osi_config` without a schema change.*
 
 ### D6 — Owner private reads — **RESOLVED**
@@ -60,7 +60,7 @@ One primary winning Report version → one reward recipient initially. Supportin
 **Hybrid model:** individual decisions = `signMessage` + server-verified receipt; final public governance outcome = Solana Memo. Proof Log distinguishes the four proof types (`OSI_V2_MEMO_EVENT_SPEC.md §1`). *Sec high · UX medium · Impl medium.*
 
 ### D16 — Public analyst accountability — **RESOLVED**
-Public governance decisions (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges) show **analyst public profile/handle, wallet, decision, voting-weight snapshot, timestamp, and proof type**, with a public-safe receipt/tx reference. Private notes, private evidence, detailed moderation reasons, and sensitive reason text stay restricted. The phrase "anonymized-but-attributable" is **removed** for normal public decisions. Pre-public/private queue activity may show only counts until the Case opens. *Sec medium · UX high.*
+Public governance decisions (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges) show the participating **analyst or full maintainer role, public profile/handle where applicable, wallet, decision, voting-weight snapshot (maintainer initial-open path = 0), timestamp, and proof type**, with a public-safe receipt/tx reference. Private notes, private evidence, detailed moderation reasons, and sensitive reason text stay restricted. The phrase "anonymized-but-attributable" is **removed** for normal public decisions. Pre-public/private queue activity may show only counts until the Case opens. *Sec medium · UX high.*
 
 ---
 

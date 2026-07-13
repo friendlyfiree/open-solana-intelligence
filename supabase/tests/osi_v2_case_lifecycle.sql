@@ -4,7 +4,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(53);
 
 select is(
   (select value from public.osi_config where key = 'OSI_V2_WRITES_ENABLED'),
@@ -215,7 +215,7 @@ select lives_ok(
       repeat('c', 64), 'case-maint-review-0001', repeat('4', 64)
     )
   $test$,
-  'full maintainer route can issue an initial approval acknowledgement nonce'
+  'full maintainer route can issue an initial approval nonce'
 );
 select lives_ok(
   $test$
@@ -224,7 +224,7 @@ select lives_ok(
       'maintainer', 'approve_open', 'public_scope_clear'
     )
   $test$,
-  'maintainer approval acknowledgement is recorded'
+  'full maintainer approve_open review is recorded'
 );
 select is(
   (
@@ -232,16 +232,16 @@ select is(
      where reviewer_wallet = '33333333333333333333333333333333'
   ),
   0.00::numeric,
-  'maintainer status alone always has zero review weight'
+  'full maintainer review carries zero analyst voting weight'
 );
-select is(
+select ok(
   (
-    select ready from osi_private.osi_v2_case_review_quorum(
+    select maintainer_ready and ready and not analyst_ready
+      from osi_private.osi_v2_case_review_quorum(
       (select target_id::uuid from public.osi_nonces where nonce = repeat('s', 32))
     )
   ),
-  false,
-  'uncounted maintainer acknowledgement cannot open a Case'
+  'full maintainer is an independent ready path without fabricating analyst quorum'
 );
 
 select lives_ok(
@@ -395,6 +395,137 @@ select throws_ok(
   '55000',
   'Submitted Case content and submission receipt are immutable',
   'submitted restricted content cannot be rewritten'
+);
+
+-- A second Case proves the full-maintainer path can perform the actual open
+-- without any analyst profile. The Edge boundary supplies the maintainer role
+-- only after both wallet and Supabase auth gates pass; these service-role RPC
+-- fixtures exercise the durable database half of that verified server path.
+select lives_ok(
+  $test$
+    select * from public.osi_v2_issue_case_nonce(
+      repeat('k', 32), 'CASE_SUBMITTED',
+      '44444444444444444444444444444444', 'owner', null,
+      repeat('9', 64), 'case-maint-submit-0002', repeat('9', 64)
+    )
+  $test$,
+  'second owner receives a maintainer-path Case submission nonce'
+);
+select lives_ok(
+  $test$
+    select * from public.osi_v2_commit_case_submission(
+      repeat('k', 32), repeat('9', 64),
+      'Maintainer initial open fixture', 'other',
+      'A neutral public summary for the independent full maintainer opening path.',
+      'Private maintainer-path fixture detail that must not leak publicly.',
+      null, '[]'::jsonb,
+      repeat('V', 88), 'OSI2 second CASE_SUBMITTED memo', statement_timestamp()
+    )
+  $test$,
+  'second private Case is committed for the full maintainer path'
+);
+select is(
+  (select count(*)::integer from public.analyst_profiles
+    where wallet = '33333333333333333333333333333333'),
+  0,
+  'full maintainer fixture has no analyst profile'
+);
+select lives_ok(
+  $test$
+    select * from public.osi_v2_issue_case_nonce(
+      repeat('j', 32), 'CASE_INITIAL_REVIEW_CAST',
+      '33333333333333333333333333333333', 'maintainer',
+      (select target_id from public.osi_nonces where nonce = repeat('k', 32)),
+      repeat('8', 64), 'case-maint-review-0002', repeat('8', 64)
+    )
+  $test$,
+  'full maintainer without an analyst profile receives a review nonce'
+);
+select lives_ok(
+  $test$
+    select * from public.osi_v2_commit_case_review(
+      repeat('j', 32), repeat('8', 64), repeat('N', 88),
+      'maintainer', 'approve_open', 'public_scope_clear'
+    )
+  $test$,
+  'full maintainer without an analyst profile commits approve_open'
+);
+select ok(
+  (
+    select review.weight = 0
+       and receipt.actor_role = 'maintainer'
+       and receipt.proof_type = 'wallet_signed_server_verified'
+       and receipt.server_verified is true
+      from public.case_initial_reviews as review
+      join public.event_receipts as receipt on receipt.id = review.event_receipt_id
+     where review.case_id = (select target_id::uuid from public.osi_nonces where nonce = repeat('k', 32))
+       and review.reviewer_wallet = '33333333333333333333333333333333'
+       and review.is_active = true
+  ),
+  'maintainer review receipt has exact actor role, zero weight, and wallet proof type'
+);
+select lives_ok(
+  $test$
+    select * from public.osi_v2_issue_case_nonce(
+      repeat('z', 32), 'CASE_OPENED',
+      '33333333333333333333333333333333', 'maintainer',
+      (select target_id from public.osi_nonces where nonce = repeat('k', 32)),
+      repeat('7', 64), 'case-maint-open-0002', repeat('7', 64)
+    )
+  $test$,
+  'full maintainer receives the exact CASE_OPENED nonce for its approved Case'
+);
+select lives_ok(
+  $test$
+    select * from public.osi_v2_commit_case_open(
+      repeat('z', 32), repeat('7', 64), repeat('W', 88),
+      'OSI2 maintainer CASE_OPENED memo', statement_timestamp()
+    )
+  $test$,
+  'full maintainer canonical proof opens the Case without an analyst profile'
+);
+select is(
+  (
+    select stage || ':' || visibility from public.cases
+     where id = (select target_id::uuid from public.osi_nonces where nonce = repeat('k', 32))
+  ),
+  'open_public:public',
+  'full maintainer path performs the public transition'
+);
+select ok(
+  (
+    select receipt.actor_wallet = '33333333333333333333333333333333'
+       and receipt.actor_role = 'maintainer'
+       and receipt.anchor_wallet = receipt.actor_wallet
+       and receipt.event_type = 'CASE_OPENED'
+       and receipt.proof_type = 'solana_memo'
+       and receipt.server_verified is true
+      from public.cases as case_row
+      join public.event_receipts as receipt on receipt.id = case_row.opened_receipt_id
+     where case_row.id = (select target_id::uuid from public.osi_nonces where nonce = repeat('k', 32))
+  ),
+  'maintainer CASE_OPENED receipt binds the exact Case, actor, role, and Memo proof'
+);
+select is(
+  (
+    select idempotent_replay from public.osi_v2_commit_case_open(
+      repeat('z', 32), repeat('7', 64), repeat('W', 88),
+      'OSI2 maintainer CASE_OPENED memo', statement_timestamp()
+    )
+  ),
+  true,
+  'maintainer CASE_OPENED replay returns the original result without duplication'
+);
+select throws_ok(
+  $test$
+    select * from public.osi_v2_commit_case_open(
+      repeat('z', 32), repeat('6', 64), repeat('W', 88),
+      'OSI2 maintainer CASE_OPENED memo', statement_timestamp()
+    )
+  $test$,
+  '23514',
+  'Open nonce binding is invalid',
+  'maintainer CASE_OPENED nonce rejects a different payload hash'
 );
 
 select * from finish();

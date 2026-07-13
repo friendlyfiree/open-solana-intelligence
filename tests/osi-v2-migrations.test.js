@@ -299,14 +299,17 @@ ok(
   /create function osi_private\.osi_v2_consume_read_nonce[\s\S]*update public\.osi_read_nonces[\s\S]*consumed_at is null[\s\S]*return found/i.test(lifecycle),
 );
 ok(
-  'Case opening rechecks both analyst count and weight',
-  /count\(distinct review\.reviewer_wallet\) >= 1[\s\S]*sum\(review\.weight\)[\s\S]*>= 0\.50/i.test(lifecycle)
+  'Case opening models analyst count+weight and full-maintainer readiness independently',
+  lifecycle.includes('analyst_count >= 1 and total_weight >= 0.50')
+    && lifecycle.includes('maintainer_count >= 1')
     && /osi_v2_commit_case_open[\s\S]*osi_v2_case_review_quorum/i.test(lifecycle),
 );
 ok(
-  'maintainer acknowledgement has zero review weight and cannot issue CASE_OPENED',
+  'maintainer review has zero analyst weight and may issue CASE_OPENED on its own verified path',
   lifecycle.includes("review_weight := 0")
-    && lifecycle.includes("Maintainer status alone cannot open a Case"),
+    && lifecycle.includes("opening_review.reviewer_role = 'maintainer'")
+    && lifecycle.includes('quorum_row.maintainer_ready')
+    && !lifecycle.includes("Maintainer status alone cannot open a Case"),
 );
 ok(
   'Case idempotency binds retries to the exact target',

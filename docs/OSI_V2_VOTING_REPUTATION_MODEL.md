@@ -20,7 +20,7 @@ Any critical outcome (publish, reject-final, resolve, pack-approve, seal, challe
 
 Because max weight is 3.00 and `N_min ≥ 2`, **no single analyst can satisfy the count gate.** Weight can accelerate consensus but never bypass the count gate. This is the mathematical guarantee behind P3.
 
-**Maintainer weight rule (correction #6):** *maintainer status alone confers no voting weight.* A maintainer contributes to the count/weight gates **only if the same wallet is separately analyst-eligible** (verified + approved), and then subject to every exclusion above. The maintainer *finalization* signature required for the three maintainer-gated outcomes (resolution/winner, AI-Pack approval, seal — D5) is a distinct act and is **not** an analyst vote. Ordinary connected wallets never contribute counted weight.
+**Maintainer weight rule (correction #6):** *maintainer status alone confers no voting weight.* A maintainer contributes to count/weight gates **only if the same wallet is separately analyst-eligible** (verified + approved), and then subject to every exclusion above. Case initial open has a separate role-authority path: a full double-gated maintainer may record `approve_open` at weight `0` and anchor `CASE_OPENED` without an analyst profile. This does not become an analyst vote or a truth/guilt decision. The maintainer *finalization* signature required for the three maintainer-gated outcomes (resolution/winner, AI-Pack approval, seal — D5) remains a distinct act. Ordinary connected wallets never contribute counted weight.
 
 ## 3. Contribution score (formula option)
 
@@ -71,7 +71,7 @@ Demotion: a reversal or policy violation drops one tier (min Probationary). Tier
 
 | Outcome | risk tier | `N_min` (independent) | `W_thr` (weight sum) |
 |---|---|---|---|
-| Open case (initial approve) | any | 1 | 0.50 |
+| Open case (initial approve) | any | analyst path: 1; full-maintainer path: 1 double-gated maintainer | analyst path: 0.50; full-maintainer path: 0 |
 | Normal initial rejection | any | 2 | 2.00 |
 | Publish report | standard | 2 | 2.00 |
 | Publish report | high | 3 | 4.00 |

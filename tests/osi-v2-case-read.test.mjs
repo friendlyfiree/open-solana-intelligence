@@ -221,6 +221,35 @@ ok("public DTO keeps public governance attribution",
 ok("public DTO keeps the exact legacy label",
   pub.proof_log[0].label === "Legacy / not server-verified");
 
+const maintainerReceipt = {
+  event_type: "CASE_OPENED",
+  target_type: "case",
+  target_id: caseRow.public_ref,
+  actor_wallet: STRANGER,
+  actor_role: "maintainer",
+  decision: "open",
+  weight: null,
+  reason_code: "SECRET restricted reason",
+  proof_type: "solana_memo",
+  memo_ref: "SECRET raw memo",
+  payload_hash: "f".repeat(64),
+  nonce: "SECRET nonce",
+  signature: "SECRET signature",
+  tx_sig: REAL_TX,
+  server_verified: true,
+  occurred_at: "2026-01-05T00:00:00Z",
+};
+const maintainerPub = core.publicCaseDto(
+  caseRow, [report], { [report.id]: [version] }, [maintainerReceipt], [], [],
+);
+ok("public DTO exposes honest full-maintainer CASE_OPENED attribution",
+  maintainerPub.proof_log[0].actor_role === "maintainer"
+    && maintainerPub.proof_log[0].label === "Memo-anchored on Solana"
+    && maintainerPub.proof_log[0].weight === null);
+ok("public maintainer proof leaks no restricted receipt fields",
+  core.collectForbiddenKeys(maintainerPub).size === 0
+    && !JSON.stringify(maintainerPub).includes("SECRET"));
+
 const ownerView = core.authorizedCaseDto(caseRow, [report], { [report.id]: [version] }, [receipt],
   { kind: "owner", wallet: OWNER });
 ok("case owner does NOT receive another author's private body",
