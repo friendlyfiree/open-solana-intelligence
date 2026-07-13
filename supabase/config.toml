@@ -402,6 +402,12 @@ verify_jwt = false
 [functions.osi-v2-case-read]
 verify_jwt = false
 
+# Native Case intake/review/open gateway. Wallet actors use exact Stage-5
+# proofs; the maintainer review route additionally validates its JWT and the
+# configured admin wallet in-function. Database mutations remain service-only.
+[functions.osi-v2-case-write]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
