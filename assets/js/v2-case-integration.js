@@ -210,9 +210,10 @@
     if(!walletPubkey){state.capabilities=null;setAdminVisibility(false);return null;}
     try{
       state.capabilities=await api(WRITE_URL,{op:'actor_capabilities',wallet:walletPubkey});
+      if(typeof setMaintainerServerGate==='function') setMaintainerServerGate(state.capabilities.maintainer_access===true,state.capabilities.maintainer_gate||'denied');
       setAdminVisibility(state.capabilities.maintainer_access===true);
       return state.capabilities;
-    }catch(error){state.capabilities=null;setAdminVisibility(false);return null;}
+    }catch(error){state.capabilities=null;if(typeof setMaintainerServerGate==='function')setMaintainerServerGate(false,'unavailable');setAdminVisibility(false);return null;}
   }
   function setAdminVisibility(allowed){
     var button=document.getElementById('admLockBtn')||document.getElementById('adminBtn')||document.getElementById('admin-btn');

@@ -21,6 +21,8 @@ export const READ_PURPOSES = new Set([
   "CASE_READ_AUTHORIZED_CASE",
   "CASE_READ_REVIEW_QUEUE",
   "CASE_READ_MAINTAINER_OVERVIEW",
+  "ANALYST_READ_MY_WORKSPACE",
+  "ANALYST_READ_MAINTAINER_QUEUE",
 ]);
 
 // Exact, honest proof labels. A receipt may claim the verified/on-chain labels

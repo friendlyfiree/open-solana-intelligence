@@ -6,23 +6,70 @@ function maintainerShortWallet(addr){
   addr = String(addr || '');
   return addr.length > 10 ? addr.slice(0,4) + '...' + addr.slice(-4) : addr;
 }
+var OSI_MAINTAINER_SERVER_GATE = false;
+var OSI_MAINTAINER_GATE_REASON = 'checking';
+var OSI_MAINTAINER_GATE_REQUEST = null;
+
+function setMaintainerServerGate(allowed,reason){
+  OSI_MAINTAINER_SERVER_GATE = allowed === true;
+  OSI_MAINTAINER_GATE_REASON = reason || (allowed ? 'full' : 'denied');
+  updateMaintainerAccessUI();
+}
+
+function updateMaintainerAccessUI(){
+  var badge=document.getElementById('maintainerAccessBadge');
+  var ctx=resolveMaintainerAccess();
+  if(badge){
+    badge.textContent=ctx.allowed?'unlocked':(ctx.passwordAuthenticated?'1 of 2':'2 gates');
+    badge.classList.toggle('ready',ctx.allowed);
+  }
+  if(document.body && document.body.dataset.view==='admin'){
+    try{ renderAdminAccess(); }catch(_){ }
+  }
+}
+
+async function refreshMaintainerGate(){
+  var ctx=resolveMaintainerAccess();
+  if(!ctx.walletConnected){ setMaintainerServerGate(false,'no_wallet'); return false; }
+  if(!ctx.isMaintainerWallet){ setMaintainerServerGate(false,'wrong_wallet'); return false; }
+  if(!ctx.passwordAuthenticated){ setMaintainerServerGate(false,'login_required'); return false; }
+  if(OSI_MAINTAINER_GATE_REQUEST) return OSI_MAINTAINER_GATE_REQUEST;
+  OSI_MAINTAINER_GATE_REASON='checking'; updateMaintainerAccessUI();
+  OSI_MAINTAINER_GATE_REQUEST=fetch(SUPABASE_URL+'/functions/v1/osi-v2-case-write',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPA_AUTH_TOKEN},
+    body:JSON.stringify({op:'actor_capabilities',wallet:ctx.wallet})
+  }).then(async function(response){
+    var data={}; try{data=await response.json();}catch(_){ }
+    var allowed=response.ok && data.ok===true && data.maintainer_access===true;
+    setMaintainerServerGate(allowed,allowed?'full':(data.maintainer_gate||'auth_rejected'));
+    return allowed;
+  }).catch(function(){ setMaintainerServerGate(false,'unavailable'); return false; })
+    .finally(function(){ OSI_MAINTAINER_GATE_REQUEST=null; });
+  return OSI_MAINTAINER_GATE_REQUEST;
+}
+
 function resolveMaintainerAccess(){
   var wallet = walletPubkey || null;
   var walletConnected = !!wallet;
   var adminWallet = (typeof OSI_ADMIN_WALLET !== 'undefined' && OSI_ADMIN_WALLET) ? String(OSI_ADMIN_WALLET).trim() : '';
   var isMaintainerWallet = !!(walletConnected && adminWallet && String(wallet) === adminWallet);
-  var passwordAuthenticated = !!(typeof SUPA_AUTH_TOKEN !== 'undefined' && SUPA_AUTH_TOKEN);
+  var passwordAuthenticated = !!(typeof SUPA_AUTH_TOKEN !== 'undefined' && SUPA_AUTH_TOKEN && typeof SUPA_AUTH_USER !== 'undefined' && SUPA_AUTH_USER);
   var state = 'no_wallet';
   if(walletConnected && !isMaintainerWallet) state = 'wrong_wallet';
   else if(isMaintainerWallet && !passwordAuthenticated) state = 'login_required';
-  else if(isMaintainerWallet && passwordAuthenticated) state = 'allowed';
+  else if(isMaintainerWallet && passwordAuthenticated && OSI_MAINTAINER_SERVER_GATE) state = 'allowed';
+  else if(isMaintainerWallet && passwordAuthenticated && OSI_MAINTAINER_GATE_REASON === 'checking') state = 'checking';
+  else if(isMaintainerWallet && passwordAuthenticated) state = 'auth_rejected';
   return {
     walletConnected: walletConnected,
     wallet: wallet,
     isMaintainerWallet: isMaintainerWallet,
     passwordAuthenticated: passwordAuthenticated,
     allowed: state === 'allowed',
-    state: state
+    state: state,
+    serverGate: OSI_MAINTAINER_SERVER_GATE,
+    serverGateReason: OSI_MAINTAINER_GATE_REASON
   };
 }
 function maintainerAccessMessage(ctx, actionName){
@@ -31,18 +78,37 @@ function maintainerAccessMessage(ctx, actionName){
   if(ctx.state === 'no_wallet') return prefix + 'Connect maintainer wallet.';
   if(ctx.state === 'wrong_wallet') return prefix + 'Maintainer wallet required.';
   if(ctx.state === 'login_required') return prefix + 'Authority login required.';
+  if(ctx.state === 'checking') return prefix + 'Authority identity is being verified.';
+  if(ctx.state === 'auth_rejected') return prefix + 'The signed-in Supabase identity is not the configured maintainer.';
   return prefix + 'Maintainer access required.';
 }
+function admGateRows(ctx){
+  var walletOk=ctx.isMaintainerWallet;
+  var authOk=ctx.passwordAuthenticated;
+  var full=ctx.allowed;
+  return '<div class="adm-gates" aria-label="Maintainer access status">'
+    +'<div class="adm-gate '+(walletOk?'ok':'')+'"><span>1</span><div><b>Admin wallet</b><small>'+(walletOk?'Connected and matched':(ctx.walletConnected?'Connected wallet is not authorized':'Connect the configured wallet'))+'</small></div></div>'
+    +'<div class="adm-gate '+(authOk?'ok':'')+'"><span>2</span><div><b>Supabase maintainer sign-in</b><small>'+(full?'Identity verified by the server':(authOk?'Session restored, server verification required':'Sign in with the authority account'))+'</small></div></div>'
+    +'</div>';
+}
 function admLockedHtml(ctx){
-  var title = ctx.state === 'wrong_wallet' ? 'Access denied' : 'Maintainer Access Required';
+  var title = ctx.state === 'checking' ? 'Verifying both gates' : (ctx.state === 'auth_rejected' ? 'Authority identity denied' : (ctx.state === 'wrong_wallet' ? 'Access denied' : 'Maintainer Access Required'));
   var body = ctx.state === 'no_wallet'
-    ? 'Connect the configured maintainer wallet before opening the authority login.'
+    ? 'Both independent gates are required. Start by connecting the configured admin wallet.'
+    : ctx.state === 'auth_rejected'
+    ? 'The wallet matches, but the server did not accept this Supabase identity. Sign out and use the configured authority account.'
+    : ctx.state === 'checking'
+    ? 'OSI is asking the server to independently verify the wallet and current Supabase session.'
     : 'This wallet is not authorized for maintainer operations.';
   var note = ctx.wallet ? '<div class="adm-lock-note">Connected wallet<br><b>' + admEsc(maintainerShortWallet(ctx.wallet)) + '</b></div>' : '';
   var action = ctx.state === 'no_wallet'
     ? '<button class="adm-go" type="button" onclick="toggleWallet().then(function(){if(typeof renderAdminAccess===\'function\')renderAdminAccess({clear:true});})">Connect maintainer wallet</button>'
+    : ctx.state === 'checking'
+    ? '<button class="adm-go" type="button" disabled>Checking server</button>'
+    : ctx.state === 'auth_rejected'
+    ? '<button class="adm-out" type="button" onclick="admLogout()">Sign out</button><button class="adm-go" type="button" onclick="refreshMaintainerGate()">Retry</button>'
     : '<button class="adm-out" type="button" onclick="disconnectWallet()">Disconnect wallet</button>';
-  return '<div class="adm-card locked"><div class="adm-access-tag">Authority gate</div><h3>' + title + '</h3><p>' + body + '</p>' + note + '<div class="adm-lock-actions">' + action + '</div></div>';
+  return '<div class="adm-card locked"><div class="adm-access-tag">Double gate</div><h3>' + title + '</h3><p>' + body + '</p>' + admGateRows(ctx) + note + '<div class="adm-lock-actions">' + action + '</div></div>';
 }
 function admLockedHost(){
   var host = document.getElementById('admLocked');
@@ -64,6 +130,8 @@ function admClearProtectedData(){
   window.__admBounties = [];
   window.__admConsoleModel = null;
   window.__admSelectedKey = null;
+  var analystQueue = document.getElementById('osi-analyst-ops');
+  if(analystQueue) analystQueue.innerHTML = '<div class="moc-loading">Unlock both maintainer gates to load exact application versions.</div>';
 }
 function renderAdminAccess(opts){
   opts = opts || {};
@@ -78,6 +146,7 @@ function renderAdminAccess(opts){
     if(ctx.state === 'login_required'){
       if(locked) locked.style.display = 'none';
       login.style.display = 'block';
+      var gateHost=document.getElementById('admGateStatus'); if(gateHost) gateHost.innerHTML=admGateRows(ctx);
       var msg = document.getElementById('admMsg');
       if(msg && !msg.textContent) msg.textContent = 'Authority login required. Sign in to continue.';
     } else {
@@ -109,7 +178,13 @@ function requireMaintainerAccess(actionName){
   if(typeof showToast === 'function') showToast(msg); else alert(msg);
   return false;
 }
-function admOpen(){ showView('admin'); }
+function admOpen(){
+  showView('admin');
+  refreshMaintainerGate().then(function(){
+    var access=renderAdminAccess();
+    if(access.allowed && typeof osiAnalystLoadMaintainerQueue==='function') osiAnalystLoadMaintainerQueue();
+  });
+}
 async function admLogin(){
   const email=(document.getElementById('admEmail').value||'').trim();
   const pw=document.getElementById('admPw').value||'';
@@ -121,15 +196,18 @@ async function admLogin(){
   msg.textContent='Signing in...';
   try{
     await supaSignIn(email, pw);
+    await refreshMaintainerGate();
     if(!resolveMaintainerAccess().allowed){ msg.textContent=maintainerAccessMessage(resolveMaintainerAccess()); renderAdminAccess({clear:true}); return; }
     msg.textContent='';
     try{ localStorage.setItem('stw_maint_dev','1'); }catch(_){}
     if(typeof updateAdminButton==='function') updateAdminButton();
     renderAdminAccess({refresh:true});
+    if(typeof osiAnalystLoadMaintainerQueue==='function') osiAnalystLoadMaintainerQueue();
   }catch(e){ msg.textContent='Sign-in failed: '+e.message; }
 }
-function admLogout(){
-  supaSignOut();
+async function admLogout(){
+  await supaSignOut();
+  setMaintainerServerGate(false,'signed_out');
   const pw=document.getElementById('admPw'); if(pw) pw.value='';
   if(typeof updateAdminButton==='function') updateAdminButton();
   renderAdminAccess({clear:true});
@@ -300,9 +378,6 @@ function admSelectedHtml(it){
     + '<button class="moc-action" type="button" onclick="showView(\'analysts\')">Open Full Review</button>'
     + '<button class="moc-action" type="button" onclick="showView(\'records\')"'+publicDisabled+'>Open Public Record</button>'
     + '<button class="moc-action" type="button" onclick="admOpenSelectedAnalyst()"'+analystDisabled+'>Open Analyst Profile</button>'
-    + '</div><div class="moc-disabled">'
-    + '<button class="moc-action" type="button" disabled>Approve / Reject disabled: Requires hardened backend</button>'
-    + '<button class="moc-action" type="button" disabled>Seal Record disabled: Requires hardened backend review</button>'
     + '</div></div></aside>';
 }
 function admBottomHtml(model){

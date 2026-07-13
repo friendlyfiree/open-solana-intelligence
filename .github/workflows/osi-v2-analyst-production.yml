@@ -1,0 +1,320 @@
+name: OSI V2 Analyst Production
+
+# Manual, main-only rollout of the reviewed native analyst slice. It accepts
+# only the eighth additive migration after the seven deployed V2 migrations,
+# deploys only osi-v2-analyst, and performs privacy and fail-closed smoke tests.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type ANALYST-DEPLOY-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-analyst-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  NEW_VERSION: '20260713184533'
+  SEVEN_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903
+  EIGHT_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean local analyst activation gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Require exact confirmation and main branch
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "ANALYST-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out exact dispatched commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+          echo "Validated main commit $(git rev-parse HEAD)."
+
+      - name: Set up Node.js and Deno
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.4.1
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Verify exact eight-migration repository
+        run: |
+          set -euo pipefail
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$EIGHT_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Repository migration set is not the exact expected eight versions."; exit 1; }
+          test -f "supabase/migrations/${NEW_VERSION}_osi_v2_analyst_activation.sql"
+
+      - name: Complete dependency-free application and security battery
+        run: |
+          set -euo pipefail
+          node tests/osi-v2-migrations.test.js
+          node tests/osi-v2-proof-core.test.mjs
+          node tests/xss-escaping.test.js
+          node tests/osi-v2-case-read.test.mjs
+          node tests/osi-v2-case-write.test.mjs
+          node tests/osi-v2-case-ui.test.js
+          node tests/osi-session-access.test.js
+          node tests/osi-v2-analyst-core.test.mjs
+          node tests/osi-v2-analyst-ui.test.js
+          deno check supabase/functions/osi-v2-case-read/index.ts
+          deno check supabase/functions/osi-v2-case-write/index.ts
+          deno check supabase/functions/osi-v2-analyst/index.ts
+
+      - name: Start disposable PostgreSQL 17 and migrate from zero
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+
+      - name: Database lint, pgTAP, and two-connection replay tests
+        run: |
+          set -euo pipefail
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact analyst migration, function, and smoke
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Check out exact validated main commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify credentials and exact main commit without printing secrets
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "::error::Validated commit is no longer current main."; exit 1; }
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Require existing maintainer double-gate secret
+        run: |
+          set -euo pipefail
+          supabase secrets list --project-ref "$EXPECTED_PROJECT_REF" | grep -q 'OSI_MAINTAINER_AUTH_UUID' || {
+            echo "::error::Required maintainer auth secret is absent; no deployment performed."; exit 1;
+          }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot protected legacy table counts
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+
+      - name: Link only to the pinned project and inspect migration status
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
+          supabase migration list --linked
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          seven="$(echo "$SEVEN_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          eight="$(echo "$EIGHT_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$seven" ]; then echo "MODE=deploy" >> "$GITHUB_ENV";
+          elif [ "$got" = "$eight" ]; then echo "MODE=resume" >> "$GITHUB_ENV";
+          else echo "::error::Remote history is not the exact seven-before or eight-after state."; exit 1; fi
+
+      - name: Record exact forward-disable plan
+        run: |
+          echo "Disable plan: a reviewed forward migration sets only OSI_V2_ANALYST_WRITES_ENABLED=false."
+          echo "The function then fails closed while immutable applications, reviews, profiles, receipts, and avatars are retained."
+          echo "No DROP, reset, repair, truncation, or data rewrite is an acceptable rollback."
+
+      - name: Dry-run must contain only the analyst migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/analyst-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/analyst-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ] || { echo "::error::Dry-run is not exactly ${NEW_VERSION}."; exit 1; }
+
+      - name: Apply exactly the additive analyst migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: supabase db push --linked --yes
+
+      - name: Verify history, flags, RLS, grants, and avatar containment
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare got text;
+          begin
+            select string_agg(version, ' ' order by version) into got from supabase_migrations.schema_migrations;
+            if got <> '20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533'
+              then raise exception 'unexpected migration history'; end if;
+            if (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED') is distinct from 'true'
+               or (select value from public.osi_config where key='OSI_V2_ANALYST_WRITES_ENABLED') is distinct from 'true'
+               or (select value from public.osi_config where key='OSI_V2_FALLBACK_GOVERNANCE') is distinct from 'false'
+              then raise exception 'feature flags are not in the exact reviewed state'; end if;
+            if exists (
+              select 1 from (values ('analyst_profiles'),('analyst_applications'),('analyst_application_versions'),('analyst_application_reviews')) as required(name)
+              where not exists (select 1 from pg_class where oid=('public.'||required.name)::regclass and relrowsecurity and relforcerowsecurity)
+            ) then raise exception 'analyst table missing forced RLS'; end if;
+            if has_table_privilege('anon','public.analyst_application_versions','SELECT')
+               or has_table_privilege('authenticated','public.analyst_application_reviews','INSERT')
+               or has_function_privilege('authenticated','public.osi_v2_commit_analyst_application(text,text,text,text,text,text,jsonb,jsonb,jsonb,text,text,text)','EXECUTE')
+              then raise exception 'client can bypass analyst gateway'; end if;
+            if not exists (
+              select 1 from storage.buckets where id='osi-analyst-avatars' and public
+                and file_size_limit=524288 and allowed_mime_types=array['image/png','image/jpeg']::text[]
+            ) then raise exception 'avatar bucket constraints are not exact'; end if;
+            if exists (
+              select 1 from pg_policies where schemaname='storage' and tablename='objects'
+                and cmd in ('INSERT','UPDATE','DELETE')
+                and (qual ilike '%osi-analyst-avatars%' or with_check ilike '%osi-analyst-avatars%')
+            ) then raise exception 'browser avatar mutation policy exists'; end if;
+          end $$;
+          SQL
+
+      - name: Deploy only the analyst Edge Function
+        run: supabase functions deploy osi-v2-analyst --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Public DTO, rollout, half-maintainer, and validation smoke
+        run: |
+          set -euo pipefail
+          url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-analyst"
+          public_body="$(curl -sS --fail --max-time 30 -X POST "$url" -H 'Content-Type: application/json' -d '{"op":"list_public_profiles"}')"
+          echo "$public_body" | grep -q '"ok":true' || { echo "::error::public analyst directory failed"; exit 1; }
+          if echo "$public_body" | grep -Eq 'details_restricted|payload_hash|nonce|signature|maintainer_auth_id'; then
+            echo "::error::public analyst DTO contains a restricted field"; exit 1;
+          fi
+          rollout="$(curl -sS --fail --max-time 30 -X POST "$url" -H 'Content-Type: application/json' -d '{"op":"rollout_status"}')"
+          echo "$rollout" | grep -q '"analyst_writes_enabled":true' || { echo "::error::analyst rollout flag unavailable"; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/queue.json -w '%{http_code}' -X POST "$url" -H 'Content-Type: application/json' -d '{"op":"issue_read_challenge","purpose":"ANALYST_READ_MAINTAINER_QUEUE","wallet":"9xQeWvG816bUx9EPfEzjW5eC4oe9hMLxZQW6vMVnL8vS"}')"
+          [ "$code" = "403" ] || { echo "::error::normal wallet reached maintainer queue challenge"; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/bad-wallet.json -w '%{http_code}' -X POST "$url" -H 'Content-Type: application/json' -d '{"op":"prepare_application","wallet":"bad","application":{},"idempotency_key":"smoke-no-write-0001"}')"
+          [ "$code" = "400" ] || { echo "::error::invalid wallet was not rejected before nonce issuance"; exit 1; }
+          echo "Public privacy, exact rollout, half-maintainer denial, and validation smoke tests passed."
+
+      - name: Prove legacy row counts are unchanged
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          diff -u /tmp/v1-before.txt /tmp/v1-after.txt
+
+      - name: Write deployment receipt artifact
+        run: |
+          mkdir -p deployment-receipt
+          {
+            echo "project_ref=${EXPECTED_PROJECT_REF}"
+            echo "migration=${NEW_VERSION}"
+            echo "function=osi-v2-analyst"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "analyst_writes=true"
+            echo "broad_v2_writes=false"
+            echo "broad_v2_proof=false"
+            echo "case_writes=true"
+          } > deployment-receipt/osi-v2-analyst-production.txt
+
+      - name: Upload deployment receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: osi-v2-analyst-production-${{ github.sha }}
+          path: deployment-receipt/osi-v2-analyst-production.txt
+          retention-days: 30

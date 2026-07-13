@@ -408,6 +408,12 @@ verify_jwt = false
 [functions.osi-v2-case-write]
 verify_jwt = false
 
+# Native analyst profiles, immutable applications, exact-version review, and
+# probation activation. Wallet proofs and the maintainer double gate are
+# verified inside the gateway before service-only database RPCs run.
+[functions.osi-v2-analyst]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

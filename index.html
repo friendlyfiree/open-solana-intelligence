@@ -13,6 +13,7 @@
 <script src="https://bundle.run/buffer@6.0.3"></script>
 <script src="./assets/js/00-buffer-shim.js"></script>
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="./assets/css/00-theme-base.css">
 <link rel="stylesheet" href="./assets/css/v2-case-integration.css">
 </head>
@@ -43,17 +44,16 @@
     <button class="sb-item" data-view="methodology" role="tab" onclick="showView('methodology')"><span>About</span></button>
   </nav>
   <div class="sb-board">
-    <div class="sb-board-h mono">🏅 Analyst Network</div>
-    <div class="sb-rank"><span class="sb-rk">1</span><span class="sb-rn">aksusarya</span><span class="sb-rp" id="lb-founder">founder</span></div>
-    <div class="mono" style="font-size:9px;color:var(--ink-faint);line-height:1.55;padding:5px 2px 3px">Wallet-signed proof-of-work. Reviewed cases build reputation.</div>
-    <button class="sb-board-cta" onclick="showView('analysts')">Analyst leaderboard →</button>
+    <div class="sb-board-h mono">Analyst Network</div>
+    <div class="mono" style="font-size:10px;color:var(--ink-faint);line-height:1.55;padding:5px 2px 3px">Server-derived status, weight, contributions, and proof.</div>
+    <button class="sb-board-cta" onclick="showView('analysts')">Open analyst network</button>
   </div>
   <div class="sb-foot">
     <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">🔒</button>
     <div class="sb-net" title="Solana Mainnet &middot; non-custodial &middot; memo-verified"><div class="sb-net-h mono">NETWORK</div><div class="sb-net-r"><span class="sb-net-dot"></span>Solana Mainnet</div><div class="sb-net-s mono">non-custodial · memo-verified</div></div>
     <button class="sb-demo" onclick="demoStart()" title="Guided briefing, no wallet needed"><span>▶</span> Briefing</button>
 <link rel="stylesheet" href="./assets/css/10-shell-hero.css">
-    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button><button class="wb-mi" type="button" role="menuitem" disabled title="Case Report intake ships in the next gated V2 slice">My Reports <span class="osi-menu-lock">next gate</span></button><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Profile</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('identity');closeWalletMenu();">Settings</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
+    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><div class="wb-menu-label">My OSI</div><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button><button class="wb-mi" type="button" role="menuitem" disabled title="Case Report intake ships in the next gated V2 slice">My Reports <span class="osi-menu-lock">write gate off</span></button><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button><button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('profile');closeWalletMenu();">My Profile</button><button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('applications');closeWalletMenu();">My Applications</button><div class="wb-menu-rule"></div><button class="wb-mi" id="maintainerAccessMenu" type="button" role="menuitem" onclick="admOpen();closeWalletMenu();">Maintainer Access <span class="osi-menu-lock" id="maintainerAccessBadge">2 gates</span></button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -508,9 +508,9 @@
 <section class="sec" id="analysts" data-view="analysts">
   <div class="lb-shell">
     <div class="lb-hero">
-      <div class="sec-eyebrow">ANALYST REPUTATION</div>
-      <h2 class="lb-title">Analyst Proof-of-Work Leaderboard</h2>
-      <p class="lb-sub">Verified analysts earn standing by reviewing cases, signing work, challenging weak claims, and helping publish stronger public records.</p>
+      <div class="sec-eyebrow">VERIFIED PUBLIC IDENTITIES</div>
+      <h2 class="lb-title">Analyst Network</h2>
+      <p class="lb-sub">Wallet-linked analysts with server-derived status, attributable contributions, and inspectable proof history. Support never changes ordering, status, or review weight.</p>
       <div class="lb-trust-chips" aria-label="Analyst trust model">
         <span>Wallet-linked work</span>
         <span>Reputation by contribution</span>
@@ -520,45 +520,39 @@
     </div>
     <div class="lb-console">
       <div class="lb-maincol">
-        <div class="lb-podium" id="lb-podium"></div>
         <div class="lb-board" id="lb-board">
-          <div class="lb-thead mono" aria-hidden="true"><span>#</span><span>Analyst</span><span>Status</span><span>Activity</span><span class="r">Reputation</span><span class="r">Weight</span></div>
+          <div class="lb-thead osi-analyst-head mono" aria-hidden="true"><span>Analyst</span><span>Status</span><span>Expertise</span><span>Contributions</span><span class="r">Weight</span><span class="r">Proof</span></div>
           <div class="lb-wrap" id="lb-body"></div>
         </div>
         <div class="fo-pager"><span class="fo-count mono" id="lb-count" aria-live="polite"></span><div class="fo-pnav" id="lb-pnav" role="navigation" aria-label="Leaderboard pages"></div></div>
       </div>
       <aside class="lb-aside" aria-label="Reputation system">
         <div class="lb-card">
-          <div class="fd-h mono">Reputation system</div>
+          <div class="fd-h mono">Initial review authority</div>
           <div class="lb-rules">
-            <div class="lb-rule"><span>Approved report</span><b class="ok">+10 REP</b></div>
-            <div class="lb-rule"><span>Reviewed case</span><b class="ok">+4 REP</b></div>
-            <div class="lb-rule"><span>Successful challenge</span><b class="ok">+8 REP</b></div>
-            <div class="lb-rule"><span>Signed action (memo)</span><b class="ok">+1 REP</b></div>
-            <div class="lb-rule"><span>Peer support (SOL)</span><b class="mut">never affects REP</b></div>
-            <div class="lb-rule"><span>Weak attribution</span><b class="bad">rejected in review</b></div>
+            <div class="lb-rule"><span>Probationary analyst</span><b class="ok">weight 0.50</b></div>
+            <div class="lb-rule"><span>Initial-open analyst gate</span><b class="ok">1 analyst and 0.50</b></div>
+            <div class="lb-rule"><span>Full maintainer route</span><b class="ok">independent double gate</b></div>
+            <div class="lb-rule"><span>Support payments</span><b class="mut">never affect governance</b></div>
           </div>
-          <div class="lb-policy">Vote power is capped by tier. Consensus requires weighted analyst review before an item can move toward publication, and challenged records can return to review.</div>
-          <div class="lb-policy">Peer support never affects reputation or vote weight. <button class="lb-link" type="button" onclick="showView('methodology')">Methodology -></button></div>
-          <div class="lb-cap">Vote power by tier: Apprentice ×1 · Investigator ×2 · Detective ×3 · Chief ×4. <b>4 approve-weight publishes, 4 reject-weight closes; the first to the line locks the item, and every vote is one-shot and immutable within its round.</b> An upheld challenge opens a fresh review round; the old votes stay signed on-chain as history. Analyst authors get a head start: their own standing pre-fills the bar, but at least one independent vote is always required. Published records stay challengeable by anyone, judged under the same consensus.</div>
-          <div class="lb-cap">Vote weight is capped to prevent centralization. <button class="lb-link" type="button" onclick="showView('methodology')">Methodology ↗</button></div>
+          <div class="lb-policy">Opening starts a public investigation only. It is not a finding of truth, guilt, legal certainty, recovery, or payment.</div>
+          <div class="lb-policy">Every public opening still requires the exact confirmed CASE_OPENED Memo. <button class="lb-link" type="button" onclick="showView('methodology')">Methodology</button></div>
+          <div class="lb-cap">Tier and weight are server-derived. A maintainer cannot type, select, or override either value.</div>
         </div>
         <div class="lb-card">
           <div class="fd-h mono">How to earn a seat</div>
           <div class="lb-steps">
-            <div class="lb-step"><span class="n">1</span><div><b>Review open cases</b><span>Trace evidence and submit defensible findings.</span></div></div>
-            <div class="lb-step"><span class="n">2</span><div><b>Sign your work on Solana</b><span>Make review actions attributable and verifiable.</span></div></div>
-            <div class="lb-step"><span class="n">3</span><div><b>Challenge weak claims</b><span>Protect the archive from thin attribution.</span></div></div>
-            <div class="lb-step"><span class="n">4</span><div><b>Earn verified analyst status</b><span>Standing comes from reviewed contribution.</span></div></div>
+            <div class="lb-step"><span class="n">1</span><div><b>Create a wallet profile</b><span>Choose a unique handle and public expertise.</span></div></div>
+            <div class="lb-step"><span class="n">2</span><div><b>Submit work evidence</b><span>Each application version is signed and immutable.</span></div></div>
+            <div class="lb-step"><span class="n">3</span><div><b>Respond to revision requests</b><span>A revision preserves every prior version and decision.</span></div></div>
+            <div class="lb-step"><span class="n">4</span><div><b>Activate probation</b><span>Approval plus ANALYST_PROBATION Memo derives weight 0.50.</span></div></div>
           </div>
-          <button class="lb-cta" type="button" onclick="apxOpen()">Apply for credentials</button>
-          <button class="lb-cta ghost lb-case-start" type="button" onclick="showView('field')">Start with a case -></button>
-          <button class="lb-cta ghost" type="button" onclick="showView('field')">Start with a case ›</button>
+          <button class="lb-cta" type="button" onclick="apxOpen()">Start analyst application</button>
+          <button class="lb-cta ghost" type="button" onclick="osiAnalystOpenWorkspace('applications')">Open My Applications</button>
         </div>
         <div class="lb-card">
-          <div class="fd-h mono">Recent analyst actions</div>
-          <div class="fd-body" id="lb-actions"><div class="fd-empty mono">Loading signed actions…</div></div>
-          <button class="fd-more" type="button" onclick="showView('prooflog')">View full proof log ›</button>
+          <div class="fd-h mono">Proof labels</div>
+          <div class="osi-proof-key"><span><i class="memo"></i>Memo-anchored on Solana</span><span><i class="signed"></i>Wallet-signed and server-verified</span><span><i class="legacy"></i>Legacy, not server-verified</span></div>
         </div>
         <div class="lb-card lb-guidelines">
           <div class="fd-h mono">Review guidelines</div>
@@ -838,7 +832,6 @@
           <div class="wire-sorts" id="wire-sorts">
             <span class="wire-bar-l" style="letter-spacing:.14em">sort</span>
             <button class="wire-sort active" data-s="newest" onclick="wireSort('newest')">Newest</button>
-            <button class="wire-sort" data-s="supported" onclick="wireSort('supported')">Most backed</button>
           </div>
         </div>
 
@@ -850,7 +843,7 @@
           <div class="wire-guide-list">
             <span>Public evidence only</span>
             <span>Wallets and tx links preferred</span>
-            <span>Early signals can be backed by the community</span>
+            <span>Community interest signals are neutral information</span>
             <span>Strong signals may become formal cases</span>
             <span>No private accusations or recovery promises</span>
           </div>
@@ -878,15 +871,20 @@
   </div>
   <div id="admLogin">
     <div class="adm-card">
+      <div id="admGateStatus"></div>
       <h3>Maintainer sign in</h3>
-      <p>Maintainer wallet detected. Sign in with the OSI authority account to review community submissions and publish them to everyone.</p>
+      <p>The admin wallet is connected. Complete the independent Supabase authority gate. The server verifies both gates again for every protected operation.</p>
       <div class="adm-field"><label>EMAIL</label><input id="admEmail" type="email" autocomplete="username" placeholder="you@example.com"></div>
       <div class="adm-field"><label>PASSWORD</label><input id="admPw" type="password" autocomplete="current-password" placeholder="password"></div>
-      <button class="adm-go" onclick="admLogin()">SIGN IN</button>
+      <div class="adm-lock-actions"><button class="adm-go" onclick="admLogin()">SIGN IN</button><button class="adm-out" type="button" onclick="refreshMaintainerGate()">RETRY</button></div>
       <div class="adm-msg" id="admMsg"></div>
     </div>
   </div>
   <div id="admPanel" style="display:none">
+    <section class="osi-ops-applications" aria-labelledby="osi-ops-title">
+      <div class="moc-section-head"><div><span class="mono">NATIVE V2</span><h3 id="osi-ops-title">Analyst application queue</h3></div><button class="moc-action" type="button" onclick="osiAnalystLoadMaintainerQueue()">Refresh queue</button></div>
+      <div id="osi-analyst-ops"><div class="moc-loading">Unlock both maintainer gates to load exact application versions.</div></div>
+    </section>
     <div id="admConsole" class="moc-shell" aria-live="polite">
       <div class="moc-loading">Loading maintainer operations center...</div>
     </div>
@@ -1160,37 +1158,25 @@
   </div>
 </section>
 
-<section class="sec" id="community" data-view="analysts">
-  <div class="wrap">
-    <!-- WALLET REQUESTS -->
-    <div class="tab-panel active" id="tab-analysts">
-
-<div class="rvq-head">
-  <div class="sec-eyebrow">PEER REVIEW FLOOR</div>
-  <h2 class="rvq-title">Peer Review Floor</h2>
-  <p class="rvq-sub">Cases and reports awaiting analyst consensus before public publication.</p>
-  <button class="rec-clear" onclick="clearMyDrafts()" title="Remove your local draft submissions from this device">Clear my drafts</button>
-</div>
-<div id="consensus-floor"></div>
-<div class="rec-phase">⛓ <b>Phase 2:</b> reputation moves on-chain, a portable, verifiable researcher score you own, that no one (including us) can fake or revoke.</div>
-    </div>
-  </div>
-</section>
 <div class="fo-modal" id="apx-modal" role="dialog" aria-modal="true" aria-label="Apply to the analyst roster" onclick="if(event.target===this)apxClose()">
 <div class="fo-form">
 <button class="fo-x" type="button" onclick="apxClose()" aria-label="Close">✕</button>
-<div class="rec-sec-h" style="margin-top:2px">REQUEST FIELD CREDENTIALS</div>
-<div class="rec-apply" id="analyst-form">
-  <h3>Apply to become an analyst</h3>
-  <div class="lead">Connect your wallet (top right) first, it is your analyst identity and is required for an application. Then add a handle so the maintainer can reach you and your approved work counts toward your rank. Applications are read by hand.</div>
-  <div class="rec-frow">
-    <input type="text" placeholder="Telegram username (e.g. @you)" id="an-tg">
-    <input type="text" placeholder="X / Twitter username (e.g. @you)" id="an-tw">
-  </div>
-  <input type="text" class="full" placeholder="Proof of work: a report, thread, or dashboard (optional)" id="an-web">
-  <button class="rec-go" onclick="osiSubmitGuard('application', submitAnalystApplication)">SEND APPLICATION</button>
-  <div class="rec-note">No token, no fee, no pay-to-win. Just evidence.</div>
-</div>
+<div class="rec-sec-h" style="margin-top:2px">SIGNED ANALYST APPLICATION</div>
+<form class="osi-analyst-form" id="analyst-form" onsubmit="osiAnalystSubmit(event)">
+  <h3 id="osi-application-title">Create your analyst profile</h3>
+  <p class="lead">Your wallet is the applicant identity. Submission signs one exact immutable version. Public profile fields become visible only after probation activation.</p>
+  <div class="osi-form-grid"><label><span>Unique handle</span><input id="an-handle" minlength="2" maxlength="32" pattern="[A-Za-z0-9_]{2,32}" required placeholder="chain_sleuth"></label><label><span>Display name</span><input id="an-name" minlength="2" maxlength="80" required placeholder="Chain Sleuth"></label></div>
+  <label><span>Short public bio</span><textarea id="an-bio" minlength="20" maxlength="600" required placeholder="What you investigate and how you work with public evidence."></textarea></label>
+  <fieldset class="osi-expertise"><legend>Expertise categories</legend><label><input type="checkbox" name="an-expertise" value="blockchain_forensics">Blockchain forensics</label><label><input type="checkbox" name="an-expertise" value="scam_analysis">Scam analysis</label><label><input type="checkbox" name="an-expertise" value="exploit_research">Exploit research</label><label><input type="checkbox" name="an-expertise" value="data_analysis">Data analysis</label><label><input type="checkbox" name="an-expertise" value="osint">OSINT</label><label><input type="checkbox" name="an-expertise" value="protocol_research">Protocol research</label></fieldset>
+  <div class="osi-form-grid"><label><span>Public link label</span><input id="an-link-label" maxlength="40" placeholder="Research archive"></label><label><span>Public HTTPS link</span><input id="an-link-url" type="url" maxlength="300" placeholder="https://example.com/work"></label></div>
+  <label><span>Safe profile image</span><input id="an-avatar" type="file" accept="image/png,image/jpeg"><small>PNG or JPEG only, 64 to 1024 px, maximum 512 KB. SVG and remote image URLs are rejected.</small></label>
+  <label><span>Why you want to review</span><textarea id="an-motivation" minlength="80" maxlength="3000" required placeholder="Describe your review approach and why attributable, challengeable records matter."></textarea></label>
+  <label><span>Relevant experience</span><textarea id="an-experience" minlength="40" maxlength="3000" required placeholder="Describe relevant investigation, protocol, data, or research experience."></textarea></label>
+  <label><span>Public proof-of-work links</span><textarea id="an-proof" placeholder="One HTTPS URL per line, maximum 5"></textarea></label>
+  <div class="osi-form-warning">Never include a seed phrase, private key, private messages, prohibited personal data, or confidential access material.</div>
+  <button class="rec-go" id="an-submit" type="submit">SIGN AND SUBMIT VERSION</button>
+  <div class="osi-form-status mono" id="an-status" role="status"></div>
+</form>
 
 
 </div>
@@ -1371,6 +1357,7 @@
 <script src="./assets/js/80-ai-pack.js"></script>
 <script src="./assets/js/84-public-records.js"></script>
 <script src="./assets/js/v2-case-integration.js"></script>
+<script src="./assets/js/v2-analyst-integration.js"></script>
 <script src="./assets/js/99-app.js"></script>
 <link rel="stylesheet" href="./assets/css/50-late-components.css">
 <div class="adm-edit" id="adm-edit-modal">
@@ -1469,5 +1456,6 @@
 <script src="./assets/js/90-stream-canvas.js"></script>
 <script src="./assets/js/92-reveal-anim.js"></script>
 <link rel="stylesheet" href="./assets/css/60-final-polish.css">
+<link rel="stylesheet" href="./assets/css/v2-activation.css">
 </body>
 </html>

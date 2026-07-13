@@ -16,8 +16,16 @@ function clearWalletCache(){
   try{ localStorage.removeItem('stw_wallet_off'); }catch(e){}
   try{ sessionStorage.removeItem('osi_wallet_session'); }catch(e){}
 }
-// True only if the user connected earlier in THIS browser session (sessionStorage, not localStorage).
-function sessionRestoreWanted(){ try{ return sessionStorage.getItem('osi_wallet_session') === '1'; }catch(e){ return false; } }
+function clearWalletAuthorization(){
+  window.__osiProof = null;
+  window.__osiIntake = null;
+  window.__osiV2ReadProof = null;
+  window.__osiWalletAuthorization = null;
+  if(typeof setMaintainerServerGate === 'function') setMaintainerServerGate(false,'wallet_changed');
+}
+// onlyIfTrusted never opens an approval prompt. An explicit OSI disconnect
+// disables automatic restore until the user connects again.
+function sessionRestoreWanted(){ try{ return localStorage.getItem('osi_phantom_restore') !== '0'; }catch(e){ return true; } }
 // True only when Phantom is present AND reports a connected publicKey AND we hold the address.
 function getConnectedProvider(){
   var prov = getProvider();
@@ -57,6 +65,8 @@ async function toggleWallet(){
     if(!resp || !resp.publicKey){ if(typeof showToast==='function') showToast("Connect Phantom first."); return false; }
     walletPubkey = resp.publicKey.toString();
     try{ sessionStorage.setItem('osi_wallet_session','1'); }catch(e){}
+    try{ localStorage.setItem('osi_phantom_restore','1'); }catch(e){}
+    clearWalletAuthorization();
     updateWalletUI();
     if(typeof showToast==='function') showToast('Connected \u2713  Use the wallet button to open your profile or disconnect.');
     return true;
@@ -86,6 +96,8 @@ function updateWalletUI(){
     const dot = btn.querySelector('.wb-dot'); if(dot) dot.style.display='';
   }
   if(typeof updateAdminButton === 'function') updateAdminButton();
+  if(typeof updateMaintainerAccessUI === 'function') updateMaintainerAccessUI();
+  if(typeof refreshMaintainerGate === 'function' && walletPubkey) refreshMaintainerGate();
   if(document.body.dataset.view==='admin' && typeof renderAdminAccess==='function') renderAdminAccess({clear:true});
   if(typeof refreshApplyWalletRow === 'function') refreshApplyWalletRow();
   if(document.body.dataset.view==='profile' && typeof renderProfile==='function') renderProfile();
