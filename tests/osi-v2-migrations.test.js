@@ -18,6 +18,7 @@ const expectedFiles = [
   '20260712002518_osi_v2_legacy_classification.sql',
   '20260712121301_osi_v2_legacy_materialization.sql',
   '20260713045903_osi_v2_case_lifecycle.sql',
+  '20260713184533_osi_v2_analyst_activation.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -29,7 +30,8 @@ const sqlByFile = Object.fromEntries(
 const schema = sqlByFile[expectedFiles[0]] || '';
 const integrity = sqlByFile[expectedFiles[1]] || '';
 const deny = sqlByFile[expectedFiles[2]] || '';
-const lifecycle = sqlByFile[expectedFiles.at(-1)] || '';
+const lifecycle = sqlByFile['20260713045903_osi_v2_case_lifecycle.sql'] || '';
+const analystActivation = sqlByFile['20260713184533_osi_v2_analyst_activation.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const proofCore = fs.readFileSync(
@@ -65,7 +67,7 @@ for (const name of expectedFiles) {
 }
 
 ok('local seed execution is disabled', /\[db\.seed\][\s\S]*?enabled\s*=\s*false/i.test(config));
-for (const functionName of ['osi-analyst-intake', 'osi-ai-pack']) {
+for (const functionName of ['osi-analyst-intake', 'osi-ai-pack', 'osi-v2-analyst']) {
   const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   ok(
     functionName + ' custom auth config is explicit',
@@ -324,6 +326,38 @@ ok(
 ok(
   'all submission-bound Case content is immutable',
   /new\.title is distinct from old\.title[\s\S]*new\.category is distinct from old\.category[\s\S]*new\.summary_public is distinct from old\.summary_public[\s\S]*new\.details_restricted is distinct from old\.details_restricted/i.test(lifecycle),
+);
+ok(
+  'analyst slice fails closed behind a dedicated flag',
+  analystActivation.includes("('OSI_V2_ANALYST_WRITES_ENABLED', 'false'")
+    && analystActivation.includes("where key = 'OSI_V2_ANALYST_WRITES_ENABLED'"),
+);
+ok(
+  'analyst application versions use exact Stage-5 binding',
+  analystActivation.includes("'ANALYST_APPLICATION_VERSION_SUBMITTED'")
+    && analystActivation.includes("bound_nonce.target_type <> 'application_version'")
+    && analystActivation.includes('bound_nonce.payload_hash <> p_payload_hash')
+    && analystActivation.includes('Application nonce binding is invalid'),
+);
+ok(
+  'maintainer application review is uncounted and exact-version bound',
+  analystActivation.includes("tg_table_name = 'analyst_application_reviews'")
+    && analystActivation.includes('new.weight = 0')
+    && analystActivation.includes("bound_nonce.actor_wallet, 'maintainer'")
+    && analystActivation.includes('version_row.id::text'),
+);
+ok(
+  'probation outcome derives the exact minimum tier and weight',
+  analystActivation.includes("status = 'probationary_analyst'")
+    && analystActivation.includes("tier_code = 'probationary'")
+    && analystActivation.includes('weight_cached = 0.50')
+    && analystActivation.includes("'ANALYST_PROBATION'"),
+);
+ok(
+  'avatar storage grants no browser mutation path',
+  analystActivation.includes("'osi-analyst-avatars'")
+    && analystActivation.includes("array['image/png', 'image/jpeg']")
+    && !/create policy[\s\S]*osi-analyst-avatars/i.test(analystActivation),
 );
 ok(
   'nonce issuance serializes idempotency and rate-limit dimensions',

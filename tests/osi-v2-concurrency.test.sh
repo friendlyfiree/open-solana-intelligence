@@ -50,7 +50,7 @@ cleanup() {
   # Restore the fail-closed default. The disposable database is discarded by CI;
   # this keeps the flag correct for anything that reuses the same local database.
   psql "$DB_URL" -X -q -tA \
-    -c "update public.osi_config set value='false' where key='OSI_V2_PROOF_ENABLED';" \
+    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED');" \
     >/dev/null 2>&1 || true
   rm -rf "$WORKDIR"
 }
@@ -260,6 +260,105 @@ assert_eq "changed read target cannot reuse the proof" "f" "$READ_CHANGED_TARGET
 
 READ_RECEIPTS="$(psql_run -c "select count(*) from public.event_receipts where nonce = '$READ_NONCE';")"
 assert_eq "read authorization does not fabricate a Proof Log receipt" "0" "$READ_RECEIPTS"
+
+# --- analyst application: two commits race one exact immutable version --------
+APP_NONCE="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+APP_WALLET="77777777777777777777777777777777"
+APP_HASH="$(printf 'e%.0s' $(seq 1 64))"
+APP_FINGERPRINT="$(printf 'f%.0s' $(seq 1 64))"
+APP_IDEM="osi-v2-analyst-race-$(date +%s%N)"
+APP_SIG="$(printf 'C%.0s' $(seq 1 88))"
+APP_C1_OUT="$WORKDIR/app-conn1.out"
+APP_C2_OUT="$WORKDIR/app-conn2.out"
+APP_HOLD_MARKER="$WORKDIR/app-conn1-holding.marker"
+
+psql_run >/dev/null <<SQL
+update public.osi_config set value = 'true' where key = 'OSI_V2_ANALYST_WRITES_ENABLED';
+select public.osi_v2_issue_analyst_nonce(
+  '$APP_NONCE', 'ANALYST_APPLICATION_VERSION_SUBMITTED', '$APP_WALLET',
+  'wallet', null, '$APP_HASH', '$APP_IDEM', '$APP_FINGERPRINT'
+);
+SQL
+
+APP_COMMIT_SQL="select receipt_id::text || ' ' || idempotent_replay::text
+  from public.osi_v2_commit_analyst_application(
+    '$APP_NONCE', '$APP_HASH', '$APP_SIG', 'race_analyst', 'Race Analyst',
+    'Public profile used only by the disposable two-connection concurrency test.',
+    '[\"osint\"]'::jsonb, '[]'::jsonb,
+    '{\"motivation\":\"Concurrency proof payload.\",\"experience\":\"Disposable database test.\"}'::jsonb,
+    null, null, null)"
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$APP_COMMIT_SQL
+\g $APP_C1_OUT
+\! touch $APP_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+APP_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$APP_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "analyst connection 1 never reached the holding state"
+    wait "$APP_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$APP_COMMIT_SQL
+\g $APP_C2_OUT
+commit;
+SQL
+APP_CONN2_PID=$!
+
+sleep 1
+APP_RACE_WAITERS="$(psql_run -c "
+  select count(*) from pg_stat_activity
+   where wait_event_type = 'Lock'
+     and query ilike '%osi_v2_commit_analyst_application%';")"
+if [ "${APP_RACE_WAITERS:-0}" -ge 1 ]; then
+  pass "second analyst commit genuinely blocked on the nonce row"
+else
+  fail "second analyst commit did not block on the nonce row"
+fi
+
+wait "$APP_CONN1_PID"
+wait "$APP_CONN2_PID"
+read -r APP_R1 APP_REPLAY1 < "$APP_C1_OUT"
+read -r APP_R2 APP_REPLAY2 < "$APP_C2_OUT"
+assert_eq "analyst race returns one shared receipt" "$APP_R1" "$APP_R2"
+assert_eq "first analyst commit creates the version" "false" "$APP_REPLAY1"
+assert_eq "second analyst commit is an idempotent replay" "true" "$APP_REPLAY2"
+
+APP_RECEIPTS="$(psql_run -c "select count(*) from public.event_receipts where nonce = '$APP_NONCE';")"
+APP_VERSIONS="$(psql_run -c "
+  select count(*) from public.analyst_application_versions
+   where created_by_wallet = '$APP_WALLET';")"
+assert_eq "analyst race creates exactly one receipt" "1" "$APP_RECEIPTS"
+assert_eq "analyst race creates exactly one immutable version" "1" "$APP_VERSIONS"
+
+APP_CHANGED_HASH_ERR="$(psql "$DB_URL" -X -q -tA -c "
+  select * from public.osi_v2_commit_analyst_application(
+    '$APP_NONCE', '$(printf '0%.0s' $(seq 1 64))', '$APP_SIG',
+    'race_analyst', 'Race Analyst',
+    'Public profile used only by the disposable two-connection concurrency test.',
+    '[\"osint\"]'::jsonb, '[]'::jsonb, '{}'::jsonb,
+    null, null, null);" 2>&1 || true)"
+if printf '%s' "$APP_CHANGED_HASH_ERR" | grep -q 'Application nonce binding is invalid'; then
+  pass "changed analyst payload hash is rejected after the race"
+else
+  fail "changed analyst payload hash was not rejected: $APP_CHANGED_HASH_ERR"
+fi
 
 # --- verdict ------------------------------------------------------------------
 echo "----"
