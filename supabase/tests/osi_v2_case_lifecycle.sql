@@ -115,15 +115,42 @@ select lives_ok(
   'an eligible analyst fixture is created with the minimum live weight'
 );
 
-select lives_ok(
-  $test$
-    select * from public.osi_v2_issue_case_nonce(
+select is(
+  (
+    with issued as materialized (
+      select * from public.osi_v2_issue_case_nonce(
       repeat('s', 32), 'CASE_SUBMITTED',
       '11111111111111111111111111111112', 'owner', null,
       repeat('a', 64), 'case-submit-pgtap-0001', repeat('2', 64)
+      )
     )
-  $test$,
-  'owner receives an exact-bound Case submission nonce'
+    select jsonb_build_object(
+      'nonce', n.nonce,
+      'purpose', n.purpose,
+      'actor_wallet', n.actor_wallet,
+      'target_type', n.target_type,
+      'target_matches_wrapper', n.target_id = issued.target_id,
+      'target_is_uuid', n.target_id ~
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+      'payload_hash', n.payload_hash,
+      'idempotency_key', n.idempotency_key,
+      'request_fingerprint_hash', n.request_fingerprint_hash
+    )
+      from issued
+      join public.osi_nonces as n on n.nonce = issued.issued_nonce
+  ),
+  jsonb_build_object(
+    'nonce', repeat('s', 32),
+    'purpose', 'CASE_SUBMITTED',
+    'actor_wallet', '11111111111111111111111111111112',
+    'target_type', 'case',
+    'target_matches_wrapper', true,
+    'target_is_uuid', true,
+    'payload_hash', repeat('a', 64),
+    'idempotency_key', 'case-submit-pgtap-0001',
+    'request_fingerprint_hash', repeat('2', 64)
+  ),
+  'owner submission nonce persists the exact wrapper binding before commit'
 );
 select lives_ok(
   $test$

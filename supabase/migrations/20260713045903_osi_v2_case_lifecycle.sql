@@ -200,13 +200,13 @@ begin
   );
 
   select count(*) into wallet_count
-    from public.osi_read_nonces
-   where actor_wallet = p_actor_wallet
-     and issued_at > issued_time - interval '5 minutes';
+    from public.osi_read_nonces as n
+   where n.actor_wallet = p_actor_wallet
+     and n.issued_at > issued_time - interval '5 minutes';
   select count(*) into fingerprint_count
-    from public.osi_read_nonces
-   where request_fingerprint_hash = p_request_fingerprint_hash
-     and issued_at > issued_time - interval '5 minutes';
+    from public.osi_read_nonces as n
+   where n.request_fingerprint_hash = p_request_fingerprint_hash
+     and n.issued_at > issued_time - interval '5 minutes';
 
   if wallet_count >= 20 or fingerprint_count >= 40 then
     raise exception 'Read nonce rate limit exceeded' using errcode = 'P0001';
@@ -436,9 +436,9 @@ begin
     pg_catalog.hashtextextended('osi2-case-fingerprint:' || p_request_fingerprint_hash, 0)
   );
 
-  select * into existing
-    from public.osi_nonces
-   where idempotency_key = p_idempotency_key
+  select n.* into existing
+    from public.osi_nonces as n
+   where n.idempotency_key = p_idempotency_key
    for update;
 
   if found then
@@ -561,12 +561,12 @@ begin
       using errcode = '55000';
   end if;
 
-  select count(*) into wallet_count from public.osi_nonces
-   where actor_wallet = p_actor_wallet
-     and issued_at > issued_time - pg_catalog.make_interval(secs => window_seconds);
-  select count(*) into fingerprint_count from public.osi_nonces
-   where request_fingerprint_hash = p_request_fingerprint_hash
-     and issued_at > issued_time - pg_catalog.make_interval(secs => window_seconds);
+  select count(*) into wallet_count from public.osi_nonces as n
+   where n.actor_wallet = p_actor_wallet
+     and n.issued_at > issued_time - pg_catalog.make_interval(secs => window_seconds);
+  select count(*) into fingerprint_count from public.osi_nonces as n
+   where n.request_fingerprint_hash = p_request_fingerprint_hash
+     and n.issued_at > issued_time - pg_catalog.make_interval(secs => window_seconds);
   if wallet_count >= max_per_wallet or fingerprint_count >= max_per_fingerprint then
     raise exception 'Case nonce rate limit exceeded' using errcode = 'P0001';
   end if;
