@@ -3,21 +3,23 @@
 // feature logic here.
 
 
-// Uniswap/PancakeSwap-style wallet: silent restore on refresh ONLY within the same browser session.
+// Phantom trusted reconnect is safe to attempt on every load because
+// onlyIfTrusted never opens an approval prompt or exposes signing material.
 window.addEventListener('load', function(){
   wireContactLinks();
   var prov = getProvider();
   if(prov && prov.on){
-    prov.on('disconnect', function(){ walletPubkey = null; clearWalletCache(); if(typeof closeWalletMenu==='function') closeWalletMenu(); updateWalletUI(); });
+    prov.on('disconnect', function(){ walletPubkey = null; if(typeof clearWalletAuthorization==='function') clearWalletAuthorization(); clearWalletCache(); if(typeof closeWalletMenu==='function') closeWalletMenu(); updateWalletUI(); });
     prov.on('accountChanged', function(pk){
+      if(typeof clearWalletAuthorization==='function') clearWalletAuthorization();
       if(pk){ walletPubkey = pk.toString(); } else { walletPubkey = null; clearWalletCache(); }
       updateWalletUI();
     });
   }
-  // Silent restore only if the user connected earlier in this session; new browser session = manual connect.
+  // A rejected/revoked trust check leaves the UI honestly disconnected.
   if(prov && sessionRestoreWanted()){
     prov.connect({ onlyIfTrusted:true }).then(function(resp){
-      if(resp && resp.publicKey){ walletPubkey = resp.publicKey.toString(); updateWalletUI(); }
+      if(resp && resp.publicKey){ walletPubkey = resp.publicKey.toString(); try{ localStorage.setItem('osi_phantom_restore','1'); }catch(e){} clearWalletAuthorization(); updateWalletUI(); }
     }).catch(function(){ /* not trusted or revoked: stay disconnected, user connects manually */ });
   }
   document.addEventListener('click', function(e){

@@ -61,7 +61,50 @@ function rateOk(key, ms){ try{ const now=Date.now(); const last=parseInt(localSt
 const SUPABASE_URL = (window.OSI_SUPABASE_URL || "https://afibxpniwfnavdobecrn.supabase.co");
 const SUPABASE_ANON_KEY = (window.OSI_SUPABASE_KEY || "");
 const SUPA_ON = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
-let SUPA_AUTH_TOKEN = null;   // set when a maintainer signs in; the public uses null
+let SUPA_AUTH_TOKEN = null;
+let SUPA_AUTH_USER = null;
+let SUPA_AUTH_READY = Promise.resolve(null);
+let SUPA_CLIENT = null;
+
+function notifySupaAuthChanged(eventName){
+  if(typeof setMaintainerServerGate === 'function') setMaintainerServerGate(false, 'checking');
+  if(typeof updateMaintainerAccessUI === 'function') updateMaintainerAccessUI();
+  var activeWallet = '';
+  try{ activeWallet = walletPubkey || ''; }catch(_){ }
+  if(typeof refreshMaintainerGate === 'function' && activeWallet) refreshMaintainerGate();
+  if(!SUPA_AUTH_TOKEN && document.body && document.body.dataset.view === 'admin' && typeof renderAdminAccess === 'function'){
+    renderAdminAccess({clear:true});
+  }
+  try{ window.dispatchEvent(new CustomEvent('osi:supabase-auth',{detail:{event:eventName,user:SUPA_AUTH_USER?{id:SUPA_AUTH_USER.id,email:SUPA_AUTH_USER.email}:null}})); }catch(_){ }
+}
+
+function applySupaSession(session,eventName){
+  SUPA_AUTH_TOKEN = session && session.access_token ? session.access_token : null;
+  SUPA_AUTH_USER = session && session.user ? session.user : null;
+  notifySupaAuthChanged(eventName || (session ? 'SESSION_RESTORED' : 'SIGNED_OUT'));
+  return session || null;
+}
+
+function initSupaAuth(){
+  if(!SUPA_ON || !window.supabase || typeof window.supabase.createClient !== 'function'){
+    SUPA_AUTH_READY = Promise.resolve(applySupaSession(null,'AUTH_UNAVAILABLE'));
+    return SUPA_AUTH_READY;
+  }
+  SUPA_CLIENT = window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{
+    auth:{
+      autoRefreshToken:true,
+      persistSession:true,
+      detectSessionInUrl:true,
+      storageKey:'osi-maintainer-auth-v1'
+    }
+  });
+  SUPA_CLIENT.auth.onAuthStateChange(function(event,session){ applySupaSession(session,event); });
+  SUPA_AUTH_READY = SUPA_CLIENT.auth.getSession().then(function(result){
+    if(result.error) throw result.error;
+    return applySupaSession(result.data && result.data.session,'INITIAL_SESSION');
+  }).catch(function(){ return applySupaSession(null,'SESSION_RESTORE_FAILED'); });
+  return SUPA_AUTH_READY;
+}
 function supaHeaders(extra){
   const h = { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
   // A signed-in maintainer sends their session token on Authorization.
@@ -76,9 +119,16 @@ async function supaPost(table, row){ const r = await fetch(SUPABASE_URL + '/rest
 async function supaDelete(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { method: 'DELETE', headers: supaHeaders() }); if(!r.ok) throw new Error('supa del ' + r.status); return true; }
 async function supaPatch(path, row){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { method:'PATCH', headers: supaHeaders({ Prefer:'return=minimal' }), body: JSON.stringify(row) }); if(!r.ok) throw new Error('supa patch ' + r.status); return true; }
 async function supaSignIn(email, password){
-  const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', { method:'POST', headers:{ apikey: SUPABASE_ANON_KEY, 'Content-Type':'application/json' }, body: JSON.stringify({ email: email, password: password }) });
-  let data = {}; try{ data = await r.json(); }catch(_){}
-  if(!r.ok || !data.access_token) throw new Error(data.error_description || data.msg || ('sign-in failed (' + r.status + ')'));
-  SUPA_AUTH_TOKEN = data.access_token; return data;
+  if(!SUPA_CLIENT) await initSupaAuth();
+  if(!SUPA_CLIENT) throw new Error('Supabase authentication is unavailable.');
+  const result = await SUPA_CLIENT.auth.signInWithPassword({email:email,password:password});
+  if(result.error || !result.data || !result.data.session) throw (result.error || new Error('Sign-in failed.'));
+  applySupaSession(result.data.session,'SIGNED_IN');
+  return result.data;
 }
-function supaSignOut(){ SUPA_AUTH_TOKEN = null; }
+async function supaSignOut(){
+  if(SUPA_CLIENT){ try{ await SUPA_CLIENT.auth.signOut({scope:'local'}); }catch(_){ } }
+  applySupaSession(null,'SIGNED_OUT');
+}
+
+initSupaAuth();

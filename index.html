@@ -13,6 +13,7 @@
 <script src="https://bundle.run/buffer@6.0.3"></script>
 <script src="./assets/js/00-buffer-shim.js"></script>
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="./assets/css/00-theme-base.css">
 <link rel="stylesheet" href="./assets/css/v2-case-integration.css">
 </head>
@@ -53,7 +54,7 @@
     <div class="sb-net" title="Solana Mainnet &middot; non-custodial &middot; memo-verified"><div class="sb-net-h mono">NETWORK</div><div class="sb-net-r"><span class="sb-net-dot"></span>Solana Mainnet</div><div class="sb-net-s mono">non-custodial · memo-verified</div></div>
     <button class="sb-demo" onclick="demoStart()" title="Guided briefing, no wallet needed"><span>▶</span> Briefing</button>
 <link rel="stylesheet" href="./assets/css/10-shell-hero.css">
-    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button><button class="wb-mi" type="button" role="menuitem" disabled title="Case Report intake ships in the next gated V2 slice">My Reports <span class="osi-menu-lock">next gate</span></button><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('profile');closeWalletMenu();">Profile</button><button class="wb-mi" type="button" role="menuitem" onclick="showView('identity');closeWalletMenu();">Settings</button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
+    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><div class="wb-menu-label">My OSI</div><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button><button class="wb-mi" type="button" role="menuitem" disabled title="Case Report intake requires the next production write gate">My Reports <span class="osi-menu-lock">write gate off</span></button><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button><button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('profile');closeWalletMenu();">My Profile</button><button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('applications');closeWalletMenu();">My Applications</button><div class="wb-menu-rule"></div><button class="wb-mi" id="maintainerAccessMenu" type="button" role="menuitem" onclick="admOpen();closeWalletMenu();">Maintainer Access <span class="osi-menu-lock" id="maintainerAccessBadge">2 gates</span></button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -878,11 +879,12 @@
   </div>
   <div id="admLogin">
     <div class="adm-card">
+      <div id="admGateStatus"></div>
       <h3>Maintainer sign in</h3>
-      <p>Maintainer wallet detected. Sign in with the OSI authority account to review community submissions and publish them to everyone.</p>
+      <p>The admin wallet is connected. Complete the independent Supabase authority gate. The server verifies both gates again for every protected operation.</p>
       <div class="adm-field"><label>EMAIL</label><input id="admEmail" type="email" autocomplete="username" placeholder="you@example.com"></div>
       <div class="adm-field"><label>PASSWORD</label><input id="admPw" type="password" autocomplete="current-password" placeholder="password"></div>
-      <button class="adm-go" onclick="admLogin()">SIGN IN</button>
+      <div class="adm-lock-actions"><button class="adm-go" onclick="admLogin()">SIGN IN</button><button class="adm-out" type="button" onclick="refreshMaintainerGate()">RETRY</button></div>
       <div class="adm-msg" id="admMsg"></div>
     </div>
   </div>

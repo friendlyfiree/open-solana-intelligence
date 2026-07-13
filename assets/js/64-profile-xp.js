@@ -9,6 +9,8 @@ async function disconnectWallet(){
   var prov = getProvider();
   try{ if(prov && prov.disconnect) await prov.disconnect(); }catch(e){}
   walletPubkey = null;
+  try{ localStorage.setItem('osi_phantom_restore','0'); }catch(e){}
+  if(typeof clearWalletAuthorization==='function') clearWalletAuthorization();
   clearWalletCache();
   if(typeof closeWalletMenu==='function') closeWalletMenu();
   updateWalletUI();
