@@ -408,6 +408,16 @@ verify_jwt = false
 [functions.osi-v2-case-write]
 verify_jwt = false
 
+# Native Case Report class-A Memo intake. Wallet identity and mainnet
+# transaction proof are verified in-function before service-only atomic RPCs.
+[functions.osi-v2-report-write]
+verify_jwt = false
+
+# Private Report history and analyst queue. Uses durable single-use signed-read
+# challenges and validates the maintainer JWT plus configured wallet itself.
+[functions.osi-v2-report-read]
+verify_jwt = false
+
 # Native analyst profiles, immutable applications, exact-version review, and
 # probation activation. Wallet proofs and the maintainer double gate are
 # verified inside the gateway before service-only database RPCs run.

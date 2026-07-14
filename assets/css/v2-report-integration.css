@@ -1,0 +1,61 @@
+.osi-report-modal .fo-form{max-width:760px;padding:28px;background:var(--panel,#0f1722)}
+.osi-report-modal .fo-form-head{max-width:66ch;margin:0 0 24px}
+.osi-report-modal .fo-form-eyebrow{display:block;margin-bottom:8px;color:var(--cyan);font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.osi-report-modal .fo-form h2{margin:0 0 8px;font-size:26px;line-height:1.2}
+.osi-report-modal .fo-form p{margin:0;color:var(--muted);line-height:1.65}
+.osi-report-modal .fo-label{display:block;margin:18px 0 6px;color:var(--text);font-size:13px;font-weight:650}
+.osi-report-modal textarea,.osi-report-modal select{width:100%;min-height:44px;border:1px solid var(--line-bright);border-radius:8px;background:var(--surface,#0b111b);color:var(--text);font:inherit;padding:11px 12px;resize:vertical}
+.osi-report-modal select{resize:none}
+.osi-report-modal textarea:focus-visible,.osi-report-modal select:focus-visible,.osi-report-modal input:focus-visible,.osi-report-modal button:focus-visible,.osi-report-action:focus-visible,.osi-report-card button:focus-visible,.osi-report-card summary:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.osi-report-modal .fo-hint{display:block;margin-top:6px;color:var(--muted);font-size:12px;line-height:1.55}
+.osi-report-context{display:flex;gap:10px;align-items:center;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(34,211,238,.04);color:var(--muted);font:500 12px/1.5 var(--mono)}
+.osi-report-evidence{margin:22px 0 0;padding:16px;border:1px solid var(--line);border-radius:10px}
+.osi-report-evidence legend{padding:0 7px;color:var(--text);font-size:13px;font-weight:700}
+.osi-report-safety{display:flex;align-items:flex-start;gap:10px;margin:20px 0;padding:14px;border:1px solid rgba(245,158,11,.3);border-radius:8px;background:rgba(245,158,11,.05);color:var(--text);font-size:12px;line-height:1.6}
+.osi-report-safety input{flex:0 0 auto;width:18px;height:18px;margin-top:2px;accent-color:var(--cyan)}
+.osi-report-modal .fo-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.osi-report-modal .fo-form-actions button{min-height:44px}
+.osi-report-action-row{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}
+.osi-report-action-copy{max-width:58ch;color:var(--muted);font-size:13px;line-height:1.6}
+.osi-report-action{flex:0 0 auto;min-height:42px;padding:0 16px;border:1px solid var(--cyan);border-radius:7px;background:rgba(34,211,238,.08);color:var(--cyan);font-weight:700;cursor:pointer}
+.osi-report-action:disabled{border-color:var(--line);background:transparent;color:var(--muted);cursor:not-allowed}
+.osi-report-workspace{display:grid;gap:12px;width:100%}
+.osi-report-card{border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+.osi-report-card-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:16px}
+.osi-report-card-kicker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:7px;color:var(--cyan);font:600 12px/1.4 var(--mono)}
+.osi-report-card h3{margin:0 0 5px;font-size:17px}
+.osi-report-card-meta{color:var(--muted);font-size:12px;line-height:1.55}
+.osi-report-state{align-self:start;padding:5px 8px;border:1px solid rgba(245,158,11,.32);border-radius:99px;color:#f8c767;font:600 12px/1.3 var(--mono)}
+.osi-report-card details{border-top:1px solid var(--line)}
+.osi-report-card summary{min-height:44px;padding:13px 16px;color:var(--text);cursor:pointer;font-weight:650}
+.osi-report-version{padding:16px;border-top:1px solid var(--line)}
+.osi-report-version:first-of-type{border-top:0}
+.osi-report-version-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.osi-report-version-ref{color:var(--cyan);font:600 12px/1.4 var(--mono)}
+.osi-report-version p{max-width:70ch;margin:12px 0;color:var(--text);font-size:13px;line-height:1.7;white-space:pre-wrap}
+.osi-report-proof{display:flex;flex-wrap:wrap;align-items:center;gap:9px;color:var(--muted);font-size:12px}
+.osi-report-proof a{color:var(--cyan);text-decoration:underline;text-underline-offset:3px}
+.osi-report-evidence-list{display:grid;gap:6px;margin-top:12px}
+.osi-report-evidence-item{display:grid;grid-template-columns:28px 90px minmax(0,1fr);gap:8px;color:var(--muted);font:500 12px/1.5 var(--mono)}
+.osi-report-evidence-item span:last-child{overflow-wrap:anywhere;color:var(--text)}
+.osi-report-empty{padding:32px 18px;text-align:center;color:var(--muted)}
+
+@media(max-width:600px){
+  .osi-report-modal{padding:68px 10px 24px}
+  .osi-report-modal .fo-form{padding:22px 16px}
+  .osi-report-modal .fo-form h2{font-size:22px}
+  .osi-report-action-row{align-items:stretch;flex-direction:column}
+  .osi-report-action{width:100%}
+  .osi-report-card-head{grid-template-columns:1fr}
+  .osi-report-state{justify-self:start}
+  .osi-report-version-head{flex-direction:column}
+  .osi-report-evidence-item{grid-template-columns:24px minmax(0,1fr)}
+  .osi-report-evidence-item span:nth-child(2){grid-column:2}
+  .osi-report-evidence-item span:last-child{grid-column:2}
+  .osi-report-modal .fo-form-actions{flex-direction:column-reverse}
+  .osi-report-modal .fo-form-actions button{width:100%}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .osi-report-modal .fo-form{animation:none}
+}

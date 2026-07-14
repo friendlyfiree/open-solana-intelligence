@@ -16,6 +16,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="./assets/css/00-theme-base.css">
 <link rel="stylesheet" href="./assets/css/v2-case-integration.css">
+<link rel="stylesheet" href="./assets/css/v2-report-integration.css">
 </head>
 <body data-view="registry" data-sub="tab-analysts">
 <canvas id="osi-stream" aria-hidden="true"></canvas>
@@ -53,7 +54,7 @@
     <div class="sb-net" title="Solana Mainnet &middot; non-custodial &middot; memo-verified"><div class="sb-net-h mono">NETWORK</div><div class="sb-net-r"><span class="sb-net-dot"></span>Solana Mainnet</div><div class="sb-net-s mono">non-custodial · memo-verified</div></div>
     <button class="sb-demo" onclick="demoStart()" title="Guided briefing, no wallet needed"><span>▶</span> Briefing</button>
 <link rel="stylesheet" href="./assets/css/10-shell-hero.css">
-    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><div class="wb-menu-label">My OSI</div><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button><button class="wb-mi" type="button" role="menuitem" disabled title="Case Report intake ships in the next gated V2 slice">My Reports <span class="osi-menu-lock">write gate off</span></button><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button><button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('profile');closeWalletMenu();">My Profile</button><button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('applications');closeWalletMenu();">My Applications</button><div class="wb-menu-rule"></div><button class="wb-mi" id="maintainerAccessMenu" type="button" role="menuitem" onclick="admOpen();closeWalletMenu();">Maintainer Access <span class="osi-menu-lock" id="maintainerAccessBadge">2 gates</span></button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
+    <div class="wb-wrap"><button class="wallet-btn" id="walletBtn" onclick="walletButtonClick()" title="Connect, profile, or disconnect"><span class="wb-dot"></span><span id="wbText">Connect Wallet</span></button><div class="wb-menu" id="wbMenu" role="menu"><div class="wb-menu-label">My OSI</div><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyReports();closeWalletMenu();">My Reports</button><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button><button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReportQueue();closeWalletMenu();">Report Queue <span class="osi-menu-lock">read only</span></button><button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('profile');closeWalletMenu();">My Profile</button><button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('applications');closeWalletMenu();">My Applications</button><div class="wb-menu-rule"></div><button class="wb-mi" id="maintainerAccessMenu" type="button" role="menuitem" onclick="admOpen();closeWalletMenu();">Maintainer Access <span class="osi-menu-lock" id="maintainerAccessBadge">2 gates</span></button><button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button></div></div>
     <div class="sb-mini">// <b>don't trust the filing</b><br>verify the chain</div>
   </div>
 </aside>
@@ -780,6 +781,53 @@
     </form>
 </div>
 
+<div class="fo-modal osi-report-modal" id="osi-report-modal" role="dialog" aria-modal="true" aria-labelledby="osi-report-modal-title" aria-describedby="osi-report-modal-copy" onclick="if(event.target===this)osiV2CloseReportForm()">
+  <form class="fo-form" id="osi-report-form" onsubmit="osiV2SubmitReport(event)" novalidate>
+    <button class="fo-x" type="button" onclick="osiV2CloseReportForm()" aria-label="Close Report form">×</button>
+    <div class="fo-form-head">
+      <span class="fo-form-eyebrow">Wallet-authored Case Report</span>
+      <h2 id="osi-report-modal-title">Submit an exact Report version</h2>
+      <p id="osi-report-modal-copy">The restricted narrative and evidence stay private until a future reviewed publication transition. This action anchors only the exact version hash and safe reference on Solana.</p>
+    </div>
+    <div class="osi-report-context" id="osi-report-context" aria-live="polite"></div>
+    <label class="fo-label" for="osi-report-narrative">Restricted Report narrative <span aria-hidden="true">*</span></label>
+    <textarea id="osi-report-narrative" rows="9" minlength="80" maxlength="100000" required aria-describedby="osi-report-narrative-help"></textarea>
+    <span class="fo-hint" id="osi-report-narrative-help">80 to 100,000 characters. Explain the trace, limits, and uncertainty. This is not public before reviewed publication.</span>
+    <label class="fo-label" for="osi-report-summary">Public-safe summary</label>
+    <textarea id="osi-report-summary" rows="3" maxlength="4000" aria-describedby="osi-report-summary-help"></textarea>
+    <span class="fo-hint" id="osi-report-summary-help">Optional. It is still private in this intake slice.</span>
+    <fieldset class="osi-report-evidence">
+      <legend>Structured evidence references <span aria-hidden="true">*</span></legend>
+      <label class="fo-label" for="osi-report-wallets">Wallet addresses</label>
+      <textarea id="osi-report-wallets" rows="2" spellcheck="false" placeholder="One address per line"></textarea>
+      <label class="fo-label" for="osi-report-transactions">Solana transaction signatures</label>
+      <textarea id="osi-report-transactions" rows="2" spellcheck="false" placeholder="One signature per line"></textarea>
+      <label class="fo-label" for="osi-report-urls">HTTPS source URLs</label>
+      <textarea id="osi-report-urls" rows="2" spellcheck="false" placeholder="https://example.org/source"></textarea>
+      <span class="fo-hint">Add at least one and no more than 12 total references. File upload is unavailable because no approved private storage path exists yet.</span>
+    </fieldset>
+    <div id="osi-report-revision-wrap" hidden>
+      <label class="fo-label" for="osi-report-revision-reason">Revision reason <span aria-hidden="true">*</span></label>
+      <select id="osi-report-revision-reason">
+        <option value="">Choose a reason</option>
+        <option value="author_correction">Author correction</option>
+        <option value="new_evidence">New evidence</option>
+        <option value="clarification">Clarification</option>
+        <option value="review_response">Review response</option>
+      </select>
+    </div>
+    <label class="osi-report-safety" for="osi-report-safety">
+      <input id="osi-report-safety" type="checkbox" required>
+      <span>I confirm that this Report contains no seed phrase, private key, access token, stolen credential, illegal-access material, payment-card number, or government identity number.</span>
+    </label>
+    <div class="osi-form-status mono" id="osi-report-form-status" role="status" aria-live="polite"></div>
+    <div class="fo-form-actions">
+      <button class="btn-ghost" type="button" onclick="osiV2CloseReportForm()">Cancel</button>
+      <button class="btn-fill" id="osi-report-submit" type="submit">Prepare exact Memo</button>
+    </div>
+  </form>
+</div>
+
 <div class="osi-case-drawer" id="osi-case-drawer" role="dialog" aria-modal="true" aria-labelledby="osi-case-title" hidden>
   <button class="osi-case-scrim" type="button" tabindex="-1" onclick="osiV2CloseCase()" aria-label="Close Case detail"></button>
   <article class="osi-case-panel">
@@ -1357,6 +1405,7 @@
 <script src="./assets/js/80-ai-pack.js"></script>
 <script src="./assets/js/84-public-records.js"></script>
 <script src="./assets/js/v2-case-integration.js"></script>
+<script src="./assets/js/v2-report-integration.js"></script>
 <script src="./assets/js/v2-analyst-integration.js"></script>
 <script src="./assets/js/99-app.js"></script>
 <link rel="stylesheet" href="./assets/css/50-late-components.css">
