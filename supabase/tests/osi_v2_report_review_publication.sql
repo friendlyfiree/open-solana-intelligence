@@ -551,12 +551,12 @@ select lives_ok(
       '20000000-0000-4000-8000-000000000001',
       'This corrected immutable Report version preserves the prior publication while clarifying transaction order, source limits, and uncertainty.',
       'A corrected public-safe summary replaces the current public version only after fresh quorum.',
-      (select report_public_ref from pg_temp.report_prepare),
+      'author_correction',
       jsonb_build_array(jsonb_build_object(
         'kind', 'wallet', 'ref', '11111111111111111111111111111114',
         'sha256', encode(extensions.digest(convert_to('11111111111111111111111111111114', 'UTF8'), 'sha256'), 'hex')
       )),
-      'author_correction', 'report-correction-fixture-0001', repeat('e', 64)
+      'report-correction-fixture-0001', repeat('e', 64)
     );
     select * from public.osi_v2_commit_report_version(
       repeat('x', 32),
