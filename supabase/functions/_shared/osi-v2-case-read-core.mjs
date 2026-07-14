@@ -180,6 +180,7 @@ function isoOrNull(value) {
 function publicVersionDto(version) {
   if (!version) return null;
   return {
+    version_ref: version.version_ref == null ? null : String(version.version_ref),
     version_no: version.version_no ?? null,
     lifecycle_state: String(version.lifecycle_state ?? ""),
     published_at: isoOrNull(version.published_at),
@@ -192,6 +193,7 @@ function publicReceiptDto(receipt) {
   const dto = {
     label: proofLabel(receipt),
     event_type: String(receipt.event_type ?? ""),
+    public_ref: receipt.public_ref == null ? null : String(receipt.public_ref),
     actor_wallet: String(receipt.actor_wallet ?? ""),
     actor_role: String(receipt.actor_role ?? ""),
     decision: receipt.decision == null ? null : String(receipt.decision),
@@ -239,6 +241,11 @@ export function publicCaseDto(
   evidence = [],
   reviews = [],
 ) {
+  const publishedVersionIds = new Set(
+    reports.map((report) => report.current_published_version_id)
+      .filter((value) => value != null)
+      .map(String),
+  );
   return {
     public_ref: String(caseRow.public_ref ?? ""),
     title: String(caseRow.title ?? ""),
@@ -253,18 +260,30 @@ export function publicCaseDto(
       .map(publicEvidenceDto),
     reviews: reviews.filter((review) => review.is_active === true)
       .map((review) => reviewDto(review, false)),
-    reports: reports.map((report) => ({
+    reports: reports.filter((report) => report.current_published_version_id != null)
+      .map((report) => ({
+      public_ref: String(report.public_ref ?? ""),
       status: String(report.status ?? ""),
       current_version: publicVersionDto(
-        (versionsByReport[report.id] ?? []).find((v) => v.id === report.current_version_id) ?? null,
+        (versionsByReport[report.id] ?? []).find(
+          (version) => version.id === report.current_published_version_id,
+        ) ?? null,
       ),
-      published: report.current_published_version_id != null,
+      content_public_safe: String(
+        (versionsByReport[report.id] ?? []).find(
+          (version) => version.id === report.current_published_version_id,
+        )?.content_public_safe ?? "",
+      ),
+      published: true,
     })),
-    proof_log: receipts.map(publicReceiptDto),
+    proof_log: receipts.filter((receipt) => (
+      receipt.target_type !== "report_version"
+      || publishedVersionIds.has(String(receipt.target_id))
+    )).map(publicReceiptDto),
   };
 }
 
-function authorizedVersionDto(version, actorWallet) {
+function authorizedVersionDto(version, actor) {
   const dto = {
     version_no: version.version_no ?? null,
     lifecycle_state: String(version.lifecycle_state ?? ""),
@@ -275,9 +294,16 @@ function authorizedVersionDto(version, actorWallet) {
     body_length: typeof version.body_private === "string" ? version.body_private.length : 0,
     has_public_content: version.content_public_safe != null,
   };
-  // The raw private body is returned ONLY to the wallet that wrote it.
-  if (typeof actorWallet === "string" && actorWallet && version.created_by_wallet === actorWallet) {
+  // Restricted bodies are returned only to the author, an eligible analyst,
+  // or a full maintainer using the dedicated detail path. Overview DTOs can
+  // explicitly suppress them even for maintainers.
+  if (actor.suppress_private_body !== true
+      && ((actor.kind === "analyst" || actor.kind === "maintainer")
+      || (typeof actor.wallet === "string" && actor.wallet
+        && version.created_by_wallet === actor.wallet))) {
     dto.body_private = String(version.body_private ?? "");
+    dto.content_public_safe = version.content_public_safe == null
+      ? null : String(version.content_public_safe);
   }
   return dto;
 }
@@ -304,6 +330,21 @@ export function authorizedCaseDto(
   reviews = [],
 ) {
   const includeRestrictedReviewFields = actor.kind === "analyst" || actor.kind === "maintainer";
+  const visibleReports = reports.filter((report) => (
+    includeRestrictedReviewFields
+    || report.author_wallet === actor.wallet
+    || report.current_published_version_id != null
+  ));
+  const visibleReportVersionIds = new Set();
+  for (const report of visibleReports) {
+    if (includeRestrictedReviewFields || report.author_wallet === actor.wallet) {
+      for (const version of versionsByReport[report.id] ?? []) {
+        visibleReportVersionIds.add(String(version.id));
+      }
+    } else if (report.current_published_version_id != null) {
+      visibleReportVersionIds.add(String(report.current_published_version_id));
+    }
+  }
   return {
     public_ref: String(caseRow.public_ref ?? ""),
     title: String(caseRow.title ?? ""),
@@ -321,17 +362,25 @@ export function authorizedCaseDto(
       ? null : Number(caseRow.reward_intent_lamports),
     evidence: evidence.map(publicEvidenceDto),
     reviews: reviews.map((review) => reviewDto(review, includeRestrictedReviewFields)),
-    reports: reports.map((report) => ({
-      author_wallet: String(report.author_wallet ?? ""),
+    reports: visibleReports.map((report) => ({
+      public_ref: String(report.public_ref ?? ""),
+      author_wallet: includeRestrictedReviewFields || report.author_wallet === actor.wallet
+        ? String(report.author_wallet ?? "") : undefined,
       status: String(report.status ?? ""),
       created_at: isoOrNull(report.created_at),
       published: report.current_published_version_id != null,
       versions: (versionsByReport[report.id] ?? [])
+        .filter((version) => includeRestrictedReviewFields
+          || report.author_wallet === actor.wallet
+          || version.id === report.current_published_version_id)
         .slice()
         .sort((left, right) => (left.version_no ?? 0) - (right.version_no ?? 0))
-        .map((version) => authorizedVersionDto(version, actor.wallet)),
+        .map((version) => authorizedVersionDto(version, actor)),
     })),
-    proof_log: receipts.map((receipt) => authorizedReceiptDto(receipt, includeRestrictedReviewFields)),
+    proof_log: receipts.filter((receipt) => (
+      receipt.target_type !== "report_version"
+      || visibleReportVersionIds.has(String(receipt.target_id))
+    )).map((receipt) => authorizedReceiptDto(receipt, includeRestrictedReviewFields)),
   };
 }
 
@@ -375,7 +424,7 @@ export function maintainerOverviewDto(input) {
       reportsByCase[caseRow.id] ?? [],
       versionsByReport,
       receiptsByCaseTarget[caseRow.public_ref] ?? [],
-      { kind: "maintainer" },
+      { kind: "maintainer", suppress_private_body: true },
     )),
   };
 }

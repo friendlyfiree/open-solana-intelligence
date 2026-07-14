@@ -1,6 +1,6 @@
 # OSI Delivery Brief
 
-Revision: 2026-07-13
+Revision: 2026-07-14
 Purpose: short operational memory for every OSI engineering task.
 Authority: this brief summarizes accepted documents; it never overrides them.
 Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
@@ -63,16 +63,18 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - The frontend is static HTML, modular CSS, and classic JavaScript.
 - The repository has no package-manager manifest or frontend build step.
 - Supabase PostgreSQL and Edge Functions provide the backend.
-- Seven accepted additive V2 migrations precede the native analyst activation slice.
+- Eight accepted additive V2 migrations precede the native Case Report intake slice.
 - Those migrations cover schema, guards, default deny, Stage-5, legacy materialization, and native Case lifecycle.
 - The production Case read and write functions are reachable and fail closed.
 - The mature production shell responds successfully.
 - The native analyst activation migration and function are a merge/deploy candidate.
+- The native Case Report intake migration, read/write gateways, root UI integration, and main-only rollout workflow are a review candidate.
 - Production is unchanged until the reviewed PR is merged and rollout gates pass.
 - Broad `OSI_V2_WRITES_ENABLED` remains false.
 - Broad `OSI_V2_PROOF_ENABLED` remains false.
 - The Case slice uses exact `OSI_V2_CASE_WRITES_ENABLED` gating.
 - The analyst slice uses exact `OSI_V2_ANALYST_WRITES_ENABLED` gating.
+- The Report slice uses exact `OSI_V2_REPORT_WRITES_ENABLED` gating and is disabled by default until its reviewed rollout finishes.
 - Missing, malformed, or unavailable flags fail closed.
 
 ## 4. Global information architecture
@@ -88,6 +90,8 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - My OSI is not a primary navigation section.
 - The wallet menu exposes My Cases.
 - The wallet menu exposes My Reports only when its real gate exists.
+- My Reports uses a fresh signed, single-use private read and shows the author's exact immutable version history.
+- Report Queue uses a fresh signed read and is limited to an eligible analyst or full maintainer.
 - The wallet menu exposes My Reviews.
 - The wallet menu exposes My Profile.
 - The wallet menu exposes My Applications.
@@ -154,6 +158,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Default-deny RLS applies to every client-reachable V2 table.
 - Public DTOs use explicit least-privilege fields.
 - Public Case DTOs omit restricted detail and private pending evidence.
+- Public Case DTOs omit unpublished Report existence, count, author, receipt, body, summary, evidence, hash, and submission metadata.
 - Owner DTOs omit analyst-restricted reason codes.
 - Analyst and full-maintainer DTOs receive only their authorized projection.
 - No-self-review is rechecked at the database boundary.
@@ -211,12 +216,30 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - The probation transition derives `probationary_analyst`, tier `probationary`, and weight exactly 0.50 on the server.
 - Support never changes status, tier, weight, ordering, review priority, or reputation.
 
-## 9. Next roadmap gates
+## 9. Native Case Report intake candidate
+
+- A connected wallet may submit to a public Case only in `open_public`, `in_review`, or `reopened`.
+- One native Report header is permitted for an exact Case and author wallet.
+- Version numbers and exact supersedes links are derived under a server lineage lock.
+- Every submission appends an immutable version and preserves all earlier versions and receipts.
+- Evidence is an ordered manifest of validated wallet, Solana transaction, or HTTPS references.
+- The evidence manifest hash and complete private payload are bound before wallet approval.
+- `CASE_REPORT_VERSION_SUBMITTED` is a class-A Memo anchored by the Report author wallet.
+- The server verifies mainnet genesis, transaction status, signer, exact Memo, freshness, nonce, target, and payload binding.
+- Nonce consumption, receipt, header adoption or creation, immutable version, evidence links, and current pointer update share one transaction.
+- `current_published_version_id` is never advanced by intake or revision.
+- Public reads expose only an exact published Report pointer and never reveal an unpublished Report's existence.
+- Authors receive full private history through My Reports.
+- Eligible analysts and full maintainers receive a read-only awaiting-review projection.
+- Case ownership alone does not grant access to another author's unpublished Report.
+- Report review, publication, rejection, resolution, challenge, reward, support, Wire intake, and AI Pack remain disabled.
+
+## 10. Next roadmap gates
 
 - Merge and deploy the reviewed analyst activation slice only after clean CI and preview verification.
 - Run a soak period with broad V2 writes still disabled.
-- Add immutable Case Report intake next.
-- Add exact-version Report review after Report intake.
+- Merge and deploy the reviewed Case Report intake slice only after clean CI and manual main-only rollout verification.
+- Add exact-version Report review after the Report intake soak period.
 - Add complete initial rejection quorum and terminal transition before enabling rejection.
 - Add resolution proposal and nullable-state checks.
 - Add finalized resolution and seven-day challenge window.
@@ -226,7 +249,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Add reward, support, My OSI expansion, and Operations Center later.
 - Retire legacy writes only after soak, reconciliation, and explicit cutover approval.
 
-## 10. Production operation rules
+## 11. Production operation rules
 
 - Start from verified current `main` on a dedicated `codex/` task branch.
 - Never commit directly to `main`.
@@ -242,6 +265,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Record the disable and forward-fix plan.
 - Case rollback means set only the Case feature gate false through a reviewed forward fix.
 - Analyst rollback means set only the analyst feature gate false through a reviewed forward fix.
+- Report rollback means set only `OSI_V2_REPORT_WRITES_ENABLED=false` through a reviewed trusted-server change, retain immutable history, and forward-fix.
 - Rollback never pretends a populated schema can be safely dropped.
 - Verify schema, RLS, flags, and smoke reads after deployment.
 - Deploy Edge Functions only from the exact reviewed commit.

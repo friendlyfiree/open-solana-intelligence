@@ -9,6 +9,7 @@ const index = read('index.html');
 const legacy = read('legacy.html');
 const app = read('assets/js/v2-case-integration.js');
 const css = read('assets/css/v2-case-integration.css');
+const reportIntegration = read('assets/js/v2-report-integration.js');
 
 let pass = 0;
 let fail = 0;
@@ -36,8 +37,9 @@ ok('My Cases is in the wallet menu',
   /role="menuitem"[^>]+osiV2OpenMyCases/.test(index));
 ok('My Reviews is in the wallet menu',
   /role="menuitem"[^>]+osiV2OpenReviewQueue/.test(index));
-ok('My Reports is honestly disabled at its next gate',
-  /role="menuitem"[^>]+disabled[^>]+Case Report intake ships in the next gated V2 slice[^>]*>My Reports/.test(index));
+ok('My Reports is active only because it is wired to the signed Report read gateway',
+  /role="menuitem"[^>]+onclick="osiV2OpenMyReports\(\)[^"]*"[^>]*>My Reports/.test(index)
+    && reportIntegration.includes("list_my_reports"));
 ok('My OSI is not a primary navigation item',
   !/<button class="sb-item"[^>]*>\s*<span>My OSI<\/span>/.test(index));
 ok('My Cases is not duplicated into a secondary rail',

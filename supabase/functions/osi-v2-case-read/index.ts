@@ -111,11 +111,11 @@ function timingSafeEqualHex(left: string, right: string): boolean {
 const CASE_COLS =
   "id,public_ref,title,category,summary_public,details_restricted,reward_intent_lamports,submitted_by_wallet,stage,visibility,risk_tier,sealed_at,created_at,updated_at";
 const REPORT_COLS =
-  "id,case_id,author_wallet,current_version_id,current_published_version_id,status,created_at";
+  "id,case_id,author_wallet,current_version_id,current_published_version_id,status,public_ref,native_intake,created_at";
 const VERSION_COLS =
-  "id,report_id,version_no,created_by_wallet,body_private,content_public_safe,evidence_snapshot_hash,lifecycle_state,published_at,created_at";
+  "id,report_id,version_no,version_ref,created_by_wallet,body_private,content_public_safe,evidence_snapshot_hash,lifecycle_state,published_at,created_at";
 const RECEIPT_COLS =
-  "id,event_type,target_type,target_id,actor_wallet,actor_role,decision,weight,reason_code,proof_type,memo_ref,tx_sig,server_verified,occurred_at";
+  "id,event_type,target_type,target_id,public_ref,actor_wallet,actor_role,decision,weight,reason_code,proof_type,memo_ref,tx_sig,server_verified,occurred_at";
 const EVIDENCE_COLS =
   "id,kind,ref,is_public,moderation_state,sha256,created_at";
 const REVIEW_COLS =
@@ -123,7 +123,7 @@ const REVIEW_COLS =
 
 type Row = Record<string, unknown>;
 
-async function loadCaseGraph(caseRows: Row[]) {
+async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
   const caseIds = caseRows.map((c) => String(c.id));
   const publicRefs = caseRows.map((c) => String(c.public_ref));
   const reportsByCase: Record<string, Row[]> = {};
@@ -135,8 +135,11 @@ async function loadCaseGraph(caseRows: Row[]) {
     return { reportsByCase, versionsByReport, receiptsByCaseTarget, evidenceByCase, reviewsByCase };
   }
 
-  const { data: reports } = await admin.from("case_reports").select(REPORT_COLS)
-    .in("case_id", caseIds).order("created_at", { ascending: true }).limit(200);
+  let reportsQuery = admin.from("case_reports").select(REPORT_COLS)
+    .in("case_id", caseIds);
+  if (publicOnly) reportsQuery = reportsQuery.not("current_published_version_id", "is", null);
+  const { data: reports } = await reportsQuery
+    .order("created_at", { ascending: true }).limit(200);
   const reportIds = (reports ?? []).map((r) => String(r.id));
   for (const report of reports ?? []) {
     const key = String(report.case_id);
@@ -144,8 +147,15 @@ async function loadCaseGraph(caseRows: Row[]) {
   }
 
   if (reportIds.length) {
-    const { data: versions } = await admin.from("case_report_versions").select(VERSION_COLS)
-      .in("report_id", reportIds).order("version_no", { ascending: true }).limit(400);
+    const publishedVersionIds = (reports ?? [])
+      .map((report) => String(report.current_published_version_id ?? ""))
+      .filter(Boolean);
+    let versionsQuery = admin.from("case_report_versions").select(VERSION_COLS);
+    versionsQuery = publicOnly
+      ? versionsQuery.in("id", publishedVersionIds)
+      : versionsQuery.in("report_id", reportIds);
+    const { data: versions } = await versionsQuery
+      .order("version_no", { ascending: true }).limit(400);
     for (const version of versions ?? []) {
       const key = String(version.report_id);
       (versionsByReport[key] ??= []).push(version);
@@ -216,7 +226,7 @@ async function listPublicCases(): Promise<Response> {
     .limit(PUBLIC_LIST_LIMIT);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   const caseRows = (data ?? []).filter(isCasePublic);
-  const graph = await loadCaseGraph(caseRows);
+  const graph = await loadCaseGraph(caseRows, true);
   return jsonResponse(200, {
     ok: true,
     cases: caseRows.map((caseRow) => publicCaseDto(
@@ -243,7 +253,7 @@ async function getPublicCase(body: Row): Promise<Response> {
   if (!caseRow || !isCasePublic(caseRow)) {
     return jsonResponse(404, { ok: false, error: "not_found_or_private" });
   }
-  const graph = await loadCaseGraph([caseRow]);
+  const graph = await loadCaseGraph([caseRow], true);
   return jsonResponse(200, {
     ok: true,
     case: publicCaseDto(

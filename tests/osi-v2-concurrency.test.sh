@@ -50,7 +50,7 @@ cleanup() {
   # Restore the fail-closed default. The disposable database is discarded by CI;
   # this keeps the flag correct for anything that reuses the same local database.
   psql "$DB_URL" -X -q -tA \
-    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED');" \
+    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED');" \
     >/dev/null 2>&1 || true
   rm -rf "$WORKDIR"
 }
@@ -359,6 +359,212 @@ if printf '%s' "$APP_CHANGED_HASH_ERR" | grep -q 'Application nonce binding is i
 else
   fail "changed analyst payload hash was not rejected: $APP_CHANGED_HASH_ERR"
 fi
+
+# --- Case Report: one exact Memo nonce races across two commit workers --------
+REPORT_CASE_ID="$(cat /proc/sys/kernel/random/uuid)"
+REPORT_WALLET="88888888888888888888888888888888"
+REPORT_NONCE="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+REPORT_IDEM="osi-v2-report-race-$(date +%s%N)"
+REPORT_BODY="This restricted Report concurrency fixture records transaction order wallet relationships uncertainty and evidence limits for exact review."
+REPORT_SUMMARY="A public-safe concurrency fixture that remains private before publication."
+REPORT_TX="$(printf 'H%.0s' $(seq 1 88))"
+REPORT_MEMO="OSI2 test CASE_REPORT_VERSION_SUBMITTED concurrency v1"
+REPORT_C1_OUT="$WORKDIR/report-conn1.out"
+REPORT_C2_OUT="$WORKDIR/report-conn2.out"
+REPORT_HOLD_MARKER="$WORKDIR/report-conn1-holding.marker"
+
+psql_run >/dev/null <<SQL
+insert into public.cases (
+  id, public_ref, title, category, summary_public, details_restricted,
+  submitted_by_wallet, stage, visibility, subject_refs
+) values (
+  '$REPORT_CASE_ID', 'OSI-RACE12345678', 'Report concurrency fixture', 'other',
+  'A public active Case used only by the disposable Report concurrency test.',
+  'Restricted disposable Case fixture.',
+  '99999999999999999999999999999999', 'open_public', 'public', '[]'::jsonb
+);
+update public.osi_config set value = 'true' where key = 'OSI_V2_REPORT_WRITES_ENABLED';
+update public.osi_config set value = '0' where key = 'OSI_V2_REPORT_COOLDOWN_SECONDS';
+select * from public.osi_v2_prepare_report_version(
+  '$REPORT_NONCE', '$REPORT_WALLET', '$REPORT_CASE_ID',
+  '$REPORT_BODY', '$REPORT_SUMMARY', null,
+  jsonb_build_array(jsonb_build_object(
+    'kind', 'wallet', 'ref', '$REPORT_WALLET',
+    'sha256', encode(extensions.digest(convert_to('$REPORT_WALLET', 'UTF8'), 'sha256'), 'hex')
+  )),
+  '$REPORT_IDEM', '$(printf '1%.0s' $(seq 1 64))'
+);
+SQL
+
+REPORT_COMMIT_SQL="select receipt_id::text || ' ' || idempotent_replay::text
+  from public.osi_v2_commit_report_version(
+    '$REPORT_NONCE', '$REPORT_BODY', '$REPORT_SUMMARY', null,
+    jsonb_build_array(jsonb_build_object(
+      'kind', 'wallet', 'ref', '$REPORT_WALLET',
+      'sha256', encode(extensions.digest(convert_to('$REPORT_WALLET', 'UTF8'), 'sha256'), 'hex')
+    )),
+    '$REPORT_TX', '$REPORT_MEMO', statement_timestamp())"
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$REPORT_COMMIT_SQL
+\g $REPORT_C1_OUT
+\! touch $REPORT_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+REPORT_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$REPORT_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "Report connection 1 never reached the holding state"
+    wait "$REPORT_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$REPORT_COMMIT_SQL
+\g $REPORT_C2_OUT
+commit;
+SQL
+REPORT_CONN2_PID=$!
+
+sleep 1
+REPORT_RACE_WAITERS="$(psql_run -c "
+  select count(*) from pg_stat_activity
+   where wait_event_type = 'Lock'
+     and query ilike '%osi_v2_commit_report_version%';")"
+if [ "${REPORT_RACE_WAITERS:-0}" -ge 1 ]; then
+  pass "second Report commit genuinely blocked on the exact nonce or lineage lock"
+else
+  fail "second Report commit did not block on a lock"
+fi
+
+wait "$REPORT_CONN1_PID"
+wait "$REPORT_CONN2_PID"
+read -r REPORT_R1 REPORT_REPLAY1 < "$REPORT_C1_OUT"
+read -r REPORT_R2 REPORT_REPLAY2 < "$REPORT_C2_OUT"
+assert_eq "Report race returns one shared receipt" "$REPORT_R1" "$REPORT_R2"
+assert_eq "first Report commit creates the exact version" "false" "$REPORT_REPLAY1"
+assert_eq "second Report commit is an idempotent replay" "true" "$REPORT_REPLAY2"
+
+REPORT_COUNTS="$(psql_run -c "
+  select count(distinct receipt.id) || ':' || count(distinct report.id) || ':' || count(distinct version.id)
+    from public.case_reports report
+    join public.case_report_versions version on version.report_id = report.id
+    join public.event_receipts receipt on receipt.id = version.event_receipt_id
+   where report.case_id = '$REPORT_CASE_ID' and report.author_wallet = '$REPORT_WALLET';")"
+assert_eq "Report race creates one receipt one header and one version" "1:1:1" "$REPORT_COUNTS"
+
+REPORT_CHANGED_BODY_ERR="$(psql "$DB_URL" -X -q -tA -c "
+  select * from public.osi_v2_commit_report_version(
+    '$REPORT_NONCE', '${REPORT_BODY} changed after prepare', '$REPORT_SUMMARY', null,
+    jsonb_build_array(jsonb_build_object(
+      'kind', 'wallet', 'ref', '$REPORT_WALLET',
+      'sha256', encode(extensions.digest(convert_to('$REPORT_WALLET', 'UTF8'), 'sha256'), 'hex')
+    )), '$REPORT_TX', '$REPORT_MEMO', statement_timestamp());" 2>&1 || true)"
+if printf '%s' "$REPORT_CHANGED_BODY_ERR" | grep -q 'Report content or evidence changed after prepare'; then
+  pass "changed Report body cannot reuse the consumed nonce"
+else
+  fail "changed Report body was not rejected: $REPORT_CHANGED_BODY_ERR"
+fi
+
+# Two independently prepared revisions both reserve version 2. The lineage
+# lock permits one commit; the stale reservation fails and cannot duplicate the
+# version number or advance the header twice.
+REV_NONCE_1="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+REV_NONCE_2="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+REV_BODY_1="This first restricted revision adds exact evidence context while preserving uncertainty source limits and the immutable initial Report version."
+REV_BODY_2="This second concurrent restricted revision proposes different context but must lose safely if the first revision advances the lineage."
+REV_TX_1="$(printf 'J%.0s' $(seq 1 88))"
+REV_TX_2="$(printf 'K%.0s' $(seq 1 88))"
+REV_C1_OUT="$WORKDIR/revision-conn1.out"
+REV_C2_ERR="$WORKDIR/revision-conn2.err"
+REV_HOLD_MARKER="$WORKDIR/revision-conn1-holding.marker"
+
+psql_run >/dev/null <<SQL
+select * from public.osi_v2_prepare_report_version(
+  '$REV_NONCE_1', '$REPORT_WALLET', '$REPORT_CASE_ID',
+  '$REV_BODY_1', '$REPORT_SUMMARY', 'new_evidence',
+  jsonb_build_array(jsonb_build_object(
+    'kind', 'wallet', 'ref', '$REPORT_WALLET',
+    'sha256', encode(extensions.digest(convert_to('$REPORT_WALLET', 'UTF8'), 'sha256'), 'hex')
+  )), 'osi-v2-report-revision-one-$(date +%s%N)', '$(printf '2%.0s' $(seq 1 64))'
+);
+select * from public.osi_v2_prepare_report_version(
+  '$REV_NONCE_2', '$REPORT_WALLET', '$REPORT_CASE_ID',
+  '$REV_BODY_2', '$REPORT_SUMMARY', 'clarification',
+  jsonb_build_array(jsonb_build_object(
+    'kind', 'wallet', 'ref', '$REPORT_WALLET',
+    'sha256', encode(extensions.digest(convert_to('$REPORT_WALLET', 'UTF8'), 'sha256'), 'hex')
+  )), 'osi-v2-report-revision-two-$(date +%s%N)', '$(printf '3%.0s' $(seq 1 64))'
+);
+SQL
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+select receipt_id::text from public.osi_v2_commit_report_version(
+  '$REV_NONCE_1', '$REV_BODY_1', '$REPORT_SUMMARY', 'new_evidence',
+  jsonb_build_array(jsonb_build_object(
+    'kind', 'wallet', 'ref', '$REPORT_WALLET',
+    'sha256', encode(extensions.digest(convert_to('$REPORT_WALLET', 'UTF8'), 'sha256'), 'hex')
+  )), '$REV_TX_1', 'OSI2 Report revision race winner', statement_timestamp())
+\g $REV_C1_OUT
+\! touch $REV_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+REV_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$REV_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "revision connection 1 never reached the holding state"
+    wait "$REV_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q -c "
+  select * from public.osi_v2_commit_report_version(
+    '$REV_NONCE_2', '$REV_BODY_2', '$REPORT_SUMMARY', 'clarification',
+    jsonb_build_array(jsonb_build_object(
+      'kind', 'wallet', 'ref', '$REPORT_WALLET',
+      'sha256', encode(extensions.digest(convert_to('$REPORT_WALLET', 'UTF8'), 'sha256'), 'hex')
+    )), '$REV_TX_2', 'OSI2 Report revision race loser', statement_timestamp());" \
+  >/dev/null 2>"$REV_C2_ERR" &
+REV_CONN2_PID=$!
+
+wait "$REV_CONN1_PID"
+wait "$REV_CONN2_PID" 2>/dev/null || true
+if grep -q 'Report lineage advanced after prepare' "$REV_C2_ERR"; then
+  pass "stale concurrent revision is rejected after the lineage advances"
+else
+  fail "stale concurrent revision did not fail with the lineage guard"
+fi
+
+REVISION_NUMBERS="$(psql_run -c "
+  select count(*) || ':' || count(distinct version_no) || ':' || max(version_no)
+    from public.case_report_versions version
+    join public.case_reports report on report.id = version.report_id
+   where report.case_id = '$REPORT_CASE_ID' and report.author_wallet = '$REPORT_WALLET';")"
+assert_eq "concurrent revisions leave unique monotonic version numbers" "2:2:2" "$REVISION_NUMBERS"
+
+LOSER_RECEIPTS="$(psql_run -c "select count(*) from public.event_receipts where nonce = '$REV_NONCE_2';")"
+assert_eq "losing concurrent revision creates no receipt or partial effect" "0" "$LOSER_RECEIPTS"
 
 # --- verdict ------------------------------------------------------------------
 echo "----"
