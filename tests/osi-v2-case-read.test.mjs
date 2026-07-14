@@ -216,6 +216,8 @@ const pubLeaks = core.collectForbiddenKeys(pub);
 ok("public DTO leaks no forbidden key", pubLeaks.size === 0, [...pubLeaks].join(","));
 ok("public DTO never contains private Case or Report content",
   !JSON.stringify(pub).includes("SECRET"));
+ok("public DTO hides unpublished Report existence and count",
+  pub.reports.length === 0);
 ok("public DTO keeps public governance attribution",
   pub.proof_log[0].actor_wallet === OWNER && pub.proof_log[0].decision === "open");
 ok("public DTO keeps the exact legacy label",
@@ -254,9 +256,8 @@ const ownerView = core.authorizedCaseDto(caseRow, [report], { [report.id]: [vers
   { kind: "owner", wallet: OWNER });
 ok("case owner does NOT receive another author's private body",
   !JSON.stringify(ownerView).includes("private findings body"));
-ok("case owner sees version metadata (length, hash, state)",
-  ownerView.reports[0].versions[0].body_length === version.body_private.length
-    && ownerView.reports[0].versions[0].lifecycle_state === "submitted");
+ok("case owner does NOT receive another author's unpublished Report metadata",
+  ownerView.reports.length === 0);
 ok("case owner receives their restricted Case intake detail",
   ownerView.details_restricted === caseRow.details_restricted);
 

@@ -1,0 +1,386 @@
+name: OSI V2 Report Production
+
+# Manual, main-only rollout of the reviewed native Case Report slice. The
+# migration is additive and lands with Report writes disabled. Only after
+# schema, privilege, privacy, function and V1 preservation checks pass does
+# this workflow enable the dedicated Report flag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type REPORT-DEPLOY-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-report-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  NEW_VERSION: '20260714044036'
+  EIGHT_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533
+  NINE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean local Case Report gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "REPORT-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out exact dispatched commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+          echo "Validated main commit $(git rev-parse HEAD)."
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.4.1
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Verify exact nine-migration repository
+        run: |
+          set -euo pipefail
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$NINE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Repository migration set is not the exact expected nine versions."; exit 1; }
+          test -f "supabase/migrations/${NEW_VERSION}_osi_v2_case_report_intake.sql"
+
+      - name: Complete application, privacy and security battery
+        run: |
+          set -euo pipefail
+          node tests/osi-v2-migrations.test.js
+          node tests/osi-v2-proof-core.test.mjs
+          node tests/xss-escaping.test.js
+          node tests/osi-v2-case-read.test.mjs
+          node tests/osi-v2-case-write.test.mjs
+          node tests/osi-v2-case-ui.test.js
+          node tests/osi-session-access.test.js
+          node tests/osi-v2-analyst-core.test.mjs
+          node tests/osi-v2-analyst-ui.test.js
+          node tests/osi-v2-report.test.mjs
+          deno check supabase/functions/osi-v2-case-read/index.ts
+          deno check supabase/functions/osi-v2-case-write/index.ts
+          deno check supabase/functions/osi-v2-analyst/index.ts
+          deno check supabase/functions/osi-v2-report-read/index.ts
+          deno check supabase/functions/osi-v2-report-write/index.ts
+
+      - name: Start disposable PostgreSQL 17 and migrate from zero
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+
+      - name: Database lint, pgTAP and two-connection races
+        run: |
+          set -euo pipefail
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact Report migration, functions, smoke and enable
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Check out exact validated main commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify credentials, project and unchanged main head
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "::error::Validated commit is no longer current main."; exit 1; }
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Require existing function secrets without printing values
+        run: |
+          set -euo pipefail
+          secrets="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF")"
+          echo "$secrets" | grep -q 'OSI_MAINTAINER_AUTH_UUID' || { echo "::error::Maintainer auth secret is absent."; exit 1; }
+          echo "$secrets" | grep -q 'SOLANA_RPC_URL' || { echo "::error::Solana RPC secret is absent."; exit 1; }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot protected V1 table counts
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+
+      - name: Link pinned project and verify exact remote migration history
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
+          supabase migration list --linked
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          eight="$(echo "$EIGHT_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          nine="$(echo "$NINE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$eight" ]; then echo "MODE=deploy" >> "$GITHUB_ENV";
+          elif [ "$got" = "$nine" ]; then echo "MODE=resume" >> "$GITHUB_ENV";
+          else echo "::error::Remote history is not the exact eight-before or nine-after state."; exit 1; fi
+
+          case_flag="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED'")"
+          analyst_flag="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_ANALYST_WRITES_ENABLED'")"
+          case "$case_flag" in true|false) : ;; *) echo "::error::Existing Case flag is absent or malformed."; exit 1 ;; esac
+          case "$analyst_flag" in true|false) : ;; *) echo "::error::Existing analyst flag is absent or malformed."; exit 1 ;; esac
+          echo "CASE_FLAG_BEFORE=$case_flag" >> "$GITHUB_ENV"
+          echo "ANALYST_FLAG_BEFORE=$analyst_flag" >> "$GITHUB_ENV"
+
+      - name: Record exact disable and forward-fix plan
+        run: |
+          echo "Disable plan: set only OSI_V2_REPORT_WRITES_ENABLED=false through a reviewed trusted-server change."
+          echo "Immutable Report headers, versions, evidence and receipts remain retained for forward repair."
+          echo "No drop, reset, repair, truncation or data rewrite is an acceptable rollback."
+
+      - name: Dry-run must contain only the Report migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/report-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/report-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ] || { echo "::error::Dry-run is not exactly ${NEW_VERSION}."; exit 1; }
+
+      - name: Apply exactly the additive Report migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: supabase db push --linked --yes
+
+      - name: Verify history, flag isolation, forced RLS and privileges
+        run: |
+          set -euo pipefail
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED'")" = "$CASE_FLAG_BEFORE" ] || { echo "::error::Case flag changed during Report migration."; exit 1; }
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_ANALYST_WRITES_ENABLED'")" = "$ANALYST_FLAG_BEFORE" ] || { echo "::error::Analyst flag changed during Report migration."; exit 1; }
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare got text;
+          begin
+            select string_agg(version, ' ' order by version) into got from supabase_migrations.schema_migrations;
+            if got <> '20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036'
+              then raise exception 'unexpected migration history'; end if;
+            if (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_FALLBACK_GOVERNANCE') is distinct from 'false'
+              then raise exception 'feature flags are not in the exact pre-enable state'; end if;
+            if exists (
+              select 1 from (values ('case_reports'),('case_report_versions'),('evidence_items'),('case_report_version_evidence'),('event_receipts'),('osi_nonces')) as required(name)
+              where not exists (select 1 from pg_class where oid=('public.'||required.name)::regclass and relrowsecurity and relforcerowsecurity)
+            ) then raise exception 'Report surface is missing forced RLS'; end if;
+            if has_table_privilege('anon','public.case_report_versions','SELECT')
+               or has_table_privilege('authenticated','public.case_reports','INSERT')
+               or has_function_privilege('authenticated','public.osi_v2_commit_report_version(text,text,text,text,jsonb,text,text,timestamptz)','EXECUTE')
+              then raise exception 'browser can bypass the Report gateways'; end if;
+            if to_regclass('public.case_reports_native_case_author_uidx') is null
+               or to_regclass('public.case_report_version_evidence_ordinal_uidx') is null
+              then raise exception 'required Report lineage index is absent'; end if;
+          end $$;
+          SQL
+
+      - name: Deploy only the Report Edge Functions
+        run: |
+          set -euo pipefail
+          supabase functions deploy osi-v2-report-read --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy osi-v2-report-write --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          functions="$(supabase functions list --project-ref "$EXPECTED_PROJECT_REF")"
+          echo "$functions" | grep -q 'osi-v2-report-read' || { echo "::error::Report read function unavailable."; exit 1; }
+          echo "$functions" | grep -q 'osi-v2-report-write' || { echo "::error::Report write function unavailable."; exit 1; }
+
+      - name: Pre-enable capability, privacy and negative authorization smoke
+        run: |
+          set -euo pipefail
+          write_url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-report-write"
+          read_url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-report-read"
+          case_url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-case-read"
+          capability="$(curl -sS --fail --max-time 30 -X POST "$write_url" -H 'Content-Type: application/json' -d '{"op":"capabilities"}')"
+          echo "$capability" | grep -q '"report_writes_enabled":false' || { echo "::error::Report flag was not closed before smoke."; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/bad-report-scope.json -w '%{http_code}' -X POST "$read_url" -H 'Content-Type: application/json' -d '{"op":"issue_read_challenge","scope":"public","wallet":"11111111111111111111111111111111"}')"
+          [ "$code" = "400" ] || { echo "::error::Unsupported Report read scope was not denied."; exit 1; }
+          public_cases="$(curl -sS --fail --max-time 30 -X POST "$case_url" -H 'Content-Type: application/json' -d '{"op":"list_public_cases"}')"
+          echo "$public_cases" | grep -q '"ok":true' || { echo "::error::Public Case read failed."; exit 1; }
+          if echo "$public_cases" | grep -Eq 'body_private|evidence_snapshot_hash|revision_reason_code|supersedes_version_id'; then
+            echo "::error::Public Case projection contains unpublished Report material."; exit 1;
+          fi
+
+      - name: Enable only the dedicated Report write flag
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          begin
+            if (select value from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED') is distinct from 'false'
+              then raise exception 'Report flag was not false immediately before enable'; end if;
+            if (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED') is distinct from 'false'
+              then raise exception 'broad gates are not closed'; end if;
+            update public.osi_config
+               set value='true', updated_at=statement_timestamp()
+             where key='OSI_V2_REPORT_WRITES_ENABLED' and value='false';
+            if not found then raise exception 'Report flag enable did not affect one exact row'; end if;
+          end $$;
+          SQL
+
+      - name: Post-enable flag isolation and capability smoke
+        run: |
+          set -euo pipefail
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED'")" = "$CASE_FLAG_BEFORE" ] || { echo "::error::Case flag changed during Report rollout."; exit 1; }
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_ANALYST_WRITES_ENABLED'")" = "$ANALYST_FLAG_BEFORE" ] || { echo "::error::Analyst flag changed during Report rollout."; exit 1; }
+          psql -v ON_ERROR_STOP=1 -Atq -c "
+            select case when
+              (select value from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED')='true'
+              and (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED')='false'
+              and (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED')='false'
+            then 'ok' else cast(1/0 as text) end;" | grep -q '^ok$'
+          url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-report-write"
+          capability="$(curl -sS --fail --max-time 30 -X POST "$url" -H 'Content-Type: application/json' -d '{"op":"capabilities"}')"
+          echo "$capability" | grep -q '"report_writes_enabled":true' || { echo "::error::Report capability did not observe the enabled gate."; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/bad-wallet.json -w '%{http_code}' -X POST "$url" -H 'Content-Type: application/json' -d '{"op":"prepare_report","wallet":"bad","case_ref":"OSI-NOTREAL0000","report":{},"idempotency_key":"smoke-no-write-0001"}')"
+          [ "$code" = "400" ] || { echo "::error::Invalid wallet was not rejected before nonce issuance."; exit 1; }
+
+      - name: Prove protected V1 row counts are unchanged
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          diff -u /tmp/v1-before.txt /tmp/v1-after.txt
+
+      - name: Fail closed after any rollout or smoke failure
+        if: ${{ failure() }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PGHOST:-}" ] || [ -z "${PGUSER:-}" ]; then
+            echo "No production database session was established before the failure; the Report flag was never enabled by this job."
+            exit 0
+          fi
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          update public.osi_config
+             set value='false', updated_at=statement_timestamp()
+           where key='OSI_V2_REPORT_WRITES_ENABLED';
+          select case when
+            (select value from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED')='false'
+            then 'report-disabled' else cast(1/0 as text) end;
+          SQL
+          echo "Report writes were disabled. Immutable rows remain retained for a reviewed forward fix."
+
+      - name: Write deployment receipt artifact
+        run: |
+          mkdir -p deployment-receipt
+          {
+            echo "project_ref=${EXPECTED_PROJECT_REF}"
+            echo "migration=${NEW_VERSION}"
+            echo "functions=osi-v2-report-read,osi-v2-report-write"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "report_writes=true"
+            echo "broad_v2_writes=false"
+            echo "broad_v2_proof=false"
+            echo "case_writes_unchanged=${CASE_FLAG_BEFORE}"
+            echo "analyst_writes_unchanged=${ANALYST_FLAG_BEFORE}"
+            echo "rollback=disable_report_flag_and_forward_fix"
+          } > deployment-receipt/osi-v2-report-production.txt
+
+      - name: Upload deployment receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: osi-v2-report-production-${{ github.sha }}
+          path: deployment-receipt/osi-v2-report-production.txt
+          retention-days: 30

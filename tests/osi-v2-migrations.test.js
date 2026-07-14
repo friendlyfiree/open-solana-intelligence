@@ -19,6 +19,7 @@ const expectedFiles = [
   '20260712121301_osi_v2_legacy_materialization.sql',
   '20260713045903_osi_v2_case_lifecycle.sql',
   '20260713184533_osi_v2_analyst_activation.sql',
+  '20260714044036_osi_v2_case_report_intake.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -32,10 +33,15 @@ const integrity = sqlByFile[expectedFiles[1]] || '';
 const deny = sqlByFile[expectedFiles[2]] || '';
 const lifecycle = sqlByFile['20260713045903_osi_v2_case_lifecycle.sql'] || '';
 const analystActivation = sqlByFile['20260713184533_osi_v2_analyst_activation.sql'] || '';
+const reportIntake = sqlByFile['20260714044036_osi_v2_case_report_intake.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const analystProductionWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-analyst-production.yml'),
+  'utf8',
+);
+const reportProductionWorkflow = fs.readFileSync(
+  path.join(root, '.github', 'workflows', 'osi-v2-report-production.yml'),
   'utf8',
 );
 const proofCore = fs.readFileSync(
@@ -71,7 +77,10 @@ for (const name of expectedFiles) {
 }
 
 ok('local seed execution is disabled', /\[db\.seed\][\s\S]*?enabled\s*=\s*false/i.test(config));
-for (const functionName of ['osi-analyst-intake', 'osi-ai-pack', 'osi-v2-analyst']) {
+for (const functionName of [
+  'osi-analyst-intake', 'osi-ai-pack', 'osi-v2-analyst',
+  'osi-v2-report-write', 'osi-v2-report-read',
+]) {
   const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   ok(
     functionName + ' custom auth config is explicit',
@@ -280,6 +289,9 @@ for (const required of [
   'osi_v2_commit_case_review',
   'osi_v2_commit_case_open',
   'osi_v2_case_review_quorum',
+  'osi_v2_prepare_report_version',
+  'osi_v2_commit_report_version',
+  'osi_v2_report_writes_enabled',
 ]) {
   ok('required integrity guard exists: ' + required, allSql.includes(required));
 }
@@ -338,6 +350,36 @@ ok(
     && analystActivation.includes("value = 'true'"),
 );
 ok(
+  'Report slice has its own disabled-by-default fail-closed gate',
+  reportIntake.includes("('OSI_V2_REPORT_WRITES_ENABLED', 'false'")
+    && reportIntake.includes("where key = 'OSI_V2_REPORT_WRITES_ENABLED'")
+    && reportIntake.includes("value = 'true'")
+    && !reportIntake.includes("('OSI_V2_REPORT_WRITES_ENABLED', 'true'"),
+);
+ok(
+  'Report writes atomically bind exact version evidence receipt and pointer',
+  /osi_v2_commit_report_version[\s\S]*insert into public\.event_receipts[\s\S]*insert into public\.case_report_versions[\s\S]*case_report_version_evidence[\s\S]*current_version_id = actual_version_id/i.test(reportIntake)
+    && !/set\s+current_published_version_id/i.test(reportIntake),
+);
+ok(
+  'Report prepare and commit both enforce exact active public Case allowlist',
+  (reportIntake.match(/stage in \('open_public', 'in_review', 'reopened'\)/g) || []).length >= 2
+    && (reportIntake.match(/visibility = 'public'/g) || []).length >= 2,
+);
+ok(
+  'Report lineage uses a single native header per Case and author',
+  reportIntake.includes('case_reports_native_case_author_uidx')
+    && reportIntake.includes('Report lineage is ambiguous'),
+);
+ok(
+  'Report rate limit and cooldown configuration fail closed',
+  reportIntake.includes('OSI_V2_REPORT_RATE_WINDOW_SECONDS')
+    && reportIntake.includes('OSI_V2_REPORT_MAX_PER_WALLET')
+    && reportIntake.includes('OSI_V2_REPORT_MAX_PER_FINGERPRINT')
+    && reportIntake.includes('OSI_V2_REPORT_COOLDOWN_SECONDS')
+    && reportIntake.includes('Report write security configuration is absent or invalid'),
+);
+ok(
   'analyst application versions use exact Stage-5 binding',
   analystActivation.includes("'ANALYST_APPLICATION_VERSION_SUBMITTED'")
     && analystActivation.includes("bound_nonce.target_type <> 'application_version'")
@@ -380,6 +422,35 @@ ok(
     && analystProductionWorkflow.includes('bash tests/osi-v2-concurrency.test.sh')
     && analystProductionWorkflow.includes('functions deploy osi-v2-analyst')
     && !analystProductionWorkflow.includes('functions deploy osi-v2-case-write'),
+);
+ok(
+  'Report production workflow is manual main-only and exact-migration pinned',
+  reportProductionWorkflow.includes('workflow_dispatch:')
+    && !reportProductionWorkflow.includes('pull_request:')
+    && !reportProductionWorkflow.includes('push:')
+    && reportProductionWorkflow.includes('refs/heads/main')
+    && reportProductionWorkflow.includes("NEW_VERSION: '20260714044036'")
+    && reportProductionWorkflow.includes('REPORT-DEPLOY-${EXPECTED_PROJECT_REF}')
+    && reportProductionWorkflow.includes('Dry-run must contain only the Report migration'),
+);
+ok(
+  'Report production workflow validates before deploying only Report functions',
+  reportProductionWorkflow.includes('needs: validate')
+    && reportProductionWorkflow.includes('supabase db reset --local --no-seed')
+    && reportProductionWorkflow.includes('supabase db lint --local --level error')
+    && reportProductionWorkflow.includes('supabase test db')
+    && reportProductionWorkflow.includes('bash tests/osi-v2-concurrency.test.sh')
+    && reportProductionWorkflow.includes('functions deploy osi-v2-report-read')
+    && reportProductionWorkflow.includes('functions deploy osi-v2-report-write')
+    && !reportProductionWorkflow.includes('functions deploy osi-v2-case-write'),
+);
+ok(
+  'Report rollout enables only its flag after pre-enable smoke',
+  reportProductionWorkflow.indexOf('Pre-enable capability, privacy and negative authorization smoke')
+      < reportProductionWorkflow.indexOf('Enable only the dedicated Report write flag')
+    && reportProductionWorkflow.includes("key='OSI_V2_REPORT_WRITES_ENABLED' and value='false'")
+    && reportProductionWorkflow.includes("key='OSI_V2_WRITES_ENABLED')='false'")
+    && reportProductionWorkflow.includes("key='OSI_V2_PROOF_ENABLED')='false'"),
 );
 ok(
   'nonce issuance serializes idempotency and rate-limit dimensions',
