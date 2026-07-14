@@ -449,8 +449,14 @@ ok(
   reportProductionWorkflow.indexOf('Pre-enable capability, privacy and negative authorization smoke')
       < reportProductionWorkflow.indexOf('Enable only the dedicated Report write flag')
     && reportProductionWorkflow.includes("key='OSI_V2_REPORT_WRITES_ENABLED' and value='false'")
-    && reportProductionWorkflow.includes("key='OSI_V2_WRITES_ENABLED')='false'")
-    && reportProductionWorkflow.includes("key='OSI_V2_PROOF_ENABLED')='false'"),
+    && reportProductionWorkflow.includes("report_flag is distinct from 'true'")
+    && reportProductionWorkflow.includes("broad_write_flag is distinct from 'false'")
+    && reportProductionWorkflow.includes("broad_proof_flag is distinct from 'false'"),
+);
+ok(
+  'Report production workflow has no planner-foldable constant error assertions',
+  !/cast\s*\(\s*1\s*\/\s*0/i.test(reportProductionWorkflow)
+    && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(reportProductionWorkflow),
 );
 ok(
   'nonce issuance serializes idempotency and rate-limit dimensions',

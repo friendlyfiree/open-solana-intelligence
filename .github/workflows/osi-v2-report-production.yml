@@ -310,12 +310,31 @@ jobs:
           set -euo pipefail
           [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED'")" = "$CASE_FLAG_BEFORE" ] || { echo "::error::Case flag changed during Report rollout."; exit 1; }
           [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_ANALYST_WRITES_ENABLED'")" = "$ANALYST_FLAG_BEFORE" ] || { echo "::error::Analyst flag changed during Report rollout."; exit 1; }
-          psql -v ON_ERROR_STOP=1 -Atq -c "
-            select case when
-              (select value from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED')='true'
-              and (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED')='false'
-              and (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED')='false'
-            then 'ok' else cast(1/0 as text) end;" | grep -q '^ok$'
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare
+            report_flag text;
+            broad_write_flag text;
+            broad_proof_flag text;
+          begin
+            select value into report_flag
+              from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED';
+            select value into broad_write_flag
+              from public.osi_config where key='OSI_V2_WRITES_ENABLED';
+            select value into broad_proof_flag
+              from public.osi_config where key='OSI_V2_PROOF_ENABLED';
+
+            if report_flag is distinct from 'true' then
+              raise exception 'Report flag is not enabled after rollout (got %)', coalesce(report_flag, '<missing>');
+            end if;
+            if broad_write_flag is distinct from 'false' then
+              raise exception 'Broad write flag changed during Report rollout (got %)', coalesce(broad_write_flag, '<missing>');
+            end if;
+            if broad_proof_flag is distinct from 'false' then
+              raise exception 'Broad proof flag changed during Report rollout (got %)', coalesce(broad_proof_flag, '<missing>');
+            end if;
+          end $$;
+          SQL
           url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-report-write"
           capability="$(curl -sS --fail --max-time 30 -X POST "$url" -H 'Content-Type: application/json' -d '{"op":"capabilities"}')"
           echo "$capability" | grep -q '"report_writes_enabled":true' || { echo "::error::Report capability did not observe the enabled gate."; exit 1; }
@@ -352,14 +371,12 @@ jobs:
             echo "No production database session was established before the failure; the Report flag was never enabled by this job."
             exit 0
           fi
-          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
-          update public.osi_config
-             set value='false', updated_at=statement_timestamp()
-           where key='OSI_V2_REPORT_WRITES_ENABLED';
-          select case when
-            (select value from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED')='false'
-            then 'report-disabled' else cast(1/0 as text) end;
-          SQL
+          psql -v ON_ERROR_STOP=1 -Atq -c "
+            update public.osi_config
+               set value='false', updated_at=statement_timestamp()
+             where key='OSI_V2_REPORT_WRITES_ENABLED';"
+          report_flag="$(psql -v ON_ERROR_STOP=1 -Atqc "select value from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED'")"
+          [ "$report_flag" = "false" ] || { echo "::error::Report writes could not be confirmed disabled (got '${report_flag:-<missing>}')."; exit 1; }
           echo "Report writes were disabled. Immutable rows remain retained for a reviewed forward fix."
 
       - name: Write deployment receipt artifact
