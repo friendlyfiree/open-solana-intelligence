@@ -100,7 +100,7 @@ Weight from formula (`K=8`), `Q` illustrative:
 | 50 | ~24 | ~2.95 (→ cap 3.00) |
 
 ### Simulated case vote (standard publish, `N_min=2`, `W_thr=2.00`)
-- Analysts approve: A(1.00), B(1.50). Count=2 ✅, ΣW=2.50 ≥2.00 ✅ → **quorum ready**, then maintainer finalizes → published.
+- Analysts approve: A(1.00), B(1.50). Count=2 ✅, ΣW=2.50 ≥2.00 ✅ → **quorum ready**; an eligible active approving analyst may then anchor the exact `REPORT_PUBLISHED` Memo. No maintainer finalization gate is added to ordinary Report publication.
 - Single senior A(3.00) approves alone: Count=1 ❌ (fails count gate) → **not published** (proves P3).
 - Ring case: A,B,C each 2.00 but `independence` collapses their effective co-approval; ring detection flags overlap → their contributions' `independence→low`, future weight erodes, and the anti-collusion multiplier can require an *additional* independent approver for that cluster.
 

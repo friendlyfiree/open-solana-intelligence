@@ -20,6 +20,7 @@ const expectedFiles = [
   '20260713045903_osi_v2_case_lifecycle.sql',
   '20260713184533_osi_v2_analyst_activation.sql',
   '20260714044036_osi_v2_case_report_intake.sql',
+  '20260714064501_osi_v2_report_review_publication.sql',
 ];
 
 const sqlByFile = Object.fromEntries(

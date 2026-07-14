@@ -67,6 +67,7 @@ let SUPA_AUTH_READY = Promise.resolve(null);
 let SUPA_CLIENT = null;
 
 function notifySupaAuthChanged(eventName){
+  if(eventName !== 'TOKEN_REFRESHED' && typeof window.osiV2ReportClearSession === 'function') window.osiV2ReportClearSession();
   if(typeof setMaintainerServerGate === 'function') setMaintainerServerGate(false, 'checking');
   if(typeof updateMaintainerAccessUI === 'function') updateMaintainerAccessUI();
   var activeWallet = '';

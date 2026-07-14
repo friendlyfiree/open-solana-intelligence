@@ -9,6 +9,7 @@ const core = read('assets/js/50-core-supabase.js');
 const wallet = read('assets/js/60-wallet-workspace.js');
 const boot = read('assets/js/99-app.js');
 const maintainer = read('assets/js/54-maintainer-console.js');
+const report = read('assets/js/v2-report-integration.js');
 const html = read('index.html');
 
 let assertions = 0;
@@ -24,12 +25,15 @@ ok(wallet.includes("localStorage.getItem('osi_phantom_restore') !== '0'"), 'only
 ok(wallet.includes("localStorage.setItem('osi_phantom_restore','1')"), 'explicit connection enables later trusted restore');
 ok(read('assets/js/64-profile-xp.js').includes("localStorage.setItem('osi_phantom_restore','0')"), 'explicit disconnect disables automatic restore');
 ok(wallet.includes('clearWalletAuthorization()'), 'wallet changes clear derived authorization');
+ok(wallet.includes('osiV2ReportClearSession'), 'wallet change clears cached private Report DTOs');
+ok(report.includes('state.reviewPending={};state.publicationPending={}'), 'wallet/session reset discards pending Report proofs');
 
 ok(core.includes('window.supabase.createClient'), 'Supabase Auth uses the supported client session model');
 ok(core.includes('autoRefreshToken:true'), 'Supabase Auth refreshes expiring access tokens');
 ok(core.includes('persistSession:true'), 'Supabase Auth safely persists its session');
 ok(core.includes('onAuthStateChange'), 'Supabase Auth state changes clear or restore access state');
 ok(!core.includes("localStorage.setItem('SUPA_AUTH_TOKEN'"), 'application code never persists a raw access token itself');
+ok(core.includes('osiV2ReportClearSession'), 'Supabase auth changes clear cached maintainer Report access');
 
 ok(maintainer.includes('OSI_MAINTAINER_SERVER_GATE'), 'maintainer UI tracks the server-verified gate');
 ok(maintainer.includes("data.maintainer_access===true"), 'server capabilities decide the full gate');
