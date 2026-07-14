@@ -59,6 +59,24 @@ Routine, reversible engineering work is autonomous: inspect, edit, run tests,
 create a task branch, commit and open a PR without asking the product owner to
 make technical choices. Explain material deviations and security findings.
 
+For scope-limited OSI tasks, standing user authorization also covers the full
+safe delivery loop without another routine approval: branch, commit, push, PR,
+merge after all required CI is green, dispatch of an existing reviewed
+main-only production workflow, dry-run-approved additive migrations, deployment
+of only the Edge Functions named by the task, dedicated feature-flag
+enable/disable, and read-only post-deployment smoke verification. This standing
+authorization never broadens task scope and applies only when the exact project
+ref, current `main`, intended production impact, rollback/disable plan, and
+task-limited diff have all been verified.
+
+If a rollout or smoke check fails, fail closed by disabling only the affected
+dedicated feature flag, preserve immutable data, identify the exact log-backed
+root cause, prepare a focused forward-fix PR, and resume the existing workflow
+at most once after that PR merges with green CI. Do not repeatedly retry a
+failing production workflow. Authentication, branch protection, or a mandatory
+interactive browser/2FA challenge are valid manual blockers; otherwise do not
+hand routine GitHub or Supabase delivery steps back to the product owner.
+
 The product owner is nontechnical. Reports must use plain language and include
 exact commands or buttons only when a manual step is genuinely unavoidable.
 Never report "working" or "complete" from a narrative claim alone; prove it
@@ -76,7 +94,8 @@ For every task:
 ## 4. Git safety
 
 - Start work from the current verified `main` and use a dedicated task branch.
-- Never commit directly to `main` and never merge `main` automatically.
+- Never commit directly to `main`. A task-limited PR may be merged autonomously
+  only when its required CI is fully green and branch protection permits it.
 - Never use `git reset --hard`, destructive checkout, force push, history
   rewriting, or deletion of another contributor's work.
 - Do not mix unrelated cleanup with a security or schema slice.
@@ -238,10 +257,10 @@ gate merely because the weight threshold was met.
 
 ## 12. Supabase and production controls
 
-Read-only inspection, local development, local reset of a disposable database,
-linting, dry-runs and additive migration preparation are routine. Before any
-production additive migration or approved Edge Function deployment, verify and
-record all of the following:
+Read-only inspection, local development, linting, dry-runs, additive migration
+preparation, and disposable database resets already defined inside reviewed CI
+validation workflows are routine. Before any production additive migration or
+approved Edge Function deployment, verify and record all of the following:
 
 1. exact Supabase project name and project ref;
 2. exact Git branch and commit;
@@ -256,11 +275,18 @@ record all of the following:
 11. rollback/disable plan;
 12. post-deployment schema, RLS and smoke verification.
 
-Do not automatically perform any of these destructive or history-rewriting
-production actions: remote database reset, `DROP TABLE`, `DROP SCHEMA`,
-`TRUNCATE`, broad `DELETE`, broad `UPDATE`, migration repair, seed import,
-irreversible data rewrite, destructive type/column conversion, or main merge.
-Stop and clearly report if such an action becomes genuinely necessary.
+After those gates pass, standing authorization permits the existing reviewed
+main-only production workflow to apply only its dry-run-approved additive
+migration, deploy only task-scoped Edge Functions, change only the dedicated
+feature flag, and run read-only production verification and smoke tests.
+
+Fresh, action-specific user approval is still required before any database
+reset outside an already-reviewed disposable CI validation job; `DROP TABLE`,
+`DROP SCHEMA`, `TRUNCATE`, broad `DELETE`, broad `UPDATE`; migration repair;
+seed or data import; irreversible data rewrite or destructive type/column
+conversion; project-ref changes; secret deletion or rotation; custody, escrow,
+or smart-contract scope; and broad architectural work outside the stated task.
+Stop and clearly report if one of these actions becomes genuinely necessary.
 
 Prefer a forward-fix/feature-disable rollback for additive migrations. A
 rollback plan must never pretend a populated schema can be safely dropped.
