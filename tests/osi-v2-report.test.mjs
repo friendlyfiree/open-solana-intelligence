@@ -347,6 +347,11 @@ ok("production rollout changes only the dedicated review flag and fails closed",
     && productionWorkflow.includes("OSI_V2_REPORT_REVIEW_WRITES_ENABLED")
     && productionWorkflow.includes("review_flag")
     && !/cast\s*\(\s*1\s*\/\s*0/i.test(productionWorkflow));
+ok("production Deno checks tolerate only bounded dependency registry failures",
+  productionWorkflow.includes("deno_check_with_retry()")
+    && productionWorkflow.includes("for attempt in 1 2 3")
+    && (productionWorkflow.match(/deno_check_with_retry supabase\/functions\//g) ?? []).length === 5
+    && productionWorkflow.includes('if [ "$attempt" -eq 3 ]'));
 ok("Report form provides exact prerequisite and transaction states",
   uiSource.includes("Preparing the exact Case, version, evidence manifest")
     && uiSource.includes("Approve the exact CASE_REPORT_VERSION_SUBMITTED Memo")

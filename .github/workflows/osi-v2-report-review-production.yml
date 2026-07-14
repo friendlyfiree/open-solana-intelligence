@@ -79,6 +79,21 @@ jobs:
       - name: Complete application privacy and security battery
         run: |
           set -euo pipefail
+          deno_check_with_retry() {
+            local target="$1"
+            local attempt
+            for attempt in 1 2 3; do
+              if deno check "$target"; then
+                return 0
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "::error::Deno check failed after ${attempt} attempts: ${target}"
+                return 1
+              fi
+              echo "::warning::Deno dependency fetch/check failed for ${target}; retrying (${attempt}/3)."
+              sleep "$((attempt * 5))"
+            done
+          }
           node tests/osi-v2-migrations.test.js
           node tests/osi-v2-proof-core.test.mjs
           node tests/xss-escaping.test.js
@@ -89,11 +104,11 @@ jobs:
           node tests/osi-v2-analyst-core.test.mjs
           node tests/osi-v2-analyst-ui.test.js
           node tests/osi-v2-report.test.mjs
-          deno check supabase/functions/osi-v2-case-read/index.ts
-          deno check supabase/functions/osi-v2-case-write/index.ts
-          deno check supabase/functions/osi-v2-analyst/index.ts
-          deno check supabase/functions/osi-v2-report-read/index.ts
-          deno check supabase/functions/osi-v2-report-write/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-case-read/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-case-write/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-analyst/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-report-read/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-report-write/index.ts
 
       - name: Start fresh PostgreSQL 17 and apply migrations
         run: |
