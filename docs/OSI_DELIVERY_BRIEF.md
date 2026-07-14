@@ -239,7 +239,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Merge and deploy the reviewed analyst activation slice only after clean CI and preview verification.
 - Run a soak period with broad V2 writes still disabled.
 - Merge and deploy the reviewed Case Report intake slice only after clean CI and manual main-only rollout verification.
-- Add exact-version Report review after the Report intake soak period.
+- Roll out exact-version Report review and publication behind their dedicated fail-closed flag only after the Report intake soak period and clean production smoke verification.
 - Add complete initial rejection quorum and terminal transition before enabling rejection.
 - Add resolution proposal and nullable-state checks.
 - Add finalized resolution and seven-day challenge window.

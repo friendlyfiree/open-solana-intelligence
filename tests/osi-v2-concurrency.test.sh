@@ -50,7 +50,7 @@ cleanup() {
   # Restore the fail-closed default. The disposable database is discarded by CI;
   # this keeps the flag correct for anything that reuses the same local database.
   psql "$DB_URL" -X -q -tA \
-    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED');" \
+    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED','OSI_V2_REPORT_REVIEW_WRITES_ENABLED');" \
     >/dev/null 2>&1 || true
   rm -rf "$WORKDIR"
 }
@@ -565,6 +565,108 @@ assert_eq "concurrent revisions leave unique monotonic version numbers" "2:2:2" 
 
 LOSER_RECEIPTS="$(psql_run -c "select count(*) from public.event_receipts where nonce = '$REV_NONCE_2';")"
 assert_eq "losing concurrent revision creates no receipt or partial effect" "0" "$LOSER_RECEIPTS"
+
+# --- Report review: one signMessage nonce races two commit workers ------------
+REVIEW_NONCE="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+REVIEW_WALLET="66666666666666666666666666666666"
+REVIEW_VERSION_ID="$(psql_run -c "select current_version_id from public.case_reports where case_id='$REPORT_CASE_ID' and author_wallet='$REPORT_WALLET';")"
+REVIEW_REASON="evidence_reviewed"
+REVIEW_RATIONALE="The exact immutable Report version and its stated evidence limits were independently reviewed."
+REVIEW_MESSAGE="OSI2 test CASE_REPORT_REVIEW_CAST concurrency"
+REVIEW_SIG="$(printf 'L%.0s' $(seq 1 88))"
+REVIEW_C1_OUT="$WORKDIR/review-conn1.out"
+REVIEW_C2_OUT="$WORKDIR/review-conn2.out"
+REVIEW_HOLD_MARKER="$WORKDIR/review-conn1-holding.marker"
+
+psql_run >/dev/null <<SQL
+insert into public.analyst_profiles (
+  wallet, status, tier_code, verified, approved, weight_cached
+) values (
+  '$REVIEW_WALLET', 'probationary_analyst', 'probationary', true, true, 1.00
+);
+update public.osi_config set value = 'true' where key = 'OSI_V2_REPORT_REVIEW_WRITES_ENABLED';
+update public.osi_config set value = '0' where key = 'OSI_V2_REPORT_REVIEW_COOLDOWN_SECONDS';
+select * from public.osi_v2_prepare_report_review(
+  '$REVIEW_NONCE', '$REVIEW_WALLET', '$REVIEW_VERSION_ID',
+  'approve', '$REVIEW_REASON', '$REVIEW_RATIONALE', null,
+  'osi-v2-report-review-race-$(date +%s%N)', '$(printf '4%.0s' $(seq 1 64))'
+);
+SQL
+
+REVIEW_COMMIT_SQL="select receipt_id::text || ' ' || idempotent_replay::text
+  from public.osi_v2_commit_report_review(
+    '$REVIEW_NONCE', 'approve', '$REVIEW_REASON', '$REVIEW_RATIONALE',
+    null, '$REVIEW_SIG', '$REVIEW_MESSAGE')"
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$REVIEW_COMMIT_SQL
+\g $REVIEW_C1_OUT
+\! touch $REVIEW_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+REVIEW_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$REVIEW_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "Report review connection 1 never reached the holding state"
+    wait "$REVIEW_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$REVIEW_COMMIT_SQL
+\g $REVIEW_C2_OUT
+commit;
+SQL
+REVIEW_CONN2_PID=$!
+
+sleep 1
+REVIEW_RACE_WAITERS="$(psql_run -c "
+  select count(*) from pg_stat_activity
+   where wait_event_type = 'Lock'
+     and query ilike '%osi_v2_commit_report_review%';")"
+if [ "${REVIEW_RACE_WAITERS:-0}" -ge 1 ]; then
+  pass "second Report review commit genuinely blocked on the exact nonce"
+else
+  fail "second Report review commit did not block on the nonce row"
+fi
+
+wait "$REVIEW_CONN1_PID"
+wait "$REVIEW_CONN2_PID"
+read -r REVIEW_R1 REVIEW_REPLAY1 < "$REVIEW_C1_OUT"
+read -r REVIEW_R2 REVIEW_REPLAY2 < "$REVIEW_C2_OUT"
+assert_eq "Report review race returns one shared receipt" "$REVIEW_R1" "$REVIEW_R2"
+assert_eq "first Report review commit creates the active review" "false" "$REVIEW_REPLAY1"
+assert_eq "second Report review commit is an idempotent replay" "true" "$REVIEW_REPLAY2"
+
+REVIEW_COUNTS="$(psql_run -c "
+  select count(distinct receipt.id) || ':' || count(distinct review.id)
+    from public.event_receipts receipt
+    join public.case_report_reviews review on review.event_receipt_id=receipt.id
+   where receipt.nonce='$REVIEW_NONCE';")"
+assert_eq "Report review race creates one receipt and one review row" "1:1" "$REVIEW_COUNTS"
+
+REVIEW_CHANGED_ERR="$(psql "$DB_URL" -X -q -tA -c "
+  select * from public.osi_v2_commit_report_review(
+    '$REVIEW_NONCE', 'approve', '$REVIEW_REASON',
+    'A changed public rationale cannot reuse the consumed review nonce.',
+    null, '$REVIEW_SIG', '$REVIEW_MESSAGE');" 2>&1 || true)"
+if printf '%s' "$REVIEW_CHANGED_ERR" | grep -q 'Report review payload changed after prepare'; then
+  pass "changed Report review payload is rejected after the race"
+else
+  fail "changed Report review payload was not rejected: $REVIEW_CHANGED_ERR"
+fi
 
 # --- verdict ------------------------------------------------------------------
 echo "----"

@@ -10,12 +10,18 @@ import {
   requestFingerprint,
   trustedClientAddress,
   validateWallet,
+  verifyEd25519Signature,
 } from "../_shared/osi-v2-proof-core.mjs";
 import {
   REPORT_EVENT_TYPE,
+  REPORT_PUBLICATION_EVENT_TYPE,
+  REPORT_REVIEW_EVENT_TYPES,
   canonicalReportMemo,
+  canonicalReportGovernanceMessage,
   normalizeReportPayload,
+  normalizeReportReview,
   validateConfirmedReportTransaction,
+  validateReportGovernanceBinding,
   validateReportIdempotencyKey,
   validateReportMemoBinding,
 } from "../_shared/osi-v2-report-core.mjs";
@@ -37,6 +43,13 @@ type ReportPayload = {
   content_public_safe: string | null;
   revision_reason_code: string | null;
   evidence: Array<{ kind: string; ref: string; sha256: string }>;
+};
+type ReviewPayload = {
+  version_public_ref: string;
+  decision: "approve" | "reject" | "request_revision" | "abstain";
+  reason_code: string;
+  public_rationale: string;
+  private_note: string | null;
 };
 
 function corsHeaders(): HeadersInit {
@@ -71,9 +84,13 @@ function isoSeconds(value: unknown): number {
   return Math.floor(milliseconds / 1000);
 }
 
-function rpcFailure(error: Row | null): Response {
+function rpcFailure(error: Row | null, governance = false): Response {
   const code = safeText(error?.code);
-  if (code === "42501") return jsonResponse(404, { ok: false, error: "case_not_available" });
+  if (code === "42501") {
+    return governance
+      ? jsonResponse(403, { ok: false, error: "not_eligible_or_self_review" })
+      : jsonResponse(404, { ok: false, error: "case_not_available" });
+  }
   if (code === "23514" || code === "22023") {
     return jsonResponse(409, { ok: false, error: "proof_binding_rejected" });
   }
@@ -86,6 +103,12 @@ function rpcFailure(error: Row | null): Response {
 async function reportWritesEnabled(): Promise<boolean> {
   const { data, error } = await admin.from("osi_config").select("value")
     .eq("key", "OSI_V2_REPORT_WRITES_ENABLED").limit(1);
+  return !error && data?.[0]?.value === "true";
+}
+
+async function reportReviewWritesEnabled(): Promise<boolean> {
+  const { data, error } = await admin.from("osi_config").select("value")
+    .eq("key", "OSI_V2_REPORT_REVIEW_WRITES_ENABLED").limit(1);
   return !error && data?.[0]?.value === "true";
 }
 
@@ -113,6 +136,13 @@ async function loadBoundNonce(nonce: string) {
   return { row: data?.[0] ?? null, error };
 }
 
+async function exactVersion(versionRef: string) {
+  const { data, error } = await admin.from("case_report_versions")
+    .select("id,version_ref,report_id,lifecycle_state")
+    .eq("version_ref", versionRef).limit(1);
+  return { row: data?.[0] ?? null, error };
+}
+
 function memoBinding(nonceRow: Row) {
   const context = nonceRow.binding_context ?? {};
   const versionNo = Number(context.version_no);
@@ -122,6 +152,21 @@ function memoBinding(nonceRow: Row) {
     actor_wallet: String(nonceRow.actor_wallet),
     actor_role: "wallet",
     decision: versionNo === 1 ? "submit" : "revise",
+    nonce: String(nonceRow.nonce),
+    payload_hash: String(nonceRow.payload_hash),
+    issued_at: isoSeconds(nonceRow.issued_at),
+    expires_at: isoSeconds(nonceRow.expires_at),
+  };
+}
+
+function governanceBinding(nonceRow: Row, decision: string) {
+  const context = nonceRow.binding_context ?? {};
+  return {
+    purpose: String(nonceRow.purpose),
+    version_public_ref: String(context.version_public_ref ?? ""),
+    actor_wallet: String(nonceRow.actor_wallet),
+    actor_role: String(context.actor_role ?? ""),
+    decision,
     nonce: String(nonceRow.nonce),
     payload_hash: String(nonceRow.payload_hash),
     issued_at: isoSeconds(nonceRow.issued_at),
@@ -313,13 +358,281 @@ async function commitReport(body: Row): Promise<Response> {
   });
 }
 
+async function prepareReview(req: Request, body: Row): Promise<Response> {
+  if (!await reportReviewWritesEnabled()) {
+    return jsonResponse(503, { ok: false, error: "report_review_writes_disabled" });
+  }
+  const wallet = safeText(body.wallet);
+  try { validateWallet(wallet); }
+  catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
+  let review: ReviewPayload;
+  let idempotencyKey: string;
+  try {
+    review = normalizeReportReview(body.review) as ReviewPayload;
+    idempotencyKey = validateReportIdempotencyKey(body.idempotency_key);
+  } catch (error) {
+    return jsonResponse(400, { ok: false, error: errorMessage(error) || "bad_review_payload" });
+  }
+  const found = await exactVersion(review.version_public_ref);
+  if (found.error || !found.row) {
+    return jsonResponse(404, { ok: false, error: "report_version_not_available" });
+  }
+  const { data, error } = await admin.rpc("osi_v2_prepare_report_review", {
+    p_nonce: randomNonce(),
+    p_actor_wallet: wallet,
+    p_version_id: found.row.id,
+    p_decision: review.decision,
+    p_reason_code: review.reason_code,
+    p_public_rationale: review.public_rationale,
+    p_private_note: review.private_note,
+    p_idempotency_key: idempotencyKey,
+    p_request_fingerprint_hash: await fingerprint(req),
+  });
+  if (error || !data?.[0]) return rpcFailure(error, true);
+  const issued = data[0];
+  if (issued.consumed_receipt_id) {
+    return jsonResponse(200, {
+      ok: true,
+      already_committed: true,
+      case_public_ref: issued.case_public_ref,
+      report_public_ref: issued.report_public_ref,
+      version_public_ref: issued.version_public_ref,
+      review_public_ref: issued.review_public_ref,
+      idempotent_replay: true,
+    });
+  }
+  const binding = {
+    purpose: issued.purpose,
+    version_public_ref: issued.version_public_ref,
+    actor_wallet: wallet,
+    actor_role: issued.actor_role,
+    decision: review.decision,
+    nonce: issued.issued_nonce,
+    payload_hash: issued.payload_hash,
+    issued_at: isoSeconds(issued.issued_at),
+    expires_at: isoSeconds(issued.expires_at),
+  };
+  return jsonResponse(200, {
+    ok: true,
+    already_committed: false,
+    case_public_ref: issued.case_public_ref,
+    report_public_ref: issued.report_public_ref,
+    version_public_ref: issued.version_public_ref,
+    review_public_ref: issued.review_public_ref,
+    actor_role: issued.actor_role,
+    nonce: issued.issued_nonce,
+    payload_hash: issued.payload_hash,
+    message: canonicalReportGovernanceMessage(binding),
+    expires_at: binding.expires_at,
+    idempotent_replay: issued.idempotent_replay === true,
+  });
+}
+
+async function commitReview(body: Row): Promise<Response> {
+  if (!await reportReviewWritesEnabled()) {
+    return jsonResponse(503, { ok: false, error: "report_review_writes_disabled" });
+  }
+  const wallet = safeText(body.wallet);
+  const nonce = safeText(body.nonce);
+  const message = safeText(body.message);
+  const signature = safeText(body.signature);
+  try { validateWallet(wallet); }
+  catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
+  let review: ReviewPayload;
+  try { review = normalizeReportReview(body.review) as ReviewPayload; }
+  catch (error) {
+    return jsonResponse(400, { ok: false, error: errorMessage(error) || "bad_review_payload" });
+  }
+  const nonceResult = await loadBoundNonce(nonce);
+  const bound = nonceResult.row;
+  if (nonceResult.error || !bound || !REPORT_REVIEW_EVENT_TYPES.has(bound.purpose)
+      || bound.target_type !== "report_version") {
+    return jsonResponse(409, { ok: false, error: "unknown_or_wrong_nonce" });
+  }
+  const binding = governanceBinding(bound, review.decision);
+  const verificationTime = bound.consumed_at
+    ? Math.min(Math.floor(Date.now() / 1000), binding.expires_at)
+    : Math.floor(Date.now() / 1000);
+  const exact = validateReportGovernanceBinding(message, binding, verificationTime);
+  if (!exact.ok || bound.actor_wallet !== wallet
+      || binding.version_public_ref !== review.version_public_ref) {
+    return jsonResponse(409, { ok: false, error: "proof_binding_rejected" });
+  }
+  if (!await verifyEd25519Signature(message, signature, wallet)) {
+    return jsonResponse(403, { ok: false, error: "bad_signature" });
+  }
+  const { data, error } = await admin.rpc("osi_v2_commit_report_review", {
+    p_nonce: nonce,
+    p_decision: review.decision,
+    p_reason_code: review.reason_code,
+    p_public_rationale: review.public_rationale,
+    p_private_note: review.private_note,
+    p_signature: signature,
+    p_message: message,
+  });
+  if (error || !data?.[0]) return rpcFailure(error, true);
+  const committed = data[0];
+  return jsonResponse(200, {
+    ok: true,
+    case_public_ref: committed.case_public_ref,
+    report_public_ref: committed.report_public_ref,
+    version_public_ref: committed.version_public_ref,
+    review_public_ref: committed.review_public_ref,
+    actor_role: committed.actor_role,
+    decision: committed.decision,
+    weight: Number(committed.weight),
+    tier_snapshot: committed.tier_snapshot,
+    quorum: {
+      approve_count: Number(committed.approve_count),
+      approve_weight: Number(committed.approve_weight),
+      required_count: Number(committed.required_count),
+      required_weight: Number(committed.required_weight),
+      approve_ready: committed.approve_ready === true,
+    },
+    proof: {
+      event_type: String(bound.purpose),
+      label: "Wallet-signed and server-verified",
+      proof_type: "wallet_signed_server_verified",
+      actor_role: committed.actor_role,
+      server_verified: true,
+    },
+    idempotent_replay: committed.idempotent_replay === true,
+  });
+}
+
+async function preparePublication(req: Request, body: Row): Promise<Response> {
+  if (!await reportReviewWritesEnabled()) {
+    return jsonResponse(503, { ok: false, error: "report_review_writes_disabled" });
+  }
+  const wallet = safeText(body.wallet);
+  const versionRef = safeText(body.version_public_ref);
+  let idempotencyKey: string;
+  try {
+    validateWallet(wallet);
+    idempotencyKey = validateReportIdempotencyKey(body.idempotency_key);
+  } catch (error) {
+    return jsonResponse(400, { ok: false, error: errorMessage(error) || "bad_publication_payload" });
+  }
+  const found = await exactVersion(versionRef);
+  if (found.error || !found.row) {
+    return jsonResponse(404, { ok: false, error: "report_version_not_available" });
+  }
+  const { data, error } = await admin.rpc("osi_v2_prepare_report_publication", {
+    p_nonce: randomNonce(),
+    p_actor_wallet: wallet,
+    p_version_id: found.row.id,
+    p_idempotency_key: idempotencyKey,
+    p_request_fingerprint_hash: await fingerprint(req),
+  });
+  if (error || !data?.[0]) return rpcFailure(error, true);
+  const issued = data[0];
+  if (issued.consumed_receipt_id) {
+    return jsonResponse(200, {
+      ok: true,
+      already_committed: true,
+      case_public_ref: issued.case_public_ref,
+      report_public_ref: issued.report_public_ref,
+      version_public_ref: issued.version_public_ref,
+      idempotent_replay: true,
+    });
+  }
+  const binding = {
+    purpose: REPORT_PUBLICATION_EVENT_TYPE,
+    version_public_ref: issued.version_public_ref,
+    actor_wallet: wallet,
+    actor_role: issued.actor_role,
+    decision: "publish",
+    nonce: issued.issued_nonce,
+    payload_hash: issued.payload_hash,
+    issued_at: isoSeconds(issued.issued_at),
+    expires_at: isoSeconds(issued.expires_at),
+  };
+  return jsonResponse(200, {
+    ok: true,
+    already_committed: false,
+    case_public_ref: issued.case_public_ref,
+    report_public_ref: issued.report_public_ref,
+    version_public_ref: issued.version_public_ref,
+    actor_role: issued.actor_role,
+    quorum_hash: issued.quorum_hash,
+    nonce: issued.issued_nonce,
+    payload_hash: issued.payload_hash,
+    memo: canonicalReportGovernanceMessage(binding),
+    expires_at: binding.expires_at,
+    idempotent_replay: issued.idempotent_replay === true,
+  });
+}
+
+async function commitPublication(body: Row): Promise<Response> {
+  if (!await reportReviewWritesEnabled()) {
+    return jsonResponse(503, { ok: false, error: "report_review_writes_disabled" });
+  }
+  const wallet = safeText(body.wallet);
+  const nonce = safeText(body.nonce);
+  const memo = safeText(body.memo);
+  const txSig = safeText(body.tx_sig);
+  const versionRef = safeText(body.version_public_ref);
+  try { validateWallet(wallet); }
+  catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
+  const nonceResult = await loadBoundNonce(nonce);
+  const bound = nonceResult.row;
+  if (nonceResult.error || !bound || bound.purpose !== REPORT_PUBLICATION_EVENT_TYPE
+      || bound.target_type !== "report_version") {
+    return jsonResponse(409, { ok: false, error: "unknown_or_wrong_nonce" });
+  }
+  const binding = governanceBinding(bound, "publish");
+  const verificationTime = bound.consumed_at
+    ? Math.min(Math.floor(Date.now() / 1000), binding.expires_at)
+    : Math.floor(Date.now() / 1000);
+  const exact = validateReportGovernanceBinding(memo, binding, verificationTime);
+  if (!exact.ok || bound.actor_wallet !== wallet || binding.version_public_ref !== versionRef) {
+    return jsonResponse(409, { ok: false, error: "proof_binding_rejected" });
+  }
+  const chain = await verifyMainnetMemoTransaction(
+    txSig, wallet, memo, binding.issued_at, binding.expires_at,
+  );
+  if (!chain.ok) return jsonResponse(409, { ok: false, error: chain.reason });
+  const { data, error } = await admin.rpc("osi_v2_commit_report_publication", {
+    p_nonce: nonce,
+    p_tx_sig: txSig,
+    p_memo_ref: memo,
+    p_occurred_at: (chain as { occurred_at: string }).occurred_at,
+  });
+  if (error || !data?.[0]) return rpcFailure(error, true);
+  const committed = data[0];
+  return jsonResponse(200, {
+    ok: true,
+    case_public_ref: committed.case_public_ref,
+    report_public_ref: committed.report_public_ref,
+    version_public_ref: committed.version_public_ref,
+    lifecycle_state: "published",
+    actor_role: committed.actor_role,
+    quorum_hash: committed.quorum_hash,
+    previous_published_version_ref: committed.previous_published_version_ref,
+    proof: {
+      event_type: REPORT_PUBLICATION_EVENT_TYPE,
+      label: "Memo-anchored on Solana",
+      proof_type: "solana_memo",
+      actor_role: committed.actor_role,
+      tx_sig: txSig,
+      server_verified: true,
+    },
+    case_lifecycle_changed: false,
+    process_notice: "Publication records a reviewed OSI process outcome. It is not proof of truth, guilt, or legal certainty.",
+    idempotent_replay: committed.idempotent_replay === true,
+  });
+}
+
 async function capabilities(body: Row): Promise<Response> {
   const wallet = safeText(body.wallet);
   if (wallet) {
     try { validateWallet(wallet); }
     catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
   }
-  const enabled = await reportWritesEnabled();
+  const [enabled, reviewEnabled] = await Promise.all([
+    reportWritesEnabled(),
+    reportReviewWritesEnabled(),
+  ]);
   const caseRef = safeText(body.case_ref);
   let caseEligible = false;
   let caseStage: string | null = null;
@@ -331,6 +644,7 @@ async function capabilities(body: Row): Promise<Response> {
   return jsonResponse(200, {
     ok: true,
     report_writes_enabled: enabled,
+    report_review_writes_enabled: reviewEnabled,
     case_eligible: caseEligible,
     case_stage: caseStage,
     wallet_connected: !!wallet,
@@ -371,6 +685,10 @@ serve(async (req: Request): Promise<Response> => {
   switch (body.op) {
     case "prepare_report": return await prepareReport(req, body);
     case "commit_report": return await commitReport(body);
+    case "prepare_review": return await prepareReview(req, body);
+    case "commit_review": return await commitReview(body);
+    case "prepare_publication": return await preparePublication(req, body);
+    case "commit_publication": return await commitPublication(body);
     case "capabilities": return await capabilities(body);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });
   }

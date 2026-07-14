@@ -60,6 +60,39 @@ ok("changed actor is rejected",
 ok("expired Report Memo binding is rejected",
   core.validateReportMemoBinding(memo, binding, NOW + 121).reason === "expired");
 
+const reviewBinding = {
+  purpose: "CASE_REPORT_REVIEW_CAST",
+  version_public_ref: binding.version_public_ref,
+  actor_wallet: OTHER,
+  actor_role: "analyst",
+  decision: "approve",
+  nonce: "r".repeat(43),
+  payload_hash: "b".repeat(64),
+  issued_at: NOW,
+  expires_at: NOW + 120,
+};
+const reviewMessage = core.canonicalReportGovernanceMessage(reviewBinding);
+ok("review signMessage binds exact version actor role decision nonce and payload",
+  core.validateReportGovernanceBinding(reviewMessage, reviewBinding, NOW + 10).ok === true
+    && reviewMessage.includes("CASE_REPORT_REVIEW_CAST")
+    && reviewMessage.includes("r=analyst")
+    && reviewMessage.includes("d=approve"));
+ok("review replay with a different decision is rejected",
+  core.validateReportGovernanceBinding(reviewMessage, {
+    ...reviewBinding, decision: "reject",
+  }, NOW + 10).reason === "wrong_decision");
+const publicationBinding = {
+  ...reviewBinding,
+  purpose: "REPORT_PUBLISHED",
+  decision: "publish",
+  nonce: "p".repeat(43),
+};
+const publicationMemo = core.canonicalReportGovernanceMessage(publicationBinding);
+ok("REPORT_PUBLISHED Memo binds the exact version and eligible analyst actor",
+  core.validateReportGovernanceBinding(
+    publicationMemo, publicationBinding, NOW + 10,
+  ).ok === true);
+
 const validPayload = {
   body_private: "A complete restricted trace explains transaction order, wallet relationships, uncertainty, and evidentiary limits.",
   content_public_safe: "A wallet-linked transfer sequence is submitted for independent review.",
@@ -92,6 +125,19 @@ await rejects("secret material language is denied", () => core.normalizeReportPa
 await rejects("unsupported revision reason is denied", () => core.normalizeReportPayload({
   ...validPayload, revision_reason_code: "erase_history",
 }), /revision reason/);
+const normalizedReview = core.normalizeReportReview({
+  version_public_ref: binding.version_public_ref,
+  decision: "approve",
+  reason_code: "evidence_reviewed",
+  public_rationale: "The cited transfers and stated uncertainty were independently checked.",
+  private_note: "Restricted correlation note for authorized review routes only.",
+});
+ok("Report review keeps public-safe rationale separate from restricted note",
+  normalizedReview.public_rationale.startsWith("The cited")
+    && normalizedReview.private_note.startsWith("Restricted"));
+await rejects("Report review rejects a short public rationale", () => Promise.resolve(
+  core.normalizeReportReview({ ...normalizedReview, public_rationale: "too short" }),
+), /public-safe rationale/);
 
 const transaction = {
   blockTime: NOW + 15,
@@ -168,6 +214,37 @@ ok("author DTO never invents review mutation controls",
   authorDto.review_mutations_enabled === false && authorDto.revision_eligible === true);
 ok("public unpublished projection is empty",
   core.publicPublishedReports([{ current_published_version_id: null }]).length === 0);
+const publicUnderReview = core.publicReportGovernanceDto({
+  report_public_ref: "OSI-RPT-A1B2C3D4E5F6",
+  version_public_ref: binding.version_public_ref,
+  version_no: 1,
+  lifecycle_state: "in_review",
+  body_private: validPayload.body_private,
+  content_public_safe: validPayload.content_public_safe,
+  evidence: [{ ordinal: 1, kind: "wallet", ref: WALLET, sha256: "f".repeat(64) }],
+  quorum: { risk_tier: "standard", approve_count: 1, approve_weight: 1, required_count: 2, required_weight: 2 },
+  reviews: [{
+    public_ref: "OSI-RVW-A1B2C3D4E5F60718",
+    reviewer_wallet: OTHER,
+    reviewer_handle: "reviewer",
+    decision: "approve",
+    weight: 1,
+    tier_snapshot: "analyst_i",
+    public_rationale: "The cited transfers and stated uncertainty were independently checked.",
+    private_note: "must never leak",
+    is_active: true,
+    created_at: "2026-07-14T00:00:00Z",
+    receipt: { proof_type: "wallet_signed_server_verified", actor_role: "analyst", server_verified: true },
+  }],
+});
+const publicUnderReviewText = JSON.stringify(publicUnderReview);
+ok("under-review DTO exposes process metadata but no private Report data",
+  publicUnderReview.state === "under_review"
+    && publicUnderReview.review_timeline.length === 1
+    && publicUnderReview.body === null
+    && publicUnderReview.content_public_safe === null
+    && publicUnderReview.evidence.length === 0
+    && !/body_private|author_wallet|private_note|must never leak|nonce|signature|evidence_snapshot_hash/.test(publicUnderReviewText));
 
 const writeSource = readFileSync(
   join(root, "supabase/functions/osi-v2-report-write/index.ts"), "utf8",
@@ -180,7 +257,13 @@ const html = readFileSync(join(root, "index.html"), "utf8");
 const migration = readFileSync(
   join(root, "supabase/migrations/20260714044036_osi_v2_case_report_intake.sql"), "utf8",
 );
+const governanceMigration = readFileSync(
+  join(root, "supabase/migrations/20260714064501_osi_v2_report_review_publication.sql"), "utf8",
+);
 const config = readFileSync(join(root, "supabase/config.toml"), "utf8");
+const productionWorkflow = readFileSync(
+  join(root, ".github/workflows/osi-v2-report-review-production.yml"), "utf8",
+);
 
 ok("Report gateways never select broad star",
   !writeSource.includes('select("*")') && !readSource.includes('select("*")'));
@@ -191,6 +274,10 @@ ok("write gateway verifies exact mainnet genesis, Memo, signer, and confirmation
 ok("prepare and commit both fail closed on the dedicated flag",
   (writeSource.match(/reportWritesEnabled\(\)/g) ?? []).length >= 3
     && migration.includes("osi_v2_report_writes_enabled() is distinct from true"));
+ok("review and publication use an independent fail-closed flag",
+  governanceMigration.includes("OSI_V2_REPORT_REVIEW_WRITES_ENABLED")
+    && (governanceMigration.match(/osi_v2_report_review_writes_enabled\(\) is distinct from true/g) ?? []).length >= 4
+    && writeSource.includes("reportReviewWritesEnabled"));
 ok("broad Case and proof flags are untouched by Report gateway",
   !writeSource.includes("OSI_V2_WRITES_ENABLED")
     && !writeSource.includes("OSI_V2_PROOF_ENABLED")
@@ -206,6 +293,22 @@ ok("read gateway has durable issue and consume RPCs but no domain writes",
     && !/[.]insert\(|[.]update\(|[.]delete\(|[.]upsert\(/.test(readSource));
 ok("database commit is one exact atomic function",
   /create function osi_private\.osi_v2_commit_report_version[\s\S]*insert into public\.event_receipts[\s\S]*update public\.osi_nonces[\s\S]*insert into public\.case_report_versions[\s\S]*update public\.case_reports/i.test(migration));
+ok("review history is append-only and snapshots server-derived weight and tier",
+  governanceMigration.includes("CASE_REPORT_REVIEW_REVISED")
+    && governanceMigration.includes("profile.weight_cached")
+    && governanceMigration.includes("profile.tier_code")
+    && governanceMigration.includes("superseded_by = new_review_id"));
+ok("Report author and Case owner are both denied review and publication",
+  (governanceMigration.match(/in \(report_row\.author_wallet, case_row\.submitted_by_wallet\)/g) ?? []).length >= 3);
+ok("publication requires count and weight quorum and preserves Case lifecycle",
+  governanceMigration.includes("approval_count >= minimum_count and approval_weight >= minimum_weight")
+    && governanceMigration.includes("'REPORT_PUBLISHED'")
+    && !/update\s+public\.cases[\s\S]*REPORT_PUBLISHED/i.test(governanceMigration));
+ok("review receipts are wallet-signed while publication receipt is a Solana Memo",
+  governanceMigration.includes("'wallet_signed_server_verified'")
+    && governanceMigration.includes("'solana_memo'")
+    && writeSource.includes("verifyEd25519Signature")
+    && writeSource.includes("verifyMainnetMemoTransaction"));
 ok("revision lineage and published pointer rules are explicit",
   migration.includes("supersedes_version_id")
     && migration.includes("current_version_id = actual_version_id")
@@ -227,6 +330,23 @@ ok("Report functions use explicit custom authorization config",
 ok("My Reports and Report Queue are wired to real signed endpoints",
   html.includes("osiV2OpenMyReports()") && html.includes("osiV2OpenReportQueue()")
     && uiSource.includes("list_my_reports") && uiSource.includes("list_review_queue"));
+ok("eligible analyst review and exact publication controls are wired",
+  uiSource.includes("prepare_review") && uiSource.includes("commit_review")
+    && uiSource.includes("prepare_publication") && uiSource.includes("commit_publication")
+    && uiSource.includes("Only analysts count toward publication quorum"));
+ok("public Case Report status uses a public allowlist endpoint",
+  readSource.includes("listPublicReports")
+    && readSource.includes("publicReportGovernanceDto")
+    && uiSource.includes("list_public_reports"));
+ok("first-approve visibility reuses the exact counted quorum and receipt filters",
+  /quorumFor\([\s\S]*?\)\.approve_count >= 1/.test(readSource)
+    && readSource.includes("publicReviewHistory")
+    && governanceMigration.includes("Native Report review receipt binding is invalid"));
+ok("production rollout changes only the dedicated review flag and fails closed",
+  productionWorkflow.includes("REPORT-REVIEW-DEPLOY-${EXPECTED_PROJECT_REF}")
+    && productionWorkflow.includes("OSI_V2_REPORT_REVIEW_WRITES_ENABLED")
+    && productionWorkflow.includes("review_flag")
+    && !/cast\s*\(\s*1\s*\/\s*0/i.test(productionWorkflow));
 ok("Report form provides exact prerequisite and transaction states",
   uiSource.includes("Preparing the exact Case, version, evidence manifest")
     && uiSource.includes("Approve the exact CASE_REPORT_VERSION_SUBMITTED Memo")

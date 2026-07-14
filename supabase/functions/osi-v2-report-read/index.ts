@@ -17,7 +17,10 @@ import {
   parseChallenge,
   validateChallengeBinding,
 } from "../_shared/osi-v2-case-read-core.mjs";
-import { authorizedReportDto } from "../_shared/osi-v2-report-core.mjs";
+import {
+  authorizedReportDto,
+  publicReportGovernanceDto,
+} from "../_shared/osi-v2-report-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -35,11 +38,13 @@ type Scope = "my_reports" | "review_queue";
 const REPORT_COLS =
   "id,case_id,author_wallet,current_version_id,current_published_version_id,status,public_ref,native_intake,created_at,updated_at";
 const VERSION_COLS =
-  "id,report_id,version_no,version_ref,created_by_wallet,body_private,content_public_safe,evidence_snapshot_hash,supersedes_version_id,revision_reason_code,lifecycle_state,event_receipt_id,created_at";
-const CASE_COLS = "id,public_ref,stage,visibility";
-const EVIDENCE_COLS = "id,kind,ref,sha256";
+  "id,report_id,version_no,version_ref,created_by_wallet,body_private,content_public_safe,evidence_snapshot_hash,supersedes_version_id,revision_reason_code,lifecycle_state,event_receipt_id,publication_receipt_id,publication_quorum_hash,published_at,created_at";
+const CASE_COLS = "id,public_ref,stage,visibility,risk_tier,submitted_by_wallet";
+const EVIDENCE_COLS = "id,kind,ref,sha256,is_public,moderation_state";
 const RECEIPT_COLS =
-  "id,event_type,target_type,target_id,actor_wallet,actor_role,decision,proof_type,tx_sig,server_verified,occurred_at";
+  "id,event_version,event_type,target_type,target_id,actor_wallet,actor_role,decision,weight,reason_code,proof_type,tx_sig,server_verified,occurred_at";
+const REVIEW_COLS =
+  "id,report_version_id,reviewer_wallet,decision,weight,reason_code,is_active,event_receipt_id,public_ref,tier_snapshot,public_rationale,private_note,created_at";
 
 function corsHeaders(): HeadersInit {
   return {
@@ -182,6 +187,99 @@ async function analystEligible(wallet: string): Promise<boolean> {
     && Number(row.weight_cached) >= 0.5 && Number(row.weight_cached) <= 3;
 }
 
+async function reviewWritesEnabled(): Promise<boolean> {
+  const { data, error } = await admin.from("osi_config").select("value")
+    .eq("key", "OSI_V2_REPORT_REVIEW_WRITES_ENABLED").limit(1);
+  return !error && data?.[0]?.value === "true";
+}
+
+async function quorumThresholds() {
+  const { data, error } = await admin.from("osi_config").select("key,value")
+    .in("key", [
+      "OSI_V2_REPORT_STANDARD_MIN_ANALYSTS",
+      "OSI_V2_REPORT_STANDARD_MIN_WEIGHT",
+      "OSI_V2_REPORT_HIGH_MIN_ANALYSTS",
+      "OSI_V2_REPORT_HIGH_MIN_WEIGHT",
+    ]).limit(4);
+  if (error) throw new Error("read_failed");
+  const values = new Map((data ?? []).map((row) => [String(row.key), Number(row.value)]));
+  return {
+    standard: {
+      count: values.get("OSI_V2_REPORT_STANDARD_MIN_ANALYSTS") ?? 0,
+      weight: values.get("OSI_V2_REPORT_STANDARD_MIN_WEIGHT") ?? 0,
+    },
+    high: {
+      count: values.get("OSI_V2_REPORT_HIGH_MIN_ANALYSTS") ?? 0,
+      weight: values.get("OSI_V2_REPORT_HIGH_MIN_WEIGHT") ?? 0,
+    },
+  };
+}
+
+function quorumFor(
+  riskTier: string,
+  reviews: Row[],
+  profileByWallet: Map<string, Row>,
+  receiptById: Map<string, Row>,
+  thresholds: Row,
+) {
+  const counted = reviews.filter((review) => {
+    const profile = profileByWallet.get(String(review.reviewer_wallet));
+    const receipt = receiptById.get(String(review.event_receipt_id));
+    return review.is_active === true && !!review.public_ref && !!profile
+      && profile.verified === true && profile.approved === true
+      && ["probationary_analyst", "verified_analyst", "senior_analyst"].includes(profile.status)
+      && receipt?.event_version === "OSI2"
+      && ["CASE_REPORT_REVIEW_CAST", "CASE_REPORT_REVIEW_REVISED"].includes(receipt?.event_type)
+      && receipt?.target_type === "report_version"
+      && receipt?.target_id === String(review.report_version_id)
+      && receipt?.actor_wallet === review.reviewer_wallet
+      && ["analyst", "senior"].includes(receipt?.actor_role)
+      && receipt?.decision === review.decision
+      && Number(receipt?.weight) === Number(review.weight)
+      && (receipt?.reason_code ?? null) === (review.reason_code ?? null)
+      && receipt?.server_verified === true
+      && receipt?.proof_type === "wallet_signed_server_verified";
+  });
+  const selected = riskTier === "high" ? thresholds.high : thresholds.standard;
+  const approve = counted.filter((review) => review.decision === "approve");
+  const reject = counted.filter((review) => review.decision === "reject");
+  const approveWeight = approve.reduce((sum, review) => sum + Number(review.weight), 0);
+  const rejectWeight = reject.reduce((sum, review) => sum + Number(review.weight), 0);
+  return {
+    risk_tier: riskTier,
+    approve_count: approve.length,
+    approve_weight: approveWeight,
+    reject_count: reject.length,
+    reject_weight: rejectWeight,
+    required_count: selected.count,
+    required_weight: selected.weight,
+    approve_ready: approve.length >= selected.count && approveWeight >= selected.weight,
+    reject_ready: reject.length >= selected.count && rejectWeight >= selected.weight,
+  };
+}
+
+function publicReviewHistory(
+  versionId: string,
+  reviews: Row[],
+  receiptById: Map<string, Row>,
+) {
+  return reviews.filter((review) => {
+    const receipt = receiptById.get(String(review.event_receipt_id));
+    return !!review.public_ref
+      && receipt?.event_version === "OSI2"
+      && ["CASE_REPORT_REVIEW_CAST", "CASE_REPORT_REVIEW_REVISED"].includes(receipt?.event_type)
+      && receipt?.target_type === "report_version"
+      && receipt?.target_id === versionId
+      && receipt?.actor_wallet === review.reviewer_wallet
+      && ["analyst", "senior"].includes(receipt?.actor_role)
+      && receipt?.decision === review.decision
+      && Number(receipt?.weight) === Number(review.weight)
+      && (receipt?.reason_code ?? null) === (review.reason_code ?? null)
+      && receipt?.server_verified === true
+      && receipt?.proof_type === "wallet_signed_server_verified";
+  });
+}
+
 async function maintainerGate(req: Request, wallet: string) {
   const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   const [{ data: config }, auth] = await Promise.all([
@@ -198,7 +296,11 @@ async function maintainerGate(req: Request, wallet: string) {
   return { ok: false, reason: "maintainer_denied" };
 }
 
-async function loadReports(headers: Row[], access: "author" | "analyst" | "maintainer") {
+async function loadReports(
+  headers: Row[],
+  access: "author" | "analyst" | "maintainer",
+  viewerWallet = "",
+) {
   if (!headers.length) return [];
   const reportIds = headers.map((row) => String(row.id));
   const caseIds = [...new Set(headers.map((row) => String(row.case_id)))];
@@ -210,18 +312,34 @@ async function loadReports(headers: Row[], access: "author" | "analyst" | "maint
   if (versionError || caseError) throw new Error("read_failed");
   const versionRows = versions ?? [];
   const versionIds = versionRows.map((row) => String(row.id));
-  const receiptIds = versionRows.map((row) => String(row.event_receipt_id));
-  const [{ data: links, error: linkError }, { data: receipts, error: receiptError }] = await Promise.all([
+  const { data: reviews, error: reviewError } = versionIds.length
+    ? await admin.from("case_report_reviews").select(REVIEW_COLS)
+      .in("report_version_id", versionIds).order("created_at", { ascending: true }).limit(5000)
+    : { data: [], error: null };
+  if (reviewError) throw new Error("read_failed");
+  const receiptIds = [...new Set([
+    ...versionRows.map((row) => String(row.event_receipt_id)),
+    ...versionRows.map((row) => String(row.publication_receipt_id || "")).filter(Boolean),
+    ...(reviews ?? []).map((row) => String(row.event_receipt_id)),
+  ])];
+  const reviewerWallets = [...new Set((reviews ?? []).map((row) => String(row.reviewer_wallet)))];
+  const [{ data: links, error: linkError }, { data: receipts, error: receiptError }, profileResult, thresholds] = await Promise.all([
     versionIds.length
       ? admin.from("case_report_version_evidence")
         .select("report_version_id,evidence_item_id,ordinal")
         .in("report_version_id", versionIds).order("ordinal", { ascending: true }).limit(5000)
       : Promise.resolve({ data: [], error: null }),
     receiptIds.length
-      ? admin.from("event_receipts").select(RECEIPT_COLS).in("id", receiptIds).limit(1000)
+      ? admin.from("event_receipts").select(RECEIPT_COLS).in("id", receiptIds).limit(6000)
       : Promise.resolve({ data: [], error: null }),
+    reviewerWallets.length
+      ? admin.from("analyst_profiles")
+        .select("wallet,handle,display_name,status,tier_code,verified,approved,weight_cached")
+        .in("wallet", reviewerWallets).limit(1000)
+      : Promise.resolve({ data: [], error: null }),
+    quorumThresholds(),
   ]);
-  if (linkError || receiptError) throw new Error("read_failed");
+  if (linkError || receiptError || profileResult.error) throw new Error("read_failed");
   const evidenceIds = [...new Set((links ?? []).map((row) => String(row.evidence_item_id)))];
   const evidenceResult = evidenceIds.length
     ? await admin.from("evidence_items").select(EVIDENCE_COLS).in("id", evidenceIds).limit(5000)
@@ -242,12 +360,32 @@ async function loadReports(headers: Row[], access: "author" | "analyst" | "maint
   }
   const receiptByVersion = new Map<string, Row>();
   const receiptById = new Map((receipts ?? []).map((row) => [String(row.id), row]));
+  const profileByWallet = new Map((profileResult.data ?? []).map((row) => [String(row.wallet), row]));
+  const reviewsByVersion = new Map<string, Row[]>();
+  for (const review of reviews ?? []) {
+    const key = String(review.report_version_id);
+    const profile = profileByWallet.get(String(review.reviewer_wallet));
+    const rows = reviewsByVersion.get(key) ?? [];
+    rows.push({
+      ...review,
+      reviewer_handle: profile?.handle ?? null,
+      receipt: receiptById.get(String(review.event_receipt_id)) ?? null,
+    });
+    reviewsByVersion.set(key, rows);
+  }
   for (const version of versionRows) {
     const receipt = receiptById.get(String(version.event_receipt_id));
     if (receipt) receiptByVersion.set(String(version.id), receipt);
   }
 
-  return headers.map((header) => {
+  const reviewEnabled = await reviewWritesEnabled();
+  return headers.filter((header) => {
+    const caseRow = caseById.get(String(header.case_id));
+    return access !== "analyst" || (
+      header.author_wallet !== viewerWallet
+      && caseRow?.submitted_by_wallet !== viewerWallet
+    );
+  }).map((header) => {
     const caseRow = caseById.get(String(header.case_id));
     const reportVersions = versionRows
       .filter((version) => String(version.report_id) === String(header.id))
@@ -261,6 +399,16 @@ async function loadReports(headers: Row[], access: "author" | "analyst" | "maint
     const published = header.current_published_version_id
       ? versionById.get(String(header.current_published_version_id))
       : null;
+    const quorumByVersion = new Map<string, Row>();
+    for (const version of reportVersions) {
+      quorumByVersion.set(String(version.id), quorumFor(
+        String(caseRow?.risk_tier || "standard"),
+        reviewsByVersion.get(String(version.id)) ?? [],
+        profileByWallet,
+        receiptById,
+        thresholds,
+      ));
+    }
     return authorizedReportDto({
       case_public_ref: caseRow?.public_ref,
       report_public_ref: header.public_ref,
@@ -273,7 +421,9 @@ async function loadReports(headers: Row[], access: "author" | "analyst" | "maint
         && caseRow?.visibility === "public"
         && ["open_public", "in_review", "reopened"].includes(caseRow?.stage)
         && header.status === "active",
-    }, reportVersions, evidenceByVersion, receiptByVersion, access);
+      review_mutations_enabled: access === "analyst" && reviewEnabled,
+    }, reportVersions, evidenceByVersion, receiptByVersion, access,
+    reviewsByVersion, quorumByVersion);
   });
 }
 
@@ -314,7 +464,8 @@ async function listReviewQueue(req: Request, body: Row): Promise<Response> {
     .order("created_at", { ascending: true }).limit(200);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   try {
-    const reports = (await loadReports(data ?? [], access)).filter((report) => {
+    const reviewEnabled = await reviewWritesEnabled();
+    const reports = (await loadReports(data ?? [], access, proof.wallet)).filter((report) => {
       const current = report.versions.find(
         (version: Row) => version.version_ref === report.current_version_ref,
       );
@@ -324,10 +475,133 @@ async function listReviewQueue(req: Request, body: Row): Promise<Response> {
       ok: true,
       actor_role: access,
       queue_state: "awaiting_review",
-      review_mutations_enabled: false,
-      next_prerequisite: "Counted Report review and publication quorum are not enabled yet.",
+      review_mutations_enabled: access === "analyst" && reviewEnabled,
+      next_prerequisite: !reviewEnabled
+        ? "Counted Report review and publication are safely disabled during rollout."
+        : access === "maintainer"
+        ? "Maintainers may inspect restricted review material but cannot replace analyst quorum."
+        : null,
       reports,
     });
+  } catch {
+    return jsonResponse(500, { ok: false, error: "read_failed" });
+  }
+}
+
+async function listPublicReports(body: Row): Promise<Response> {
+  const caseRef = safeText(body.case_ref);
+  if (!/^OSI-[0-9A-F]{12}$/.test(caseRef)) {
+    return jsonResponse(404, { ok: false, error: "case_not_available" });
+  }
+  const { data: cases, error: caseError } = await admin.from("cases")
+    .select("id,public_ref,risk_tier,visibility")
+    .eq("public_ref", caseRef).eq("visibility", "public").limit(1);
+  const caseRow = cases?.[0];
+  if (caseError || !caseRow) {
+    return jsonResponse(404, { ok: false, error: "case_not_available" });
+  }
+  const { data: headers, error: headerError } = await admin.from("case_reports")
+    .select(REPORT_COLS).eq("case_id", caseRow.id).eq("native_intake", true)
+    .eq("status", "active").not("public_ref", "is", null)
+    .order("created_at", { ascending: true }).limit(200);
+  if (headerError) return jsonResponse(500, { ok: false, error: "read_failed" });
+  const versionIds = [...new Set((headers ?? []).flatMap((header) => [
+    String(header.current_version_id || ""),
+    String(header.current_published_version_id || ""),
+  ]).filter(Boolean))];
+  if (!versionIds.length) return jsonResponse(200, { ok: true, case_public_ref: caseRef, reports: [] });
+  try {
+    const [{ data: versions, error: versionError }, { data: reviews, error: reviewError }, thresholds] = await Promise.all([
+      admin.from("case_report_versions").select(VERSION_COLS).in("id", versionIds).limit(400),
+      admin.from("case_report_reviews").select(REVIEW_COLS)
+        .in("report_version_id", versionIds).order("created_at", { ascending: true }).limit(5000),
+      quorumThresholds(),
+    ]);
+    if (versionError || reviewError) throw new Error("read_failed");
+    const reviewerWallets = [...new Set((reviews ?? []).map((row) => String(row.reviewer_wallet)))];
+    const receiptIds = [...new Set([
+      ...(reviews ?? []).map((row) => String(row.event_receipt_id)),
+      ...(versions ?? []).map((row) => String(row.publication_receipt_id || "")).filter(Boolean),
+    ])];
+    const [profileResult, receiptResult] = await Promise.all([
+      reviewerWallets.length
+        ? admin.from("analyst_profiles")
+          .select("wallet,handle,status,tier_code,verified,approved,weight_cached")
+          .in("wallet", reviewerWallets).limit(1000)
+        : Promise.resolve({ data: [], error: null }),
+      receiptIds.length
+        ? admin.from("event_receipts").select(RECEIPT_COLS).in("id", receiptIds).limit(6000)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (profileResult.error || receiptResult.error) throw new Error("read_failed");
+    const profileByWallet = new Map((profileResult.data ?? []).map((row) => [String(row.wallet), row]));
+    const receiptById = new Map((receiptResult.data ?? []).map((row) => [String(row.id), row]));
+    const reviewsByVersion = new Map<string, Row[]>();
+    for (const review of reviews ?? []) {
+      const key = String(review.report_version_id);
+      const rows = reviewsByVersion.get(key) ?? [];
+      rows.push({
+        ...review,
+        reviewer_handle: profileByWallet.get(String(review.reviewer_wallet))?.handle ?? null,
+        receipt: receiptById.get(String(review.event_receipt_id)) ?? null,
+      });
+      reviewsByVersion.set(key, rows);
+    }
+    const visibleVersions = (versions ?? []).filter((version) => {
+      if (version.lifecycle_state === "published") return true;
+      if (version.lifecycle_state !== "in_review") return false;
+      const rows = reviewsByVersion.get(String(version.id)) ?? [];
+      return quorumFor(
+        String(caseRow.risk_tier || "standard"), rows,
+        profileByWallet, receiptById, thresholds,
+      ).approve_count >= 1;
+    });
+    const publishedIds = visibleVersions.filter((row) => row.lifecycle_state === "published")
+      .map((row) => String(row.id));
+    const { data: links, error: linkError } = publishedIds.length
+      ? await admin.from("case_report_version_evidence")
+        .select("report_version_id,evidence_item_id,ordinal")
+        .in("report_version_id", publishedIds).order("ordinal", { ascending: true }).limit(5000)
+      : { data: [], error: null };
+    if (linkError) throw new Error("read_failed");
+    const evidenceIds = [...new Set((links ?? []).map((row) => String(row.evidence_item_id)))];
+    const evidenceResult = evidenceIds.length
+      ? await admin.from("evidence_items").select(EVIDENCE_COLS).in("id", evidenceIds).limit(5000)
+      : { data: [], error: null };
+    if (evidenceResult.error) throw new Error("read_failed");
+    const evidenceById = new Map((evidenceResult.data ?? []).map((row) => [String(row.id), row]));
+    const evidenceByVersion = new Map<string, Row[]>();
+    for (const link of links ?? []) {
+      const item = evidenceById.get(String(link.evidence_item_id));
+      if (!item) continue;
+      const key = String(link.report_version_id);
+      const rows = evidenceByVersion.get(key) ?? [];
+      rows.push({ ...item, ordinal: link.ordinal });
+      evidenceByVersion.set(key, rows);
+    }
+    const headerById = new Map((headers ?? []).map((row) => [String(row.id), row]));
+    const reports = visibleVersions.map((version) => {
+      const header = headerById.get(String(version.report_id));
+      const reviewRows = reviewsByVersion.get(String(version.id)) ?? [];
+      const publicReviews = publicReviewHistory(String(version.id), reviewRows, receiptById);
+      return publicReportGovernanceDto({
+        report_public_ref: header?.public_ref,
+        version_public_ref: version.version_ref,
+        version_no: version.version_no,
+        lifecycle_state: version.lifecycle_state,
+        content_public_safe: version.content_public_safe,
+        body_private: version.body_private,
+        evidence: evidenceByVersion.get(String(version.id)) ?? [],
+        quorum: quorumFor(
+          String(caseRow.risk_tier || "standard"), reviewRows,
+          profileByWallet, receiptById, thresholds,
+        ),
+        reviews: publicReviews,
+        publication_receipt: receiptById.get(String(version.publication_receipt_id)) ?? null,
+        published_at: version.published_at,
+      });
+    });
+    return jsonResponse(200, { ok: true, case_public_ref: caseRef, reports });
   } catch {
     return jsonResponse(500, { ok: false, error: "read_failed" });
   }
@@ -358,6 +632,7 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   switch (body.op) {
+    case "list_public_reports": return await listPublicReports(body);
     case "issue_read_challenge": return await issueChallenge(req, body);
     case "list_my_reports": return await listMyReports(body);
     case "list_review_queue": return await listReviewQueue(req, body);

@@ -21,6 +21,7 @@ function clearWalletAuthorization(){
   window.__osiIntake = null;
   window.__osiV2ReadProof = null;
   window.__osiWalletAuthorization = null;
+  if(typeof window.osiV2ReportClearSession === 'function') window.osiV2ReportClearSession();
   if(typeof setMaintainerServerGate === 'function') setMaintainerServerGate(false,'wallet_changed');
 }
 // onlyIfTrusted never opens an approval prompt. An explicit OSI disconnect
