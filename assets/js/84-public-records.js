@@ -55,7 +55,7 @@ async function renderCaseRecords(){
     crPaint(); return;
   }
   try{
-    var reports = await supaGet('reports?select=id,company,summary,onchain,offchain,tx,wallet,sealed,approved,created_at,updated_at&approved=eq.true&order=created_at.desc&limit=48') || [];
+    var reports = await supaGet('reports?select=id,company,summary,onchain,offchain,tx,wallet,sealed,approved,created_at&approved=eq.true&order=created_at.desc&limit=48') || [];
     var packs = [];
     if(reports.length){
       // Metadata only (no content). Full pack content is never anon-readable;
@@ -131,7 +131,6 @@ function crPaint(){
   else if(crState.filter==='challenged') reports = reports.filter(function(r){ return !!chSet[String(r.id)]; });
   if(crState.sort==='reviewed') reports.sort(function(a,b){ return (crAnalystReviews(b)||-1)-(crAnalystReviews(a)||-1) || (new Date(b.created_at||0)-new Date(a.created_at||0)); });
   else if(crState.sort==='challenged') reports.sort(function(a,b){ return crChallengeCount(b.id)-crChallengeCount(a.id) || (new Date(b.created_at||0)-new Date(a.created_at||0)); });
-  else if(crState.sort==='updated') reports.sort(function(a,b){ return new Date(b.updated_at||b.created_at||0)-new Date(a.updated_at||a.created_at||0); });
   else reports.sort(function(a,b){ return new Date(b.created_at||0)-new Date(a.created_at||0); });
   var totalPages=Math.max(1, Math.ceil(reports.length/CR_PER));
   if(crState.page>totalPages) crState.page=totalPages; if(crState.page<1) crState.page=1;

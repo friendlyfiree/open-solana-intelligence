@@ -139,11 +139,6 @@ function osiBlockShow(hits){
   var m = document.getElementById('osi-block'); if(m){ m.style.display = ''; m.hidden = false; }
 }
 function osiBlockClose(){ var m = document.getElementById('osi-block'); if(m){ m.hidden = true; m.style.display = 'none'; } }
-(function(){
-  function go(){ try{ if(localStorage.getItem('osi_briefing_seen')==='1') return; }catch(e){} setTimeout(welcomeShow, 800); }
-  if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', go); } else { go(); }
-})();
-
 // ===== CONSENSUS (analyst peer-review / progressive decentralization) =====
 let CONSENSUS_THRESHOLD = 4;   // weight needed to publish; the same weight of rejections closes an item
 let CONSENSUS_AUTO = true;     // analysts hold near-seal power: consensus publishes without waiting for the maintainer
