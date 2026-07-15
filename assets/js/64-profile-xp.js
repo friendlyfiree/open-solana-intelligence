@@ -10,7 +10,7 @@ async function disconnectWallet(){
   try{ if(prov && prov.disconnect) await prov.disconnect(); }catch(e){}
   walletPubkey = null;
   try{ localStorage.setItem('osi_phantom_restore','0'); }catch(e){}
-  if(typeof clearWalletAuthorization==='function') clearWalletAuthorization();
+  if(typeof clearWalletAuthorization==='function') clearWalletAuthorization({reason:'explicit_logout'});
   clearWalletCache();
   if(typeof closeWalletMenu==='function') closeWalletMenu();
   updateWalletUI();

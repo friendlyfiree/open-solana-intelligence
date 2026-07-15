@@ -34,6 +34,11 @@ import {
   validateConfirmedMemoTransaction,
   validateIdempotencyKey,
 } from "../_shared/osi-v2-case-write-core.mjs";
+import {
+  READ_SESSION_SCOPES,
+  readSessionIssuer,
+  verifyReadSessionToken,
+} from "../_shared/osi-v2-read-session-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -109,6 +114,12 @@ function rpcFailure(error: Row | null): Response {
 async function analystWritesEnabled(): Promise<boolean> {
   const { data, error } = await admin.from("osi_config").select("value")
     .eq("key", "OSI_V2_ANALYST_WRITES_ENABLED").limit(1);
+  return !error && data?.[0]?.value === "true";
+}
+
+async function readSessionEnabled(): Promise<boolean> {
+  const { data, error } = await admin.from("osi_config").select("value")
+    .eq("key", "OSI_V2_READ_SESSION_ENABLED").limit(1);
   return !error && data?.[0]?.value === "true";
 }
 
@@ -664,6 +675,29 @@ async function verifyRead(body: Row, purpose: string): Promise<ReadVerification>
   return { ok: true, wallet };
 }
 
+async function verifyReadSession(req: Request, body: Row, requiredScope: string): Promise<ReadVerification> {
+  if (!await readSessionEnabled()) {
+    return { ok: false, status: 503, reason: "read_session_disabled_or_unavailable" };
+  }
+  const verified = await verifyReadSessionToken({
+    token: safeText(body.read_session),
+    secret: SERVICE_ROLE_KEY,
+    issuer: readSessionIssuer(SUPABASE_URL),
+    origin: req.headers.get("origin") ?? "",
+    allowedOrigin: ALLOWED_ORIGIN,
+    wallet: safeText(body.wallet),
+    requiredScope,
+  });
+  if (verified.ok === true && typeof verified.wallet === "string") {
+    return { ok: true, wallet: verified.wallet };
+  }
+  return {
+    ok: false,
+    status: typeof verified.status === "number" ? verified.status : 403,
+    reason: typeof verified.reason === "string" ? verified.reason : "read_session_tampered",
+  };
+}
+
 async function profileGraph(profiles: Row[]) {
   const wallets = profiles.map((profile) => String(profile.wallet));
   const walletSet = new Set(wallets);
@@ -727,8 +761,8 @@ async function listPublicProfiles(): Promise<Response> {
   });
 }
 
-async function myWorkspace(body: Row): Promise<Response> {
-  const verified = await verifyRead(body, "ANALYST_READ_MY_WORKSPACE");
+async function myWorkspace(req: Request, body: Row): Promise<Response> {
+  const verified = await verifyReadSession(req, body, READ_SESSION_SCOPES.ANALYST_WORKSPACE);
   if (!verified.ok) return jsonResponse(verified.status, { ok: false, error: verified.reason });
   const wallet = verified.wallet;
   const [{ data: profiles }, { data: applications }] = await Promise.all([
@@ -765,7 +799,7 @@ async function myWorkspace(body: Row): Promise<Response> {
 }
 
 async function maintainerQueue(req: Request, body: Row): Promise<Response> {
-  const verified = await verifyRead(body, "ANALYST_READ_MAINTAINER_QUEUE");
+  const verified = await verifyReadSession(req, body, READ_SESSION_SCOPES.ANALYST_MAINTAINER);
   if (!verified.ok) return jsonResponse(verified.status, { ok: false, error: verified.reason });
   const gate = await fullMaintainer(req, verified.wallet);
   if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
@@ -827,7 +861,7 @@ serve(async (req: Request): Promise<Response> => {
   switch (body.op) {
     case "list_public_profiles": return await listPublicProfiles();
     case "issue_read_challenge": return await issueReadChallenge(req, body);
-    case "my_workspace": return await myWorkspace(body);
+    case "my_workspace": return await myWorkspace(req, body);
     case "maintainer_queue": return await maintainerQueue(req, body);
     case "prepare_application": return await prepareApplication(req, body);
     case "commit_application": return await commitApplication(body);

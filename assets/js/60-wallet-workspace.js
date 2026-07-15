@@ -4,6 +4,9 @@
 // review queue seed, one clearly-labelled example so the scoring UI stays
 // demonstrable; real submissions render above it as "pending review".
 let walletPubkey = null;                 // connected wallet address (string)
+var _osiWalletReadyResolve=null,_osiWalletReadyDone=false;
+window.OSI_WALLET_READY=new Promise(function(resolve){_osiWalletReadyResolve=resolve;});
+function markWalletReady(){if(!_osiWalletReadyDone){_osiWalletReadyDone=true;if(_osiWalletReadyResolve)_osiWalletReadyResolve(walletPubkey||null);}}
 
 function getProvider(){
   // Phantom injects window.solana
@@ -16,12 +19,14 @@ function clearWalletCache(){
   try{ localStorage.removeItem('stw_wallet_off'); }catch(e){}
   try{ sessionStorage.removeItem('osi_wallet_session'); }catch(e){}
 }
-function clearWalletAuthorization(){
+function clearWalletAuthorization(options){
+  options=options||{};
   window.__osiProof = null;
   window.__osiIntake = null;
   window.__osiV2ReadProof = null;
   window.__osiWalletAuthorization = null;
-  if(typeof window.osiV2ReportClearSession === 'function') window.osiV2ReportClearSession();
+  if(options.preserveReadSession!==true&&typeof window.osiV2ClearReadSession==='function')window.osiV2ClearReadSession(options.reason||'wallet_changed');
+  if(options.preserveReadSession!==true&&typeof window.osiV2ReportClearSession === 'function') window.osiV2ReportClearSession();
   if(typeof setMaintainerServerGate === 'function') setMaintainerServerGate(false,'wallet_changed');
 }
 // onlyIfTrusted never opens an approval prompt. An explicit OSI disconnect
@@ -53,12 +58,12 @@ function walletErrorMessage(e, ctx){
 function closeWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.remove('open'); }
 function toggleWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.toggle('open'); }
 
-async function toggleWallet(){
+async function toggleWalletOnce(){
   var prov = getProvider();
   if(!prov){
     if(typeof showToast==='function') showToast("Phantom not found. Install it from phantom.app, then refresh and connect.");
     try{ window.open("https://phantom.app/","_blank"); }catch(e){}
-    return false;
+    markWalletReady();return false;
   }
   if(walletPubkey && prov.publicKey && prov.isConnected !== false) return true; // already connected this session
   try{
@@ -68,13 +73,21 @@ async function toggleWallet(){
     try{ sessionStorage.setItem('osi_wallet_session','1'); }catch(e){}
     try{ localStorage.setItem('osi_phantom_restore','1'); }catch(e){}
     clearWalletAuthorization();
+    if(typeof window.osiV2ReadSessionHandleWallet==='function')window.osiV2ReadSessionHandleWallet(walletPubkey);
     updateWalletUI();
+    markWalletReady();
     if(typeof showToast==='function') showToast('Connected \u2713  Use the wallet button to open your profile or disconnect.');
     return true;
   }catch(e){
     if(typeof showToast==='function') showToast(walletErrorMessage(e, "Connection"));
-    return false;
+    markWalletReady();return false;
   }
+}
+var _osiWalletConnectPromise=null;
+function toggleWallet(){
+  if(_osiWalletConnectPromise)return _osiWalletConnectPromise;
+  var pending=toggleWalletOnce();_osiWalletConnectPromise=pending;
+  return pending.finally(function(){if(_osiWalletConnectPromise===pending)_osiWalletConnectPromise=null;});
 }
 
 function updateWalletUI(){
@@ -128,7 +141,10 @@ async function castOnchainVote(memoText){
   if(!blockhash) throw new Error("NETWORK: could not reach the Solana network. Check your connection and try again in a moment.");
   tx.recentBlockhash = blockhash;
 
-  const signed = await prov.signAndSendTransaction(tx);  // Phantom signs + sends
+  const submit = function(){ return prov.signAndSendTransaction(tx); };
+  const signed = typeof window.osiV2ApproveTransaction === 'function'
+    ? await window.osiV2ApproveTransaction(memoText, submit)
+    : await submit();  // Phantom signs + sends
   return signed.signature;
 }
 

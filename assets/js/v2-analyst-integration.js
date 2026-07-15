@@ -43,6 +43,13 @@
       not_ready_for_probation:'This exact version needs an active maintainer approval before probation activation.',
       rate_limited:'Too many proof requests. Wait a few minutes and try again.',
       concurrent_retry:'Another operation changed this record. Refresh and try again.'
+      ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
+      ,read_session_required:'Unlock private views with one wallet signature.'
+      ,read_session_expired:'Your five-minute private read session expired. Refresh it explicitly to continue.'
+      ,read_session_wrong_origin:'This private session belongs to a different site origin.'
+      ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
+      ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
+      ,read_session_tampered:'The private session token failed server verification.'
     };
     return messages[code]||code.replace(/_/g,' ');
   }
@@ -53,6 +60,7 @@
   }
   function bytesToBase64(bytes){var binary='';for(var i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);return btoa(binary);}
   async function signMessage(message){
+    if(typeof window.osiV2ApproveMessage==='function')return await window.osiV2ApproveMessage(message);
     var provider=typeof getProvider==='function'?getProvider():null;
     if(!provider||typeof provider.signMessage!=='function')throw new Error('This wallet does not support signMessage.');
     var signed=await provider.signMessage(new TextEncoder().encode(message),'utf8');
@@ -60,11 +68,10 @@
     if(!(bytes instanceof Uint8Array))bytes=new Uint8Array(bytes||[]);
     return bytesToBase64(bytes);
   }
-  async function signedRead(purpose,op){
-    var wallet=await ensureWallet();
-    var issued=await api({op:'issue_read_challenge',purpose:purpose,wallet:wallet});
-    var signature=await signMessage(issued.challenge);
-    return await api({op:op,wallet:wallet,challenge:issued.challenge,signature:signature});
+  async function sessionRead(scope,op){
+    if(typeof window.osiV2ReadSession!=='function')throw new Error('read_session_disabled_or_unavailable');
+    var session=await window.osiV2ReadSession([scope],{allowUnlock:true});
+    return await api({op:op,wallet:session.wallet,read_session:session.token});
   }
   function trustedAvatar(url){url=String(url||'');return url.indexOf(AVATAR_PREFIX)===0?url:'';}
   function safeHttps(url){
@@ -155,14 +162,14 @@
   }
   function renderWorkspace(){
     var host=document.getElementById('identity-body');if(!host)return;
-    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>Private application history is released only after a fresh wallet-signed read authorization.</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Refresh securely</button></header>'+workspaceNav()+'<main>'+(state.workspaceTab==='applications'?applicationPane():profilePane())+'</main></div>';
+    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>Private application history uses the shared five-minute wallet-authenticated read session.</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Refresh data</button></header>'+workspaceNav()+'<main>'+(state.workspaceTab==='applications'?applicationPane():profilePane())+'</main></div>';
     host.querySelectorAll('[data-workspace-tab]').forEach(function(button){button.classList.toggle('active',button.dataset.workspaceTab===state.workspaceTab);button.addEventListener('click',function(){state.workspaceTab=button.dataset.workspaceTab;renderWorkspace();});});
   }
   async function openWorkspace(tab){
     state.workspaceTab=tab==='applications'?'applications':'profile';if(typeof showView==='function')showView('identity');
-    var host=document.getElementById('identity-body');if(host)host.innerHTML='<div class="osi-activation-loading">Sign the fresh read authorization in your wallet. This is not an on-chain transaction.</div>';
-    try{var wallet=await ensureWallet();var result=await signedRead('ANALYST_READ_MY_WORKSPACE','my_workspace');state.workspace=result;state.workspaceWallet=wallet;renderWorkspace();}
-    catch(error){if(host)host.innerHTML=empty('Analyst workspace unavailable',userError(error))+'<button class="osi-primary-action" type="button" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Try again</button>';}
+    var host=document.getElementById('identity-body');if(host)host.innerHTML='<div class="osi-activation-loading">Unlocking the shared private read session...</div>';
+    try{var wallet=await ensureWallet();var result=await sessionRead('analyst:workspace','my_workspace');state.workspace=result;state.workspaceWallet=wallet;renderWorkspace();}
+    catch(error){if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=empty('Analyst workspace unavailable',userError(error))+'<button class="osi-primary-action" type="button" onclick="'+(refresh?'osiAnalystRefreshWorkspace(\''+esc(state.workspaceTab)+'\')':'osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')')+'">'+(refresh?'Refresh private access':'Try again')+'</button>';}}
   }
 
   function setApplicationStatus(text,kind){var node=document.getElementById('an-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
@@ -177,7 +184,7 @@
   async function openApplication(){
     try{
       var wallet=await ensureWallet();
-      if(!state.workspace||state.workspaceWallet!==wallet){state.workspace=await signedRead('ANALYST_READ_MY_WORKSPACE','my_workspace');state.workspaceWallet=wallet;}
+      if(!state.workspace||state.workspaceWallet!==wallet){state.workspace=await sessionRead('analyst:workspace','my_workspace');state.workspaceWallet=wallet;}
       var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();setApplicationStatus('');
       var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');document.body.style.overflow='hidden';setTimeout(function(){var target=document.getElementById('an-handle');if(target)target.focus();},50);
     }catch(error){if(typeof showToast==='function')showToast(userError(error));}
@@ -230,9 +237,9 @@
   async function loadQueue(){
     var host=document.getElementById('osi-analyst-ops');if(!host)return;
     var access=typeof resolveMaintainerAccess==='function'?resolveMaintainerAccess():{allowed:false};if(!access.allowed){host.innerHTML=empty('Both maintainer gates are required','Connect the configured admin wallet and restore the authorized Supabase maintainer session.');return;}
-    host.innerHTML='<div class="osi-activation-loading">Sign the fresh maintainer queue authorization...</div>';
-    try{var result=await signedRead('ANALYST_READ_MAINTAINER_QUEUE','maintainer_queue');state.queue=Array.isArray(result.applications)?result.applications:[];renderQueue();}
-    catch(error){state.queue=[];host.innerHTML=empty('Application queue unavailable',userError(error));}
+    host.innerHTML='<div class="osi-activation-loading">Unlocking the double-gated Operations read session...</div>';
+    try{var result=await sessionRead('analyst:maintainer','maintainer_queue');state.queue=Array.isArray(result.applications)?result.applications:[];renderQueue();}
+    catch(error){state.queue=[];var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=empty('Application queue unavailable',userError(error))+(refresh?'<button class="osi-primary-action" type="button" onclick="osiAnalystRefreshMaintainerQueue()">Refresh private access</button>':'');}
   }
   function queueStatus(appId,text,kind){var card=document.querySelector('[data-application-id="'+String(appId).replace(/[^A-Za-z0-9-]/g,'')+'"]'),node=card&&card.querySelector('[data-analyst-status]');if(node){node.textContent=text;node.className='osi-form-status mono '+(kind||'');}}
   function queueApplication(id){return state.queue.find(function(app){return String(app.id)===String(id);});}
@@ -275,8 +282,13 @@
   window.apxClose=closeApplication;
   window.osiAnalystSubmit=submitApplication;
   window.osiAnalystLoadMaintainerQueue=loadQueue;
+  window.osiAnalystRefreshWorkspace=function(tab){return window.osiV2RefreshReadSession(['analyst:workspace']).then(function(){return openWorkspace(tab);});};
+  window.osiAnalystRefreshMaintainerQueue=function(){return window.osiV2RefreshReadSession(['analyst:maintainer']).then(loadQueue);};
   window.osiAnalystDecision=reviewApplication;
   window.osiAnalystActivate=activateProbation;
+
+  function clearPrivateAnalystCache(){state.workspace=null;state.workspaceWallet='';state.queue=[];state.busy=false;}
+  if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('analyst',clearPrivateAnalystCache);
 
   document.addEventListener('keydown',function(event){if(event.key==='Escape'&&document.getElementById('apx-modal')&&document.getElementById('apx-modal').classList.contains('open'))closeApplication();});
 })();

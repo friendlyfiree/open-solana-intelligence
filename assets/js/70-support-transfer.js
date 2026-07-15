@@ -59,7 +59,10 @@ async function sendTipTx(toWallet, lamports, memoText){
   const blockhash = await fetchRecentBlockhash();
   if(!blockhash) throw new Error("NETWORK");
   tx.recentBlockhash = blockhash;
-  const signed = await prov.signAndSendTransaction(tx);
+  const submit = function(){ return prov.signAndSendTransaction(tx); };
+  const signed = typeof window.osiV2ApproveTransaction === 'function'
+    ? await window.osiV2ApproveTransaction(memoText || (toWallet+':'+lamports), submit)
+    : await submit();
   return signed && signed.signature;
 }
 

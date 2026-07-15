@@ -6,6 +6,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const core = read('assets/js/50-core-supabase.js');
+const readSession = read('assets/js/52-read-session.js');
 const wallet = read('assets/js/60-wallet-workspace.js');
 const boot = read('assets/js/99-app.js');
 const maintainer = read('assets/js/54-maintainer-console.js');
@@ -27,6 +28,18 @@ ok(read('assets/js/64-profile-xp.js').includes("localStorage.setItem('osi_phanto
 ok(wallet.includes('clearWalletAuthorization()'), 'wallet changes clear derived authorization');
 ok(wallet.includes('osiV2ReportClearSession'), 'wallet change clears cached private Report DTOs');
 ok(report.includes('state.reviewPending={};state.publicationPending={}'), 'wallet/session reset discards pending Report proofs');
+ok(html.indexOf('assets/js/52-read-session.js') < html.indexOf('assets/js/v2-case-integration.js'), 'shared read-session client loads before every V2 integration');
+ok(readSession.includes('storage:sessionStorage'), 'private read capability is held in browser-session storage only');
+ok(!/localStorage\.(?:getItem|setItem)\([^)]*read_session/i.test(readSession), 'private read capability is never persisted in localStorage');
+ok(readSession.includes("TOKEN_KEY='osi_v2_read_session_v1'"), 'one shared private capability key spans Case, Report, and Analyst');
+ok(readSession.includes("issue_read_session_challenge") && readSession.includes("create_read_session"), 'one server-issued challenge creates the shared read-only capability');
+ok(readSession.includes('var messages=new Map(),transactions=new Map()'), 'provider approval broker locks duplicate message and transaction requests');
+ok(readSession.includes("clear('expiry',{markExpired:true})"), 'expiry clears the shared capability without a silent renewal signature');
+ok(readSession.includes("window.osiV2ReadSessionHandleWallet=client.handleWallet"), 'wallet identity changes invalidate the shared capability');
+ok(readSession.includes("window.osiV2ReadSessionHandleAuth=client.handleAuth"), 'Supabase identity changes invalidate the shared capability');
+ok(!read('assets/js/v2-case-integration.js').includes("op:'issue_read_challenge'"), 'Case private reads no longer request a signature per navigation');
+ok(!report.includes("op:'issue_challenge'"), 'Report private reads no longer request a signature per navigation');
+ok(!read('assets/js/v2-analyst-integration.js').includes("op:'issue_read_challenge'"), 'Analyst private reads no longer request a signature per navigation');
 
 ok(core.includes('window.supabase.createClient'), 'Supabase Auth uses the supported client session model');
 ok(core.includes('autoRefreshToken:true'), 'Supabase Auth refreshes expiring access tokens');

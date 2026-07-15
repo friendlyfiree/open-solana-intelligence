@@ -106,6 +106,13 @@
       prohibited_secret_material:'Remove any seed phrase, recovery phrase, mnemonic, private key, or secret key reference.',
       prohibited_illegal_access_material:'Illegal-access material cannot be submitted.',
       rate_limited:'Too many proof requests. Wait a few minutes and try again.'
+      ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
+      ,read_session_required:'Unlock private views with one wallet signature.'
+      ,read_session_expired:'Your five-minute private read session expired. Refresh it explicitly to continue.'
+      ,read_session_wrong_origin:'This private session belongs to a different site origin.'
+      ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
+      ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
+      ,read_session_tampered:'The private session token failed server verification.'
       ,resolution_lifecycle_writes_disabled:'Resolution and challenge writes are safely disabled while rollout checks are incomplete.'
       ,resolution_lifecycle_writes_disabled_or_unavailable:'Resolution and challenge writes are safely disabled or temporarily unavailable.'
       ,not_authorized_or_conflicted:'This wallet is not eligible for this exact action or has a Case, Report, or challenge conflict.'
@@ -142,6 +149,7 @@
     return btoa(binary);
   }
   async function signMessage(message){
+    if(typeof window.osiV2ApproveMessage==='function')return await window.osiV2ApproveMessage(message);
     var provider=typeof getProvider==='function' ? getProvider() : null;
     if(!provider||typeof provider.signMessage!=='function') throw new Error('This wallet does not support signMessage.');
     var signed=await provider.signMessage(new TextEncoder().encode(message),'utf8');
@@ -149,11 +157,10 @@
     if(!(bytes instanceof Uint8Array)) bytes=new Uint8Array(bytes||[]);
     return bytesToBase64(bytes);
   }
-  async function signedRead(purpose,op,extra){
-    var wallet=await ensureWallet();
-    var issue=await api(READ_URL,Object.assign({op:'issue_read_challenge',purpose:purpose,wallet:wallet},extra||{}));
-    var signature=await signMessage(issue.challenge);
-    return await api(READ_URL,Object.assign({op:op,wallet:wallet,challenge:issue.challenge,signature:signature},extra||{}));
+  async function sessionRead(scope,op,extra){
+    if(typeof window.osiV2ReadSession!=='function')throw new Error('read_session_disabled_or_unavailable');
+    var session=await window.osiV2ReadSession([scope],{allowUnlock:true});
+    return await api(READ_URL,Object.assign({op:op,wallet:session.wallet,read_session:session.token},extra||{}));
   }
   function setLoading(){
     var host=document.getElementById('field-cases');
@@ -281,8 +288,8 @@
     state.mode=mode;state.page=1;state.stage='all';setFieldCopy(mode);setLoading();
     try{
       var result=mode==='mine'
-        ? await signedRead('CASE_READ_MY_CASES','list_my_cases')
-        : await signedRead('CASE_READ_REVIEW_QUEUE','list_reviewable_cases');
+        ? await sessionRead('case:mine','list_my_cases')
+        : await sessionRead('case:review','list_reviewable_cases');
       if(token!==state.loadToken) return;
       state.actorRole=result.actor_role||(mode==='mine'?'owner':'analyst');
       state.cases=result.cases||[];state.reviewTasks=result.review_tasks||{};drawCases();
@@ -290,7 +297,10 @@
     }catch(error){
       if(token!==state.loadToken) return;
       var host=document.getElementById('field-cases');
-      if(host) host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Authorized workspace locked</b><span>'+esc(userError(error))+'</span></div>';
+      if(host){
+        var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));
+        host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Authorized workspace locked</b><span>'+esc(userError(error))+'</span>'+(refresh?'<button class="osi-action" type="button" onclick="osiV2RefreshCaseWorkspace(\''+esc(mode)+'\')">Refresh private access</button>':'')+'</div>';
+      }
     }
   }
 
@@ -700,7 +710,9 @@
     tx.add(new web3.TransactionInstruction({keys:[{pubkey:from,isSigner:true,isWritable:false}],programId:new web3.PublicKey(MEMO_PROGRAM_ID),data:new TextEncoder().encode(prepared.memo)}));
     tx.feePayer=from;var blockhash=await fetchRecentBlockhash();if(!blockhash)throw new Error('rpc_unavailable');tx.recentBlockhash=blockhash;
     var bytes=tx.serialize({requireAllSignatures:false,verifySignatures:false});if(bytes.length>1232)throw new Error('Transaction exceeds Solana packet size.');
-    var result=await provider.signAndSendTransaction(tx);if(!result||!result.signature)throw new Error('Transaction submission was cancelled.');return result.signature;
+    var submit=function(){return provider.signAndSendTransaction(tx);};
+    var result=typeof window.osiV2ApproveTransaction==='function'?await window.osiV2ApproveTransaction(prepared.memo,submit):await submit();
+    if(!result||!result.signature)throw new Error('Transaction submission was cancelled.');return result.signature;
   }
   async function reloadPaymentCase(caseRef){
     if(state.mode==='public'){await loadPublicCases();await openCase(caseRef);return;}
@@ -786,7 +798,12 @@
   window.osiV2OpenMyCases=function(){openSignedCollection('mine');};
   window.osiV2OpenReviewQueue=function(){openSignedCollection('review');};
   window.osiV2LoadMaintainerOverview=function(){
-    return signedRead('CASE_READ_MAINTAINER_OVERVIEW','maintainer_case_overview');
+    return sessionRead('case:maintainer','maintainer_case_overview');
+  };
+  window.osiV2RefreshCaseWorkspace=function(mode){
+    var scope=mode==='review'?'case:review':'case:mine';
+    if(typeof window.osiV2RefreshReadSession!=='function')return Promise.reject(new Error('read_session_disabled_or_unavailable'));
+    return window.osiV2RefreshReadSession([scope]).then(function(){return openSignedCollection(mode==='review'?'review':'mine');});
   };
   window.osiV2SubmitCase=submitCase;
   window.osiV2OpenCase=openCase;
@@ -802,6 +819,13 @@
   window.osiV2SupportCountedReviewer=function(versionRef,wallet){supportExternal('counted_reviewer',versionRef,wallet);};
   window.osiV2RetryPayment=retryPayment;
   window.osiV2ClearPaymentState=clearPaymentState;
+
+  function clearPrivateCaseCache(){
+    if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.current=null;state.actorRole='public';state.mode='public';}
+    state.capabilities=null;state.governanceBusy=false;clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
+    var drawer=document.getElementById('osi-case-drawer');if(drawer)drawer.hidden=true;
+  }
+  if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('cases',clearPrivateCaseCache);
 
   function trapFocus(event,root){
     if(event.key!=='Tab'||!root)return;
