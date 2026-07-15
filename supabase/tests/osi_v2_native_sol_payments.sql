@@ -139,10 +139,10 @@ insert into public.event_receipts (
  decision,proof_type,payload_hash,server_verified,occurred_at
 ) values
  ('42100000-0000-4000-8000-000000000001','legacy','LEGACY_REPORT_IMPORTED','report_version',
-  '42300000-0000-4000-8000-000000000001','OSI-RV-PAYSEALED00010001','11111111111111111111111111111116',
+  '42300000-0000-4000-8000-000000000001','OSI-RV-AA11BB22CC330001','11111111111111111111111111111116',
   'wallet','submit','legacy_imported',repeat('6',64),false,statement_timestamp()),
  ('42100000-0000-4000-8000-000000000002','legacy','LEGACY_REPORT_PUBLISHED','report_version',
-  '42300000-0000-4000-8000-000000000001','OSI-RV-PAYSEALED00010001','11111111111111111111111111111116',
+  '42300000-0000-4000-8000-000000000001','OSI-RV-AA11BB22CC330001','11111111111111111111111111111116',
   'wallet','publish','legacy_imported',repeat('7',64),false,statement_timestamp()),
  ('42100000-0000-4000-8000-000000000003','legacy','LEGACY_RESOLUTION_FINAL','resolution',
   '42400000-0000-4000-8000-000000000001','OSI-RES-ABCDEF1234567890','44444444444444444444444444444444',
@@ -152,13 +152,13 @@ insert into public.event_receipts (
   'owner','pledge','legacy_imported',repeat('9',64),false,statement_timestamp());
 insert into public.case_reports (id,case_id,author_wallet,status,public_ref,native_intake)
 values ('42200000-0000-4000-8000-000000000001','42000000-0000-4000-8000-000000000001',
- '11111111111111111111111111111116','active','OSI-RPT-PAYSEALED0001',false);
+ '11111111111111111111111111111116','active','OSI-RPT-AA11BB22CC33',false);
 insert into public.case_report_versions (
  id,report_id,version_no,version_ref,created_by_wallet,body_private,content_public_safe,
  evidence_snapshot_hash,lifecycle_state,published_at,publication_receipt_id,event_receipt_id
 ) values (
  '42300000-0000-4000-8000-000000000001','42200000-0000-4000-8000-000000000001',1,
- 'OSI-RV-PAYSEALED00010001','11111111111111111111111111111116','Immutable sealed winning version.',
+ 'OSI-RV-AA11BB22CC330001','11111111111111111111111111111116','Immutable sealed winning version.',
  'Public-safe sealed winning version.',repeat('a',64),'published',statement_timestamp(),
  '42100000-0000-4000-8000-000000000002','42100000-0000-4000-8000-000000000001');
 update public.case_reports set current_version_id='42300000-0000-4000-8000-000000000001',
@@ -199,7 +199,7 @@ select * from public.osi_v2_prepare_payment(repeat('g',43),'reward','11111111111
  'payment-reward-part-one-0001',repeat('c',64));
 select ok((select purpose='REWARD_PAYMENT_CONFIRMED' and actor_role='owner'
  and total_lamports=400000000 and recipient_manifest->0->>'wallet'='11111111111111111111111111111116'
- and recipient_manifest->0->>'target_ref'='OSI-RV-PAYSEALED00010001'
+ and recipient_manifest->0->>'target_ref'='OSI-RV-AA11BB22CC330001'
  from pg_temp.reward_part_one),
  'reward prepare derives the exact sealed winning version author and partial amount');
 select ok((select nonce.target_type='reward' and nonce.target_id=prepared.payment_id::text
@@ -273,8 +273,8 @@ values
  ('22222222222222222222222222222223','probationary_analyst','probationary',true,true,1.00);
 select throws_ok($test$
  select * from public.osi_v2_prepare_payment(repeat('j',43),'support','11111111111111111111111111111116',
-  'OSI-RV-PAYSEALED00010001',jsonb_build_object('recipients',jsonb_build_array(jsonb_build_object(
-   'target_type','report_author','target_ref','OSI-RV-PAYSEALED00010001','amount_lamports','10000000'))),
+  'OSI-RV-AA11BB22CC330001',jsonb_build_object('recipients',jsonb_build_array(jsonb_build_object(
+   'target_type','report_author','target_ref','OSI-RV-AA11BB22CC330001','amount_lamports','10000000'))),
   'payment-support-self-0001',repeat('f',64))
 $test$,'42501','Support recipient is unavailable or is the payer',
  'Report author self-support is rejected');
