@@ -165,8 +165,13 @@
     host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>Private application history uses the shared five-minute wallet-authenticated read session.</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Refresh data</button></header>'+workspaceNav()+'<main>'+(state.workspaceTab==='applications'?applicationPane():profilePane())+'</main></div>';
     host.querySelectorAll('[data-workspace-tab]').forEach(function(button){button.classList.toggle('active',button.dataset.workspaceTab===state.workspaceTab);button.addEventListener('click',function(){state.workspaceTab=button.dataset.workspaceTab;renderWorkspace();});});
   }
+  function showNativeWorkspaceView(){
+    document.body.dataset.view='identity';
+    if(typeof window.syncActiveNavigation==='function')window.syncActiveNavigation('identity');
+    window.scrollTo({top:0,behavior:'auto'});
+  }
   async function openWorkspace(tab){
-    state.workspaceTab=tab==='applications'?'applications':'profile';if(typeof showView==='function')showView('identity');
+    state.workspaceTab=tab==='applications'?'applications':'profile';showNativeWorkspaceView();
     var host=document.getElementById('identity-body');if(host)host.innerHTML='<div class="osi-activation-loading">Unlocking the shared private read session...</div>';
     try{var wallet=await ensureWallet();var result=await sessionRead('analyst:workspace','my_workspace');state.workspace=result;state.workspaceWallet=wallet;renderWorkspace();}
     catch(error){if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=empty('Analyst workspace unavailable',userError(error))+'<button class="osi-primary-action" type="button" onclick="'+(refresh?'osiAnalystRefreshWorkspace(\''+esc(state.workspaceTab)+'\')':'osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')')+'">'+(refresh?'Refresh private access':'Try again')+'</button>';}}
@@ -275,6 +280,7 @@
   window.closeAnalystProfile=function(){var modal=document.getElementById('ap-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}if(typeof legacyCloseProfile==='function'&&legacyCloseProfile!==window.closeAnalystProfile)legacyCloseProfile();};
   window.loadAnalysts=loadPublicProfiles;
   window.renderAnalysts=renderPublicProfiles;
+  window.renderLeaderboard=renderPublicProfiles;
   window.openAnalystProfile=function(id){openPublicProfile(id);};
   window.openRosterProfile=function(id){openPublicProfile(id);};
   window.osiAnalystOpenWorkspace=openWorkspace;

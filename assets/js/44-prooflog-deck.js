@@ -195,7 +195,7 @@ function plHealthRender(){
   if(src==='loaded' && evs.length){ stateCls='ok'; title='Live proof source connected'; body=evs.length+' signed proof event'+(evs.length===1?'':'s')+' loaded from the OSI proof index.'; }
   else if(src==='error'){ stateCls='err'; title='Proof source unavailable'; body='Unable to load signed events right now.'; }
   else if(src==='unavailable'){ stateCls='err'; title='Proof source unavailable'; body='The signed proof source is not connected in this environment.'; }
-  else if(src==='demo'){ title='Demo mode enabled'; body='Sample proof events are visible because OSI_DEMO_MODE is enabled.'; }
+  else if(src==='demo'){ title='Sample mode enabled'; body='Sample proof events are visible because the explicit sample-data switch is enabled.'; }
   var lastMemo = evs.length ? (plAgo(evs[0].created_at)||'Timestamp unavailable') : 'Not available yet';
   host.innerHTML =
     '<div class="pl-health-state '+stateCls+'"><span class="pl-health-dot"></span><div><b>'+title+'</b><span>'+body+'</span></div></div>'
@@ -217,11 +217,11 @@ function plPaint(){
   }
   if(plState.filter!=='all') evs=evs.filter(function(e){ return plGroup(e)===plState.filter; });
   var stripCls = (src==='loaded' && all.length) ? ' ok' : ((src==='error'||src==='unavailable') ? ' err' : '');
-  var stripTitle = (src==='loaded' && all.length) ? 'Live proof source connected' : (src==='error'||src==='unavailable' ? 'Proof source unavailable' : (src==='demo' ? 'Demo mode enabled' : 'No signed proof events yet'));
+  var stripTitle = (src==='loaded' && all.length) ? 'Live proof source connected' : (src==='error'||src==='unavailable' ? 'Proof source unavailable' : (src==='demo' ? 'Sample mode enabled' : 'No signed proof events yet'));
   var stripBody = (src==='loaded' && all.length) ? (all.length+' real signed proof event'+(all.length===1?'':'s')+' loaded from onchain_events.')
     : (src==='error' ? 'Unable to load signed events right now.'
     : (src==='unavailable' ? 'Signed proof source is not connected in this environment.'
-    : (src==='demo' ? 'Sample rows are visible only because OSI_DEMO_MODE is enabled.' : 'Wallet-signed OSI actions will appear here after they are recorded.')));
+    : (src==='demo' ? 'Sample rows are visible only because the explicit sample-data switch is enabled.' : 'Wallet-signed OSI actions will appear here after they are recorded.')));
   var strip = '<div class="pl-strip'+stripCls+'"><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>'+stripTitle+'</b><span>'+stripBody+'</span></div></div>';
   var totalPages=Math.max(1, Math.ceil(evs.length/PL_PER));
   if(plState.page>totalPages) plState.page=totalPages; if(plState.page<1) plState.page=1;

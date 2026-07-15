@@ -16,6 +16,8 @@
 
   var platformTrigger;
   var platformMenu;
+  var platformWrap;
+  var platformIntent;
   var mobileToggle;
   var globalNav;
   var navScrim;
@@ -139,13 +141,34 @@
   function setupNavigation() {
     platformTrigger = document.getElementById('platform-menu-trigger');
     platformMenu = document.getElementById('platform-menu');
+    platformWrap = platformTrigger && platformTrigger.closest('.osi-platform-wrap');
     mobileToggle = document.getElementById('mobile-nav-toggle');
     globalNav = document.getElementById('global-nav');
     navScrim = document.getElementById('nav-scrim');
 
     if (platformTrigger && platformMenu) {
+      if (platformWrap && window.OSINavIntent) {
+        platformIntent = window.OSINavIntent.create({
+          openDelay: 100,
+          closeDelay: 220,
+          canHover: function () { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; },
+          isOpen: function () { return platformTrigger.getAttribute('aria-expanded') === 'true'; },
+          open: function () { setPlatform(true); },
+          close: function () { setPlatform(false); }
+        });
+        platformWrap.addEventListener('pointerenter', function (event) {
+          platformIntent.pointerEnter(event.pointerType);
+        });
+        platformWrap.addEventListener('pointerleave', function (event) {
+          platformIntent.pointerLeave(event.pointerType);
+        });
+      }
       platformTrigger.addEventListener('click', function () {
+        if (platformIntent) platformIntent.cancel();
         setPlatform(platformTrigger.getAttribute('aria-expanded') !== 'true');
+      });
+      platformTrigger.addEventListener('focus', function () {
+        if (document.documentElement.classList.contains('osi-keyboard-input')) setPlatform(true);
       });
       platformTrigger.addEventListener('keydown', function (event) {
         if (event.key === 'ArrowDown') {
@@ -181,6 +204,9 @@
     if (navScrim) navScrim.addEventListener('click', function () { closeMobileNav(true); });
 
     document.addEventListener('keydown', function (event) {
+      if (event.key === 'Tab' || event.key.indexOf('Arrow') === 0) {
+        document.documentElement.classList.add('osi-keyboard-input');
+      }
       trapMobileFocus(event);
       if (event.key === 'Escape') {
         if (document.body.classList.contains('nav-open')) closeMobileNav(true);
@@ -191,11 +217,13 @@
       }
     });
     document.addEventListener('pointerdown', function (event) {
+      document.documentElement.classList.remove('osi-keyboard-input');
       if (!platformMenu || !platformTrigger || platformMenu.hidden) return;
       if (!platformMenu.contains(event.target) && !platformTrigger.contains(event.target)) setPlatform(false);
     });
 
     window.addEventListener('resize', function () {
+      if (platformIntent) platformIntent.cancel();
       if (window.matchMedia('(min-width: 981px)').matches) closeMobileNav(false);
     });
   }

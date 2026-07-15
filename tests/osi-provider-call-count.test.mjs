@@ -82,6 +82,8 @@ ok("concurrent first private reads share one signMessage", signMessageCalls === 
 await first.get([READ_SESSION_SCOPES.CASE_REVIEW]);
 await first.get([READ_SESSION_SCOPES.REPORT_REVIEW]);
 await first.get([READ_SESSION_SCOPES.ANALYST_WORKSPACE]);
+await first.get([READ_SESSION_SCOPES.CASE_MAINTAINER]);
+await first.get([READ_SESSION_SCOPES.ANALYST_MAINTAINER]);
 ok("private view navigation adds zero signatures", signMessageCalls === 1);
 
 const reloadStorage = new MemoryStorage(storage);
@@ -112,20 +114,25 @@ authClient.handleAuth("00000000-0000-4000-8000-000000000001");
 ok("Supabase auth identity change clears the read session", authStorage.getItem(clientCore.TOKEN_KEY) === null);
 
 const broker = clientCore.createWalletApprovalBroker();
-let classBProviderCalls = 0;
-await Promise.all([
-  broker.message("exact-class-b-proof", async () => { classBProviderCalls += 1; return "sig"; }),
-  broker.message("exact-class-b-proof", async () => { classBProviderCalls += 1; return "sig"; }),
-]);
-ok("one Class-B write has exactly one provider approval", classBProviderCalls === 1);
+const writeApprovals = new Map();
+const writeKinds = ["case-submit", "case-review", "challenge", "reward-pledge", "report-review", "analyst-application"];
+for (const kind of writeKinds) {
+  const approve = async () => {
+    writeApprovals.set(kind, (writeApprovals.get(kind) || 0) + 1);
+    return `${kind}-signature`;
+  };
+  await Promise.all([broker.message(`exact-${kind}-proof`, approve), broker.message(`exact-${kind}-proof`, approve)]);
+}
+ok("each Case, review, challenge, pledge, Report and analyst Class-B write has exactly one provider approval",
+  writeKinds.every((kind) => writeApprovals.get(kind) === 1));
 
 let databaseEffects = 0;
 try {
-  await broker.message("rejected-proof", async () => { classBProviderCalls += 1; throw new Error("user rejected"); });
+  await broker.message("rejected-proof", async () => { throw new Error("user rejected"); });
   databaseEffects += 1;
 } catch {}
 ok("rejected signature has no database effect", databaseEffects === 0);
-await broker.message("rejected-proof", async () => { classBProviderCalls += 1; return "retry-signature"; });
+await broker.message("rejected-proof", async () => "retry-signature");
 databaseEffects += 1;
 ok("clean retry requests one new approval and commits once", databaseEffects === 1);
 

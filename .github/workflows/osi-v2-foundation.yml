@@ -62,6 +62,9 @@ jobs:
           node tests/osi-session-access.test.js
           node tests/osi-v2-read-session.test.mjs
           node tests/osi-provider-call-count.test.mjs
+          node tests/osi-functional-surface.test.mjs
+          node tests/osi-intelligence-interface.test.js
+          node tests/osi-motion-visual.test.mjs
           node tests/osi-v2-analyst-core.test.mjs
           node tests/osi-v2-analyst-ui.test.js
           node tests/osi-v2-report.test.mjs
@@ -75,6 +78,12 @@ jobs:
           deno check supabase/functions/osi-v2-governance-write/index.ts
           deno check supabase/functions/osi-v2-payment/index.ts
           deno check supabase/functions/_shared/osi-v2-read-session-core.mjs
+
+      - name: Chromium UI contracts
+        run: |
+          npm install --no-save --no-package-lock @playwright/test@1.55.0 http-server@14.1.1
+          npx playwright install --with-deps chromium
+          npx playwright test --config tests/browser/playwright.config.js
 
       - name: Start disposable local database (PostgreSQL 17)
         run: supabase db start

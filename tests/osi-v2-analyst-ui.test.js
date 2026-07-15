@@ -30,6 +30,7 @@ ok(wire.includes('interest signals') && wire.includes('Signal interest'), 'suppo
 
 ok(analyst.includes("/functions/v1/osi-v2-analyst"), 'all analyst UI operations use the dedicated Edge Function');
 ok(analyst.includes("op:'list_public_profiles'"), 'public directory uses the least-privilege public profile operation');
+ok(analyst.includes('window.renderLeaderboard=renderPublicProfiles'), 'global Analyst Network navigation keeps the native V2 renderer');
 ok(!analyst.includes("from('analyst_profiles')") && !analyst.includes('/rest/v1/analyst_'), 'browser does not query private analyst tables directly');
 ok(analyst.includes("sessionRead('analyst:workspace','my_workspace')")
   && analyst.includes("sessionRead('analyst:maintainer','maintainer_queue')"),

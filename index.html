@@ -98,10 +98,10 @@
       </ul>
     </div>
 
-    <div class="osi-hero-panel" aria-label="Public workflow preview">
+    <div class="osi-hero-panel" aria-label="Explanatory OSI evidence lifecycle">
       <div class="osi-panel-topline">
-        <span>Public workflow</span>
-        <span class="osi-live-label"><i aria-hidden="true"></i>Public-safe data</span>
+        <span>Evidence lifecycle</span>
+        <span class="osi-live-label"><i aria-hidden="true"></i>Explanatory model</span>
       </div>
       <div class="osi-panel-tabs" role="navigation" aria-label="Workflow views">
         <button type="button" onclick="osiNavigate('field')">Cases</button>
@@ -110,14 +110,26 @@
         <button type="button" onclick="osiNavigateFieldStage('resolution_selection')">Resolutions</button>
         <button type="button" onclick="osiNavigateFieldStage('challenge_active')">Challenges</button>
       </div>
-      <div class="osi-panel-flow" aria-label="Investigation workflow">
-        <div><span>01</span><strong>Evidence submitted</strong></div>
-        <i aria-hidden="true"></i>
-        <div><span>02</span><strong>Independent review</strong></div>
-        <i aria-hidden="true"></i>
-        <div><span>03</span><strong>Challenge window</strong></div>
-        <i aria-hidden="true"></i>
-        <div><span>04</span><strong>Record sealed</strong></div>
+      <div class="osi-intelligence-scene">
+        <svg class="osi-proof-map" viewBox="0 0 720 220" role="img" aria-labelledby="osi-proof-map-title osi-proof-map-desc">
+          <title id="osi-proof-map-title">OSI evidence lifecycle</title>
+          <desc id="osi-proof-map-desc">A five-stage explanatory path from wallet-signed intake through independent review, challenge, Memo anchoring and verified direct transfer.</desc>
+          <path class="osi-proof-map-grid" d="M16 44H704M16 110H704M16 176H704M72 18V202M216 18V202M360 18V202M504 18V202M648 18V202"></path>
+          <path class="osi-proof-map-base" d="M72 150C132 150 148 72 216 72S294 150 360 150 438 72 504 72 580 150 648 150"></path>
+          <path class="osi-proof-map-signal" pathLength="1" d="M72 150C132 150 148 72 216 72S294 150 360 150 438 72 504 72 580 150 648 150"></path>
+          <g class="osi-proof-node" transform="translate(72 150)"><circle r="17"></circle><text y="4">01</text></g>
+          <g class="osi-proof-node" transform="translate(216 72)"><circle r="17"></circle><text y="4">02</text></g>
+          <g class="osi-proof-node osi-proof-node-violet" transform="translate(360 150)"><circle r="17"></circle><text y="4">03</text></g>
+          <g class="osi-proof-node" transform="translate(504 72)"><circle r="17"></circle><text y="4">04</text></g>
+          <g class="osi-proof-node osi-proof-node-teal" transform="translate(648 150)"><circle r="17"></circle><text y="4">05</text></g>
+        </svg>
+        <ol class="osi-proof-state-sequence" aria-label="Lifecycle proof states">
+          <li><span>01</span><strong>WALLET_SIGNED</strong><small>Intake approval</small></li>
+          <li><span>02</span><strong>REVIEW_QUORUM</strong><small>Independent gates</small></li>
+          <li><span>03</span><strong>CHALLENGE_WINDOW</strong><small>Outcome contestable</small></li>
+          <li><span>04</span><strong>MEMO_ANCHORED</strong><small>Confirmed on Solana</small></li>
+          <li><span>05</span><strong>SOL_TRANSFER_VERIFIED</strong><small>Expected transfer confirmed</small></li>
+        </ol>
       </div>
       <div class="osi-home-live-state" id="osi-home-live-state" aria-live="polite" aria-busy="true">
         <span class="osi-state-mark" aria-hidden="true"></span>
@@ -1309,6 +1321,7 @@
 </div>
 <script defer src="./assets/js/90-stream-canvas.js"></script>
 <script defer src="./assets/js/92-reveal-anim.js"></script>
+<script defer src="./assets/js/93-navigation-intent.js"></script>
 <script defer src="./assets/js/94-navigation-shell.js"></script>
 </body>
 </html>
