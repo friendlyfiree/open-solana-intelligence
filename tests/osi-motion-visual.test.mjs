@@ -10,6 +10,7 @@ const intent = require("../assets/js/93-navigation-intent.js");
 const html = read("index.html");
 const css = read("assets/css/70-intelligence-redesign.css");
 const shell = read("assets/js/94-navigation-shell.js");
+const signal = read("assets/js/95-signal-interactions.js");
 let passed = 0;
 function ok(name, condition) {
   if (!condition) throw new Error(`FAIL: ${name}`);
@@ -75,5 +76,9 @@ ok("final design layer contains no orange identity or transition-all debt", !/(#
 ok("final design layer avoids unreadable 9px microcopy", !/font-size:\s*(?:8|9)(?:\.\d+)?px/i.test(css));
 ok("keyboard focus, click, Escape, outside click and focus return remain wired", shell.includes("osi-keyboard-input") && shell.includes("ArrowDown") && shell.includes("event.key === 'Escape'") && shell.includes("platformTrigger.focus()") && shell.includes("pointerdown"));
 ok("touch and mobile focus trap remain part of the same navigation", shell.includes("trapMobileFocus") && shell.includes("nav-open") && html.includes('aria-controls="global-nav"'));
+ok("workspace routes mark Platform as the current navigation group", shell.includes("platformViews") && shell.includes("platformTrigger.setAttribute('aria-current', 'page')"));
+ok("pointer illumination is motion-safe and frame-throttled", signal.includes("prefers-reduced-motion: reduce") && signal.includes("(pointer: fine)") && signal.includes("requestAnimationFrame"));
+ok("section reveals progressively enhance behind an opt-in root class", signal.includes("IntersectionObserver") && signal.includes("section.classList.add('is-visible')") && signal.includes("classList.add('osi-signal-ready')") && css.includes(".osi-signal-ready [data-signal-reveal]:not(.osi-home-hero)"));
+ok("reduced motion makes every reveal immediately visible", /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\[data-signal-reveal\]:not\(\.osi-home-hero\)[\s\S]*?opacity:\s*1;/s.test(css));
 
 console.log(`\n${passed} motion, navigation and visual checks passed.`);

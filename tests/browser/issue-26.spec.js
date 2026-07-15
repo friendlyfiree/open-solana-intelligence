@@ -160,6 +160,11 @@ async function installFixtureNetwork(page) {
   }, { wallet: WALLET });
 
   await page.route(/https:\/\/(?:bundle\.run|unpkg\.com|cdn\.jsdelivr\.net)\/.*/, (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
+  await page.route('https://api.coingecko.com/**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ solana: { usd: 0, usd_24h_change: 0 }, bitcoin: { usd: 0, usd_24h_change: 0 }, ethereum: { usd: 0, usd_24h_change: 0 } }),
+  }));
   await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.route('**/functions/v1/**', async (route) => {
     const request = route.request();
@@ -267,6 +272,34 @@ test('Platform menu exercises hover intent, keyboard, click and touch behavior',
   expectCleanRuntime(page);
 });
 
+test('Home keeps a compact four-section product route with truthful live actions', async ({ page }) => {
+  await ready(page);
+  await expect(page.locator('main > section.osi-home')).toHaveCount(4);
+  const wordCount = await page.locator('main > section.osi-home').evaluateAll((sections) =>
+    sections.reduce((count, section) => count + (section.textContent || '').trim().split(/\s+/).filter(Boolean).length, 0));
+  expect(wordCount).toBeLessThanOrEqual(390);
+  await expect(page.locator('[data-action-contract]')).toHaveCount(8);
+  for (const action of ['case', 'report', 'analyst', 'review', 'governance', 'money', 'proof', 'operations']) {
+    await expect(page.locator(`[data-action-contract="${action}"]`)).toHaveCount(1);
+  }
+  await page.evaluate(() => window.osiNavigate('field'));
+  await expect(page.locator('#platform-menu-trigger')).toHaveAttribute('aria-current', 'page');
+  await page.evaluate(() => window.osiNavigate('registry'));
+  await expect(page.locator('#platform-menu-trigger')).not.toHaveAttribute('aria-current', 'page');
+  expectCleanRuntime(page);
+});
+
+test('signal enhancement fails open when its runtime is unavailable', async ({ page }) => {
+  await installFixtureNetwork(page);
+  await page.route('**/assets/js/95-signal-interactions.js', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.osiNavigate === 'function');
+  const opacity = await page.locator('main > [data-signal-reveal]').evaluateAll((nodes) =>
+    nodes.map((node) => getComputedStyle(node).opacity));
+  expect(opacity).toEqual(['1', '1', '1', '1']);
+});
+
 test('real product DOM renders lifecycle fixtures and keeps one shared private signature', async ({ page }) => {
   await ready(page);
   await expect(page.locator('body')).not.toContainText(PRIVATE_SENTINEL);
@@ -293,6 +326,10 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   for (const label of ['Wallet-signed and server-verified', 'Memo-anchored on Solana', 'SOL transfer verified on Solana', 'System event']) {
     await expect(page.locator('#osi-case-content')).toContainText(label);
   }
+  const solscan = page.locator(`#osi-case-content a[href="https://solscan.io/tx/${TX}"]`).first();
+  await expect(solscan).toBeVisible();
+  await expect(solscan).toHaveAttribute('target', '_blank');
+  await expect(solscan).toHaveAttribute('rel', /noopener/);
   await page.locator('.osi-case-close').click();
 
   await page.evaluate(() => window.osiV2OpenMyCases());
@@ -356,6 +393,33 @@ test('mobile, reduced motion and 200 percent reflow preserve access without over
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
   await expect(page.locator('#osi-home-title')).toBeVisible();
+
+  const workspaces = [
+    ['registry', '#osi-home-title'],
+    ['field', '#field-view'],
+    ['wire', '#wire-view'],
+    ['records', '#records-hero'],
+    ['analysts', '#analysts'],
+    ['prooflog', '#prooflog'],
+    ['methodology', '#about-hero'],
+  ];
+  for (const width of [390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const [view, selector] of workspaces) {
+      await page.evaluate((route) => window.osiNavigate(route), view);
+      await expect(page.locator(selector)).toBeVisible();
+      expect(await page.evaluate(() =>
+        document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    }
+  }
+
+  await page.evaluate(() => window.osiNavigate('field'));
+  const cta = page.locator('#field-view .fo-cta');
+  await expect(cta).toBeVisible();
+  expect((await cta.boundingBox()).height).toBeGreaterThanOrEqual(40);
+  await cta.click();
+  await expect(page.locator('#fo-modal')).not.toHaveClass(/open/);
+  await expect(page.locator('#stw-toast')).toContainText('Case intake is safely disabled while rollout checks are incomplete.');
   expectCleanRuntime(page);
 });
 
@@ -363,7 +427,23 @@ test('capture every populated main workspace for preview QA', async ({ page }) =
   test.skip(!process.env.OSI_QA_SCREENSHOT_DIR, 'Screenshot capture is enabled only for release QA.');
   const directory = path.resolve(process.env.OSI_QA_SCREENSHOT_DIR);
   fs.mkdirSync(directory, { recursive: true });
-  const capture = async (name) => page.screenshot({ path: path.join(directory, `${name}.png`), fullPage: true });
+  const primeReveals = async () => page.evaluate(async () => {
+    const height = document.documentElement.scrollHeight;
+    for (let y = 0; y < height; y += Math.max(320, Math.floor(innerHeight * .72))) {
+      scrollTo(0, y);
+      await new Promise((resolve) => setTimeout(resolve, 45));
+    }
+    scrollTo(0, 0);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  const capture = async (name) => {
+    await primeReveals();
+    await page.screenshot({ path: path.join(directory, `${name}-desktop.png`), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await primeReveals();
+    await page.screenshot({ path: path.join(directory, `${name}-mobile.png`), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  };
   await ready(page);
   await capture('home-populated');
 

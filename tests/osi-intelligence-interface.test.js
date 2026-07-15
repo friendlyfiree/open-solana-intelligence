@@ -8,6 +8,8 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const index = read('index.html');
 const css = read('assets/css/70-intelligence-redesign.css');
 const shell = read('assets/js/94-navigation-shell.js');
+const signal = read('assets/js/95-signal-interactions.js');
+const favicon = read('assets/favicon.svg');
 const records = read('assets/js/84-public-records.js');
 const cases = read('assets/js/v2-case-integration.js');
 const safety = read('assets/js/20-safety-consensus.js');
@@ -24,6 +26,8 @@ ok(index.includes('<header class="osi-global-header"'), 'one global navigation s
 ok(index.includes('<main id="main-content" tabindex="-1">') && index.includes('class="skip-link"'), 'main landmark and keyboard skip link are present');
 ok(index.indexOf('70-intelligence-redesign.css') > index.indexOf('v2-activation.css'), 'redesign CSS is the final cascade layer');
 ok(index.indexOf('94-navigation-shell.js') > index.indexOf('99-app.js'), 'navigation enhancement loads after the existing application');
+ok(index.indexOf('95-signal-interactions.js') > index.indexOf('94-navigation-shell.js'), 'signal enhancement loads after navigation without replacing product behavior');
+ok(!index.includes('90-stream-canvas.js') && !index.includes('92-reveal-anim.js'), 'retired root-only animation runtimes are no longer loaded');
 const externalScripts = [...index.matchAll(/<script\b[^>]*\bsrc="[^"]+"[^>]*><\/script>/g)].map((match) => match[0]);
 ok(externalScripts.length > 0 && externalScripts.every((tag) => /\bdefer\b/.test(tag)), 'external scripts preserve order without blocking HTML parsing');
 ok(Buffer.byteLength(index, 'utf8') < 150000 && !index.includes('data:image/'), 'primary document excludes the retired inline image payload');
@@ -38,23 +42,45 @@ ok(fs.existsSync(path.join(root, 'assets/images/osi-intelligence-desk-1536.jpg')
 ok(home.includes('<picture>') && home.includes('fetchpriority="high"') && home.includes('width="1536" height="1024"'), 'hero uses a responsive, dimensioned local picture');
 ok(!/https?:\/\//.test(home) && !/data:image\//.test(home), 'new homepage has no remote or embedded image payload');
 
+const homeSections = [...home.matchAll(/<section\b[^>]*class="[^"]*\bosi-home\b/g)];
+const homeWords = home
+  .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&[a-z0-9#]+;/gi, ' ')
+  .trim()
+  .split(/\s+/)
+  .filter(Boolean);
+ok(homeSections.length === 4, 'Home is limited to four strong product sections');
+ok(homeWords.length <= Math.floor(866 * .45), 'Home copy remains at least 55 percent shorter than the 866-word baseline');
+ok(!/osi-home-(?:perspectives|workspaces|network|records|boundaries)/.test(home), 'retired newspaper-style Home sections are absent from markup');
+
 ok(home.includes('>Open a Case</button>') && home.includes('>Explore Field Office</button>'), 'hero preserves the approved primary and secondary actions');
 ok(home.includes('onclick="osiV2OpenMyReports()"') && home.includes("osiNavigateFieldStage('challenge_active')"), 'workflow controls call real Report and challenge routes');
+ok(home.includes('<strong>Review</strong>') && home.includes('onclick="osiV2OpenReviewQueue()"'), 'Home review step opens the authorized Review Queue');
 ok(home.includes('No custody') && home.includes('Support never changes ranking'), 'money and governance boundaries are explicit');
 ok(!/SAS|durable record fields|<span>Planned<\/span>/i.test(home), 'premature SAS and planned durable-record claims are absent');
 ok(home.includes('data-action-contract="operations"') && home.includes('data-action-contract="money"'), 'live Operations and payment paths are visible');
+ok(home.includes('Only when an eligible transfer confirms') && home.includes('Label after confirmation'), 'static proof model uses conditional verification language');
+for (const action of ['case', 'report', 'analyst', 'review', 'governance', 'money', 'proof', 'operations']) {
+  ok((home.match(new RegExp(`data-action-contract="${action}"`, 'g')) || []).length === 1,
+    `${action} action contract appears exactly once`);
+}
 
 ok(shell.includes("op: 'list_public_cases'") && shell.includes("op: 'list_public_profiles'"), 'homepage reads only dedicated public endpoints');
 ok(!/(details_private|summary_private|restricted_detail|private_note)/.test(shell), 'homepage bundle does not request or render restricted fields');
 ok(shell.includes('No cached or invented Case data is shown') && shell.includes('No cached or invented analyst identity is shown'), 'failure states never substitute invented data');
 ok(shell.includes("event.key === 'Escape'") && shell.includes("event.key !== 'Tab'"), 'menus implement Escape and mobile focus trapping');
 ok(shell.includes('window.addEventListener(\'popstate\'') && shell.includes('window.history.pushState'), 'navigation supports browser history');
+ok(signal.includes('requestAnimationFrame') && signal.includes('IntersectionObserver'), 'signal motion is frame-throttled and viewport-scoped');
+ok(signal.includes('prefers-reduced-motion: reduce') && signal.includes('(pointer: fine)'), 'pointer illumination respects motion and input capabilities');
 
 ok(css.includes('@media (prefers-reduced-motion: reduce)'), 'reduced-motion behavior is defined');
 ok(css.includes('@media (max-width: 390px)'), '390px mobile layout is explicitly covered');
 ok(!/transition\s*:\s*all/i.test(css), 'redesign avoids transition-all');
 ok(!/#ff7a3d|#ff5a1f|#f97316|#ea580c/i.test(css), 'redesign introduces no orange or red-orange primary color');
+ok(!/#ff7a3d|#ff5a1f|#f97316|#ea580c/i.test(favicon), 'favicon follows the violet, cyan and Solana-green identity');
 ok(css.includes(':focus-visible') && css.includes('outline: 2px solid'), 'visible keyboard focus is preserved');
+ok(css.includes('first-load product label at the 12px legibility floor') && css.includes('font-size: 12px !important'), 'first-load product labels preserve a 12px legibility floor');
 
 ok(!records.includes('reports.updated_at') && !records.includes('created_at,updated_at'), 'legacy public record query does not request a missing column');
 ok(!index.includes('Recently updated</option>'), 'unsupported recently-updated sort is not exposed');

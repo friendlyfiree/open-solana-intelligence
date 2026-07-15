@@ -419,7 +419,7 @@ function osiRailHtml(active){
     + it('analysts','\u25ce','Analysts',"showView('analysts')")
     + it('prooflog','\u26d3','Proof Log',"showView('prooflog')")
     + it('methodology','\u00a7','Methodology',"showView('methodology')")
-    + '<div class="fr-net"><div class="fr-net-h mono">Network <span class="fr-dot"></span></div><div class="fr-net-v mono">Solana Mainnet</div><div class="fr-net-s mono">non-custodial \u00b7 memo-verified</div><a class="fr-net-b" href="https://status.solana.com" target="_blank" rel="noopener">View network status \u2197</a></div>';
+    + '<div class="fr-net"><div class="fr-net-h mono">Network <span class="fr-dot"></span></div><div class="fr-net-v mono">Solana Mainnet</div><div class="fr-net-s mono">non-custodial \u00b7 public explorer</div><a class="fr-net-b" href="https://status.solana.com" target="_blank" rel="noopener">View network status \u2197</a></div>';
 }
 function osiRailMount(){
   OSI_RAIL_VIEWS.forEach(function(v){

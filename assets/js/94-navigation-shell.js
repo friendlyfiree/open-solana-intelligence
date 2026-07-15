@@ -60,6 +60,14 @@
         button.removeAttribute('aria-current');
       }
     });
+    if (platformTrigger) {
+      var platformViews = ['field', 'wire', 'records', 'prooflog', 'admin', 'identity', 'workspace'];
+      if (platformViews.indexOf(view) !== -1) {
+        platformTrigger.setAttribute('aria-current', 'page');
+      } else {
+        platformTrigger.removeAttribute('aria-current');
+      }
+    }
   }
 
   function navigate(view, options) {
