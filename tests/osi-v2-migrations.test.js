@@ -114,6 +114,9 @@ ok(
     && readSessionProductionWorkflow.includes('functions deploy osi-v2-case-read')
     && readSessionProductionWorkflow.includes('functions deploy osi-v2-report-read')
     && readSessionProductionWorkflow.includes('functions deploy osi-v2-analyst')
+    && readSessionProductionWorkflow.includes('supabase secrets set --project-ref "$EXPECTED_PROJECT_REF"')
+    && readSessionProductionWorkflow.includes('"OSI_V2_ALLOWED_ORIGIN=${PRODUCTION_WEB_URL}"')
+    && readSessionProductionWorkflow.includes('read_session_wrong_origin')
     && readSessionProductionWorkflow.includes("where key='OSI_V2_READ_SESSION_ENABLED' and value='true'"),
 );
 
