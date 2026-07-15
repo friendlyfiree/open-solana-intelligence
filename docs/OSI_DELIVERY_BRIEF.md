@@ -59,7 +59,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Production web URL is `https://open-solana-intel.vercel.app`.
 - The `/` route is the mature OSI application and remains the main product.
 - `legacy.html` is the fallback and must keep working.
-- `v2-preview.html` is not the main product.
+- `v2-preview.html` is retired; Vercel permanently redirects that path to `/`.
 - The frontend is static HTML, modular CSS, and classic JavaScript.
 - The repository has no package-manager manifest or frontend build step.
 - Supabase PostgreSQL and Edge Functions provide the backend.

@@ -41,8 +41,8 @@ ok(!/https?:\/\//.test(home) && !/data:image\//.test(home), 'new homepage has no
 ok(home.includes('>Open a Case</button>') && home.includes('>Explore Field Office</button>'), 'hero preserves the approved primary and secondary actions');
 ok(home.includes('onclick="osiV2OpenMyReports()"') && home.includes("osiNavigateFieldStage('challenge_active')"), 'workflow controls call real Report and challenge routes');
 ok(home.includes('No custody') && home.includes('Support never changes ranking'), 'money and governance boundaries are explicit');
-ok(home.includes('SAS and durable record fields') && home.includes('<span>Planned</span>'), 'future durable-record surface is visibly planned');
-ok(!/SAS (live|verified|onchain)/i.test(home), 'future integration is not presented as live, verified or on-chain');
+ok(!/SAS|durable record fields|<span>Planned<\/span>/i.test(home), 'premature SAS and planned durable-record claims are absent');
+ok(home.includes('data-action-contract="operations"') && home.includes('data-action-contract="money"'), 'live Operations and payment paths are visible');
 
 ok(shell.includes("op: 'list_public_cases'") && shell.includes("op: 'list_public_profiles'"), 'homepage reads only dedicated public endpoints');
 ok(!/(details_private|summary_private|restricted_detail|private_note)/.test(shell), 'homepage bundle does not request or render restricted fields');
@@ -59,6 +59,7 @@ ok(css.includes(':focus-visible') && css.includes('outline: 2px solid'), 'visibl
 ok(!records.includes('reports.updated_at') && !records.includes('created_at,updated_at'), 'legacy public record query does not request a missing column');
 ok(!index.includes('Recently updated</option>'), 'unsupported recently-updated sort is not exposed');
 ok(!safety.includes('setTimeout(welcomeShow, 800)'), 'first load no longer forces an unsolicited briefing modal');
+ok(!index.includes('12-demo-briefing.js') && !index.includes('id="demo-root"'), 'production document contains no briefing or demo runtime');
 ok(cases.includes("setReviewNavigationVisibility(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true)"), 'review navigation is revealed only from server-derived capability');
 
 const ids = [...index.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
