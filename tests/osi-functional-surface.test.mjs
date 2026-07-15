@@ -10,6 +10,10 @@ const surface = require("../assets/js/88-functional-surface.js");
 const index = read("index.html");
 const legacy = read("legacy.html");
 const script = read("assets/js/88-functional-surface.js");
+const home = index.slice(index.indexOf('<section class="osi-home osi-home-hero"'), index.indexOf('<section class="sec" id="records-hero"'));
+const platformMenuStart = index.indexOf('id="platform-menu"');
+const platformMenu = index.slice(platformMenuStart, index.indexOf('<button class="osi-nav-link"', platformMenuStart));
+const walletMenu = index.slice(index.indexOf('id="wbMenu"'), index.indexOf('</header>'));
 let passed = 0;
 function ok(name, value) {
   if (!value) throw new Error(`FAIL: ${name}`);
@@ -40,9 +44,19 @@ ok("fixture actions route to the exact implemented UI transitions", JSON.stringi
 ]));
 
 const cards = [...index.matchAll(/data-action-contract="([^"]+)" data-endpoint="([^"]+)"/g)];
-ok("all eight action contracts are visible exactly once", cards.length === 8 && new Set(cards.map((row) => row[1])).size === 8);
-ok("visible endpoint labels match the executable contract",
+ok("all eight action contracts are registered exactly once", cards.length === 8 && new Set(cards.map((row) => row[1])).size === 8);
+ok("endpoint labels match the executable contract",
   cards.every((row) => surface.catalog[row[1]] && surface.catalog[row[1]].endpoint === row[2]));
+ok("Home explains the product without duplicating action contracts", !home.includes("data-action-contract="));
+ok("Platform menu owns exactly the five public and governance contracts",
+  (platformMenu.match(/data-action-contract=/g) || []).length === 5
+    && ["case", "review", "governance", "money", "proof"].every((id) => platformMenu.includes(`data-action-contract="${id}"`)));
+ok("wallet menu owns exactly the three private and maintainer contracts",
+  (walletMenu.match(/data-action-contract=/g) || []).length === 3
+    && ["report", "analyst", "operations"].every((id) => walletMenu.includes(`data-action-contract="${id}"`)));
+ok("Operations is present only on the hidden maintainer menu item",
+  /id="maintainerAccessMenu"[^>]*style="display:none"[^>]*data-action-contract="operations"/.test(walletMenu)
+    && (index.match(/data-action-contract="operations"/g) || []).length === 1);
 ok("functional surface never performs a direct browser database mutation", !/supa(?:Post|Patch|Delete)|\.from\(/.test(script));
 ok("Operations uses the native double-gated overview instead of a visible legacy mutation console",
   index.includes('id="osi-native-ops-overview"')

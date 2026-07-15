@@ -105,7 +105,11 @@
     var host=document.getElementById('lb-body'),count=document.getElementById('lb-count'),pager=document.getElementById('lb-pnav');
     if(!host)return;
     if(pager)pager.innerHTML='';
-    if(!state.profiles.length){host.innerHTML=empty('No activated analysts yet','Approved probationary analysts will appear here with server-derived status, weight, contributions, and proof.');if(count)count.textContent='0 analysts';return;}
+    if(!state.profiles.length){
+      host.innerHTML='<div class="osi-activation-empty"><b>No activated analysts yet</b><span>Approved probationary analysts will appear here with server-derived status, weight, contributions, and proof.</span><button class="osi-empty-cta" type="button" onclick="apxOpen()">Start analyst application</button></div>';
+      if(count)count.textContent='0 analysts';
+      return;
+    }
     host.innerHTML=state.profiles.map(publicRow).join('');if(count)count.textContent=state.profiles.length+' analyst'+(state.profiles.length===1?'':'s');
     host.querySelectorAll('[data-analyst-wallet]').forEach(function(button){button.addEventListener('click',function(){openPublicProfile(button.dataset.analystWallet);});});
   }

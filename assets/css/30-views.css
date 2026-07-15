@@ -38,7 +38,7 @@ body[data-view="methodology"] #osi-stream,body[data-view="methodology"] .osi-wat
 .fr-dot{width:6px;height:6px;border-radius:50%;background:var(--sol);box-shadow:0 0 8px var(--sol);animation:pulse 1.7s infinite}
 .fr-net-v{font-size:11.5px;font-weight:700;color:var(--ink);margin-top:8px;letter-spacing:.02em}
 .fr-net-s{font-size:8px;color:rgba(148,163,184,.45);margin-top:5px;letter-spacing:.05em}
-.fr-net-b{display:block;margin-top:11px;text-align:center;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.02);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.05em;padding:8px 6px;text-decoration:none;transition:all .13s}
+.fr-net-b{display:block;margin-top:11px;text-align:center;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.02);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.05em;padding:8px 6px;text-decoration:none;transition:background-color .13s,color .13s,border-color .13s}
 .fr-net-b:hover{border-color:var(--line-bright);color:var(--ink)}
 /* ---- hero ---- */
 .fo-hero{border:0;background:transparent;box-shadow:none;padding:4px 2px 0;border-radius:0;gap:30px}
@@ -77,7 +77,7 @@ body[data-view="methodology"] #osi-stream,body[data-view="methodology"] .osi-wat
 .fc-sup .dim,.fc-back .dim,.fc-time.dim{color:rgba(148,163,184,.35)}
 .fc-stage .fc-st{position:static}
 .fc-act{display:flex;justify-content:flex-end}
-.fc-open{border:1px solid rgba(34,211,238,.35);background:rgba(34,211,238,.06);color:var(--cyan);border-radius:9px;padding:7px 13px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.03em;white-space:nowrap;transition:all .13s}
+.fc-open{border:1px solid rgba(34,211,238,.35);background:rgba(34,211,238,.06);color:var(--cyan);border-radius:9px;padding:7px 13px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.03em;white-space:nowrap;transition:background-color .13s,color .13s,border-color .13s,box-shadow .13s,transform .13s}
 .fo-case:hover .fc-open{background:var(--cyan);color:#04121a}
 @media(min-width:900px){
   .fo-case{display:grid;grid-template-columns:106px minmax(0,1fr) 94px 82px 74px 82px 88px;gap:14px;align-items:center;padding:14px 17px 14px 20px}
@@ -92,7 +92,7 @@ body[data-view="methodology"] #osi-stream,body[data-view="methodology"] .osi-wat
 .fo-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;flex-wrap:wrap}
 .fo-count{font-size:9.5px;letter-spacing:.08em;color:rgba(148,163,184,.45)}
 .fo-pnav{display:flex;align-items:center;gap:5px}
-.fo-pg{min-width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;background:var(--bg-card);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .13s;padding:0 8px}
+.fo-pg{min-width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;background:var(--bg-card);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:background-color .13s,color .13s,border-color .13s;padding:0 8px}
 .fo-pg:hover:not(:disabled){border-color:var(--line-bright);color:var(--ink)}
 .fo-pg.active{border-color:rgba(34,211,238,.5);background:rgba(34,211,238,.08);color:var(--cyan)}
 .fo-pg:disabled{opacity:.32;cursor:default}
@@ -233,7 +233,7 @@ a.fd-ago:hover{color:var(--cyan)}
 /* ---- Stage 1 Field Office premium command polish ---- */
 #field-view{--fo-command:#07101c;--fo-panel-strong:rgba(9,17,30,.92);--fo-panel-soft:rgba(9,18,32,.72);--fo-edge:rgba(98,123,160,.26);--fo-edge-hot:rgba(34,211,238,.44);--fo-orange:#ff9f1c;--fo-purple:#a78bfa}
 @media(min-width:1280px){
-  #field-view .wrap{grid-template-columns:220px minmax(680px,1fr) 388px}
+  #field-view .wrap{grid-template-columns:220px minmax(0,1fr) 388px}
   #field-view .fo-main{padding:22px 22px 6px}
   #field-view .fo-deck{margin:14px 22px 36px}
   #field-view .fo-preview{padding:0 20px 22px;background:
@@ -343,7 +343,7 @@ a.fd-ago:hover{color:var(--cyan)}
 .fo-modal.open{display:flex}
 .fo-modal .fo-form{position:relative;width:100%;max-width:720px;margin:0;border-radius:14px;border:1px solid var(--line-bright);border-top:2px solid var(--cyan);box-shadow:0 30px 90px rgba(0,0,0,.65);animation:foPop .18s ease-out}
 @keyframes foPop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
-.fo-x{position:absolute;top:13px;right:13px;background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink-faint);font-size:12px;line-height:1;padding:7px 9px;cursor:pointer;transition:all .13s}
+.fo-x{position:absolute;top:13px;right:13px;background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink-faint);font-size:12px;line-height:1;padding:7px 9px;cursor:pointer;transition:background-color .13s,color .13s,border-color .13s}
 .fo-x:hover{color:var(--ink);border-color:var(--line-bright)}
 /* ---- console rail on the intelligence views ---- */
 .rail-shell{display:contents}
@@ -843,7 +843,7 @@ body[data-view="identity"] .sb-item[data-view="workspace"]{background:var(--acc-
 .pf-xp-next{font-size:10.5px;color:var(--ink-faint)}
 .pf-xp-track{height:7px;background:var(--bg);border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .pf-xp-bar{height:100%;background:linear-gradient(90deg,var(--sol-deep),var(--sol));transition:width .9s cubic-bezier(.2,.8,.2,1)}
-.pf-dc{position:absolute;top:18px;right:20px;background:transparent;border:1px solid var(--line-bright);color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:7px 12px;border-radius:2px;cursor:pointer;transition:all .13s}
+.pf-dc{position:absolute;top:18px;right:20px;background:transparent;border:1px solid var(--line-bright);color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:7px 12px;border-radius:2px;cursor:pointer;transition:background-color .13s,color .13s,border-color .13s}
 .pf-dc:hover{border-color:var(--red);color:var(--red)}
 .pf-dc.sm{position:static;font-size:10px;padding:7px 11px}
 .pf-h-c{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);font-weight:400;margin-left:7px}

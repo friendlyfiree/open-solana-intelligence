@@ -272,13 +272,18 @@ test('Platform menu exercises hover intent, keyboard, click and touch behavior',
   expectCleanRuntime(page);
 });
 
-test('Home keeps a compact four-section product route with truthful live actions', async ({ page }) => {
+test('Home keeps a compact three-section product route with truthful live actions', async ({ page }) => {
   await ready(page);
-  await expect(page.locator('main > section.osi-home')).toHaveCount(4);
+  await expect(page.locator('main > section.osi-home')).toHaveCount(3);
   const wordCount = await page.locator('main > section.osi-home').evaluateAll((sections) =>
     sections.reduce((count, section) => count + (section.textContent || '').trim().split(/\s+/).filter(Boolean).length, 0));
   expect(wordCount).toBeLessThanOrEqual(390);
   await expect(page.locator('[data-action-contract]')).toHaveCount(8);
+  await expect(page.locator('main > section.osi-home [data-action-contract]')).toHaveCount(0);
+  await expect(page.locator('.osi-route-gallery > .osi-route-card')).toHaveCount(4);
+  await expect(page.locator('#platform-menu [data-action-contract]')).toHaveCount(5);
+  await expect(page.locator('#wbMenu [data-action-contract]')).toHaveCount(3);
+  await expect(page.locator('#maintainerAccessMenu')).toBeHidden();
   for (const action of ['case', 'report', 'analyst', 'review', 'governance', 'money', 'proof', 'operations']) {
     await expect(page.locator(`[data-action-contract="${action}"]`)).toHaveCount(1);
   }
@@ -297,7 +302,7 @@ test('signal enhancement fails open when its runtime is unavailable', async ({ p
   await page.waitForFunction(() => typeof window.osiNavigate === 'function');
   const opacity = await page.locator('main > [data-signal-reveal]').evaluateAll((nodes) =>
     nodes.map((node) => getComputedStyle(node).opacity));
-  expect(opacity).toEqual(['1', '1', '1', '1']);
+  expect(opacity).toEqual(['1', '1', '1']);
 });
 
 test('real product DOM renders lifecycle fixtures and keeps one shared private signature', async ({ page }) => {
@@ -381,7 +386,7 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
 test('mobile, reduced motion and 200 percent reflow preserve access without overflow', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page);
-  const duration = await page.locator('.osi-proof-map-signal').evaluate((node) => getComputedStyle(node).animationDuration);
+  const duration = await page.locator('#osi-hero-signal-text').evaluate((node) => getComputedStyle(node, '::after').animationDuration);
   expect(parseFloat(duration)).toBeLessThanOrEqual(.02);
 
   await page.setViewportSize({ width: 390, height: 844 });

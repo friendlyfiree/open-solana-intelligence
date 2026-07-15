@@ -67,18 +67,20 @@ coarse.controller.pointerEnter("mouse");
 ok("coarse pointers ignore mouse-style hover intent", coarse.timers.size === 0);
 
 for (const state of ["WALLET_SIGNED", "REVIEW_QUORUM", "CHALLENGE_WINDOW", "MEMO_ANCHORED", "SOL_TRANSFER_VERIFIED"]) {
-  ok(`hero exposes truthful ${state} lifecycle state`, html.includes(`<strong>${state}</strong>`));
+  ok(`hero exposes truthful ${state} lifecycle state`, signal.includes(`'${state}'`));
 }
-ok("hero lifecycle is accessible inline SVG and real HTML", html.includes('class="osi-proof-map"') && html.includes('role="img"') && html.includes('class="osi-proof-state-sequence"'));
-ok("lifecycle motion has a complete reduced-motion state", css.includes("@media (prefers-reduced-motion: reduce)") && css.includes("stroke-dasharray: none"));
-ok("responsive action surface has four, two and one column modes", css.includes("repeat(4, minmax(0, 1fr))") && css.includes("repeat(2, minmax(0, 1fr))") && /\.osi-action-matrix\s*\{\s*grid-template-columns:\s*1fr;/s.test(css));
-ok("final design layer contains no orange identity or transition-all debt", !/(#f97316|#ff6b|#ea58|orange|transition\s*:\s*all)/i.test(css.replace(/--orange2?:\s*var\([^;]+;/g, "")));
+ok("hero lifecycle is accessible real HTML", html.includes('class="osi-lifecycle-track"') && html.includes('aria-label="Explanatory OSI Case lifecycle"') && html.includes('id="osi-hero-signal-text"'));
+ok("lifecycle motion has a complete reduced-motion state", css.includes("@media (prefers-reduced-motion: reduce)") && css.includes("animation-duration: .01ms !important"));
+ok("responsive route gallery has four, two and one column modes", /\.osi-route-gallery\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/.test(css) && /@media \(max-width: 980px\)[\s\S]*?\.osi-route-gallery\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/.test(css) && /@media \(max-width: 720px\)[\s\S]*?\.osi-route-gallery\s*\{\s*grid-template-columns:\s*1fr/.test(css));
+const cssWithoutCompatibilityAliases = css.replace(/--[\w-]*orange[\w-]*:\s*var\([^;]+;/gi, "");
+ok("final design layer contains no orange identity or transition-all debt", !/(#f97316|#ff6b|#ea58|orange|transition\s*:\s*all)/i.test(cssWithoutCompatibilityAliases));
 ok("final design layer avoids unreadable 9px microcopy", !/font-size:\s*(?:8|9)(?:\.\d+)?px/i.test(css));
 ok("keyboard focus, click, Escape, outside click and focus return remain wired", shell.includes("osi-keyboard-input") && shell.includes("ArrowDown") && shell.includes("event.key === 'Escape'") && shell.includes("platformTrigger.focus()") && shell.includes("pointerdown"));
 ok("touch and mobile focus trap remain part of the same navigation", shell.includes("trapMobileFocus") && shell.includes("nav-open") && html.includes('aria-controls="global-nav"'));
 ok("workspace routes mark Platform as the current navigation group", shell.includes("platformViews") && shell.includes("platformTrigger.setAttribute('aria-current', 'page')"));
 ok("pointer illumination is motion-safe and frame-throttled", signal.includes("prefers-reduced-motion: reduce") && signal.includes("(pointer: fine)") && signal.includes("requestAnimationFrame"));
-ok("section reveals progressively enhance behind an opt-in root class", signal.includes("IntersectionObserver") && signal.includes("section.classList.add('is-visible')") && signal.includes("classList.add('osi-signal-ready')") && css.includes(".osi-signal-ready [data-signal-reveal]:not(.osi-home-hero)"));
-ok("reduced motion makes every reveal immediately visible", /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\[data-signal-reveal\]:not\(\.osi-home-hero\)[\s\S]*?opacity:\s*1;/s.test(css));
+ok("signal sequence uses named timing and pauses for reduced motion or a hidden document", signal.includes("var SIGNAL_TIMING = { step: 2200 }") && signal.includes("reduceMotion.matches || document.hidden") && signal.includes("visibilitychange"));
+const readyAfterObserve = signal.indexOf("document.documentElement.classList.add('osi-signal-ready')", signal.indexOf("sections.forEach(function (section) { observer.observe(section); })"));
+ok("section observer opts in only after setup and fails open on errors", signal.includes("IntersectionObserver") && readyAfterObserve > -1 && signal.includes("sections.forEach(function (section) { section.classList.add('is-visible'); })") && signal.includes("classList.remove('osi-signal-ready')"));
 
 console.log(`\n${passed} motion, navigation and visual checks passed.`);

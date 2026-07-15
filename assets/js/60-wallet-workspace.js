@@ -96,6 +96,7 @@ function updateWalletUI(){
   if(!btn || !txt) return;
   if(walletPubkey){
     btn.classList.add('connected');
+    btn.setAttribute('aria-label','Open wallet menu for '+walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
     const nm = lsGet('stw_profile_name','');
     txt.textContent = nm ? nm : (walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
     let av = document.getElementById('wbAva');
@@ -104,6 +105,7 @@ function updateWalletUI(){
     const dot = btn.querySelector('.wb-dot'); if(dot) dot.style.display='none';
   } else {
     btn.classList.remove('connected');
+    btn.setAttribute('aria-label','Connect Wallet');
     if(typeof closeWalletMenu==='function') closeWalletMenu();
     txt.textContent = "Connect Wallet";
     const av = document.getElementById('wbAva'); if(av) av.remove();

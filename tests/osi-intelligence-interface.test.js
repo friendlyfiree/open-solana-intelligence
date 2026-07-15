@@ -50,21 +50,27 @@ const homeWords = home
   .trim()
   .split(/\s+/)
   .filter(Boolean);
-ok(homeSections.length === 4, 'Home is limited to four strong product sections');
+ok(homeSections.length === 3, 'Home is limited to three strong product sections');
 ok(homeWords.length <= Math.floor(866 * .45), 'Home copy remains at least 55 percent shorter than the 866-word baseline');
 ok(!/osi-home-(?:perspectives|workspaces|network|records|boundaries)/.test(home), 'retired newspaper-style Home sections are absent from markup');
 
-ok(home.includes('>Open a Case</button>') && home.includes('>Explore Field Office</button>'), 'hero preserves the approved primary and secondary actions');
-ok(home.includes('onclick="osiV2OpenMyReports()"') && home.includes("osiNavigateFieldStage('challenge_active')"), 'workflow controls call real Report and challenge routes');
+ok(home.includes('>Open a Case</button>') && home.includes('>Browse Public Records</button>'), 'hero exposes the primary Case and public-record routes');
+ok(home.includes('onclick="osiV2OpenMyReports()"') && home.includes('onclick="osiNavigate(\'prooflog\')"'), 'workflow controls call real Report and Proof Log routes');
 ok(home.includes('<strong>Review</strong>') && home.includes('onclick="osiV2OpenReviewQueue()"'), 'Home review step opens the authorized Review Queue');
-ok(home.includes('No custody') && home.includes('Support never changes ranking'), 'money and governance boundaries are explicit');
+ok(home.includes('No custody') && home.includes('Support never changes review, ranking, or governance'), 'money and governance boundaries are explicit');
 ok(!/SAS|durable record fields|<span>Planned<\/span>/i.test(home), 'premature SAS and planned durable-record claims are absent');
-ok(home.includes('data-action-contract="operations"') && home.includes('data-action-contract="money"'), 'live Operations and payment paths are visible');
-ok(home.includes('Only when an eligible transfer confirms') && home.includes('Label after confirmation'), 'static proof model uses conditional verification language');
+ok(!home.includes('data-action-contract='), 'Home stays explanatory instead of duplicating the live action-contract surface');
+ok(home.includes('Only when an eligible transfer confirms') && home.includes('<strong>After confirmation</strong>'), 'static proof model uses conditional verification language');
 for (const action of ['case', 'report', 'analyst', 'review', 'governance', 'money', 'proof', 'operations']) {
-  ok((home.match(new RegExp(`data-action-contract="${action}"`, 'g')) || []).length === 1,
+  ok((index.match(new RegExp(`data-action-contract="${action}"`, 'g')) || []).length === 1,
     `${action} action contract appears exactly once`);
 }
+const platformMenuStart = index.indexOf('id="platform-menu"');
+const platformMenu = index.slice(platformMenuStart, index.indexOf('<button class="osi-nav-link"', platformMenuStart));
+const walletMenu = index.slice(index.indexOf('id="wbMenu"'), index.indexOf('</header>'));
+ok((platformMenu.match(/data-action-contract=/g) || []).length === 5, 'Platform menu owns its five public and governance action contracts');
+ok((walletMenu.match(/data-action-contract=/g) || []).length === 3, 'wallet menu owns its three private and maintainer action contracts');
+ok(/id="maintainerAccessMenu"[^>]*style="display:none"[^>]*data-action-contract="operations"/.test(walletMenu), 'Operations stays hidden behind the maintainer capability gate');
 
 ok(shell.includes("op: 'list_public_cases'") && shell.includes("op: 'list_public_profiles'"), 'homepage reads only dedicated public endpoints');
 ok(!/(details_private|summary_private|restricted_detail|private_note)/.test(shell), 'homepage bundle does not request or render restricted fields');
@@ -73,14 +79,29 @@ ok(shell.includes("event.key === 'Escape'") && shell.includes("event.key !== 'Ta
 ok(shell.includes('window.addEventListener(\'popstate\'') && shell.includes('window.history.pushState'), 'navigation supports browser history');
 ok(signal.includes('requestAnimationFrame') && signal.includes('IntersectionObserver'), 'signal motion is frame-throttled and viewport-scoped');
 ok(signal.includes('prefers-reduced-motion: reduce') && signal.includes('(pointer: fine)'), 'pointer illumination respects motion and input capabilities');
+ok(signal.includes('var SIGNAL_TIMING = { step: 2200 }') && signal.includes('var SIGNAL_STATES = ['), 'hero signal sequence uses one named calm timing contract');
+for (const state of ['WALLET_SIGNED', 'REVIEW_QUORUM', 'CHALLENGE_WINDOW', 'MEMO_ANCHORED', 'SOL_TRANSFER_VERIFIED']) {
+  ok(signal.includes(`'${state}'`), `signal sequence includes truthful ${state} state`);
+}
 
 ok(css.includes('@media (prefers-reduced-motion: reduce)'), 'reduced-motion behavior is defined');
 ok(css.includes('@media (max-width: 390px)'), '390px mobile layout is explicitly covered');
 ok(!/transition\s*:\s*all/i.test(css), 'redesign avoids transition-all');
 ok(!/#ff7a3d|#ff5a1f|#f97316|#ea580c/i.test(css), 'redesign introduces no orange or red-orange primary color');
-ok(!/#ff7a3d|#ff5a1f|#f97316|#ea580c/i.test(favicon), 'favicon follows the violet, cyan and Solana-green identity');
+ok(favicon.includes('#08090d') && favicon.includes('#ff4d5f') && favicon.includes('#f5f0e8'), 'favicon follows the red signal and platinum identity');
 ok(css.includes(':focus-visible') && css.includes('outline: 2px solid'), 'visible keyboard focus is preserved');
-ok(css.includes('first-load product label at the 12px legibility floor') && css.includes('font-size: 12px !important'), 'first-load product labels preserve a 12px legibility floor');
+ok(/\.osi-hero-lede\s*\{[\s\S]*?font-size:\s*clamp\(17px,\s*1\.4vw,\s*20px\)/.test(css), 'hero body copy preserves a comfortable reading size');
+ok(shell.includes("document.documentElement.classList.add('nav-open')") && shell.includes("document.documentElement.classList.remove('nav-open')"), 'mobile drawer locks and releases the document root');
+for (const marker of [
+  'class="cr-aside" aria-label="Public Records trust console" tabindex="0"',
+  'class="lb-aside" aria-label="Reputation system" tabindex="0"',
+  'class="pl-aside" aria-label="Proof log reference" tabindex="0"',
+  'class="wire-side" aria-label="Wire guide" tabindex="0"',
+  'class="abt-flow" aria-label="OSI process flow" tabindex="0"'
+]) {
+  ok(index.includes(marker), 'mobile horizontal reference region remains keyboard scrollable');
+}
+ok(index.includes('id="pl-dash" role="region" aria-label="Proof Log summary" tabindex="0"'), 'mobile Proof Log summary strip is a named keyboard-scrollable region');
 
 ok(!records.includes('reports.updated_at') && !records.includes('created_at,updated_at'), 'legacy public record query does not request a missing column');
 ok(!index.includes('Recently updated</option>'), 'unsupported recently-updated sort is not exposed');

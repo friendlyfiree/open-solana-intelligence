@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="OSI">
   <defs>
     <linearGradient id="signal" x1="8" y1="56" x2="56" y2="8" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#14f195"/>
-      <stop offset=".52" stop-color="#61ddff"/>
-      <stop offset="1" stop-color="#9b72ff"/>
+      <stop stop-color="#d92f49"/>
+      <stop offset=".56" stop-color="#ff4d5f"/>
+      <stop offset="1" stop-color="#f5f0e8"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="15" fill="#070b16"/>
-  <path d="M32 8 53 20v24L32 56 11 44V20L32 8Z" fill="#0d1629" stroke="url(#signal)" stroke-width="3"/>
+  <rect width="64" height="64" rx="15" fill="#08090d"/>
+  <path d="M32 8 53 20v24L32 56 11 44V20L32 8Z" fill="#10141b" stroke="url(#signal)" stroke-width="3"/>
   <path d="m20 37 8-10 7 7 9-11" fill="none" stroke="url(#signal)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="44" cy="23" r="3" fill="#14f195"/>
+  <circle cx="44" cy="23" r="3" fill="#ff4d5f"/>
 </svg>
