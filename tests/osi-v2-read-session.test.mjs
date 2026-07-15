@@ -1,6 +1,7 @@
 import { webcrypto } from "node:crypto";
 import { readFileSync } from "node:fs";
 import {
+  isExactReadSessionOrigin,
   issueReadSessionToken,
   READ_SESSION_SCOPES,
   READ_SESSION_TTL_SECONDS,
@@ -31,6 +32,10 @@ const issued = await issueReadSessionToken({
   secret, issuer, audience: origin, allowedOrigin: origin, wallet, scopes,
   authSubject: null, jti: "A".repeat(32), nowSeconds: now,
 });
+ok("exact production origin gate accepts only the configured origin",
+  isExactReadSessionOrigin(origin, origin)
+    && !isExactReadSessionOrigin("https://example.invalid", origin)
+    && !isExactReadSessionOrigin("*", origin));
 ok("read session TTL is visibly bounded to five minutes", issued.payload.exp - issued.payload.iat === READ_SESSION_TTL_SECONDS && READ_SESSION_TTL_SECONDS === 300);
 
 const valid = await verifyReadSessionToken({

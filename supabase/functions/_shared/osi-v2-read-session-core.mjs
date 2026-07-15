@@ -49,6 +49,12 @@ export function normalizeReadSessionOrigin(value) {
   }
 }
 
+export function isExactReadSessionOrigin(requestOrigin, allowedOrigin) {
+  const request = normalizeReadSessionOrigin(requestOrigin);
+  const allowed = normalizeReadSessionOrigin(allowedOrigin);
+  return Boolean(request && allowed && request === allowed);
+}
+
 export function readSessionIssuer(supabaseUrl) {
   try {
     return new URL(supabaseUrl).origin + "/functions/v1/osi-v2-case-read";

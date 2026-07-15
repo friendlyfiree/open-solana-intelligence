@@ -1,7 +1,8 @@
 name: OSI V2 Shared Private Read Session Production
 
 # Main-only, manual rollout for the additive read-session gate and the three
-# existing private-read functions. The flag lands false and is the only flag
+# existing private-read functions. The public production origin is pinned
+# idempotently before deployment. The flag lands false and is the only flag
 # this workflow may enable. Failure disables that one gate and retains data.
 
 on:
@@ -129,9 +130,14 @@ jobs:
           git fetch origin main --quiet
           [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "::error::Validated commit is no longer current main."; exit 1; }
 
-      - name: Require the existing exact-origin secret without printing values
+      - name: Set and verify the exact production-origin secret
         run: |
           set -euo pipefail
+          [ "$PRODUCTION_WEB_URL" = "https://open-solana-intel.vercel.app" ] || {
+            echo "::error::Unexpected production origin."; exit 1;
+          }
+          supabase secrets set --project-ref "$EXPECTED_PROJECT_REF" \
+            "OSI_V2_ALLOWED_ORIGIN=${PRODUCTION_WEB_URL}"
           secrets="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF")"
           echo "$secrets" | grep -q 'OSI_V2_ALLOWED_ORIGIN' || { echo "::error::Exact allowed-origin secret is absent."; exit 1; }
 
@@ -260,8 +266,9 @@ jobs:
           wallet='11111111111111111111111111111112'
           challenge="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d "{\"op\":\"issue_read_session_challenge\",\"wallet\":\"${wallet}\"}")"
           echo "$challenge" | grep -q '"challenge"' || { echo "::error::Enabled origin-bound challenge unavailable."; exit 1; }
-          wrong_origin_code="$(curl -sS --max-time 30 -o /tmp/wrong-origin.json -w '%{http_code}' -X POST "$base/osi-v2-case-read" -H 'Origin: https://example.invalid' -H 'Content-Type: application/json' -d "{\"op\":\"create_read_session\",\"wallet\":\"${wallet}\"}")"
-          [ "$wrong_origin_code" = "400" ] || [ "$wrong_origin_code" = "403" ] || { echo "::error::Wrong-origin session request was not denied."; exit 1; }
+          wrong_origin_code="$(curl -sS --max-time 30 -o /tmp/wrong-origin.json -w '%{http_code}' -X POST "$base/osi-v2-case-read" -H 'Origin: https://example.invalid' -H 'Content-Type: application/json' -d "{\"op\":\"issue_read_session_challenge\",\"wallet\":\"${wallet}\"}")"
+          [ "$wrong_origin_code" = "403" ] || { echo "::error::Wrong-origin session challenge was not denied."; exit 1; }
+          grep -q 'read_session_wrong_origin' /tmp/wrong-origin.json || { echo "::error::Wrong-origin denial reason was not exact."; exit 1; }
           psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
           begin read only;
           select table_name || '|' || row_count from (

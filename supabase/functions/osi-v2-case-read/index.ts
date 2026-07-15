@@ -50,6 +50,7 @@ import {
   validateChallengeBinding,
 } from "../_shared/osi-v2-case-read-core.mjs";
 import {
+  isExactReadSessionOrigin,
   issueReadSessionToken,
   READ_SESSION_SCOPES,
   readSessionIssuer,
@@ -654,6 +655,9 @@ async function verifyReadSession(
 async function issueReadSessionChallenge(req: Request, body: Row): Promise<Response> {
   if (!await readSessionEnabled()) {
     return jsonResponse(503, { ok: false, error: "read_session_disabled_or_unavailable" });
+  }
+  if (!isExactReadSessionOrigin(req.headers.get("origin") ?? "", ALLOWED_ORIGIN)) {
+    return jsonResponse(403, { ok: false, error: "read_session_wrong_origin" });
   }
   return await issueReadChallenge(req, {
     ...body,
