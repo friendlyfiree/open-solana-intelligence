@@ -50,7 +50,7 @@ cleanup() {
   # Restore the fail-closed default. The disposable database is discarded by CI;
   # this keeps the flag correct for anything that reuses the same local database.
   psql "$DB_URL" -X -q -tA \
-    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED','OSI_V2_REPORT_REVIEW_WRITES_ENABLED');" \
+    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED','OSI_V2_REPORT_REVIEW_WRITES_ENABLED','OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED');" \
     >/dev/null 2>&1 || true
   rm -rf "$WORKDIR"
 }
@@ -666,6 +666,142 @@ if printf '%s' "$REVIEW_CHANGED_ERR" | grep -q 'Report review payload changed af
   pass "changed Report review payload is rejected after the race"
 else
   fail "changed Report review payload was not rejected: $REVIEW_CHANGED_ERR"
+fi
+
+# --- Resolution review: one exact governance nonce races two workers ---------
+GOV_NONCE="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+GOV_CASE_ID="a0000000-0000-4000-8000-000000000001"
+GOV_CASE_REF="OSI-AAAADDDD0001"
+GOV_REPORT_ID="a1000000-0000-4000-8000-000000000001"
+GOV_VERSION_ID="a2000000-0000-4000-8000-000000000001"
+GOV_VERSION_REF="OSI-RV-AAAADDDD00010001"
+GOV_OWNER="99999999999999999999999999999999"
+GOV_AUTHOR="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+GOV_REVIEWER="88888888888888888888888888888888"
+GOV_PAYLOAD='{"phase":"selection","report_version_ref":"OSI-RV-AAAADDDD00010001","decision":"select","reason_code":"concurrency_review","public_rationale":"This exact published version is independently reviewed under a two-worker race.","private_note":null}'
+GOV_SIG="$(printf 'N%.0s' $(seq 1 88))"
+GOV_C1_OUT="$WORKDIR/governance-conn1.out"
+GOV_C2_OUT="$WORKDIR/governance-conn2.out"
+GOV_HOLD_MARKER="$WORKDIR/governance-conn1-holding.marker"
+
+psql_run >/dev/null <<SQL
+update public.osi_config set value='true' where key='OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED';
+insert into public.cases (
+  id, public_ref, title, category, summary_public, details_restricted,
+  submitted_by_wallet, stage, visibility, risk_tier, subject_refs
+) values (
+  '$GOV_CASE_ID', '$GOV_CASE_REF', 'Governance concurrency fixture', 'other',
+  'Public concurrency fixture for exact Resolution review.', 'Restricted fixture.',
+  '$GOV_OWNER', 'open_public', 'public', 'standard', '[]'::jsonb
+);
+insert into public.event_receipts (
+  id,event_version,event_type,target_type,target_id,public_ref,actor_wallet,
+  actor_role,decision,proof_type,payload_hash,server_verified,occurred_at
+) values
+  ('a3000000-0000-4000-8000-000000000001','legacy','LEGACY_REPORT_IMPORTED','report_version',
+   '$GOV_VERSION_ID','$GOV_VERSION_REF','$GOV_AUTHOR','wallet','submit','legacy_imported',
+   '$(printf 'a%.0s' $(seq 1 64))',false,statement_timestamp()),
+  ('a3000000-0000-4000-8000-000000000002','legacy','LEGACY_REPORT_PUBLISHED','report_version',
+   '$GOV_VERSION_ID','$GOV_VERSION_REF','$GOV_AUTHOR','wallet','publish','legacy_imported',
+   '$(printf 'b%.0s' $(seq 1 64))',false,statement_timestamp());
+insert into public.case_reports (
+  id,case_id,author_wallet,status,public_ref,native_intake
+) values ('$GOV_REPORT_ID','$GOV_CASE_ID','$GOV_AUTHOR','active','OSI-RPT-AAAADDDD0001',false);
+insert into public.case_report_versions (
+  id,report_id,version_no,version_ref,created_by_wallet,body_private,
+  content_public_safe,evidence_snapshot_hash,lifecycle_state,published_at,
+  publication_receipt_id,event_receipt_id
+) values (
+  '$GOV_VERSION_ID','$GOV_REPORT_ID',1,'$GOV_VERSION_REF','$GOV_AUTHOR',
+  'Immutable Resolution concurrency fixture body.',
+  'Public-safe Resolution concurrency fixture summary.',
+  '$(printf 'c%.0s' $(seq 1 64))','published',statement_timestamp(),
+  'a3000000-0000-4000-8000-000000000002','a3000000-0000-4000-8000-000000000001'
+);
+update public.case_reports set current_version_id='$GOV_VERSION_ID',
+  current_published_version_id='$GOV_VERSION_ID' where id='$GOV_REPORT_ID';
+insert into public.analyst_profiles (
+  wallet,status,tier_code,verified,approved,weight_cached
+) values ('$GOV_REVIEWER','probationary_analyst','probationary',true,true,1.50);
+select * from public.osi_v2_prepare_governance_action(
+  '$GOV_NONCE','resolution_review','$GOV_REVIEWER','$GOV_CASE_REF',
+  '$GOV_PAYLOAD'::jsonb,'osi-v2-governance-race-$(date +%s%N)',
+  '$(printf '7%.0s' $(seq 1 64))',null
+);
+SQL
+
+GOV_PROOF="$(psql_run -c "select binding_context->>'proof_text' from public.osi_nonces where nonce='$GOV_NONCE';")"
+GOV_COMMIT_SQL="select receipt_id::text || ' ' || idempotent_replay::text
+  from public.osi_v2_commit_governance_action(
+    '$GOV_NONCE','$GOV_PAYLOAD'::jsonb,'$GOV_PROOF','$GOV_SIG',null,null,null)"
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$GOV_COMMIT_SQL
+\g $GOV_C1_OUT
+\! touch $GOV_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+GOV_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$GOV_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "governance connection 1 never reached the holding state"
+    wait "$GOV_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$GOV_COMMIT_SQL
+\g $GOV_C2_OUT
+commit;
+SQL
+GOV_CONN2_PID=$!
+
+sleep 1
+GOV_RACE_WAITERS="$(psql_run -c "
+  select count(*) from pg_stat_activity
+   where wait_event_type='Lock'
+     and query ilike '%osi_v2_commit_governance_action%';")"
+if [ "${GOV_RACE_WAITERS:-0}" -ge 1 ]; then
+  pass "second Resolution review commit genuinely blocked on the exact nonce"
+else
+  fail "second Resolution review commit did not block on the nonce row"
+fi
+
+wait "$GOV_CONN1_PID"
+wait "$GOV_CONN2_PID"
+read -r GOV_R1 GOV_REPLAY1 < "$GOV_C1_OUT"
+read -r GOV_R2 GOV_REPLAY2 < "$GOV_C2_OUT"
+assert_eq "Resolution review race returns one shared receipt" "$GOV_R1" "$GOV_R2"
+assert_eq "first Resolution review commit creates the active review" "false" "$GOV_REPLAY1"
+assert_eq "second Resolution review commit is an idempotent replay" "true" "$GOV_REPLAY2"
+
+GOV_COUNTS="$(psql_run -c "
+  select count(distinct receipt.id) || ':' || count(distinct review.id)
+    from public.event_receipts receipt
+    join public.resolution_reviews review on review.event_receipt_id=receipt.id
+   where receipt.nonce='$GOV_NONCE';")"
+assert_eq "Resolution review race creates one receipt and one review row" "1:1" "$GOV_COUNTS"
+
+GOV_CHANGED_ERR="$(psql "$DB_URL" -X -q -tA -c "
+  select * from public.osi_v2_commit_governance_action(
+    '$GOV_NONCE',jsonb_set('$GOV_PAYLOAD'::jsonb,'{decision}','\"abstain\"'),
+    '$GOV_PROOF','$GOV_SIG',null,null,null);" 2>&1 || true)"
+if printf '%s' "$GOV_CHANGED_ERR" | grep -q 'Governance payload, proof text or maintainer binding changed after prepare'; then
+  pass "changed Resolution review payload is rejected after the race"
+else
+  fail "changed Resolution review payload was not rejected: $GOV_CHANGED_ERR"
 fi
 
 # --- verdict ------------------------------------------------------------------

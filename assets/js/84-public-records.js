@@ -231,7 +231,7 @@ function crCard(r, packs){
         ? '<div class="cr-proof-state ok">Memo-linked</div><div class="cr-meta-sub">Tx '+escapeHtml(String(txSig).slice(0,5)+'...'+String(txSig).slice(-5))+' '+copyBtn+'</div>'
         : '<div class="cr-proof-state mut">No linked proof event</div><div class="cr-meta-sub">No transaction link</div>') + '</div>'
       + '<div class="cr-actions"><button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)">View Record</button>'+verifyBtn+'</div>'
-      + '<div class="cr-actions secondary"><button class="cr-btn chx" type="button" onclick="event.stopPropagation();chxOpen(&quot;report&quot;,&quot;'+crAttr(r.id)+'&quot;,&quot;'+crAttr(cid)+'&quot;)">Challenge</button></div>'
+      + '<div class="cr-actions secondary"><button class="cr-btn chx" type="button" onclick="event.stopPropagation();showView(&quot;field&quot;)">Open Case workspace</button></div>'
     + '</div>'
   + '</div>';
 }
@@ -316,4 +316,3 @@ function pfDownloadPack(caseRef, idx){
   // maintainer only; a wallet appearing on the report is not sufficient).
   osiAiPackDownload(caseRef, p.pack_type);
 }
-

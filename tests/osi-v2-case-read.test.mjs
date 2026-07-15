@@ -220,6 +220,8 @@ ok("public DTO hides unpublished Report existence and count",
   pub.reports.length === 0);
 ok("public DTO keeps public governance attribution",
   pub.proof_log[0].actor_wallet === OWNER && pub.proof_log[0].decision === "open");
+ok("public DTO exposes the server-derived Case risk tier",
+  pub.risk_tier === caseRow.risk_tier);
 ok("public DTO keeps the exact legacy label",
   pub.proof_log[0].label === "Legacy / not server-verified");
 
@@ -262,9 +264,14 @@ ok("case owner receives their restricted Case intake detail",
   ownerView.details_restricted === caseRow.details_restricted);
 
 const authorView = core.authorizedCaseDto(caseRow, [report], { [report.id]: [version] }, [receipt],
-  { kind: "owner", wallet: STRANGER });
+  { kind: "report_author", wallet: STRANGER });
 ok("the version author receives their own private body",
   authorView.reports[0].versions[0].body_private === version.body_private);
+ok("the Report author never receives the Case owner's restricted intake detail",
+  !("details_restricted" in authorView));
+ok("the Report author receives no Case-owner wallet or reward-intent fields",
+  !("submitted_by_wallet" in authorView)
+    && !("reward_intent_lamports" in authorView));
 
 const overview = core.maintainerOverviewDto({
   cases: [caseRow],
@@ -324,6 +331,14 @@ ok("edge function never writes the V2 flags",
   !/OSI_V2_(WRITES|PROOF)_ENABLED'?\s*[,)]?\s*(=|value)/.test(fnSource)
     || !/\.(update|insert|upsert)\(/.test(fnSource));
 ok("edge function never selects broad *", !fnSource.includes('select("*")'));
+ok("Edge derives exact Report-author Case access server-side",
+  /actorKind: "owner" \| "report_author" \| "analyst" \| "maintainer"/.test(fnSource)
+    && /from\("case_reports"\)\.select\("id"\)/.test(fnSource)
+    && /\.eq\("case_id", caseRow\.id\)\.eq\("author_wallet", proof\.actor\.wallet\)/.test(fnSource));
+ok("finalized selection tally uses each reviewer's phase-specific latest history",
+  /latestSelectionByWallet = new Map/.test(fnSource)
+    && /row\.phase === "selection"/.test(fnSource)
+    && /latestSelectionByWallet\.values\(\)/.test(fnSource));
 ok("service role key is never in a response",
   !fnSource.includes("SERVICE_ROLE_KEY") || !fnSource.match(/jsonResponse\([^)]*SERVICE_ROLE_KEY/));
 const configToml = readFileSync(join(root, "supabase/config.toml"), "utf8");

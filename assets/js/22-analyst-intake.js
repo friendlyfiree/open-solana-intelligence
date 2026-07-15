@@ -291,7 +291,7 @@ function rvDrawerHtml(type,id,row){
     voteBtns='<div class="rvd-actions">'
       + '<button class="rvd-vote ap" onclick="vouch(\''+type+'\',\''+crAttr(id)+'\',\'approve\',\''+crAttr(creator)+'\');rvClose()">\u2713 Vouch to publish</button>'
       + '<button class="rvd-vote rj" onclick="vouch(\''+type+'\',\''+crAttr(id)+'\',\'reject\',\''+crAttr(creator)+'\');rvClose()">\u2715 Vote to close</button>'
-      + (type!=='challenge' ? ('<button class="rvd-vote ch" onclick="rvClose();chxOpen(\''+type+'\',\''+crAttr(id)+'\',\''+crAttr(row.company||row.target||id)+'\')">\u2696 Challenge</button>') : '')
+      + (type!=='challenge' ? ('<button class="rvd-vote ch" onclick="rvClose();showView(\'field\')">Open native Case review</button>') : '')
     + '</div>';
   } else if(own){
     voteBtns='<div class="rvd-note mono">This is your submission \u00b7 you cannot vote on your own work.</div>';

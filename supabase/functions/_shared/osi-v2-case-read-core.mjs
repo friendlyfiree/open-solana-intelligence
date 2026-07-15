@@ -80,7 +80,7 @@ export function isCasePublic(caseRow) {
   return caseRow?.visibility === "public" && PUBLIC_CASE_STAGES.has(String(caseRow?.stage ?? ""));
 }
 
-// actor: { kind: 'anonymous' | 'owner' | 'analyst' | 'maintainer', wallet?: string }
+// actor: { kind: 'anonymous' | 'owner' | 'report_author' | 'analyst' | 'maintainer', wallet?: string }
 // The caller is responsible for having PROVEN the actor claim (signature,
 // analyst lookup, maintainer double-gate) before asking this question.
 export function canActorReadCase(actor, caseRow) {
@@ -229,6 +229,80 @@ function reviewDto(review, includeReason) {
   return dto;
 }
 
+function governanceReviewDto(review, includeRestricted) {
+  const dto = {
+    public_ref: String(review.public_ref ?? ""),
+    phase: String(review.phase ?? ""),
+    target_version_ref: review.candidate_version_ref == null
+      ? null : String(review.candidate_version_ref),
+    reviewer_wallet: String(review.reviewer_wallet ?? ""),
+    decision: String(review.decision ?? ""),
+    weight: Number(review.weight ?? 0),
+    tier_snapshot: String(review.tier_snapshot ?? ""),
+    public_rationale: String(review.public_rationale ?? ""),
+    is_active: review.is_active === true,
+    created_at: isoOrNull(review.created_at),
+    proof_label: proofLabel(review.receipt ?? {}),
+    actor_role: String(review.receipt?.actor_role ?? ""),
+  };
+  if (includeRestricted) dto.private_note = review.private_note == null
+    ? null : String(review.private_note);
+  return dto;
+}
+
+function governanceDto(governance = {}, includeRestricted = false) {
+  const resolution = governance.resolution;
+  const resolutionDto = resolution ? {
+    public_ref: String(resolution.public_ref ?? ""),
+    state: String(resolution.state ?? ""),
+    winning_report_version_ref: resolution.winning_report_version_ref == null
+      ? null : String(resolution.winning_report_version_ref),
+    challenge_window_opens_at: isoOrNull(resolution.challenge_window_opens_at),
+    challenge_window_closes_at: isoOrNull(resolution.challenge_window_ends_at),
+    reopened_at: isoOrNull(resolution.reopened_at),
+    sealed_at: isoOrNull(resolution.sealed_at),
+    selection_quorum: resolution.selection_quorum ?? null,
+    seal_quorum: resolution.seal_quorum ?? null,
+    final_proof: resolution.final_receipt ? publicReceiptDto(resolution.final_receipt) : null,
+    seal_proof: resolution.seal_receipt ? publicReceiptDto(resolution.seal_receipt) : null,
+    reviews: (governance.resolution_reviews ?? []).map((review) => (
+      governanceReviewDto(review, includeRestricted)
+    )),
+  } : null;
+  return {
+    resolution: resolutionDto,
+    challenges: (governance.challenges ?? []).map((challenge) => {
+      const dto = {
+        public_ref: String(challenge.public_ref ?? ""),
+        challenger_wallet: String(challenge.challenger_wallet ?? ""),
+        public_safe_summary: String(challenge.public_safe_summary ?? ""),
+        state: String(challenge.state ?? ""),
+        blocking: new Set(["open", "under_review"]).has(String(challenge.state ?? "")),
+        admissibility_deadline_at: isoOrNull(challenge.admissibility_ttl_at),
+        review_deadline_at: isoOrNull(challenge.review_deadline_at),
+        terminal_at: isoOrNull(challenge.terminal_at),
+        outcome_quorum: challenge.outcome_quorum ?? null,
+        submission_proof: challenge.submitted_receipt
+          ? publicReceiptDto(challenge.submitted_receipt) : null,
+        opening_proof: challenge.opened_receipt
+          ? publicReceiptDto(challenge.opened_receipt) : null,
+        outcome_proof: challenge.resolved_receipt
+          ? publicReceiptDto(challenge.resolved_receipt) : null,
+        reviews: (challenge.reviews ?? []).map((review) => (
+          governanceReviewDto(review, includeRestricted)
+        )),
+      };
+      if (includeRestricted) {
+        dto.reason_code = String(challenge.reason_code ?? "");
+        dto.restricted_detail = challenge.restricted_detail == null
+          ? null : String(challenge.restricted_detail);
+      }
+      return dto;
+    }),
+    process_notice: "Primary Report selection and process sealing record reviewed, challengeable outcomes. They do not determine truth, guilt, legal certainty, recovery, custody, or payment.",
+  };
+}
+
 // The ONLY fields an anonymous caller may ever see for a genuinely public
 // Case. Receipt actor wallets and validated Memo transaction signatures are
 // public provenance; internal UUIDs, private bodies, payload hashes, raw memo
@@ -240,6 +314,7 @@ export function publicCaseDto(
   receipts = [],
   evidence = [],
   reviews = [],
+  governance = {},
 ) {
   const publishedVersionIds = new Set(
     reports.map((report) => report.current_published_version_id)
@@ -253,6 +328,7 @@ export function publicCaseDto(
     category: String(caseRow.category ?? ""),
     stage: String(caseRow.stage ?? ""),
     visibility: String(caseRow.visibility ?? ""),
+    risk_tier: String(caseRow.risk_tier ?? ""),
     created_at: isoOrNull(caseRow.created_at),
     sealed_at: isoOrNull(caseRow.sealed_at),
     evidence: evidence
@@ -276,6 +352,7 @@ export function publicCaseDto(
       ),
       published: true,
     })),
+    governance: governanceDto(governance, false),
     proof_log: receipts.filter((receipt) => (
       receipt.target_type !== "report_version"
       || publishedVersionIds.has(String(receipt.target_id))
@@ -285,6 +362,7 @@ export function publicCaseDto(
 
 function authorizedVersionDto(version, actor) {
   const dto = {
+    version_ref: version.version_ref == null ? null : String(version.version_ref),
     version_no: version.version_no ?? null,
     lifecycle_state: String(version.lifecycle_state ?? ""),
     created_by_wallet: String(version.created_by_wallet ?? ""),
@@ -317,9 +395,10 @@ function authorizedReceiptDto(receipt, includeReason) {
   return dto;
 }
 
-// Fields an authorized actor (proven owner, verified analyst on an in-scope
-// Case, or full maintainer) may see. Still minimized: no migration metadata,
-// no service internals; the private body only for its own author.
+// Fields an authorized actor (proven owner, exact Report author, verified
+// analyst on an in-scope Case, or full maintainer) may see. Still minimized:
+// no migration metadata, no service internals; the private body only for its
+// own author unless analyst/maintainer review scope applies.
 export function authorizedCaseDto(
   caseRow,
   reports = [],
@@ -328,6 +407,7 @@ export function authorizedCaseDto(
   actor = {},
   evidence = [],
   reviews = [],
+  governance = {},
 ) {
   const includeRestrictedReviewFields = actor.kind === "analyst" || actor.kind === "maintainer";
   const visibleReports = reports.filter((report) => (
@@ -349,17 +429,23 @@ export function authorizedCaseDto(
     public_ref: String(caseRow.public_ref ?? ""),
     title: String(caseRow.title ?? ""),
     summary: String(caseRow.summary_public ?? ""),
-    details_restricted: String(caseRow.details_restricted ?? ""),
+    ...(actor.kind === "report_author" ? {} : {
+      details_restricted: String(caseRow.details_restricted ?? ""),
+    }),
     category: String(caseRow.category ?? ""),
     stage: String(caseRow.stage ?? ""),
     visibility: String(caseRow.visibility ?? ""),
     risk_tier: String(caseRow.risk_tier ?? ""),
-    submitted_by_wallet: String(caseRow.submitted_by_wallet ?? ""),
+    ...(actor.kind === "report_author" ? {} : {
+      submitted_by_wallet: String(caseRow.submitted_by_wallet ?? ""),
+    }),
     created_at: isoOrNull(caseRow.created_at),
     updated_at: isoOrNull(caseRow.updated_at),
     sealed_at: isoOrNull(caseRow.sealed_at),
-    reward_intent_lamports: caseRow.reward_intent_lamports == null
-      ? null : Number(caseRow.reward_intent_lamports),
+    ...(actor.kind === "report_author" ? {} : {
+      reward_intent_lamports: caseRow.reward_intent_lamports == null
+        ? null : Number(caseRow.reward_intent_lamports),
+    }),
     evidence: evidence.map(publicEvidenceDto),
     reviews: reviews.map((review) => reviewDto(review, includeRestrictedReviewFields)),
     reports: visibleReports.map((report) => ({
@@ -377,6 +463,7 @@ export function authorizedCaseDto(
         .sort((left, right) => (left.version_no ?? 0) - (right.version_no ?? 0))
         .map((version) => authorizedVersionDto(version, actor)),
     })),
+    governance: governanceDto(governance, includeRestrictedReviewFields),
     proof_log: receipts.filter((receipt) => (
       receipt.target_type !== "report_version"
       || visibleReportVersionIds.has(String(receipt.target_id))
@@ -392,6 +479,7 @@ export function maintainerOverviewDto(input) {
     reportsByCase = {},
     versionsByReport = {},
     receiptsByCaseTarget = {},
+    governanceByCase = {},
     receiptTotals = {},
     crosswalkCount = 0,
     manualQueueCount = 0,
@@ -418,6 +506,8 @@ export function maintainerOverviewDto(input) {
       OSI_V2_WRITES_ENABLED: String(flags.OSI_V2_WRITES_ENABLED ?? ""),
       OSI_V2_PROOF_ENABLED: String(flags.OSI_V2_PROOF_ENABLED ?? ""),
       OSI_V2_CASE_WRITES_ENABLED: String(flags.OSI_V2_CASE_WRITES_ENABLED ?? ""),
+      OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED:
+        String(flags.OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED ?? ""),
     },
     cases: cases.map((caseRow) => authorizedCaseDto(
       caseRow,
@@ -425,6 +515,9 @@ export function maintainerOverviewDto(input) {
       versionsByReport,
       receiptsByCaseTarget[caseRow.public_ref] ?? [],
       { kind: "maintainer", suppress_private_body: true },
+      [],
+      [],
+      governanceByCase[caseRow.id] ?? {},
     )),
   };
 }
@@ -447,6 +540,12 @@ export const PUBLIC_FORBIDDEN_KEYS = Object.freeze([
   "nonce",
   "signature",
   "reason_code",
+  "private_note",
+  "restricted_detail",
+  "evidence_hash",
+  "selection_quorum_hash",
+  "seal_quorum_hash",
+  "outcome_quorum_hash",
   "legacy_id",
   "legacy_table",
   "v2_id",

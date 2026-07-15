@@ -18,7 +18,9 @@ function setMaintainerServerGate(allowed,reason){
 
 function updateMaintainerAccessUI(){
   var badge=document.getElementById('maintainerAccessBadge');
+  var menu=document.getElementById('maintainerAccessMenu');
   var ctx=resolveMaintainerAccess();
+  if(menu) menu.style.display=ctx.isMaintainerWallet?'':'none';
   if(badge){
     badge.textContent=ctx.allowed?'unlocked':(ctx.passwordAuthenticated?'1 of 2':'2 gates');
     badge.classList.toggle('ready',ctx.allowed);
@@ -391,6 +393,18 @@ function admBottomHtml(model){
   var health = '<div class="moc-empty">System health telemetry is not connected yet.</div>';
   return '<div class="moc-bottom"><div class="moc-bottom-card"><div class="moc-bottom-h">Activity Feed</div>'+activity+'</div><div class="moc-bottom-card"><div class="moc-bottom-h">Recent Alerts</div>'+alerts+'</div><div class="moc-bottom-card"><div class="moc-bottom-h">Network Integrity</div>'+health+'</div></div>';
 }
+function admV2GovernanceHtml(model){
+  var overview=model.v2&&model.v2.overview;
+  if(!overview)return '<section class="moc-sec"><div class="moc-empty">Native V2 governance overview is unavailable. Resolution actions remain fail-closed.</div></section>';
+  var rows=(overview.cases||[]).filter(function(item){return item.governance&&item.governance.resolution;});
+  return '<section class="moc-sec"><div class="moc-bottom-h">Native Resolution Operations</div><div class="moc-note">Both maintainer gates are verified. Finalization controls never replace analyst count or weight quorum.</div>'+(rows.length?'<div class="moc-feed">'+rows.map(function(item){
+    var resolution=item.governance.resolution||{};
+    var q=resolution.selection_quorum||{};var sq=resolution.seal_quorum||{};
+    var challenges=item.governance.challenges||[];var blockers=challenges.filter(function(challenge){return challenge.blocking===true;}).length;
+    var leader=q.tie_unresolved?'Exact tie, no leader':(q.leader_version_ref||resolution.winning_report_version_ref||'Quorum leader pending');
+    return '<div class="moc-feed-row"><i class="moc-dot"></i><div><b>'+admEsc(item.public_ref)+' / '+admEsc(leader)+'</b><span>'+admEsc(String(resolution.state||'unknown'))+' / '+admEsc(String(blockers))+' blocking challenge(s) / seal '+(sq.ready?'ready':'not ready')+'</span></div><button class="moc-action" type="button" onclick="showView(\'field\');osiV2OpenCase(\''+admEsc(item.public_ref)+'\')">Open exact lifecycle</button></div>';
+  }).join('')+'</div>':'<div class="moc-empty">No Case currently has an active native resolution lifecycle.</div>')+'<div class="moc-actions"><button class="moc-action" type="button" onclick="osiV2OpenReviewQueue()">Open grouped governance queue</button></div></section>';
+}
 function admRenderConsole(model){
   var host=document.getElementById('admConsole'); if(!host) return;
   window.__admConsoleModel = model;
@@ -409,7 +423,7 @@ function admRenderConsole(model){
     + admStatCard('Ready to Publish',model.counts.ready,'ok','Escalation packs')
     + admStatCard('Open Challenges',model.counts.challenges,'danger','Open disputes')
     + admStatCard('Safety Flags',model.counts.safety,'system','No dedicated source yet')
-    + '</div></section><section class="moc-sec">'+admQueueHtml(items,window.__admSelectedKey)+admBottomHtml(model)+'</section></main>'
+    + '</div></section>'+admV2GovernanceHtml(model)+'<section class="moc-sec">'+admQueueHtml(items,window.__admSelectedKey)+admBottomHtml(model)+'</section></main>'
     + admSelectedHtml(selected);
 }
 function admConsoleFilter(filter){ window.__admConsoleFilter = filter || 'overview'; window.__admSelectedKey = null; if(window.__admConsoleModel) admRenderConsole(window.__admConsoleModel); }
@@ -430,10 +444,12 @@ async function admRefresh(){
       admSafeGet('challenges?select=*&order=created_at.desc&limit=200'),
       admSafeGet('escalation_packs?select=*&order=created_at.desc&limit=200'),
       admSafeGet('vouches?select=item_type,item_id,analyst,vote&limit=1000'),
-      admSafeGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,label,tx_sig,created_at&order=created_at.desc&limit=80')
+      admSafeGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,label,tx_sig,created_at&order=created_at.desc&limit=80'),
+      typeof osiV2LoadMaintainerOverview==='function' ? osiV2LoadMaintainerOverview().then(function(value){return{ok:true,overview:value.overview};}).catch(function(error){return{ok:false,error:error};}) : Promise.resolve({ok:false})
     ]);
     if(!resolveMaintainerAccess().allowed){ renderAdminAccess({clear:true}); return; }
     const model = admConsoleModel({ reports:reads[0], bounties:reads[1], analysts:reads[2], challenges:reads[3], packs:reads[4], vouches:reads[5], events:reads[6] });
+    model.v2=reads[7];
     window.__admBounties = reads[1].rows || [];
     admRenderConsole(model);
   }catch(e){
