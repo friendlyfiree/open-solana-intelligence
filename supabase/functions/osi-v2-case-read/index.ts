@@ -49,6 +49,12 @@ import {
   READ_PURPOSES,
   validateChallengeBinding,
 } from "../_shared/osi-v2-case-read-core.mjs";
+import {
+  issueReadSessionToken,
+  READ_SESSION_SCOPES,
+  readSessionIssuer,
+  verifyReadSessionToken,
+} from "../_shared/osi-v2-read-session-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -60,6 +66,12 @@ const PUBLIC_LIST_LIMIT = 50;
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+
+async function readSessionEnabled(): Promise<boolean> {
+  const { data, error } = await admin.from("osi_config").select("value")
+    .eq("key", "OSI_V2_READ_SESSION_ENABLED").limit(1);
+  return !error && data?.[0]?.value === "true";
+}
 
 function corsHeaders(): HeadersInit {
   return {
@@ -612,16 +624,105 @@ async function verifySignedRead(
   return { ok: true, actor: { wallet } };
 }
 
-// ---------------------------------------------------------------------------
-// Signed operations
-// ---------------------------------------------------------------------------
+async function verifyReadSession(
+  req: Request,
+  body: Row,
+  requiredScope: string,
+): Promise<{ ok: true; actor: ProvenActor; payload: Row } | { ok: false; status: number; reason: string }> {
+  if (!await readSessionEnabled()) {
+    return { ok: false, status: 503, reason: "read_session_disabled_or_unavailable" };
+  }
+  const verified = await verifyReadSessionToken({
+    token: safeText(body.read_session),
+    secret: SERVICE_ROLE_KEY,
+    issuer: readSessionIssuer(SUPABASE_URL),
+    origin: req.headers.get("origin") ?? "",
+    allowedOrigin: ALLOWED_ORIGIN,
+    wallet: safeText(body.wallet),
+    requiredScope,
+  });
+  if (verified.ok === true && typeof verified.wallet === "string") {
+    return { ok: true, actor: { wallet: verified.wallet }, payload: verified.payload as Row };
+  }
+  return {
+    ok: false,
+    status: typeof verified.status === "number" ? verified.status : 403,
+    reason: typeof verified.reason === "string" ? verified.reason : "read_session_tampered",
+  };
+}
 
-async function listMyCases(body: Row): Promise<Response> {
+async function issueReadSessionChallenge(req: Request, body: Row): Promise<Response> {
+  if (!await readSessionEnabled()) {
+    return jsonResponse(503, { ok: false, error: "read_session_disabled_or_unavailable" });
+  }
+  return await issueReadChallenge(req, {
+    ...body,
+    purpose: "CASE_READ_MY_CASES",
+    case_ref: "",
+  });
+}
+
+async function createReadSession(req: Request, body: Row): Promise<Response> {
+  if (!await readSessionEnabled()) {
+    return jsonResponse(503, { ok: false, error: "read_session_disabled_or_unavailable" });
+  }
   const wallet = safeText(body.wallet);
   const proof = await verifySignedRead(body, "CASE_READ_MY_CASES", {
     target_type: "wallet_cases",
     target_id: wallet,
   });
+  if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
+
+  const [analyst, maintainer] = await Promise.all([
+    isVerifiedAnalyst(wallet),
+    hasFullMaintainerAccess(req, wallet),
+  ]);
+  const scopes: string[] = [
+    READ_SESSION_SCOPES.CASE_MINE,
+    READ_SESSION_SCOPES.CASE_DETAIL,
+    READ_SESSION_SCOPES.REPORT_MINE,
+    READ_SESSION_SCOPES.ANALYST_WORKSPACE,
+  ];
+  if (analyst || maintainer) {
+    scopes.push(READ_SESSION_SCOPES.CASE_REVIEW, READ_SESSION_SCOPES.REPORT_REVIEW);
+  }
+  if (maintainer) {
+    scopes.push(READ_SESSION_SCOPES.CASE_MAINTAINER, READ_SESSION_SCOPES.ANALYST_MAINTAINER);
+  }
+  try {
+    const issued = await issueReadSessionToken({
+      secret: SERVICE_ROLE_KEY,
+      issuer: readSessionIssuer(SUPABASE_URL),
+      audience: req.headers.get("origin") ?? "",
+      allowedOrigin: ALLOWED_ORIGIN,
+      wallet,
+      scopes,
+      authSubject: maintainer ? MAINTAINER_AUTH_UUID : null,
+      jti: randomNonce(),
+    });
+    return jsonResponse(200, {
+      ok: true,
+      read_session: issued.token,
+      wallet,
+      scopes: issued.payload.scp,
+      issued_at: issued.payload.iat,
+      expires_at: issued.payload.exp,
+      ttl_seconds: issued.payload.exp - issued.payload.iat,
+      auth_user_id: issued.payload.auth_sub,
+      read_only: true,
+    });
+  } catch {
+    return jsonResponse(503, { ok: false, error: "read_session_configuration_invalid" });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Signed operations
+// ---------------------------------------------------------------------------
+
+async function listMyCases(req: Request, body: Row): Promise<Response> {
+  const wallet = safeText(body.wallet);
+  const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_MINE);
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
 
   const { data, error } = await admin.from("cases").select(CASE_COLS)
@@ -768,10 +869,7 @@ function buildReviewTasks(
 
 async function listReviewableCases(req: Request, body: Row): Promise<Response> {
   const wallet = safeText(body.wallet);
-  const proof = await verifySignedRead(body, "CASE_READ_REVIEW_QUEUE", {
-    target_type: "review_queue",
-    target_id: wallet,
-  });
+  const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_REVIEW);
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
 
   let actorKind: "analyst" | "maintainer" | null = null;
@@ -848,10 +946,7 @@ async function getAuthorizedCase(req: Request, body: Row): Promise<Response> {
   if (!/^OSI-[0-9A-Z]{6,20}$/.test(caseRef)) {
     return jsonResponse(400, { ok: false, error: "bad_case_ref" });
   }
-  const proof = await verifySignedRead(body, "CASE_READ_AUTHORIZED_CASE", {
-    target_type: "case",
-    target_id: caseRef,
-  });
+  const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_DETAIL);
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
 
   const { data, error } = await admin.from("cases").select(CASE_COLS)
@@ -953,10 +1048,7 @@ async function maintainerCaseOverview(req: Request, body: Row): Promise<Response
   const wallet = safeText(body.wallet);
   let walletValid = false;
   if (adminWallet && wallet === adminWallet) {
-    const proof = await verifySignedRead(body, "CASE_READ_MAINTAINER_OVERVIEW", {
-      target_type: "config",
-      target_id: "maintainer_overview",
-    });
+    const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_MAINTAINER);
     walletValid = proof.ok;
   }
 
@@ -1041,8 +1133,12 @@ serve(async (req: Request): Promise<Response> => {
       return await getPublicCase(body);
     case "issue_read_challenge":
       return await issueReadChallenge(req, body);
+    case "issue_read_session_challenge":
+      return await issueReadSessionChallenge(req, body);
+    case "create_read_session":
+      return await createReadSession(req, body);
     case "list_my_cases":
-      return await listMyCases(body);
+      return await listMyCases(req, body);
     case "list_reviewable_cases":
       return await listReviewableCases(req, body);
     case "get_authorized_case":

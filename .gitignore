@@ -12,6 +12,8 @@ Thumbs.db
 
 # Node (only if tooling is ever added)
 node_modules/
+playwright-report/
+test-results/
 npm-debug.log*
 yarn-error.log*
 

@@ -1,7 +1,7 @@
 // Dependency-free regression tests for native Case Report intake and reads.
 // Run: node tests/osi-v2-report.test.mjs
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -361,7 +361,8 @@ ok("untrusted Report content is escaped before innerHTML rendering",
     && uiSource.includes("esc(item.ref)"));
 ok("legacy and preview pages never load the Report bundle",
   !readFileSync(join(root, "legacy.html"), "utf8").includes("v2-report-integration")
-    && !readFileSync(join(root, "v2-preview.html"), "utf8").includes("v2-report-integration"));
+    && !existsSync(join(root, "v2-preview.html"))
+    && readFileSync(join(root, "vercel.json"), "utf8").includes('"source": "/v2-preview.html"'));
 
 console.log((fail ? "FAILED: " + fail : "OK")
   + " (" + pass + " assertions passed, " + fail + " failed)");

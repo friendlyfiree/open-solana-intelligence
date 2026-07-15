@@ -19,7 +19,7 @@
     syncBodyLock();status('');
     if(document.body&&document.body.dataset.view==='field'){
       var host=document.getElementById('field-cases');
-      if(host)host.innerHTML='<div class="osi-v2-empty"><b>Report workspace locked</b><span>Reconnect and sign a fresh read authorization for this wallet.</span></div>';
+      if(host)host.innerHTML='<div class="osi-v2-empty"><b>Report workspace locked</b><span>Unlock the shared five-minute private read session to continue.</span></div>';
     }
   }
 
@@ -68,6 +68,13 @@
       ,not_eligible_or_self_review:'Only an eligible analyst who is neither the Report author nor the Case owner can take this action.'
       ,report_version_not_available:'This exact Report version is not available for the requested action.'
       ,bad_signature:'The wallet signature did not verify for this exact Report review.'
+      ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
+      ,read_session_required:'Unlock private views with one wallet signature.'
+      ,read_session_expired:'Your five-minute private read session expired. Refresh it explicitly to continue.'
+      ,read_session_wrong_origin:'This private session belongs to a different site origin.'
+      ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
+      ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
+      ,read_session_tampered:'The private session token failed server verification.'
     };
     return messages[code]||code.replace(/_/g,' ');
   }
@@ -78,6 +85,7 @@
   }
   function bytesToBase64(bytes){var binary='';for(var index=0;index<bytes.length;index++)binary+=String.fromCharCode(bytes[index]);return btoa(binary);}
   async function signMessage(message){
+    if(typeof window.osiV2ApproveMessage==='function')return await window.osiV2ApproveMessage(message);
     var provider=typeof getProvider==='function'?getProvider():null;
     if(!provider||typeof provider.signMessage!=='function')throw new Error('This wallet does not support signMessage.');
     var signed=await provider.signMessage(new TextEncoder().encode(message),'utf8');
@@ -85,11 +93,10 @@
     if(!(bytes instanceof Uint8Array))bytes=new Uint8Array(bytes||[]);
     return bytesToBase64(bytes);
   }
-  async function signedRead(scope,op){
-    var wallet=await ensureWallet();
-    var issue=await api(READ_URL,{op:'issue_read_challenge',scope:scope,wallet:wallet});
-    var signature=await signMessage(issue.challenge);
-    return await api(READ_URL,{op:op,wallet:wallet,challenge:issue.challenge,signature:signature});
+  async function sessionRead(scope,op){
+    if(typeof window.osiV2ReadSession!=='function')throw new Error('read_session_disabled_or_unavailable');
+    var session=await window.osiV2ReadSession([scope],{allowUnlock:true});
+    return await api(READ_URL,{op:op,wallet:session.wallet,read_session:session.token});
   }
   function syncBodyLock(){
     var modal=document.getElementById('osi-report-modal');
@@ -113,7 +120,7 @@
 
   async function loadMyReports(){
     var wallet=await ensureWallet();
-    var result=await signedRead('my_reports','list_my_reports');
+    var result=await sessionRead('report:mine','list_my_reports');
     state.cacheWallet=wallet;state.myReports=result.reports||[];
     return state.myReports;
   }
@@ -366,10 +373,13 @@
     if(typeof showView==='function')showView('field');
     var host=document.getElementById('field-cases');if(host)host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';
     try{
-      var result=mode==='mine'?await signedRead('my_reports','list_my_reports'):await signedRead('review_queue','list_review_queue');
+      var result=mode==='mine'?await sessionRead('report:mine','list_my_reports'):await sessionRead('report:review','list_review_queue');
       if(mode==='mine'){state.cacheWallet=String(walletPubkey||'');state.myReports=result.reports||[];}
       drawWorkspace(result.reports||[],mode,result.next_prerequisite||'');
-    }catch(error){setWorkspaceCopy(mode,0);if(host)host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Report workspace locked</b><span>'+esc(userError(error))+'</span><button class="osi-report-action" type="button" onclick="'+(mode==='mine'?'osiV2OpenMyReports()':'osiV2OpenReportQueue()')+'">Try again</button></div>';}
+    }catch(error){
+      setWorkspaceCopy(mode,0);
+      if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Report workspace locked</b><span>'+esc(userError(error))+'</span><button class="osi-report-action" type="button" onclick="'+(refresh?('osiV2RefreshReportWorkspace(\''+esc(mode)+'\')'):(mode==='mine'?'osiV2OpenMyReports()':'osiV2OpenReportQueue()'))+'">'+(refresh?'Refresh private access':'Try again')+'</button></div>';}
+    }
   }
 
   function trapFocus(event,root){
@@ -395,4 +405,6 @@
   window.osiV2RefreshPublicReports=function(){if(state.sectionContext)refreshPublicReports(state.sectionContext);};
   window.osiV2OpenMyReports=function(){openReportWorkspace('mine');};
   window.osiV2OpenReportQueue=function(){openReportWorkspace('queue');};
+  window.osiV2RefreshReportWorkspace=function(mode){var scope=mode==='queue'?'report:review':'report:mine';return window.osiV2RefreshReadSession([scope]).then(function(){return openReportWorkspace(mode==='queue'?'queue':'mine');});};
+  if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('reports',clearSessionState);
 })();

@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/v2-preview.html",
+      "destination": "/",
+      "permanent": true
+    }
+  ]
+}

@@ -30,8 +30,11 @@ ok(wire.includes('interest signals') && wire.includes('Signal interest'), 'suppo
 
 ok(analyst.includes("/functions/v1/osi-v2-analyst"), 'all analyst UI operations use the dedicated Edge Function');
 ok(analyst.includes("op:'list_public_profiles'"), 'public directory uses the least-privilege public profile operation');
+ok(analyst.includes('window.renderLeaderboard=renderPublicProfiles'), 'global Analyst Network navigation keeps the native V2 renderer');
 ok(!analyst.includes("from('analyst_profiles')") && !analyst.includes('/rest/v1/analyst_'), 'browser does not query private analyst tables directly');
-ok(analyst.includes("ANALYST_READ_MY_WORKSPACE") && analyst.includes("ANALYST_READ_MAINTAINER_QUEUE"), 'private workspaces require purpose-bound signed reads');
+ok(analyst.includes("sessionRead('analyst:workspace','my_workspace')")
+  && analyst.includes("sessionRead('analyst:maintainer','maintainer_queue')"),
+  'private workspaces use the shared scoped read session');
 ok(analyst.includes("op:'prepare_application'") && analyst.includes("op:'commit_application'"), 'application submission has prepare and commit stages');
 ok(analyst.includes("op:'prepare_review'") && analyst.includes("op:'commit_review'"), 'maintainer review has prepare and commit stages');
 ok(analyst.includes("op:'prepare_activation'") && analyst.includes("op:'commit_activation'"), 'probation activation has prepare and commit stages');
@@ -44,7 +47,7 @@ ok(analyst.includes('SOL transfer verified on Solana') && analyst.includes('reci
 
 ok(analyst.includes('trustedAvatar') && analyst.includes('osi-analyst-avatars'), 'public avatar rendering accepts only the owned storage prefix');
 ok(analyst.includes("['image/png','image/jpeg']") && analyst.includes('524288'), 'client mirrors strict avatar MIME and size gates');
-ok(analyst.includes('details_restricted') && analyst.includes('ANALYST_READ_MY_WORKSPACE'), 'restricted application details render only in signed workspaces');
+ok(analyst.includes('details_restricted') && analyst.includes("'analyst:workspace'"), 'restricted application details render only in scoped private workspaces');
 ok(analyst.includes('permitted') === false || !analyst.includes('abstain_available:true'), 'UI never invents an abstain transition');
 ok(analyst.includes('Abstain is unavailable'), 'Operations Center explains the canonical abstain limitation');
 ok(!maintainer.includes('Approve / Reject disabled: Requires hardened backend'), 'obsolete analyst placeholder control is removed');

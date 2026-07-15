@@ -31,6 +31,11 @@ ok('legacy fallback does not load the V2 Case integration',
   !legacy.includes('v2-case-integration'));
 ok('preview is not promoted from the primary app',
   !index.includes('v2-preview.html'));
+ok('preview document is retired behind a permanent root redirect',
+  !fs.existsSync(path.join(root, 'v2-preview.html'))
+    && /"source"\s*:\s*"\/v2-preview\.html"/.test(read('vercel.json'))
+    && /"destination"\s*:\s*"\/"/.test(read('vercel.json'))
+    && /"permanent"\s*:\s*true/.test(read('vercel.json')));
 ok('primary app provides a local favicon without a network 404',
   index.includes('./assets/favicon.svg') && fs.existsSync(path.join(root, 'assets/favicon.svg')));
 ok('primary navigation keeps Field Office and The Wire',
@@ -147,7 +152,6 @@ function uiFiles(dir) {
 const sourceFiles = [
   path.join(root, 'index.html'),
   path.join(root, 'legacy.html'),
-  path.join(root, 'v2-preview.html'),
 ]
   .concat(uiFiles(path.join(root, 'assets', 'js')))
   .concat(uiFiles(path.join(root, 'assets', 'css')));

@@ -21,6 +21,11 @@ import {
   authorizedReportDto,
   publicReportGovernanceDto,
 } from "../_shared/osi-v2-report-core.mjs";
+import {
+  READ_SESSION_SCOPES,
+  readSessionIssuer,
+  verifyReadSessionToken,
+} from "../_shared/osi-v2-read-session-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -31,6 +36,12 @@ const MAX_BODY_BYTES = 16_384;
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+
+async function readSessionEnabled(): Promise<boolean> {
+  const { data, error } = await admin.from("osi_config").select("value")
+    .eq("key", "OSI_V2_READ_SESSION_ENABLED").limit(1);
+  return !error && data?.[0]?.value === "true";
+}
 
 type Row = Record<string, any>;
 type Scope = "my_reports" | "review_queue";
@@ -175,6 +186,33 @@ async function verifySignedRead(body: Row, scope: Scope) {
   if (error) return { ok: false as const, status: 503, reason: "challenge_unavailable" };
   if (data !== true) return { ok: false as const, status: 403, reason: "replayed_or_expired" };
   return { ok: true as const, wallet };
+}
+
+async function verifyReadSession(
+  req: Request,
+  body: Row,
+  requiredScope: string,
+): Promise<{ ok: true; wallet: string } | { ok: false; status: number; reason: string }> {
+  if (!await readSessionEnabled()) {
+    return { ok: false as const, status: 503, reason: "read_session_disabled_or_unavailable" };
+  }
+  const verified = await verifyReadSessionToken({
+    token: safeText(body.read_session),
+    secret: SERVICE_ROLE_KEY,
+    issuer: readSessionIssuer(SUPABASE_URL),
+    origin: req.headers.get("origin") ?? "",
+    allowedOrigin: ALLOWED_ORIGIN,
+    wallet: safeText(body.wallet),
+    requiredScope,
+  });
+  if (verified.ok === true && typeof verified.wallet === "string") {
+    return { ok: true, wallet: verified.wallet };
+  }
+  return {
+    ok: false,
+    status: typeof verified.status === "number" ? verified.status : 403,
+    reason: typeof verified.reason === "string" ? verified.reason : "read_session_tampered",
+  };
 }
 
 async function analystEligible(wallet: string): Promise<boolean> {
@@ -427,8 +465,8 @@ async function loadReports(
   });
 }
 
-async function listMyReports(body: Row): Promise<Response> {
-  const proof = await verifySignedRead(body, "my_reports");
+async function listMyReports(req: Request, body: Row): Promise<Response> {
+  const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.REPORT_MINE);
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
   const { data, error } = await admin.from("case_reports").select(REPORT_COLS)
     .eq("author_wallet", proof.wallet)
@@ -448,7 +486,7 @@ async function listMyReports(body: Row): Promise<Response> {
 }
 
 async function listReviewQueue(req: Request, body: Row): Promise<Response> {
-  const proof = await verifySignedRead(body, "review_queue");
+  const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.REPORT_REVIEW);
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
   const [analyst, maintainer] = await Promise.all([
     analystEligible(proof.wallet),
@@ -634,7 +672,7 @@ serve(async (req: Request): Promise<Response> => {
   switch (body.op) {
     case "list_public_reports": return await listPublicReports(body);
     case "issue_read_challenge": return await issueChallenge(req, body);
-    case "list_my_reports": return await listMyReports(body);
+    case "list_my_reports": return await listMyReports(req, body);
     case "list_review_queue": return await listReviewQueue(req, body);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });
   }

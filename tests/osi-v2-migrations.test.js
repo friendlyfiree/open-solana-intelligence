@@ -23,6 +23,7 @@ const expectedFiles = [
   '20260714064501_osi_v2_report_review_publication.sql',
   '20260714082218_osi_v2_resolution_challenge_seal.sql',
   '20260715053828_osi_v2_native_sol_payments.sql',
+  '20260715112621_osi_v2_shared_read_session.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -39,6 +40,7 @@ const analystActivation = sqlByFile['20260713184533_osi_v2_analyst_activation.sq
 const reportIntake = sqlByFile['20260714044036_osi_v2_case_report_intake.sql'] || '';
 const resolutionLifecycle = sqlByFile['20260714082218_osi_v2_resolution_challenge_seal.sql'] || '';
 const nativePayments = sqlByFile['20260715053828_osi_v2_native_sol_payments.sql'] || '';
+const sharedReadSession = sqlByFile['20260715112621_osi_v2_shared_read_session.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const analystProductionWorkflow = fs.readFileSync(
@@ -55,6 +57,10 @@ const resolutionProductionWorkflow = fs.readFileSync(
 );
 const paymentProductionWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-payment-production.yml'),
+  'utf8',
+);
+const readSessionProductionWorkflow = fs.readFileSync(
+  path.join(root, '.github', 'workflows', 'osi-v2-read-session-production.yml'),
   'utf8',
 );
 const proofCore = fs.readFileSync(
@@ -93,6 +99,22 @@ ok(
   'exact ordered migration set',
   JSON.stringify(migrationFiles) === JSON.stringify(expectedFiles),
   migrationFiles.join(', '),
+);
+
+ok(
+  'shared read session is additive stateless infrastructure and starts fail closed',
+  sharedReadSession.includes("values ('OSI_V2_READ_SESSION_ENABLED', 'false'")
+    && !/create\s+table|alter\s+table|drop\s+|truncate\s+/i.test(sharedReadSession),
+);
+ok(
+  'shared read-session rollout is exact main-only and fail-closed',
+  readSessionProductionWorkflow.includes('READ-SESSION-DEPLOY-${EXPECTED_PROJECT_REF}')
+    && readSessionProductionWorkflow.includes('refs/heads/main')
+    && readSessionProductionWorkflow.includes('supabase db push --linked --dry-run')
+    && readSessionProductionWorkflow.includes('functions deploy osi-v2-case-read')
+    && readSessionProductionWorkflow.includes('functions deploy osi-v2-report-read')
+    && readSessionProductionWorkflow.includes('functions deploy osi-v2-analyst')
+    && readSessionProductionWorkflow.includes("where key='OSI_V2_READ_SESSION_ENABLED' and value='true'"),
 );
 
 for (const name of expectedFiles) {

@@ -152,7 +152,7 @@ function renderLeaderboard(){
     return;
   }
   if(pod){
-    var demo = LB_IS_DEMO ? '<div class="lb-demo">Demo roster shown \u00b7 verified analysts appear here after signed contributions.</div>' : '';
+    var demo = LB_IS_DEMO ? '<div class="lb-demo">Sample roster shown \u00b7 verified analysts appear here after signed contributions.</div>' : '';
     var top=rows.slice(0,3);
     var order=[]; if(top[1]) order.push([top[1],2]); if(top[0]) order.push([top[0],1]); if(top[2]) order.push([top[2],3]);
     pod.innerHTML = demo + '<div class="lp-podium-row">' + order.map(function(x){ return lbPodiumCard(x[0],x[1]); }).join('') + '</div>';

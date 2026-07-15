@@ -72,6 +72,7 @@ function notifySupaAuthChanged(eventName){
   if(typeof updateMaintainerAccessUI === 'function') updateMaintainerAccessUI();
   var activeWallet = '';
   try{ activeWallet = walletPubkey || ''; }catch(_){ }
+  if(typeof window.osiV2ReadSessionHandleAuth==='function')window.osiV2ReadSessionHandleAuth(SUPA_AUTH_USER&&SUPA_AUTH_USER.id?SUPA_AUTH_USER.id:null);
   if(typeof refreshMaintainerGate === 'function' && activeWallet) refreshMaintainerGate();
   if(!SUPA_AUTH_TOKEN && document.body && document.body.dataset.view === 'admin' && typeof renderAdminAccess === 'function'){
     renderAdminAccess({clear:true});

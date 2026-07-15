@@ -40,7 +40,8 @@
       <div class="osi-platform-menu" id="platform-menu" hidden>
         <div class="osi-platform-group"><p>Investigations</p><button type="button" onclick="osiNavigate('field')"><strong>Field Office</strong><span>Open and follow Cases</span></button><button type="button" onclick="osiNavigate('wire')"><strong>The Wire</strong><span>Publish standalone intelligence</span></button></div>
         <div class="osi-platform-group"><p>Public record</p><button type="button" onclick="osiNavigate('records')"><strong>Public Records</strong><span>Reviewed and sealed outcomes</span></button><button type="button" onclick="osiNavigate('prooflog')"><strong>Proof Log</strong><span>Verify signatures, Memos and transfers</span></button></div>
-        <div class="osi-platform-group"><p>Governance</p><button type="button" onclick="osiNavigateFieldStage('challenge_active')"><strong>Challenges</strong><span>Contest an eligible outcome</span></button><button type="button" onclick="demoStart()"><strong>Guided briefing</strong><span>Tour the public workflow</span></button></div>
+        <div class="osi-platform-group"><p>Governance</p><button type="button" onclick="osiV2OpenReviewQueue()"><strong>Review Queue</strong><span>Open authorized review tasks</span></button><button type="button" onclick="osiNavigateFieldStage('challenge_active')"><strong>Challenges</strong><span>Contest an eligible outcome</span></button></div>
+        <div class="osi-platform-group"><p>Workspaces</p><button type="button" onclick="osiAnalystOpenWorkspace('profile')"><strong>My OSI</strong><span>Open wallet-linked work</span></button><button type="button" onclick="admOpen()"><strong>Operations Center</strong><span>Requires both maintainer gates</span></button></div>
       </div>
     </div>
     <button class="osi-nav-link" type="button" data-global-view="analysts" onclick="osiNavigate('analysts')">Analyst Network</button>
@@ -97,10 +98,10 @@
       </ul>
     </div>
 
-    <div class="osi-hero-panel" aria-label="Public workflow preview">
+    <div class="osi-hero-panel" aria-label="Explanatory OSI evidence lifecycle">
       <div class="osi-panel-topline">
-        <span>Public workflow</span>
-        <span class="osi-live-label"><i aria-hidden="true"></i>Public-safe data</span>
+        <span>Evidence lifecycle</span>
+        <span class="osi-live-label"><i aria-hidden="true"></i>Explanatory model</span>
       </div>
       <div class="osi-panel-tabs" role="navigation" aria-label="Workflow views">
         <button type="button" onclick="osiNavigate('field')">Cases</button>
@@ -109,14 +110,26 @@
         <button type="button" onclick="osiNavigateFieldStage('resolution_selection')">Resolutions</button>
         <button type="button" onclick="osiNavigateFieldStage('challenge_active')">Challenges</button>
       </div>
-      <div class="osi-panel-flow" aria-label="Investigation workflow">
-        <div><span>01</span><strong>Evidence submitted</strong></div>
-        <i aria-hidden="true"></i>
-        <div><span>02</span><strong>Independent review</strong></div>
-        <i aria-hidden="true"></i>
-        <div><span>03</span><strong>Challenge window</strong></div>
-        <i aria-hidden="true"></i>
-        <div><span>04</span><strong>Record sealed</strong></div>
+      <div class="osi-intelligence-scene">
+        <svg class="osi-proof-map" viewBox="0 0 720 220" role="img" aria-labelledby="osi-proof-map-title osi-proof-map-desc">
+          <title id="osi-proof-map-title">OSI evidence lifecycle</title>
+          <desc id="osi-proof-map-desc">A five-stage explanatory path from wallet-signed intake through independent review, challenge, Memo anchoring and verified direct transfer.</desc>
+          <path class="osi-proof-map-grid" d="M16 44H704M16 110H704M16 176H704M72 18V202M216 18V202M360 18V202M504 18V202M648 18V202"></path>
+          <path class="osi-proof-map-base" d="M72 150C132 150 148 72 216 72S294 150 360 150 438 72 504 72 580 150 648 150"></path>
+          <path class="osi-proof-map-signal" pathLength="1" d="M72 150C132 150 148 72 216 72S294 150 360 150 438 72 504 72 580 150 648 150"></path>
+          <g class="osi-proof-node" transform="translate(72 150)"><circle r="17"></circle><text y="4">01</text></g>
+          <g class="osi-proof-node" transform="translate(216 72)"><circle r="17"></circle><text y="4">02</text></g>
+          <g class="osi-proof-node osi-proof-node-violet" transform="translate(360 150)"><circle r="17"></circle><text y="4">03</text></g>
+          <g class="osi-proof-node" transform="translate(504 72)"><circle r="17"></circle><text y="4">04</text></g>
+          <g class="osi-proof-node osi-proof-node-teal" transform="translate(648 150)"><circle r="17"></circle><text y="4">05</text></g>
+        </svg>
+        <ol class="osi-proof-state-sequence" aria-label="Lifecycle proof states">
+          <li><span>01</span><strong>WALLET_SIGNED</strong><small>Intake approval</small></li>
+          <li><span>02</span><strong>REVIEW_QUORUM</strong><small>Independent gates</small></li>
+          <li><span>03</span><strong>CHALLENGE_WINDOW</strong><small>Outcome contestable</small></li>
+          <li><span>04</span><strong>MEMO_ANCHORED</strong><small>Confirmed on Solana</small></li>
+          <li><span>05</span><strong>SOL_TRANSFER_VERIFIED</strong><small>Expected transfer confirmed</small></li>
+        </ol>
       </div>
       <div class="osi-home-live-state" id="osi-home-live-state" aria-live="polite" aria-busy="true">
         <span class="osi-state-mark" aria-hidden="true"></span>
@@ -143,6 +156,50 @@
   </div>
 </section>
 
+<section class="osi-home osi-home-workspaces osi-live-actions" id="live-actions" data-view="registry" aria-labelledby="osi-live-actions-title">
+  <div class="osi-home-shell">
+    <div class="osi-section-heading">
+      <div><p class="osi-kicker">Live product paths</p><h2 id="osi-live-actions-title">Every action enters a real server-gated workflow.</h2></div>
+      <p>Wallet, role, Case state, quorum, time window and rollout flags are checked when the action opens. Unmet prerequisites stay visible in the destination workspace.</p>
+    </div>
+    <div class="osi-workspace-grid osi-action-matrix" aria-label="Live OSI actions">
+      <article data-action-contract="case" data-endpoint="osi-v2-case-write:actor_capabilities">
+        <span class="osi-workspace-number">01</span><h3>Case intake</h3><p>Open a private-by-default Case through the exact Stage-5 prepare and commit path.</p><ul><li>Wallet and rollout gate checked first</li><li>One Memo transaction approval</li></ul>
+        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('case')">Open a Case <span aria-hidden="true">+</span></button>
+      </article>
+      <article data-action-contract="report" data-endpoint="osi-v2-report-read:list_my_reports">
+        <span class="osi-workspace-number">02</span><h3>Reports</h3><p>Inspect your immutable Report versions and submit a version only from an eligible public Case.</p><ul><li>Shared private-read session</li><li>Separate Memo approval for each write</li></ul>
+        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('report')">Open My Reports <span aria-hidden="true">+</span></button>
+      </article>
+      <article data-action-contract="analyst" data-endpoint="osi-v2-analyst:my_workspace">
+        <span class="osi-workspace-number">03</span><h3>Analyst application</h3><p>Create and revise exact application versions; status, tier and weight remain server-derived.</p><ul><li>One wallet approval per submitted version</li><li>No self-review</li></ul>
+        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('analyst')">Open My Applications <span aria-hidden="true">+</span></button>
+      </article>
+      <article data-action-contract="review" data-endpoint="osi-v2-case-read:list_reviewable_cases">
+        <span class="osi-workspace-number">04</span><h3>Review and publication</h3><p>Open authorized Report, resolution, challenge and seal tasks derived from the connected wallet.</p><ul><li>Eligibility checked by the server</li><li>Count and weight gates stay independent</li></ul>
+        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('review')">Open Review Queue <span aria-hidden="true">+</span></button>
+      </article>
+      <article data-action-contract="governance" data-endpoint="osi-v2-governance-write:prepare">
+        <span class="osi-workspace-number">05</span><h3>Resolution, challenge and seal</h3><p>Inspect public state first; write controls appear only on an exact eligible Case and target version.</p><ul><li>Seven-day challenge window</li><li>Full maintainer finalization remains double-gated</li></ul>
+        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('governance')">Inspect governance states <span aria-hidden="true">+</span></button>
+      </article>
+      <article data-action-contract="money" data-endpoint="osi-v2-payment:capabilities">
+        <span class="osi-workspace-number">06</span><h3>Reward and support</h3><p>Use direct native SOL transfers only where the server returns an eligible recipient manifest.</p><ul><li>One transaction approval per transfer</li><li>No custody; Support never changes ranking or governance</li></ul>
+        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('money')">Open sealed Cases <span aria-hidden="true">+</span></button>
+      </article>
+      <article data-action-contract="proof" data-endpoint="onchain_events:public_projection">
+        <span class="osi-workspace-number">07</span><h3>Proof Log</h3><p>Inspect recorded public proof events and open real transaction references where present.</p><ul><li>No invented fallback events</li><li>Proof labels retain narrow meanings</li></ul>
+        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('proof')">Open Proof Log <span aria-hidden="true">+</span></button>
+      </article>
+      <article data-action-contract="operations" data-endpoint="osi-v2-case-read:maintainer_case_overview">
+        <span class="osi-workspace-number">08</span><h3>Operations Center</h3><p>Load the native overview and application queue only after wallet and Supabase identity both pass.</p><ul><li>Both maintainer gates rechecked</li><li>AI Pack generation is not exposed here</li></ul>
+        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('operations')">Open Operations Center <span aria-hidden="true">+</span></button>
+      </article>
+    </div>
+    <p class="osi-surface-boundary">Standalone Wire intake and native AI Pack generation do not yet have accepted production write paths, so this product surface does not present either action as available.</p>
+  </div>
+</section>
+
 <section class="osi-home osi-home-perspectives" id="safeguards" data-view="registry" aria-labelledby="osi-perspectives-title">
   <div class="osi-home-shell osi-perspectives-layout">
     <div>
@@ -162,7 +219,6 @@
         <div><dt>Verified SOL transfer</dt><dd>Shown paid only after the expected transfer is confirmed.</dd></div>
         <div><dt>System event</dt><dd>Server-generated and visibly distinct from wallet proof.</dd></div>
       </dl>
-      <div class="osi-planned-row"><span>Planned</span><p>SAS and durable record fields are reserved for future integrations. They are not presented as live or verified.</p></div>
     </aside>
   </div>
 </section>
@@ -170,8 +226,8 @@
 <section class="osi-home osi-home-workspaces" data-view="registry" aria-labelledby="osi-workspaces-title">
   <div class="osi-home-shell">
     <div class="osi-section-heading">
-      <div><p class="osi-kicker">Two intake paths</p><h2 id="osi-workspaces-title">Investigate a Case or publish a standalone finding.</h2></div>
-      <p>The Field Office is the primary investigation workflow. The Wire is the explicit exception for standalone public intelligence.</p>
+      <div><p class="osi-kicker">Two intelligence views</p><h2 id="osi-workspaces-title">Investigate a Case or inspect standalone findings.</h2></div>
+      <p>The Field Office is the primary live workflow. The Wire currently provides its public feed; native standalone intake is not enabled.</p>
     </div>
     <div class="osi-workspace-grid">
       <article>
@@ -184,9 +240,9 @@
       <article>
         <span class="osi-workspace-number">02</span>
         <h3>The Wire</h3>
-        <p>Publish a standalone finding without presenting it as a Case resolution or reward-bearing outcome.</p>
-        <ul><li>No Case required</li><li>No reward until a modeled promotion</li><li>Support never changes ranking or governance</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiNavigate('wire')">Open The Wire <span aria-hidden="true">+</span></button>
+        <p>Read approved standalone findings without presenting them as Case resolutions or reward-bearing outcomes.</p>
+        <ul><li>Public feed is available</li><li>Native filing is not enabled</li><li>No reward until a modeled promotion</li></ul>
+        <button class="osi-text-action" type="button" onclick="osiNavigate('wire')">Open The Wire feed <span aria-hidden="true">+</span></button>
       </article>
     </div>
   </div>
@@ -681,12 +737,12 @@
       <h1 class="wire-title">The Wire</h1>
       <p class="wire-sub">Community-filed intelligence signals before they become formal cases.</p>
       <div class="wire-ops" id="wire-stats"></div>
-      <div><button class="wire-cta" onclick="wireOpenForm()">+ File a dispatch</button></div>
+      <div><button class="wire-cta" type="button" disabled title="Native Wire intake does not yet have an accepted production write path">Wire intake unavailable</button></div>
     </div>
 
     <div class="wire-form" id="wire-form" hidden>
       <div class="wire-form-h">⊹ File an intelligence dispatch</div>
-      <p class="wire-form-sub">Publish your own finding, unsolicited. A wallet cluster, a custody link, a funding trail, whatever you traced. After a maintainer reviews it, it goes live on the wire where the community can back it and support you directly. Filing is signed with your wallet.</p>
+      <p class="wire-form-sub">This retired form is not a production action. Native standalone finding intake remains unavailable until its reviewed signed endpoint and state transition are enabled.</p>
       <input id="wire-subject-in" class="wire-in" placeholder="Subject  ·  the entity, fund, or wallet set this dispatch concerns">
       <textarea id="wire-body-in" class="wire-in wire-ta" placeholder="Your dispatch  ·  the wallets, the trace, your confidence per address, and any links (Solscan, exchange tickets, sources). Everything you found, in your own words."></textarea>
       <div class="file-drop" id="wire-file-drop">
@@ -699,7 +755,7 @@
         <span class="fo-form-note">Backing and supporting are the on-chain actions. Filing is free, signed to prove authorship.</span>
         <div style="display:flex;gap:8px">
           <button class="fo-cancel" onclick="wireCloseForm()">Cancel</button>
-          <button class="wire-pub-btn" onclick="osiSubmitGuard('intel', submitIntel)">Publish to the wire →</button>
+      <button class="wire-pub-btn" type="button" disabled title="Native Wire intake is not enabled">Wire intake unavailable</button>
         </div>
       </div>
     </div>
@@ -764,8 +820,11 @@
       <div class="moc-section-head"><div><span class="mono">NATIVE V2</span><h3 id="osi-ops-title">Analyst application queue</h3></div><button class="moc-action" type="button" onclick="osiAnalystLoadMaintainerQueue()">Refresh queue</button></div>
       <div id="osi-analyst-ops"><div class="moc-loading">Unlock both maintainer gates to load exact application versions.</div></div>
     </section>
-    <div id="admConsole" class="moc-shell" aria-live="polite">
-      <div class="moc-loading">Loading maintainer operations center...</div>
+    <section class="moc-shell osi-native-ops" aria-labelledby="osi-native-ops-title">
+      <div class="moc-section-head"><div><span class="mono">SERVER-DERIVED</span><h3 id="osi-native-ops-title">Case operations overview</h3></div><button class="moc-action" type="button" onclick="osiNativeOpsRefresh()">Refresh overview</button></div>
+      <div id="osi-native-ops-overview" aria-live="polite"><div class="moc-loading">Unlock both maintainer gates to load the native Case overview.</div></div>
+    </section>
+    <div id="admConsole" hidden>
     </div>
     <div id="admQueue" style="display:none"></div>
     <div id="esc-pack-controls" style="display:none"></div>
@@ -1205,62 +1264,25 @@
 </div>
 
 <script defer src="./assets/js/01-public-config.js"></script>
-<script defer src="./assets/js/02-data-stubs.js"></script>
 <script defer src="./assets/js/10-signed-events.js"></script>
-<script defer src="./assets/js/12-demo-briefing.js"></script>
 <script defer src="./assets/js/20-safety-consensus.js"></script>
-<script defer src="./assets/js/22-analyst-intake.js"></script>
 <script defer src="./assets/js/30-analysts-identity.js"></script>
 <script defer src="./assets/js/34-maintainer-config.js"></script>
 <script defer src="./assets/js/40-wire-field.js"></script>
 <script defer src="./assets/js/44-prooflog-deck.js"></script>
 <script defer src="./assets/js/50-core-supabase.js"></script>
+<script defer src="./assets/js/52-read-session.js"></script>
 <script defer src="./assets/js/54-maintainer-console.js"></script>
 <script defer src="./assets/js/60-wallet-workspace.js"></script>
 <script defer src="./assets/js/64-profile-xp.js"></script>
 <script defer src="./assets/js/70-support-transfer.js"></script>
 <script defer src="./assets/js/74-community-cases.js"></script>
-<script defer src="./assets/js/80-ai-pack.js"></script>
 <script defer src="./assets/js/84-public-records.js"></script>
 <script defer src="./assets/js/v2-case-integration.js"></script>
 <script defer src="./assets/js/v2-report-integration.js"></script>
 <script defer src="./assets/js/v2-analyst-integration.js"></script>
+<script defer src="./assets/js/88-functional-surface.js"></script>
 <script defer src="./assets/js/99-app.js"></script>
-<div class="adm-edit" id="adm-edit-modal">
-  <div class="adm-edit-box">
-    <button class="adm-edit-x" onclick="admCloseEdit()">×</button>
-    <div class="adm-edit-h">Edit case</div>
-    <input type="hidden" id="aeb-id">
-    <label class="aeb-lab">Target</label>
-    <input class="aeb-in" id="aeb-target" placeholder="Case subject  ·  wallet, scam, or incident">
-    <label class="aeb-lab">Brief</label>
-    <textarea class="aeb-in aeb-ta" id="aeb-detail" placeholder="What this case needs proven"></textarea>
-    <label class="aeb-lab">Reward (SOL, max 2)</label>
-    <input class="aeb-in" id="aeb-reward" type="number" step="0.1" min="0" max="2" placeholder="0">
-    <label class="aeb-lab">Logo / image</label>
-    <input class="aeb-in" id="aeb-image" placeholder="Image URL (or upload below)">
-    <div class="file-drop">
-      <input type="file" id="aeb-file" accept="image/*" style="display:none" onchange="onPickFile('aeb')">
-      <button type="button" class="file-btn" onclick="document.getElementById('aeb-file').click()">🖼 Upload a logo</button>
-      <span class="file-name mono" id="aeb-file-name"></span>
-      <div class="file-prev" id="aeb-file-prev"></div>
-    </div>
-    <button class="adm-edit-save" onclick="admSaveBounty()">Save changes</button>
-    <div class="aeb-msg mono" id="aeb-msg"></div>
-  </div>
-</div>
-<div id="osi-welcome" class="osi-welcome" hidden>
-  <div class="ow-card">
-    <button class="ow-x" onclick="welcomeClose()" aria-label="Close">&times;</button>
-    <div class="ow-eyebrow mono"><span class="ow-dot"></span> New here</div>
-    <h2 class="ow-title">A guided tour of OSI</h2>
-    <p class="ow-body">OSI is an open, community-run desk for on-chain Solana incidents: drained wallets, rugs, and scams, traced in public and turned into verifiable case records and escalation packs. This guided tour walks the whole platform for you. No wallet, no signup, the product shows itself.</p>
-    <div class="ow-actions">
-      <button class="ow-go" onclick="welcomeStart()"><span>&#9654;</span> Run the briefing <span class="ow-sec">no wallet</span></button>
-      <button class="ow-skip" onclick="welcomeClose()">Explore on my own</button>
-    </div>
-  </div>
-</div>
 <div id="osi-guard" class="osi-guard" hidden>
   <div class="og-card">
     <button class="og-x" onclick="osiGuardClose()" aria-label="Close">&times;</button>
@@ -1297,30 +1319,9 @@
     </div>
   </div>
 </div>
-<div id="demo-root" class="demo-root" hidden>
-  <div class="demo-block"></div>
-  <div class="demo-fx" id="demo-fx"></div>
-  <div class="demo-cursor" id="demo-cursor"><span class="dc-in"><svg viewBox="0 0 24 24" width="23" height="23"><path d="M5 2.5l13.5 7.8-5.7 1.4-1.2 5.6z" fill="#ffffff" stroke="#0a0e16" stroke-width="1.2" stroke-linejoin="round"/></svg></span></div>
-  <div class="demo-spot" id="demo-spot"></div>
-  <div class="demo-card" id="demo-card">
-    <div class="demo-arrow" id="demo-arrow"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M4 12h13M11 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-    <div class="demo-card-top">
-      <span class="demo-kicker">// intelligence briefing</span>
-      <span class="demo-step" id="demo-step">01 / 10</span>
-    </div>
-    <div class="demo-title" id="demo-title"></div>
-    <div class="demo-body" id="demo-body"></div>
-    <div class="demo-prog-track"><div class="demo-prog" id="demo-prog"></div></div>
-    <div class="demo-controls">
-      <button class="demo-nav" id="demo-back" onclick="demoPrev()">‹ Back</button>
-      <button class="demo-play" id="demo-play" onclick="demoTogglePlay()" title="Pause or play" aria-label="Pause or play">❙❙</button>
-      <button class="demo-exit" onclick="demoStop()">Exit</button>
-      <button class="demo-nav next" id="demo-next" onclick="demoNext()">Next ›</button>
-    </div>
-  </div>
-</div>
 <script defer src="./assets/js/90-stream-canvas.js"></script>
 <script defer src="./assets/js/92-reveal-anim.js"></script>
+<script defer src="./assets/js/93-navigation-intent.js"></script>
 <script defer src="./assets/js/94-navigation-shell.js"></script>
 </body>
 </html>
