@@ -5,12 +5,14 @@
   var READ_URL = SUPABASE_URL + '/functions/v1/osi-v2-case-read';
   var WRITE_URL = SUPABASE_URL + '/functions/v1/osi-v2-case-write';
   var GOVERNANCE_URL = SUPABASE_URL + '/functions/v1/osi-v2-governance-write';
+  var PAYMENT_URL = SUPABASE_URL + '/functions/v1/osi-v2-payment';
   var PAGE_SIZE = 12;
   var state = {
     cases: [], mode: 'public', actorRole: 'public', query: '', stage: 'open_public',
     sort: 'newest', page: 1, loadToken: 0, current: null, tab: 'overview',
     capabilities: null, caseIdempotency: '', reviewBusy: false, reviewTasks: {},
-    modalReturnFocus: null, drawerReturnFocus: null, governanceBusy: false
+    modalReturnFocus: null, drawerReturnFocus: null, governanceBusy: false,
+    paymentBusy: false, paymentPending: null, paymentWallet: ''
   };
 
   function esc(value){
@@ -112,6 +114,20 @@
       ,rate_limited_or_cooldown:'Challenge rate or cooldown limit is active. Wait before trying again.'
       ,governance_state_changed_retry:'The exact governance state changed. Review the latest tally and start again.'
       ,challenge_maintenance_unavailable:'Challenge deadline maintenance is temporarily unavailable, so writes remain fail-closed.'
+      ,payment_writes_disabled:'Native SOL reward and support writes are safely disabled while rollout checks are incomplete.'
+      ,payment_writes_disabled_or_unavailable:'Native SOL reward and support writes are safely disabled or temporarily unavailable.'
+      ,payment_not_authorized_or_not_ready:'This wallet, Case, winner, or support target is not eligible for this exact transfer.'
+      ,payment_binding_rejected:'The exact payment intent expired or changed. Prepare a fresh intent.'
+      ,payment_state_changed_retry:'Payment state changed concurrently. Reload and prepare again.'
+      ,transaction_already_used:'This Solana transaction was already used for another OSI payment receipt.'
+      ,awaiting_finality:'The transaction exists but is not finalized yet. Retry verification with the same signature.'
+      ,wrong_cluster:'The trusted RPC did not identify Solana mainnet. No payment was recorded.'
+      ,wrong_payer:'The finalized transaction payer does not match the prepared wallet.'
+      ,wrong_recipient:'The finalized transfer recipients do not match the server-derived manifest.'
+      ,wrong_amount:'The finalized transfer amount does not match the exact integer lamports.'
+      ,wrong_memo:'The finalized transaction Memo does not match the exact prepared payment intent.'
+      ,unexpected_instruction:'The transaction contains an instruction outside the exact transfers and Memo.'
+      ,transaction_failed:'The Solana transaction failed. No confirmed payment was recorded.'
     };
     return messages[code]||code.replace(/_/g,' ');
   }
@@ -214,9 +230,10 @@
     }else{
       host.innerHTML=visible.map(function(item){
         var proof=hasOpenProof(item)?'Memo anchored':((item.proof_log||[]).length?'Proof recorded':'Awaiting proof');
+        var rewardState=item.money&&item.money.reward&&item.money.reward.status;
         return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'">'
           +'<span class="osi-v2-id">'+esc(item.public_ref)+'</span>'
-          +'<span class="osi-v2-title"><b>'+esc(item.title)+'</b><span>'+esc(item.summary)+'</span></span>'
+          +'<span class="osi-v2-title"><b>'+esc(item.title)+'</b><span>'+esc(item.summary)+'</span>'+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
           +'<span class="osi-v2-stage '+stageClass(item)+'">'+esc(stageLabel(item.stage,item))+'</span>'
           +'<span class="osi-v2-category">'+esc(label(item.category))+'</span>'
           +'<span class="osi-v2-reviews">'+countActiveReviews(item)+'</span>'
@@ -282,9 +299,10 @@
     try{
       var results=await Promise.all([
         api(WRITE_URL,{op:'actor_capabilities',wallet:walletPubkey}),
-        api(GOVERNANCE_URL,{op:'actor_capabilities',wallet:walletPubkey})
+        api(GOVERNANCE_URL,{op:'actor_capabilities',wallet:walletPubkey}),
+        api(PAYMENT_URL,{op:'capabilities',wallet:walletPubkey})
       ]);
-      state.capabilities=Object.assign({},results[0],results[1]);
+      state.capabilities=Object.assign({},results[0],results[1],results[2]);
       if(typeof setMaintainerServerGate==='function') setMaintainerServerGate(state.capabilities.maintainer_access===true,state.capabilities.maintainer_gate||'denied');
       setAdminVisibility(state.capabilities.maintainer_access===true);
       return state.capabilities;
@@ -362,7 +380,7 @@
     finally{button.disabled=false;}
   }
 
-  var tabs=[['overview','Overview'],['evidence','Evidence'],['reports','Reports'],['resolution','Resolution'],['challenges','Challenges'],['proof','Proof Log']];
+  var tabs=[['overview','Overview'],['evidence','Evidence'],['reports','Reports'],['resolution','Resolution'],['challenges','Challenges'],['reward','Rewards & Support'],['proof','Proof Log']];
   async function openCase(publicRef){
     var item=state.cases.find(function(entry){return entry.public_ref===publicRef;});
     try{
@@ -385,6 +403,7 @@
     var host=document.getElementById('osi-case-tabs');
     host.setAttribute('role','tablist');
     host.innerHTML=tabs.map(function(tab){var active=tab[0]===state.tab;return'<button class="osi-case-tab '+(active?'active':'')+'" type="button" role="tab" aria-selected="'+active+'" tabindex="'+(active?'0':'-1')+'" data-tab="'+tab[0]+'">'+esc(tab[1])+'</button>';}).join('');
+    var selected=host.querySelector('[aria-selected="true"]');if(selected&&typeof selected.scrollIntoView==='function')selected.scrollIntoView({block:'nearest',inline:'nearest'});
     Array.prototype.forEach.call(host.querySelectorAll('[data-tab]'),function(button){
       button.addEventListener('click',function(){state.tab=button.dataset.tab;drawTabs();renderTab();});
       button.addEventListener('keydown',function(event){
@@ -488,15 +507,36 @@
   }
   function proof(item){
     var rows=item.proof_log||[];if(!rows.length)return emptySection('Proof Log','No verified receipt has been recorded for this Case.');
-    return '<section class="osi-case-section"><h3>Proof Log</h3><div class="osi-list">'+rows.map(function(row){var good=row.label!=='Legacy / not server-verified';var link=row.solscan_url&&/^https:\/\/solscan\.io\/tx\/[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(row.solscan_url)?'<a class="osi-proof-link" href="'+esc(row.solscan_url)+'" target="_blank" rel="noopener">Verify on Solscan ↗</a>':'';var ref=row.public_ref?' · '+esc(row.public_ref):'';return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(label(row.event_type))+ref+'</b><span class="osi-proof-label '+(good?'':'legacy')+'">'+esc(row.label)+'</span></div><p>Actor '+esc(short(row.actor_wallet))+' · '+esc(label(row.actor_role))+' · '+esc(row.decision||'recorded')+' · '+esc(dateText(row.occurred_at))+'</p>'+link+'</div>';}).join('')+'</div><div class="osi-case-note">A wallet-signed receipt is server-verified but is not on-chain. Only rows with a confirmed transaction link are labeled Memo-anchored on Solana.</div></section>';
+    return '<section class="osi-case-section"><h3>Proof Log</h3><div class="osi-list">'+rows.map(function(row){var good=row.label!=='Legacy / not server-verified';var link=row.solscan_url&&/^https:\/\/solscan\.io\/tx\/[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(row.solscan_url)?'<a class="osi-proof-link" href="'+esc(row.solscan_url)+'" target="_blank" rel="noopener">Verify on Solscan</a>':'';var ref=row.public_ref?' / '+esc(row.public_ref):'';var payment=row.payment_proof;var paymentDetail=payment?'<dl class="osi-payment-proof"><div><dt>Payer</dt><dd>'+esc(short(payment.payer_wallet))+'</dd></div><div><dt>Exact amount</dt><dd>'+esc(solFromLamports(payment.total_lamports))+' SOL / '+esc(payment.total_lamports)+' lamports</dd></div><div><dt>Target</dt><dd>'+esc(payment.target_public_ref)+'</dd></div><div><dt>Finality</dt><dd>'+esc(payment.finality)+' / slot '+esc(payment.slot)+'</dd></div><div><dt>Block time</dt><dd>'+esc(dateText(payment.block_time))+'</dd></div><div><dt>Server verification</dt><dd>'+(payment.memo_verified&&payment.transfers_verified?'Memo and transfers verified':'Unavailable')+'</dd></div></dl><div class="osi-evidence-ref">Memo: '+esc(row.memo||'Canonical Memo verified')+'</div><ul class="osi-payment-proof-recipients">'+(payment.recipient_manifest||[]).map(function(recipient){return'<li>'+esc(short(recipient.wallet))+' / '+esc(solFromLamports(recipient.amount_lamports))+' SOL / '+esc(label(recipient.recipient_type))+'</li>';}).join('')+'</ul>':'';return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(label(row.event_type))+ref+'</b><span class="osi-proof-label '+(good?'':'legacy')+'">'+esc(row.label)+'</span></div><p>Actor '+esc(short(row.actor_wallet))+' / '+esc(label(row.actor_role))+' / '+esc(row.decision||'recorded')+' / '+esc(dateText(row.occurred_at))+'</p>'+paymentDetail+link+'</div>';}).join('')+'</div><div class="osi-case-note">A wallet-signed receipt is server-verified but is not on-chain. A payment receipt is labeled SOL transfer verified on Solana only after the exact System Program transfers and canonical Memo are finalized and server-verified.</div></section>';
   }
+  function solFromLamports(value){
+    var text=String(value==null?'0':value);if(!/^\d+$/.test(text))return'0';
+    text=text.replace(/^0+(?=\d)/,'');var padded=text.padStart(10,'0');
+    var whole=padded.slice(0,-9),fraction=padded.slice(-9).replace(/0+$/,'');
+    return whole+(fraction?'.'+fraction:'');
+  }
+  function validSolInput(value){var text=String(value||'').trim();if(!/^(?:0|[1-9]\d{0,2})(?:\.\d{1,9})?$/.test(text)||/^0(?:\.0+)?$/.test(text))return false;var parts=text.split('.'),whole=Number(parts[0]);return whole<100||(whole===100&&(!parts[1]||/^0+$/.test(parts[1])));}
+  function paymentProofLink(row){return row&&row.solscan_url?'<a class="osi-proof-link" href="'+esc(row.solscan_url)+'" target="_blank" rel="noopener">Verify on Solscan</a>':'';}
   function reward(item){
-    var intent=item.reward_intent_lamports?Number(item.reward_intent_lamports)/1000000000:null;
-    return '<section class="osi-case-section"><h3>Reward & Support</h3><div class="osi-case-meta"><div><span>Non-binding owner intent</span><b>'+(intent?esc(intent+' SOL'):'None recorded')+'</b></div><div><span>Confirmed payment</span><b>None</b></div></div><div class="osi-case-note">Reward intent is not a pledge or payment. OSI never takes custody. A paid state requires a resolved winner and RPC-confirmed direct wallet-to-wallet transfer. Voluntary support is separate and cannot affect ranking or governance.</div></section>';
+    var money=item.money||{},pledge=money.reward,caps=state.capabilities||{};
+    var owner=String(item.submitted_by_wallet||'')===String(walletPubkey||'');
+    var canPledge=owner&&caps.payment_writes_enabled===true&&(!pledge||pledge.state==='pledged')&&['draft','submitted','initial_review','open_public','in_review','ready_for_finalization','resolution_proposed','in_challenge_window','resolved','reopened'].indexOf(item.stage)>=0;
+    var pledgeAction=pledge?'revise':'create';
+    var pledgeControls=canPledge?'<div class="osi-payment-compose"><h4>'+(pledge?'Revise reward pledge':'Create reward pledge')+'</h4><label>Exact SOL amount<input id="osi-pledge-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="1.25" value="'+esc(pledge?solFromLamports(pledge.amount_lamports):'')+'"></label><div class="osi-payment-actions"><button class="osi-action primary" type="button" onclick="osiV2Pledge(\''+pledgeAction+'\')">Sign '+pledgeAction+'</button>'+(pledge&&item.visibility==='private'?'<button class="osi-action" type="button" onclick="osiV2Pledge(\'withdraw\')">Withdraw pledge</button>':'')+'</div><div id="osi-payment-status" class="osi-form-status mono" role="status"></div></div>':'';
+    var payReady=owner&&caps.payment_writes_enabled===true&&pledge&&['payment_ready','partially_fulfilled','verification_failed'].indexOf(pledge.status)>=0&&String(pledge.outstanding_lamports)!=='0';
+    var unpaidPledge=owner&&pledge&&String(pledge.outstanding_lamports)!=='0';
+    var payReason=item.stage==='in_challenge_window'?'Challenge window must end and the Case must be sealed before the winner can be paid.':caps.payment_writes_enabled!==true?'Native SOL payments remain disabled until rollout checks pass.':'The exact winning Report version and sealed recipient are not final yet.';
+    var payControl=payReady?'<div class="osi-payment-compose"><h4>Pay sealed winner</h4><p>Server-derived recipient <span class="mono">'+esc(short(pledge.winning_report_author_wallet))+'</span> for exact winning version <span class="mono">'+esc(pledge.winning_report_version_ref)+'</span>.</p><label>Partial or full SOL amount<input id="osi-reward-pay-amount" type="text" inputmode="decimal" autocomplete="off" value="'+esc(solFromLamports(pledge.outstanding_lamports))+'"></label><button class="osi-action primary" type="button" onclick="osiV2PayReward()">Review direct transfer</button></div>':unpaidPledge?'<div class="osi-payment-compose"><h4>Pay sealed winner</h4><p>'+esc(payReason)+'</p><button class="osi-action" type="button" disabled title="'+esc(payReason)+'">Payment unavailable</button></div>':'';
+    var supportOptions=(money.support_options||[]).filter(function(option){return option.wallet!==String(walletPubkey||'');});var supportGroups={};supportOptions.forEach(function(option){(supportGroups[option.target_ref]||(supportGroups[option.target_ref]=[])).push(option);});
+    var support=Object.keys(supportGroups).length&&caps.payment_writes_enabled===true?'<div class="osi-payment-compose"><h4>Support contributors</h4><p>Select up to four recipients for one atomic System Program transaction. Each amount is exact native SOL.</p>'+Object.keys(supportGroups).map(function(versionRef,groupIndex){return'<fieldset class="osi-support-group"><legend>'+esc(versionRef)+'</legend>'+supportGroups[versionRef].map(function(option,index){var key=groupIndex+'-'+index;return'<label class="osi-support-recipient"><input type="checkbox" data-support-check="'+key+'" data-target-type="'+esc(option.target_type)+'" data-target-ref="'+esc(option.target_ref)+'" data-wallet="'+esc(option.wallet)+'"><span>'+esc(option.label)+' / '+esc(short(option.wallet))+'</span><input type="text" inputmode="decimal" autocomplete="off" data-support-amount="'+key+'" placeholder="0.1 SOL" aria-label="SOL amount for '+esc(option.label)+'"></label>';}).join('')+'<button class="osi-action primary" type="button" onclick="osiV2SupportContributors(\''+esc(versionRef)+'\')">Review atomic support</button></fieldset>';}).join('')+'</div>':'';
+    var summary=pledge?'<div class="osi-case-meta"><div><span>Pledge</span><b>'+esc(solFromLamports(pledge.amount_lamports))+' SOL</b></div><div><span>Server-derived status</span><b>'+esc(label(pledge.status))+'</b></div><div><span>Confirmed</span><b>'+esc(solFromLamports(pledge.confirmed_lamports))+' SOL</b></div><div><span>Outstanding</span><b>'+esc(solFromLamports(pledge.outstanding_lamports))+' SOL</b></div></div>':'<div class="osi-state-message"><b>No reward pledge</b><span>A Case intake reward intent is not a pledge and cannot be paid.</span></div>';
+    var rows=(pledge&&pledge.payments||[]).concat(money.confirmed_support||[]);var history=rows.length?'<div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(row.support_type?'Voluntary support':'Reward payment')+' / '+esc(solFromLamports(row.amount_lamports))+' SOL</b><span class="osi-proof-label">'+esc(label(row.state))+'</span></div><p>'+esc(dateText(row.confirmed_at))+'</p>'+paymentProofLink(row)+'</div>';}).join('')+'</div>':'';
+    var retry=state.paymentPending&&state.paymentPending.caseRef===item.public_ref?'<div class="osi-state-message warning"><b>Awaiting finality</b><span>The signed transaction is not marked paid. Retry trusted server verification with the same signature.</span><button class="osi-action" type="button" onclick="osiV2RetryPayment()">Retry verification</button></div>':'';
+    return '<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Native SOL / mainnet</span><h3>Rewards & Support</h3></div><span class="osi-chip">Pledged, not escrowed</span></div>'+summary+retry+pledgeControls+payControl+support+history+'<div class="osi-case-note">A pledge records intent only and never moves SOL. All transfers are voluntary, direct wallet-to-wallet native SOL. OSI never holds funds, provides escrow, or takes commission. A payment or support receipt does not affect ranking, review weight, governance, truth, guilt, legal certainty, or recovery.</div></section>';
   }
   function renderTab(){
     var item=state.current;if(!item)return;
-    var html=state.tab==='overview'?overview(item):state.tab==='evidence'?evidence(item):state.tab==='reports'?reports(item):state.tab==='resolution'?resolution(item):state.tab==='challenges'?challenges(item):proof(item);
+    var html=state.tab==='overview'?overview(item):state.tab==='evidence'?evidence(item):state.tab==='reports'?reports(item):state.tab==='resolution'?resolution(item):state.tab==='challenges'?challenges(item):state.tab==='reward'?reward(item):proof(item);
     var content=document.getElementById('osi-case-content');content.setAttribute('role','tabpanel');content.innerHTML=html;
   }
   function activeOpeningRoute(item){
@@ -624,6 +664,100 @@
   function governanceWithdrawChallenge(ref){governanceMutation('challenge_withdraw',ref,{});}
   function governanceFinalizeChallenge(ref){governanceMutation('challenge_finalize',ref,{});}
 
+  function clearPaymentState(){
+    state.paymentPending=null;state.paymentBusy=false;state.paymentWallet='';
+    var modal=document.getElementById('osi-payment-review');if(modal)modal.remove();
+  }
+  function paymentStatus(text,kind){var node=document.getElementById('osi-payment-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
+  function paymentReview(prepared){
+    return new Promise(function(resolve){
+      var old=document.getElementById('osi-payment-review');if(old)old.remove();
+      var modal=document.createElement('div');modal.id='osi-payment-review';modal.className='osi-payment-review';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-labelledby','osi-payment-review-title');
+      var recipients=(prepared.recipient_manifest||[]).map(function(row){return'<li><span>'+esc(label(row.recipient_type))+' / '+esc(short(row.wallet))+'</span><b>'+esc(row.amount_sol)+' SOL</b></li>';}).join('');
+      modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">Before Phantom opens</span><h3 id="osi-payment-review-title">Review exact mainnet transfer</h3><dl><div><dt>Network</dt><dd>Solana mainnet-beta</dd></div><div><dt>Type</dt><dd>'+esc(label(prepared.payment_kind))+'</dd></div><div><dt>Total</dt><dd>'+esc(prepared.total_sol)+' SOL</dd></div><div><dt>Reference</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div></dl><ul>'+recipients+'</ul><div class="osi-case-note">This transaction is irreversible. Phantom sends native SOL directly from your wallet to the exact server-derived recipients. OSI receives no funds, has no custody or escrow, and takes no commission.</div><div class="osi-payment-actions"><button type="button" class="osi-action" data-payment-cancel>Cancel</button><button type="button" class="osi-action primary" data-payment-confirm>Open Phantom</button></div></div>';
+      document.body.appendChild(modal);var prior=document.activeElement;
+      function finish(value){modal.remove();if(prior&&document.contains(prior)&&prior.focus)prior.focus();resolve(value);}
+      modal.querySelector('[data-payment-cancel]').addEventListener('click',function(){finish(false);});
+      modal.querySelector('[data-payment-confirm]').addEventListener('click',function(){finish(true);});
+      modal.addEventListener('click',function(event){if(event.target===modal)finish(false);});
+      modal.querySelector('[data-payment-confirm]').focus();
+    });
+  }
+  async function sendPreparedPayment(prepared){
+    var provider=typeof getProvider==='function'?getProvider():null;
+    if(!provider||!walletPubkey||!provider.publicKey||provider.isConnected===false)throw new Error('Connect Phantom to continue.');
+    var web3=window.solanaWeb3;if(!web3)throw new Error('Solana transaction library is unavailable.');
+    var from=new web3.PublicKey(walletPubkey);var tx=new web3.Transaction();
+    (prepared.recipient_manifest||[]).forEach(function(row){
+      if(!/^\d+$/.test(String(row.amount_lamports||'')))throw new Error('wrong_amount');
+      var amount=Number(row.amount_lamports);if(!Number.isSafeInteger(amount)||amount<=0)throw new Error('wrong_amount');
+      tx.add(web3.SystemProgram.transfer({fromPubkey:from,toPubkey:new web3.PublicKey(row.wallet),lamports:amount}));
+    });
+    tx.add(new web3.TransactionInstruction({keys:[{pubkey:from,isSigner:true,isWritable:false}],programId:new web3.PublicKey(MEMO_PROGRAM_ID),data:new TextEncoder().encode(prepared.memo)}));
+    tx.feePayer=from;var blockhash=await fetchRecentBlockhash();if(!blockhash)throw new Error('rpc_unavailable');tx.recentBlockhash=blockhash;
+    var bytes=tx.serialize({requireAllSignatures:false,verifySignatures:false});if(bytes.length>1232)throw new Error('Transaction exceeds Solana packet size.');
+    var result=await provider.signAndSendTransaction(tx);if(!result||!result.signature)throw new Error('Transaction submission was cancelled.');return result.signature;
+  }
+  async function reloadPaymentCase(caseRef){
+    if(state.mode==='public'){await loadPublicCases();await openCase(caseRef);return;}
+    await openSignedCollection(state.mode);await openCase(caseRef);
+  }
+  function showPaymentReceipt(receipt){
+    var old=document.getElementById('osi-payment-receipt');if(old)old.remove();var modal=document.createElement('div');modal.id='osi-payment-receipt';modal.className='osi-payment-review';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');
+    modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">SOL transfer verified on Solana</span><h3>Finalized payment receipt</h3><dl><div><dt>Transaction</dt><dd class="mono">'+esc(short(receipt.tx_sig))+'</dd></div><div><dt>Finality</dt><dd>'+esc(receipt.finality)+'</dd></div><div><dt>Total</dt><dd>'+esc(receipt.total_sol)+' SOL / '+esc(receipt.total_lamports)+' lamports</dd></div><div><dt>Slot</dt><dd>'+esc(receipt.slot)+'</dd></div><div><dt>Block time</dt><dd>'+esc(dateText(receipt.block_time))+'</dd></div><div><dt>Server verification</dt><dd>Signer, transfers, Memo and mainnet verified</dd></div></dl><div class="osi-payment-actions"><a class="osi-action" href="'+esc(receipt.solscan_url)+'" target="_blank" rel="noopener">Open Solscan</a><button class="osi-action primary" type="button" data-receipt-close>Done</button></div><div class="osi-case-note">This receipt records a direct wallet-to-wallet transfer. It is not an endorsement, truth vote, guilt decision, legal finding, custody service, or governance weight.</div></div>';
+    document.body.appendChild(modal);modal.querySelector('[data-receipt-close]').addEventListener('click',function(){modal.remove();});modal.querySelector('[data-receipt-close]').focus();
+  }
+  async function verifyPreparedPayment(pending){
+    var result=await api(PAYMENT_URL,{op:'commit_payment',wallet:pending.wallet,nonce:pending.prepared.nonce,tx_sig:pending.txSig});
+    if(result.state==='awaiting_finality'){
+      state.paymentPending=pending;paymentStatus('Transaction submitted. Awaiting finalized trusted RPC verification; not marked paid.','warning');
+      if(state.current){state.tab='reward';renderTab();}return result;
+    }
+    state.paymentPending=null;showToast('Finalized direct SOL transfer verified. Receipt '+result.receipt.id+' is available in the Proof Log.');showPaymentReceipt(result.receipt);
+    if(pending.caseRef)await reloadPaymentCase(pending.caseRef);return result;
+  }
+  async function prepareAndSendPayment(kind,targetRef,recipients,amountSol){
+    if(state.paymentBusy)return;state.paymentBusy=true;
+    try{
+      var wallet=await ensureWallet();var caps=state.capabilities||await refreshCapabilities()||{};
+      if(caps.payment_writes_enabled!==true)throw new Error('payment_writes_disabled');
+      var body={op:'prepare_payment',payment_kind:kind,wallet:wallet,target_ref:targetRef,idempotency_key:randomKey('payment')};
+      if(kind==='reward')body.amount_sol=amountSol;else body.recipients=recipients;
+      paymentStatus('Deriving exact recipients and canonical Memo on the server...');
+      var prepared=await api(PAYMENT_URL,body);if(!await paymentReview(prepared)){paymentStatus('Transfer cancelled before Phantom opened.');return;}
+      var txSig=await sendPreparedPayment(prepared);var pending={wallet:wallet,caseRef:state.current&&state.current.public_ref||'',prepared:prepared,txSig:txSig};
+      state.paymentPending=pending;paymentStatus('Transaction submitted. Verifying mainnet finality, signer, transfers, Memo, freshness, and replay binding...');
+      await verifyPreparedPayment(pending);
+    }catch(error){paymentStatus(userError(error),'error');showToast(userError(error));}
+    finally{state.paymentBusy=false;}
+  }
+  async function pledge(action){
+    if(state.paymentBusy||!state.current)return;var amountNode=document.getElementById('osi-pledge-amount');var amount=amountNode?String(amountNode.value||'').trim():'1';
+    if(action!=='withdraw'&&!validSolInput(amount)){paymentStatus('Enter a positive SOL amount with at most 9 decimals.','error');return;}
+    state.paymentBusy=true;
+    try{
+      var wallet=await ensureWallet();paymentStatus('Preparing an exact single-use pledge message...');
+      var prepared=await api(PAYMENT_URL,{op:'prepare_pledge',action:action,wallet:wallet,case_ref:state.current.public_ref,amount_sol:amount,idempotency_key:randomKey('pledge')});
+      paymentStatus('Sign the pledge message. This is not a transfer and is not on-chain.');var signature=await signMessage(prepared.proof_text);
+      await api(PAYMENT_URL,{op:'commit_pledge',action:action,wallet:wallet,nonce:prepared.nonce,proof_text:prepared.proof_text,signature:signature});
+      paymentStatus('Reward pledge '+(action==='withdraw'?'withdrawn':action+'d')+' with wallet-signed server proof.','success');showToast('Reward pledge updated. No SOL moved.');
+      await reloadPaymentCase(state.current.public_ref);
+    }catch(error){paymentStatus(userError(error),'error');}finally{state.paymentBusy=false;}
+  }
+  function payReward(){var value=fieldValue('osi-reward-pay-amount');if(!validSolInput(value)){paymentStatus('Enter a positive SOL amount with at most 9 decimals.','error');return;}prepareAndSendPayment('reward',state.current.public_ref,null,value);}
+  function supportContributors(versionRef){
+    var checks=Array.prototype.filter.call(document.querySelectorAll('[data-support-check]'),function(node){return node.checked&&node.dataset.targetRef===versionRef;});
+    if(!checks.length||checks.length>4){paymentStatus('Select between one and four contributors for this exact Report version.','error');return;}
+    var recipients=[];for(var index=0;index<checks.length;index++){var node=checks[index],amountNode=document.querySelector('[data-support-amount="'+node.dataset.supportCheck+'"]'),value=String(amountNode&&amountNode.value||'').trim();if(!validSolInput(value)){paymentStatus('Every selected recipient needs a positive SOL amount with at most 9 decimals.','error');return;}var recipient={target_type:node.dataset.targetType,target_ref:node.dataset.targetRef,amount_sol:value};if(recipient.target_type==='counted_reviewer')recipient.reviewer_wallet=node.dataset.wallet;recipients.push(recipient);}
+    prepareAndSendPayment('support',versionRef,recipients);
+  }
+  function supportExternal(targetType,targetRef,reviewerWallet){
+    var amount=window.prompt('Exact native SOL amount (maximum 9 decimals). This voluntary direct transfer has no governance effect.','0.1');if(amount===null)return;amount=String(amount).trim();if(!validSolInput(amount)){showToast('Enter a positive SOL amount with at most 9 decimals.');return;}
+    var recipient={target_type:targetType,target_ref:targetRef,amount_sol:amount};if(targetType==='counted_reviewer')recipient.reviewer_wallet=reviewerWallet;
+    prepareAndSendPayment('support',targetRef,[recipient]);
+  }
+  function retryPayment(){if(state.paymentPending)verifyPreparedPayment(state.paymentPending).catch(function(error){paymentStatus(userError(error),'error');});}
+
   var legacyAdminUpdate=window.updateAdminButton;
   window.updateAdminButton=function(){
     if(location.pathname.toLowerCase().endsWith('/legacy.html')){if(typeof legacyAdminUpdate==='function')legacyAdminUpdate();return;}
@@ -656,6 +790,14 @@
   window.osiV2ShowTab=function(tab){state.tab=tab;drawTabs();renderTab();};
   window.osiV2ComposeReview=composeReview;
   window.osiV2AnchorOpen=anchorOpen;
+  window.osiV2Pledge=pledge;
+  window.osiV2PayReward=payReward;
+  window.osiV2SupportContributors=supportContributors;
+  window.osiV2SupportReportAuthor=function(versionRef){supportExternal('report_author',versionRef);};
+  window.osiV2SupportAnalyst=function(wallet){supportExternal('analyst',wallet);};
+  window.osiV2SupportCountedReviewer=function(versionRef,wallet){supportExternal('counted_reviewer',versionRef,wallet);};
+  window.osiV2RetryPayment=retryPayment;
+  window.osiV2ClearPaymentState=clearPaymentState;
 
   function trapFocus(event,root){
     if(event.key!=='Tab'||!root)return;
@@ -676,4 +818,8 @@
     else if(drawer&&!drawer.hidden)trapFocus(event,drawer);
   });
   setAdminVisibility(false);
+  window.addEventListener('load',function(){
+    var provider=typeof getProvider==='function'?getProvider():null;if(!provider||!provider.on)return;
+    provider.on('disconnect',clearPaymentState);provider.on('accountChanged',function(){clearPaymentState();state.capabilities=null;});
+  });
 })();

@@ -204,7 +204,113 @@ function publicReceiptDto(receipt) {
     dto.tx_sig = txSig;
     dto.solscan_url = "https://solscan.io/tx/" + txSig;
   }
+  if (new Set(["REWARD_PAYMENT_CONFIRMED", "SUPPORT_PAYMENT_CONFIRMED"])
+    .has(String(receipt.event_type ?? ""))) {
+    const metadata = receipt.verification_metadata && typeof receipt.verification_metadata === "object"
+      ? receipt.verification_metadata : {};
+    dto.payment_proof = {
+      cluster: metadata.cluster === "mainnet-beta" ? "mainnet-beta" : null,
+      finality: metadata.finality === "finalized" ? "finalized" : null,
+      slot: metadata.slot == null ? null : String(metadata.slot),
+      block_time: isoOrNull(metadata.block_time),
+      payer_wallet: String(metadata.payer_wallet ?? ""),
+      recipient_manifest: Array.isArray(metadata.recipient_manifest)
+        ? metadata.recipient_manifest.map((entry) => ({
+          wallet: String(entry?.wallet ?? ""),
+          amount_lamports: String(entry?.amount_lamports ?? ""),
+          recipient_type: String(entry?.recipient_type ?? ""),
+          target_ref: String(entry?.target_ref ?? ""),
+        })) : [],
+      total_lamports: String(metadata.total_lamports ?? ""),
+      target_public_ref: String(metadata.target_public_ref ?? ""),
+      memo_verified: metadata.memo_verified === true,
+      transfers_verified: metadata.system_program_transfers_verified === true,
+    };
+    dto.memo = receipt.memo_ref == null ? null : String(receipt.memo_ref);
+    if (dto.payment_proof.cluster === "mainnet-beta"
+        && dto.payment_proof.finality === "finalized"
+        && dto.payment_proof.memo_verified
+        && dto.payment_proof.transfers_verified
+        && txSig) {
+      dto.label = "SOL transfer verified on Solana";
+    }
+  }
   return dto;
+}
+
+function moneyDto(money = {}, includePending = false) {
+  const pledge = money.pledge ?? null;
+  const payments = (money.payments ?? []).filter((row) => (
+    row.state === "confirmed" || includePending
+  ));
+  const supports = (money.supports ?? []).filter((row) => (
+    row.state === "confirmed" || includePending
+  ));
+  const confirmed = (money.payments ?? []).filter((row) => row.state === "confirmed")
+    .reduce((sum, row) => sum + BigInt(String(row.amount_lamports ?? 0)), 0n);
+  const latestPayment = (money.payments ?? []).slice().sort((left, right) => (
+    new Date(left.created_at ?? 0).getTime() - new Date(right.created_at ?? 0).getTime()
+  )).at(-1) ?? null;
+  const amount = pledge ? BigInt(String(pledge.amount_lamports ?? 0)) : 0n;
+  const outstanding = amount > confirmed ? amount - confirmed : 0n;
+  let status = "none";
+  if (pledge) {
+    if (pledge.state === "cancelled") status = "withdrawn";
+    else if (outstanding === 0n && amount > 0n && pledge.state === "paid") status = "fulfilled";
+    else if ((money.payments ?? []).some((row) => row.state === "submitted")) status = "awaiting_finality";
+    else if (latestPayment?.state === "failed") status = "verification_failed";
+    else if (confirmed > 0n && outstanding > 0n) status = "partially_fulfilled";
+    else if (pledge.state === "assigned" && confirmed === 0n) status = "payment_ready";
+    else status = "pledged";
+  }
+  return {
+    reward: pledge ? {
+      amount_lamports: amount.toString(),
+      state: String(pledge.state ?? ""),
+      revision_no: Number(pledge.revision_no ?? 1),
+      sealed_amount_lamports: pledge.sealed_amount_lamports == null
+        ? null : String(pledge.sealed_amount_lamports),
+      confirmed_lamports: confirmed.toString(),
+      outstanding_lamports: outstanding.toString(),
+      status,
+      winning_report_version_ref: money.winning_report_version_ref == null
+        ? null : String(money.winning_report_version_ref),
+      winning_report_author_wallet: money.winning_report_author_wallet == null
+        ? null : String(money.winning_report_author_wallet),
+      updated_at: isoOrNull(pledge.updated_at),
+      payments: payments.map((row) => ({
+        amount_lamports: String(row.amount_lamports ?? ""),
+        to_wallet: String(row.to_wallet ?? ""),
+        state: String(row.state ?? ""),
+        tx_sig: row.tx_sig == null ? null : String(row.tx_sig),
+        solscan_url: row.tx_sig == null ? null : "https://solscan.io/tx/" + String(row.tx_sig),
+        finality: row.finality == null ? null : String(row.finality),
+        confirmed_at: isoOrNull(row.confirmed_at),
+      })),
+    } : null,
+    support_options: (money.support_options ?? []).map((row) => ({
+      target_type: String(row.target_type ?? ""),
+      target_ref: String(row.target_ref ?? ""),
+      wallet: String(row.wallet ?? ""),
+      label: String(row.label ?? ""),
+    })),
+    confirmed_support: supports.map((row) => ({
+      support_type: String(row.support_type ?? ""),
+      amount_lamports: String(row.amount_lamports ?? ""),
+      from_wallet: String(row.from_wallet ?? ""),
+      recipient_manifest: Array.isArray(row.recipient_manifest) ? row.recipient_manifest.map((entry) => ({
+        wallet: String(entry?.wallet ?? ""),
+        amount_lamports: String(entry?.amount_lamports ?? ""),
+        recipient_type: String(entry?.recipient_type ?? ""),
+        target_ref: String(entry?.target_ref ?? ""),
+      })) : [],
+      state: String(row.state ?? ""),
+      tx_sig: row.tx_sig == null ? null : String(row.tx_sig),
+      solscan_url: row.tx_sig == null ? null : "https://solscan.io/tx/" + String(row.tx_sig),
+      confirmed_at: isoOrNull(row.confirmed_at),
+    })),
+    notice: "Rewards and support are voluntary direct wallet-to-wallet SOL transfers. OSI never takes custody, escrow, or commission, and payment does not affect ranking, review weight, governance, truth, or guilt.",
+  };
 }
 
 function publicEvidenceDto(evidence) {
@@ -315,6 +421,7 @@ export function publicCaseDto(
   evidence = [],
   reviews = [],
   governance = {},
+  money = {},
 ) {
   const publishedVersionIds = new Set(
     reports.map((report) => report.current_published_version_id)
@@ -353,6 +460,7 @@ export function publicCaseDto(
       published: true,
     })),
     governance: governanceDto(governance, false),
+    money: moneyDto(money, false),
     proof_log: receipts.filter((receipt) => (
       receipt.target_type !== "report_version"
       || publishedVersionIds.has(String(receipt.target_id))
@@ -408,6 +516,7 @@ export function authorizedCaseDto(
   evidence = [],
   reviews = [],
   governance = {},
+  money = {},
 ) {
   const includeRestrictedReviewFields = actor.kind === "analyst" || actor.kind === "maintainer";
   const visibleReports = reports.filter((report) => (
@@ -464,6 +573,7 @@ export function authorizedCaseDto(
         .map((version) => authorizedVersionDto(version, actor)),
     })),
     governance: governanceDto(governance, includeRestrictedReviewFields),
+    money: moneyDto(money, true),
     proof_log: receipts.filter((receipt) => (
       receipt.target_type !== "report_version"
       || visibleReportVersionIds.has(String(receipt.target_id))
@@ -536,7 +646,6 @@ export const PUBLIC_FORBIDDEN_KEYS = Object.freeze([
   "evidence_snapshot_hash",
   "payload_hash",
   "memo_ref",
-  "memo",
   "nonce",
   "signature",
   "reason_code",

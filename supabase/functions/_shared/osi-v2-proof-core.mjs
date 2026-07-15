@@ -40,6 +40,9 @@ export const CLASS_B_PURPOSES = new Set([
   "ANALYST_APPLICATION_REVIEW_CAST",
   "ANALYST_APPLICATION_REVIEW_REVISED",
   "OWNER_STATUS_PROOF",
+  "REWARD_PLEDGE_CREATED",
+  "REWARD_PLEDGE_REVISED",
+  "REWARD_PLEDGE_WITHDRAWN",
 ]);
 
 function requireText(value, name, pattern, maxLength) {

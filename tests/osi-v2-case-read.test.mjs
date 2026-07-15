@@ -254,6 +254,107 @@ ok("public maintainer proof leaks no restricted receipt fields",
   core.collectForbiddenKeys(maintainerPub).size === 0
     && !JSON.stringify(maintainerPub).includes("SECRET"));
 
+const paymentReceipt = {
+  event_type: "REWARD_PAYMENT_CONFIRMED",
+  target_type: "reward",
+  target_id: "44444444-4444-4444-8444-444444444444",
+  public_ref: caseRow.public_ref,
+  actor_wallet: OWNER,
+  actor_role: "owner",
+  decision: "paid",
+  proof_type: "solana_memo",
+  memo_ref: "OSI2|1|REWARD_PAYMENT_CONFIRMED|t=reward|id=OSI-ABCDEF|a=" + OWNER,
+  tx_sig: "F".repeat(88),
+  server_verified: true,
+  occurred_at: "2026-01-06T00:00:00Z",
+  verification_metadata: {
+    cluster: "mainnet-beta", finality: "finalized", slot: "500001",
+    block_time: "2026-01-06T00:00:00Z", payer_wallet: OWNER,
+    recipient_manifest: [{
+      wallet: STRANGER, amount_lamports: "400000000",
+      recipient_type: "report_author", target_ref: "OSI-RV-PAYMENT0001",
+    }],
+    total_lamports: "400000000", target_public_ref: caseRow.public_ref,
+    memo_verified: true, system_program_transfers_verified: true,
+  },
+};
+const money = {
+  pledge: {
+    amount_lamports: "1000000000", state: "assigned", revision_no: 2,
+    sealed_amount_lamports: "1000000000", updated_at: "2026-01-06T00:00:00Z",
+  },
+  winning_report_version_ref: "OSI-RV-PAYMENT0001",
+  winning_report_author_wallet: STRANGER,
+  payments: [
+    { amount_lamports: "400000000", to_wallet: STRANGER, state: "confirmed",
+      tx_sig: "F".repeat(88), finality: "finalized", confirmed_at: "2026-01-06T00:00:00Z",
+      created_at: "2026-01-06T00:00:00Z" },
+    { amount_lamports: "100000000", to_wallet: STRANGER, state: "submitted",
+      tx_sig: "E".repeat(88), verification_error: "SECRET pending diagnostic",
+      created_at: "2026-01-06T00:01:00Z" },
+  ],
+  supports: [
+    { support_type: "analyst", amount_lamports: "1", from_wallet: OWNER,
+      recipient_manifest: [], state: "submitted", tx_sig: "D".repeat(88) },
+  ],
+  support_options: [{
+    target_type: "report_author", target_ref: "OSI-RV-PAYMENT0001",
+    wallet: STRANGER, label: "Published Report author",
+  }],
+};
+const paymentPub = core.publicCaseDto(
+  caseRow, [], {}, [paymentReceipt], [], [], {}, money,
+);
+ok("public payment DTO exposes only confirmed reward amounts and exact outstanding balance",
+  paymentPub.money.reward.confirmed_lamports === "400000000"
+    && paymentPub.money.reward.outstanding_lamports === "600000000"
+    && paymentPub.money.reward.status === "awaiting_finality"
+    && paymentPub.money.reward.payments.length === 1);
+ok("public payment DTO never leaks pending payment diagnostics or private intent state",
+  !JSON.stringify(paymentPub).includes("SECRET")
+    && !JSON.stringify(paymentPub).includes("submitted")
+    && core.collectForbiddenKeys(paymentPub).size === 0);
+ok("public payment receipt exposes exact finalized transfer proof without nonce or payload hash",
+  paymentPub.proof_log[0].payment_proof.total_lamports === "400000000"
+    && paymentPub.proof_log[0].label === "SOL transfer verified on Solana"
+    && paymentPub.proof_log[0].payment_proof.memo_verified === true
+    && paymentPub.proof_log[0].memo.startsWith("OSI2|1|REWARD_PAYMENT_CONFIRMED")
+    && !("nonce" in paymentPub.proof_log[0])
+    && !("payload_hash" in paymentPub.proof_log[0]));
+
+const latestFailedView = core.publicCaseDto(caseRow, [], {}, [], [], [], {}, {
+  ...money,
+  payments: [
+    money.payments[0],
+    { amount_lamports: "100000000", to_wallet: STRANGER, state: "failed",
+      tx_sig: "C".repeat(88), verification_error: "SECRET failure diagnostic",
+      created_at: "2026-01-06T00:02:00Z" },
+  ],
+});
+ok("latest failed reward attempt derives verification_failed without exposing diagnostics",
+  latestFailedView.money.reward.status === "verification_failed"
+    && latestFailedView.money.reward.payments.length === 1
+    && !JSON.stringify(latestFailedView).includes("SECRET"));
+
+const fulfilledAfterFailureView = core.publicCaseDto(caseRow, [], {}, [], [], [], {}, {
+  ...money,
+  pledge: {
+    ...money.pledge,
+    amount_lamports: "400000000",
+    sealed_amount_lamports: "400000000",
+    state: "paid",
+  },
+  payments: [
+    { amount_lamports: "400000000", to_wallet: STRANGER, state: "failed",
+      tx_sig: "B".repeat(88), created_at: "2026-01-06T00:00:00Z" },
+    { ...money.payments[0], created_at: "2026-01-06T00:03:00Z" },
+  ],
+});
+ok("fully paid reward remains fulfilled despite a historical failed attempt",
+  fulfilledAfterFailureView.money.reward.status === "fulfilled"
+    && fulfilledAfterFailureView.money.reward.confirmed_lamports === "400000000"
+    && fulfilledAfterFailureView.money.reward.outstanding_lamports === "0");
+
 const ownerView = core.authorizedCaseDto(caseRow, [report], { [report.id]: [version] }, [receipt],
   { kind: "owner", wallet: OWNER });
 ok("case owner does NOT receive another author's private body",

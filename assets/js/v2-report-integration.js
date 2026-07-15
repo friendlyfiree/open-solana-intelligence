@@ -224,7 +224,8 @@
         ? '<p class="osi-report-public-body">'+esc(row.body||'')+'</p>'+(row.content_public_safe?'<p><b>Public-safe summary:</b> '+esc(row.content_public_safe)+'</p>':'')+publicEvidence(row.evidence)
         : '<p class="osi-report-under-review">The exact version is under independent review. Narrative, evidence, author identity, internal references and restricted notes remain private.</p>';
       var proof=row.publication_proof&&row.publication_proof.tx_sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(row.publication_proof.tx_sig)+'" target="_blank" rel="noopener">Verify REPORT_PUBLISHED on Solscan ↗</a>':'';
-      return'<article class="osi-report-public-card"><div class="osi-list-item-head"><div><b>'+esc(row.report_public_ref)+'</b><small>'+esc(row.version_public_ref)+' · version '+esc(row.version_no)+'</small></div><span class="osi-proof-label">'+esc(row.state==='published'?'Published':'Under review')+'</span></div>'+progress+content+publicReviewTimeline(row.review_timeline)+proof+'<p class="osi-report-process-note">'+esc(row.process_notice)+'</p></article>';
+      var support=row.state==='published'?'<button class="osi-report-action" type="button" onclick="osiV2SupportReportAuthor(\''+esc(row.version_public_ref)+'\')">Support author with SOL</button>':'';
+      return'<article class="osi-report-public-card"><div class="osi-list-item-head"><div><b>'+esc(row.report_public_ref)+'</b><small>'+esc(row.version_public_ref)+' · version '+esc(row.version_no)+'</small></div><span class="osi-proof-label">'+esc(row.state==='published'?'Published':'Under review')+'</span></div>'+progress+content+publicReviewTimeline(row.review_timeline)+proof+support+'<p class="osi-report-process-note">'+esc(row.process_notice)+'</p></article>';
     }).join('')+'</div>';
   }
   async function refreshPublicReports(item){

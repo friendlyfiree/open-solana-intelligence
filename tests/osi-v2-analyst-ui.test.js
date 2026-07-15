@@ -39,6 +39,8 @@ ok(analyst.includes('signMessage(prepared.message)'), 'class-B application and r
 ok(analyst.includes('castOnchainVote(prepared.memo)'), 'probation activation uses an exact Solana Memo');
 ok(analyst.includes('transaction_not_confirmed') && analyst.includes('commitActivationWithConfirmation'), 'UI never treats an unconfirmed Memo as success');
 ok(analyst.includes("weight '+Number(committed.analyst.weight).toFixed(2)"), 'activated weight is displayed from the server result');
+ok(analyst.includes('Support analyst with SOL') && analyst.includes('osiV2SupportAnalyst'), 'public verified profile exposes the native SOL support action');
+ok(analyst.includes('SOL transfer verified on Solana') && analyst.includes('recipient_amount_lamports'), 'analyst proof history labels finalized support and shows the exact recipient lamports');
 
 ok(analyst.includes('trustedAvatar') && analyst.includes('osi-analyst-avatars'), 'public avatar rendering accepts only the owned storage prefix');
 ok(analyst.includes("['image/png','image/jpeg']") && analyst.includes('524288'), 'client mirrors strict avatar MIME and size gates');

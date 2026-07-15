@@ -237,14 +237,31 @@ export function publicAnalystDto(profile, contributions = [], receipts = []) {
       subject_id: String(row.subject_id ?? ""),
       created_at: row.created_at ?? null,
     })),
-    proof_history: receipts.map((row) => ({
-      event_type: String(row.event_type ?? ""),
-      actor_wallet: String(row.actor_wallet ?? ""),
-      actor_role: String(row.actor_role ?? ""),
-      decision: row.decision == null ? null : String(row.decision),
-      proof_type: String(row.proof_type ?? ""),
-      tx_sig: row.proof_type === "solana_memo" ? String(row.tx_sig ?? "") : null,
-      occurred_at: row.occurred_at ?? null,
-    })),
+    proof_history: receipts.map((row) => {
+      const result = {
+        event_type: String(row.event_type ?? ""),
+        actor_wallet: String(row.actor_wallet ?? ""),
+        actor_role: String(row.actor_role ?? ""),
+        decision: row.decision == null ? null : String(row.decision),
+        proof_type: String(row.proof_type ?? ""),
+        tx_sig: row.proof_type === "solana_memo" ? String(row.tx_sig ?? "") : null,
+        occurred_at: row.occurred_at ?? null,
+      };
+      if (row.event_type === "SUPPORT_PAYMENT_CONFIRMED"
+          && row.proof_type === "solana_memo"
+          && /^[1-9][0-9]*$/.test(String(row.recipient_amount_lamports ?? ""))) {
+        result.memo = String(row.memo_ref ?? "");
+        result.payment_proof = {
+          recipient_amount_lamports: String(row.recipient_amount_lamports),
+          total_lamports: String(row.payment_total_lamports ?? ""),
+          target_public_ref: String(row.payment_target_public_ref ?? ""),
+          finality: String(row.payment_finality ?? ""),
+          slot: String(row.payment_slot ?? ""),
+          block_time: row.payment_block_time ?? null,
+          server_verified: true,
+        };
+      }
+      return result;
+    }),
   };
 }

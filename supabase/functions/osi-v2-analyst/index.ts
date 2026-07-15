@@ -666,10 +666,11 @@ async function verifyRead(body: Row, purpose: string): Promise<ReadVerification>
 
 async function profileGraph(profiles: Row[]) {
   const wallets = profiles.map((profile) => String(profile.wallet));
+  const walletSet = new Set(wallets);
   const contributions: Record<string, Row[]> = {};
   const receipts: Record<string, Row[]> = {};
   if (!wallets.length) return { contributions, receipts };
-  const [{ data: contributionRows }, { data: actorReceipts }, { data: targetReceipts }] = await Promise.all([
+  const [{ data: contributionRows }, { data: actorReceipts }, { data: targetReceipts }, { data: supportReceipts }] = await Promise.all([
     admin.from("analyst_contributions")
       .select("analyst_wallet,kind,subject_type,subject_id,created_at")
       .in("analyst_wallet", wallets).order("created_at", { ascending: false }).limit(300),
@@ -681,10 +682,32 @@ async function profileGraph(profiles: Row[]) {
       .select("event_type,target_id,actor_wallet,actor_role,decision,proof_type,tx_sig,server_verified,occurred_at")
       .eq("target_type", "analyst").in("target_id", wallets).eq("server_verified", true)
       .order("occurred_at", { ascending: false }).limit(200),
+    admin.from("event_receipts")
+      .select("event_type,actor_wallet,actor_role,decision,proof_type,tx_sig,memo_ref,server_verified,occurred_at,verification_metadata")
+      .eq("event_type", "SUPPORT_PAYMENT_CONFIRMED").eq("proof_type", "solana_memo")
+      .eq("server_verified", true).order("occurred_at", { ascending: false }).limit(500),
   ]);
   for (const row of contributionRows ?? []) (contributions[String(row.analyst_wallet)] ??= []).push(row);
   for (const row of actorReceipts ?? []) (receipts[String(row.actor_wallet)] ??= []).push(row);
   for (const row of targetReceipts ?? []) (receipts[String(row.target_id)] ??= []).push(row);
+  for (const row of supportReceipts ?? []) {
+    const metadata = row.verification_metadata && typeof row.verification_metadata === "object"
+      ? row.verification_metadata : {};
+    const manifest = Array.isArray(metadata.recipient_manifest) ? metadata.recipient_manifest : [];
+    for (const recipient of manifest) {
+      const wallet = String(recipient?.wallet ?? "");
+      if (!walletSet.has(wallet)) continue;
+      (receipts[wallet] ??= []).push({
+        ...row,
+        recipient_amount_lamports: String(recipient?.amount_lamports ?? ""),
+        payment_total_lamports: String(metadata.total_lamports ?? ""),
+        payment_target_public_ref: String(metadata.target_public_ref ?? ""),
+        payment_finality: String(metadata.finality ?? ""),
+        payment_slot: String(metadata.slot ?? ""),
+        payment_block_time: metadata.block_time ?? null,
+      });
+    }
+  }
   return { contributions, receipts };
 }
 

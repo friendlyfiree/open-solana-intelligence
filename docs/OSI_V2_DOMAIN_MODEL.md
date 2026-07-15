@@ -169,16 +169,16 @@ Governance-critical challenge targets are **real foreign keys**, not an untyped 
 This is the authoritative record of **which evidence items and hashes produced each output layer**: the public brief may use only `public` rows; owner-safe may use `public`+`owner_safe`; analyst-restricted may use its allowed scopes under rule 4. The three `*_manifest_hash` fields on `ai_pack_versions` are computed from these rows, making each version reproducible without exposing restricted evidence publicly.
 
 ### `reward_pledges`
-`id`, `case_id uuid FK→cases` unique, `pledger_wallet`, `amount_lamports bigint`, `token`, `state enum` (`pledged`/`assigned`/`paid`/`cancelled`/`expired`), `winning_report_version_id uuid FK nullable`, `created_receipt_id`. Records intent; **no custody**.
+`id`, `case_id uuid FK→cases` unique, `pledger_wallet`, `amount_lamports bigint`, `token='SOL'`, `state enum` (`pledged`/`assigned`/`paid`/`cancelled`/`expired`), `winning_report_version_id uuid FK nullable`, `created_receipt_id`, `latest_receipt_id`, `revision_no`, `sealed_amount_lamports`, `withdrawn_at`. Records wallet-signed intent and immutable receipt history; **no custody or escrow**. Pre-open revision/withdrawal is allowed, public pledge changes are increase-only, and sealing freezes amount and winner.
 
 ### `reward_payments`
-`id`, `pledge_id uuid FK`, `from_wallet`, `to_wallet`, `amount_lamports`, `tx_sig text`, `state enum` (`initiated`/`submitted`/`confirmed`/`failed`/`timed_out`), `confirmed_at`, `event_receipt_id`. `tx_sig`/`confirmed` set only after RPC confirmation.
+`id`, `pledge_id uuid FK`, `from_wallet`, `to_wallet`, `amount_lamports bigint`, `tx_sig text`, `state enum` (`initiated`/`submitted`/`confirmed`/`failed`/`timed_out`), `intent_nonce`, `cluster='mainnet-beta'`, `submitted_at`, `confirmed_at`, `slot`, `block_time`, `finality`, `verification_error`, `event_receipt_id`. Multiple finalized partial rows may sum to the frozen pledge, never exceed it. `confirmed` is set only after server-side trusted RPC verifies the exact System Program transfer and canonical Memo.
 
 ### `support_events`
-`id`, `support_type enum` (`report_author`/`analyst`), `target_wallet`, `from_wallet`, `amount_lamports`, `token`, `tx_sig`, `state enum` (`submitted`/`confirmed`/`failed`), `event_receipt_id`. **Never referenced by any reputation/consensus/ranking/discovery query** (P7, correction #15).
+Authoritative voluntary native-SOL transfer row. It preserves the typed recipient (`report_author` or eligible `analyst`), sender, exact bigint lamports, tx signature, state, server-derived bounded `recipient_manifest`, manifest hash, optional Case/exact published Report context, finality metadata, and exact event receipt. A manifest contains 1–4 unique non-self recipients and cannot span target contexts. Support is never joined into ranking, reputation, eligibility, weight, recommendation, priority, or governance calculations.
 
 ### `event_receipts` (Proof Log; supersedes `onchain_events`)
-`id`, `event_version enum` (`OSI2`/`OSI1`/`legacy`), `event_type text`, `target_type`, `target_id`, `actor_wallet`, `actor_role`, `decision text nullable`, `proof_type enum` (`solana_memo`/`wallet_signed_server_verified`/`system_event`/`legacy_imported`), `memo_ref text nullable`, `payload_hash text`, `nonce text`, `tx_sig text nullable`, `signature text nullable`, `server_verified bool`, `occurred_at`. **Native V2 receipts are inserted only by the server-only receipt path with `server_verified=true`; imported V1/legacy rows are `server_verified=false`.** Public projection exposes only minimal refs. Index `(target_type,target_id)`, `(actor_wallet)`, `(event_type)`, `(proof_type)`.
+`id`, `event_version enum` (`OSI2`/`OSI1`/`legacy`), `event_type text`, `target_type`, `target_id`, `actor_wallet`, `actor_role`, `decision text nullable`, `proof_type enum` (`solana_memo`/`wallet_signed_server_verified`/`system_event`/`legacy_imported`), `memo_ref text nullable`, `payload_hash text`, `nonce text`, `tx_sig text nullable`, `signature text nullable`, `server_verified bool`, `verification_metadata jsonb`, `occurred_at`. **Native V2 receipts are inserted only by the server-only receipt path with `server_verified=true`; imported V1/legacy rows are `server_verified=false`.** Payment metadata records only server-verified mainnet/finality/manifest fields; the public projection allowlists those fields and excludes nonce, payload hash, private UUIDs, and diagnostics. Index `(target_type,target_id)`, `(actor_wallet)`, `(event_type)`, `(proof_type)`.
 
 ### `osi_config`
 Governance config (reused). Keys include thresholds, feature flags (`OSI_V2_WRITES_ENABLED`, `OSI_V2_FALLBACK_GOVERNANCE`), cooldowns, challenge windows.
@@ -355,7 +355,7 @@ erDiagram
 - **Report public content** = `case_reports.current_published_version_id` (advances only via the quorum publication transition; prior published versions stay auditable via their own `published_at`/`superseded_at`).
 - **Winner** = `case_resolutions.winning_report_version_id` (permanently bound to the exact selected version, independent of later republication).
 - **AI Pack layer provenance** = `ai_pack_version_evidence` per `access_scope` + the derived `*_manifest_hash` on the version; staleness is checked per layer.
-- **Payment** = `reward_payments.state='confirmed'` with real `tx_sig`; a receipt alone is not payment proof.
+- **Payment** = `reward_payments.state='confirmed'` with finalized mainnet `tx_sig`, exact transfer metadata, and `REWARD_PAYMENT_CONFIRMED` receipt; a Memo or receipt without the verified System Program transfer is not payment proof. Fulfillment is the exact confirmed sum against the frozen pledge.
 - **AI Pack currency** = `ai_packs.current_version_id` + version `is_stale`.
 - **Proof authenticity** = `event_receipts.server_verified=true` (native V2) vs `false` (legacy import).
 

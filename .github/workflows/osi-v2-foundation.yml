@@ -64,12 +64,14 @@ jobs:
           node tests/osi-v2-analyst-ui.test.js
           node tests/osi-v2-report.test.mjs
           node tests/osi-v2-governance.test.mjs
+          node tests/osi-v2-payment.test.mjs
           deno check supabase/functions/osi-v2-case-read/index.ts
           deno check supabase/functions/osi-v2-case-write/index.ts
           deno check supabase/functions/osi-v2-analyst/index.ts
           deno check supabase/functions/osi-v2-report-read/index.ts
           deno check supabase/functions/osi-v2-report-write/index.ts
           deno check supabase/functions/osi-v2-governance-write/index.ts
+          deno check supabase/functions/osi-v2-payment/index.ts
 
       - name: Start disposable local database (PostgreSQL 17)
         run: supabase db start
