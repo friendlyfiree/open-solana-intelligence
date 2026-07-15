@@ -32,7 +32,12 @@ function ok(name, condition) {
   passed += 1;
 }
 
-ok("canonical registry has 25 class-B purposes", CLASS_B_PURPOSES.size === 25);
+ok("canonical registry has 28 class-B purposes", CLASS_B_PURPOSES.size === 28);
+ok(
+  "canonical registry includes the three reward pledge mutations",
+  ["REWARD_PLEDGE_CREATED", "REWARD_PLEDGE_REVISED", "REWARD_PLEDGE_WITHDRAWN"]
+    .every((purpose) => CLASS_B_PURPOSES.has(purpose)),
+);
 ok(
   "canonical JSON ignores object insertion order",
   canonicalJson({ z: 1, a: { y: 2, x: 3 } })
