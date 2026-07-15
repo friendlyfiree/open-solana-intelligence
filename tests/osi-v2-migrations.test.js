@@ -67,8 +67,16 @@ function ok(name, condition, detail) {
   console.error('FAIL ' + name + (detail ? ' :: ' + detail : ''));
 }
 
-ok("resolution lifecycle PL/pgSQL blocks use terminated END statements",
-  !/\nend\r?\n\$\$;/.test(resolutionLifecycle));
+ok(
+  'resolution lifecycle PL/pgSQL blocks use terminated END statements',
+  !/\nend\r?\n\$\$;/.test(resolutionLifecycle),
+);
+ok(
+  'governance commit parenthesizes CASE inside its PL/pgSQL IF condition',
+  resolutionLifecycle.includes(
+    "bound.purpose is distinct from (case when challenge_quorum.outcome = 'accept'",
+  ) && !/bound\.purpose\s+is\s+distinct\s+from\s+case\b/i.test(resolutionLifecycle),
+);
 
 ok(
   'exact ordered migration set',

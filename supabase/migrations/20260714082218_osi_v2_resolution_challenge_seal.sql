@@ -1330,8 +1330,8 @@ begin
          or statement_timestamp() >= challenge_row.review_deadline_at
          or osi_private.osi_v2_eligible_analyst(bound.actor_wallet) is distinct from true
          or challenge_quorum.quorum_hash is distinct from binding->>'quorum_hash'
-         or bound.purpose is distinct from case when challenge_quorum.outcome = 'accept'
-           then 'CHALLENGE_ACCEPTED' else 'CHALLENGE_REJECTED' end
+         or bound.purpose is distinct from (case when challenge_quorum.outcome = 'accept'
+           then 'CHALLENGE_ACCEPTED' else 'CHALLENGE_REJECTED' end)
          or not exists (
            select 1 from public.challenge_reviews as review
             where review.challenge_id = challenge_row.id and review.phase = 'merit'
