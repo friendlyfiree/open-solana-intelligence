@@ -11,6 +11,7 @@ const app = read('assets/js/v2-case-integration.js');
 const css = read('assets/css/v2-case-integration.css');
 const reportIntegration = read('assets/js/v2-report-integration.js');
 const analystIntegration = read('assets/js/v2-analyst-integration.js');
+const functionalSurface = read('assets/js/88-functional-surface.js');
 const briefing = read('assets/js/12-demo-briefing.js');
 
 let pass = 0;
@@ -23,8 +24,9 @@ function ok(name, condition) {
 ok('Case lifecycle is integrated into the primary app',
   index.includes('assets/js/v2-case-integration.js') &&
   index.includes('assets/css/v2-case-integration.css'));
-ok('Home exposes the required primary and secondary Case actions',
-  index.includes('>Open a Case</button>') && index.includes('>Explore Field Office</button>'));
+ok('Home exposes the primary Case and public-record actions',
+  index.includes('onclick="osiOpenCase()">Open a Case</button>')
+    && index.includes('onclick="osiNavigate(\'records\')">Browse Public Records</button>'));
 ok('Case integration overrides the legacy Field renderer before app boot',
   index.indexOf('assets/js/v2-case-integration.js') < index.indexOf('assets/js/99-app.js'));
 ok('legacy fallback does not load the V2 Case integration',
@@ -45,7 +47,8 @@ ok('My Cases is in the wallet menu',
 ok('My Reviews is in the wallet menu',
   /role="menuitem"[^>]+osiV2OpenReviewQueue/.test(index));
 ok('My Reports is active only because it is wired to the signed Report read gateway',
-  /role="menuitem"[^>]+onclick="osiV2OpenMyReports\(\)[^"]*"[^>]*>My Reports/.test(index)
+  /role="menuitem"[^>]+data-action-contract="report"[^>]+data-endpoint="osi-v2-report-read:list_my_reports"[^>]+onclick="osiRunLiveAction\('report'\)[^"]*"[^>]*>My Reports/.test(index)
+    && functionalSurface.includes("if(id==='report')return need(env,'openMyReports')()")
     && reportIntegration.includes("list_my_reports"));
 ok('My OSI is not a primary navigation item',
   !/<button class="sb-item"[^>]*>\s*<span>My OSI<\/span>/.test(index));
