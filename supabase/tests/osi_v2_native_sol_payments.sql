@@ -23,9 +23,23 @@ select ok((select relrowsecurity and relforcerowsecurity from pg_class where oid
 select ok((select relrowsecurity and relforcerowsecurity from pg_class where oid='public.support_events'::regclass),
   'support events remain FORCE RLS');
 
-create temporary table v1_money_counts on commit drop as
-select (select count(*) from public.bounties) as bounties,
-       (select count(*) from public.onchain_events) as events;
+create temporary table v1_money_counts (
+  relation_name text primary key,
+  row_count bigint not null
+) on commit drop;
+do $test$
+declare
+  relation_name text;
+  current_count bigint;
+begin
+  foreach relation_name in array array['bounties', 'onchain_events'] loop
+    if to_regclass(format('public.%I', relation_name)) is not null then
+      execute format('select count(*) from public.%I', relation_name) into current_count;
+      insert into pg_temp.v1_money_counts values (relation_name, current_count);
+    end if;
+  end loop;
+end
+$test$;
 
 update public.osi_config set value='true' where key='OSI_V2_PAYMENT_WRITES_ENABLED';
 update public.osi_config set value='600' where key='OSI_V2_PAYMENT_RATE_WINDOW_SECONDS';
@@ -336,9 +350,21 @@ select is((select count(*)::integer from public.reward_payments where state='con
  'only the two exact reward transfers are confirmed');
 select is((select count(*)::integer from public.support_events where state='confirmed'),1,
  'only the exact verified analyst support is confirmed');
-select ok((select before.bounties=(select count(*) from public.bounties)
- and before.events=(select count(*) from public.onchain_events) from pg_temp.v1_money_counts before),
- 'V1 bounty and onchain event rows remain unchanged');
+do $test$
+declare
+  snapshot record;
+  current_count bigint;
+begin
+  for snapshot in select * from pg_temp.v1_money_counts loop
+    execute format('select count(*) from public.%I', snapshot.relation_name) into current_count;
+    if current_count <> snapshot.row_count then
+      raise exception 'V1 relation % changed from % rows to % rows',
+        snapshot.relation_name, snapshot.row_count, current_count;
+    end if;
+  end loop;
+end
+$test$;
+select pass('existing V1 bounty and onchain event rows remain unchanged');
 
 select * from finish();
 rollback;
