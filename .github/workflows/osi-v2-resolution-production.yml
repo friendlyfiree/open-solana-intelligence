@@ -1,0 +1,401 @@
+name: OSI V2 Resolution Production
+
+# Manual, main-only rollout of exact primary Report selection, challenges and
+# Case sealing. The additive migration lands fail-closed. One dedicated flag
+# enables the complete lifecycle only after migration, function, privacy,
+# privilege, capability and V1-preservation checks pass.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type RESOLUTION-DEPLOY-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-resolution-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  NEW_VERSION: "20260714082218"
+  TEN_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501
+  ELEVEN_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean local Resolution lifecycle gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "RESOLUTION-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out exact dispatched commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Verify exact eleven-migration repository
+        run: |
+          set -euo pipefail
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$ELEVEN_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Repository migration set is not the exact expected eleven versions."; exit 1; }
+          test -f "supabase/migrations/${NEW_VERSION}_osi_v2_resolution_challenge_seal.sql"
+
+      - name: Complete application privacy and security battery
+        run: |
+          set -euo pipefail
+          deno_check_with_retry() {
+            local target="$1"
+            local attempt
+            for attempt in 1 2 3; do
+              if deno check "$target"; then return 0; fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "::error::Deno check failed after ${attempt} attempts: ${target}"
+                return 1
+              fi
+              echo "::warning::Deno dependency fetch/check failed for ${target}; retrying (${attempt}/3)."
+              sleep "$((attempt * 5))"
+            done
+          }
+          node tests/osi-v2-migrations.test.js
+          node tests/osi-v2-proof-core.test.mjs
+          node tests/xss-escaping.test.js
+          node tests/osi-v2-case-read.test.mjs
+          node tests/osi-v2-case-write.test.mjs
+          node tests/osi-v2-case-ui.test.js
+          node tests/osi-session-access.test.js
+          node tests/osi-v2-analyst-core.test.mjs
+          node tests/osi-v2-analyst-ui.test.js
+          node tests/osi-v2-report.test.mjs
+          node tests/osi-v2-governance.test.mjs
+          deno_check_with_retry supabase/functions/osi-v2-case-read/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-case-write/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-analyst/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-report-read/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-report-write/index.ts
+          deno_check_with_retry supabase/functions/osi-v2-governance-write/index.ts
+
+      - name: Start fresh PostgreSQL 17 and apply migrations
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase migration up --local --include-all
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          expected="$(echo "$ELEVEN_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Fresh local migration history is not the exact expected eleven versions."; exit 1; }
+
+      - name: Database lint pgTAP and two-connection races
+        run: |
+          set -euo pipefail
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard disposable local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact migration functions smoke and enable
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify credentials project and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "::error::Validated commit is no longer current main."; exit 1; }
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Require existing function secrets without printing values
+        run: |
+          set -euo pipefail
+          secrets="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF")"
+          echo "$secrets" | grep -q 'OSI_MAINTAINER_AUTH_UUID' || { echo "::error::Maintainer auth secret is absent."; exit 1; }
+          echo "$secrets" | grep -q 'SOLANA_RPC_URL' || { echo "::error::Solana RPC secret is absent."; exit 1; }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot V1 counts and existing feature flags
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          for pair in CASE:OSI_V2_CASE_WRITES_ENABLED ANALYST:OSI_V2_ANALYST_WRITES_ENABLED REPORT:OSI_V2_REPORT_WRITES_ENABLED REPORT_REVIEW:OSI_V2_REPORT_REVIEW_WRITES_ENABLED; do
+            name="${pair%%:*}"; key="${pair#*:}"
+            value="$(psql -Atqc "select value from public.osi_config where key='${key}'")"
+            case "$value" in true|false) : ;; *) echo "::error::${key} is absent or malformed."; exit 1 ;; esac
+            echo "${name}_FLAG_BEFORE=$value" >> "$GITHUB_ENV"
+          done
+
+      - name: Link project and verify exact remote history
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          ten="$(echo "$TEN_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          eleven="$(echo "$ELEVEN_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$ten" ]; then echo "MODE=deploy" >> "$GITHUB_ENV";
+          elif [ "$got" = "$eleven" ]; then echo "MODE=resume" >> "$GITHUB_ENV";
+          else echo "::error::Remote history is not the exact ten-before or eleven-after state."; exit 1; fi
+
+      - name: Record exact disable and forward-fix plan
+        run: |
+          echo "Disable plan: set only OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED=false."
+          echo "Immutable reviews, receipts, selected versions, challenges and prior terminal records remain retained for forward repair."
+          echo "No drop, reset, repair, truncation or data rewrite is an acceptable rollback."
+
+      - name: Dry-run only the Resolution lifecycle migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/resolution-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/resolution-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ] || { echo "::error::Dry-run is not exactly ${NEW_VERSION}."; exit 1; }
+
+      - name: Apply exactly the additive lifecycle migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: supabase db push --linked --yes
+
+      - name: Verify history flag isolation RLS constraints indexes and privileges
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare got text;
+          begin
+            select string_agg(version, ' ' order by version) into got from supabase_migrations.schema_migrations;
+            if got <> '20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218'
+              then raise exception 'unexpected migration history'; end if;
+            if (select value from public.osi_config where key='OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED') is distinct from 'false'
+              then raise exception 'lifecycle or broad flags are not in exact pre-enable state'; end if;
+            if has_table_privilege('anon','public.case_resolutions','SELECT')
+               or has_table_privilege('authenticated','public.resolution_reviews','INSERT')
+               or has_table_privilege('authenticated','public.challenges_v2','INSERT')
+               or has_table_privilege('authenticated','public.challenge_reviews','INSERT')
+               or has_function_privilege('authenticated','public.osi_v2_prepare_governance_action(text,text,text,text,jsonb,text,text,text)','EXECUTE')
+               or has_function_privilege('authenticated','public.osi_v2_commit_governance_action(text,jsonb,text,text,text,timestamptz,text)','EXECUTE')
+               or has_function_privilege('authenticated','public.osi_v2_expire_due_challenges(integer)','EXECUTE')
+              then raise exception 'browser can bypass Resolution lifecycle gateways'; end if;
+            if to_regclass('public.case_resolutions_public_ref_uidx') is null
+               or to_regclass('public.resolution_reviews_phase_quorum_idx') is null
+               or to_regclass('public.challenges_v2_resolution_state_deadline_idx') is null
+               or to_regclass('public.challenge_reviews_merit_quorum_idx') is null
+              then raise exception 'required lifecycle indexes are absent'; end if;
+            if not (select relrowsecurity and relforcerowsecurity from pg_class where oid='public.case_resolutions'::regclass)
+               or not (select relrowsecurity and relforcerowsecurity from pg_class where oid='public.resolution_reviews'::regclass)
+               or not (select relrowsecurity and relforcerowsecurity from pg_class where oid='public.challenges_v2'::regclass)
+               or not (select relrowsecurity and relforcerowsecurity from pg_class where oid='public.challenge_reviews'::regclass)
+              then raise exception 'lifecycle tables are not FORCE RLS protected'; end if;
+          end $$;
+          SQL
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED'")" = "$CASE_FLAG_BEFORE" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_ANALYST_WRITES_ENABLED'")" = "$ANALYST_FLAG_BEFORE" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED'")" = "$REPORT_FLAG_BEFORE" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED'")" = "$REPORT_REVIEW_FLAG_BEFORE" ]
+
+      - name: Deploy only the changed Case read and governance write functions
+        run: |
+          set -euo pipefail
+          supabase functions deploy osi-v2-case-read --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy osi-v2-governance-write --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          functions="$(supabase functions list --project-ref "$EXPECTED_PROJECT_REF")"
+          echo "$functions" | grep -q 'osi-v2-case-read' || { echo "::error::Case read function unavailable."; exit 1; }
+          echo "$functions" | grep -q 'osi-v2-governance-write' || { echo "::error::Governance write function unavailable."; exit 1; }
+
+      - name: Pre-enable capability privacy and negative smoke
+        run: |
+          set -euo pipefail
+          write_url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-governance-write"
+          read_url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-case-read"
+          wallet='11111111111111111111111111111112'
+          capability="$(curl -sS --fail --max-time 30 -X POST "$write_url" -H 'Content-Type: application/json' -d "{\"op\":\"actor_capabilities\",\"wallet\":\"${wallet}\"}")"
+          echo "$capability" | grep -q '"resolution_lifecycle_writes_enabled":false' || { echo "::error::Lifecycle flag was not closed before smoke."; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/closed-governance.json -w '%{http_code}' -X POST "$write_url" -H 'Content-Type: application/json' -d "{\"op\":\"prepare\",\"wallet\":\"${wallet}\",\"action\":\"resolution_review\"}")"
+          [ "$code" = "503" ] || { echo "::error::Closed lifecycle path did not fail closed."; exit 1; }
+          curl -sS --fail --max-time 30 -X POST "$read_url" -H 'Content-Type: application/json' -d '{"op":"list_public_cases"}' > /tmp/public-cases.json
+          if grep -Eq 'private_note|restricted_detail|owner_contact|reporter_contact|binding_context|payload_hash|request_fingerprint_hash' /tmp/public-cases.json; then
+            echo "::error::Public Case response exposed a restricted field."; exit 1;
+          fi
+
+      - name: Enable only the complete Resolution lifecycle flag
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          begin
+            if (select value from public.osi_config where key='OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED') is distinct from 'false'
+              then raise exception 'lifecycle flag was not false immediately before enable'; end if;
+            if (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED') is distinct from 'false'
+              then raise exception 'broad gates are not closed'; end if;
+            update public.osi_config set value='true', updated_at=statement_timestamp()
+             where key='OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED' and value='false';
+            if not found then raise exception 'lifecycle flag enable did not affect one exact row'; end if;
+          end $$;
+          SQL
+
+      - name: Post-enable flag isolation capability and negative authorization smoke
+        run: |
+          set -euo pipefail
+          lifecycle_flag="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED'")"
+          [ "$lifecycle_flag" = "true" ] || { echo "::error::Lifecycle flag is not true."; exit 1; }
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED'")" = "$CASE_FLAG_BEFORE" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_ANALYST_WRITES_ENABLED'")" = "$ANALYST_FLAG_BEFORE" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_REPORT_WRITES_ENABLED'")" = "$REPORT_FLAG_BEFORE" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED'")" = "$REPORT_REVIEW_FLAG_BEFORE" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")" = "false" ]
+          url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-governance-write"
+          wallet='11111111111111111111111111111112'
+          capability="$(curl -sS --fail --max-time 30 -X POST "$url" -H 'Content-Type: application/json' -d "{\"op\":\"actor_capabilities\",\"wallet\":\"${wallet}\"}")"
+          echo "$capability" | grep -q '"resolution_lifecycle_writes_enabled":true' || { echo "::error::Lifecycle capability did not observe enabled flag."; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/bad-governance-wallet.json -w '%{http_code}' -X POST "$url" -H 'Content-Type: application/json' -d '{"op":"prepare","wallet":"bad","action":"resolution_review"}')"
+          [ "$code" = "400" ] || { echo "::error::Invalid governance wallet was not rejected before nonce issuance."; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/bad-governance-op.json -w '%{http_code}' -X POST "$url" -H 'Content-Type: application/json' -d "{\"op\":\"unknown\",\"wallet\":\"${wallet}\"}")"
+          [ "$code" = "400" ] || { echo "::error::Unknown governance operation was not rejected."; exit 1; }
+
+      - name: Prove protected V1 row counts unchanged
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          diff -u /tmp/v1-before.txt /tmp/v1-after.txt
+
+      - name: Fail closed after any rollout or smoke failure
+        if: ${{ failure() }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PGHOST:-}" ] || [ -z "${PGUSER:-}" ]; then
+            echo "No production session was established; this job did not enable lifecycle writes."
+            exit 0
+          fi
+          psql -v ON_ERROR_STOP=1 -Atq -c "
+            update public.osi_config set value='false', updated_at=statement_timestamp()
+             where key='OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED';"
+          lifecycle_flag="$(psql -v ON_ERROR_STOP=1 -Atqc "select value from public.osi_config where key='OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED'")"
+          [ "$lifecycle_flag" = "false" ] || { echo "::error::Lifecycle writes could not be confirmed disabled."; exit 1; }
+          echo "Resolution, challenge and seal writes are disabled; immutable data remains retained for forward repair."
+
+      - name: Write deployment receipt
+        run: |
+          mkdir -p deployment-receipt
+          {
+            echo "project_ref=${EXPECTED_PROJECT_REF}"
+            echo "migration=${NEW_VERSION}"
+            echo "functions=osi-v2-case-read,osi-v2-governance-write"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "resolution_lifecycle_writes=true"
+            echo "report_review_writes_unchanged=${REPORT_REVIEW_FLAG_BEFORE}"
+            echo "report_writes_unchanged=${REPORT_FLAG_BEFORE}"
+            echo "case_writes_unchanged=${CASE_FLAG_BEFORE}"
+            echo "analyst_writes_unchanged=${ANALYST_FLAG_BEFORE}"
+            echo "broad_v2_writes=false"
+            echo "broad_v2_proof=false"
+            echo "rollback=disable_resolution_lifecycle_flag_and_forward_fix"
+          } > deployment-receipt/osi-v2-resolution-production.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: osi-v2-resolution-production-${{ github.sha }}
+          path: deployment-receipt/osi-v2-resolution-production.txt
+          retention-days: 30

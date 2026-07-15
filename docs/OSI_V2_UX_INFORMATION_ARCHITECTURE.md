@@ -14,7 +14,9 @@ Hero (one-sentence value) → primary CTA "File a report" / secondary "Open an i
 ## 2. Field Office (Case-centered)
 Filters: `Open investigations` · `In review` · `Resolved` · `Sealed` · `Mine` · category · search (**no most-supported/most-backed sort**). Card: public_ref, title, category, stage badge, report count, analyst-decision totals, challenge state, optional reward chip, "View Case." Private cases never listed publicly; owner sees own via "Mine" (owner-proof).
 
-## 3. Case Detail — tabs: Overview · Evidence · Reports · AI Pack · Votes · Challenges · Reward · Proof Log
+## 3. Case Detail — current release tabs: Overview · Evidence · Reports · Resolution · Challenges · Proof Log
+
+The current release keeps the executable governance path in six focused tabs. Resolution contains the exact candidate-version tally, unique-leader/tie state, attributed selection reviews, selected primary version, and process-seal quorum. Challenges contains the server countdown, admissibility state, blocking label, merit history, and terminal outcome. Reward intent remains informational in Overview until its separately authorized lifecycle ships; no dormant control is shown as functional.
 
 **Per-action button/state rules (each → modeled transition):**
 
@@ -26,7 +28,7 @@ Filters: `Open investigations` · `In review` · `Resolved` · `Sealed` · `Mine
 | **Submit Report revision** | Reports tab | report author, version in `revision_requested` | new version (`supersedes_version_id`) → Memo `CASE_REPORT_VERSION_SUBMITTED` | "Only the author can revise; no revision requested" |
 | **Review this version** | Reports tab | analyst, **not author** | `case_report_reviews` cast → Sig | "Authors can't review their own report" / "Verified analysts only" |
 | **Select resolution candidate** | Votes tab | analyst, not author/owner; resolution in `selection_open` | `resolution_reviews` cast on an exact same-Case candidate version | "Owner/author excluded" / "Needs published report versions" |
-| **Finalize winning Report** | Votes/maintainer | **maintainer required**, after two-gate quorum | server sets winner from quorum tally → `RESOLUTION_PROPOSED` → `REPORT_SELECTED_WINNING` (exact version) | "Approve — needs 1 more independent analyst" |
+| **Finalize winning Report** | Resolution/maintainer | **maintainer required**, after count and weight quorum | server sets the unique winner from the exact tally and emits only `REPORT_SELECTED_WINNING` for this finalization | "Finalize unavailable: needs 1 more independent analyst" |
 | **Submit challenge** | Challenges tab | connected wallet | `challenges` submit (typed target FK + `evidence_item_id`) → `CHALLENGE_SUBMITTED` | "One active challenge per target; cooldown active" |
 | **Challenge pending admissibility** | Challenges tab | (display) | shows `submitted`/`admissibility_review` + admissibility countdown — **not yet pausing sealing** | — |
 | **Withdraw challenge** | Challenges tab | challenger, non-terminal state | `challenges` → `CHALLENGE_WITHDRAWN` | "Cannot withdraw after a final outcome" |
@@ -64,6 +66,10 @@ Unified timeline over `event_receipts` (OSI1/legacy/OSI2). Honest proof-type lab
 Sections: **My Cases** (with **Withdraw Case** on a pre-open Case → `CASE_WITHDRAWN`, and **Appeal** on a normal-rejected Case → `CASE_APPEAL_SUBMITTED`) · **My Case Reports** (exact current version, current published version, review status, winning flag — publication history preserved; **Submit correction** on a published Report → new version) · **My Wire Reports** (version + review status; same correction action) · **My AI Packs** (version/lifecycle/per-layer stale) · **My Challenges** (state + admissibility/review countdown; **Withdraw** while non-terminal) · **My analyst applications** (application status, **exact current version**, revision requests, **prior submitted versions**, per-version review state — over `analyst_applications` + immutable `analyst_application_versions`) · **Rewards & Payments** (pledges made/owed; rewards owed as winner; payment status) · **Support Received** (voluntary, display only). Private data only via fresh signature proof.
 
 ## 11. Maintainer Operations Center
+
+Resolution operations appear only after the configured admin wallet and configured Supabase maintainer identity both pass. The console may finalize a unique analyst-quorum leader, admit a challenge through the full-maintainer admissibility route, and finalize a seal only after its analyst seal quorum. It never offers a control that substitutes maintainer authority for counted analyst quorum.
+
+`My Reviews` groups real work by Report publication, Resolution selection, Challenge admissibility, Challenge adjudication, and Seal review. Every row identifies the exact public target, server deadline where applicable, conflict state, current active vote, server-derived weight snapshot, and exact next action. A lane with no authorized tasks shows an honest empty state rather than sample activity.
 Sections: pending initial reviews, safety-block queue (with **Lift safety block** → `CASE_SAFETY_LIFTED`), quorum-ready finalizations (**resolution/winner** and **seal** — the two maintainer-gated Case outcomes; report/wire publication does **not** appear here since it needs no maintainer), analyst application/verification queue, **AI Pack approval** (maintainer-gated), challenge adjudications (including the **bad-faith review phase** → `CHALLENGE_BAD_FAITH_CONFIRMED`/`DISMISSED`), **Resume from halt** → `CASE_RESUMED`, config, emergency halt, fallback-governance dashboard (disabled first release). **Every action is a real signed mutation** wired to the modeled Edge paths — no "Requires hardened backend" placeholders. Disabled actions state the exact unmet prerequisite. The maintainer's finalization signature is **not** an analyst vote and carries no analyst weight.
 
 ## 12. Mobile

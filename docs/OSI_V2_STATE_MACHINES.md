@@ -32,14 +32,16 @@ States: `draft → submitted → initial_review → open_public → in_review �
 | initial_rejected→initial_review | owner appeal (new/revised submission) | EF sig | – | – | Sig `CASE_APPEAL_SUBMITTED` (B) | stage=initial_review | private | – |
 | open_public→in_review | system | – | – | – | Sys *(internal advance, no receipt)* | stage=in_review | public | – |
 | in_review→ready_for_finalization | quorum | EF tally | ≥N_min | ≥ thr | Sys `CASE_QUORUM_READY` | stage=ready_for_finalization; **create `case_resolutions{state:selection_open, winning_report_version_id:NULL}`** (atomic with this event) | "ready" shown | quorum loss→in_review |
-| ready_for_finalization→resolution_proposed | maintainer finalizes the **server-computed quorum winner** | EF maintainer; sets `winning_report_version_id` from the `resolution_reviews` quorum tally (cannot pass a non-quorum version) | ≥2 **+ maintainer** | ≥2.50 | Memo `RESOLUTION_PROPOSED` | resolution.state=proposed; winner set once | winner shown | maintainer reject proposal→selection_open |
+| ready_for_finalization→resolution_proposed | maintainer finalizes the **server-computed unique quorum winner** | EF maintainer; sets `winning_report_version_id` from the `resolution_reviews` quorum tally (cannot pass a non-quorum version) | ≥2 **+ maintainer** | ≥2.50 | Memo `REPORT_SELECTED_WINNING` | resolution.state=proposed; winner set once | winner shown | no transition when the top tally is tied |
 | resolution_proposed→in_challenge_window | system | – | – | – | Sys *(internal advance, no receipt)* | resolution.state=in_challenge_window; `+7d` | window public | – |
-| in_challenge_window→resolved | system (elapsed, no `open`/`under_review` challenge) | EF checks challenges | – | – | Memo `CASE_RESOLVED` | stage=resolved | resolved public | reopen |
-| resolved→sealed | maintainer | EF | ≥2 **+ maintainer** | ≥2.50 | Memo `RECORD_SEALED` | cases.sealed_at | Sealed badge | reopen (appeal) |
+| in_challenge_window→sealed | full maintainer after elapsed window, no `open`/`under_review` challenge, and seal quorum | EF rechecks exact resolution, window, blockers, ≥2 analysts and weight | ≥2 **+ maintainer** | ≥2.50 | Memo `RECORD_SEALED` | atomically passes the internal `resolved` guard stage and sets `cases.stage=sealed`, `cases.sealed_at`, resolution seal receipt/hash | Process sealed badge | future reviewed appeal path |
+| in_challenge_window→reopened | accepted resolution challenge | EF merit quorum; old winner remains immutable and a new selection cycle is required | ≥2 | ≥2.50 | Memo `CHALLENGE_ACCEPTED` | old resolution.state=reopened; Case stage=reopened | challenged and reopened | new resolution selection |
 | sealed→archived | system retention | – | – | – | Sys *(internal advance, no receipt)* | archived_at | archived | reopen |
 | any→halted | maintainer emergency / fallback | EF maintainer | – | – | Memo `CASE_HALTED` | stage=halted | frozen banner | resume (below) |
 | halted→in_review | maintainer resumes | EF maintainer | – | – | Memo `CASE_RESUMED` (A) | stage=in_review | resumed | – |
-| resolved/sealed→reopened | accepted challenge OR appeal quorum | EF ≥N_min | ≥ high thr | Memo `CASE_REOPENED` | stage=reopened→in_review | reopened public | – |
+| sealed→reopened | future appeal quorum | EF ≥N_min | ≥ high thr | Memo `CASE_REOPENED` | stage=reopened→in_review | reopened public | – |
+
+For the current executable native slice, "Seal ready" is a server-derived UI/read state while the durable Case remains `in_challenge_window`. `RECORD_SEALED` is the single class-A seal anchor and atomically completes the guarded `resolved→sealed` database updates. `CASE_RESOLVED` remains reserved for a future separately modeled resolution-close action; it is not emitted as a duplicate anchor for this seal transition.
 
 ```mermaid
 stateDiagram-v2
@@ -56,10 +58,9 @@ stateDiagram-v2
   ready_for_finalization --> resolution_proposed: maintainer finalizes quorum winner
   resolution_proposed --> ready_for_finalization: maintainer rejects proposal
   resolution_proposed --> in_challenge_window
-  in_challenge_window --> resolved: window clear
-  resolved --> sealed: quorum + maintainer
+  in_challenge_window --> sealed: clear window + seal quorum + full maintainer
+  in_challenge_window --> reopened: accepted challenge
   sealed --> archived
-  resolved --> reopened: accepted challenge
   sealed --> reopened: appeal
   reopened --> in_review
   in_review --> halted: emergency
@@ -95,7 +96,9 @@ States: `submitted → admissibility_review → open → under_review → (accep
 
 **No stuck states (correction #6):** every non-terminal state has an explicit next action or a timeout. `submitted`/`admissibility_review` carry an `admissibility_ttl_at`; `open`/`under_review` carry a configurable `review_deadline_at` (deadline or escalation path). A timeout writes a **system receipt** and releases any sealing pause.
 
-**Eligibility (server-enforced, correction #4):** the **admissibility actor** and every **counted merit reviewer** must be an **eligible independent analyst** and **must not be the challenger** (nor the target item's author/owner/creator). Accept/reject requires **both** gates: **≥2 independent analysts AND Σweight ≥ 2.50** (D5) — no maintainer gate.
+**Eligibility (server-enforced, correction #4):** the **admissibility actor** is either one eligible independent analyst or one full double-gated maintainer. Every **counted merit reviewer** must be an **eligible independent analyst**. Neither may be the challenger, Case owner, or selected Report author. Accept/reject requires **both** merit gates: **≥2 independent analysts AND Σweight ≥ 2.50** (D5) — a maintainer cannot replace that quorum.
+
+The initial production configuration uses a 24-hour admissibility TTL, a 72-hour merit-review deadline, a 60-second same-wallet/target cooldown, and a rolling one-hour rate window capped at 5 challenge prepares per wallet and 20 per trusted request fingerprint. These server-derived values are intentionally conservative: they keep every non-terminal state bounded while allowing a normal evidence-backed submission. They may be changed only as reviewed configuration, never by the client.
 
 | From→To | Actor | Enforce | Indep. | Weight | Proof/event (class) | Effect |
 |---|---|---|---|---|---|---|
@@ -120,7 +123,7 @@ States: `submitted → admissibility_review → open → under_review → (accep
 | `case_report_version` | the **published version stays immutable**; it is marked contested and re-enters review; header `current_published_version_id` may roll back to a **prior published version** via the modeled publish/correction path (with receipt), or the Case reopens — never a silent delete | version badged "challenge upheld — under re-review" | `CASE_REOPENED` (+ any `REPORT_PUBLISHED` on a re-published prior/corrected version) |
 | `wire_report_version` | same as `case_report_version` on the Wire lane; the version stays immutable; Wire re-review; no delete | version badged "challenge upheld — under re-review" | Wire re-review receipts |
 | `ai_pack_version` | pack version → forced re-review; `lifecycle_state` moves toward `disputed`/`rejected` by the normal AI-Pack quorum; version content immutable, not deleted | pack badged "challenge upheld — disputed" | `AI_PACK_REJECTED` if the pack quorum rejects |
-| `resolution` | the resolution's Case → `reopened`; the **historical `case_resolutions` row keeps its `winning_report_version_id`** (never rewritten); a new `selection_open` cycle may follow | "resolution challenged — reopened" | `CASE_REOPENED` |
+| `resolution` | the resolution's Case → `reopened`; the **historical `case_resolutions` row keeps its `winning_report_version_id`** (never rewritten); a new `selection_open` cycle may follow | "resolution challenged — reopened" | `CHALLENGE_ACCEPTED` for this accepted-challenge outcome; no duplicate reopen anchor |
 
 In every case the target's immutable rows are preserved, the Proof Log shows the full sequence, and pointers only move **forward** through modeled transitions with their own receipts.
 
@@ -166,7 +169,9 @@ stateDiagram-v2
 |---|---|---|---|---|---|
 | (auto) create resolution | system at `ready_for_finalization` | EF; `case_resolutions{selection_open, winner NULL}` | – | – | part of `CASE_QUORUM_READY` (§1) — no separate event |
 | select candidate (review) | analyst (≠author/owner) | EF; **exact candidate version, same Case**; author/owner excluded | – | – | Sig `RESOLUTION_REVIEW_CAST`/`_REVISED` (B) |
-| `selection_open→proposed` (winner set) | maintainer finalizes the **server-computed quorum winner** | EF ≥N_min + weight **+ maintainer**; server sets `winning_report_version_id` from the tally; **rejects any non-quorum version** | ≥2 | ≥2.50 | Memo `RESOLUTION_PROPOSED` then `REPORT_SELECTED_WINNING` (exact version) |
+| `selection_open→proposed` (winner set) | maintainer finalizes the **server-computed unique quorum winner** | EF ≥N_min + weight **+ maintainer**; server sets `winning_report_version_id` from the tally; **rejects any non-quorum or tied version** | ≥2 | ≥2.50 | Memo `REPORT_SELECTED_WINNING` (exact version) |
+
+For this executable slice, `REPORT_SELECTED_WINNING` is the one canonical class-A finalization event. `RESOLUTION_PROPOSED` remains reserved for a future distinct proposal action and is not emitted as a duplicate anchor. Candidate ordering is deterministic by total support weight, then independent analyst count; an exact tie on both gates has no leader and cannot be finalized.
 
 Guarantees (correction #2): exact candidate version · candidate belongs to the same Case · immutable historical selection reviews · `winning_report_version_id` set **only** from the quorum result · **maintainer cannot replace or invent the winner** · a later Report correction never repoints a finalized resolution · `resolved_legacy` may have no winning version · a **native** resolution may not leave `selection_open`/finalize without one (DB CHECK, `OSI_V2_DOMAIN_MODEL.md`). No circular writable source of truth: children point to the parent; the winner is server-set once.
 

@@ -69,7 +69,7 @@ Each canonical event has **exactly one** class (A / B / Sys) — no `A or Sys`, 
 | Wire publication (outcome) | A | solana_memo | ✅ `WIRE_REPORT_PUBLISHED` |
 | Wire promoted to a new Case | A | solana_memo | ✅ `WIRE_PROMOTED` |
 | Resolution review (per analyst) | B | wallet_signed_server_verified | ❌ `RESOLUTION_REVIEW_CAST` / `_REVISED` |
-| Resolution proposed / winner selected | A | solana_memo | ✅ `RESOLUTION_PROPOSED`, `REPORT_SELECTED_WINNING` |
+| Exact primary Report selected | A | solana_memo | ✅ `REPORT_SELECTED_WINNING` |
 | Challenge submitted | B | wallet_signed_server_verified | ❌ `CHALLENGE_SUBMITTED` |
 | Challenge admissibility accepted | B | wallet_signed_server_verified | ❌ `CHALLENGE_ADMISSIBILITY_ACCEPTED` |
 | Challenge admissibility rejected | B | wallet_signed_server_verified | ❌ `CHALLENGE_ADMISSIBILITY_REJECTED` |
@@ -102,6 +102,8 @@ Each canonical event has **exactly one** class (A / B / Sys) — no `A or Sys`, 
 
 **Solana-Memo-anchored outcomes (class A) — 32:**
 `CASE_SUBMITTED, CASE_OPENED, CASE_SAFETY_BLOCKED, CASE_SAFETY_LIFTED, CASE_INITIAL_REVIEW_REJECTED, CASE_RESUMED, CASE_REPORT_VERSION_SUBMITTED, REPORT_PUBLISHED, REPORT_REJECTED, WIRE_REPORT_VERSION_SUBMITTED, WIRE_REPORT_PUBLISHED, WIRE_PROMOTED, RESOLUTION_PROPOSED, REPORT_SELECTED_WINNING, CHALLENGE_ACCEPTED, CHALLENGE_REJECTED, CHALLENGE_BAD_FAITH_CONFIRMED, CHALLENGE_BAD_FAITH_DISMISSED, CASE_RESOLVED, CASE_REOPENED, RECORD_SEALED, CASE_HALTED, ANALYST_PROBATION, ANALYST_SENIOR, ANALYST_VERIFIED, ANALYST_REVOKED, AI_PACK_APPROVED, AI_PACK_REJECTED, REWARD_PLEDGED, REWARD_PAID, SUPPORT_SENT, CONFIG_CHANGED`
+
+The current executable resolution slice emits exactly one class-A finalization anchor: `REPORT_SELECTED_WINNING`, bound to the resolution and exact immutable Report version. `RESOLUTION_PROPOSED` is reserved for a future independently modeled proposal event; it is not emitted as a second receipt for the same transition. The current accepted-resolution-challenge transition is anchored by `CHALLENGE_ACCEPTED`, which also reopens the Case without rewriting the historical winner; it does not emit a duplicate `CASE_REOPENED`. The current seal transition is anchored only by `RECORD_SEALED`; `CASE_RESOLVED` is reserved for a future separately modeled resolution-close action.
 
 **System events (class Sys) — 8:**
 `CASE_QUORUM_READY, CHALLENGE_EXPIRED, PACK_SUBMITTED, PACK_ATTACHED, PACK_SUPERSEDED, PACK_STALE, REWARD_ASSIGNED, ANALYST_CANDIDATE`

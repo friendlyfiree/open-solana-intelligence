@@ -232,7 +232,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Authors receive full private history through My Reports.
 - Eligible analysts and full maintainers receive a read-only awaiting-review projection.
 - Case ownership alone does not grant access to another author's unpublished Report.
-- Report review, publication, rejection, resolution, challenge, reward, support, Wire intake, and AI Pack remain disabled.
+- Report rejection, reward, support, Wire intake, and AI Pack remain disabled. Report publication is live; exact primary Report selection, challenge, and Case sealing are implemented behind the atomic `OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED` rollout gate.
 
 ## 10. Next roadmap gates
 
@@ -242,8 +242,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Roll out exact-version Report review and publication behind their dedicated fail-closed flag only after the Report intake soak period and clean production smoke verification.
 - Add complete initial rejection quorum and terminal transition before enabling rejection.
 - Add resolution proposal and nullable-state checks.
-- Add finalized resolution and seven-day challenge window.
-- Add accepted-challenge effects exactly as the blueprint specifies.
+- Production-activate exact primary Report selection, the seven-day challenge lifecycle, accepted-challenge reopen, and process sealing only after their dedicated rollout workflow passes.
 - Add reputation snapshot progression after real attributable contributions exist.
 - Add AI Pack and The Wire write flows after their evidence scopes are enforced.
 - Add reward, support, My OSI expansion, and Operations Center later.

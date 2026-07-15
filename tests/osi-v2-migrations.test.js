@@ -21,6 +21,7 @@ const expectedFiles = [
   '20260713184533_osi_v2_analyst_activation.sql',
   '20260714044036_osi_v2_case_report_intake.sql',
   '20260714064501_osi_v2_report_review_publication.sql',
+  '20260714082218_osi_v2_resolution_challenge_seal.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -35,6 +36,7 @@ const deny = sqlByFile[expectedFiles[2]] || '';
 const lifecycle = sqlByFile['20260713045903_osi_v2_case_lifecycle.sql'] || '';
 const analystActivation = sqlByFile['20260713184533_osi_v2_analyst_activation.sql'] || '';
 const reportIntake = sqlByFile['20260714044036_osi_v2_case_report_intake.sql'] || '';
+const resolutionLifecycle = sqlByFile['20260714082218_osi_v2_resolution_challenge_seal.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const analystProductionWorkflow = fs.readFileSync(
@@ -43,6 +45,10 @@ const analystProductionWorkflow = fs.readFileSync(
 );
 const reportProductionWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-report-production.yml'),
+  'utf8',
+);
+const resolutionProductionWorkflow = fs.readFileSync(
+  path.join(root, '.github', 'workflows', 'osi-v2-resolution-production.yml'),
   'utf8',
 );
 const proofCore = fs.readFileSync(
@@ -60,6 +66,22 @@ function ok(name, condition, detail) {
   fail += 1;
   console.error('FAIL ' + name + (detail ? ' :: ' + detail : ''));
 }
+
+ok(
+  'resolution lifecycle PL/pgSQL blocks use terminated END statements',
+  !/\nend\r?\n\$\$;/.test(resolutionLifecycle),
+);
+ok(
+  'governance commit parenthesizes CASE inside its PL/pgSQL IF condition',
+  resolutionLifecycle.includes(
+    "bound.purpose is distinct from (case when challenge_quorum.outcome = 'accept'",
+  ) && !/bound\.purpose\s+is\s+distinct\s+from\s+case\b/i.test(resolutionLifecycle),
+);
+ok(
+  'extended review receipt binder preserves uncounted maintainer application reviews',
+  /maintainer_review\s*:=\s*\([\s\S]*tg_table_name\s*=\s*'analyst_application_reviews'[\s\S]*new\.weight\s*=\s*0[\s\S]*if\s+maintainer_review\s+and\s+receipt\.actor_role/i
+    .test(resolutionLifecycle),
+);
 
 ok(
   'exact ordered migration set',
@@ -81,6 +103,7 @@ ok('local seed execution is disabled', /\[db\.seed\][\s\S]*?enabled\s*=\s*false/
 for (const functionName of [
   'osi-analyst-intake', 'osi-ai-pack', 'osi-v2-analyst',
   'osi-v2-report-write', 'osi-v2-report-read',
+  'osi-v2-governance-write',
 ]) {
   const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   ok(
@@ -458,6 +481,39 @@ ok(
   'Report production workflow has no planner-foldable constant error assertions',
   !/cast\s*\(\s*1\s*\/\s*0/i.test(reportProductionWorkflow)
     && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(reportProductionWorkflow),
+);
+ok(
+  'Resolution production workflow is manual main-only and exact-migration pinned',
+  resolutionProductionWorkflow.includes('workflow_dispatch:')
+    && !resolutionProductionWorkflow.includes('pull_request:')
+    && !resolutionProductionWorkflow.includes('push:')
+    && resolutionProductionWorkflow.includes('refs/heads/main')
+    && resolutionProductionWorkflow.includes('NEW_VERSION: "20260714082218"')
+    && resolutionProductionWorkflow.includes('RESOLUTION-DEPLOY-${EXPECTED_PROJECT_REF}')
+    && resolutionProductionWorkflow.includes('Dry-run only the Resolution lifecycle migration'),
+);
+ok(
+  'Resolution rollout validates before deploying only its scoped functions',
+  resolutionProductionWorkflow.includes('needs: validate')
+    && resolutionProductionWorkflow.includes('supabase db lint --local --level error')
+    && resolutionProductionWorkflow.includes('supabase test db')
+    && resolutionProductionWorkflow.includes('bash tests/osi-v2-concurrency.test.sh')
+    && resolutionProductionWorkflow.includes('functions deploy osi-v2-case-read')
+    && resolutionProductionWorkflow.includes('functions deploy osi-v2-governance-write')
+    && !resolutionProductionWorkflow.includes('functions deploy osi-v2-case-write'),
+);
+ok(
+  'Resolution lifecycle activates atomically after pre-enable smoke and fails closed',
+  resolutionProductionWorkflow.indexOf('Pre-enable capability privacy and negative smoke')
+      < resolutionProductionWorkflow.indexOf('Enable only the complete Resolution lifecycle flag')
+    && resolutionProductionWorkflow.includes("key='OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED' and value='false'")
+    && resolutionProductionWorkflow.includes('Fail closed after any rollout or smoke failure')
+    && resolutionProductionWorkflow.includes('[ "$lifecycle_flag" = "false" ]'),
+);
+ok(
+  'Resolution production workflow has no planner-foldable constant error assertions',
+  !/cast\s*\(\s*1\s*\/\s*0/i.test(resolutionProductionWorkflow)
+    && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(resolutionProductionWorkflow),
 );
 ok(
   'nonce issuance serializes idempotency and rate-limit dimensions',

@@ -56,7 +56,7 @@ ok('Case form uses the real signed submission handler',
   index.includes('onsubmit="osiV2SubmitCase(event)"'));
 for (const section of [
   'Overview', 'Evidence', 'Reports', 'Reviews',
-  'Resolution & Challenges', 'Proof Log', 'Reward & Support',
+  'Resolution', 'Challenges', 'Proof Log',
 ]) {
   ok('Case detail exposes ' + section, app.includes(section));
 }

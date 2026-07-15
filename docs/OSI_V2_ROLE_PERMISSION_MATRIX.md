@@ -22,7 +22,7 @@
 | Safety-block lift | – | – | – | – | – | ✅ | EF maintainer | Memo `CASE_SAFETY_LIFTED` | re-enters review |
 | Normal initial reject | – | – | ❌ | quorum | quorum | (counts as analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**) | Memo `CASE_INITIAL_REVIEW_REJECTED` | private; appeal |
 | Appeal a rejection | – | – | ✅ (owner) | – | – | – | EF owner sig | Sig `CASE_APPEAL_SUBMITTED` | re-enters review |
-| Propose resolution / select winner | – | – | ❌ decisive | quorum | ✅ | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**; winner = server quorum tally | Memo `RESOLUTION_PROPOSED` → `REPORT_SELECTED_WINNING` | winner shown |
+| Select exact primary Report | – | – | ❌ decisive | quorum | ✅ | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**; winner = unique server quorum leader; exact tie remains unresolved | Memo `REPORT_SELECTED_WINNING` | winner shown |
 | Seal | – | – | – | fallback-only | – | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer** | Memo `RECORD_SEALED` | sealed badge |
 | Halt (emergency) | – | – | – | – | – | ✅/fallback | EF maintainer | Memo `CASE_HALTED` | frozen |
 | Resume from halt | – | – | – | – | – | ✅ | EF maintainer | Memo `CASE_RESUMED` | resumed |
@@ -56,8 +56,8 @@
 | Operation | wallet | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|
 | Submit challenge | ✅ | ✅ | ✅ | EF sig + reason + **`evidence_item_id` FK** (URL first becomes an `evidence_items` row) + **exactly-one typed target FK** + rate-limit + one-active + cooldown; sets `admissibility_ttl_at` | Sig `CHALLENGE_SUBMITTED` |
-| Accept admissibility (→ pauses sealing) | – | ✅ | ✅ | EF analyst/maintainer, **`admitted_by_wallet≠challenger`**; sets `review_deadline_at` | Sig `CHALLENGE_ADMISSIBILITY_ACCEPTED` |
-| Reject admissibility (inadmissible) | – | ✅ | ✅ | EF analyst/maintainer, **≠challenger**; **no penalty**; no pause | Sig `CHALLENGE_ADMISSIBILITY_REJECTED` |
+| Accept admissibility (→ pauses sealing) | – | ✅ | ✅ | EF one eligible analyst or full double-gated maintainer; **≠challenger, Case owner, selected Report author**; sets `review_deadline_at` | Sig `CHALLENGE_ADMISSIBILITY_ACCEPTED` |
+| Reject admissibility (inadmissible) | – | ✅ | ✅ | EF one eligible analyst or full double-gated maintainer; same conflict exclusions; **no penalty**; no pause | Sig `CHALLENGE_ADMISSIBILITY_REJECTED` |
 | Merit review (per analyst) | – | ✅ | ✅ | EF **eligible independent analyst, ≠challenger** (and ≠ target author/owner/creator); `challenge_reviews{phase:merit}` | Sig `CHALLENGE_REVIEW_CAST`/`_REVISED` |
 | Accept/reject (outcome) | – | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.50** (**no maintainer gate**); target-specific consequence (State Machines §5.1) | Memo `CHALLENGE_ACCEPTED`/`CHALLENGE_REJECTED` |
 | Bad-faith review (per analyst) | – | ✅ | ✅ | EF **eligible independent analyst, ≠challenger**; only on a rejected/withdrawn/expired challenge; `challenge_reviews{phase:bad_faith}` | Sig `CHALLENGE_BAD_FAITH_REVIEW_CAST`/`_REVISED` |

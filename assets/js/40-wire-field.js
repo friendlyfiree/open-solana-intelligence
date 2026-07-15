@@ -108,7 +108,7 @@ async function submitIntel(){
     ['wire-subject-in','wire-body-in'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
     wireCloseForm();
     renderReviewQueue();
-    showToast("\\u2713 Dispatch signed on-chain and submitted, it goes live on The Wire once a maintainer approves.");
+    showToast("\\u2713 Dispatch Memo submitted. Publication remains separate and requires eligible analyst quorum.");
   });
 }
 

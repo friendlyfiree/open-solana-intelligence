@@ -356,7 +356,7 @@
     setWorkspaceCopy(mode,reports.length);
     host.innerHTML=(notice?'<div class="osi-case-note">'+esc(notice)+'</div>':'')+(reports.length?'<div class="osi-report-workspace">'+reports.map(function(report){return reportCard(report,mode);}).join('')+'</div>':'<div class="osi-report-empty"><b>'+esc(mode==='mine'?'No Reports for this wallet':'No Reports currently await this wallet')+'</b><p>'+esc(mode==='mine'?'Open an eligible public Case and use Submit Report.':'Only server-authorized, non-self Report versions appear here.')+'</p></div>');
     var enabled=mode==='queue'&&reports.some(function(report){return report.review_mutations_enabled===true;});
-    var stats=document.getElementById('field-stats');if(stats)stats.innerHTML='<div class="osi-stat"><span>Visible</span><b>'+reports.length+'</b></div><div class="osi-stat"><span>Immutable versions</span><b>'+reports.reduce(function(sum,report){return sum+(report.versions||[]).length;},0)+'</b></div><div class="osi-stat"><span>Review controls</span><b>'+esc(mode==='queue'?(enabled?'Eligible':'Read only'):'N/A')+'</b></div>';
+    var stats=document.getElementById('field-stats');if(stats)stats.innerHTML='<div class="osi-stat"><span>Visible</span><b>'+reports.length+'</b></div><div class="osi-stat"><span>Immutable versions</span><b>'+reports.reduce(function(sum,report){return sum+(report.versions||[]).length;},0)+'</b></div><div class="osi-stat"><span>Review controls</span><b>'+esc(mode==='queue'?(enabled?'Eligible':'Eligible analyst required'):'N/A')+'</b></div>';
     var deck=document.getElementById('fo-deck');if(deck)deck.hidden=true;
     var nav=document.getElementById('fo-pnav');if(nav)nav.innerHTML='';
   }

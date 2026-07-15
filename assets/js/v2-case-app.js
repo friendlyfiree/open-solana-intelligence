@@ -417,7 +417,7 @@ function renderOperations() {
   var connected = !!walletPubkey;
   mainEl().innerHTML =
     viewHead("Operations Center", "Maintainer inspection",
-      "Read-only oversight of the live V2 registry. Access requires BOTH the maintainer Supabase sign-in and a fresh signature from the configured admin wallet. Either alone is denied.") +
+      "Double-gated oversight of the live V2 registry. Access requires BOTH the maintainer Supabase sign-in and a fresh signature from the configured admin wallet. Either alone is denied.") +
     '<div class="panel"><h3 class="panel-h">Maintainer gates</h3>' +
     '<div class="gate-row"><span class="gate-dot ' + (authed ? "ok" : "") + '"></span>Gate 1 · Supabase maintainer session: ' +
     (authed ? '<strong>signed in</strong> <span class="mono">(' + escapeHtml(maintainerEmail || "") + ')</span>' : "not signed in") + "</div>" +

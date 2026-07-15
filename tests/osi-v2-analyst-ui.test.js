@@ -21,7 +21,7 @@ function ok(value, message) {
 
 ok(html.includes('assets/js/v2-analyst-integration.js'), 'mature app loads native analyst integration');
 ok(html.includes('assets/css/v2-activation.css'), 'mature app loads shared activation foundation');
-ok(html.includes('My Profile') && html.includes('My Applications'), 'My OSI exposes profile and application workspaces');
+ok(html.includes('My Analyst Profile') && html.includes('Applications'), 'My OSI exposes profile and application workspaces');
 ok(html.includes('onsubmit="osiAnalystSubmit(event)"'), 'application form maps to the native submit operation');
 ok(html.includes('accept="image/png,image/jpeg"'), 'profile image picker excludes SVG and arbitrary formats');
 ok(!html.includes('Most backed') && !html.includes('data-s="supported"'), 'The Wire has no support-based sort control');
