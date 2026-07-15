@@ -77,6 +77,11 @@ ok(
     "bound.purpose is distinct from (case when challenge_quorum.outcome = 'accept'",
   ) && !/bound\.purpose\s+is\s+distinct\s+from\s+case\b/i.test(resolutionLifecycle),
 );
+ok(
+  'extended review receipt binder preserves uncounted maintainer application reviews',
+  /maintainer_review\s*:=\s*\([\s\S]*tg_table_name\s*=\s*'analyst_application_reviews'[\s\S]*new\.weight\s*=\s*0[\s\S]*if\s+maintainer_review\s+and\s+receipt\.actor_role/i
+    .test(resolutionLifecycle),
+);
 
 ok(
   'exact ordered migration set',

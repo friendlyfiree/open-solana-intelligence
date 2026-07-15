@@ -107,8 +107,9 @@ select ok((select relrowsecurity and relforcerowsecurity from pg_class where oid
 
 update public.osi_config set value='true'
  where key='OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED';
-update public.osi_config set value='44444444444444444444444444444444'
- where key='admin_wallet';
+insert into public.osi_config (key, value) values
+  ('admin_wallet', '44444444444444444444444444444444')
+on conflict (key) do update set value=excluded.value;
 
 insert into public.analyst_profiles (wallet,status,tier_code,verified,approved,weight_cached) values
  ('22222222222222222222222222222222','probationary_analyst','probationary',true,true,1.50),
