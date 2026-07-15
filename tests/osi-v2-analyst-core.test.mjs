@@ -95,6 +95,24 @@ const dto = core.publicAnalystDto({
   occurred_at: "2026-07-13T00:00:00Z", payload_hash: "secret", nonce: "secret", signature: "secret",
 }]);
 ok(!("payload_hash" in dto.proof_history[0]) && !("nonce" in dto.proof_history[0]) && !("signature" in dto.proof_history[0]), "public DTO excludes private proof material");
+const supportDto = core.publicAnalystDto({
+  wallet, handle: "chain_sleuth", display_name: "Chain Sleuth", bio: "Public bio",
+  expertise_public: [], links_public: [], status: "verified_analyst", tier_code: "verified", weight_cached: 1,
+}, [], [{
+  event_type: "SUPPORT_PAYMENT_CONFIRMED", actor_wallet: "11111111111111111111111111111112",
+  actor_role: "wallet", decision: "sent", proof_type: "solana_memo", tx_sig: "2".repeat(64),
+  memo_ref: "OSI2|1|SUPPORT_PAYMENT_CONFIRMED|fixture", occurred_at: "2026-07-15T00:00:00Z",
+  recipient_amount_lamports: "25000000", payment_total_lamports: "75000000",
+  payment_target_public_ref: "OSI-AN-ABCDEF1234567890", payment_finality: "finalized",
+  payment_slot: "500001", payment_block_time: "2026-07-15T00:00:00Z",
+  verification_metadata: { private: "must not leak" }, payload_hash: "must not leak",
+}]);
+ok(supportDto.proof_history[0].payment_proof.recipient_amount_lamports === "25000000"
+  && supportDto.proof_history[0].payment_proof.finality === "finalized"
+  && supportDto.proof_history[0].memo.startsWith("OSI2|1|SUPPORT_PAYMENT_CONFIRMED"),
+"public verified analyst profile includes the exact recipient share of finalized support proof");
+ok(!("verification_metadata" in supportDto.proof_history[0]) && !("payload_hash" in supportDto.proof_history[0]),
+"analyst support proof exposes no raw verification metadata or binding hash");
 
 ok(edge.includes("authenticatedMaintainerId") && edge.includes("configuredAdminWallet") && edge.includes("fullMaintainer"), "every maintainer operation has a double-gate primitive");
 ok((edge.match(/await fullMaintainer\(req, wallet\)/g) ?? []).length >= 5, "maintainer reads and writes independently revalidate both gates");
@@ -105,5 +123,6 @@ ok(edge.includes("data?.[0]?.value === \"true\""), "missing or malformed analyst
 ok(sql.includes("weight_cached = 0.50") && sql.includes("tier_code = 'probationary'"), "database derives exact probationary weight and tier");
 ok(sql.includes("force row level security") || fs.readFileSync(path.join(root, "supabase/migrations/20260711092856_osi_v2_default_deny.sql"), "utf8").includes("analyst_application_reviews"), "analyst tables remain under forced default-deny RLS");
 ok(!edge.includes("select(\"*\")"), "gateway avoids select-star projections");
+ok(edge.includes('SUPPORT_PAYMENT_CONFIRMED') && edge.includes('recipient_amount_lamports'), "public analyst graph maps finalized support manifests back to every exact recipient");
 
 console.log("1.." + count);

@@ -50,7 +50,7 @@ cleanup() {
   # Restore the fail-closed default. The disposable database is discarded by CI;
   # this keeps the flag correct for anything that reuses the same local database.
   psql "$DB_URL" -X -q -tA \
-    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED','OSI_V2_REPORT_REVIEW_WRITES_ENABLED','OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED');" \
+    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED','OSI_V2_REPORT_REVIEW_WRITES_ENABLED','OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED','OSI_V2_PAYMENT_WRITES_ENABLED');" \
     >/dev/null 2>&1 || true
   rm -rf "$WORKDIR"
 }
@@ -802,6 +802,106 @@ if printf '%s' "$GOV_CHANGED_ERR" | grep -q 'Governance payload, proof text or m
   pass "changed Resolution review payload is rejected after the race"
 else
   fail "changed Resolution review payload was not rejected: $GOV_CHANGED_ERR"
+fi
+
+# --- native payment commit: two workers, one nonce, one immutable receipt -----
+PAY_NONCE="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+PAY_ID="b1000000-0000-4000-8000-000000000001"
+PAY_PAYER="77777777777777777777777777777777"
+PAY_RECIPIENT="66666666666666666666666666666666"
+PAY_TX="$(printf 'P%.0s' $(seq 1 88))"
+PAY_C1_OUT="$WORKDIR/payment-conn1.out"
+PAY_C2_OUT="$WORKDIR/payment-conn2.out"
+PAY_HOLD_MARKER="$WORKDIR/payment-conn1-holding.marker"
+PAY_MANIFEST="[{\"ordinal\":1,\"wallet\":\"$PAY_RECIPIENT\",\"amount_lamports\":\"1000000\",\"recipient_type\":\"analyst\",\"target_ref\":\"OSI-AN-CONCURRENCY\"}]"
+PAY_MEMO="OSI2|1|SUPPORT_PAYMENT_CONFIRMED|t=support|id=OSI-AN-CONCURRENCY|a=$PAY_PAYER|r=wallet|d=sent|n=$PAY_NONCE|h=$(printf 'e%.0s' $(seq 1 64))|ts=1800000000"
+
+psql_run >/dev/null <<SQL
+update public.osi_config set value='true' where key='OSI_V2_PAYMENT_WRITES_ENABLED';
+insert into public.analyst_profiles (wallet,status,tier_code,verified,approved,weight_cached)
+values ('$PAY_RECIPIENT','probationary_analyst','probationary',true,true,0.50);
+insert into public.osi_nonces (
+ nonce,purpose,actor_wallet,target_type,target_id,payload_hash,idempotency_key,
+ request_fingerprint_hash,binding_context,issued_at,expires_at
+) values (
+ '$PAY_NONCE','SUPPORT_PAYMENT_CONFIRMED','$PAY_PAYER','support','$PAY_ID',
+ '$(printf 'e%.0s' $(seq 1 64))','osi-v2-payment-race-$(date +%s%N)',
+ '$(printf 'f%.0s' $(seq 1 64))',jsonb_build_object(
+  'payment_kind','support','target_public_ref','OSI-AN-CONCURRENCY','actor_role','wallet',
+  'recipient_manifest','$PAY_MANIFEST'::jsonb,'manifest_hash','$(printf 'd%.0s' $(seq 1 64))',
+  'total_lamports','1000000','memo','$PAY_MEMO'
+ ),statement_timestamp(),statement_timestamp()+interval '5 minutes'
+);
+SQL
+
+PAY_COMMIT_SQL="select receipt_id::text || ' ' || idempotent_replay::text
+  from public.osi_v2_commit_payment(
+    '$PAY_NONCE','$PAY_TX',700001,statement_timestamp(),'finalized','{\"fixture\":\"concurrency\"}'::jsonb)"
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$PAY_COMMIT_SQL
+\g $PAY_C1_OUT
+\! touch $PAY_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+PAY_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$PAY_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "payment connection 1 never reached the holding state"
+    wait "$PAY_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$PAY_COMMIT_SQL
+\g $PAY_C2_OUT
+commit;
+SQL
+PAY_CONN2_PID=$!
+
+sleep 1
+PAY_RACE_WAITERS="$(psql_run -c "
+  select count(*) from pg_stat_activity
+   where wait_event_type='Lock' and query ilike '%osi_v2_commit_payment%';")"
+if [ "${PAY_RACE_WAITERS:-0}" -ge 1 ]; then
+  pass "second payment commit genuinely blocked on the exact nonce"
+else
+  fail "second payment commit did not block on the nonce row"
+fi
+
+wait "$PAY_CONN1_PID"
+wait "$PAY_CONN2_PID"
+read -r PAY_R1 PAY_REPLAY1 < "$PAY_C1_OUT"
+read -r PAY_R2 PAY_REPLAY2 < "$PAY_C2_OUT"
+assert_eq "payment race returns one shared receipt" "$PAY_R1" "$PAY_R2"
+assert_eq "first payment commit creates the confirmed effect" "false" "$PAY_REPLAY1"
+assert_eq "second payment commit is an idempotent replay" "true" "$PAY_REPLAY2"
+PAY_COUNTS="$(psql_run -c "
+  select count(distinct receipt.id) || ':' || count(distinct support.id)
+    from public.event_receipts receipt
+    join public.support_events support on support.event_receipt_id=receipt.id
+   where receipt.nonce='$PAY_NONCE';")"
+assert_eq "payment race creates one receipt and one support row" "1:1" "$PAY_COUNTS"
+PAY_CHANGED_ERR="$(psql "$DB_URL" -X -q -tA -c "
+  select * from public.osi_v2_commit_payment(
+    '$PAY_NONCE','$(printf 'Q%.0s' $(seq 1 88))',700001,statement_timestamp(),
+    'finalized','{\"fixture\":\"concurrency\"}'::jsonb);" 2>&1 || true)"
+if printf '%s' "$PAY_CHANGED_ERR" | grep -q 'Consumed payment nonce is bound to another transaction'; then
+  pass "changed payment transaction is rejected after the race"
+else
+  fail "changed payment transaction was not rejected: $PAY_CHANGED_ERR"
 fi
 
 # --- verdict ------------------------------------------------------------------

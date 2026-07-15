@@ -49,7 +49,7 @@
 | Review exact wire version | ❌ | ❌ own | ✅ | ✅ | EF verify **eligible analyst**; **ordinary connected wallets cannot write `wire_report_reviews`**; **author excluded** | Sig `WIRE_REPORT_REVIEW_CAST`/`_REVISED` |
 | Publish (outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**) | Memo `WIRE_REPORT_PUBLISHED` |
 | Promote to case | – | – | ✅ | ✅ | EF analyst/maintainer | Memo `WIRE_PROMOTED` |
-| Support author | ✅ | – | ✅ | ✅ | EF support endpoint | Memo `SUPPORT_SENT` (no ranking effect) |
+| Support author | ✅ | – | ✅ | ✅ | EF derives current published author; trusted RPC finality | `SUPPORT_PAYMENT_CONFIRMED` (no ranking effect) |
 
 ## 4. Challenge (admissibility gate)
 
@@ -97,9 +97,9 @@ Submission alone never pauses sealing; only `open`/`under_review` do. No non-ter
 
 | Operation | owner | wallet | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
-| Pledge reward | ✅ | – | – | – | EF sig; intent, no custody | Memo `REWARD_PLEDGED` |
-| Send reward to winner | ✅ | – | – | – | client tx + EF records on RPC confirm | Memo `REWARD_PAID` |
-| Voluntary support author/analyst | – | ✅ | ✅ | ✅ | EF support endpoint, confirmed tx; **no ranking/discovery effect** | Memo `SUPPORT_SENT` |
+| Create/revise/withdraw reward pledge | ✅ exact Case owner | – | – | no special power | EF signMessage + exact nonce/payload; private pre-open withdraw, public increase-only, sealed freeze | Sig `REWARD_PLEDGE_CREATED` / `_REVISED` / `_WITHDRAWN` |
+| Send partial/full reward to winner | ✅ exact Case owner, sealed only | – | – | no special power | EF derives exact winning version author; Phantom System Program tx; trusted RPC finality; confirmed sum ≤ frozen pledge | `REWARD_PAYMENT_CONFIRMED` |
+| Voluntary support published author / eligible analyst / counted reviewer | – | ✅ | ✅ | ✅ only when separately eligible as recipient | EF derives recipient; rejects self-support; 1–4 same-context recipients; trusted RPC finality; **no ranking/discovery/reputation/governance effect** | `SUPPORT_PAYMENT_CONFIRMED` |
 
 ## 8. Public analyst attribution (correction #14 / D16)
 For any **public** governance decision (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges), the public view shows for each participating analyst or full initial-open maintainer: **role, public profile/handle where applicable, wallet, decision, weight snapshot used (maintainer initial-open = 0), timestamp, proof type** (`solana_memo` / `wallet_signed_server_verified` / `system_event`), and a public-safe receipt/tx reference. Restricted always: private notes, private evidence, moderation reason detail, sensitive reason text. Pre-open/private queue shows **counts only**.

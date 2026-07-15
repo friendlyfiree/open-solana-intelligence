@@ -223,18 +223,20 @@ Analyst lifecycle (`analyst_profiles.status`): `contributor → analyst_candidat
 Reputation eligibility is server-derived from documented contribution thresholds; human governance only confirms policy/abuse checks. **No self-verification.** Maintainer-absence fallback for promotions is designed (Voting Model §5) but disabled first release (`OSI_V2_FALLBACK_GOVERNANCE=false`).
 
 ## 9. Reward pledge & Payment
-Pledge: `pledged → assigned → paid | cancelled | expired`. Payment: `initiated → submitted → (confirmed | failed | timed_out)`.
+Pledge: `pledged → assigned → paid | cancelled | expired`. Payment: `initiated → submitted → (confirmed | failed | timed_out)`. The UI derives `pledged`, `payment_ready`, `awaiting_finality`, `partially_fulfilled`, `fulfilled`, and `verification_failed` from these authoritative rows; it never accepts a client-claimed status.
 
 | From→To | Actor | Enforce | Proof/event | Notes |
 |---|---|---|---|---|
-| ∅→pledged | case owner | EF sig | Memo `REWARD_PLEDGED` | records intent, no custody |
-| pledged→assigned | on winning version selection | Sys | Sys `REWARD_ASSIGNED` | recipient = winning author, fixed |
-| assigned→paid | owner sends SOL, tx confirmed | client tx + EF records only on RPC confirm | Memo `REWARD_PAID` | never "paid" before confirm |
+| ∅→pledged | case owner, before seal | EF signMessage verification | Sig `REWARD_PLEDGE_CREATED` | intent only; no transfer, custody, escrow, or guarantee |
+| pledged→pledged (revise) | case owner | EF signMessage verification | Sig `REWARD_PLEDGE_REVISED` | pre-open any valid amount; after open increase-only; immutable receipt history |
+| pledged→cancelled | case owner, private pre-open only | EF signMessage verification | Sig `REWARD_PLEDGE_WITHDRAWN` | amount/history retained; no payment or penalty |
+| pledged→assigned | Case seal with exact winner | Sys | Sys `REWARD_ASSIGNED` | recipient = exact winning version author; amount frozen |
+| assigned→assigned | owner sends a partial SOL amount, finalized | Phantom tx + trusted RPC | `REWARD_PAYMENT_CONFIRMED` | exact partial sum remains below frozen pledge |
+| assigned→paid | finalized payments equal frozen pledge | Phantom tx + trusted RPC | `REWARD_PAYMENT_CONFIRMED` | never paid before finality; no overpayment |
 | →failed/timed_out | RPC | confirmation poll | Sys *(internal advance, no receipt)* | – |
-| pledged→cancelled | owner (pre-assign) | EF | Sys *(internal advance, no receipt)* | – |
 
 ## 10. Voluntary support
-`submitted → confirmed | failed`. Any wallet. Confirmed only after RPC confirmation. `SUPPORT_SENT` (memo — it is already a transfer tx). **Never** touches reputation/consensus/publication/ranking/discovery (P7).
+`submitted → confirmed | failed`. Any connected wallet may support a server-derived published Report author or eligible verified analyst; counted eligible reviewers may be selected only against their exact published version. Self-support is denied. A single transaction may contain 1–4 exact unique recipients for one support context; reward never enters that batch. `SUPPORT_PAYMENT_CONFIRMED` is created only after trusted mainnet RPC verifies finality, payer/signer, every System Program transfer, manifest, integer lamports, Memo, freshness, and absence of extra instructions. **Never** touches reputation, eligibility, weight, consensus, governance, recommendation, priority, publication, ranking, or discovery (P7).
 
 ```mermaid
 stateDiagram-v2

@@ -14,9 +14,9 @@ Hero (one-sentence value) → primary CTA "File a report" / secondary "Open an i
 ## 2. Field Office (Case-centered)
 Filters: `Open investigations` · `In review` · `Resolved` · `Sealed` · `Mine` · category · search (**no most-supported/most-backed sort**). Card: public_ref, title, category, stage badge, report count, analyst-decision totals, challenge state, optional reward chip, "View Case." Private cases never listed publicly; owner sees own via "Mine" (owner-proof).
 
-## 3. Case Detail — current release tabs: Overview · Evidence · Reports · Resolution · Challenges · Proof Log
+## 3. Case Detail — current release tabs: Overview · Evidence · Reports · Resolution · Challenges · Rewards & Support · Proof Log
 
-The current release keeps the executable governance path in six focused tabs. Resolution contains the exact candidate-version tally, unique-leader/tie state, attributed selection reviews, selected primary version, and process-seal quorum. Challenges contains the server countdown, admissibility state, blocking label, merit history, and terminal outcome. Reward intent remains informational in Overview until its separately authorized lifecycle ships; no dormant control is shown as functional.
+The current release keeps the executable governance and payment paths in seven focused tabs. Resolution contains the exact candidate-version tally, unique-leader/tie state, attributed selection reviews, selected primary version, and process-seal quorum. Challenges contains the server countdown, admissibility state, blocking label, merit history, and terminal outcome. Rewards & Support contains the real pledge, sealed-winner payment, contributor support, finality retry, and receipt surfaces; no dormant control is shown as functional.
 
 **Per-action button/state rules (each → modeled transition):**
 
@@ -38,11 +38,14 @@ The current release keeps the executable governance path in six focused tabs. Re
 | **Review Pack version** | AI Pack tab | analyst, **not creator** | `ai_pack_reviews` cast → Sig | "Creators can't review their own pack" |
 | **Submit Pack owner feedback** | AI Pack tab | proven Case owner | `ai_pack_owner_feedback` → Sig `AI_PACK_OWNER_FEEDBACK_SUBMITTED` (advisory, uncounted) | "Only the Case owner may submit feedback" |
 | **Approve Pack after quorum** | AI Pack tab | maintainer, ≥2 independent (creator excluded) | `AI_PACK_APPROVED` | "Approve — needs 1 more independent analyst" |
-| **Send pledged reward** | Reward tab | case owner, winner assigned | `reward_payments` confirmed tx → `REWARD_PAID` | "No winner assigned yet" |
-| **Support Report Author** | Reports/Overview | any wallet | `support_events` (author) → `SUPPORT_SENT` | "Connect a wallet" |
-| **Support Analyst** | Analyst profile | any wallet | `support_events` (analyst) | "Connect a wallet" |
+| **Create/revise/withdraw pledge** | Rewards & Support tab | exact Case owner | Class-B pledge receipt; no SOL moves | "Pledged, not escrowed" / exact lifecycle reason |
+| **Send pledged reward** | Rewards & Support tab | exact Case owner, Case sealed, unpaid amount > 0 | server-derived winner + finalized `reward_payments` tx → `REWARD_PAYMENT_CONFIRMED` | "Challenge window must end and Case must be sealed" |
+| **Support Report Author / contributors** | Reports / Rewards & Support | any connected wallet | server-derived 1–4 recipient manifest → `SUPPORT_PAYMENT_CONFIRMED` | "Connect a wallet" / exact self-support or target reason |
+| **Support Analyst** | Analyst profile | any connected wallet; recipient must be an eligible verified analyst | server-derived `support_events` recipient → `SUPPORT_PAYMENT_CONFIRMED` | "Connect a wallet" / exact self-support or eligibility reason |
 
-Tab contents: **Overview** (public summary, stage timeline, key dates, reward chip, counts) · **Evidence** (public evidence; restricted gated; reported wallets labeled *reported/unverified*) · **Reports** (versions with status; published bodies public; pending gated; reviews target exact version) · **AI Pack** (per AI Pack Trust Model §9) · **Votes** (decision totals + **public analyst attribution** — handle, wallet, decision, weight snapshot, timestamp, proof type; quorum two-gate meter) · **Challenges** (admissibility state, pause indicator, open challenge form) · **Reward** (pledge/status, winning version + author, resolution date, challenge deadline, payment status; never "paid" pre-confirmation) · **Proof Log** (this Case's receipts with honest proof-type labels).
+Tab contents: **Overview** (public summary, stage timeline, key dates, reward chip, counts) · **Evidence** (public evidence; restricted gated; reported wallets labeled *reported/unverified*) · **Reports** (versions with status; published bodies public; pending gated; reviews target exact version; support-author action) · **AI Pack** (per AI Pack Trust Model §9) · **Votes** (decision totals + **public analyst attribution** — handle, wallet, decision, weight snapshot, timestamp, proof type; quorum two-gate meter) · **Challenges** (admissibility state, pause indicator, open challenge form) · **Rewards & Support** (pledge history/status, exact sealed winner + author, outstanding amount, partial/finalized payments, 1–4 same-version contributor support, retry-finality state; never "paid" pre-finality) · **Proof Log** (receipts with honest proof-type labels plus exact verified transfer manifest/finality fields).
+
+Primary payment interaction is in-app Phantom signing. No Solana Pay control is shown until a future implementation can reuse the exact server-issued intent, reference, Memo, manifest, and trusted RPC verification without weakening binding.
 
 ## 4. The Wire (report-first, no rewards)
 "Publish a Wire Report" (finding-first) → new `wire_report_versions` → Memo `WIRE_REPORT_VERSION_SUBMITTED` (v1 & every revision). Card: title, author, review state, support chip (display only). Filters: category, newest (**no most-supported sort**). Published Wire Report → "Promote to Case" (analyst/maintainer). Author cannot review own.

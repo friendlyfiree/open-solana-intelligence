@@ -32,7 +32,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Only admissible open or under-review challenges pause sealing.
 - Reward and voluntary support are separate.
 - OSI never holds custody, escrow, or a platform balance.
-- Payment status requires RPC verification of sender, recipient, amount, and cluster.
+- Payment status requires trusted server RPC verification of Solana mainnet genesis, finality, exact payer/signer, exact System Program recipient manifest and bigint lamports, canonical Memo, freshness, instruction structure, and replay binding.
 - Support never changes ranking, review priority, reputation, or voting power.
 - AI generation creates artifacts, not truth decisions.
 - AI surfaces never display one guilt, truth, or legal-certainty score.
@@ -107,6 +107,8 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Case detail sections include Reports and Reviews.
 - Case detail sections include Resolution & Challenges.
 - Case detail sections include Proof Log and Reward & Support.
+- Reward pledges use wallet-signed server proof and are never labeled on-chain or escrowed. Reward payment activates only after seal for the exact winning version author; voluntary support may atomically include at most four server-derived recipients for one exact published Report version.
+- The primary payment surface is an in-app Phantom transaction. Solana Pay is not exposed in this slice because the legacy link flow cannot preserve the same exact server-issued multi-target intent and verification binding.
 - Unimplemented sections explain the exact missing gate.
 - Dormant placeholder controls are not presented as working actions.
 

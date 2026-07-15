@@ -22,6 +22,7 @@ const expectedFiles = [
   '20260714044036_osi_v2_case_report_intake.sql',
   '20260714064501_osi_v2_report_review_publication.sql',
   '20260714082218_osi_v2_resolution_challenge_seal.sql',
+  '20260715053828_osi_v2_native_sol_payments.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -37,6 +38,7 @@ const lifecycle = sqlByFile['20260713045903_osi_v2_case_lifecycle.sql'] || '';
 const analystActivation = sqlByFile['20260713184533_osi_v2_analyst_activation.sql'] || '';
 const reportIntake = sqlByFile['20260714044036_osi_v2_case_report_intake.sql'] || '';
 const resolutionLifecycle = sqlByFile['20260714082218_osi_v2_resolution_challenge_seal.sql'] || '';
+const nativePayments = sqlByFile['20260715053828_osi_v2_native_sol_payments.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const analystProductionWorkflow = fs.readFileSync(
@@ -49,6 +51,10 @@ const reportProductionWorkflow = fs.readFileSync(
 );
 const resolutionProductionWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-resolution-production.yml'),
+  'utf8',
+);
+const paymentProductionWorkflow = fs.readFileSync(
+  path.join(root, '.github', 'workflows', 'osi-v2-payment-production.yml'),
   'utf8',
 );
 const proofCore = fs.readFileSync(
@@ -104,6 +110,7 @@ for (const functionName of [
   'osi-analyst-intake', 'osi-ai-pack', 'osi-v2-analyst',
   'osi-v2-report-write', 'osi-v2-report-read',
   'osi-v2-governance-write',
+  'osi-v2-payment',
 ]) {
   const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   ok(
@@ -233,7 +240,7 @@ ok(
   !/\('OSI_V2_WRITES_ENABLED',\s*'true'/i.test(allSql),
 );
 
-const classMatches = [...integrity.matchAll(
+const classMatches = [...allSql.matchAll(
   /when\s+p_event_type\s*=\s*any\s*\(array\[([\s\S]*?)\]::text\[\]\)\s*then\s*'([^']+)'/g,
 )];
 const registry = {};
@@ -242,14 +249,39 @@ for (const match of classMatches) {
     .map((event) => event[1]);
 }
 ok(
-  '25 class-B events',
-  (registry.wallet_signed_server_verified || []).length === 25,
+  '28 class-B events',
+  (registry.wallet_signed_server_verified || []).length === 28,
 );
-ok('32 class-A events', (registry.solana_memo || []).length === 32);
+ok('34 class-A events', (registry.solana_memo || []).length === 34);
 ok('8 system events', (registry.system_event || []).length === 8);
 const allEvents = Object.values(registry).flat();
-ok('65 canonical events', allEvents.length === 65);
-ok('canonical event classes do not overlap', new Set(allEvents).size === 65);
+ok('70 canonical events', allEvents.length === 70);
+ok('canonical event classes do not overlap', new Set(allEvents).size === 70);
+ok('native payment migration starts only its dedicated flag false',
+  /\('OSI_V2_PAYMENT_WRITES_ENABLED',\s*'false'/i.test(nativePayments)
+    && !/\('OSI_V2_PAYMENT_WRITES_ENABLED',\s*'true'/i.test(nativePayments));
+ok('native payment tables remain FORCE RLS and browser-default-deny',
+  ['reward_pledges', 'reward_payments', 'support_events'].every((table) =>
+    nativePayments.includes(`alter table public.${table} force row level security`))
+    && /revoke all privileges on table public\.reward_pledges,public\.reward_payments,public\.support_events\s+from public,anon,authenticated/i.test(nativePayments));
+ok('payment submission, finalization and failure state remain service-role only',
+  ['osi_v2_record_payment_submission', 'osi_v2_commit_payment', 'osi_v2_record_payment_failure']
+    .every((name) => new RegExp(
+      `revoke all privileges on function public\\.${name}\\([^;]+from public,anon,authenticated`,
+      'i',
+    ).test(nativePayments)));
+ok('native payment events use exact Class B pledge and Class A transfer proofs',
+  ['REWARD_PLEDGE_CREATED', 'REWARD_PLEDGE_REVISED', 'REWARD_PLEDGE_WITHDRAWN']
+    .every((event) => (registry.wallet_signed_server_verified || []).includes(event))
+    && ['REWARD_PAYMENT_CONFIRMED', 'SUPPORT_PAYMENT_CONFIRMED']
+      .every((event) => (registry.solana_memo || []).includes(event)));
+ok('support payment code never mutates analyst reputation, weight or contribution tables',
+  !/(?:insert\s+into|update)\s+public\.analyst_(?:profiles|contributions|reputation_snapshots)/i
+    .test(nativePayments));
+ok('Case sealing atomically freezes the exact pledge amount and winning Report version without moving SOL',
+  nativePayments.includes('create trigger osi_v2_freeze_reward_on_case_seal')
+    && nativePayments.includes("set state = 'assigned', winning_report_version_id = winning_version_id")
+    && nativePayments.includes('sealed_amount_lamports = reward.amount_lamports'));
 const proofPurposeBlock = proofCore.match(
   /export const CLASS_B_PURPOSES = new Set\(\[([\s\S]*?)\]\);/,
 );
@@ -514,6 +546,48 @@ ok(
   'Resolution production workflow has no planner-foldable constant error assertions',
   !/cast\s*\(\s*1\s*\/\s*0/i.test(resolutionProductionWorkflow)
     && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(resolutionProductionWorkflow),
+);
+ok(
+  'Native payment production workflow is manual main-only and exact-migration pinned',
+  paymentProductionWorkflow.includes('workflow_dispatch:')
+    && !paymentProductionWorkflow.includes('pull_request:')
+    && !paymentProductionWorkflow.includes('push:')
+    && paymentProductionWorkflow.includes('refs/heads/main')
+    && paymentProductionWorkflow.includes('NEW_VERSION: "20260715053828"')
+    && paymentProductionWorkflow.includes('PAYMENT-DEPLOY-${EXPECTED_PROJECT_REF}')
+    && paymentProductionWorkflow.includes('Dry-run only the native SOL payment migration'),
+);
+ok(
+  'Native payment rollout validates before deploying only scoped read and payment functions',
+  paymentProductionWorkflow.includes('needs: validate')
+    && paymentProductionWorkflow.includes('supabase db lint --local --level error')
+    && paymentProductionWorkflow.includes('supabase test db')
+    && paymentProductionWorkflow.includes('bash tests/osi-v2-concurrency.test.sh')
+    && paymentProductionWorkflow.includes('functions deploy osi-v2-case-read')
+    && paymentProductionWorkflow.includes('functions deploy osi-v2-analyst')
+    && paymentProductionWorkflow.includes('functions deploy osi-v2-payment')
+    && !paymentProductionWorkflow.includes('functions deploy osi-v2-case-write')
+    && !paymentProductionWorkflow.includes('functions deploy osi-v2-governance-write'),
+);
+ok(
+  'Native payment flag enables only after closed smoke and fails closed',
+  paymentProductionWorkflow.indexOf('Pre-enable capability privacy and negative smoke')
+      < paymentProductionWorkflow.indexOf('Enable only the native SOL payment flag')
+    && paymentProductionWorkflow.includes("key='OSI_V2_PAYMENT_WRITES_ENABLED' and value='false'")
+    && paymentProductionWorkflow.includes('Fail closed after any rollout or smoke failure')
+    && paymentProductionWorkflow.includes('[ "$payment_flag" = "false" ]'),
+);
+ok(
+  'Native payment rollout preserves broad gates and never initiates mainnet SOL',
+  paymentProductionWorkflow.includes("key='OSI_V2_WRITES_ENABLED'")
+    && paymentProductionWorkflow.includes("key='OSI_V2_PROOF_ENABLED'")
+    && paymentProductionWorkflow.includes('positive_mainnet_transfer=not_attempted')
+    && !paymentProductionWorkflow.includes('signAndSendTransaction'),
+);
+ok(
+  'Native payment production workflow has no planner-foldable constant error assertions',
+  !/cast\s*\(\s*1\s*\/\s*0/i.test(paymentProductionWorkflow)
+    && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(paymentProductionWorkflow),
 );
 ok(
   'nonce issuance serializes idempotency and rate-limit dimensions',

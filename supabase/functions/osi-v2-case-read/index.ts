@@ -115,7 +115,13 @@ const REPORT_COLS =
 const VERSION_COLS =
   "id,report_id,version_no,version_ref,created_by_wallet,body_private,content_public_safe,evidence_snapshot_hash,lifecycle_state,published_at,created_at";
 const RECEIPT_COLS =
-  "id,event_type,target_type,target_id,public_ref,actor_wallet,actor_role,decision,weight,reason_code,proof_type,memo_ref,tx_sig,server_verified,occurred_at";
+  "id,event_type,target_type,target_id,public_ref,actor_wallet,actor_role,decision,weight,reason_code,proof_type,memo_ref,tx_sig,server_verified,occurred_at,verification_metadata";
+const PLEDGE_COLS =
+  "id,case_id,pledger_wallet,amount_lamports,state,winning_report_version_id,revision_no,sealed_amount_lamports,withdrawn_at,updated_at";
+const PAYMENT_COLS =
+  "id,pledge_id,from_wallet,to_wallet,amount_lamports,tx_sig,state,confirmed_at,event_receipt_id,finality,verification_error,created_at";
+const SUPPORT_COLS =
+  "id,support_type,case_report_version_id,analyst_wallet,target_wallet,from_wallet,amount_lamports,tx_sig,state,event_receipt_id,case_id,context_report_version_id,recipient_manifest,confirmed_at,finality,verification_error,created_at";
 const EVIDENCE_COLS =
   "id,kind,ref,is_public,moderation_state,sha256,created_at";
 const REVIEW_COLS =
@@ -140,8 +146,9 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
   const evidenceByCase: Record<string, Row[]> = {};
   const reviewsByCase: Record<string, Row[]> = {};
   const governanceByCase: Record<string, Row> = {};
+  const moneyByCase: Record<string, Row> = {};
   if (!caseIds.length) {
-    return { reportsByCase, versionsByReport, receiptsByCaseTarget, evidenceByCase, reviewsByCase, governanceByCase };
+    return { reportsByCase, versionsByReport, receiptsByCaseTarget, evidenceByCase, reviewsByCase, governanceByCase, moneyByCase };
   }
 
   let reportsQuery = admin.from("case_reports").select(REPORT_COLS)
@@ -169,6 +176,75 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
       const key = String(version.report_id);
       (versionsByReport[key] ??= []).push(version);
     }
+  }
+
+  const { data: pledges } = await admin.from("reward_pledges").select(PLEDGE_COLS)
+    .in("case_id", caseIds).limit(200);
+  const pledgeIds = (pledges ?? []).map((row) => String(row.id));
+  const [{ data: payments }, { data: supports }] = await Promise.all([
+    pledgeIds.length
+      ? admin.from("reward_payments").select(PAYMENT_COLS).in("pledge_id", pledgeIds)
+        .order("created_at", { ascending: true }).limit(500)
+      : Promise.resolve({ data: [] }),
+    admin.from("support_events").select(SUPPORT_COLS).in("case_id", caseIds)
+      .order("created_at", { ascending: true }).limit(500),
+  ]);
+  const publishedVersionIds = (reports ?? []).map((row) => String(row.current_published_version_id ?? ""))
+    .filter(Boolean);
+  const { data: reportReviews } = publishedVersionIds.length
+    ? await admin.from("case_report_reviews")
+      .select("report_version_id,reviewer_wallet,weight,is_active")
+      .in("report_version_id", publishedVersionIds).eq("is_active", true).limit(1000)
+    : { data: [] };
+  const reviewerWallets = [...new Set((reportReviews ?? []).map((row) => String(row.reviewer_wallet)))];
+  const { data: reviewerProfiles } = reviewerWallets.length
+    ? await admin.from("analyst_profiles")
+      .select("wallet,status,verified,approved,weight_cached").in("wallet", reviewerWallets).limit(1000)
+    : { data: [] };
+  const eligibleReviewerWallets = new Set((reviewerProfiles ?? []).filter((row) => (
+    row.verified === true && row.approved === true
+    && ["probationary_analyst", "verified_analyst", "senior_analyst"].includes(String(row.status))
+    && Number(row.weight_cached) >= 0.50
+  )).map((row) => String(row.wallet)));
+  const versionById: Record<string, Row> = {};
+  for (const version of Object.values(versionsByReport).flat()) versionById[String(version.id)] = version;
+  for (const caseRow of caseRows) {
+    const caseId = String(caseRow.id);
+    const pledge = (pledges ?? []).find((row) => String(row.case_id) === caseId) ?? null;
+    const caseReports = reportsByCase[caseId] ?? [];
+    const options: Row[] = [];
+    for (const report of caseReports.filter((row) => row.current_published_version_id != null)) {
+      const version = versionById[String(report.current_published_version_id)];
+      if (!version) continue;
+      options.push({
+        target_type: "report_author", target_ref: version.version_ref,
+        wallet: report.author_wallet, label: `Report author ${String(version.version_ref)}`,
+      });
+      for (const review of (reportReviews ?? []).filter((row) => (
+        String(row.report_version_id) === String(version.id)
+        && eligibleReviewerWallets.has(String(row.reviewer_wallet))
+      ))) {
+        options.push({
+          target_type: "counted_reviewer", target_ref: version.version_ref,
+          wallet: review.reviewer_wallet, label: `Counted reviewer ${String(review.reviewer_wallet)}`,
+        });
+      }
+    }
+    const winningVersion = pledge?.winning_report_version_id
+      ? versionById[String(pledge.winning_report_version_id)] : null;
+    const winningReport = winningVersion
+      ? (reports ?? []).find((row) => String(row.id) === String(winningVersion.report_id)) : null;
+    moneyByCase[caseId] = {
+      pledge,
+      payments: pledge ? (payments ?? []).filter((row) => String(row.pledge_id) === String(pledge.id)) : [],
+      supports: (supports ?? []).filter((row) => String(row.case_id) === caseId),
+      support_options: options.filter((row, index, all) => all.findIndex((candidate) => (
+        candidate.target_type === row.target_type && candidate.target_ref === row.target_ref
+        && candidate.wallet === row.wallet
+      )) === index),
+      winning_report_version_ref: winningVersion?.version_ref ?? null,
+      winning_report_author_wallet: winningReport?.author_wallet ?? null,
+    };
   }
 
   const [{ data: resolutions }, { data: configRows }] = await Promise.all([
@@ -212,7 +288,15 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     if (!caseRow) continue;
     for (const version of versions) versionCaseRef[String(version.id)] = String(caseRow.public_ref);
   }
-  const targetIds = [...publicRefs, ...caseIds, ...versionIds, ...resolutionIds, ...challengeIds];
+  const paymentIds = [...(payments ?? []), ...(supports ?? [])].map((row) => String(row.id));
+  const paymentCaseRef: Record<string, string> = {};
+  for (const caseRow of caseRows) {
+    const money = moneyByCase[String(caseRow.id)] ?? {};
+    for (const row of [...(money.payments as Row[] ?? []), ...(money.supports as Row[] ?? [])]) {
+      paymentCaseRef[String(row.id)] = String(caseRow.public_ref);
+    }
+  }
+  const targetIds = [...publicRefs, ...caseIds, ...versionIds, ...resolutionIds, ...challengeIds, ...paymentIds];
   if (targetIds.length) {
     const { data: receipts } = await admin.from("event_receipts").select(RECEIPT_COLS)
       .in("target_id", targetIds).order("occurred_at", { ascending: true }).limit(400);
@@ -230,7 +314,8 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
         : null;
       const ref = publicRefs.includes(targetId)
         ? targetId : (directCase ? String(directCase.public_ref)
-          : (versionCaseRef[targetId] ?? (governanceCaseRow ? String(governanceCaseRow.public_ref) : "")));
+          : (versionCaseRef[targetId] ?? paymentCaseRef[targetId]
+            ?? (governanceCaseRow ? String(governanceCaseRow.public_ref) : "")));
       if (!ref) continue;
       (receiptsByCaseTarget[ref] ??= []).push(receipt);
     }
@@ -357,7 +442,7 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
       }),
     };
   }
-  return { reportsByCase, versionsByReport, receiptsByCaseTarget, evidenceByCase, reviewsByCase, governanceByCase };
+  return { reportsByCase, versionsByReport, receiptsByCaseTarget, evidenceByCase, reviewsByCase, governanceByCase, moneyByCase };
 }
 
 // ---------------------------------------------------------------------------
@@ -383,6 +468,7 @@ async function listPublicCases(): Promise<Response> {
       graph.evidenceByCase[String(caseRow.id)] ?? [],
       graph.reviewsByCase[String(caseRow.id)] ?? [],
       graph.governanceByCase[String(caseRow.id)] ?? {},
+      graph.moneyByCase[String(caseRow.id)] ?? {},
     )),
   });
 }
@@ -411,6 +497,7 @@ async function getPublicCase(body: Row): Promise<Response> {
       graph.evidenceByCase[String(caseRow.id)] ?? [],
       graph.reviewsByCase[String(caseRow.id)] ?? [],
       graph.governanceByCase[String(caseRow.id)] ?? {},
+      graph.moneyByCase[String(caseRow.id)] ?? {},
     ),
   });
 }
@@ -554,6 +641,7 @@ async function listMyCases(body: Row): Promise<Response> {
       graph.evidenceByCase[String(caseRow.id)] ?? [],
       graph.reviewsByCase[String(caseRow.id)] ?? [],
       graph.governanceByCase[String(caseRow.id)] ?? {},
+      graph.moneyByCase[String(caseRow.id)] ?? {},
     )),
   });
 }
@@ -710,6 +798,7 @@ async function listReviewableCases(req: Request, body: Row): Promise<Response> {
     graph.evidenceByCase[String(caseRow.id)] ?? [],
     graph.reviewsByCase[String(caseRow.id)] ?? [],
     graph.governanceByCase[String(caseRow.id)] ?? {},
+    graph.moneyByCase[String(caseRow.id)] ?? {},
   ));
   const versionRefById: Record<string, string> = {};
   for (const versions of Object.values(graph.versionsByReport)) {
@@ -808,6 +897,7 @@ async function getAuthorizedCase(req: Request, body: Row): Promise<Response> {
         graph.evidenceByCase[String(caseRow.id)] ?? [],
         graph.reviewsByCase[String(caseRow.id)] ?? [],
         graph.governanceByCase[String(caseRow.id)] ?? {},
+        graph.moneyByCase[String(caseRow.id)] ?? {},
       ),
     });
   }
@@ -823,6 +913,7 @@ async function getAuthorizedCase(req: Request, body: Row): Promise<Response> {
       graph.evidenceByCase[String(caseRow.id)] ?? [],
       graph.reviewsByCase[String(caseRow.id)] ?? [],
       graph.governanceByCase[String(caseRow.id)] ?? {},
+      graph.moneyByCase[String(caseRow.id)] ?? {},
     ),
   });
 }

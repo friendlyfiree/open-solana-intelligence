@@ -76,6 +76,7 @@
     return typeof osiAvatarSvg==='function'?osiAvatarSvg(profile.wallet,size,profile.display_name||profile.handle,''):'<span class="osi-an-avatar fallback">'+esc((profile.display_name||profile.handle||'?').charAt(0).toUpperCase())+'</span>';
   }
   function proofLabel(type){return type==='solana_memo'?'Memo-anchored on Solana':type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Legacy, not server-verified';}
+  function solFromLamports(value){var text=String(value==null?'0':value);if(!/^\d+$/.test(text))return'0';text=text.replace(/^0+(?=\d)/,'');var padded=text.padStart(10,'0'),whole=padded.slice(0,-9),fraction=padded.slice(-9).replace(/0+$/,'');return whole+(fraction?'.'+fraction:'');}
   function statusBadge(status){return '<span class="osi-status '+esc(status)+'">'+esc(label(status))+'</span>';}
   function empty(title,body){return '<div class="osi-activation-empty"><b>'+esc(title)+'</b><span>'+esc(body)+'</span></div>';}
 
@@ -109,7 +110,8 @@
   }
   function publicProof(row){
     var tx=row.proof_type==='solana_memo'&&/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(row.tx_sig||''))?'<a href="https://solscan.io/tx/'+encodeURIComponent(row.tx_sig)+'" target="_blank" rel="noopener noreferrer">Verify on Solscan</a>':'';
-    return '<div class="osi-history-row"><div><b>'+esc(label(row.event_type))+'</b><span>'+esc(proofLabel(row.proof_type))+' / actor '+esc(label(row.actor_role))+'</span></div><time>'+esc(dateText(row.occurred_at))+'</time>'+tx+'</div>';
+    var payment=row.payment_proof&&row.event_type==='SUPPORT_PAYMENT_CONFIRMED'?'<span>'+esc(solFromLamports(row.payment_proof.recipient_amount_lamports))+' SOL / '+esc(row.payment_proof.recipient_amount_lamports)+' lamports / '+esc(label(row.payment_proof.finality))+'</span>':'';
+    return '<div class="osi-history-row"><div><b>'+esc(label(row.event_type))+'</b><span>'+esc(row.payment_proof?'SOL transfer verified on Solana':proofLabel(row.proof_type))+' / actor '+esc(label(row.actor_role))+'</span>'+payment+'</div><time>'+esc(dateText(row.occurred_at))+'</time>'+tx+'</div>';
   }
   function openPublicProfile(wallet){
     var profile=state.profiles.find(function(row){return String(row.wallet)===String(wallet);});if(!profile)return;
@@ -121,6 +123,7 @@
       +'<div class="osi-profile-facts"><div><span>Status</span>'+statusBadge(profile.status)+'</div><div><span>Server-derived weight</span><b>'+Number(profile.weight||0).toFixed(2)+'</b></div><div><span>Tier</span><b>'+esc(label(profile.tier_code))+'</b></div></div>'
       +'<section><h4>Expertise</h4><div class="osi-tag-list">'+(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section>'
       +(links?'<section><h4>Safe public links</h4><div class="osi-safe-links">'+links+'</div></section>':'')
+      +'<section><h4>Voluntary support</h4><p>Send native SOL directly to this verified analyst wallet. Support does not change weight, ranking, eligibility, or governance.</p><button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">Support analyst with SOL</button></section>'
       +'<section><h4>Public contributions</h4>'+(contributions||empty('No public contributions recorded','Contribution history appears after attributable public work.'))+'</section>'
       +'<section><h4>Proof history</h4>'+(proofs||empty('No public proof recorded','Verified receipts will appear here.'))+'</section></div>';
     var modal=document.getElementById('ap-modal');modal.classList.add('open');modal.setAttribute('aria-hidden','false');

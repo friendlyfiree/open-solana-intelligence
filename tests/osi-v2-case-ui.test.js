@@ -10,6 +10,8 @@ const legacy = read('legacy.html');
 const app = read('assets/js/v2-case-integration.js');
 const css = read('assets/css/v2-case-integration.css');
 const reportIntegration = read('assets/js/v2-report-integration.js');
+const analystIntegration = read('assets/js/v2-analyst-integration.js');
+const briefing = read('assets/js/12-demo-briefing.js');
 
 let pass = 0;
 let fail = 0;
@@ -56,7 +58,7 @@ ok('Case form uses the real signed submission handler',
   index.includes('onsubmit="osiV2SubmitCase(event)"'));
 for (const section of [
   'Overview', 'Evidence', 'Reports', 'Reviews',
-  'Resolution', 'Challenges', 'Proof Log',
+  'Resolution', 'Challenges', 'Rewards & Support', 'Proof Log',
 ]) {
   ok('Case detail exposes ' + section, app.includes(section));
 }
@@ -64,6 +66,36 @@ for (const section of [
 ok('browser calls dedicated read and write functions',
   app.includes('/functions/v1/osi-v2-case-read') &&
   app.includes('/functions/v1/osi-v2-case-write'));
+ok('browser calls the dedicated server-only native SOL gateway',
+  app.includes('/functions/v1/osi-v2-payment') && app.includes("op:'prepare_payment'")
+    && app.includes("op:'commit_payment'"));
+ok('reward UI requires the server-derived sealed payment-ready state',
+  app.includes('Pay sealed winner') && app.includes("'payment_ready','partially_fulfilled'")
+    && app.includes('winning_report_author_wallet') && app.includes('Pledged, not escrowed'));
+ok('challenge-window reward control is disabled with the exact sealing prerequisite',
+  app.includes('Challenge window must end and the Case must be sealed')
+    && app.includes('>Payment unavailable</button>'));
+ok('support contributors are bounded to four atomic recipients',
+  app.includes('Select up to four recipients') && app.includes('checks.length>4')
+    && app.includes('SystemProgram.transfer') && app.includes('bytes.length>1232'));
+ok('Phantom pre-sign review states mainnet, exact recipients, irreversibility and no custody',
+  app.includes('Review exact mainnet transfer') && app.includes('Solana mainnet-beta')
+    && app.includes('This transaction is irreversible') && app.includes('OSI receives no funds'));
+ok('pending payment remains awaiting finality with exact retry',
+  app.includes("result.state==='awaiting_finality'") && app.includes('not marked paid')
+    && app.includes('osiV2RetryPayment'));
+ok('wallet account or disconnect clears the pending payment intent',
+  app.includes("provider.on('disconnect',clearPaymentState)")
+    && app.includes("provider.on('accountChanged'"));
+ok('payment proof shows exact lamports, target, slot, finality and transfer verification',
+  app.includes('payment.total_lamports') && app.includes('payment.target_public_ref')
+    && app.includes('payment.finality') && app.includes('payment.transfers_verified'));
+ok('published Reports and verified analyst profiles expose real support actions',
+  reportIntegration.includes('osiV2SupportReportAuthor')
+    && analystIntegration.includes('osiV2SupportAnalyst'));
+ok('primary UI exposes no nonfunctional Solana Pay control',
+  !/Solana Pay/i.test(app + reportIntegration + analystIntegration + index + briefing)
+    && !index.includes('tip-pay-toggle'));
 ok('browser bundle contains no service-role credential name',
   !/service[_-]?role/i.test(app));
 ok('browser bundle has no console logging', !/console\s*\./.test(app));
