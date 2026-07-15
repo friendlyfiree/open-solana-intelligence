@@ -295,7 +295,7 @@
   }
 
   async function refreshCapabilities(){
-    if(!walletPubkey){state.capabilities=null;setAdminVisibility(false);return null;}
+    if(!walletPubkey){state.capabilities=null;setAdminVisibility(false);setReviewNavigationVisibility(false);return null;}
     try{
       var results=await Promise.all([
         api(WRITE_URL,{op:'actor_capabilities',wallet:walletPubkey}),
@@ -305,12 +305,16 @@
       state.capabilities=Object.assign({},results[0],results[1],results[2]);
       if(typeof setMaintainerServerGate==='function') setMaintainerServerGate(state.capabilities.maintainer_access===true,state.capabilities.maintainer_gate||'denied');
       setAdminVisibility(state.capabilities.maintainer_access===true);
+      setReviewNavigationVisibility(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true);
       return state.capabilities;
-    }catch(error){state.capabilities=null;if(typeof setMaintainerServerGate==='function')setMaintainerServerGate(false,'unavailable');setAdminVisibility(false);return null;}
+    }catch(error){state.capabilities=null;if(typeof setMaintainerServerGate==='function')setMaintainerServerGate(false,'unavailable');setAdminVisibility(false);setReviewNavigationVisibility(false);return null;}
   }
   function setAdminVisibility(allowed){
     var button=document.getElementById('admLockBtn')||document.getElementById('adminBtn')||document.getElementById('admin-btn');
     if(button) button.style.display=allowed?'':'none';
+  }
+  function setReviewNavigationVisibility(allowed){
+    document.querySelectorAll('.field-review-nav').forEach(function(button){button.hidden=!allowed;});
   }
 
   async function fieldOpenFormV2(){
@@ -818,8 +822,11 @@
     else if(drawer&&!drawer.hidden)trapFocus(event,drawer);
   });
   setAdminVisibility(false);
+  setReviewNavigationVisibility(false);
   window.addEventListener('load',function(){
     var provider=typeof getProvider==='function'?getProvider():null;if(!provider||!provider.on)return;
-    provider.on('disconnect',clearPaymentState);provider.on('accountChanged',function(){clearPaymentState();state.capabilities=null;});
+    provider.on('disconnect',clearPaymentState);
+    provider.on('disconnect',function(){setReviewNavigationVisibility(false);});
+    provider.on('accountChanged',function(){clearPaymentState();state.capabilities=null;setReviewNavigationVisibility(false);});
   });
 })();
