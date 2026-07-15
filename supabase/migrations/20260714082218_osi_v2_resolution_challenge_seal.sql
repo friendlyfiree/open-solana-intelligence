@@ -247,7 +247,7 @@ begin
       using errcode = '55000';
   end if;
   return value_int;
-end
+end;
 $$;
 
 create function osi_private.osi_v2_governance_payload_hash(
@@ -380,7 +380,7 @@ begin
     statement_timestamp(), statement_timestamp()
   ) returning * into resolution_row;
   return resolution_row;
-end
+end;
 $$;
 
 create function osi_private.osi_v2_resolution_quorum(p_resolution_id uuid)
@@ -501,7 +501,7 @@ begin
   required_weight := minimum_weight;
   ready_candidate_count := coalesce(ready_count, 0);
   return next;
-end
+end;
 $$;
 
 create function osi_private.osi_v2_seal_quorum(p_resolution_id uuid)
@@ -537,7 +537,7 @@ begin
     'required_count', minimum_count, 'required_weight', minimum_weight
   )::text, 'UTF8'), 'sha256'), 'hex');
   return next;
-end
+end;
 $$;
 
 create function osi_private.osi_v2_challenge_quorum(p_challenge_id uuid)
@@ -591,7 +591,7 @@ begin
     'required_count', minimum_count, 'required_weight', minimum_weight
   )::text, 'UTF8'), 'sha256'), 'hex');
   return next;
-end
+end;
 $$;
 
 create function osi_private.osi_v2_check_challenge_rate(
@@ -625,7 +625,7 @@ begin
          and nonce.issued_at >= p_now - pg_catalog.make_interval(secs => window_seconds)) >= fingerprint_max then
     raise exception 'Challenge fingerprint rate limit exceeded' using errcode = 'P0001';
   end if;
-end
+end;
 $$;
 
 create function osi_private.osi_v2_prepare_governance_action(
@@ -1050,7 +1050,7 @@ begin
     action_target_id, action_target_ref, receipt_role, snapshot_weight,
     exact_hash, server_binding->>'quorum_hash', canonical_proof, transport,
     issued_time, expires_time, null::uuid, false;
-end
+end;
 $$;
 
 create function osi_private.osi_v2_commit_governance_action(
@@ -1557,7 +1557,7 @@ begin
   return query select action_name, bound.purpose, context->>'target_public_ref',
     result_case_ref, result_resolution_ref, result_challenge_ref,
     result_state, new_receipt_id, false;
-end
+end;
 $$;
 
 create function osi_private.osi_v2_expire_due_challenges(p_limit integer default 100)
@@ -1613,7 +1613,7 @@ begin
     if found then expired_count := expired_count + 1; end if;
   end loop;
   return expired_count;
-end
+end;
 $$;
 
 create or replace function public.osi_v2_guard_resolution()
@@ -1695,7 +1695,7 @@ begin
   ) then raise exception 'Sealed resolution requires exact quorum, receipt and timestamp'
     using errcode = '23514'; end if;
   return new;
-end
+end;
 $$;
 
 create or replace function public.osi_v2_guard_challenge()
@@ -1756,7 +1756,7 @@ begin
       using errcode = '23514';
   end if;
   return new;
-end
+end;
 $$;
 
 create or replace function public.osi_v2_enforce_review_target_state()
@@ -1803,7 +1803,7 @@ begin
     if target_state <> 'in_review' then raise exception 'Application review requires in_review state' using errcode = '23514'; end if;
   end if;
   return new;
-end
+end;
 $$;
 
 create or replace function public.osi_v2_bind_review_receipt()
@@ -1857,7 +1857,7 @@ begin
     raise exception 'First review requires % receipt', cast_event using errcode = '23514';
   end if;
   return new;
-end
+end;
 $$;
 
 create function public.osi_v2_prepare_governance_action(

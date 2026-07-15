@@ -67,6 +67,9 @@ function ok(name, condition, detail) {
   console.error('FAIL ' + name + (detail ? ' :: ' + detail : ''));
 }
 
+ok("resolution lifecycle PL/pgSQL blocks use terminated END statements",
+  !/\nend\r?\n\$\$;/.test(resolutionLifecycle));
+
 ok(
   'exact ordered migration set',
   JSON.stringify(migrationFiles) === JSON.stringify(expectedFiles),
