@@ -620,7 +620,7 @@ begin
      or bound.target_type <> 'reward' or bound.binding_context->>'action' is distinct from p_action
      or p_amount_lamports is distinct from expected_amount
      or p_proof_text is distinct from bound.binding_context->>'proof_text'
-     or p_signature !~ '^[A-Za-z0-9+/=_-]{64,256}$' then
+     or p_signature !~ '^[A-Za-z0-9+/=_-]{80,100}$' then
     raise exception 'Pledge nonce, payload or signature binding is invalid' using errcode = '23514';
   end if;
   select case_item.* into case_row from public.cases as case_item

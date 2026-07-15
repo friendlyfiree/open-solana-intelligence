@@ -270,6 +270,9 @@ ok('payment submission, finalization and failure state remain service-role only'
       `revoke all privileges on function public\\.${name}\\([^;]+from public,anon,authenticated`,
       'i',
     ).test(nativePayments)));
+ok('pledge signature guard uses a PostgreSQL-safe Ed25519 base64 length bound',
+  nativePayments.includes("p_signature !~ '^[A-Za-z0-9+/=_-]{80,100}$'")
+    && !nativePayments.includes('{64,256}'));
 ok('native payment events use exact Class B pledge and Class A transfer proofs',
   ['REWARD_PLEDGE_CREATED', 'REWARD_PLEDGE_REVISED', 'REWARD_PLEDGE_WITHDRAWN']
     .every((event) => (registry.wallet_signed_server_verified || []).includes(event))
