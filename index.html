@@ -971,23 +971,23 @@
     </div>
   </div>
 </div>
-<div class="tip-modal" id="tip-modal">
-  <div class="tip-card">
-    <button class="tip-x" onclick="closeTip()">&times;</button>
+<div class="tip-modal" id="tip-modal" role="dialog" aria-modal="true" aria-labelledby="tip-h" aria-describedby="tip-note" aria-hidden="true" onclick="if(event.target===this)closeTip()">
+  <div class="tip-card" tabindex="-1">
+    <button class="tip-x" type="button" onclick="closeTip()" aria-label="Close support dialog">&times;</button>
     <div class="tip-h" id="tip-h">◎ Voluntary support</div>
     <div class="tip-to">to <b id="tip-label">OSI project</b><span class="mono" id="tip-addr"></span></div>
     <div class="tip-amts">
-      <button class="tip-amt" onclick="setTipAmt(0.05,this)">0.05</button>
-      <button class="tip-amt active" onclick="setTipAmt(0.1,this)">0.1</button>
-      <button class="tip-amt" onclick="setTipAmt(0.5,this)">0.5</button>
-      <button class="tip-amt" onclick="setTipAmt(1,this)">1</button>
+      <button class="tip-amt" type="button" onclick="setTipAmt(0.05,this)">0.05</button>
+      <button class="tip-amt active" type="button" onclick="setTipAmt(0.1,this)">0.1</button>
+      <button class="tip-amt" type="button" onclick="setTipAmt(0.5,this)">0.5</button>
+      <button class="tip-amt" type="button" onclick="setTipAmt(1,this)">1</button>
       <input class="tip-custom" id="tip-custom" type="number" step="0.01" min="0" max="100" placeholder="custom" oninput="setTipCustom(this.value)">
       <span class="tip-unit mono">SOL</span>
     </div>
     <div class="tip-usd" id="tip-usd"></div>
-    <button class="tip-send" onclick="confirmTip()">Review &amp; send →</button>
+    <button class="tip-send" type="button" onclick="confirmTip()">Review &amp; send →</button>
     <div class="tip-status" id="tip-status"></div>
-    <div class="tip-note mono">Voluntary support · Direct wallet-to-wallet · No custody: OSI never holds, escrows, or routes the funds. Support does not influence review, ranking, consensus, or publication. You pay the amount plus the ~0.000005 SOL network fee.</div>
+    <div class="tip-note mono" id="tip-note">Voluntary support · Direct wallet-to-wallet · No custody: OSI never holds, escrows, or routes the funds. Support does not influence review, ranking, consensus, or publication. You pay the amount plus the ~0.000005 SOL network fee.</div>
   </div>
 </div>
 

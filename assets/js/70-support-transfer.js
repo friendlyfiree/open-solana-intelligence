@@ -10,6 +10,36 @@
 var SOL_UI_MAX = 100;                                  // reasonable per-transfer UI maximum (SOL)
 var tipCtx = { wallet:null, amount:0.1, label:'', kind:'', item_type:null, item_id:null };
 var tipFlow = { sending:false, stage:'idle' };         // idle | confirm | awaiting | confirming
+var tipReturnFocus = null;
+
+function tipFocusableElements(modal){
+  if(!modal) return [];
+  return Array.prototype.filter.call(
+    modal.querySelectorAll('button:not([disabled]),input:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])'),
+    function(el){ return el.offsetParent !== null && el.getAttribute('aria-hidden') !== 'true'; }
+  );
+}
+function tipHandleKeydown(event){
+  var modal=document.getElementById('tip-modal');
+  if(!modal || !modal.classList.contains('open')) return;
+  if(event.key === 'Escape'){
+    event.preventDefault();
+    closeTip();
+    return;
+  }
+  if(event.key !== 'Tab') return;
+  var items=tipFocusableElements(modal);
+  if(!items.length){
+    event.preventDefault();
+    var card=modal.querySelector('.tip-card'); if(card) card.focus();
+    return;
+  }
+  var first=items[0], last=items[items.length-1];
+  var activeIndex=items.indexOf(document.activeElement);
+  if(event.shiftKey && (document.activeElement===first || activeIndex===-1)){ event.preventDefault(); last.focus(); }
+  else if(!event.shiftKey && (document.activeElement===last || activeIndex===-1)){ event.preventDefault(); first.focus(); }
+}
+document.addEventListener('keydown', tipHandleKeydown);
 
 // Safe SOL -> lamports. Numeric, positive, within the UI max, and no more than 9
 // decimals (SOL precision). Integer lamports are composed from the decimal
@@ -127,9 +157,21 @@ function openTip(wallet, label, amount, title, meta){
   updateTipUsd();
   resetSolanaPay();
   refreshTipSendState();
-  var m=document.getElementById('tip-modal'); if(m) m.classList.add('open');
+  var m=document.getElementById('tip-modal');
+  if(m){
+    tipReturnFocus = document.activeElement && typeof document.activeElement.focus==='function' ? document.activeElement : null;
+    m.classList.add('open');
+    m.setAttribute('aria-hidden','false');
+    var card=m.querySelector('.tip-card'); if(card) window.setTimeout(function(){ card.focus(); },0);
+  }
 }
-function closeTip(){ var m=document.getElementById('tip-modal'); if(m) m.classList.remove('open'); tipFlow={sending:false,stage:'idle'}; }
+function closeTip(){
+  var m=document.getElementById('tip-modal');
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+  tipFlow={sending:false,stage:'idle'};
+  var target=tipReturnFocus; tipReturnFocus=null;
+  if(target && target.isConnected && typeof target.focus==='function') window.setTimeout(function(){ target.focus(); },0);
+}
 function setTipAmt(a, btn){
   tipCtx.amount = a;
   document.querySelectorAll('.tip-amt').forEach(function(b){ b.classList.remove('active'); });

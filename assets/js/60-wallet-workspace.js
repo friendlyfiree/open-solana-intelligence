@@ -56,6 +56,7 @@ function walletErrorMessage(e, ctx){
 }
 // Small menu under the wallet button (Open profile / Disconnect).
 function closeWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.remove('open'); }
+function openWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.add('open'); }
 function toggleWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.toggle('open'); }
 
 async function toggleWalletOnce(){
@@ -302,6 +303,7 @@ function renderCaseStudies(){
 // ---- top-level view tabs ----
 const VIEW_OF = { registry:'registry', how:'methodology', methodology:'methodology', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
+  if(v!=='registry' && typeof window.osiActivateRouteStyles==='function') window.osiActivateRouteStyles();
   document.body.dataset.view = v;
   if(v==='admin' && typeof renderAdminAccess==='function'){ renderAdminAccess({refresh:true}); }
   if(v==='identity' && typeof renderIdentity==='function'){ renderIdentity(); }

@@ -306,6 +306,40 @@ test('direct workspace routes activate their styles before rendering', async ({ 
   await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
 });
 
+test('canonical workspace navigation and support dialog preserve keyboard access', async ({ page }) => {
+  await ready(page);
+  await expect(page.locator('link[data-osi-route-style][media="print"]')).toHaveCount(9);
+  await page.evaluate(() => window.showView('wire'));
+  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
+  await expect(page.locator('body')).toHaveAttribute('data-view', 'wire');
+
+  await page.evaluate(() => window.showView('registry'));
+  const walletButton = page.locator('#walletBtn');
+  await walletButton.focus();
+  await walletButton.press('ArrowDown');
+  await expect(walletButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('menuitem', { name: 'My Cases' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(walletButton).toBeFocused();
+
+  const opener = page.locator('.osi-hero-actions .osi-button-primary');
+  await expect(opener).toBeVisible();
+  await opener.focus();
+  await page.evaluate((wallet) => window.openTip(wallet, 'OSI project support', 0.1, 'Voluntary support'), OTHER);
+  const dialog = page.getByRole('dialog', { name: 'Voluntary support' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-hidden', 'false');
+  await expect(page.locator('.tip-card')).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('.tip-send')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.tip-x')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(opener).toBeFocused();
+  expectCleanRuntime(page);
+});
+
 test('signal enhancement fails open when its runtime is unavailable', async ({ page }) => {
   await installFixtureNetwork(page);
   await page.route('**/assets/js/95-signal-interactions.js', (route) =>
