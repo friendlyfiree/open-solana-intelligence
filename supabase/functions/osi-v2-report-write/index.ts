@@ -25,11 +25,13 @@ import {
   validateReportIdempotencyKey,
   validateReportMemoBinding,
 } from "../_shared/osi-v2-report-core.mjs";
+import { maintainerGate } from "../_shared/osi-v2-case-write-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ALLOWED_ORIGIN = Deno.env.get("OSI_V2_ALLOWED_ORIGIN") ?? "*";
 const SOLANA_RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "https://api.mainnet-beta.solana.com";
+const MAINTAINER_AUTH_UUID = Deno.env.get("OSI_MAINTAINER_AUTH_UUID") ?? "";
 const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
 const MAX_BODY_BYTES = 180_000;
 
@@ -134,6 +136,34 @@ async function loadBoundNonce(nonce: string) {
     .select("nonce,purpose,actor_wallet,target_type,target_id,payload_hash,issued_at,expires_at,consumed_at,consumed_by_receipt_id,binding_context")
     .eq("nonce", nonce).limit(1);
   return { row: data?.[0] ?? null, error };
+}
+
+async function configuredAdminWallet(): Promise<string> {
+  const { data } = await admin.from("osi_config").select("value")
+    .eq("key", "admin_wallet").limit(1);
+  const wallet = safeText(data?.[0]?.value);
+  try { return validateWallet(wallet); } catch { return ""; }
+}
+
+async function authenticatedMaintainerId(req: Request): Promise<string> {
+  if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(MAINTAINER_AUTH_UUID)) return "";
+  const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return "";
+  try {
+    const { data, error } = await admin.auth.getUser(token);
+    return !error && data?.user?.id === MAINTAINER_AUTH_UUID ? data.user.id : "";
+  } catch { return ""; }
+}
+
+// The D17 bootstrap publication channel is requested explicitly. Both gates
+// (configured admin wallet AND authenticated maintainer identity) must pass
+// here, and the database independently re-verifies them plus the live tier.
+async function fullMaintainer(req: Request, wallet: string) {
+  const [adminWallet, authId] = await Promise.all([
+    configuredAdminWallet(), authenticatedMaintainerId(req),
+  ]);
+  const gate = maintainerGate(!!authId, wallet, adminWallet);
+  return { ...gate, auth_id: gate.ok ? authId : "" };
 }
 
 async function exactVersion(versionRef: string) {
@@ -517,12 +547,19 @@ async function preparePublication(req: Request, body: Row): Promise<Response> {
   if (found.error || !found.row) {
     return jsonResponse(404, { ok: false, error: "report_version_not_available" });
   }
+  let maintainerAuthId = "";
+  if (safeText(body.route) === "maintainer_bootstrap") {
+    const gate = await fullMaintainer(req, wallet);
+    if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
+    maintainerAuthId = gate.auth_id;
+  }
   const { data, error } = await admin.rpc("osi_v2_prepare_report_publication", {
     p_nonce: randomNonce(),
     p_actor_wallet: wallet,
     p_version_id: found.row.id,
     p_idempotency_key: idempotencyKey,
     p_request_fingerprint_hash: await fingerprint(req),
+    p_maintainer_auth_uuid: maintainerAuthId || null,
   });
   if (error || !data?.[0]) return rpcFailure(error, true);
   const issued = data[0];
@@ -563,7 +600,7 @@ async function preparePublication(req: Request, body: Row): Promise<Response> {
   });
 }
 
-async function commitPublication(body: Row): Promise<Response> {
+async function commitPublication(req: Request, body: Row): Promise<Response> {
   if (!await reportReviewWritesEnabled()) {
     return jsonResponse(503, { ok: false, error: "report_review_writes_disabled" });
   }
@@ -592,14 +629,22 @@ async function commitPublication(body: Row): Promise<Response> {
     txSig, wallet, memo, binding.issued_at, binding.expires_at,
   );
   if (!chain.ok) return jsonResponse(409, { ok: false, error: chain.reason });
+  let maintainerAuthId = "";
+  if (bound.binding_context?.decision_channel === "maintainer_bootstrap") {
+    const gate = await fullMaintainer(req, wallet);
+    if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
+    maintainerAuthId = gate.auth_id;
+  }
   const { data, error } = await admin.rpc("osi_v2_commit_report_publication", {
     p_nonce: nonce,
     p_tx_sig: txSig,
     p_memo_ref: memo,
     p_occurred_at: (chain as { occurred_at: string }).occurred_at,
+    p_maintainer_auth_uuid: maintainerAuthId || null,
   });
   if (error || !data?.[0]) return rpcFailure(error, true);
   const committed = data[0];
+  const bootstrapChannel = bound.binding_context?.decision_channel === "maintainer_bootstrap";
   return jsonResponse(200, {
     ok: true,
     case_public_ref: committed.case_public_ref,
@@ -609,6 +654,7 @@ async function commitPublication(body: Row): Promise<Response> {
     actor_role: committed.actor_role,
     quorum_hash: committed.quorum_hash,
     previous_published_version_ref: committed.previous_published_version_ref,
+    decision_channel: bootstrapChannel ? "maintainer_bootstrap" : "standard",
     proof: {
       event_type: REPORT_PUBLICATION_EVENT_TYPE,
       label: "Memo-anchored on Solana",
@@ -616,9 +662,12 @@ async function commitPublication(body: Row): Promise<Response> {
       actor_role: committed.actor_role,
       tx_sig: txSig,
       server_verified: true,
+      decision_channel: bootstrapChannel ? "maintainer_bootstrap" : "standard",
     },
     case_lifecycle_changed: false,
-    process_notice: "Publication records a reviewed OSI process outcome. It is not proof of truth, guilt, or legal certainty.",
+    process_notice: bootstrapChannel
+      ? "Publication was finalized through the maintainer bootstrap (cold-start) channel, not an independent analyst quorum. It is not proof of truth, guilt, or legal certainty."
+      : "Publication records a reviewed OSI process outcome. It is not proof of truth, guilt, or legal certainty.",
     idempotent_replay: committed.idempotent_replay === true,
   });
 }
@@ -688,7 +737,7 @@ serve(async (req: Request): Promise<Response> => {
     case "prepare_review": return await prepareReview(req, body);
     case "commit_review": return await commitReview(body);
     case "prepare_publication": return await preparePublication(req, body);
-    case "commit_publication": return await commitPublication(body);
+    case "commit_publication": return await commitPublication(req, body);
     case "capabilities": return await capabilities(body);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });
   }

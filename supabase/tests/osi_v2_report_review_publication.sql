@@ -22,7 +22,7 @@ select isnt(
 select isnt(
   has_function_privilege(
     'anon',
-    'public.osi_v2_commit_report_publication(text,text,text,timestamptz)',
+    'public.osi_v2_commit_report_publication(text,text,text,timestamptz,text)',
     'EXECUTE'
   ),
   true,

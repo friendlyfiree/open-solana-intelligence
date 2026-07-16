@@ -187,9 +187,15 @@ function publicVersionDto(version) {
   };
 }
 
+// Honesty requirement (D17): a bootstrap-channel receipt is always rendered
+// as a maintainer cold-start decision and never as an analyst quorum outcome.
+export const BOOTSTRAP_CHANNEL_LABEL =
+  "Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.";
+
 function publicReceiptDto(receipt) {
   const txSig = proofLabel(receipt) === PROOF_LABELS.solana_memo
     ? String(receipt.tx_sig ?? "") : "";
+  const bootstrapChannel = receipt.decision_channel === "maintainer_bootstrap";
   const dto = {
     label: proofLabel(receipt),
     event_type: String(receipt.event_type ?? ""),
@@ -199,6 +205,8 @@ function publicReceiptDto(receipt) {
     decision: receipt.decision == null ? null : String(receipt.decision),
     weight: receipt.weight == null ? null : Number(receipt.weight),
     occurred_at: isoOrNull(receipt.occurred_at),
+    decision_channel: bootstrapChannel ? "maintainer_bootstrap" : "standard",
+    decision_channel_label: bootstrapChannel ? BOOTSTRAP_CHANNEL_LABEL : null,
   };
   if (txSig) {
     dto.tx_sig = txSig;
@@ -358,9 +366,13 @@ function governanceReviewDto(review, includeRestricted) {
 
 function governanceDto(governance = {}, includeRestricted = false) {
   const resolution = governance.resolution;
+  const resolutionBootstrap = resolution?.finalized_by === "maintainer_bootstrap";
   const resolutionDto = resolution ? {
     public_ref: String(resolution.public_ref ?? ""),
     state: String(resolution.state ?? ""),
+    finalized_by: resolution.finalized_by == null ? null : String(resolution.finalized_by),
+    decision_channel: resolutionBootstrap ? "maintainer_bootstrap" : "standard",
+    decision_channel_label: resolutionBootstrap ? BOOTSTRAP_CHANNEL_LABEL : null,
     winning_report_version_ref: resolution.winning_report_version_ref == null
       ? null : String(resolution.winning_report_version_ref),
     challenge_window_opens_at: isoOrNull(resolution.challenge_window_opens_at),

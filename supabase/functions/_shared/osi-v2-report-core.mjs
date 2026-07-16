@@ -166,9 +166,13 @@ export function canonicalReportGovernanceMessage(binding) {
   const expiresAt = Number(binding.expires_at);
   validateWallet(binding.actor_wallet);
   const reviewPurpose = REPORT_REVIEW_EVENT_TYPES.has(purpose);
+  // Counted reviews are always analyst-cast. The maintainer role appears only
+  // on the publication message, for the D17 bootstrap channel; the database
+  // still enforces the full double gate and the live tier before committing.
   if ((!reviewPurpose && purpose !== REPORT_PUBLICATION_EVENT_TYPE)
       || !VERSION_REF.test(publicRef)
-      || !new Set(["analyst", "senior"]).has(role)
+      || !(new Set(["analyst", "senior"]).has(role)
+        || (!reviewPurpose && role === "maintainer"))
       || (reviewPurpose && !REPORT_REVIEW_DECISIONS.has(decision))
       || (!reviewPurpose && decision !== "publish")
       || !NONCE.test(nonce) || !HASH.test(hash)
@@ -300,8 +304,14 @@ export function validateConfirmedReportTransaction(transaction, status, expected
   return validateConfirmedMemoTransaction(transaction, status, expected);
 }
 
+// Honesty requirement (D17): a bootstrap-channel receipt is always rendered
+// as a maintainer cold-start decision and never as an analyst quorum outcome.
+export const BOOTSTRAP_CHANNEL_LABEL =
+  "Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.";
+
 function safeReceipt(receipt) {
   if (!receipt) return null;
+  const bootstrap = receipt.decision_channel === "maintainer_bootstrap";
   return {
     event_type: receipt.event_type,
     actor_wallet: receipt.actor_wallet,
@@ -310,6 +320,8 @@ function safeReceipt(receipt) {
     server_verified: receipt.server_verified === true,
     tx_sig: receipt.tx_sig,
     occurred_at: receipt.occurred_at,
+    decision_channel: bootstrap ? "maintainer_bootstrap" : "standard",
+    decision_channel_label: bootstrap ? BOOTSTRAP_CHANNEL_LABEL : null,
   };
 }
 

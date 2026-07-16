@@ -128,7 +128,7 @@ const REPORT_COLS =
 const VERSION_COLS =
   "id,report_id,version_no,version_ref,created_by_wallet,body_private,content_public_safe,evidence_snapshot_hash,lifecycle_state,published_at,created_at";
 const RECEIPT_COLS =
-  "id,event_type,target_type,target_id,public_ref,actor_wallet,actor_role,decision,weight,reason_code,proof_type,memo_ref,tx_sig,server_verified,occurred_at,verification_metadata";
+  "id,event_type,target_type,target_id,public_ref,actor_wallet,actor_role,decision,weight,reason_code,proof_type,memo_ref,tx_sig,server_verified,occurred_at,verification_metadata,decision_channel";
 const PLEDGE_COLS =
   "id,case_id,pledger_wallet,amount_lamports,state,winning_report_version_id,revision_no,sealed_amount_lamports,withdrawn_at,updated_at";
 const PAYMENT_COLS =
@@ -140,7 +140,7 @@ const EVIDENCE_COLS =
 const REVIEW_COLS =
   "id,case_id,reviewer_wallet,decision,reviewer_role,weight,reason_code,is_active,event_receipt_id,created_at";
 const RESOLUTION_COLS =
-  "id,case_id,winning_report_version_id,public_ref,state,challenge_window_opens_at,challenge_window_ends_at,final_receipt_id,seal_receipt_id,reopened_at,sealed_at,created_at";
+  "id,case_id,winning_report_version_id,public_ref,state,finalized_by,challenge_window_opens_at,challenge_window_ends_at,final_receipt_id,seal_receipt_id,reopened_at,sealed_at,created_at";
 const RESOLUTION_REVIEW_COLS =
   "id,resolution_id,candidate_report_version_id,phase,public_ref,reviewer_wallet,decision,weight,tier_snapshot,public_rationale,private_note,is_active,event_receipt_id,created_at";
 const CHALLENGE_COLS =
