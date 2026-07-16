@@ -223,6 +223,31 @@ jobs:
         if: ${{ env.MODE == 'deploy' }}
         run: supabase db push --linked --yes
 
+      - name: Normalize only the shared read-session gate to disabled
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare
+            gate_count bigint;
+            gate_value text;
+          begin
+            select count(*), min(value)
+              into gate_count, gate_value
+              from public.osi_config
+             where key='OSI_V2_READ_SESSION_ENABLED';
+            if gate_count <> 1 or gate_value not in ('true', 'false') then
+              raise exception 'shared read-session gate is absent or malformed';
+            end if;
+            update public.osi_config
+               set value='false', updated_at=statement_timestamp()
+             where key='OSI_V2_READ_SESSION_ENABLED' and value='true';
+            if (select value from public.osi_config where key='OSI_V2_READ_SESSION_ENABLED') is distinct from 'false' then
+              raise exception 'shared read-session gate could not be normalized to fail-closed';
+            end if;
+          end $$;
+          SQL
+
       - name: Verify history and fail-closed flag isolation
         run: |
           set -euo pipefail
