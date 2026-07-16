@@ -63,6 +63,16 @@ const readSessionProductionWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-read-session-production.yml'),
   'utf8',
 );
+const readSessionNormalizeStart = readSessionProductionWorkflow.indexOf(
+  'Normalize only the shared read-session gate to disabled',
+);
+const readSessionVerifyStart = readSessionProductionWorkflow.indexOf(
+  'Verify history and fail-closed flag isolation',
+);
+const readSessionNormalizeStep = readSessionProductionWorkflow.slice(
+  readSessionNormalizeStart,
+  readSessionVerifyStart,
+);
 const proofCore = fs.readFileSync(
   path.join(root, 'supabase', 'functions', '_shared', 'osi-v2-proof-core.mjs'),
   'utf8',
@@ -122,6 +132,11 @@ ok(
     && readSessionProductionWorkflow.includes('[ "$OSI_V2_PROOF_ENABLED_BEFORE" = "false" ]')
     && readSessionProductionWorkflow.includes(`[ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")" = "false" ]`)
     && readSessionProductionWorkflow.includes(`[ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")" = "false" ]`)
+    && readSessionNormalizeStart > readSessionProductionWorkflow.indexOf('Apply exactly the additive shared read-session migration')
+    && readSessionVerifyStart > readSessionNormalizeStart
+    && readSessionNormalizeStep.includes("where key='OSI_V2_READ_SESSION_ENABLED' and value='true'")
+    && !readSessionNormalizeStep.includes('OSI_V2_WRITES_ENABLED')
+    && !readSessionNormalizeStep.includes('OSI_V2_PROOF_ENABLED')
     && readSessionProductionWorkflow.includes("where key='OSI_V2_READ_SESSION_ENABLED' and value='true'"),
 );
 
