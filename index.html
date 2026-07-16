@@ -9,27 +9,39 @@
 <meta name="theme-color" content="#08090d">
 <meta name="color-scheme" content="dark">
 <link rel="preload" as="image" href="./assets/images/osi-intelligence-desk-1536.avif" imagesrcset="./assets/images/osi-intelligence-desk-640.avif 640w, ./assets/images/osi-intelligence-desk-960.avif 960w, ./assets/images/osi-intelligence-desk-1536.avif 1536w" imagesizes="100vw" type="image/avif" fetchpriority="high">
-<!-- Buffer polyfill, web3.js needs a global Buffer when building transactions in the browser. Must load before web3.js. -->
-<script defer src="https://bundle.run/buffer@6.0.3"></script>
-<script defer src="./assets/js/00-buffer-shim.js"></script>
-<script defer src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="./assets/css/00-theme-base.css">
-<link rel="stylesheet" href="./assets/css/v2-case-integration.css">
-<link rel="stylesheet" href="./assets/css/v2-report-integration.css">
-<link rel="stylesheet" href="./assets/css/10-shell-hero.css">
-<link rel="stylesheet" href="./assets/css/20-sections.css">
-<link rel="stylesheet" href="./assets/css/30-views.css">
-<link rel="stylesheet" href="./assets/css/40-about-modals.css">
-<link rel="stylesheet" href="./assets/css/50-late-components.css">
-<link rel="stylesheet" href="./assets/css/60-final-polish.css">
-<link rel="stylesheet" href="./assets/css/v2-activation.css">
+<link rel="stylesheet" href="./assets/css/v2-case-integration.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/v2-report-integration.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/10-shell-hero.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/20-sections.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/30-views.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/40-about-modals.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/50-late-components.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/60-final-polish.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/v2-activation.css" media="print" fetchpriority="low" data-osi-route-style>
 <link rel="stylesheet" href="./assets/css/70-intelligence-redesign.css">
+<script src="./assets/js/02-route-styles.js"></script>
+<noscript>
+  <link rel="stylesheet" href="./assets/css/v2-case-integration.css">
+  <link rel="stylesheet" href="./assets/css/v2-report-integration.css">
+  <link rel="stylesheet" href="./assets/css/10-shell-hero.css">
+  <link rel="stylesheet" href="./assets/css/20-sections.css">
+  <link rel="stylesheet" href="./assets/css/30-views.css">
+  <link rel="stylesheet" href="./assets/css/40-about-modals.css">
+  <link rel="stylesheet" href="./assets/css/50-late-components.css">
+  <link rel="stylesheet" href="./assets/css/60-final-polish.css">
+  <link rel="stylesheet" href="./assets/css/v2-activation.css">
+</noscript>
+<!-- Buffer polyfill, web3.js needs a global Buffer when building transactions in the browser. Must load before web3.js. -->
+<script defer fetchpriority="low" src="https://bundle.run/buffer@6.0.3"></script>
+<script defer src="./assets/js/00-buffer-shim.js"></script>
+<script defer fetchpriority="low" src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script defer fetchpriority="low" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 </head>
 <body data-view="registry" data-sub="tab-analysts">
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <header class="osi-global-header" id="global-header">
-  <button class="osi-brand" type="button" onclick="osiNavigate('registry')" aria-label="Open Solana Intelligence home">
+  <button class="osi-brand" type="button" onclick="osiNavigate('registry')" aria-label="OSI Open Solana Intelligence, public incident intelligence, home">
     <span class="osi-brand-mark" aria-hidden="true">OSI</span>
     <span class="osi-brand-copy"><strong>Open Solana Intelligence</strong><small>Public incident intelligence</small></span>
   </button>
@@ -77,7 +89,7 @@
     <picture>
       <source type="image/avif" srcset="./assets/images/osi-intelligence-desk-640.avif 640w, ./assets/images/osi-intelligence-desk-960.avif 960w, ./assets/images/osi-intelligence-desk-1536.avif 1536w" sizes="100vw">
       <source type="image/webp" srcset="./assets/images/osi-intelligence-desk-640.webp 640w, ./assets/images/osi-intelligence-desk-960.webp 960w, ./assets/images/osi-intelligence-desk-1536.webp 1536w" sizes="100vw">
-      <img src="./assets/images/osi-intelligence-desk-1536.jpg" width="1536" height="1024" alt="" aria-hidden="true" fetchpriority="high" decoding="async">
+      <img src="./assets/images/osi-intelligence-desk-1536.jpg" width="1536" height="1024" alt="" aria-hidden="true" fetchpriority="high">
     </picture>
   </div>
   <div class="osi-hero-shade" aria-hidden="true"></div>

@@ -75,6 +75,9 @@
   function navigate(view, options) {
     var opts = options || {};
     var target = viewHashes[view] ? view : 'registry';
+    if (target !== 'registry' && typeof window.osiActivateRouteStyles === 'function') {
+      window.osiActivateRouteStyles();
+    }
     if (typeof window.showView === 'function') window.showView(target);
     syncActiveNavigation(target);
     closeMobileNav(false);

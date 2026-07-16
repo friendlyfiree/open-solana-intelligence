@@ -274,6 +274,8 @@ test('Platform menu exercises hover intent, keyboard, click and touch behavior',
 
 test('Home keeps a compact three-section product route with truthful live actions', async ({ page }) => {
   await ready(page);
+  await expect(page.locator('link[data-osi-route-style][media="print"]')).toHaveCount(9);
+  await expect(page.locator('link[rel="stylesheet"]:not([media])')).toHaveCount(2);
   await expect(page.locator('main > section.osi-home')).toHaveCount(3);
   const wordCount = await page.locator('main > section.osi-home').evaluateAll((sections) =>
     sections.reduce((count, section) => count + (section.textContent || '').trim().split(/\s+/).filter(Boolean).length, 0));
@@ -288,10 +290,20 @@ test('Home keeps a compact three-section product route with truthful live action
     await expect(page.locator(`[data-action-contract="${action}"]`)).toHaveCount(1);
   }
   await page.evaluate(() => window.osiNavigate('field'));
+  await page.waitForFunction(() => [...document.querySelectorAll('link[data-osi-route-style]')].every((link) => link.media === 'all' && link.sheet));
+  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
   await expect(page.locator('#platform-menu-trigger')).toHaveAttribute('aria-current', 'page');
   await page.evaluate(() => window.osiNavigate('registry'));
   await expect(page.locator('#platform-menu-trigger')).not.toHaveAttribute('aria-current', 'page');
   expectCleanRuntime(page);
+});
+
+test('direct workspace routes activate their styles before rendering', async ({ page }) => {
+  await installFixtureNetwork(page);
+  await page.goto('/#field-office');
+  await page.waitForFunction(() => document.body.dataset.view === 'field' && [...document.querySelectorAll('link[data-osi-route-style]')].every((link) => link.media === 'all' && link.sheet));
+  await expect(page.getByRole('heading', { name: 'The Field Office', level: 1 })).toBeVisible();
+  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
 });
 
 test('signal enhancement fails open when its runtime is unavailable', async ({ page }) => {

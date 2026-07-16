@@ -35,6 +35,17 @@ body{
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
 }
+
+/* Critical first-paint guards. Route styles load without blocking Home, so
+   closed product drawers and modals stay absent before those sheets land. */
+.fo-deck[hidden],
+.osi-case-drawer[hidden],
+.cr-drawer:not(.open),
+.fo-modal:not(.open),
+.tip-modal:not(.open),
+.wb-menu:not(.open){display:none!important}
+.fo-rail{display:none}
+
 .mono{font-family:'JetBrains Mono',monospace}
 .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}
 .reveal.in{opacity:1;transform:none}

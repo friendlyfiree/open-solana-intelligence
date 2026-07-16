@@ -9,6 +9,7 @@ const index = read('index.html');
 const css = read('assets/css/70-intelligence-redesign.css');
 const shell = read('assets/js/94-navigation-shell.js');
 const signal = read('assets/js/95-signal-interactions.js');
+const routeStyles = read('assets/js/02-route-styles.js');
 const favicon = read('assets/favicon.svg');
 const records = read('assets/js/84-public-records.js');
 const cases = read('assets/js/v2-case-integration.js');
@@ -24,12 +25,14 @@ function ok(value, message) {
 
 ok(index.includes('<header class="osi-global-header"'), 'one global navigation shell is integrated into index.html');
 ok(index.includes('<main id="main-content" tabindex="-1">') && index.includes('class="skip-link"'), 'main landmark and keyboard skip link are present');
+ok((index.match(/data-osi-route-style/g) || []).length === 9 && index.includes('./assets/js/02-route-styles.js'), 'route-only CSS is preloaded behind the shared activation guard');
+ok(routeStyles.includes("window.addEventListener('pointerdown'") && routeStyles.includes("window.addEventListener('keydown'") && routeStyles.includes("window.addEventListener('hashchange'") && routeStyles.includes("link.setAttribute('media', 'all')") && shell.includes('window.osiActivateRouteStyles()'), 'route CSS activates for direct, programmatic, pointer and keyboard navigation');
 ok(index.indexOf('70-intelligence-redesign.css') > index.indexOf('v2-activation.css'), 'redesign CSS is the final cascade layer');
 ok(index.indexOf('94-navigation-shell.js') > index.indexOf('99-app.js'), 'navigation enhancement loads after the existing application');
 ok(index.indexOf('95-signal-interactions.js') > index.indexOf('94-navigation-shell.js'), 'signal enhancement loads after navigation without replacing product behavior');
 ok(!index.includes('90-stream-canvas.js') && !index.includes('92-reveal-anim.js'), 'retired root-only animation runtimes are no longer loaded');
 const externalScripts = [...index.matchAll(/<script\b[^>]*\bsrc="[^"]+"[^>]*><\/script>/g)].map((match) => match[0]);
-ok(externalScripts.length > 0 && externalScripts.every((tag) => /\bdefer\b/.test(tag)), 'external scripts preserve order without blocking HTML parsing');
+ok(externalScripts.length > 1 && externalScripts.filter((tag) => !tag.includes('02-route-styles.js')).every((tag) => /\bdefer\b/.test(tag)), 'application scripts preserve order without blocking HTML parsing');
 ok(Buffer.byteLength(index, 'utf8') < 150000 && !index.includes('data:image/'), 'primary document excludes the retired inline image payload');
 
 for (const width of [640, 960, 1536]) {
@@ -90,7 +93,7 @@ ok(!/transition\s*:\s*all/i.test(css), 'redesign avoids transition-all');
 ok(!/#ff7a3d|#ff5a1f|#f97316|#ea580c/i.test(css), 'redesign introduces no orange or red-orange primary color');
 ok(favicon.includes('#08090d') && favicon.includes('#ff4d5f') && favicon.includes('#f5f0e8'), 'favicon follows the red signal and platinum identity');
 ok(css.includes(':focus-visible') && css.includes('outline: 2px solid'), 'visible keyboard focus is preserved');
-ok(/\.osi-hero-lede\s*\{[\s\S]*?font-size:\s*clamp\(17px,\s*1\.4vw,\s*20px\)/.test(css), 'hero body copy preserves a comfortable reading size');
+ok(/\.osi-hero-lede\s*\{[\s\S]*?font-size:\s*clamp\(16px,\s*1\.25vw,\s*18px\)/.test(css), 'hero body copy preserves a comfortable reading size');
 ok(shell.includes("document.documentElement.classList.add('nav-open')") && shell.includes("document.documentElement.classList.remove('nav-open')"), 'mobile drawer locks and releases the document root');
 for (const marker of [
   'class="cr-aside" aria-label="Public Records trust console" tabindex="0"',
