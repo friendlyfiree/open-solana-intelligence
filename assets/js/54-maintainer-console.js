@@ -181,7 +181,8 @@ function requireMaintainerAccess(actionName){
   return false;
 }
 function admOpen(){
-  showView('admin');
+  if(typeof window.osiNavigate==='function') window.osiNavigate('admin');
+  else showView('admin');
   refreshMaintainerGate().then(function(){
     var access=renderAdminAccess();
     if(access.allowed && typeof osiAnalystLoadMaintainerQueue==='function') osiAnalystLoadMaintainerQueue();
@@ -376,9 +377,9 @@ function admSelectedHtml(it){
     + '</div><div class="moc-note moc-evidence" id="moc-evidence"><b>Evidence summary</b>'+admEsc(admClip(evidence,700))+'</div>'
     + '<div class="moc-actions">'
     + '<button class="moc-action" type="button" onclick="admFocusEvidence()">View Evidence</button>'
-    + '<button class="moc-action" type="button" onclick="showView(\'prooflog\')">View Proof Log</button>'
-    + '<button class="moc-action" type="button" onclick="showView(\'analysts\')">Open Full Review</button>'
-    + '<button class="moc-action" type="button" onclick="showView(\'records\')"'+publicDisabled+'>Open Public Record</button>'
+    + '<button class="moc-action" type="button" onclick="osiNavigate(\'prooflog\')">View Proof Log</button>'
+    + '<button class="moc-action" type="button" onclick="osiNavigate(\'analysts\')">Open Full Review</button>'
+    + '<button class="moc-action" type="button" onclick="osiNavigate(\'records\')"'+publicDisabled+'>Open Public Record</button>'
     + '<button class="moc-action" type="button" onclick="admOpenSelectedAnalyst()"'+analystDisabled+'>Open Analyst Profile</button>'
     + '</div></div></aside>';
 }
@@ -402,7 +403,7 @@ function admV2GovernanceHtml(model){
     var q=resolution.selection_quorum||{};var sq=resolution.seal_quorum||{};
     var challenges=item.governance.challenges||[];var blockers=challenges.filter(function(challenge){return challenge.blocking===true;}).length;
     var leader=q.tie_unresolved?'Exact tie, no leader':(q.leader_version_ref||resolution.winning_report_version_ref||'Quorum leader pending');
-    return '<div class="moc-feed-row"><i class="moc-dot"></i><div><b>'+admEsc(item.public_ref)+' / '+admEsc(leader)+'</b><span>'+admEsc(String(resolution.state||'unknown'))+' / '+admEsc(String(blockers))+' blocking challenge(s) / seal '+(sq.ready?'ready':'not ready')+'</span></div><button class="moc-action" type="button" onclick="showView(\'field\');osiV2OpenCase(\''+admEsc(item.public_ref)+'\')">Open exact lifecycle</button></div>';
+    return '<div class="moc-feed-row"><i class="moc-dot"></i><div><b>'+admEsc(item.public_ref)+' / '+admEsc(leader)+'</b><span>'+admEsc(String(resolution.state||'unknown'))+' / '+admEsc(String(blockers))+' blocking challenge(s) / seal '+(sq.ready?'ready':'not ready')+'</span></div><button class="moc-action" type="button" onclick="osiNavigate(\'field\');osiV2OpenCase(\''+admEsc(item.public_ref)+'\')">Open exact lifecycle</button></div>';
   }).join('')+'</div>':'<div class="moc-empty">No Case currently has an active native resolution lifecycle.</div>')+'<div class="moc-actions"><button class="moc-action" type="button" onclick="osiV2OpenReviewQueue()">Open grouped governance queue</button></div></section>';
 }
 function admRenderConsole(model){
@@ -430,7 +431,7 @@ function admConsoleFilter(filter){ window.__admConsoleFilter = filter || 'overvi
 function admSelectItem(key){ window.__admSelectedKey = key; if(window.__admConsoleModel) admRenderConsole(window.__admConsoleModel); }
 function admCurrentSelected(){ var m=window.__admConsoleModel; if(!m) return null; return (m.items||[]).find(function(it){ return it.key===window.__admSelectedKey; }) || null; }
 function admFocusEvidence(){ var el=document.getElementById('moc-evidence'); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('moc-evidence-flash'); setTimeout(function(){ el.classList.remove('moc-evidence-flash'); },1300); }
-function admOpenSelectedAnalyst(){ var it=admCurrentSelected(); if(it && it.kind==='analyst' && it.submitter && typeof openRosterProfile==='function') openRosterProfile(it.submitter); else showView('analysts'); }
+function admOpenSelectedAnalyst(){ var it=admCurrentSelected(); if(it && it.kind==='analyst' && it.submitter && typeof openRosterProfile==='function') openRosterProfile(it.submitter); else if(typeof window.osiNavigate==='function') window.osiNavigate('analysts'); else showView('analysts'); }
 async function admRefresh(){
   var access = renderAdminAccess({clear:true});
   if(!access.allowed) return;

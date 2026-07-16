@@ -72,6 +72,9 @@ for (const state of ["WALLET_SIGNED", "REVIEW_QUORUM", "CHALLENGE_WINDOW", "MEMO
 ok("hero lifecycle is accessible real HTML", html.includes('class="osi-lifecycle-track"') && html.includes('aria-label="Explanatory OSI Case lifecycle"') && html.includes('id="osi-hero-signal-text"'));
 ok("lifecycle motion has a complete reduced-motion state", css.includes("@media (prefers-reduced-motion: reduce)") && css.includes("animation-duration: .01ms !important"));
 ok("responsive route gallery has four, two and one column modes", /\.osi-route-gallery\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/.test(css) && /@media \(max-width: 980px\)[\s\S]*?\.osi-route-gallery\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/.test(css) && /@media \(max-width: 720px\)[\s\S]*?\.osi-route-gallery\s*\{\s*grid-template-columns:\s*1fr/.test(css));
+ok("Report illustration explains exact evidence binding", html.includes('class="art-manifest"') && html.includes('class="art-version art-version-current"') && html.includes('class="art-hash-ring"') && css.includes("@keyframes osi-report-bind"));
+ok("Report binding motion has an explicit reduced-motion stop", /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.osi-route-report:hover \.art-bind[\s\S]*?animation:\s*none !important/.test(css));
+ok("About is responsive inside the same luminous interface", html.includes('class="sec osi-about"') && css.includes(".osi-about-hero") && /@media \(max-width: 720px\)[\s\S]*?#about-hero\.osi-about/.test(css));
 const cssWithoutCompatibilityAliases = css.replace(/--[\w-]*orange[\w-]*:\s*var\([^;]+;/gi, "");
 ok("final design layer contains no orange identity or transition-all debt", !/(#f97316|#ff6b|#ea58|orange|transition\s*:\s*all)/i.test(cssWithoutCompatibilityAliases));
 ok("final design layer avoids unreadable 9px microcopy", !/font-size:\s*(?:8|9)(?:\.\d+)?px/i.test(css));

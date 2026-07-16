@@ -1,14 +1,17 @@
 
 
 // ===== THE WIRE: open community intelligence, filed without a bounty =====
-let wireState = { sort:'newest', data:[] };
+let wireState = { sort:'newest', data:[], phase:'idle', sourceError:null };
 
 async function renderWire(){
   if(!document.getElementById('wire-cases')) return;
+  wireState.phase = 'loading';
+  wireState.sourceError = null;
+  drawWire();
   // Flagship investigations (the curated case studies) feature at the top of the wire.
   const featured = (window.CASE_STUDIES || []).map(function(cs){
     return { id:'cs_'+cs.id, _case:cs.id, subject: cs.company + (cs.ticker ? (' (' + cs.ticker + ')') : ''),
-             body: cs.summary || cs.intro || '', author: (cs.author || 'aksusarya'), premium:true, image:'', wallet:'', created_at:'2099-01-01' };
+             body: cs.summary || cs.intro || '', author: (cs.author || ''), premium:true, image:'', wallet:'', created_at:'2099-01-01' };
   });
   let community = [];
   if(SUPA_ON){
@@ -19,25 +22,35 @@ async function renderWire(){
         .map(function(r){
           const isImg = r.attachment && /\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(r.attachment);
           return { id:r.id, subject:(r.company || 'Intel dispatch'), body:(r.summary || ''),
-                   author:(r.wallet ? short(r.wallet) : 'analyst'), wallet:(r.wallet || ''),
+                   author:(r.wallet ? short(r.wallet) : ''), wallet:(r.wallet || ''),
                    image:(isImg ? r.attachment : ''), attachment:(r.attachment || ''),
                    created_at:r.created_at, premium:false };
         });
-    }catch(e){ /* feed still shows flagship */ }
+    }catch(e){ wireState.sourceError = e || new Error('wire_source_unavailable'); }
   }
   wireState.data = featured.concat(community);
+  wireState.phase = wireState.sourceError ? 'error' : 'ready';
   drawWire();
 }
 function drawWire(){
   const host=document.getElementById('wire-cases'); if(!host) return;
+  if(wireState.phase==='loading'){
+    wireStats([]);
+    host.innerHTML = '<div class="wire-empty" role="status" aria-live="polite"><div class="wire-empty-h">Opening the live wire\u2026</div><p>Checking published dispatches and public reports.</p></div>';
+    return;
+  }
   wireStats(wireState.data);
   let list = wireState.data.slice();
   list.sort(function(a,b){ if(a.premium!==b.premium) return a.premium?-1:1; return new Date(b.created_at||0) - new Date(a.created_at||0); });
+  const sourceNotice = wireState.phase==='error'
+    ? '<div class="wire-empty wire-source-error" role="alert"><div class="wire-empty-h">Live dispatches are temporarily unavailable.</div><p>'+(list.length ? 'Curated public reports are still available below.' : 'We could not reach the intelligence network just now.')+'</p><button class="wire-retry" type="button" onclick="renderWire()">Retry live source</button></div>'
+    : '';
   if(!list.length){
-    host.innerHTML = '<div class="wire-empty"><div class="wire-empty-h">The wire is quiet</div><p>No dispatches yet. Be the first to file one. Trace something nobody asked about and publish it here.</p><button class="wire-cta" onclick="wireOpenForm()">+ File a dispatch</button></div>';
+    if(sourceNotice){ host.innerHTML = sourceNotice; return; }
+    host.innerHTML = '<div class="wire-empty"><div class="wire-empty-h">The wire is quiet</div><p>No public dispatches are available yet. Native Wire intake remains unavailable until its dedicated production write path is approved.</p></div>';
     return;
   }
-  host.innerHTML = list.map(wireCard).join('');
+  host.innerHTML = sourceNotice + list.map(wireCard).join('');
   const boosted=lsGet('stw_boosted',{});
   host.querySelectorAll('.bounty[data-bid]').forEach(function(card){ if(boosted[card.dataset.bid]) markBoostedUI(card,null); });
   hydrateBoosts();
@@ -48,7 +61,8 @@ function wireCard(d){
   const full = String(d.body || '');
   const snippet = escapeHtml(full.slice(0,130)) + (full.length>130 ? '\u2026' : '');
   const count = ((window.boostCounts||{})[d.id]) || 0;
-  const author = escapeHtml(d.author||'analyst');
+  const author = d.author ? escapeHtml(d.author) : '';
+  const attribution = author ? ('by '+author) : 'source not attributed';
   const status = d.premium ? 'flag' : 'open';
   const statusLabel = d.premium ? 'FLAGSHIP' : 'DISPATCH';
   let actions = '';
@@ -57,13 +71,13 @@ function wireCard(d){
     // Voluntary support to the configured OSI wallet only (no per-dispatch wallet).
     if(OSI_SUPPORT_WALLET){ actions += '<button class="wr-act ghost" type="button" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\'OSI project support\',0.5,\'\\u25ce Voluntary support\')">\u25ce Support</button>'; }
   } else {
-    actions += '<button class="wr-act ghost" type="button" onclick="stakeBoost(this)">Signal interest</button>';
+    actions += '<button class="wr-act ghost" type="button" data-wire-interest onclick="stakeBoost(this)">Signal interest</button>';
     // Stage 4: removed "Support the analyst" to a dispatch's self-declared wallet
     // (unverified, ambiguous). Support routes only to the configured OSI wallet.
   }
   return '<div class="wire-card bounty'+(d.premium?' premium':'')+'" data-bid="'+id+'">'
     + '<span class="fc-stripe"></span>'
-    + '<div class="wr-head"><span class="wr-st '+status+'">'+statusLabel+'</span><span class="wr-by mono">by '+author+'</span><span class="wr-back mono"><span class="b-reward"><span class="n">'+count+'</span></span> interest signals</span></div>'
+    + '<div class="wr-head"><span class="wr-st '+status+'">'+statusLabel+'</span><span class="wr-by mono">'+attribution+'</span><span class="wr-back mono"><span class="b-reward"><span class="n">'+count+'</span></span> interest signals</span></div>'
     + '<div class="fc-title b-target wr-title">'+subject+'</div>'
     + (snippet ? '<div class="wr-snip">'+snippet+'</div>' : '')
     + '<div class="wr-acts">'+actions+'</div>'

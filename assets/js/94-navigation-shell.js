@@ -9,6 +9,8 @@
     analysts: 'analyst-network',
     prooflog: 'proof-log',
     methodology: 'about',
+    identity: 'identity',
+    workspace: 'workspace',
     admin: 'admin'
   };
   var hashViews = {};
@@ -78,7 +80,8 @@
     if (target !== 'registry' && typeof window.osiActivateRouteStyles === 'function') {
       window.osiActivateRouteStyles();
     }
-    if (typeof window.showView === 'function') window.showView(target);
+    if (opts.render === false) document.body.dataset.view = target;
+    else if (typeof window.showView === 'function') window.showView(target);
     syncActiveNavigation(target);
     closeMobileNav(false);
     setPlatform(false);
@@ -523,6 +526,7 @@
   window.osiNavigateSection = navigateSection;
   window.osiOpenCase = openCase;
   window.osiNavigateFieldStage = navigateFieldStage;
+  window.osiPublicApi = publicApi;
   window.osiLoadHomeData = loadHomeData;
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

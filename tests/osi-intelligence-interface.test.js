@@ -26,10 +26,14 @@ function ok(value, message) {
 }
 
 ok(index.includes('<header class="osi-global-header"'), 'one global navigation shell is integrated into index.html');
+const globalHeader = index.slice(index.indexOf('<header class="osi-global-header"'), index.indexOf('</header>'));
+ok((globalHeader.match(/data-global-view="registry"/g) || []).length === 1 && globalHeader.includes('>Home</button>'), 'global navigation exposes one explicit Home route');
+ok(!/>How It Works<\/button>/.test(globalHeader) && shell.includes("hash === 'how-it-works'") && shell.includes("navigateSection('registry', 'how-osi-works', 'how-it-works')"), 'How It Works is a Home section with backward-compatible deep linking, not a duplicate global route');
 ok(index.includes('<main id="main-content" tabindex="-1">') && index.includes('class="skip-link"'), 'main landmark and keyboard skip link are present');
 ok((index.match(/data-osi-route-style/g) || []).length === 9 && index.includes('./assets/js/02-route-styles.js'), 'route-only CSS is preloaded behind the shared activation guard');
 ok(routeStyles.includes("window.addEventListener('pointerdown'") && routeStyles.includes("window.addEventListener('keydown'") && routeStyles.includes("window.addEventListener('hashchange'") && routeStyles.includes("link.setAttribute('media', 'all')") && shell.includes('window.osiActivateRouteStyles()'), 'route CSS activates for direct, programmatic, pointer and keyboard navigation');
 ok(walletWorkspace.includes("if(v!=='registry' && typeof window.osiActivateRouteStyles==='function')") && walletWorkspace.includes('function openWalletMenu()'), 'canonical view and wallet-menu paths expose their shared activation controls');
+ok(shell.includes("identity: 'identity'") && shell.includes("workspace: 'workspace'") && walletWorkspace.includes("osiNavigate('identity')") && !walletWorkspace.includes("showView('identity')"), 'user and role workspaces participate in canonical history-aware navigation');
 ok(index.includes('id="tip-modal" role="dialog" aria-modal="true" aria-labelledby="tip-h" aria-describedby="tip-note" aria-hidden="true"') && index.includes('aria-label="Close support dialog"'), 'SOL support uses a named modal dialog with an accessible close control');
 ok(supportTransfer.includes("event.key === 'Escape'") && supportTransfer.includes("event.key !== 'Tab'") && supportTransfer.includes('tipReturnFocus') && supportTransfer.includes("m.setAttribute('aria-hidden','false')"), 'SOL support traps focus, closes on Escape, and restores focus');
 ok(index.indexOf('70-intelligence-redesign.css') > index.indexOf('v2-activation.css'), 'redesign CSS is the final cascade layer');
@@ -49,6 +53,8 @@ for (const width of [640, 960, 1536]) {
 ok(fs.existsSync(path.join(root, 'assets/images/osi-intelligence-desk-1536.jpg')), 'JPEG hero fallback exists');
 ok(home.includes('<picture>') && home.includes('fetchpriority="high"') && home.includes('width="1536" height="1024"'), 'hero uses a responsive, dimensioned local picture');
 ok(!/https?:\/\//.test(home) && !/data:image\//.test(home), 'new homepage has no remote or embedded image payload');
+ok(index.includes('class="osi-eye-emblem" id="osi-about-emblem"') && index.includes('aria-labelledby="osi-eye-title osi-eye-desc"'), 'About uses a scalable, accessible OSI emblem without a boxed raster background');
+ok(index.includes('Never used as a proof or verification seal.') && css.includes('.osi-about-wordmark .osi-eye-emblem'), 'About keeps the brand emblem visually distinct from proof status');
 
 const homeSections = [...home.matchAll(/<section\b[^>]*class="[^"]*\bosi-home\b/g)];
 const homeWords = home
@@ -64,6 +70,7 @@ ok(!/osi-home-(?:perspectives|workspaces|network|records|boundaries)/.test(home)
 
 ok(home.includes('>Open a Case</button>') && home.includes('>Browse Public Records</button>'), 'hero exposes the primary Case and public-record routes');
 ok(home.includes('onclick="osiV2OpenMyReports()"') && home.includes('onclick="osiNavigate(\'prooflog\')"'), 'workflow controls call real Report and Proof Log routes');
+ok(home.includes('class="art-manifest"') && home.includes('class="art-version art-version-current"') && home.includes('class="art-hash-ring"') && home.includes('Build a Versioned Report'), 'Report route visibly binds evidence manifest, immutable version and hash lock');
 ok(home.includes('<strong>Review</strong>') && home.includes('onclick="osiV2OpenReviewQueue()"'), 'Home review step opens the authorized Review Queue');
 ok(home.includes('No custody') && home.includes('Support never changes review, ranking, or governance'), 'money and governance boundaries are explicit');
 ok(!/SAS|durable record fields|<span>Planned<\/span>/i.test(home), 'premature SAS and planned durable-record claims are absent');
@@ -104,12 +111,17 @@ for (const marker of [
   'class="cr-aside" aria-label="Public Records trust console" tabindex="0"',
   'class="lb-aside" aria-label="Reputation system" tabindex="0"',
   'class="pl-aside" aria-label="Proof log reference" tabindex="0"',
-  'class="wire-side" aria-label="Wire guide" tabindex="0"',
-  'class="abt-flow" aria-label="OSI process flow" tabindex="0"'
+  'class="wire-side" aria-label="Wire guide" tabindex="0"'
 ]) {
   ok(index.includes(marker), 'mobile horizontal reference region remains keyboard scrollable');
 }
 ok(index.includes('id="pl-dash" role="region" aria-label="Proof Log summary" tabindex="0"'), 'mobile Proof Log summary strip is a named keyboard-scrollable region');
+const about = index.slice(index.indexOf('<section class="sec osi-about"'), index.indexOf('<div class="fo-modal" id="apx-modal"'));
+ok(about.includes('Product boundary') && about.includes('Proof vocabulary') && about.includes('Protocol principles') && !/\babt-|\bab-/.test(about), 'About uses the shared design system without repeating the Home lifecycle card wall');
+ok(about.includes('Wallet-signed and server-verified. Never labeled on-chain.') && about.includes('Memo-anchored on Solana only after the exact transaction confirms.') && about.includes('Verified SOL'), 'About preserves distinct and truthful proof vocabulary');
+ok(css.includes('.osi-about-hero') && css.includes('.osi-about-proof-grid') && css.includes('@keyframes osi-report-bind'), 'About and Report illustration have shared responsive visual styling');
+ok(index.includes('<form class="adm-card" onsubmit="event.preventDefault();admLogin()">') && index.includes('id="admMsg" role="status" aria-live="polite"'), 'maintainer sign-in is keyboard-submittable and reports status accessibly');
+ok(!/onclick="[^"]*showView\(/.test(index), 'visible document actions use canonical navigation instead of bypassing history state');
 
 ok(!records.includes('reports.updated_at') && !records.includes('created_at,updated_at'), 'legacy public record query does not request a missing column');
 ok(!index.includes('Recently updated</option>'), 'unsupported recently-updated sort is not exposed');

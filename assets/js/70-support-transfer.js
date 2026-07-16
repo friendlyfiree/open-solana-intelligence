@@ -298,7 +298,8 @@ function bountyTargetText(card){ const t = card.querySelector('.b-target'); retu
 
 // Reflect a boosted bounty in the UI (used on click and after a refresh).
 function markBoostedUI(card, sig){
-  const btn = card.querySelector('.btn-stake'); if(!btn) return;
+  const btn = card.querySelector('.btn-stake, [data-wire-interest]'); if(!btn) return;
+  btn.dataset.signalState = 'complete';
   btn.textContent = "✓ Boosted"; btn.style.background = "var(--sol)"; btn.style.color = "var(--bg)"; btn.disabled = true;
   if(sig && !card.querySelector('.boost-tx')){
     const note = document.createElement('div'); note.className = "boost-tx mono";
@@ -310,19 +311,35 @@ function markBoostedUI(card, sig){
 
 // Boost = a real on-chain memo signalling demand. Persists across refresh
 // (local fallback always; global + deduped per browser when Supabase is on).
-function stakeBoost(btn){
+async function stakeBoost(btn){
   const card = btn.closest('.bounty'); if(!card) return;
   const bid = card.dataset.bid;
+  const mine = lsGet('stw_boosted', {});
+  if(btn.disabled || btn.dataset.signalState==='pending' || btn.dataset.signalState==='complete') return;
+  if(bid && mine[bid]){ markBoostedUI(card, mine[bid].tx || null); return; }
+  btn.dataset.signalState = 'pending';
+  btn.disabled = true;
+  btn.textContent = 'Awaiting approval…';
   const _bts = Math.floor(Date.now()/1000);
   const memo = "OSI_CASE_BACKED|case_id=" + (bid||"") + "|subject=" + String(bountyTargetText(card)).replace(/\|/g,"/") + "|backer=" + (walletPubkey||"") + "|ts=" + _bts;
-  withOnchainVote("Boost", memo, async (sig)=>{
-    const numEl = card.querySelector('.b-reward .n');
-    if(numEl){ numEl.textContent = (parseInt(numEl.textContent) || 0) + 1; }
-    if(bid){ const mine = lsGet('stw_boosted', {}); mine[bid] = { name: bountyTargetText(card), tx: sig, ts: Date.now() }; lsSet('stw_boosted', mine); }
-    markBoostedUI(card, sig);
-    recordOnchainEvent({ event_type:'demand_signal', item_type:'bounty', item_id:bid, label:'pledged demand for '+bountyTargetText(card), memo_text:memo, tx_sig:sig });
-    if(SUPA_ON && bid){ try{ await supaPost('bounty_boosts', { bounty_id: bid, voter: voterId() }); hydrateBoosts(); }catch(e){ console.warn('OSI: boost sync failed.', e); } }
-  });
+  let completed = false;
+  try{
+    await withOnchainVote("Boost", memo, async (sig)=>{
+      const numEl = card.querySelector('.b-reward .n');
+      if(numEl){ numEl.textContent = (parseInt(numEl.textContent) || 0) + 1; }
+      if(bid){ const stored = lsGet('stw_boosted', {}); stored[bid] = { name: bountyTargetText(card), tx: sig, ts: Date.now() }; lsSet('stw_boosted', stored); }
+      markBoostedUI(card, sig);
+      completed = true;
+      recordOnchainEvent({ event_type:'demand_signal', item_type:'bounty', item_id:bid, label:'pledged demand for '+bountyTargetText(card), memo_text:memo, tx_sig:sig });
+      if(SUPA_ON && bid){ try{ await supaPost('bounty_boosts', { bounty_id: bid, voter: voterId() }); hydrateBoosts(); }catch(e){ console.warn('OSI: boost sync failed.', e); } }
+    });
+  }finally{
+    if(!completed){
+      btn.dataset.signalState = 'idle';
+      btn.disabled = false;
+      btn.textContent = 'Signal interest';
+    }
+  }
 }
 
 // Pull the global boost totals when a backend is configured (never less than
