@@ -105,7 +105,11 @@
     var host=document.getElementById('lb-body'),count=document.getElementById('lb-count'),pager=document.getElementById('lb-pnav');
     if(!host)return;
     if(pager)pager.innerHTML='';
-    if(!state.profiles.length){host.innerHTML=empty('No activated analysts yet','Approved probationary analysts will appear here with server-derived status, weight, contributions, and proof.');if(count)count.textContent='0 analysts';return;}
+    if(!state.profiles.length){
+      host.innerHTML='<div class="osi-activation-empty"><b>No activated analysts yet</b><span>Approved probationary analysts will appear here with server-derived status, weight, contributions, and proof.</span><button class="osi-empty-cta" type="button" onclick="apxOpen()">Start analyst application</button></div>';
+      if(count)count.textContent='0 analysts';
+      return;
+    }
     host.innerHTML=state.profiles.map(publicRow).join('');if(count)count.textContent=state.profiles.length+' analyst'+(state.profiles.length===1?'':'s');
     host.querySelectorAll('[data-analyst-wallet]').forEach(function(button){button.addEventListener('click',function(){openPublicProfile(button.dataset.analystWallet);});});
   }
@@ -138,7 +142,12 @@
 
   function latestApplication(){return state.workspace&&state.workspace.applications&&state.workspace.applications[0]||null;}
   function latestVersion(application){return application&&application.versions&&application.versions.slice().sort(function(a,b){return Number(b.version_no)-Number(a.version_no);})[0]||null;}
-  function workspaceNav(){return '<div class="osi-workspace-tabs" role="tablist"><button type="button" data-workspace-tab="profile">My Profile</button><button type="button" data-workspace-tab="applications">My Applications</button><button type="button" onclick="osiV2OpenMyCases()">My Cases</button><button type="button" onclick="osiV2OpenReviewQueue()">My Reviews</button></div>';}
+  function workspaceNav(){
+    return '<div class="osi-workspace-tabs" role="tablist" aria-label="Analyst workspace sections">'
+      +'<button type="button" role="tab" id="osi-workspace-tab-profile" aria-controls="osi-workspace-panel-profile" aria-selected="'+(state.workspaceTab==='profile'?'true':'false')+'" tabindex="'+(state.workspaceTab==='profile'?'0':'-1')+'" class="'+(state.workspaceTab==='profile'?'active':'')+'" data-workspace-tab="profile">My Profile</button>'
+      +'<button type="button" role="tab" id="osi-workspace-tab-applications" aria-controls="osi-workspace-panel-applications" aria-selected="'+(state.workspaceTab==='applications'?'true':'false')+'" tabindex="'+(state.workspaceTab==='applications'?'0':'-1')+'" class="'+(state.workspaceTab==='applications'?'active':'')+'" data-workspace-tab="applications">My Applications</button></div>'
+      +'<nav class="osi-workspace-tabs" aria-label="Related private work"><button type="button" onclick="osiV2OpenMyCases()">My Cases</button><button type="button" onclick="osiV2OpenMyReports()">My Reports</button><button type="button" onclick="osiV2OpenReviewQueue()">My Reviews</button></nav>';
+  }
   function profilePane(){
     var profile=state.workspace&&state.workspace.profile,application=latestApplication();
     if(!profile)return empty('No analyst profile yet','Create an immutable wallet-signed application version to begin.')+'<button class="osi-primary-action" type="button" onclick="apxOpen()">Start analyst application</button>';
@@ -160,15 +169,37 @@
       return '<section class="osi-application-card"><header><div><span class="mono">Application '+esc(short(application.id))+'</span><h3>Current version '+Number(latestVersion(application).version_no)+'</h3></div>'+statusBadge(application.status)+'</header>'+revision+history+(application.status==='revision_requested'?'<button class="osi-primary-action" type="button" onclick="apxOpen()">Submit revision</button>':'')+'</section>';
     }).join('');
   }
+  function setWorkspaceTab(tab,focusTab){
+    if(tab!=='profile'&&tab!=='applications')return;
+    state.workspaceTab=tab;
+    var host=document.getElementById('identity-body');if(!host)return;
+    var activeTab=null;
+    host.querySelectorAll('[data-workspace-tab]').forEach(function(button){
+      var on=button.dataset.workspaceTab===tab;
+      button.classList.toggle('active',on);
+      button.setAttribute('aria-selected',on?'true':'false');
+      button.setAttribute('tabindex',on?'0':'-1');
+      if(on)activeTab=button;
+    });
+    host.querySelectorAll('[data-workspace-panel]').forEach(function(panel){panel.hidden=panel.dataset.workspacePanel!==tab;});
+    if(focusTab&&activeTab)activeTab.focus();
+  }
+  function workspaceTabKeydown(event){
+    if(['ArrowLeft','ArrowRight','Home','End'].indexOf(event.key)===-1)return;
+    var list=event.currentTarget.closest('[role="tablist"]');if(!list)return;
+    var tabs=Array.prototype.slice.call(list.querySelectorAll('[role="tab"]')),current=tabs.indexOf(event.currentTarget);if(current<0||!tabs.length)return;
+    event.preventDefault();
+    var next=event.key==='Home'?0:(event.key==='End'?tabs.length-1:(current+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length);
+    setWorkspaceTab(tabs[next].dataset.workspaceTab,true);
+  }
   function renderWorkspace(){
     var host=document.getElementById('identity-body');if(!host)return;
-    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>Private application history uses the shared five-minute wallet-authenticated read session.</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Refresh data</button></header>'+workspaceNav()+'<main>'+(state.workspaceTab==='applications'?applicationPane():profilePane())+'</main></div>';
-    host.querySelectorAll('[data-workspace-tab]').forEach(function(button){button.classList.toggle('active',button.dataset.workspaceTab===state.workspaceTab);button.addEventListener('click',function(){state.workspaceTab=button.dataset.workspaceTab;renderWorkspace();});});
+    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>Private application history uses the shared five-minute wallet-authenticated read session.</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Refresh data</button></header>'+workspaceNav()+'<main><section id="osi-workspace-panel-profile" role="tabpanel" aria-labelledby="osi-workspace-tab-profile" data-workspace-panel="profile"'+(state.workspaceTab==='profile'?'':' hidden')+'>'+profilePane()+'</section><section id="osi-workspace-panel-applications" role="tabpanel" aria-labelledby="osi-workspace-tab-applications" data-workspace-panel="applications"'+(state.workspaceTab==='applications'?'':' hidden')+'>'+applicationPane()+'</section></main></div>';
+    host.querySelectorAll('[data-workspace-tab]').forEach(function(button){button.addEventListener('click',function(){setWorkspaceTab(button.dataset.workspaceTab,false);});button.addEventListener('keydown',workspaceTabKeydown);});
   }
   function showNativeWorkspaceView(){
-    document.body.dataset.view='identity';
-    if(typeof window.syncActiveNavigation==='function')window.syncActiveNavigation('identity');
-    window.scrollTo({top:0,behavior:'auto'});
+    if(typeof window.osiNavigate==='function')window.osiNavigate('identity',{render:false,focus:false});
+    else{document.body.dataset.view='identity';window.scrollTo({top:0,behavior:'auto'});}
   }
   async function openWorkspace(tab){
     state.workspaceTab=tab==='applications'?'applications':'profile';showNativeWorkspaceView();

@@ -62,6 +62,8 @@ jobs:
           node tests/osi-session-access.test.js
           node tests/osi-v2-read-session.test.mjs
           node tests/osi-provider-call-count.test.mjs
+          node tests/osi-wire-integrity.test.mjs
+          node tests/osi-proof-public-truth.test.js
           node tests/osi-functional-surface.test.mjs
           node tests/osi-intelligence-interface.test.js
           node tests/osi-motion-visual.test.mjs

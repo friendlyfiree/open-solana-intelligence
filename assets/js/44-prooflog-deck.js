@@ -18,11 +18,17 @@ function proofLogDemoSample(){
 }
 var plState = { filter:'all', q:'', page:1 };
 var PL_PER = 8;
+function plNavigate(view){ if(typeof window.osiNavigate==='function') window.osiNavigate(view); else showView(view); }
 // zengin timeline kartı (Proof Log'a özel; kompakt raSignedItem ayrı kalır)
-function plGoCase(id){
+function plGoCase(id, canonicalRef){
+  if(canonicalRef && typeof osiV2OpenCase==='function'){
+    plNavigate('field');
+    setTimeout(function(){ osiV2OpenCase(canonicalRef); },120);
+    return;
+  }
   var rec = (window.__crRecords||{})[id];
-  if(rec && typeof openCaseRecord==='function'){ showView('records'); setTimeout(function(){ openCaseRecord(id); },120); return; }
-  showView('records');
+  if(rec && typeof openCaseRecord==='function'){ plNavigate('records'); setTimeout(function(){ openCaseRecord(id); },120); return; }
+  plNavigate('records');
 }
 function plCopyFallback(text, done){
   try{ var ta=document.createElement('textarea'); ta.value=String(text); ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
@@ -37,10 +43,13 @@ function plSearch(v){ plState.q=(v||'').trim().toLowerCase(); plState.page=1; pl
 function plSetPage(p){ plState.page=p|0; plPaint(); var b=document.getElementById('pl-body'); if(b){ try{ b.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} } }
 function plSealedRender(){
   var card=document.getElementById('pl-sealed-card'); var host=document.getElementById('pl-sealed'); if(!card||!host) return;
-  var seals=(window.__plEvents||[]).filter(function(e){ return e.event_type==='maintainer_seal'; });
+  var seals=(window.__plEvents||[]).filter(function(e){
+    var type=String(e&&e.event_type||'').toLowerCase();
+    return (type==='record_sealed'||type==='maintainer_seal') && plProofState(e).key==='memo';
+  });
   if(!seals.length){ card.style.display='none'; return; }
   var s=seals[0];
-  var cid = s.item_id ? osiCaseId(s.item_id) : 'OSI-000000';
+  var cid = plCanonicalCaseRef(s) || (s.item_id ? osiCaseId(s.item_id) : 'OSI-000000');
   var name = s.label ? escapeHtml(String(s.label).replace(/^sealed /,'').slice(0,40)) : '';
   card.style.display='';
   host.innerHTML = '<div class="pl-sl-top"><span class="pl-sl-id mono">'+cid+'</span>'+(name?('<span class="pl-sl-nm">'+name+'</span>'):'')+'</div>'
@@ -87,14 +96,21 @@ function plCleanLabel(ev){
     .replace(/^sealed /i,'Sealed: ');
 }
 function plSignerRole(ev){
-  var g = plGroup(ev);
-  if(g==='vote') return 'Analyst';
-  if(g==='challenge') return 'Challenger';
-  if(g==='seal') return 'Maintainer';
-  if(g==='support') return 'Supporter';
-  if(g==='report') return 'Reporter';
-  if(g==='case') return 'Case opener';
-  return 'Signer';
+  var proof=plProofState(ev);
+  if(proof.key==='legacy') return 'Unverified actor';
+  var role=String((ev&&ev.actor_role)||'').trim().toLowerCase();
+  var labels={
+    analyst:'Analyst',
+    probationary_analyst:'Probationary analyst',
+    case_owner:'Case owner',
+    report_author:'Report author',
+    challenger:'Challenger',
+    supporter:'Supporter',
+    maintainer:'Maintainer',
+    system:'System'
+  };
+  if(labels[role]) return labels[role];
+  return proof.key==='system' ? 'System' : 'Verified actor';
 }
 function plJsString(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\r?\n/g,' '); }
 function plShortSig(sig){ sig=String(sig||''); return sig ? (sig.slice(0,5)+'...'+sig.slice(-5)) : ''; }
@@ -105,13 +121,74 @@ function plFullDate(ts){
   return d+' '+tm+' UTC';
 }
 function plAgo(ts){ var t = new Date(ts||''); return isNaN(t.getTime()) ? '' : raTimeAgo(ts); }
-function plMemoStatus(ev){ return ev && ev.tx_sig ? 'Memo-verifiable' : 'No transaction link'; }
+function plValidTxSig(sig){ return /^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(sig||'')); }
+function plProofMetadata(ev){
+  var raw=(ev&&ev.verification_metadata)||{};
+  if(typeof raw==='string'){ try{ raw=JSON.parse(raw); }catch(e){ raw={}; } }
+  return raw&&typeof raw==='object'?raw:{};
+}
+function plProofState(ev){
+  ev=ev||{};
+  var publicLabel=String(ev.label||'').trim();
+  if(ev.proof_source==='native_public_dto'){
+    var publicPayment=ev.payment_proof&&typeof ev.payment_proof==='object'?ev.payment_proof:{};
+    var paymentVerified=publicPayment.cluster==='mainnet-beta'
+      && publicPayment.finality==='finalized'
+      && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(publicPayment.payer_wallet||''))
+      && Array.isArray(publicPayment.recipient_manifest)
+      && publicPayment.recipient_manifest.length>0
+      && /^[1-9][0-9]*$/.test(String(publicPayment.total_lamports||''));
+    if(publicLabel==='SOL transfer verified on Solana'&&plValidTxSig(ev.tx_sig)&&paymentVerified){
+      return {key:'transfer',label:'SOL transfer verified on Solana',tx_sig:String(ev.tx_sig),onchain:true};
+    }
+    if(publicLabel==='Memo-anchored on Solana'&&plValidTxSig(ev.tx_sig)){
+      return {key:'memo',label:'Memo-anchored on Solana',tx_sig:String(ev.tx_sig),onchain:true};
+    }
+    if(publicLabel==='Wallet-signed & server-verified'||publicLabel==='Wallet-signed and server-verified'){
+      return {key:'wallet',label:'Wallet-signed and server-verified',tx_sig:'',onchain:false};
+    }
+    if(publicLabel==='System event'){
+      return {key:'system',label:'System event',tx_sig:'',onchain:false};
+    }
+    return {key:'legacy',label:'Legacy / not server-verified',tx_sig:'',legacy_tx_sig:'',onchain:false};
+  }
+  var type=String(ev.proof_type||'').toLowerCase();
+  var verified=ev.server_verified===true;
+  var sig=plValidTxSig(ev.tx_sig)?String(ev.tx_sig):'';
+  var metadata=plProofMetadata(ev);
+  var payment=ev.payment_proof&&typeof ev.payment_proof==='object'?ev.payment_proof:{};
+  var memoVerified=payment.memo_verified===true||metadata.memo_verified===true;
+  var transfersVerified=payment.transfers_verified===true||payment.system_program_transfers_verified===true||metadata.transfers_verified===true||metadata.system_program_transfers_verified===true;
+  if(type==='solana_memo'&&verified&&sig&&memoVerified&&transfersVerified){
+    return {key:'transfer',label:'SOL transfer verified on Solana',tx_sig:sig,onchain:true};
+  }
+  if(type==='solana_memo'&&verified&&sig){
+    return {key:'memo',label:'Memo-anchored on Solana',tx_sig:sig,onchain:true};
+  }
+  if(type==='wallet_signed_server_verified'&&verified){
+    return {key:'wallet',label:'Wallet-signed and server-verified',tx_sig:'',onchain:false};
+  }
+  if(type==='system_event'&&verified){
+    return {key:'system',label:'System event',tx_sig:'',onchain:false};
+  }
+  return {key:'legacy',label:'Legacy / not server-verified',tx_sig:'',legacy_tx_sig:plValidTxSig(ev.tx_sig)?String(ev.tx_sig):'',onchain:false};
+}
+function plMemoStatus(ev){ return plProofState(ev).label; }
+function plCanonicalCaseRef(ev){
+  var values=[ev&&ev.case_public_ref,ev&&ev.case_ref,ev&&ev.target_public_ref,ev&&ev.public_ref,ev&&ev.item_id];
+  for(var i=0;i<values.length;i++){
+    var ref=String(values[i]||'').toUpperCase();
+    if(/^OSI-[A-Z0-9]{8,32}$/.test(ref)) return ref;
+  }
+  return '';
+}
 function plReferenceHtml(ev){
   var raw = ev && ev.item_id != null ? String(ev.item_id) : '';
   if(!raw) return 'Reference unavailable';
   var group = plGroup(ev);
-  var display = (group==='case' || group==='vote' || group==='challenge' || group==='seal' || group==='support') ? osiCaseId(raw) : raw;
-  return '<a onclick="plGoCase(\''+plJsString(raw)+'\')">'+escapeHtml(display)+'</a>';
+  var canonical=plCanonicalCaseRef(ev);
+  var display = canonical || ((group==='case' || group==='vote' || group==='challenge' || group==='seal' || group==='support') ? osiCaseId(raw) : raw);
+  return '<button class="plc-ref-link" type="button" onclick="plGoCase(\''+plJsString(raw)+'\',\''+plJsString(canonical)+'\')">'+escapeHtml(display)+'</button>';
 }
 function plCopyProofValue(text, label){
   if(!text) return;
@@ -122,7 +199,8 @@ function plCopyProofValue(text, label){
 function plTimelineCard(ev){
   ev = ev || {};
   var m = plMemo(ev);
-  var sig = ev.tx_sig ? String(ev.tx_sig) : '';
+  var proof=plProofState(ev);
+  var sig=proof.tx_sig||proof.legacy_tx_sig||'';
   var wallet = ev.actor_wallet ? String(ev.actor_wallet) : '';
   var walletCell = wallet
     ? '<span title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'
@@ -131,7 +209,7 @@ function plTimelineCard(ev){
   var when = plFullDate(ev.created_at);
   var ago = plAgo(ev.created_at);
   var txHtml = sig
-    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy signature" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">View on Solana</a></div>'
+    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy signature" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
     : '<span class="plc-no-tx">No transaction link</span>';
   return '<div class="plc type-'+m.cls+'" data-g="'+plGroup(ev)+'">'
     + '<span class="plc-dot" aria-hidden="true"></span>'
@@ -144,7 +222,7 @@ function plTimelineCard(ev){
       + '<div class="plc-grid">'
         + '<div><div class="plc-meta-k">Wallet</div><div class="plc-meta-v">'+walletCell+'</div></div>'
         + '<div><div class="plc-meta-k">Wallet role</div><div class="plc-meta-v">'+escapeHtml(plSignerRole(ev))+'</div></div>'
-        + '<div><div class="plc-meta-k">Memo status</div><div class="plc-meta-v '+(sig?'ok':'')+'">'+escapeHtml(plMemoStatus(ev))+'</div></div>'
+        + '<div><div class="plc-meta-k">Proof status</div><div class="plc-meta-v '+(proof.key!=='legacy'?'ok':'')+'">'+escapeHtml(proof.label)+'</div></div>'
         + '<div class="plc-action"><div class="plc-meta-k">Transaction</div>'+txHtml+'</div>'
       + '</div>'
     + '</div>'
@@ -161,18 +239,15 @@ function plDashRender(){
     return '<div class="pl-stat '+cls+'"><div class="pl-stat-top"><span class="pl-stat-ic">'+ic+'</span><span class="pl-stat-label">'+label+'</span></div><div><div class="pl-stat-val '+(isNa?'na':'')+'">'+value+'</div><div class="pl-stat-sub">'+sub+'</div></div></div>';
   }
   var total=evs.length;
-  var memos=evs.filter(function(e){ return !!e.tx_sig; }).length;
-  var cases=evs.filter(function(e){ return plGroup(e)==='case'; }).length;
-  var reviews=evs.filter(function(e){ return plGroup(e)==='vote'; }).length;
-  var challenges=evs.filter(function(e){ return plGroup(e)==='challenge'; }).length;
-  var seals=evs.filter(function(e){ return plGroup(e)==='seal'; }).length;
+  var proofs=evs.map(plProofState);
+  function proofCount(key){ return proofs.filter(function(proof){ return proof.key===key; }).length; }
   host.innerHTML =
-      stat('signed','SIG','Signed Actions',val(total),'Wallet-signed records')
-    + stat('memo','MEM','Memo Events',val(memos),'Transaction links indexed')
-    + stat('case','CAS','Case Events',val(cases),'Cases opened')
-    + stat('review','REV','Review Events',val(reviews),'Analyst review actions')
-    + stat('challenge','CHL','Challenge Events',val(challenges),'Challenges filed')
-    + stat('seal','SEA','Sealed Records',val(seals),'Public record seals')
+      stat('signed','ALL','Proof Events',val(total),'Explicitly classified receipts')
+    + stat('review','SIG','Wallet verified',val(proofCount('wallet')),'Server-verified, not on-chain')
+    + stat('memo','MEM','Memo anchored',val(proofCount('memo')),'Confirmed Solana Memo receipts')
+    + stat('seal','SOL','SOL transfers',val(proofCount('transfer')),'Memo and transfers verified')
+    + stat('case','SYS','System events',val(proofCount('system')),'Server-originated process events')
+    + stat('challenge','LEG','Legacy / unverified',val(proofCount('legacy')),'No native verification claim')
     + stat('net','SOL','Network','Solana','Mainnet');
 }
 function plSchemaRender(){
@@ -191,10 +266,10 @@ function plHealthRender(){
   var host=document.getElementById('pl-health'); if(!host) return;
   var src=plSourceState();
   var evs=window.__plEvents||[];
-  var stateCls=''; var title='No signed proof events yet'; var body='Wallet-signed OSI actions will appear here after they are recorded.';
-  if(src==='loaded' && evs.length){ stateCls='ok'; title='Live proof source connected'; body=evs.length+' signed proof event'+(evs.length===1?'':'s')+' loaded from the OSI proof index.'; }
-  else if(src==='error'){ stateCls='err'; title='Proof source unavailable'; body='Unable to load signed events right now.'; }
-  else if(src==='unavailable'){ stateCls='err'; title='Proof source unavailable'; body='The signed proof source is not connected in this environment.'; }
+  var stateCls=''; var title='No proof events yet'; var body='Explicitly classified OSI proof events will appear here after they are recorded.';
+  if(src==='loaded' && evs.length){ stateCls='ok'; title='Live proof source connected'; body=evs.length+' classified proof event'+(evs.length===1?'':'s')+' loaded from the OSI proof index.'; }
+  else if(src==='error'){ stateCls='err'; title='Proof source unavailable'; body='Unable to load proof events right now.'; }
+  else if(src==='unavailable'){ stateCls='err'; title='Proof source unavailable'; body='The proof source is not connected in this environment.'; }
   else if(src==='demo'){ title='Sample mode enabled'; body='Sample proof events are visible because the explicit sample-data switch is enabled.'; }
   var lastMemo = evs.length ? (plAgo(evs[0].created_at)||'Timestamp unavailable') : 'Not available yet';
   host.innerHTML =
@@ -211,25 +286,25 @@ function plPaint(){
   var evs=all;
   if(q){
     evs=evs.filter(function(e){
-      var hay=[e.actor_wallet,e.item_id,e.event_type,e.label,e.vote,e.tx_sig, e.item_id?osiCaseId(e.item_id):''].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
+      var hay=[e.actor_wallet,e.item_id,e.event_type,e.label,e.vote,e.tx_sig,e.proof_type,plProofState(e).label,e.item_id?osiCaseId(e.item_id):''].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
       return hay.indexOf(q)!==-1;
     });
   }
   if(plState.filter!=='all') evs=evs.filter(function(e){ return plGroup(e)===plState.filter; });
   var stripCls = (src==='loaded' && all.length) ? ' ok' : ((src==='error'||src==='unavailable') ? ' err' : '');
-  var stripTitle = (src==='loaded' && all.length) ? 'Live proof source connected' : (src==='error'||src==='unavailable' ? 'Proof source unavailable' : (src==='demo' ? 'Sample mode enabled' : 'No signed proof events yet'));
-  var stripBody = (src==='loaded' && all.length) ? (all.length+' real signed proof event'+(all.length===1?'':'s')+' loaded from onchain_events.')
-    : (src==='error' ? 'Unable to load signed events right now.'
-    : (src==='unavailable' ? 'Signed proof source is not connected in this environment.'
-    : (src==='demo' ? 'Sample rows are visible only because the explicit sample-data switch is enabled.' : 'Wallet-signed OSI actions will appear here after they are recorded.')));
+  var stripTitle = (src==='loaded' && all.length) ? 'Live proof source connected' : (src==='error'||src==='unavailable' ? 'Proof source unavailable' : (src==='demo' ? 'Sample mode enabled' : 'No proof events yet'));
+  var stripBody = (src==='loaded' && all.length) ? (all.length+' public proof event'+(all.length===1?'':'s')+' loaded and classified by explicit receipt fields.')
+    : (src==='error' ? 'Unable to load proof events right now.'
+    : (src==='unavailable' ? 'Proof source is not connected in this environment.'
+    : (src==='demo' ? 'Sample rows are visible only because the explicit sample-data switch is enabled.' : 'Explicitly classified OSI proof events will appear here after they are recorded.')));
   var strip = '<div class="pl-strip'+stripCls+'"><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>'+stripTitle+'</b><span>'+stripBody+'</span></div></div>';
   var totalPages=Math.max(1, Math.ceil(evs.length/PL_PER));
   if(plState.page>totalPages) plState.page=totalPages; if(plState.page<1) plState.page=1;
   var from=(plState.page-1)*PL_PER, page=evs.slice(from, from+PL_PER);
-  var emptyTitle = (src==='error'||src==='unavailable') ? 'Proof source unavailable.' : (all.length ? 'No matching proof events found.' : 'No signed proof events found yet.');
-  var emptyBody = (src==='error') ? 'Unable to load signed events right now.'
-    : (src==='unavailable' ? 'The signed proof source is not connected in this environment.'
-    : (all.length ? 'Try another filter or search term.' : 'Wallet-signed OSI actions will appear here after they are recorded.'));
+  var emptyTitle = (src==='error'||src==='unavailable') ? 'Proof source unavailable.' : (all.length ? 'No matching proof events found.' : 'No proof events found yet.');
+  var emptyBody = (src==='error') ? 'Unable to load proof events right now.'
+    : (src==='unavailable' ? 'The proof source is not connected in this environment.'
+    : (all.length ? 'Try another filter or search term.' : 'Explicitly classified OSI proof events will appear here after they are recorded.'));
   host.innerHTML = strip + (page.length
     ? '<div class="pl-timeline">' + page.map(plTimelineCard).join('') + '</div>'
     : '<div class="pl-empty"><h3>'+emptyTitle+'</h3><p>'+emptyBody+'</p></div>');
@@ -248,15 +323,46 @@ function plPaint(){
 }
 async function renderProofLog(){
   var host = document.getElementById('pl-body'); if(!host) return;
-  host.innerHTML = '<div class="pl-note">Loading signed proof events...</div>';
-  var events = [];
+  host.innerHTML = '<div class="pl-note">Loading proof events...</div>';
+  var nativeEvents = [];
+  var legacyEvents = [];
   var source = 'unavailable';
   if(typeof SUPA_ON!=='undefined' && SUPA_ON){
+    var attempts=0, failures=0;
+    if(typeof window.osiPublicApi==='function'){
+      attempts++;
+      try{
+        var publicResult=await window.osiPublicApi('osi-v2-case-read',{op:'list_public_cases'});
+        var publicCases=Array.isArray(publicResult&&publicResult.cases)?publicResult.cases:[];
+        publicCases.forEach(function(item){
+          var caseRef=String(item&&item.public_ref||'');
+          (Array.isArray(item&&item.proof_log)?item.proof_log:[]).forEach(function(receipt){
+            nativeEvents.push(Object.assign({},receipt,{
+              proof_source:'native_public_dto',
+              item_type:'case',
+              item_id:caseRef,
+              case_public_ref:caseRef,
+              created_at:receipt.occurred_at
+            }));
+          });
+        });
+      }catch(e){ failures++; }
+    }
+    attempts++;
     try{
-      events = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || [];
-      source = events.length ? 'loaded' : 'empty';
-    }catch(e){ events=[]; source='error'; }
+      legacyEvents = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || [];
+      legacyEvents=legacyEvents.map(function(event){ return Object.assign({},event,{proof_source:'legacy_public_projection',actor_role:''}); });
+    }catch(e){ failures++; legacyEvents=[]; }
+    var seen={};
+    var events=nativeEvents.concat(legacyEvents).filter(function(event){
+      var key=[event.event_type,event.item_id,event.actor_wallet,event.tx_sig,event.created_at].map(function(value){return String(value||'');}).join('|');
+      if(seen[key]) return false;
+      seen[key]=true;
+      return true;
+    }).sort(function(a,b){return new Date(b.created_at||0)-new Date(a.created_at||0);});
+    source = events.length ? 'loaded' : (attempts>0&&failures===attempts?'error':(failures?'error':'empty'));
   }
+  if(typeof events==='undefined') events=[];
   window.__plDemo = false;
   if(!events.length && source!=='error' && plDemoMode()){ window.__plDemo = true; events = proofLogDemoSample(); source='demo'; }
   window.__plEvents = events;
@@ -307,7 +413,7 @@ function cfDrawerHtml(b){
     + (foot ? '<div class="cf-foot mono">'+foot+'</div>' : '')
     + '<div class="cf-actions">'+actions+'</div>'
     + '<div class="cf-sec-l">On-chain proof</div><div id="cf-proof" class="cf-proof"><span class="cv-empty mono">Checking signed actions\u2026</span></div>'
-    + '<div class="cf-sec-l">Escalation packs</div><div class="cf-packs">AI briefs for the victim, the exchange desk, and law enforcement are prepared after a case is reviewed and published. <a class="cv-a" onclick="closeCaseFile();showView(\'records\')">See reviewed packs \u2192</a></div>'
+    + '<div class="cf-sec-l">Escalation packs</div><div class="cf-packs">AI briefs for the victim, the exchange desk, and law enforcement are prepared after a case is reviewed and published. <a class="cv-a" onclick="closeCaseFile();plNavigate(\'records\')">See reviewed packs \u2192</a></div>'
     + '<div class="cf-note">OSI traces and documents. It cannot recover funds and never promises to. Evidence is public and on-chain: no seed phrases, no private data, no accusations.</div>';
 }
 // open the apply (report) flow for the case in the drawer, reusing the shared submit path
@@ -406,36 +512,6 @@ function foVerify(){
     })
     .catch(function(){ if(win){ try{ win.close(); }catch(e){} } showToast('Could not reach the proof log right now.'); });
 }
-// ===== Console rail: shared left navigation, mounted into the intelligence views =====
-var OSI_RAIL_VIEWS=['wire','records','analysts','prooflog','methodology'];
-function osiRailHtml(active){
-  function it(key,ic,label,on){ return '<button class="fr-i'+(active===key?' active':'')+'" type="button" onclick="'+on+'"><span class="fr-ic">'+ic+'</span>'+label+'</button>'; }
-  return '<div class="fr-g mono">Field Office</div>'
-    + it('field','\u25a3','Cases',"showView('field');fieldMine(false)")
-    + it('open','\uff0b','Open Case',"fieldOpenForm()")
-    + it('wire','\u224b','The Wire',"showView('wire')")
-    + '<div class="fr-g mono">Intelligence</div>'
-    + it('records','\u25a4','Public Records',"showView('records')")
-    + it('analysts','\u25ce','Analysts',"showView('analysts')")
-    + it('prooflog','\u26d3','Proof Log',"showView('prooflog')")
-    + it('methodology','\u00a7','Methodology',"showView('methodology')")
-    + '<div class="fr-net"><div class="fr-net-h mono">Network <span class="fr-dot"></span></div><div class="fr-net-v mono">Solana Mainnet</div><div class="fr-net-s mono">non-custodial \u00b7 memo-verified</div><a class="fr-net-b" href="https://status.solana.com" target="_blank" rel="noopener">View network status \u2197</a></div>';
-}
-function osiRailMount(){
-  OSI_RAIL_VIEWS.forEach(function(v){
-    if(document.querySelector('.rail-shell[data-shell="'+v+'"]')) return;
-    var secs=Array.prototype.slice.call(document.querySelectorAll('section[data-view="'+v+'"]'));
-    if(!secs.length) return;
-    var shell=document.createElement('div'); shell.className='rail-shell'; shell.setAttribute('data-shell',v);
-    var rail=document.createElement('aside'); rail.className='fo-rail'; rail.setAttribute('aria-label','Console navigation');
-    rail.innerHTML=osiRailHtml(v);
-    var main=document.createElement('div'); main.className='rail-main';
-    secs[0].parentNode.insertBefore(shell, secs[0]);
-    secs.forEach(function(sc){ main.appendChild(sc); });
-    shell.appendChild(rail); shell.appendChild(main);
-  });
-}
-if(document.readyState!=='loading'){ try{ osiRailMount(); }catch(e){} } else { document.addEventListener('DOMContentLoaded', function(){ try{ osiRailMount(); }catch(e){} }); }
 // ===== Operations deck: latest activity, recent proof log, analyst desk (real data only) =====
 function fdAgo(ts){ var t=new Date(ts||0).getTime(); if(!t||isNaN(t)) return ''; var m=Math.floor((Date.now()-t)/60000); if(m<1) return 'just now'; if(m<60) return m+'m ago'; var h=Math.floor(m/60); if(h<24) return h+'h ago'; return Math.floor(h/24)+'d ago'; }
 function foDeckActivity(){

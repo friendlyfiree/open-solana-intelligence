@@ -10,6 +10,36 @@
 var SOL_UI_MAX = 100;                                  // reasonable per-transfer UI maximum (SOL)
 var tipCtx = { wallet:null, amount:0.1, label:'', kind:'', item_type:null, item_id:null };
 var tipFlow = { sending:false, stage:'idle' };         // idle | confirm | awaiting | confirming
+var tipReturnFocus = null;
+
+function tipFocusableElements(modal){
+  if(!modal) return [];
+  return Array.prototype.filter.call(
+    modal.querySelectorAll('button:not([disabled]),input:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])'),
+    function(el){ return el.offsetParent !== null && el.getAttribute('aria-hidden') !== 'true'; }
+  );
+}
+function tipHandleKeydown(event){
+  var modal=document.getElementById('tip-modal');
+  if(!modal || !modal.classList.contains('open')) return;
+  if(event.key === 'Escape'){
+    event.preventDefault();
+    closeTip();
+    return;
+  }
+  if(event.key !== 'Tab') return;
+  var items=tipFocusableElements(modal);
+  if(!items.length){
+    event.preventDefault();
+    var card=modal.querySelector('.tip-card'); if(card) card.focus();
+    return;
+  }
+  var first=items[0], last=items[items.length-1];
+  var activeIndex=items.indexOf(document.activeElement);
+  if(event.shiftKey && (document.activeElement===first || activeIndex===-1)){ event.preventDefault(); last.focus(); }
+  else if(!event.shiftKey && (document.activeElement===last || activeIndex===-1)){ event.preventDefault(); first.focus(); }
+}
+document.addEventListener('keydown', tipHandleKeydown);
 
 // Safe SOL -> lamports. Numeric, positive, within the UI max, and no more than 9
 // decimals (SOL precision). Integer lamports are composed from the decimal
@@ -127,9 +157,21 @@ function openTip(wallet, label, amount, title, meta){
   updateTipUsd();
   resetSolanaPay();
   refreshTipSendState();
-  var m=document.getElementById('tip-modal'); if(m) m.classList.add('open');
+  var m=document.getElementById('tip-modal');
+  if(m){
+    tipReturnFocus = document.activeElement && typeof document.activeElement.focus==='function' ? document.activeElement : null;
+    m.classList.add('open');
+    m.setAttribute('aria-hidden','false');
+    var card=m.querySelector('.tip-card'); if(card) window.setTimeout(function(){ card.focus(); },0);
+  }
 }
-function closeTip(){ var m=document.getElementById('tip-modal'); if(m) m.classList.remove('open'); tipFlow={sending:false,stage:'idle'}; }
+function closeTip(){
+  var m=document.getElementById('tip-modal');
+  if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+  tipFlow={sending:false,stage:'idle'};
+  var target=tipReturnFocus; tipReturnFocus=null;
+  if(target && target.isConnected && typeof target.focus==='function') window.setTimeout(function(){ target.focus(); },0);
+}
 function setTipAmt(a, btn){
   tipCtx.amount = a;
   document.querySelectorAll('.tip-amt').forEach(function(b){ b.classList.remove('active'); });
@@ -256,7 +298,8 @@ function bountyTargetText(card){ const t = card.querySelector('.b-target'); retu
 
 // Reflect a boosted bounty in the UI (used on click and after a refresh).
 function markBoostedUI(card, sig){
-  const btn = card.querySelector('.btn-stake'); if(!btn) return;
+  const btn = card.querySelector('.btn-stake, [data-wire-interest]'); if(!btn) return;
+  btn.dataset.signalState = 'complete';
   btn.textContent = "✓ Boosted"; btn.style.background = "var(--sol)"; btn.style.color = "var(--bg)"; btn.disabled = true;
   if(sig && !card.querySelector('.boost-tx')){
     const note = document.createElement('div'); note.className = "boost-tx mono";
@@ -268,19 +311,35 @@ function markBoostedUI(card, sig){
 
 // Boost = a real on-chain memo signalling demand. Persists across refresh
 // (local fallback always; global + deduped per browser when Supabase is on).
-function stakeBoost(btn){
+async function stakeBoost(btn){
   const card = btn.closest('.bounty'); if(!card) return;
   const bid = card.dataset.bid;
+  const mine = lsGet('stw_boosted', {});
+  if(btn.disabled || btn.dataset.signalState==='pending' || btn.dataset.signalState==='complete') return;
+  if(bid && mine[bid]){ markBoostedUI(card, mine[bid].tx || null); return; }
+  btn.dataset.signalState = 'pending';
+  btn.disabled = true;
+  btn.textContent = 'Awaiting approval…';
   const _bts = Math.floor(Date.now()/1000);
   const memo = "OSI_CASE_BACKED|case_id=" + (bid||"") + "|subject=" + String(bountyTargetText(card)).replace(/\|/g,"/") + "|backer=" + (walletPubkey||"") + "|ts=" + _bts;
-  withOnchainVote("Boost", memo, async (sig)=>{
-    const numEl = card.querySelector('.b-reward .n');
-    if(numEl){ numEl.textContent = (parseInt(numEl.textContent) || 0) + 1; }
-    if(bid){ const mine = lsGet('stw_boosted', {}); mine[bid] = { name: bountyTargetText(card), tx: sig, ts: Date.now() }; lsSet('stw_boosted', mine); }
-    markBoostedUI(card, sig);
-    recordOnchainEvent({ event_type:'demand_signal', item_type:'bounty', item_id:bid, label:'pledged demand for '+bountyTargetText(card), memo_text:memo, tx_sig:sig });
-    if(SUPA_ON && bid){ try{ await supaPost('bounty_boosts', { bounty_id: bid, voter: voterId() }); hydrateBoosts(); }catch(e){ console.warn('OSI: boost sync failed.', e); } }
-  });
+  let completed = false;
+  try{
+    await withOnchainVote("Boost", memo, async (sig)=>{
+      const numEl = card.querySelector('.b-reward .n');
+      if(numEl){ numEl.textContent = (parseInt(numEl.textContent) || 0) + 1; }
+      if(bid){ const stored = lsGet('stw_boosted', {}); stored[bid] = { name: bountyTargetText(card), tx: sig, ts: Date.now() }; lsSet('stw_boosted', stored); }
+      markBoostedUI(card, sig);
+      completed = true;
+      recordOnchainEvent({ event_type:'demand_signal', item_type:'bounty', item_id:bid, label:'pledged demand for '+bountyTargetText(card), memo_text:memo, tx_sig:sig });
+      if(SUPA_ON && bid){ try{ await supaPost('bounty_boosts', { bounty_id: bid, voter: voterId() }); hydrateBoosts(); }catch(e){ console.warn('OSI: boost sync failed.', e); } }
+    });
+  }finally{
+    if(!completed){
+      btn.dataset.signalState = 'idle';
+      btn.disabled = false;
+      btn.textContent = 'Signal interest';
+    }
+  }
 }
 
 // Pull the global boost totals when a backend is configured (never less than

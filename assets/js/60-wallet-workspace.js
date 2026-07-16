@@ -56,6 +56,7 @@ function walletErrorMessage(e, ctx){
 }
 // Small menu under the wallet button (Open profile / Disconnect).
 function closeWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.remove('open'); }
+function openWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.add('open'); }
 function toggleWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.toggle('open'); }
 
 async function toggleWalletOnce(){
@@ -96,6 +97,7 @@ function updateWalletUI(){
   if(!btn || !txt) return;
   if(walletPubkey){
     btn.classList.add('connected');
+    btn.setAttribute('aria-label','Open wallet menu for '+walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
     const nm = lsGet('stw_profile_name','');
     txt.textContent = nm ? nm : (walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
     let av = document.getElementById('wbAva');
@@ -104,6 +106,7 @@ function updateWalletUI(){
     const dot = btn.querySelector('.wb-dot'); if(dot) dot.style.display='none';
   } else {
     btn.classList.remove('connected');
+    btn.setAttribute('aria-label','Connect Wallet');
     if(typeof closeWalletMenu==='function') closeWalletMenu();
     txt.textContent = "Connect Wallet";
     const av = document.getElementById('wbAva'); if(av) av.remove();
@@ -229,7 +232,7 @@ function toggleCase(el){ el.closest('.co').classList.toggle('open'); }
 
 function openReport(kind, id){
   if(kind==='case'){
-    showView('records');
+    if(typeof window.osiNavigate==='function') window.osiNavigate('records'); else showView('records');
     setTimeout(function(){
       const el=document.getElementById('case-'+id);
       if(el){ el.classList.add('open'); el.scrollIntoView({behavior:'smooth',block:'center'}); }
@@ -300,6 +303,7 @@ function renderCaseStudies(){
 // ---- top-level view tabs ----
 const VIEW_OF = { registry:'registry', how:'methodology', methodology:'methodology', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
+  if(v!=='registry' && typeof window.osiActivateRouteStyles==='function') window.osiActivateRouteStyles();
   document.body.dataset.view = v;
   if(v==='admin' && typeof renderAdminAccess==='function'){ renderAdminAccess({refresh:true}); }
   if(v==='identity' && typeof renderIdentity==='function'){ renderIdentity(); }
@@ -337,17 +341,36 @@ function identityTabs(){
     ['settings','Settings']
   ];
   return '<div class="identity-tabs" role="tablist" aria-label="OSI Identity sections">'
-    + tabs.map(function(t,i){ return '<button class="identity-tab'+(i===0?' active':'')+'" type="button" role="tab" aria-selected="'+(i===0?'true':'false')+'" data-tab="'+t[0]+'" onclick="identityTab(\''+t[0]+'\')">'+escapeHtml(t[1])+'</button>'; }).join('')
+    + tabs.map(function(t,i){ return '<button class="identity-tab'+(i===0?' active':'')+'" id="identity-tab-'+t[0]+'" type="button" role="tab" aria-selected="'+(i===0?'true':'false')+'" aria-controls="identity-panel-'+t[0]+'" tabindex="'+(i===0?'0':'-1')+'" data-tab="'+t[0]+'" onclick="identityTab(\''+t[0]+'\')" onkeydown="identityTabKeydown(event)">'+escapeHtml(t[1])+'</button>'; }).join('')
     + '</div>';
 }
-function identityTab(id){
+function identityTab(id, focusTab){
   var root = document.getElementById('identity-shell'); if(!root) return;
+  var activeTab = null;
   root.querySelectorAll('.identity-tab').forEach(function(b){
     var on = b.getAttribute('data-tab') === id;
     b.classList.toggle('active', on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
+    b.setAttribute('tabindex', on ? '0' : '-1');
+    if(on) activeTab = b;
   });
-  root.querySelectorAll('.identity-pane').forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-pane') === id); });
+  root.querySelectorAll('.identity-pane').forEach(function(p){
+    var on = p.getAttribute('data-pane') === id;
+    p.classList.toggle('active', on);
+    p.hidden = !on;
+  });
+  if(focusTab && activeTab) activeTab.focus();
+}
+function identityTabKeydown(event){
+  if(!event || ['ArrowLeft','ArrowRight','Home','End'].indexOf(event.key) === -1) return;
+  var list = event.currentTarget && event.currentTarget.closest('[role="tablist"]');
+  if(!list) return;
+  var tabs = Array.prototype.slice.call(list.querySelectorAll('[role="tab"]'));
+  var current = tabs.indexOf(event.currentTarget);
+  if(current < 0 || !tabs.length) return;
+  event.preventDefault();
+  var next = event.key === 'Home' ? 0 : (event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length);
+  identityTab(tabs[next].getAttribute('data-tab'), true);
 }
 function identityHero(){
   var dots = ''; for(var i=0;i<20;i++){ dots += '<span></span>'; }
@@ -439,10 +462,10 @@ function identitySidebar(m){
     + '<div class="identity-side-row"><span>Public profile</span><b>Not configured</b></div>'
     + '<div class="identity-readonly">Visibility controls are informational in this read-only passport.</div></div>'
     + '<div class="identity-sidebar-panel"><div class="identity-side-title">Quick Actions</div>'
-    + '<button class="identity-action" type="button" onclick="showView(\'profile\')"><span>Edit profile</span><small>Existing profile</small></button>'
-    + '<button class="identity-action" type="button" onclick="showView(\'profile\')"><span>Update avatar</span><small>Existing profile</small></button>'
-    + '<button class="identity-action" type="button" onclick="openSelfProfile()"><span>Proof-of-Work CV</span><small>Public record</small></button>'
-    + '<button class="identity-action" type="button" onclick="showView(\'workspace\')"><span>My OSI</span><small>Workspace</small></button>'
+    + '<button class="identity-action" type="button" onclick="osiV2OpenMyCases()"><span>My Cases</span><small>Private V2 Case read</small></button>'
+    + '<button class="identity-action" type="button" onclick="osiV2OpenMyReports()"><span>My Reports</span><small>Immutable version history</small></button>'
+    + '<button class="identity-action" type="button" onclick="osiAnalystOpenWorkspace(\'profile\')"><span>Analyst profile</span><small>Server-authorized workspace</small></button>'
+    + '<button class="identity-action" type="button" onclick="osiAnalystOpenWorkspace(\'applications\')"><span>Applications</span><small>Wallet-signed versions</small></button>'
     + '</div></aside>';
 }
 function identityConnectHtml(ctx){
@@ -488,13 +511,13 @@ async function identityLoadModel(ctx){
   return model;
 }
 function identityConnectedHtml(m){
-  var overview = '<div class="identity-pane active" data-pane="overview"><div class="identity-stack"><div class="identity-grid">'+identityPassport(m)+identityStatusCard(m)+'</div><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Proof-of-Work</div><div class="identity-card-note">Live sources</div></div>'+identityPowGrid(m)+'</div><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Recent Activity</div><div class="identity-card-note">Public proof trail</div></div>'+identityActivity(m)+'</div></div></div>';
-  var identity = '<div class="identity-pane" data-pane="identity"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Identity Record</div><div class="identity-card-note">Read-only</div></div><div class="identity-mini-grid"><div class="identity-empty">Display name: '+escapeHtml(m.displayName || 'Not set')+'</div><div class="identity-empty">Wallet: '+escapeHtml(m.walletShort || 'Not connected')+'</div><div class="identity-empty">Role: '+escapeHtml(identityRoleLabel(m.ctx))+'</div><div class="identity-empty">Operator note: '+escapeHtml(m.bio || 'No public operator note yet.')+'</div></div></div></div>';
-  var pow = '<div class="identity-pane" data-pane="pow"><div class="identity-stack"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Proof-of-Work Ledger</div><div class="identity-card-note">No generated score</div></div>'+identityPowGrid(m)+'</div><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Signed Activity</div><div class="identity-card-note">Proof log events</div></div>'+identityActivity(m)+'</div></div></div>';
+  var overview = '<div class="identity-pane active" id="identity-panel-overview" role="tabpanel" aria-labelledby="identity-tab-overview" data-pane="overview"><div class="identity-stack"><div class="identity-grid">'+identityPassport(m)+identityStatusCard(m)+'</div><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Proof-of-Work</div><div class="identity-card-note">Live sources</div></div>'+identityPowGrid(m)+'</div><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Recent Activity</div><div class="identity-card-note">Public proof trail</div></div>'+identityActivity(m)+'</div></div></div>';
+  var identity = '<div class="identity-pane" id="identity-panel-identity" role="tabpanel" aria-labelledby="identity-tab-identity" data-pane="identity" hidden><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Identity Record</div><div class="identity-card-note">Read-only</div></div><div class="identity-mini-grid"><div class="identity-empty">Display name: '+escapeHtml(m.displayName || 'Not set')+'</div><div class="identity-empty">Wallet: '+escapeHtml(m.walletShort || 'Not connected')+'</div><div class="identity-empty">Role: '+escapeHtml(identityRoleLabel(m.ctx))+'</div><div class="identity-empty">Operator note: '+escapeHtml(m.bio || 'No public operator note yet.')+'</div></div></div></div>';
+  var pow = '<div class="identity-pane" id="identity-panel-pow" role="tabpanel" aria-labelledby="identity-tab-pow" data-pane="pow" hidden><div class="identity-stack"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Proof-of-Work Ledger</div><div class="identity-card-note">No generated score</div></div>'+identityPowGrid(m)+'</div><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Signed Activity</div><div class="identity-card-note">Proof log events</div></div>'+identityActivity(m)+'</div></div></div>';
   var analystNote = m.ctx.isVerifiedAnalyst ? 'This wallet is on the verified analyst roster.' : 'This wallet is not currently on the verified analyst roster.';
-  var analyst = '<div class="identity-pane" data-pane="analyst"><div class="identity-stack"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Analyst Status</div><div class="identity-card-note">Existing roster</div></div><div class="identity-empty">'+escapeHtml(analystNote)+'</div></div>'+identityStatusCard(m)+'</div></div>';
-  var cases = '<div class="identity-pane" data-pane="cases"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Cases &amp; Reports</div><div class="identity-card-note">Visible records</div></div>'+identityPowGrid(m)+'<div class="identity-readonly identity-section-note">Pending or private rows may be hidden by access policies. This passport only displays visible OSI records.</div></div></div>';
-  var settings = '<div class="identity-pane" data-pane="settings"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Settings</div><div class="identity-card-note">Read-only</div></div><div class="identity-empty">Settings and privacy controls are not enabled on this read-only passport. Use the existing Profile view for currently supported profile fields.</div></div></div>';
+  var analyst = '<div class="identity-pane" id="identity-panel-analyst" role="tabpanel" aria-labelledby="identity-tab-analyst" data-pane="analyst" hidden><div class="identity-stack"><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Analyst Status</div><div class="identity-card-note">Server-derived roster</div></div><div class="identity-empty">'+escapeHtml(analystNote)+'</div><div class="osi-ws-actions"><button class="osi-ws-cta" type="button" onclick="osiAnalystOpenWorkspace(\'profile\')">Open analyst workspace</button><button class="osi-ws-cta" type="button" onclick="osiAnalystOpenWorkspace(\'applications\')">My applications</button></div></div>'+identityStatusCard(m)+'</div></div>';
+  var cases = '<div class="identity-pane" id="identity-panel-cases" role="tabpanel" aria-labelledby="identity-tab-cases" data-pane="cases" hidden><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Cases &amp; Reports</div><div class="identity-card-note">Authorized V2 reads</div></div>'+identityPowGrid(m)+'<div class="identity-readonly identity-section-note">Private Case and unpublished Report details are available only through their scoped wallet-authorized reads.</div><div class="osi-ws-actions"><button class="osi-ws-cta" type="button" onclick="osiV2OpenMyCases()">Open My Cases</button><button class="osi-ws-cta" type="button" onclick="osiV2OpenMyReports()">Open My Reports</button></div></div></div>';
+  var settings = '<div class="identity-pane" id="identity-panel-settings" role="tabpanel" aria-labelledby="identity-tab-settings" data-pane="settings" hidden><div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Settings</div><div class="identity-card-note">Unavailable</div></div><div class="identity-empty">Profile and privacy settings require a dedicated server-authorized mutation. That mutation is not available, so this passport remains read-only.</div></div></div>';
   return identityHero() + identityTabs() + '<div class="identity-content"><main>'+overview+identity+pow+analyst+cases+settings+'</main>'+identitySidebar(m)+'</div>';
 }
 async function renderIdentity(){
@@ -526,10 +549,11 @@ function workspaceCard(title, note, action){
 function workspaceCards(items){
   return '<div class="osi-ws-grid">' + items.map(function(it){ return workspaceCard(it[0], it[1], it[2]); }).join('') + '</div>';
 }
-function workspaceIdentityCard(){
+function workspaceIdentityCard(ctx){
+  var analystWorkspace = !!(ctx && ctx.isVerifiedAnalyst);
   return '<div class="osi-ws-identity">'
-    + '<div><div class="osi-ws-identity-k">OSI Identity</div><h2>OSI Identity</h2><p>Open your wallet-linked intelligence passport, role status, and proof-of-work record.</p></div>'
-    + '<button class="osi-ws-id-btn" type="button" onclick="showView(\'identity\')">Open Intelligence Passport</button>'
+    + '<div><div class="osi-ws-identity-k">'+(analystWorkspace?'Analyst identity':'OSI Identity')+'</div><h2>'+(analystWorkspace?'Analyst workspace':'OSI Identity')+'</h2><p>'+(analystWorkspace?'Open your server-derived analyst profile and immutable application history.':'Open your wallet-linked intelligence passport, role status, and public proof record.')+'</p></div>'
+    + '<button class="osi-ws-id-btn" type="button" onclick="'+(analystWorkspace?"osiAnalystOpenWorkspace('profile')":"osiNavigate('identity')")+'">'+(analystWorkspace?'Open Analyst Profile':'Open Intelligence Passport')+'</button>'
     + '</div>';
 }
 function renderWorkspace(){
@@ -550,10 +574,10 @@ function renderWorkspace(){
     sideLabel = 'Wallet';
     sideValue = workspaceShort(ctx.wallet);
     cards = workspaceCards([
-      ['My Cases','Cases opened or filtered to your wallet.',"showView('field');if(typeof fieldMine==='function')fieldMine(true);"],
-      ['My Reports','Reports and profile-linked reviewed work.',"showView('profile')"],
-      ['Signed Actions','Memo-backed actions in the public proof log.',"showView('prooflog')"],
-      ['Case Status','Open and pending case queue.',"showView('field')"]
+      ['My Cases','Private and public Cases authorized for this wallet.',"osiV2OpenMyCases()"],
+      ['My Reports','Exact immutable Report version history.',"osiV2OpenMyReports()"],
+      ['Analyst Profile','Server-derived profile or application starting point.',"osiAnalystOpenWorkspace('profile')"],
+      ['My Applications','Wallet-signed analyst application versions.',"osiAnalystOpenWorkspace('applications')"]
     ]);
   } else if(role === 'analyst'){
     title = 'Analyst Desk';
@@ -561,10 +585,10 @@ function renderWorkspace(){
     sideLabel = 'Wallet';
     sideValue = workspaceShort(ctx.wallet);
     cards = workspaceCards([
-      ['Review Queue','Items awaiting weighted analyst consensus.',"showView('analysts')"],
-      ['My Votes','Signed review activity in the proof log.',"showView('prooflog')"],
-      ['My Reports','Your wallet profile and reviewed work.',"showView('profile')"],
-      ['Reputation','Analyst roster and reputation layer.',"showView('analysts')"]
+      ['My Reviews','Cases authorized for your typed review.',"osiV2OpenReviewQueue()"],
+      ['Report Review Queue','Exact unpublished Report versions awaiting review.',"osiV2OpenReportQueue()"],
+      ['My Reports','Exact immutable Report version history.',"osiV2OpenMyReports()"],
+      ['Analyst Profile','Server-derived profile and application history.',"osiAnalystOpenWorkspace('profile')"]
     ]);
   } else if(role === 'maintainer'){
     title = 'Maintainer Console';
@@ -572,16 +596,16 @@ function renderWorkspace(){
     sideLabel = ctx.wallet ? 'Maintainer wallet' : 'Session';
     sideValue = ctx.wallet ? workspaceShort(ctx.wallet) : 'Supabase auth active';
     cards = workspaceCards([
-      ['Ready to Publish','Consensus-cleared items and final seals.',"showView('admin')"],
-      ['Pending Reports','Reports awaiting maintainer review.',"showView('admin')"],
-      ['Analyst Applications','Roster applications and verification.',"showView('admin')"],
-      ['Safety Flags','Moderation and escalation review.',"showView('admin')"]
+      ['Operations Center','Double-gated lifecycle and publication controls.',"admOpen()"],
+      ['Case Review Queue','Native Case reviews authorized for this maintainer.',"osiV2OpenReviewQueue()"],
+      ['Report Review Queue','Exact Report versions awaiting authorized review.',"osiV2OpenReportQueue()"],
+      ['Analyst Applications','Double-gated application review queue.',"admOpen()"]
     ]);
   } else {
     actions = '<div class="osi-ws-actions"><button class="osi-ws-cta primary" type="button" onclick="toggleWallet().then(function(){if(typeof renderWorkspace===\'function\')renderWorkspace();})">Connect Wallet</button></div>';
   }
 
-  var body = '<div class="osi-ws-body">' + workspaceIdentityCard() + cards + '</div>';
+  var body = '<div class="osi-ws-body">' + workspaceIdentityCard(ctx) + cards + '</div>';
   host.innerHTML = '<div class="osi-ws-head">'
     + '<div><div class="osi-ws-kicker mono">'+escapeHtml(sideValue)+'</div><h1>'+escapeHtml(title)+'</h1><p class="osi-ws-msg">'+escapeHtml(msg)+'</p>'+actions+'</div>'
     + '<aside class="osi-ws-side" aria-label="Workspace context"><div class="l">'+escapeHtml(sideLabel)+'</div><div class="v">'+escapeHtml(sideValue)+'</div></aside>'

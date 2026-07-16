@@ -6,65 +6,77 @@
 <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
 <title>Open Solana Intelligence | Public incident intelligence</title>
 <meta name="description" content="OSI turns public Solana incident evidence into attributable, community-reviewed and challengeable Case records with honest wallet and Memo proof. Information only: not truth, guilt, legal certainty, custody, recovery or guaranteed payment.">
-<meta name="theme-color" content="#06101a">
+<meta name="theme-color" content="#08090d">
 <meta name="color-scheme" content="dark">
 <link rel="preload" as="image" href="./assets/images/osi-intelligence-desk-1536.avif" imagesrcset="./assets/images/osi-intelligence-desk-640.avif 640w, ./assets/images/osi-intelligence-desk-960.avif 960w, ./assets/images/osi-intelligence-desk-1536.avif 1536w" imagesizes="100vw" type="image/avif" fetchpriority="high">
-<!-- Buffer polyfill, web3.js needs a global Buffer when building transactions in the browser. Must load before web3.js. -->
-<script defer src="https://bundle.run/buffer@6.0.3"></script>
-<script defer src="./assets/js/00-buffer-shim.js"></script>
-<script defer src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="./assets/css/00-theme-base.css">
-<link rel="stylesheet" href="./assets/css/v2-case-integration.css">
-<link rel="stylesheet" href="./assets/css/v2-report-integration.css">
-<link rel="stylesheet" href="./assets/css/10-shell-hero.css">
-<link rel="stylesheet" href="./assets/css/20-sections.css">
-<link rel="stylesheet" href="./assets/css/30-views.css">
-<link rel="stylesheet" href="./assets/css/40-about-modals.css">
-<link rel="stylesheet" href="./assets/css/50-late-components.css">
-<link rel="stylesheet" href="./assets/css/60-final-polish.css">
-<link rel="stylesheet" href="./assets/css/v2-activation.css">
+<link rel="stylesheet" href="./assets/css/v2-case-integration.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/v2-report-integration.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/10-shell-hero.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/20-sections.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/30-views.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/40-about-modals.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/50-late-components.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/60-final-polish.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/v2-activation.css" media="print" fetchpriority="low" data-osi-route-style>
 <link rel="stylesheet" href="./assets/css/70-intelligence-redesign.css">
+<script src="./assets/js/02-route-styles.js"></script>
+<noscript>
+  <link rel="stylesheet" href="./assets/css/v2-case-integration.css">
+  <link rel="stylesheet" href="./assets/css/v2-report-integration.css">
+  <link rel="stylesheet" href="./assets/css/10-shell-hero.css">
+  <link rel="stylesheet" href="./assets/css/20-sections.css">
+  <link rel="stylesheet" href="./assets/css/30-views.css">
+  <link rel="stylesheet" href="./assets/css/40-about-modals.css">
+  <link rel="stylesheet" href="./assets/css/50-late-components.css">
+  <link rel="stylesheet" href="./assets/css/60-final-polish.css">
+  <link rel="stylesheet" href="./assets/css/v2-activation.css">
+</noscript>
+<!-- Buffer polyfill, web3.js needs a global Buffer when building transactions in the browser. Must load before web3.js. -->
+<script defer fetchpriority="low" src="https://bundle.run/buffer@6.0.3"></script>
+<script defer src="./assets/js/00-buffer-shim.js"></script>
+<script defer fetchpriority="low" src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script defer fetchpriority="low" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 </head>
 <body data-view="registry" data-sub="tab-analysts">
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <header class="osi-global-header" id="global-header">
-  <button class="osi-brand" type="button" onclick="osiNavigate('registry')" aria-label="Open Solana Intelligence home">
+  <button class="osi-brand" type="button" onclick="osiNavigate('registry')" aria-label="OSI Open Solana Intelligence, public incident intelligence, home">
     <span class="osi-brand-mark" aria-hidden="true">OSI</span>
     <span class="osi-brand-copy"><strong>Open Solana Intelligence</strong><small>Public incident intelligence</small></span>
   </button>
   <button class="osi-mobile-nav-toggle" id="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="global-nav" aria-label="Open navigation"><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
   <nav class="osi-global-nav" id="global-nav" aria-label="Global navigation">
+    <button class="osi-nav-link" type="button" data-global-view="registry" onclick="osiNavigate('registry')">Home</button>
     <div class="osi-platform-wrap">
       <button class="osi-nav-link osi-platform-trigger" id="platform-menu-trigger" type="button" aria-expanded="false" aria-controls="platform-menu">Platform <span aria-hidden="true">&#8964;</span></button>
       <div class="osi-platform-menu" id="platform-menu" hidden>
-        <div class="osi-platform-group"><p>Investigations</p><button type="button" onclick="osiNavigate('field')"><strong>Field Office</strong><span>Open and follow Cases</span></button><button type="button" onclick="osiNavigate('wire')"><strong>The Wire</strong><span>Publish standalone intelligence</span></button></div>
-        <div class="osi-platform-group"><p>Public record</p><button type="button" onclick="osiNavigate('records')"><strong>Public Records</strong><span>Reviewed and sealed outcomes</span></button><button type="button" onclick="osiNavigate('prooflog')"><strong>Proof Log</strong><span>Verify signatures, Memos and transfers</span></button></div>
-        <div class="osi-platform-group"><p>Governance</p><button type="button" onclick="osiV2OpenReviewQueue()"><strong>Review Queue</strong><span>Open authorized review tasks</span></button><button type="button" onclick="osiNavigateFieldStage('challenge_active')"><strong>Challenges</strong><span>Contest an eligible outcome</span></button></div>
-        <div class="osi-platform-group"><p>Workspaces</p><button type="button" onclick="osiAnalystOpenWorkspace('profile')"><strong>My OSI</strong><span>Open wallet-linked work</span></button><button type="button" onclick="admOpen()"><strong>Operations Center</strong><span>Requires both maintainer gates</span></button></div>
+        <div class="osi-platform-group"><p>Investigations</p><button type="button" data-action-contract="case" data-endpoint="osi-v2-case-write:actor_capabilities" onclick="osiRunLiveAction('case')"><strong>Open a Case</strong><span>Start private, wallet-signed intake</span></button><button type="button" onclick="osiNavigate('field')"><strong>Field Office</strong><span>Open and follow Cases</span></button><button type="button" onclick="osiNavigate('wire')"><strong>The Wire</strong><span>Read standalone intelligence</span></button></div>
+        <div class="osi-platform-group"><p>Public record</p><button type="button" onclick="osiNavigate('records')"><strong>Public Records</strong><span>Reviewed and sealed outcomes</span></button><button type="button" data-action-contract="proof" data-endpoint="onchain_events:public_projection" onclick="osiRunLiveAction('proof')"><strong>Proof Log</strong><span>Verify signatures, Memos and transfers</span></button></div>
+        <div class="osi-platform-group"><p>Governance</p><button type="button" data-action-contract="review" data-endpoint="osi-v2-case-read:list_reviewable_cases" onclick="osiRunLiveAction('review')"><strong>Review Queue</strong><span>Open authorized review tasks</span></button><button type="button" data-action-contract="governance" data-endpoint="osi-v2-governance-write:prepare" onclick="osiRunLiveAction('governance')"><strong>Resolution lifecycle</strong><span>Resolve, challenge and seal</span></button><button type="button" data-action-contract="money" data-endpoint="osi-v2-payment:capabilities" onclick="osiRunLiveAction('money')"><strong>Reward &amp; support</strong><span>Eligible sealed Case actions</span></button></div>
+        <div class="osi-platform-group"><p>Workspaces</p><button type="button" onclick="osiAnalystOpenWorkspace('profile')"><strong>My OSI</strong><span>Open wallet-linked work</span></button><button type="button" onclick="osiNavigate('analysts')"><strong>Analyst Network</strong><span>Inspect attributable public work</span></button></div>
       </div>
     </div>
     <button class="osi-nav-link" type="button" data-global-view="analysts" onclick="osiNavigate('analysts')">Analyst Network</button>
-    <button class="osi-nav-link" type="button" onclick="osiNavigateSection('registry','how-osi-works','how-it-works')">How It Works</button>
     <button class="osi-nav-link" type="button" data-global-view="methodology" onclick="osiNavigate('methodology')">About</button>
   </nav>
   <div class="osi-header-actions">
     <button class="osi-header-case" type="button" onclick="osiOpenCase()">Open a Case</button>
     <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">M</button>
     <div class="wb-wrap">
-      <button class="wallet-btn" id="walletBtn" type="button" onclick="walletButtonClick()" aria-haspopup="menu" aria-expanded="false" aria-controls="wbMenu" title="Connect, profile, or disconnect"><span class="wb-dot" aria-hidden="true"></span><span id="wbText">Connect Wallet</span></button>
+      <button class="wallet-btn" id="walletBtn" type="button" onclick="walletButtonClick()" aria-label="Connect Wallet" aria-haspopup="menu" aria-expanded="false" aria-controls="wbMenu" title="Connect, profile, or disconnect"><span class="wb-dot" aria-hidden="true"></span><span id="wbText">Connect Wallet</span></button>
       <div class="wb-menu" id="wbMenu" role="menu" aria-label="Wallet and workspace">
         <div class="wb-menu-label">My work</div>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button>
-        <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyReports();closeWalletMenu();">My Reports</button>
+        <button class="wb-mi" type="button" role="menuitem" data-action-contract="report" data-endpoint="osi-v2-report-read:list_my_reports" onclick="osiRunLiveAction('report');closeWalletMenu();">My Reports</button>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button>
         <div class="wb-menu-rule"></div>
         <div class="wb-menu-label">Analyst</div>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReportQueue();closeWalletMenu();">Review Queue</button>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('profile');closeWalletMenu();">My Analyst Profile</button>
-        <button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('applications');closeWalletMenu();">Applications</button>
+        <button class="wb-mi" type="button" role="menuitem" data-action-contract="analyst" data-endpoint="osi-v2-analyst:my_workspace" onclick="osiRunLiveAction('analyst');closeWalletMenu();">Applications</button>
         <div class="wb-menu-rule"></div>
-        <button class="wb-mi" id="maintainerAccessMenu" style="display:none" type="button" role="menuitem" onclick="admOpen();closeWalletMenu();">Maintainer Sign In <span class="osi-menu-lock" id="maintainerAccessBadge">2 gates</span></button>
+        <button class="wb-mi" id="maintainerAccessMenu" style="display:none" type="button" role="menuitem" data-action-contract="operations" data-endpoint="osi-v2-case-read:maintainer_case_overview" onclick="osiRunLiveAction('operations');closeWalletMenu();">Maintainer Sign In <span class="osi-menu-lock" id="maintainerAccessBadge">2 gates</span></button>
         <button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button>
       </div>
     </div>
@@ -72,239 +84,161 @@
 </header>
 <button class="osi-nav-scrim" id="nav-scrim" type="button" aria-label="Close navigation" hidden></button>
 <main id="main-content" tabindex="-1">
-<section class="osi-home osi-home-hero" data-view="registry" aria-labelledby="osi-home-title">
+<section class="osi-home osi-home-hero" data-view="registry" aria-labelledby="osi-home-title" data-signal-reveal>
   <div class="osi-hero-media">
     <picture>
       <source type="image/avif" srcset="./assets/images/osi-intelligence-desk-640.avif 640w, ./assets/images/osi-intelligence-desk-960.avif 960w, ./assets/images/osi-intelligence-desk-1536.avif 1536w" sizes="100vw">
       <source type="image/webp" srcset="./assets/images/osi-intelligence-desk-640.webp 640w, ./assets/images/osi-intelligence-desk-960.webp 960w, ./assets/images/osi-intelligence-desk-1536.webp 1536w" sizes="100vw">
-      <img src="./assets/images/osi-intelligence-desk-1536.jpg" width="1536" height="1024" alt="" aria-hidden="true" fetchpriority="high" decoding="async">
+      <img src="./assets/images/osi-intelligence-desk-1536.jpg" width="1536" height="1024" alt="" aria-hidden="true" fetchpriority="high">
     </picture>
   </div>
   <div class="osi-hero-shade" aria-hidden="true"></div>
+  <div class="osi-hero-light osi-hero-light-lamp" aria-hidden="true"></div>
+  <div class="osi-hero-light osi-hero-light-signal" aria-hidden="true"></div>
   <div class="osi-home-shell osi-hero-layout">
     <div class="osi-hero-copy">
-      <p class="osi-kicker">Open, reviewed, Solana-verifiable</p>
-      <h1 id="osi-home-title">Solana incident intelligence, built in public.</h1>
-      <p class="osi-hero-lede">OSI turns public evidence into wallet-signed Cases, independently reviewed Reports, challengeable outcomes, and Memo-anchored public records.</p>
+      <p class="osi-kicker"><span aria-hidden="true"></span>Public Solana intelligence</p>
+      <h1 id="osi-home-title">Investigate Solana incidents. Prove every step.</h1>
+      <p class="osi-hero-lede">Open a private Case, attach public evidence, and follow independent review to a challengeable public record.</p>
       <div class="osi-hero-actions">
         <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a Case</button>
-        <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('field')">Explore Field Office</button>
+        <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('records')">Browse Public Records</button>
       </div>
       <ul class="osi-trust-line" aria-label="Product boundaries">
-        <li>Wallet-signed actions</li>
-        <li>Independent review</li>
-        <li>Challengeable outcomes</li>
+        <li>Private by default</li>
+        <li>Wallet-signed</li>
         <li>No custody</li>
       </ul>
     </div>
 
-    <div class="osi-hero-panel" aria-label="Explanatory OSI evidence lifecycle">
+    <div class="osi-hero-panel" aria-label="Explanatory OSI Case lifecycle">
       <div class="osi-panel-topline">
-        <span>Evidence lifecycle</span>
-        <span class="osi-live-label"><i aria-hidden="true"></i>Explanatory model</span>
+        <div><span>Case lifecycle</span><strong>Evidence becomes a public record</strong></div>
+        <span class="osi-model-label">Explanatory route</span>
       </div>
-      <div class="osi-panel-tabs" role="navigation" aria-label="Workflow views">
-        <button type="button" onclick="osiNavigate('field')">Cases</button>
-        <button type="button" onclick="osiV2OpenMyReports()">Reports</button>
-        <button type="button" onclick="osiV2OpenReviewQueue()">Reviews</button>
-        <button type="button" onclick="osiNavigateFieldStage('resolution_selection')">Resolutions</button>
-        <button type="button" onclick="osiNavigateFieldStage('challenge_active')">Challenges</button>
+      <ol class="osi-lifecycle-track">
+        <li><button type="button" onclick="osiOpenCase()"><span class="osi-lifecycle-index">01</span><strong>Case</strong><small>Private intake</small></button></li>
+        <li><button type="button" onclick="osiV2OpenMyReports()"><span class="osi-lifecycle-index">02</span><strong>Report</strong><small>Exact evidence</small></button></li>
+        <li><button type="button" onclick="osiV2OpenReviewQueue()"><span class="osi-lifecycle-index">03</span><strong>Review</strong><small>Independent gates</small></button></li>
+        <li><button type="button" onclick="osiNavigate('records')"><span class="osi-lifecycle-index">04</span><strong>Public record</strong><small>Challengeable proof</small></button></li>
+      </ol>
+      <div class="osi-signal-readout" aria-live="off">
+        <span class="osi-signal-caption">Signal state</span>
+        <strong id="osi-hero-signal-text">WALLET_SIGNED</strong>
+        <span class="sr-only">The explanatory sequence also includes REVIEW_QUORUM, CHALLENGE_WINDOW, MEMO_ANCHORED, and SOL_TRANSFER_VERIFIED.</span>
       </div>
-      <div class="osi-intelligence-scene">
-        <svg class="osi-proof-map" viewBox="0 0 720 220" role="img" aria-labelledby="osi-proof-map-title osi-proof-map-desc">
-          <title id="osi-proof-map-title">OSI evidence lifecycle</title>
-          <desc id="osi-proof-map-desc">A five-stage explanatory path from wallet-signed intake through independent review, challenge, Memo anchoring and verified direct transfer.</desc>
-          <path class="osi-proof-map-grid" d="M16 44H704M16 110H704M16 176H704M72 18V202M216 18V202M360 18V202M504 18V202M648 18V202"></path>
-          <path class="osi-proof-map-base" d="M72 150C132 150 148 72 216 72S294 150 360 150 438 72 504 72 580 150 648 150"></path>
-          <path class="osi-proof-map-signal" pathLength="1" d="M72 150C132 150 148 72 216 72S294 150 360 150 438 72 504 72 580 150 648 150"></path>
-          <g class="osi-proof-node" transform="translate(72 150)"><circle r="17"></circle><text y="4">01</text></g>
-          <g class="osi-proof-node" transform="translate(216 72)"><circle r="17"></circle><text y="4">02</text></g>
-          <g class="osi-proof-node osi-proof-node-violet" transform="translate(360 150)"><circle r="17"></circle><text y="4">03</text></g>
-          <g class="osi-proof-node" transform="translate(504 72)"><circle r="17"></circle><text y="4">04</text></g>
-          <g class="osi-proof-node osi-proof-node-teal" transform="translate(648 150)"><circle r="17"></circle><text y="4">05</text></g>
-        </svg>
-        <ol class="osi-proof-state-sequence" aria-label="Lifecycle proof states">
-          <li><span>01</span><strong>WALLET_SIGNED</strong><small>Intake approval</small></li>
-          <li><span>02</span><strong>REVIEW_QUORUM</strong><small>Independent gates</small></li>
-          <li><span>03</span><strong>CHALLENGE_WINDOW</strong><small>Outcome contestable</small></li>
-          <li><span>04</span><strong>MEMO_ANCHORED</strong><small>Confirmed on Solana</small></li>
-          <li><span>05</span><strong>SOL_TRANSFER_VERIFIED</strong><small>Expected transfer confirmed</small></li>
-        </ol>
-      </div>
-      <div class="osi-home-live-state" id="osi-home-live-state" aria-live="polite" aria-busy="true">
-        <span class="osi-state-mark" aria-hidden="true"></span>
-        <div><strong>Checking the public Case index</strong><small>Only server-approved public fields are requested.</small></div>
-      </div>
-      <p class="osi-panel-note">Memo anchoring is shown only after a confirmed Solana transaction. A wallet signature alone is not labeled on-chain.</p>
+      <p class="osi-panel-note">Memo and verified SOL labels appear only after their Solana transactions are confirmed.</p>
     </div>
   </div>
 </section>
 
-<section class="osi-home osi-home-process" id="how-osi-works" data-view="registry" aria-labelledby="osi-process-title">
+<section class="osi-home osi-home-route" id="how-osi-works" data-view="registry" aria-labelledby="osi-route-title" data-signal-reveal>
   <div class="osi-home-shell">
     <div class="osi-section-heading">
-      <div><p class="osi-kicker">One governed process</p><h2 id="osi-process-title">From evidence to a challengeable record.</h2></div>
-      <p>Each stage has a real state transition, a named actor and a visible proof boundary. Report approval never closes a Case by itself.</p>
+      <div>
+        <p class="osi-kicker">How OSI works</p>
+        <h2 id="osi-route-title">Four actions. One public trail.</h2>
+      </div>
+      <p>Start private. Publish only after independent review and a challengeable outcome.</p>
     </div>
-    <div class="home-flow-grid">
-      <button type="button" onclick="osiOpenCase()"><span>01</span><strong>Open a Case</strong><small>Private intake first</small></button>
-      <button type="button" onclick="osiV2OpenMyReports()"><span>02</span><strong>Submit Reports</strong><small>Exact immutable versions</small></button>
-      <button type="button" onclick="osiNavigate('analysts')"><span>03</span><strong>Review and challenge</strong><small>Independent count and weight gates</small></button>
-      <button type="button" onclick="osiNavigate('records')"><span>04</span><strong>Seal the record</strong><small>After the seven-day challenge window</small></button>
-      <button type="button" onclick="osiNavigateFieldStage('sealed')"><span>05</span><strong>Reward contributors</strong><small>Direct wallet transfer after seal</small></button>
+    <div class="osi-route-gallery">
+      <article class="osi-route-card osi-route-case">
+        <div class="osi-route-art" aria-hidden="true">
+          <svg viewBox="0 0 320 190" focusable="false"><path class="art-grid" d="M22 44H298M22 86H298M22 128H298M64 18V172M160 18V172M256 18V172"/><path class="art-back" d="M72 60h72l18 18h86v78H72z"/><path class="art-front" d="M58 76h76l18 18h110v74H58z"/><path class="art-line" d="M84 118h128M84 139h94"/><path class="art-scan" d="M70 102h180"/></svg>
+        </div>
+        <div class="osi-route-copy"><span>01</span><h3>Open a Case</h3><p>Private-by-default intake for public evidence.</p></div>
+        <button type="button" onclick="osiOpenCase()">Open a Case <span aria-hidden="true">&#8599;</span></button>
+      </article>
+      <article class="osi-route-card osi-route-report">
+        <div class="osi-route-art" aria-hidden="true">
+          <svg viewBox="0 0 320 190" focusable="false">
+            <path class="art-grid" d="M22 44H298M22 86H298M22 128H298M64 18V172M160 18V172M256 18V172"/>
+            <g class="art-evidence-sources">
+              <rect class="art-source" x="24" y="40" width="68" height="25" rx="5"/>
+              <rect class="art-source" x="24" y="82" width="68" height="25" rx="5"/>
+              <rect class="art-source" x="24" y="124" width="68" height="25" rx="5"/>
+              <text class="art-label" x="58" y="56" text-anchor="middle">WALLET</text>
+              <text class="art-label" x="58" y="98" text-anchor="middle">TX</text>
+              <text class="art-label" x="58" y="140" text-anchor="middle">HTTPS</text>
+            </g>
+            <path class="art-bind" pathLength="1" d="M92 52h19M92 94h19M92 136h19"/>
+            <rect class="art-manifest" x="111" y="32" width="78" height="126" rx="7"/>
+            <path class="art-manifest-line" d="M127 56h46M127 73h34M127 104h46M127 121h38M127 138h27"/>
+            <text class="art-label art-manifest-label" x="150" y="92" text-anchor="middle">MANIFEST</text>
+            <path class="art-bind art-bind-main" pathLength="1" d="M189 94h22"/>
+            <rect class="art-version art-version-old" x="207" y="42" width="72" height="100" rx="7"/>
+            <rect class="art-version art-version-current" x="219" y="53" width="72" height="100" rx="7"/>
+            <text class="art-version-label" x="235" y="74">V2</text>
+            <path class="art-version-line" d="M235 91h40M235 107h32M235 123h36"/>
+            <circle class="art-hash-ring" cx="280" cy="151" r="17"/>
+            <path class="art-lock" d="M274 151v-5a6 6 0 0112 0v5m-15 0h18v13h-18z"/>
+          </svg>
+        </div>
+        <div class="osi-route-copy"><span>02</span><h3>Build a Versioned Report</h3><p>Each immutable version binds to one exact evidence manifest.</p></div>
+        <button type="button" onclick="osiV2OpenMyReports()">My Reports <span aria-hidden="true">&#8599;</span></button>
+      </article>
+      <article class="osi-route-card osi-route-review">
+        <div class="osi-route-art" aria-hidden="true">
+          <svg viewBox="0 0 320 190" focusable="false"><path class="art-grid" d="M22 44H298M22 86H298M22 128H298M64 18V172M160 18V172M256 18V172"/><path class="art-doc" d="M64 44h82v116H64zM174 30h82v116h-82z"/><path class="art-line" d="M84 76h42M84 96h34M194 62h42M194 82h34"/><circle class="art-lens" cx="164" cy="110" r="48"/><path class="art-check" d="M142 110l16 16 31-38"/><path class="art-handle" d="M198 144l34 34"/></svg>
+        </div>
+        <div class="osi-route-copy"><span>03</span><h3>Review and Challenge</h3><p>Independent gates with a contestable outcome.</p></div>
+        <button type="button" onclick="osiV2OpenReviewQueue()">Review Queue <span aria-hidden="true">&#8599;</span></button>
+      </article>
+      <article class="osi-route-card osi-route-proof">
+        <div class="osi-route-art" aria-hidden="true">
+          <svg viewBox="0 0 320 190" focusable="false"><path class="art-grid" d="M22 44H298M22 86H298M22 128H298M64 18V172M160 18V172M256 18V172"/><circle class="art-ring" cx="160" cy="94" r="62"/><circle class="art-ring art-ring-inner" cx="160" cy="94" r="43"/><path class="art-solana" d="M126 70h80l-12 13h-80zM114 88h80l12 13h-80zM126 106h80l-12 13h-80z"/><path class="art-seal" d="M134 148l-12 28 38-14 38 14-12-28"/></svg>
+        </div>
+        <div class="osi-route-copy"><span>04</span><h3>Verify the Record</h3><p>Inspect signatures, Memos, and real transfer proof.</p></div>
+        <button type="button" onclick="osiNavigate('prooflog')">Proof Log <span aria-hidden="true">&#8599;</span></button>
+      </article>
     </div>
   </div>
 </section>
 
-<section class="osi-home osi-home-workspaces osi-live-actions" id="live-actions" data-view="registry" aria-labelledby="osi-live-actions-title">
+<section class="osi-home osi-home-live" data-view="registry" aria-labelledby="osi-live-title" data-signal-reveal>
   <div class="osi-home-shell">
     <div class="osi-section-heading">
-      <div><p class="osi-kicker">Live product paths</p><h2 id="osi-live-actions-title">Every action enters a real server-gated workflow.</h2></div>
-      <p>Wallet, role, Case state, quorum, time window and rollout flags are checked when the action opens. Unmet prerequisites stay visible in the destination workspace.</p>
-    </div>
-    <div class="osi-workspace-grid osi-action-matrix" aria-label="Live OSI actions">
-      <article data-action-contract="case" data-endpoint="osi-v2-case-write:actor_capabilities">
-        <span class="osi-workspace-number">01</span><h3>Case intake</h3><p>Open a private-by-default Case through the exact Stage-5 prepare and commit path.</p><ul><li>Wallet and rollout gate checked first</li><li>One Memo transaction approval</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('case')">Open a Case <span aria-hidden="true">+</span></button>
-      </article>
-      <article data-action-contract="report" data-endpoint="osi-v2-report-read:list_my_reports">
-        <span class="osi-workspace-number">02</span><h3>Reports</h3><p>Inspect your immutable Report versions and submit a version only from an eligible public Case.</p><ul><li>Shared private-read session</li><li>Separate Memo approval for each write</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('report')">Open My Reports <span aria-hidden="true">+</span></button>
-      </article>
-      <article data-action-contract="analyst" data-endpoint="osi-v2-analyst:my_workspace">
-        <span class="osi-workspace-number">03</span><h3>Analyst application</h3><p>Create and revise exact application versions; status, tier and weight remain server-derived.</p><ul><li>One wallet approval per submitted version</li><li>No self-review</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('analyst')">Open My Applications <span aria-hidden="true">+</span></button>
-      </article>
-      <article data-action-contract="review" data-endpoint="osi-v2-case-read:list_reviewable_cases">
-        <span class="osi-workspace-number">04</span><h3>Review and publication</h3><p>Open authorized Report, resolution, challenge and seal tasks derived from the connected wallet.</p><ul><li>Eligibility checked by the server</li><li>Count and weight gates stay independent</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('review')">Open Review Queue <span aria-hidden="true">+</span></button>
-      </article>
-      <article data-action-contract="governance" data-endpoint="osi-v2-governance-write:prepare">
-        <span class="osi-workspace-number">05</span><h3>Resolution, challenge and seal</h3><p>Inspect public state first; write controls appear only on an exact eligible Case and target version.</p><ul><li>Seven-day challenge window</li><li>Full maintainer finalization remains double-gated</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('governance')">Inspect governance states <span aria-hidden="true">+</span></button>
-      </article>
-      <article data-action-contract="money" data-endpoint="osi-v2-payment:capabilities">
-        <span class="osi-workspace-number">06</span><h3>Reward and support</h3><p>Use direct native SOL transfers only where the server returns an eligible recipient manifest.</p><ul><li>One transaction approval per transfer</li><li>No custody; Support never changes ranking or governance</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('money')">Open sealed Cases <span aria-hidden="true">+</span></button>
-      </article>
-      <article data-action-contract="proof" data-endpoint="onchain_events:public_projection">
-        <span class="osi-workspace-number">07</span><h3>Proof Log</h3><p>Inspect recorded public proof events and open real transaction references where present.</p><ul><li>No invented fallback events</li><li>Proof labels retain narrow meanings</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('proof')">Open Proof Log <span aria-hidden="true">+</span></button>
-      </article>
-      <article data-action-contract="operations" data-endpoint="osi-v2-case-read:maintainer_case_overview">
-        <span class="osi-workspace-number">08</span><h3>Operations Center</h3><p>Load the native overview and application queue only after wallet and Supabase identity both pass.</p><ul><li>Both maintainer gates rechecked</li><li>AI Pack generation is not exposed here</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiRunLiveAction('operations')">Open Operations Center <span aria-hidden="true">+</span></button>
-      </article>
-    </div>
-    <p class="osi-surface-boundary">Standalone Wire intake and native AI Pack generation do not yet have accepted production write paths, so this product surface does not present either action as available.</p>
-  </div>
-</section>
-
-<section class="osi-home osi-home-perspectives" id="safeguards" data-view="registry" aria-labelledby="osi-perspectives-title">
-  <div class="osi-home-shell osi-perspectives-layout">
-    <div>
-      <div class="osi-section-heading compact"><div><p class="osi-kicker">Shared system, distinct authority</p><h2 id="osi-perspectives-title">One platform, three perspectives.</h2></div></div>
-      <div class="home-trust-grid">
-        <article><span>01</span><div><h3>Case owners</h3><p>Open a private Case, follow its authorized progress and recognize valuable contributions.</p></div></article>
-        <article><span>02</span><div><h3>Analysts</h3><p>Submit exact Report versions, perform eligible reviews and build server-derived reputation.</p></div></article>
-        <article><span>03</span><div><h3>The public</h3><p>Read approved records, inspect public proofs and challenge an eligible outcome during its window.</p></div></article>
+      <div>
+        <p class="osi-kicker">Public index</p>
+        <h2 id="osi-live-title">Only real public activity appears.</h2>
       </div>
+      <p>Empty means empty. OSI never invents a Case, analyst, payment, or proof.</p>
     </div>
-    <aside class="osi-proof-boundary" aria-labelledby="osi-proof-title">
-      <p class="osi-kicker">Provenance, not a verdict</p>
-      <h3 id="osi-proof-title">Every proof label has a narrow meaning.</h3>
-      <dl>
-        <div><dt>Wallet signature</dt><dd>Wallet-signed and server-verified, not on-chain.</dd></div>
-        <div><dt>Solana Memo</dt><dd>Memo-anchored only after a confirmed transaction.</dd></div>
-        <div><dt>Verified SOL transfer</dt><dd>Shown paid only after the expected transfer is confirmed.</dd></div>
-        <div><dt>System event</dt><dd>Server-generated and visibly distinct from wallet proof.</dd></div>
-      </dl>
+    <div class="osi-home-live-state" id="osi-home-live-state" aria-live="polite" aria-busy="true">
+      <span class="osi-state-mark" aria-hidden="true"></span>
+      <div><strong>Checking the public Case index</strong><small>Only server-approved public fields are requested.</small></div>
+    </div>
+    <div class="osi-live-grid">
+      <article class="osi-live-pane">
+        <header><div><span>Public Records</span><strong>Reviewed outcomes</strong></div><button type="button" onclick="osiNavigate('records')">Open registry <span aria-hidden="true">&#8599;</span></button></header>
+        <div class="osi-live-list osi-record-list" id="home-public-records" aria-live="polite" aria-busy="true">
+          <div class="osi-list-loading"><span aria-hidden="true"></span><p><strong>Loading public records</strong><small>Private Cases and unpublished Reports stay excluded.</small></p></div>
+        </div>
+      </article>
+      <article class="osi-live-pane">
+        <header><div><span>Analyst Network</span><strong>Attributable work</strong></div><button type="button" onclick="osiNavigate('analysts')">Open network <span aria-hidden="true">&#8599;</span></button></header>
+        <div class="osi-live-list" id="home-analyst-list" aria-live="polite" aria-busy="true">
+          <div class="osi-list-loading"><span aria-hidden="true"></span><p><strong>Loading public profiles</strong><small>No wallet identity is invented for this surface.</small></p></div>
+        </div>
+      </article>
+    </div>
+    <aside class="osi-proof-legend" aria-labelledby="osi-proof-legend-title">
+      <div class="osi-proof-legend-heading"><span>Proof labels</span><h3 id="osi-proof-legend-title">Different proof. Different claim.</h3><button type="button" onclick="osiNavigate('prooflog')">Open Proof Log</button></div>
+      <div class="osi-proof-legend-items">
+        <div><span>Wallet</span><strong>Server-verified signature</strong><small>Never labeled on-chain.</small></div>
+        <div><span>Memo</span><strong>After confirmation</strong><small>Anchored only after the Memo transaction confirms.</small></div>
+        <div><span>SOL</span><strong>Only when verified</strong><small>Only when an eligible transfer confirms. Solscan opens only with a real transaction reference.</small></div>
+      </div>
     </aside>
+    <p class="osi-public-boundary"><strong>No custody.</strong> Every write keeps its wallet approval. Support never changes review, ranking, or governance.</p>
   </div>
 </section>
-
-<section class="osi-home osi-home-workspaces" data-view="registry" aria-labelledby="osi-workspaces-title">
-  <div class="osi-home-shell">
-    <div class="osi-section-heading">
-      <div><p class="osi-kicker">Two intelligence views</p><h2 id="osi-workspaces-title">Investigate a Case or inspect standalone findings.</h2></div>
-      <p>The Field Office is the primary live workflow. The Wire currently provides its public feed; native standalone intake is not enabled.</p>
-    </div>
-    <div class="osi-workspace-grid">
-      <article>
-        <span class="osi-workspace-number">01</span>
-        <h3>Field Office</h3>
-        <p>Open a Case, submit exact Report versions, follow independent review, resolution, challenge and seal states.</p>
-        <ul><li>New Cases are private by default</li><li>Rewards bind to modeled Case outcomes</li><li>Restricted analyst notes stay restricted</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiNavigate('field')">Enter Field Office <span aria-hidden="true">+</span></button>
-      </article>
-      <article>
-        <span class="osi-workspace-number">02</span>
-        <h3>The Wire</h3>
-        <p>Read approved standalone findings without presenting them as Case resolutions or reward-bearing outcomes.</p>
-        <ul><li>Public feed is available</li><li>Native filing is not enabled</li><li>No reward until a modeled promotion</li></ul>
-        <button class="osi-text-action" type="button" onclick="osiNavigate('wire')">Open The Wire feed <span aria-hidden="true">+</span></button>
-      </article>
-    </div>
-  </div>
-</section>
-
-<section class="osi-home osi-home-network" id="analyst-ladder" data-view="registry" aria-labelledby="osi-network-title">
-  <div class="osi-home-shell osi-network-layout">
-    <div>
-      <p class="osi-kicker">Analyst Network</p>
-      <h2 id="osi-network-title">Reputation follows attributable work.</h2>
-      <p>Eligibility, tier and review weight are derived on the server. Case ownership never substitutes for analyst authority, and authors cannot review their own exact versions.</p>
-      <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('analysts')">Explore Analyst Network</button>
-    </div>
-    <div class="osi-live-list" id="home-analyst-list" aria-live="polite" aria-busy="true">
-      <div class="osi-list-loading"><span aria-hidden="true"></span><p><strong>Loading public analyst profiles</strong><small>No wallet identities are invented for this preview.</small></p></div>
-    </div>
-  </div>
-</section>
-
-<section class="osi-home osi-home-records" data-view="registry" aria-labelledby="osi-records-title">
-  <div class="osi-home-shell">
-    <div class="osi-section-heading">
-      <div><p class="osi-kicker">Public Records</p><h2 id="osi-records-title">Read outcomes with their process attached.</h2></div>
-      <button class="osi-text-action" type="button" onclick="osiNavigate('records')">Explore all records <span aria-hidden="true">+</span></button>
-    </div>
-    <div class="osi-live-list osi-record-list" id="home-public-records" aria-live="polite" aria-busy="true">
-      <div class="osi-list-loading"><span aria-hidden="true"></span><p><strong>Loading sealed public records</strong><small>Unpublished Reports and private Cases are never listed here.</small></p></div>
-    </div>
-  </div>
-</section>
-
-<section class="osi-home osi-home-boundaries" data-view="registry" aria-labelledby="osi-boundaries-title">
-  <div class="osi-home-shell osi-boundaries-layout">
-    <div><p class="osi-kicker">Public-good boundaries</p><h2 id="osi-boundaries-title">Process integrity without custody or automatic truth claims.</h2></div>
-    <ul>
-      <li><strong>No custody.</strong><span>Reward and support transfers move directly between wallets.</span></li>
-      <li><strong>Not a recovery service.</strong><span>OSI does not promise fund recovery, escrow protection or guaranteed payment.</span></li>
-      <li><strong>No automatic verdict.</strong><span>Publication records reviewed evidence and process, not guilt or legal certainty.</span></li>
-      <li><strong>No hidden authority.</strong><span>Maintainer actions require both configured wallet and authenticated identity.</span></li>
-    </ul>
-  </div>
-</section>
-
-<section class="osi-home osi-home-final" id="home-final-cta" data-view="registry" aria-labelledby="osi-final-title">
-  <div class="osi-home-shell">
-    <p class="osi-kicker">Start with the evidence</p>
-    <h2 id="osi-final-title">Open the process. Keep the record challengeable.</h2>
-    <p>Use the Field Office for a Case, or inspect approved outcomes and their public proof trail.</p>
-    <div class="home-final-actions">
-      <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a Case</button>
-      <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('field')">Explore Field Office</button>
-      <button class="osi-button osi-button-secondary" type="button" onclick="osiAnalystOpenWorkspace('applications')">Apply as Analyst</button>
-    </div>
-  </div>
-</section>
-
 <section class="sec" id="records-hero" data-view="records">
   <div class="wrap cr-hwrap">
     <div class="cr-hero">
       <div class="cr-hero-copy">
         <div class="cr-kicker mono">OSI &gt; Public Records</div>
-        <h2 class="cr-title">Public Case Records</h2>
+        <h1 class="cr-title">Public Case Records</h1>
         <p class="cr-sub">Reviewed Solana incident records with public evidence, analyst review, and proof-log verification.</p>
         <div class="cr-chips" aria-label="Public record trust anchors">
           <span>Reviewed records</span>
@@ -322,7 +256,7 @@
     <div class="cr-console">
       <div class="cr-maincol">
         <div class="cr-toolbar">
-          <div class="cr-search-wrap"><input class="cr-search" id="cr-search" placeholder="Search by case ID, wallet, entity, title, or tx hash..." oninput="crSearch(this.value)"></div>
+          <div class="cr-search-wrap"><input class="cr-search" id="cr-search" type="search" aria-label="Search public Case records" placeholder="Search by case ID, wallet, entity, title, or tx hash..." oninput="crSearch(this.value)"></div>
           <div class="rf-tabs cr-fils" id="cr-fils">
             <button class="rf-tab active" data-f="all" type="button" onclick="crFilter('all')">All</button>
             <button class="rf-tab" data-f="reviewed" type="button" onclick="crFilter('reviewed')">Reviewed</button>
@@ -348,7 +282,7 @@
           <span>Public evidence and analyst conclusions may still be challenged.</span>
         </div>
       </div>
-      <aside class="cr-aside" aria-label="Public Records trust console">
+      <aside class="cr-aside" aria-label="Public Records trust console" tabindex="0">
         <div class="cr-side-card">
           <div class="cr-side-title">How a record becomes public</div>
           <div class="cr-flow">
@@ -381,24 +315,20 @@
         <div class="cr-side-card">
           <div class="cr-side-title">Need something?</div>
           <div class="cr-actions-panel">
-            <button type="button" onclick="showView('field');setTimeout(function(){if(typeof fieldOpenForm==='function')fieldOpenForm();},160)"><b>Open a Case</b><span>Report a new incident</span></button>
-            <button type="button" onclick="showView('analysts');setTimeout(function(){var e=document.getElementById('an-tg');if(e)e.focus();},220)"><b>Join as Analyst</b><span>Help review and verify</span></button>
-            <button type="button" onclick="showView('prooflog')"><b>View Proof Log</b><span>Explore signed activity</span></button>
+            <button type="button" onclick="osiOpenCase()"><b>Open a Case</b><span>Report a new incident</span></button>
+            <button type="button" onclick="osiAnalystOpenWorkspace('applications')"><b>Join as Analyst</b><span>Open the signed application flow</span></button>
+            <button type="button" onclick="osiNavigate('prooflog')"><b>View Proof Log</b><span>Explore signed activity</span></button>
           </div>
         </div>
       </aside>
     </div>
   </div>
 </section>
-<section class="sec" data-view="records" id="case-records-sec" style="display:none">
-</section>
-<style id="osi-queue">
-</style>
 <section class="sec" id="analysts" data-view="analysts">
   <div class="lb-shell">
     <div class="lb-hero">
       <div class="sec-eyebrow">VERIFIED PUBLIC IDENTITIES</div>
-      <h2 class="lb-title">Analyst Network</h2>
+      <h1 class="lb-title">Analyst Network</h1>
       <p class="lb-sub">Wallet-linked analysts with server-derived status, attributable contributions, and inspectable proof history. Support never changes ordering, status, or review weight.</p>
       <div class="lb-trust-chips" aria-label="Analyst trust model">
         <span>Wallet-linked work</span>
@@ -415,7 +345,7 @@
         </div>
         <div class="fo-pager"><span class="fo-count mono" id="lb-count" aria-live="polite"></span><div class="fo-pnav" id="lb-pnav" role="navigation" aria-label="Leaderboard pages"></div></div>
       </div>
-      <aside class="lb-aside" aria-label="Reputation system">
+      <aside class="lb-aside" aria-label="Reputation system" tabindex="0">
         <div class="lb-card">
           <div class="fd-h mono">Initial review authority</div>
           <div class="lb-rules">
@@ -425,7 +355,7 @@
             <div class="lb-rule"><span>Support payments</span><b class="mut">never affect governance</b></div>
           </div>
           <div class="lb-policy">Opening starts a public investigation only. It is not a finding of truth, guilt, legal certainty, recovery, or payment.</div>
-          <div class="lb-policy">Every public opening still requires the exact confirmed CASE_OPENED Memo. <button class="lb-link" type="button" onclick="showView('methodology')">Methodology</button></div>
+          <div class="lb-policy">Every public opening still requires the exact confirmed CASE_OPENED Memo. <button class="lb-link" type="button" onclick="osiNavigate('methodology')">About the protocol</button></div>
           <div class="lb-cap">Tier and weight are server-derived. A maintainer cannot type, select, or override either value.</div>
         </div>
         <div class="lb-card">
@@ -469,13 +399,13 @@
     <div class="pl-hero">
       <div class="pl-hero-copy">
         <div class="pl-kicker mono">OSI &gt; Proof Log</div>
-        <h2 class="pl-title">Proof Log</h2>
-        <p class="pl-sub">Public wallet-signed activity trail for OSI cases, reports, reviews, challenges, support signals, and sealed records.</p>
+        <h1 class="pl-title">Proof Log</h1>
+        <p class="pl-sub">Public provenance timeline with explicit labels for wallet signatures, confirmed Memos, verified SOL transfers, system events, and legacy references.</p>
         <div class="pl-chips" aria-label="Proof Log trust anchors">
-          <span>Memo-verifiable</span>
-          <span>Wallet-signed</span>
-          <span>Public timeline</span>
-          <span>Solana Mainnet</span>
+          <span>Wallet verified</span>
+          <span>Confirmed Memo</span>
+          <span>Verified SOL</span>
+          <span>Legacy labeled</span>
         </div>
       </div>
       <div class="pl-hero-mark" aria-hidden="true">
@@ -483,7 +413,7 @@
         <div class="pl-shield">OSI</div>
       </div>
     </div>
-    <div class="pl-dash" id="pl-dash"></div>
+    <div class="pl-dash" id="pl-dash" role="region" aria-label="Proof Log summary" tabindex="0"></div>
     <div class="pl-console">
       <div class="pl-maincol">
         <div class="pl-toolbar">
@@ -496,7 +426,7 @@
             <button class="rf-tab" data-f="support" type="button" onclick="plFilter('support')">Support</button>
             <button class="rf-tab" data-f="seal" type="button" onclick="plFilter('seal')">Seals</button>
           </div>
-          <div class="pl-search-wrap"><input class="cr-search" id="pl-search" placeholder="Search by wallet / case ID / tx hash" oninput="plSearch(this.value)"></div>
+          <div class="pl-search-wrap"><input class="cr-search" id="pl-search" type="search" aria-label="Search the public Proof Log" placeholder="Search by wallet / case ID / tx hash" oninput="plSearch(this.value)"></div>
         </div>
         <div id="pl-body"></div>
         <div class="fo-pager"><span class="fo-count mono" id="pl-count" aria-live="polite"></span><div class="fo-pnav" id="pl-pnav" role="navigation" aria-label="Proof log pages"></div></div>
@@ -508,14 +438,14 @@
           <span>Public evidence and analyst reviews can still be challenged.</span>
         </div>
       </div>
-      <aside class="pl-aside" aria-label="Proof log reference">
+      <aside class="pl-aside" aria-label="Proof log reference" tabindex="0">
         <div class="pl-side-card">
-          <div class="pl-side-title">How verification works</div>
+          <div class="pl-side-title">How proof labels work</div>
           <div class="pl-verify-steps">
-            <div class="pl-vstep"><span class="pl-vn">1</span><div><b>Wallet signs action</b><span>The contributor signs the OSI action with their wallet.</span></div></div>
-            <div class="pl-vstep"><span class="pl-vn">2</span><div><b>Memo is written on Solana</b><span>A public memo transaction anchors the signed action.</span></div></div>
-            <div class="pl-vstep"><span class="pl-vn">3</span><div><b>Event is indexed by OSI</b><span>OSI indexes the transaction as a public proof event.</span></div></div>
-            <div class="pl-vstep"><span class="pl-vn">4</span><div><b>Anyone can verify externally</b><span>Real transaction links open through the existing Solana explorer route.</span></div></div>
+            <div class="pl-vstep"><span class="pl-vn">1</span><div><b>Wallet-signed</b><span>Server verification proves the wallet approved one exact OSI action. It is not on-chain.</span></div></div>
+            <div class="pl-vstep"><span class="pl-vn">2</span><div><b>Memo-anchored</b><span>Shown only when the exact Solana Memo transaction is confirmed.</span></div></div>
+            <div class="pl-vstep"><span class="pl-vn">3</span><div><b>SOL transfer verified</b><span>Shown only after sender, recipient, amount, cluster, and confirmation are checked.</span></div></div>
+            <div class="pl-vstep"><span class="pl-vn">4</span><div><b>System or legacy</b><span>Server events and imported references remain visibly distinct from native wallet proof.</span></div></div>
           </div>
         </div>
         <div class="pl-side-card">
@@ -596,7 +526,7 @@
     </div>
 
     <div class="fo-toolbar">
-      <div class="fo-search-wrap"><input class="fo-search" id="fo-search" placeholder="Search public Cases by reference, title, or summary" oninput="fieldSearch(this.value)"></div>
+      <div class="fo-search-wrap"><input class="fo-search" id="fo-search" type="search" aria-label="Search public Cases" placeholder="Search public Cases by reference, title, or summary" oninput="fieldSearch(this.value)"></div>
       <label class="fo-sel"><span class="fo-sel-l mono">Status</span>
         <select onchange="fieldFilter(this.value)" aria-label="Filter by status">
           <option value="all">All</option>
@@ -628,17 +558,17 @@
   <div class="fd-card">
     <div class="fd-h mono">Latest activity</div>
     <div class="fd-body" id="fd-activity"><div class="fd-empty mono">Loading case activity…</div></div>
-    <button class="fd-more" type="button" onclick="showView('records')">View public records ›</button>
+    <button class="fd-more" type="button" onclick="osiNavigate('records')">View public records ›</button>
   </div>
   <div class="fd-card">
     <div class="fd-h mono">Proof log · recent</div>
     <div class="fd-body" id="fd-proof"><div class="fd-empty mono">Loading signed actions…</div></div>
-    <button class="fd-more" type="button" onclick="showView('prooflog')">View full proof log ›</button>
+    <button class="fd-more" type="button" onclick="osiNavigate('prooflog')">View full proof log ›</button>
   </div>
   <div class="fd-card">
     <div class="fd-h mono">Analyst desk</div>
     <div class="fd-body" id="fd-analysts"><div class="fd-empty mono">Loading roster…</div></div>
-    <button class="fd-more" type="button" onclick="showView('analysts')">View all analysts ›</button>
+    <button class="fd-more" type="button" onclick="osiNavigate('analysts')">View all analysts ›</button>
   </div>
 </div>
 </div>
@@ -729,8 +659,8 @@
 <section class="sec" data-view="wire" id="wire-view">
   <div class="wrap">
     <div class="vsub">
-      <button class="vsub-b" onclick="showView('field')">Case Queue</button>
-      <button class="vsub-b active" onclick="showView('wire')">The Wire</button>
+      <button class="vsub-b" onclick="osiNavigate('field')">Case Queue</button>
+      <button class="vsub-b active" onclick="osiNavigate('wire')">The Wire</button>
     </div>
     <div class="wire-hero">
       <div class="wire-eyebrow"><span class="wire-live"></span>Open intelligence</div>
@@ -772,7 +702,7 @@
 
         <div class="wire-feed" id="wire-cases"></div>
       </div>
-      <aside class="wire-side" aria-label="Wire guide">
+      <aside class="wire-side" aria-label="Wire guide" tabindex="0">
         <div class="wire-side-card">
           <div class="wire-side-h mono">Wire Guide</div>
           <div class="wire-guide-list">
@@ -801,19 +731,19 @@
 <section class="sec" data-view="admin" id="admin-view">
 <div class="wrap"><div class="adm-wrap">
   <div class="adm-top">
-    <div class="adm-title">MAINTAINER COMMAND CENTER // <b>OSI</b></div>
+    <h1 class="adm-title">OPERATIONS CENTER // <b>OSI</b></h1>
     <div class="adm-clr">MAINTAINER ONLY</div>
   </div>
   <div id="admLogin">
-    <div class="adm-card">
+    <form class="adm-card" onsubmit="event.preventDefault();admLogin()">
       <div id="admGateStatus"></div>
       <h3>Maintainer sign in</h3>
       <p>The admin wallet is connected. Complete the independent Supabase authority gate. The server verifies both gates again for every protected operation.</p>
-      <div class="adm-field"><label>EMAIL</label><input id="admEmail" type="email" autocomplete="username" placeholder="you@example.com"></div>
-      <div class="adm-field"><label>PASSWORD</label><input id="admPw" type="password" autocomplete="current-password" placeholder="password"></div>
-      <div class="adm-lock-actions"><button class="adm-go" onclick="admLogin()">SIGN IN</button><button class="adm-out" type="button" onclick="refreshMaintainerGate()">RETRY</button></div>
-      <div class="adm-msg" id="admMsg"></div>
-    </div>
+      <div class="adm-field"><label for="admEmail">EMAIL</label><input id="admEmail" type="email" autocomplete="username" placeholder="you@example.com"></div>
+      <div class="adm-field"><label for="admPw">PASSWORD</label><input id="admPw" type="password" autocomplete="current-password" placeholder="password"></div>
+      <div class="adm-lock-actions"><button class="adm-go" type="submit">SIGN IN</button><button class="adm-out" type="button" onclick="refreshMaintainerGate()">RETRY</button></div>
+      <div class="adm-msg" id="admMsg" role="status" aria-live="polite"></div>
+    </form>
   </div>
   <div id="admPanel" style="display:none">
     <section class="osi-ops-applications" aria-labelledby="osi-ops-title">
@@ -863,235 +793,115 @@
   <div class="wrap"><div id="profile-body"></div></div>
 </section>
 
-<section class="sec" id="about-hero" data-view="methodology">
-<div class="wrap abt-wrap">
-  <div class="abt-shell">
-    <div class="abt-main" role="region" aria-label="OSI methodology">
-      <section class="abt-hero" aria-label="About OSI">
-        <div class="abt-hero-copy">
-          <div class="abt-eyebrow mono">About OSI</div>
-          <h1 class="abt-title">Open intelligence, not a paywall.</h1>
-          <p class="abt-sub">OSI turns public Solana incident evidence into reviewed, wallet-signed, and challengeable case records without taking custody of funds or promising recovery.</p>
-          <div class="abt-chips" aria-label="Trust anchors">
-            <span>Public evidence only</span>
-            <span>Wallet-signed proof</span>
-            <span>Human-reviewed records</span>
-            <span>No custody risk</span>
-          </div>
+<section class="sec osi-about" id="about-hero" data-view="methodology" aria-labelledby="osi-about-title">
+  <div class="osi-about-shell">
+    <header class="osi-about-hero">
+      <div class="osi-about-copy">
+        <p class="osi-kicker"><span aria-hidden="true"></span>About OSI</p>
+        <h1 id="osi-about-title">Public intelligence with an auditable boundary.</h1>
+        <p>OSI organizes public Solana incident evidence into attributable, independently reviewed, and challengeable records. It proves who acted, what version they acted on, and which proof was verified. It does not decide automatic truth, guilt, or legal certainty.</p>
+        <div class="osi-about-actions">
+          <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a Case</button>
+          <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('prooflog')">Inspect Proof Standards</button>
         </div>
-        <div class="abt-protocol" aria-hidden="true">
-          <div class="abt-orbit"></div>
-          <div class="abt-stack abt-stack-a"></div>
-          <div class="abt-stack abt-stack-b"></div>
-          <div class="abt-core">OSI</div>
-          <span class="abt-node n1"></span><span class="abt-node n2"></span><span class="abt-node n3"></span><span class="abt-node n4"></span>
-        </div>
-      </section>
-
-      <section class="abt-boundary" aria-label="What OSI is and is not">
-        <div class="abt-boundary-card is">
-          <div class="abt-card-head"><span class="abt-mark ok">OK</span><h2>OSI is</h2></div>
-          <div class="abt-li ok"><i></i>A public evidence registry</div>
-          <div class="abt-li ok"><i></i>A review layer for Solana incident reports</div>
-          <div class="abt-li ok"><i></i>A wallet-signed proof trail</div>
-          <div class="abt-li ok"><i></i>A challengeable public record system</div>
-          <div class="abt-li ok"><i></i>A non-custodial intelligence workspace</div>
-        </div>
-        <div class="abt-boundary-card not">
-          <div class="abt-card-head"><span class="abt-mark no">NO</span><h2>OSI is not</h2></div>
-          <div class="abt-li no"><i></i>A recovery service</div>
-          <div class="abt-li no"><i></i>A legal authority</div>
-          <div class="abt-li no"><i></i>A private investigator</div>
-          <div class="abt-li no"><i></i>A pay-to-accuse platform</div>
-          <div class="abt-li no"><i></i>A guarantee of fund returns</div>
-        </div>
-      </section>
-
-      <div class="abt-sec-h mono">How OSI works</div>
-      <section class="abt-flow" aria-label="OSI process flow">
-        <div class="abt-step"><span class="abt-n mono">01</span><b>Search Registry</b><span>Find wallets, transactions, and public records.</span></div>
-        <div class="abt-step"><span class="abt-n mono">02</span><b>Open Case</b><span>Submit public evidence without giving OSI custody.</span></div>
-        <div class="abt-step"><span class="abt-n mono">03</span><b>Analyst Review</b><span>Analysts inspect wallets, links, and claims.</span></div>
-        <div class="abt-step"><span class="abt-n mono">04</span><b>Peer Challenge</b><span>Disputed records can be challenged openly.</span></div>
-        <div class="abt-step"><span class="abt-n mono">05</span><b>Public Record</b><span>Reviewed findings become verifiable records.</span></div>
-      </section>
-
-      <div class="abt-sec-h mono">Core principles</div>
-      <section class="abt-rules" aria-label="Core principles">
-        <div class="abt-rule"><div class="abt-rule-k mono">01</div><b>Public evidence only</b><span>On-chain data and publicly available sources only.</span></div>
-        <div class="abt-rule"><div class="abt-rule-k mono">02</div><b>Challengeable attribution</b><span>Claims can be questioned, corrected, and returned to review.</span></div>
-        <div class="abt-rule"><div class="abt-rule-k mono">03</div><b>Memo-signed proof trail</b><span>Critical actions can be wallet-signed and indexed.</span></div>
-        <div class="abt-rule"><div class="abt-rule-k mono">04</div><b>Non-custodial by design</b><span>Users keep control of wallets, funds, and decisions.</span></div>
-      </section>
-
-      <section class="abt-cta" aria-label="Next steps">
-        <div class="abt-cta-t"><b>Join the open intelligence movement.</b><span>Help build the most transparent, challengeable record of Solana incidents.</span></div>
-        <div class="abt-cta-b">
-          <button class="abt-b primary" type="button" onclick="showView('field'); setTimeout(function(){ if(typeof fieldOpenForm==='function') fieldOpenForm(); }, 300);">Open a Case</button>
-          <button class="abt-b" type="button" onclick="showView('records')">Browse Public Records</button>
-          <button class="abt-b" type="button" onclick="showView('analysts'); setTimeout(function(){ var e=document.getElementById('an-tg'); if(e) e.focus(); }, 320);">Join as Analyst</button>
-        </div>
-      </section>
-
-      <div class="abt-disclaimer mono">
-        <span>OSI is informational only</span>
-        <span>No legal certainty</span>
-        <span>No recovery promise</span>
-        <span>No custody of funds/private keys</span>
-        <span>Public evidence can still be challenged</span>
       </div>
-    </div>
+      <figure class="osi-about-wordmark">
+        <svg class="osi-eye-emblem" id="osi-about-emblem" viewBox="0 0 640 440" role="img" aria-labelledby="osi-eye-title osi-eye-desc">
+          <title id="osi-eye-title">OSI eye emblem</title>
+          <desc id="osi-eye-desc">A platinum intelligence eye crossed by a crimson signal line.</desc>
+          <defs>
+            <linearGradient id="osi-eye-metal" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#fffdf8"/>
+              <stop offset=".48" stop-color="#f5f0e8"/>
+              <stop offset="1" stop-color="#b9c0ca"/>
+            </linearGradient>
+            <filter id="osi-eye-glow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="5" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <g class="osi-eye-metal" fill="none" stroke="url(#osi-eye-metal)" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M72 144C185 43 350 55 472 122c54 30 98 39 126 35" stroke-width="24"/>
+            <path d="M74 236c104-91 231-106 347-30 57 37 111 45 177 31-41 39-88 56-145 55-77-1-132 42-221 25-63-12-111-42-158-81Z" stroke-width="17"/>
+            <circle cx="260" cy="232" r="65" stroke-width="18"/>
+            <path d="M230 293c-2 46 5 86 24 118M278 297c45 82 115 119 181 72 37-26 48-60 26-84" stroke-width="19"/>
+            <path d="M457 369c21 9 42 1 50-17 8-19-1-39-19-47-18-7-38 1-46 19-6 14-2 29 7 38" stroke-width="15"/>
+          </g>
+          <path class="osi-eye-signal" d="M105 171c113-75 249-66 369-8 48 23 87 31 120 26" fill="none" stroke="#ff4d5f" stroke-width="13" stroke-linecap="round" filter="url(#osi-eye-glow)" pathLength="1"/>
+          <circle class="osi-eye-iris" cx="260" cy="232" r="31" fill="#ff4d5f" filter="url(#osi-eye-glow)"/>
+          <circle cx="274" cy="219" r="15" fill="#0b0d12"/>
+        </svg>
+        <figcaption>OSI intelligence signal mark. Never used as a proof or verification seal.</figcaption>
+      </figure>
+    </header>
 
-    <aside class="abt-aside" aria-label="Trust model">
-      <section class="abt-side-card">
-        <div class="abt-side-h mono">Trust Model</div>
-        <div class="abt-side-list">
-          <div><i></i><span>Public sources only: on-chain plus publicly available off-chain</span></div>
-          <div><i></i><span>Human review by vetted OSI analysts</span></div>
-          <div><i></i><span>Wallet-signed records prove authorship and integrity</span></div>
-          <div><i></i><span>Open challenges keep records accurate</span></div>
-          <div><i></i><span>Transparent methods, no hidden scoring</span></div>
-        </div>
-      </section>
-      <section class="abt-side-card safety">
-        <div class="abt-side-h mono">Safety Boundaries</div>
-        <div class="abt-side-list">
-          <div><i></i><span>OSI never requests or stores private keys</span></div>
-          <div><i></i><span>OSI never takes custody of user funds</span></div>
-          <div><i></i><span>OSI does not promise recovery</span></div>
-          <div><i></i><span>OSI does not issue legal judgments</span></div>
-          <div><i></i><span>Users remain in control of decisions</span></div>
-        </div>
-      </section>
-      <section class="abt-side-card proof">
-        <div class="abt-side-h mono">Proof Standards</div>
-        <div class="abt-side-list">
-          <div><i></i><span>Source transparency with links and references</span></div>
-          <div><i></i><span>Reproducible steps and time-stamped observations</span></div>
-          <div><i></i><span>Wallet memo-signatures for OSI records</span></div>
-          <div><i></i><span>Versioned records with challenge history</span></div>
-          <div><i></i><span>Open challenges with analyst responses</span></div>
-        </div>
-      </section>
+    <section class="osi-about-section osi-about-boundaries" aria-labelledby="osi-about-boundaries-title">
+      <div class="osi-about-heading">
+        <p class="osi-kicker">Product boundary</p>
+        <h2 id="osi-about-boundaries-title">Process integrity, without false authority.</h2>
+      </div>
+      <div class="osi-about-boundary-grid">
+        <article class="osi-about-boundary is">
+          <span class="osi-about-boundary-tag">OSI is</span>
+          <ul>
+            <li>A public evidence and provenance workspace</li>
+            <li>A review protocol with attributable decisions</li>
+            <li>A challengeable record with immutable versions</li>
+            <li>A non-custodial interface for direct wallet actions</li>
+          </ul>
+        </article>
+        <article class="osi-about-boundary is-not">
+          <span class="osi-about-boundary-tag">OSI is not</span>
+          <ul>
+            <li>A recovery service or private investigator</li>
+            <li>A legal verdict, guilt engine, or enforcement authority</li>
+            <li>A custodian, escrow, or platform balance</li>
+            <li>A guarantee of publication, payment, or fund return</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="osi-about-section osi-about-proof" aria-labelledby="osi-about-proof-title">
+      <div class="osi-about-heading">
+        <p class="osi-kicker">Proof vocabulary</p>
+        <h2 id="osi-about-proof-title">One label for each claim.</h2>
+        <p>OSI keeps wallet approval, confirmed Solana proof, transfer verification, and process status visibly separate.</p>
+      </div>
+      <div class="osi-about-proof-grid">
+        <article data-proof="wallet"><span>01 / OFF-CHAIN</span><h3>Wallet signature</h3><p>Wallet-signed and server-verified. Never labeled on-chain.</p></article>
+        <article data-proof="memo"><span>02 / ON-CHAIN</span><h3>Confirmed Memo</h3><p>Memo-anchored on Solana only after the exact transaction confirms.</p></article>
+        <article data-proof="sol"><span>03 / TRANSFER</span><h3>Verified SOL</h3><p>Shown only after the intended System Program transfer is confirmed.</p></article>
+        <article data-proof="process"><span>04 / RECORD</span><h3>Process state</h3><p>Provenance records an action. It is not a truth or legal verdict.</p></article>
+      </div>
+    </section>
+
+    <section class="osi-about-section osi-about-principles" aria-labelledby="osi-about-principles-title">
+      <div class="osi-about-heading">
+        <p class="osi-kicker">Protocol principles</p>
+        <h2 id="osi-about-principles-title">Built to preserve disagreement and history.</h2>
+      </div>
+      <div class="osi-about-principle-list">
+        <article><span>01</span><div><h3>Private by default</h3><p>New Cases and pending evidence stay outside public projections until an authorized transition opens them.</p></div></article>
+        <article><span>02</span><div><h3>Exact versions</h3><p>Reports and reviews bind to immutable content versions. Revision adds history instead of erasing it.</p></div></article>
+        <article><span>03</span><div><h3>Independent authority</h3><p>Ownership, analyst eligibility, and maintainer authority remain separate. One role cannot silently replace another.</p></div></article>
+        <article><span>04</span><div><h3>Challengeable outcomes</h3><p>Published process records retain review, challenge, correction, and proof history for public inspection.</p></div></article>
+      </div>
+    </section>
+
+    <section class="osi-about-cta" aria-label="Next actions">
+      <div><p class="osi-kicker">Enter the platform</p><h2>Inspect the evidence, then choose an action.</h2></div>
+      <div class="osi-about-actions">
+        <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a Case</button>
+        <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('records')">Browse Public Records</button>
+        <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('analysts')">View Analyst Network</button>
+      </div>
+    </section>
+
+    <aside class="osi-about-notice" aria-label="OSI safety notice">
+      <strong>Information only.</strong>
+      <span>OSI never requests private keys, takes custody, promises recovery, or converts provenance into a legal conclusion.</span>
     </aside>
-  </div>
-</div>
-</section>
-
-<section class="sec" id="about-archive" data-view="methodology-archive">
-<div class="wrap ab-wrap">
-<div class="ab-console">
-<div class="ab-main">
-  <div class="ab-eyebrow mono">Methodology &amp; Safety</div>
-  <h1 class="ab-title">Open intelligence, not a paywall.</h1>
-  <p class="ab-sub">OSI turns public Solana incident evidence into wallet-signed, reviewed, challengeable records. We provide the tools, the process, and the standards so anyone can contribute to transparent on-chain intelligence.</p>
-
-  <div class="ab-isgrid">
-    <div class="ab-is">
-      <div class="ab-is-h"><span class="ab-is-ic ok">✓</span><span class="mono">OSI is</span></div>
-      <div class="ab-li ok"><i>✓</i>A public evidence registry</div>
-      <div class="ab-li ok"><i>✓</i>An analyst review layer</div>
-      <div class="ab-li ok"><i>✓</i>A wallet-signed proof trail</div>
-      <div class="ab-li ok"><i>✓</i>An educational forensic workspace</div>
-      <div class="ab-li ok"><i>✓</i>Community-driven and open</div>
-    </div>
-    <div class="ab-is not">
-      <div class="ab-is-h"><span class="ab-is-ic no">✕</span><span class="mono">OSI is not</span></div>
-      <div class="ab-li no"><i>✕</i>A recovery service</div>
-      <div class="ab-li no"><i>✕</i>A legal authority</div>
-      <div class="ab-li no"><i>✕</i>A private investigator</div>
-      <div class="ab-li no"><i>✕</i>A pay-to-accuse platform</div>
-      <div class="ab-li no"><i>✕</i>A guarantee of fund returns</div>
-    </div>
-  </div>
-
-  <div class="ab-sec-h mono">How OSI works</div>
-  <div class="ab-flow">
-    <div class="ab-step"><span class="ab-n mono">1</span><div class="ab-ic">⌕</div><b>Search the Registry</b><span>Look up cases, wallets, and sealed public records.</span></div>
-    <div class="ab-step"><span class="ab-n mono">2</span><div class="ab-ic">▣</div><b>Open a Case</b><span>Free and wallet-signed. It goes straight into peer review.</span></div>
-    <div class="ab-step"><span class="ab-n mono">3</span><div class="ab-ic">◎</div><b>Analysts Investigate</b><span>Trace fund flows, collect evidence, file reports.</span></div>
-    <div class="ab-step"><span class="ab-n mono">4</span><div class="ab-ic vio">⚖</div><b>Peer Review</b><span>Weighted consensus publishes or closes. One immutable vote each.</span></div>
-    <div class="ab-step"><span class="ab-n mono">5</span><div class="ab-ic ok">✓</div><b>Public Record</b><span>Sealed and signed on-chain, and forever challengeable.</span></div>
-    <div class="ab-step"><span class="ab-n mono">6</span><div class="ab-ic ok">◈</div><b>Optional Support</b><span>Peer-to-peer SOL to the author. Never through OSI.</span></div>
-  </div>
-
-  <div class="ab-memo-band">
-    <span class="ab-band-ic">⛓</span>
-    <div class="ab-band-t"><b>All critical actions are memo-signed on Solana.</b><span>Nothing is hidden. Anyone can verify.</span></div>
-    <button class="ab-band-b" type="button" onclick="showView('prooflog')">View Proof Log ↗</button>
-  </div>
-
-  <div class="ab-sec-h mono">Core principles</div>
-  <div class="ab-rules">
-    <div class="ab-rule"><div class="ab-ic ok">▤</div><b>Public evidence only</b><span>Only public on-chain data and public sources. No private data, no doxxing.</span></div>
-    <div class="ab-rule"><div class="ab-ic vio">◇</div><b>No recovery promise</b><span>OSI documents and traces. It never guarantees the return of any funds.</span></div>
-    <div class="ab-rule"><div class="ab-ic warn">⚖</div><b>Challengeable records</b><span>Every claim can be reviewed and challenged. Weak attribution is flagged, not censored.</span></div>
-    <div class="ab-rule"><div class="ab-ic">✎</div><b>Wallet-signed actions</b><span>Important actions are written as memos and signed on Solana for verifiable transparency.</span></div>
-  </div>
-
-  <div class="ab-cta">
-    <span class="ab-cta-ic">◉</span>
-    <div class="ab-cta-t"><b>Join the open intelligence movement.</b><span>Open cases, analyze, review, and build the record together, in the open.</span></div>
-    <div class="ab-cta-b">
-      <button class="ab-b primary" type="button" onclick="fieldOpenForm()">Open a Case ↗</button>
-      <button class="ab-b" type="button" onclick="showView('records')">Browse Public Records ↗</button>
-    </div>
-  </div>
-</div>
-<aside class="ab-aside" aria-label="Trust model">
-  <div class="lb-card">
-    <div class="fd-h mono">Trust model</div>
-    <div class="ab-tm">
-      <div class="ab-tm-i"><div class="ab-ic ok sm">▤</div><div><b>Transparent</b><span>All records, reviews, and signatures are public and verifiable.</span></div></div>
-      <div class="ab-tm-i"><div class="ab-ic ok sm">◈</div><div><b>Non-custodial</b><span>OSI never holds funds. You remain in control.</span></div></div>
-      <div class="ab-tm-i"><div class="ab-ic ok sm">⛓</div><div><b>Immutable</b><span>Signed memos on Solana create a tamper-proof audit trail.</span></div></div>
-      <div class="ab-tm-i"><div class="ab-ic ok sm">◎</div><div><b>Community-driven</b><span>The record stays strong through open review and scrutiny.</span></div></div>
-    </div>
-  </div>
-  <div class="lb-card">
-    <div class="fd-h mono">Memo standards</div>
-    <div class="ab-tags">
-      <div class="ab-tag"><code>OSI_CASE_OPENED</code><span>a new case is opened</span></div>
-      <div class="ab-tag"><code>OSI_CASE_BACKED</code><span>peer support is pledged</span></div>
-      <div class="ab-tag"><code>OSI_REPORT_SUBMITTED</code><span>a report is filed</span></div>
-      <div class="ab-tag"><code>OSI_ANALYST_VOUCH</code><span>an analyst votes on an item</span></div>
-      <div class="ab-tag"><code>OSI_CHALLENGE_FILED</code><span>a record is challenged</span></div>
-      <div class="ab-tag"><code>OSI_WIRE_DISPATCH_SUBMITTED</code><span>a dispatch is filed</span></div>
-    </div>
-  </div>
-  <div class="lb-card">
-    <div class="fd-h mono">Evidence grading</div>
-    <div class="ab-tm">
-      <div class="ab-tm-i"><div class="ab-ic ok sm">●</div><div><b>Verified</b><span>A definitive on-chain link: a direct transfer or a transaction the subject itself signed.</span></div></div>
-      <div class="ab-tm-i"><div class="ab-ic sm">●</div><div><b>High confidence</b><span>Strong evidentiary clustering. Timing, amounts and routing converge, without one cryptographic proof.</span></div></div>
-      <div class="ab-tm-i"><div class="ab-ic sm" style="color:rgba(148,163,184,.6);background:rgba(148,163,184,.06);border-color:var(--line)">●</div><div><b>Publicly labeled</b><span>Owner-disclosed and independently sanity-checked. The source is credited, not assumed.</span></div></div>
-      <div class="ab-tm-i"><div class="ab-ic warn sm">⚠</div><div><b>Where the method stops</b><span>Clustering is probabilistic, never certainty. Confidence is graded, never assumed.</span></div></div>
-    </div>
-  </div>
-  <div class="lb-card">
-    <div class="fd-h mono">Safety first</div>
-    <div class="ab-safe">
-      <div class="ab-safe-i"><span class="ab-warn">⚠</span>We never DM you first.</div>
-      <div class="ab-safe-i"><span class="ab-warn">⚠</span>We never ask for your funds or private keys.</div>
-      <div class="ab-safe-i"><span class="ab-warn">⚠</span>Anyone claiming to recover funds for a fee is not us.</div>
-    </div>
-  </div>
-</aside>
-</div>
-<div class="ab-deep mono">Where this goes · the roadmap</div>
-</div>
-</section>
-
-<section class="sec" id="case-studies" data-view="records">
-  <div class="wrap">
-    <div class="sec-head">
-      <h2>Flagship Investigations</h2>
-      <div class="legend"><span class="mono" style="color:var(--ink-faint)">the method, applied to real cases · tap to expand</span></div>
-    </div>
-    <div class="comm-intro" style="max-width:840px">
-      <p>Worked forensic reports, each starts from an incident and ends at the wallets, with the on-chain evidence laid out. Tap a report to open the full trace.</p>
-    </div>
-    <div class="companies" id="case-studies-list"></div>
   </div>
 </section>
 
@@ -1128,77 +938,13 @@
   <span class="mono" style="font-size:10.5px;color:var(--ink-faint)">Exact version · signed · replay-protected</span>
   <div style="display:flex;gap:9px">
     <button class="cr-btn" type="button" onclick="chxClose()">Close</button>
-    <button class="cr-btn primary" type="button" onclick="chxClose();showView('field');">Open Field Office</button>
+    <button class="cr-btn primary" type="button" onclick="chxClose();osiNavigate('field');">Open Field Office</button>
   </div>
 </div>
 </div>
 </div>
 
 
-
-<section class="sec" id="roadmap" data-view="methodology-archive">
-  <div class="wrap">
-    <div class="sec-head">
-      <h2>Where this goes</h2>
-      <div class="legend">
-        <span class="mono" style="color:var(--ink-faint)">ship first · open it up · hand it over</span>
-      </div>
-    </div>
-    <div class="roadmap">
-      <div class="rm-phase">
-        <span class="rm-tag now">Live now</span>
-        <h3>The desk is open</h3>
-        <p>Open a case, trace the wallets, publish a case file, and the safety rules, all live. Free to use, public to read.</p>
-        <div class="pin">// you're looking at it</div>
-      </div>
-      <div class="rm-phase">
-        <span class="rm-tag now">Live now</span>
-        <h3>Build in public</h3>
-        <p>The OSI codebase is public on GitHub. Product rules, proof classes, migrations, and release history remain inspectable.</p>
-        <div class="pin">// inspect the repo</div>
-      </div>
-      <div class="rm-phase">
-        <span class="rm-tag soon">Soon</span>
-        <h3>Grow the roster</h3>
-        <p>More verified analysts reviewing each other's work. Consensus clears a finding, never one single voice.</p>
-        <div class="pin">// the network forms</div>
-      </div>
-      <div class="rm-phase">
-        <span class="rm-tag later">Later</span>
-        <h3>Hand it to the network</h3>
-        <p>Approval moves from the maintainer to the analysts themselves, weighted by reputation. A public, peer-checked record, run by the people who do the work.</p>
-        <div class="pin">// progressive decentralization</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-
-<section class="sec" data-view="registry-archive" id="sponsors">
-  <div class="wrap">
-    <div class="sec-eyebrow">// ecosystem support</div>
-    <h2 class="sec-head-lg" style="font-size:clamp(21px,2.6vw,29px)">Built with Solana ecosystem infrastructure.</h2>
-    <div class="sp-wrap" style="margin-top:18px">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:14px">Built on</div>
-      <div class="sp-row">
-        <div class="sp-pill reveal"><span class="dot"></span>Solana</div>
-        <div class="sp-pill reveal"><span class="dot"></span>Supabase</div>
-        <div class="sp-pill reveal"><span class="dot"></span>Vercel</div>
-        <div class="sp-pill reveal"><span class="dot"></span>Phantom</div>
-      </div>
-      <div class="sp-slots">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:14px">Strategic support</div>
-        <div class="sp-row">
-          <div class="sp-slot">OPEN FOR<br>ECOSYSTEM SUPPORT</div>
-          <div class="sp-slot">OPEN FOR<br>ECOSYSTEM SUPPORT</div>
-          <div class="sp-slot">OPEN FOR<br>ECOSYSTEM SUPPORT</div>
-        </div>
-        <div class="sp-note">OSI is an open public good. Strategic support slots are open and will list real partners only once confirmed. No paid placement, no sponsored verdicts.</div>
-      </div>
-    </div>
-  </div>
-</section>
 
 </main>
 
@@ -1239,27 +985,27 @@
     <div class="mini-form" style="margin-top:16px">
       <div class="apply-wallet mono" id="apply-wallet-row">Case Reports use native exact-version intake.</div>
       <div class="mf-note">Open the public Case in Field Office and use its Reports tab. Each immutable version is wallet-signed, server-verified, and independently reviewed by eligible analysts. A maintainer cannot replace Report quorum.</div>
-      <button class="btn-fill" type="button" onclick="closeApplyModal();showView('field');" style="margin-top:13px">Open Field Office</button>
+  <button class="btn-fill" type="button" onclick="closeApplyModal();osiNavigate('field');" style="margin-top:13px">Open Field Office</button>
     </div>
   </div>
 </div>
-<div class="tip-modal" id="tip-modal">
-  <div class="tip-card">
-    <button class="tip-x" onclick="closeTip()">&times;</button>
+<div class="tip-modal" id="tip-modal" role="dialog" aria-modal="true" aria-labelledby="tip-h" aria-describedby="tip-note" aria-hidden="true" onclick="if(event.target===this)closeTip()">
+  <div class="tip-card" tabindex="-1">
+    <button class="tip-x" type="button" onclick="closeTip()" aria-label="Close support dialog">&times;</button>
     <div class="tip-h" id="tip-h">◎ Voluntary support</div>
     <div class="tip-to">to <b id="tip-label">OSI project</b><span class="mono" id="tip-addr"></span></div>
     <div class="tip-amts">
-      <button class="tip-amt" onclick="setTipAmt(0.05,this)">0.05</button>
-      <button class="tip-amt active" onclick="setTipAmt(0.1,this)">0.1</button>
-      <button class="tip-amt" onclick="setTipAmt(0.5,this)">0.5</button>
-      <button class="tip-amt" onclick="setTipAmt(1,this)">1</button>
+      <button class="tip-amt" type="button" onclick="setTipAmt(0.05,this)">0.05</button>
+      <button class="tip-amt active" type="button" onclick="setTipAmt(0.1,this)">0.1</button>
+      <button class="tip-amt" type="button" onclick="setTipAmt(0.5,this)">0.5</button>
+      <button class="tip-amt" type="button" onclick="setTipAmt(1,this)">1</button>
       <input class="tip-custom" id="tip-custom" type="number" step="0.01" min="0" max="100" placeholder="custom" oninput="setTipCustom(this.value)">
       <span class="tip-unit mono">SOL</span>
     </div>
     <div class="tip-usd" id="tip-usd"></div>
-    <button class="tip-send" onclick="confirmTip()">Review &amp; send →</button>
+    <button class="tip-send" type="button" onclick="confirmTip()">Review &amp; send →</button>
     <div class="tip-status" id="tip-status"></div>
-    <div class="tip-note mono">Voluntary support · Direct wallet-to-wallet · No custody: OSI never holds, escrows, or routes the funds. Support does not influence review, ranking, consensus, or publication. You pay the amount plus the ~0.000005 SOL network fee.</div>
+    <div class="tip-note mono" id="tip-note">Voluntary support · Direct wallet-to-wallet · No custody: OSI never holds, escrows, or routes the funds. Support does not influence review, ranking, consensus, or publication. You pay the amount plus the ~0.000005 SOL network fee.</div>
   </div>
 </div>
 
@@ -1319,9 +1065,8 @@
     </div>
   </div>
 </div>
-<script defer src="./assets/js/90-stream-canvas.js"></script>
-<script defer src="./assets/js/92-reveal-anim.js"></script>
 <script defer src="./assets/js/93-navigation-intent.js"></script>
 <script defer src="./assets/js/94-navigation-shell.js"></script>
+<script defer src="./assets/js/95-signal-interactions.js"></script>
 </body>
 </html>

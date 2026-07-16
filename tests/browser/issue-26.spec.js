@@ -15,8 +15,18 @@ const iso = (offsetDays) => new Date(now + offsetDays * 86_400_000).toISOString(
 
 const proofRows = [
   { event_type: 'CASE_REVIEWED', label: 'Wallet-signed and server-verified', actor_wallet: OTHER, actor_role: 'analyst', decision: 'approve', occurred_at: iso(-8) },
-  { event_type: 'CASE_OPENED', label: 'Memo-anchored on Solana', actor_wallet: OTHER, actor_role: 'analyst', decision: 'open', occurred_at: iso(-7), solscan_url: `https://solscan.io/tx/${TX}` },
-  { event_type: 'REWARD_PAYMENT_CONFIRMED', label: 'SOL transfer verified on Solana', actor_wallet: WALLET, actor_role: 'case_owner', decision: 'paid', occurred_at: iso(-1), solscan_url: `https://solscan.io/tx/${TX}` },
+  { event_type: 'CASE_OPENED', label: 'Memo-anchored on Solana', actor_wallet: OTHER, actor_role: 'analyst', decision: 'open', occurred_at: iso(-7), tx_sig: TX, solscan_url: `https://solscan.io/tx/${TX}` },
+  {
+    event_type: 'REWARD_PAYMENT_CONFIRMED', label: 'SOL transfer verified on Solana',
+    actor_wallet: WALLET, actor_role: 'case_owner', decision: 'paid', occurred_at: iso(-1),
+    tx_sig: TX, solscan_url: `https://solscan.io/tx/${TX}`,
+    payment_proof: {
+      cluster: 'mainnet-beta', finality: 'finalized', payer_wallet: WALLET,
+      recipient_manifest: [{ wallet: OTHER, amount_lamports: '1000000000', recipient_type: 'report_author', target_ref: VERSION_REF }],
+      total_lamports: '1000000000', target_public_ref: CASE_REF,
+      memo_verified: true, transfers_verified: true, slot: '123456', block_time: iso(-1),
+    },
+  },
   { event_type: 'CHALLENGE_WINDOW_OPENED', label: 'System event', actor_wallet: '', actor_role: 'system', decision: 'recorded', occurred_at: iso(-2) },
 ];
 
@@ -160,6 +170,11 @@ async function installFixtureNetwork(page) {
   }, { wallet: WALLET });
 
   await page.route(/https:\/\/(?:bundle\.run|unpkg\.com|cdn\.jsdelivr\.net)\/.*/, (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
+  await page.route('https://api.coingecko.com/**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ solana: { usd: 0, usd_24h_change: 0 }, bitcoin: { usd: 0, usd_24h_change: 0 }, ethereum: { usd: 0, usd_24h_change: 0 } }),
+  }));
   await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.route('**/functions/v1/**', async (route) => {
     const request = route.request();
@@ -247,6 +262,8 @@ test('Platform menu exercises hover intent, keyboard, click and touch behavior',
 
   await page.locator('.osi-brand').focus();
   await page.keyboard.press('Tab');
+  await expect(page.locator('#global-nav > [data-global-view="registry"]')).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(trigger).toBeFocused();
   await expect(menu).toBeVisible();
   await page.keyboard.press('Escape');
@@ -265,6 +282,96 @@ test('Platform menu exercises hover intent, keyboard, click and touch behavior',
   await page.keyboard.press('Escape');
   await expect(page.locator('#global-nav')).toBeHidden();
   expectCleanRuntime(page);
+});
+
+test('Home keeps a compact three-section product route with truthful live actions', async ({ page }) => {
+  await ready(page);
+  await expect(page.locator('#global-nav > [data-global-view="registry"]')).toHaveText('Home');
+  await expect(page.locator('#global-nav > .osi-nav-link', { hasText: 'How It Works' })).toHaveCount(0);
+  await expect(page.locator('link[data-osi-route-style][media="print"]')).toHaveCount(9);
+  await expect(page.locator('link[rel="stylesheet"]:not([media])')).toHaveCount(2);
+  await expect(page.locator('main > section.osi-home')).toHaveCount(3);
+  const wordCount = await page.locator('main > section.osi-home').evaluateAll((sections) =>
+    sections.reduce((count, section) => count + (section.textContent || '').trim().split(/\s+/).filter(Boolean).length, 0));
+  expect(wordCount).toBeLessThanOrEqual(390);
+  await expect(page.locator('[data-action-contract]')).toHaveCount(8);
+  await expect(page.locator('main > section.osi-home [data-action-contract]')).toHaveCount(0);
+  await expect(page.locator('.osi-route-gallery > .osi-route-card')).toHaveCount(4);
+  await expect(page.locator('.osi-route-report .art-manifest')).toBeVisible();
+  await expect(page.locator('.osi-route-report .art-version-current')).toBeVisible();
+  await expect(page.locator('.osi-route-report .art-hash-ring')).toBeVisible();
+  await expect(page.locator('#platform-menu [data-action-contract]')).toHaveCount(5);
+  await expect(page.locator('#wbMenu [data-action-contract]')).toHaveCount(3);
+  await expect(page.locator('#maintainerAccessMenu')).toBeHidden();
+  for (const action of ['case', 'report', 'analyst', 'review', 'governance', 'money', 'proof', 'operations']) {
+    await expect(page.locator(`[data-action-contract="${action}"]`)).toHaveCount(1);
+  }
+  await page.evaluate(() => window.osiNavigate('field'));
+  await page.waitForFunction(() => [...document.querySelectorAll('link[data-osi-route-style]')].every((link) => link.media === 'all' && link.sheet));
+  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
+  await expect(page.locator('#platform-menu-trigger')).toHaveAttribute('aria-current', 'page');
+  await page.evaluate(() => window.osiNavigate('registry'));
+  await expect(page.locator('#platform-menu-trigger')).not.toHaveAttribute('aria-current', 'page');
+  await page.locator('#global-nav > [data-global-view="methodology"]').click();
+  await expect(page.locator('#about-hero')).toBeVisible();
+  await expect(page.locator('#osi-about-emblem')).toBeVisible();
+  await expect(page.locator('.osi-about-wordmark figcaption')).toContainText('Never used as a proof or verification seal');
+  await page.locator('#global-nav > [data-global-view="registry"]').click();
+  await expect(page.locator('#osi-home-title')).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+test('direct workspace routes activate their styles before rendering', async ({ page }) => {
+  await installFixtureNetwork(page);
+  await page.goto('/#field-office');
+  await page.waitForFunction(() => document.body.dataset.view === 'field' && [...document.querySelectorAll('link[data-osi-route-style]')].every((link) => link.media === 'all' && link.sheet));
+  await expect(page.getByRole('heading', { name: 'The Field Office', level: 1 })).toBeVisible();
+  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
+});
+
+test('canonical workspace navigation and support dialog preserve keyboard access', async ({ page }) => {
+  await ready(page);
+  await expect(page.locator('link[data-osi-route-style][media="print"]')).toHaveCount(9);
+  await page.evaluate(() => window.showView('wire'));
+  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
+  await expect(page.locator('body')).toHaveAttribute('data-view', 'wire');
+
+  await page.evaluate(() => window.showView('registry'));
+  const walletButton = page.locator('#walletBtn');
+  await walletButton.focus();
+  await walletButton.press('ArrowDown');
+  await expect(walletButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('menuitem', { name: 'My Cases' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(walletButton).toBeFocused();
+
+  const opener = page.locator('.osi-hero-actions .osi-button-primary');
+  await expect(opener).toBeVisible();
+  await opener.focus();
+  await page.evaluate((wallet) => window.openTip(wallet, 'OSI project support', 0.1, 'Voluntary support'), OTHER);
+  const dialog = page.getByRole('dialog', { name: 'Voluntary support' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-hidden', 'false');
+  await expect(page.locator('.tip-card')).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('.tip-send')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.tip-x')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(opener).toBeFocused();
+  expectCleanRuntime(page);
+});
+
+test('signal enhancement fails open when its runtime is unavailable', async ({ page }) => {
+  await installFixtureNetwork(page);
+  await page.route('**/assets/js/95-signal-interactions.js', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.osiNavigate === 'function');
+  const opacity = await page.locator('main > [data-signal-reveal]').evaluateAll((nodes) =>
+    nodes.map((node) => getComputedStyle(node).opacity));
+  expect(opacity).toEqual(['1', '1', '1']);
 });
 
 test('real product DOM renders lifecycle fixtures and keeps one shared private signature', async ({ page }) => {
@@ -293,7 +400,21 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   for (const label of ['Wallet-signed and server-verified', 'Memo-anchored on Solana', 'SOL transfer verified on Solana', 'System event']) {
     await expect(page.locator('#osi-case-content')).toContainText(label);
   }
+  const solscan = page.locator(`#osi-case-content a[href="https://solscan.io/tx/${TX}"]`).first();
+  await expect(solscan).toBeVisible();
+  await expect(solscan).toHaveAttribute('target', '_blank');
+  await expect(solscan).toHaveAttribute('rel', /noopener/);
   await page.locator('.osi-case-close').click();
+
+  await page.evaluate(() => window.osiNavigate('records'));
+  await expect(page.locator('#case-records')).toContainText(CASE_REF);
+  await expect(page.locator('#case-records')).toContainText('Reviewed');
+  await expect(page.locator('#case-records')).toContainText('SOL transfer verified on Solana');
+
+  await page.evaluate(() => window.osiNavigate('prooflog'));
+  await expect(page.locator('#pl-dash .pl-stat.seal .pl-stat-val')).toHaveText('2');
+  await expect(page.locator('#pl-dash .pl-stat.challenge')).toContainText('0');
+  await expect(page.locator('#pl-body')).not.toContainText(PRIVATE_SENTINEL);
 
   await page.evaluate(() => window.osiV2OpenMyCases());
   await expect(page.locator(`[data-case-ref="${PRIVATE_REF}"]`)).toBeVisible();
@@ -309,9 +430,22 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
     await expect(page.locator('#field-cases')).toContainText(decision);
   }
   await page.evaluate(() => window.osiAnalystOpenWorkspace('profile'));
+  expect(await page.evaluate(() => window.location.hash)).toBe('#identity');
   await expect(page.locator('#identity-body')).toContainText('Server-derived weight');
-  await page.evaluate(() => window.osiAnalystOpenWorkspace('applications'));
+  const analystProfileTab = page.locator('#osi-workspace-tab-profile');
+  const analystApplicationsTab = page.locator('#osi-workspace-tab-applications');
+  await expect(analystProfileTab).toHaveAttribute('aria-selected', 'true');
+  await expect(analystProfileTab).toHaveAttribute('tabindex', '0');
+  await expect(analystApplicationsTab).toHaveAttribute('tabindex', '-1');
+  await analystProfileTab.focus();
+  await analystProfileTab.press('ArrowRight');
+  await expect(analystApplicationsTab).toBeFocused();
+  await expect(analystApplicationsTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#identity-body')).toContainText('Revision requested');
+  await analystApplicationsTab.press('Home');
+  await expect(analystProfileTab).toBeFocused();
+  await analystProfileTab.press('End');
+  await expect(analystApplicationsTab).toBeFocused();
   expect((await page.evaluate(() => window.__fixtureProviderCounts())).signMessage).toBe(1);
 
   await page.reload();
@@ -341,10 +475,38 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   expectCleanRuntime(page);
 });
 
+test('user identity, analyst workspace and Operations gate use one accessible product system', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.osiNavigate('identity'));
+  await expect(page.locator('#identity-view')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your Intelligence Passport', level: 1 })).toBeVisible();
+  await expect(page.locator('.identity-tabs [role="tab"]')).toHaveCount(6);
+  const identityFirstTab = page.locator('.identity-tabs [role="tab"]').first();
+  const identityLastTab = page.locator('.identity-tabs [role="tab"]').last();
+  await identityFirstTab.focus();
+  await identityFirstTab.press('End');
+  await expect(identityLastTab).toBeFocused();
+  await expect(identityLastTab).toHaveAttribute('aria-selected', 'true');
+
+  await page.evaluate(() => window.osiAnalystOpenWorkspace('profile'));
+  await expect(page.locator('#osi-workspace-tab-profile')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#identity-body')).toContainText('Server-derived weight');
+
+  await page.evaluate(() => window.osiNavigate('admin'));
+  expect(await page.evaluate(() => window.location.hash)).toBe('#admin');
+  await expect(page.locator('#admin-view')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /OPERATIONS CENTER/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Access denied' })).toBeVisible();
+  await expect(page.locator('#admLocked')).toContainText('Connected wallet is not authorized');
+  await expect(page.locator('#admLogin form.adm-card')).toBeHidden();
+  await expect(page.locator('#admPanel')).toBeHidden();
+  expectCleanRuntime(page);
+});
+
 test('mobile, reduced motion and 200 percent reflow preserve access without overflow', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page);
-  const duration = await page.locator('.osi-proof-map-signal').evaluate((node) => getComputedStyle(node).animationDuration);
+  const duration = await page.locator('#osi-hero-signal-text').evaluate((node) => getComputedStyle(node, '::after').animationDuration);
   expect(parseFloat(duration)).toBeLessThanOrEqual(.02);
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -356,6 +518,33 @@ test('mobile, reduced motion and 200 percent reflow preserve access without over
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
   await expect(page.locator('#osi-home-title')).toBeVisible();
+
+  const workspaces = [
+    ['registry', '#osi-home-title'],
+    ['field', '#field-view'],
+    ['wire', '#wire-view'],
+    ['records', '#records-hero'],
+    ['analysts', '#analysts'],
+    ['prooflog', '#prooflog'],
+    ['methodology', '#about-hero'],
+  ];
+  for (const width of [390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const [view, selector] of workspaces) {
+      await page.evaluate((route) => window.osiNavigate(route), view);
+      await expect(page.locator(selector)).toBeVisible();
+      expect(await page.evaluate(() =>
+        document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    }
+  }
+
+  await page.evaluate(() => window.osiNavigate('field'));
+  const cta = page.locator('#field-view .fo-cta');
+  await expect(cta).toBeVisible();
+  expect((await cta.boundingBox()).height).toBeGreaterThanOrEqual(40);
+  await cta.click();
+  await expect(page.locator('#fo-modal')).not.toHaveClass(/open/);
+  await expect(page.locator('#stw-toast')).toContainText('Case intake is safely disabled while rollout checks are incomplete.');
   expectCleanRuntime(page);
 });
 
@@ -363,7 +552,23 @@ test('capture every populated main workspace for preview QA', async ({ page }) =
   test.skip(!process.env.OSI_QA_SCREENSHOT_DIR, 'Screenshot capture is enabled only for release QA.');
   const directory = path.resolve(process.env.OSI_QA_SCREENSHOT_DIR);
   fs.mkdirSync(directory, { recursive: true });
-  const capture = async (name) => page.screenshot({ path: path.join(directory, `${name}.png`), fullPage: true });
+  const primeReveals = async () => page.evaluate(async () => {
+    const height = document.documentElement.scrollHeight;
+    for (let y = 0; y < height; y += Math.max(320, Math.floor(innerHeight * .72))) {
+      scrollTo(0, y);
+      await new Promise((resolve) => setTimeout(resolve, 45));
+    }
+    scrollTo(0, 0);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  const capture = async (name) => {
+    await primeReveals();
+    await page.screenshot({ path: path.join(directory, `${name}-desktop.png`), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await primeReveals();
+    await page.screenshot({ path: path.join(directory, `${name}-mobile.png`), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  };
   await ready(page);
   await capture('home-populated');
 
@@ -394,10 +599,22 @@ test('capture every populated main workspace for preview QA', async ({ page }) =
     window.__crChallenged = {}; window.__crChallengeCounts = {}; window.__crOpenChallengeCount = 0;
     window.__crSourceState = 'loaded'; window.__crVouchesLoaded = false; window.crPaint();
   });
+  const recordLayout = await page.evaluate(() => {
+    const main = document.querySelector('#records-hero .cr-maincol').getBoundingClientRect();
+    const aside = document.querySelector('#records-hero .cr-aside').getBoundingClientRect();
+    return { mainBottom: main.bottom, asideTop: aside.top };
+  });
+  expect(recordLayout.asideTop).toBeGreaterThanOrEqual(recordLayout.mainBottom - 1);
   await capture('public-records-populated');
 
   await page.evaluate(() => window.osiNavigate('analysts'));
   await expect(page.locator('#lb-body')).toContainText('Public analyst fixture');
+  const sparseAnalystLayout = await page.evaluate(() => {
+    const main = document.querySelector('#analysts .lb-maincol').getBoundingClientRect();
+    const aside = document.querySelector('#analysts .lb-aside').getBoundingClientRect();
+    return { mainBottom: main.bottom, asideTop: aside.top };
+  });
+  expect(sparseAnalystLayout.asideTop).toBeGreaterThanOrEqual(sparseAnalystLayout.mainBottom - 1);
   await capture('analyst-network-populated');
 
   await page.evaluate(() => window.osiNavigate('prooflog'));

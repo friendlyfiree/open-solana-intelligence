@@ -11,7 +11,7 @@
 /* tab + search bar */
 .rvq-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px;flex-wrap:wrap}
 .rvq-tabs{display:flex;gap:7px;flex-wrap:wrap}
-.rvq-tab{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.02em;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--ink-dim);cursor:pointer;transition:all .13s;display:inline-flex;align-items:center;gap:7px}
+.rvq-tab{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.02em;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--ink-dim);cursor:pointer;transition:background-color .13s,color .13s,border-color .13s;display:inline-flex;align-items:center;gap:7px}
 .rvq-tab:hover{border-color:var(--line-bright);color:var(--ink)}
 .rvq-tab .rvq-ct{font-size:10px;padding:1px 7px;border-radius:20px;background:var(--bg-raised);color:var(--ink-faint);border:1px solid var(--line)}
 .rvq-tab.active{border-color:rgba(34,211,238,.45);background:rgba(34,211,238,.07);color:var(--cyan)}
@@ -72,7 +72,7 @@
 .rvc-yv-l{font-size:8.5px;letter-spacing:.1em;color:rgba(148,163,184,.5)}
 .rvc-yv{font-size:11px;font-weight:700}
 .rvc-yv.ok{color:var(--sol)} .rvc-yv.bad{color:var(--red)} .rvc-yv.own{color:rgba(148,163,184,.6)}
-.rvc-review{width:100%;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:10px 14px;border-radius:9px;border:1px solid rgba(34,211,238,.4);background:rgba(34,211,238,.06);color:var(--cyan);cursor:pointer;transition:all .13s}
+.rvc-review{width:100%;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:10px 14px;border-radius:9px;border:1px solid rgba(34,211,238,.4);background:rgba(34,211,238,.06);color:var(--cyan);cursor:pointer;transition:background-color .13s,color .13s,border-color .13s,box-shadow .13s,transform .13s}
 .rvc-review:hover{background:rgba(34,211,238,.13);border-color:var(--cyan)}
 /* ---- review drawer content ---- */
 .rvd-head{margin-bottom:18px}
@@ -90,7 +90,7 @@
 .rvd-tx a{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);text-decoration:none;border:1px solid rgba(34,211,238,.3);border-radius:6px;padding:5px 10px;white-space:nowrap}
 .rvd-tx a:hover{background:rgba(34,211,238,.08)}
 .rvd-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
-.rvd-vote{flex:1;min-width:130px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;padding:13px 16px;border-radius:10px;cursor:pointer;border:1px solid var(--line-bright);background:transparent;transition:all .13s}
+.rvd-vote{flex:1;min-width:130px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;padding:13px 16px;border-radius:10px;cursor:pointer;border:1px solid var(--line-bright);background:transparent;transition:background-color .13s,color .13s,border-color .13s,box-shadow .13s,transform .13s}
 .rvd-vote.ap{color:var(--sol);border-color:rgba(20,241,149,.4)}
 .rvd-vote.ap:hover{background:rgba(20,241,149,.1);border-color:var(--sol)}
 .rvd-vote.rj{color:var(--red);border-color:rgba(255,84,112,.4)}
@@ -126,7 +126,7 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
 .lb-rule b.bad{color:#ff6684;text-shadow:0 0 8px rgba(255,61,100,.5)}
 /* cyan action: charged */
 .cm-fill{box-shadow:0 0 10px rgba(34,211,238,.5)}
-.fc-open{box-shadow:0 0 0 rgba(34,211,238,0);transition:all .13s}
+.fc-open{box-shadow:0 0 0 rgba(34,211,238,0);transition:background-color .13s,color .13s,border-color .13s,box-shadow .13s,transform .13s}
 .fo-case:hover .fc-open{box-shadow:0 0 16px rgba(34,211,238,.45)}
 .fo-preview .cf-btn.primary{box-shadow:0 8px 26px rgba(34,211,238,.32)}
 .lb-cta{box-shadow:0 6px 20px rgba(34,211,238,.24)}
@@ -192,7 +192,7 @@ body[data-view="analysts"] #community{padding-top:0}
   padding:7px 10px;
 }
 @media(min-width:1180px){
-  #analysts .lb-console{grid-template-columns:minmax(720px,1fr) minmax(320px,372px);gap:18px;margin-top:18px}
+  #analysts .lb-console{grid-template-columns:minmax(0,1fr) minmax(320px,372px);gap:18px;margin-top:18px}
   #analysts .lb-aside{position:static;gap:12px}
 }
 #analysts .lb-maincol{min-width:0}

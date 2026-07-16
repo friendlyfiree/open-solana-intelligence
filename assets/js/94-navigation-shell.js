@@ -9,6 +9,8 @@
     analysts: 'analyst-network',
     prooflog: 'proof-log',
     methodology: 'about',
+    identity: 'identity',
+    workspace: 'workspace',
     admin: 'admin'
   };
   var hashViews = {};
@@ -35,6 +37,7 @@
   function closeMobileNav(returnFocus) {
     if (!mobileToggle || !globalNav || !navScrim) return;
     document.body.classList.remove('nav-open');
+    document.documentElement.classList.remove('nav-open');
     mobileToggle.setAttribute('aria-expanded', 'false');
     mobileToggle.setAttribute('aria-label', 'Open navigation');
     navScrim.hidden = true;
@@ -45,6 +48,7 @@
   function openMobileNav() {
     if (!mobileToggle || !globalNav || !navScrim) return;
     document.body.classList.add('nav-open');
+    document.documentElement.classList.add('nav-open');
     mobileToggle.setAttribute('aria-expanded', 'true');
     mobileToggle.setAttribute('aria-label', 'Close navigation');
     navScrim.hidden = false;
@@ -60,12 +64,24 @@
         button.removeAttribute('aria-current');
       }
     });
+    if (platformTrigger) {
+      var platformViews = ['field', 'wire', 'records', 'prooflog', 'admin', 'identity', 'workspace'];
+      if (platformViews.indexOf(view) !== -1) {
+        platformTrigger.setAttribute('aria-current', 'page');
+      } else {
+        platformTrigger.removeAttribute('aria-current');
+      }
+    }
   }
 
   function navigate(view, options) {
     var opts = options || {};
     var target = viewHashes[view] ? view : 'registry';
-    if (typeof window.showView === 'function') window.showView(target);
+    if (target !== 'registry' && typeof window.osiActivateRouteStyles === 'function') {
+      window.osiActivateRouteStyles();
+    }
+    if (opts.render === false) document.body.dataset.view = target;
+    else if (typeof window.showView === 'function') window.showView(target);
     syncActiveNavigation(target);
     closeMobileNav(false);
     setPlatform(false);
@@ -192,6 +208,11 @@
           event.preventDefault();
           items[(index - 1 + items.length) % items.length].focus();
         }
+      });
+      platformMenu.addEventListener('click', function (event) {
+        if (!event.target.closest('button')) return;
+        if (document.body.classList.contains('nav-open')) closeMobileNav(false);
+        else setPlatform(false);
       });
     }
 
@@ -505,6 +526,7 @@
   window.osiNavigateSection = navigateSection;
   window.osiOpenCase = openCase;
   window.osiNavigateFieldStage = navigateFieldStage;
+  window.osiPublicApi = publicApi;
   window.osiLoadHomeData = loadHomeData;
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
