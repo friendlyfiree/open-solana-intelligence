@@ -117,6 +117,11 @@ ok(
     && readSessionProductionWorkflow.includes('supabase secrets set --project-ref "$EXPECTED_PROJECT_REF"')
     && readSessionProductionWorkflow.includes('"OSI_V2_ALLOWED_ORIGIN=${PRODUCTION_WEB_URL}"')
     && readSessionProductionWorkflow.includes('read_session_wrong_origin')
+    && readSessionProductionWorkflow.includes('Require broad write and proof gates disabled before rollout')
+    && readSessionProductionWorkflow.includes('[ "$OSI_V2_WRITES_ENABLED_BEFORE" = "false" ]')
+    && readSessionProductionWorkflow.includes('[ "$OSI_V2_PROOF_ENABLED_BEFORE" = "false" ]')
+    && readSessionProductionWorkflow.includes(`[ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")" = "false" ]`)
+    && readSessionProductionWorkflow.includes(`[ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")" = "false" ]`)
     && readSessionProductionWorkflow.includes("where key='OSI_V2_READ_SESSION_ENABLED' and value='true'"),
 );
 

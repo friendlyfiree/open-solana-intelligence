@@ -183,6 +183,16 @@ jobs:
             echo "${key}_BEFORE=$value" >> "$GITHUB_ENV"
           done
 
+      - name: Require broad write and proof gates disabled before rollout
+        run: |
+          set -euo pipefail
+          [ "$OSI_V2_WRITES_ENABLED_BEFORE" = "false" ] || {
+            echo "::error::Broad V2 writes must remain disabled for the read-session rollout."; exit 1;
+          }
+          [ "$OSI_V2_PROOF_ENABLED_BEFORE" = "false" ] || {
+            echo "::error::Broad V2 proof writes must remain disabled for the read-session rollout."; exit 1;
+          }
+
       - name: Link and verify exact remote migration history
         run: |
           set -euo pipefail
@@ -259,6 +269,8 @@ jobs:
         run: |
           set -euo pipefail
           [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_READ_SESSION_ENABLED'")" = "true" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")" = "false" ]
           for key in OSI_V2_WRITES_ENABLED OSI_V2_PROOF_ENABLED OSI_V2_CASE_WRITES_ENABLED OSI_V2_ANALYST_WRITES_ENABLED OSI_V2_REPORT_WRITES_ENABLED OSI_V2_REPORT_REVIEW_WRITES_ENABLED OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED OSI_V2_PAYMENT_WRITES_ENABLED; do
             before_name="${key}_BEFORE"; [ "$(psql -Atqc "select value from public.osi_config where key='${key}'")" = "${!before_name}" ]
           done
