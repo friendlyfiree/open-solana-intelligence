@@ -62,11 +62,33 @@ One primary winning Report version → one reward recipient initially. Supportin
 ### D16 — Public analyst accountability — **RESOLVED**
 Public governance decisions (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges) show the participating **analyst or full maintainer role, public profile/handle where applicable, wallet, decision, voting-weight snapshot (maintainer initial-open path = 0), timestamp, and proof type**, with a public-safe receipt/tx reference. Private notes, private evidence, detailed moderation reasons, and sensitive reason text stay restricted. The phrase "anonymized-but-attributable" is **removed** for normal public decisions. Pre-public/private queue activity may show only counts until the Case opens. *Sec medium · UX high.*
 
+### D17 — Bootstrap maintainer quorum (cold-start) — **RESOLVED (2026-07-16, product-owner decision)**
+Problem: before an independent analyst network exists, Report publication, resolution/winner selection, and seal cannot reach their normal count+weight quorum, and the product would appear stalled during the pre-grant period.
+
+Decision: a new, explicitly enabled, fail-closed mechanism — **`OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED`** (default `false`) — lets the full double-gated maintainer (configured admin wallet **and** authenticated Supabase maintainer identity, exactly as every other maintainer action already requires) additionally finalize three outcomes while the live eligible-analyst count is low: **Report publication, resolution/winning-Report selection, and seal**. This is a bounded, code-computed extension of the existing Case-initial-open maintainer-alternative path (D5); it never touches AI Pack approval or challenge accept/reject, which always remain analyst-quorum-only (the maintainer must never rule on a challenge to their own prior bootstrap decision).
+
+The server computes a live tier from `count(analyst_profiles where status in ('probationary_analyst','verified_analyst','senior_analyst') and approved)` — no manual flag flips:
+
+| Live eligible-analyst count | Required signer(s) for the three bootstrap-eligible outcomes |
+|---|---|
+| < 20 | full maintainer alone |
+| 20–29 | full maintainer + 1 independent analyst |
+| 30–49 | full maintainer + 2 independent analysts, reduced Σweight threshold |
+| ≥ 50 | bootstrap retired; original D5 thresholds apply with no maintainer substitution |
+
+Non-negotiable honesty requirement: every receipt/Memo produced through this path is recorded and displayed with a distinct decision channel (e.g. `maintainer_bootstrap`) in the Proof Log and public projections. It must never be presented as, counted as, or visually resemble an independent multi-analyst quorum outcome. Fabricating or implying analyst consensus that did not occur remains a hard prohibition (Product Constitution §3) regardless of this flag.
+
+This is a time-boxed, self-decaying transitional mode, not a permanent governance change: at 50+ real eligible analysts it has no remaining effect and the system matches the original locked design. *Sec high (must stay honestly labeled and narrowly scoped) · UX medium · Impl medium · Mig low (new fail-closed config keys only).*
+
+### D18 — Path B analyst candidacy (contribution-based) — **RESOLVED (2026-07-16, product-owner decision)**
+The `contributor → analyst_candidate` status transition exists in schema but has no live trigger. Decision: implement the designed Path B — a wallet whose Case Report version becomes a Case's `winning_report_version_id` (a real, server-computed, quorum-selected win, never a self-declared or fabricated one) is automatically promoted from `contributor` to `analyst_candidate`, exactly as an application submission already does. This only opens candidacy; it never grants `probationary_analyst` status or nonzero weight by itself; that still requires the existing application-review/`ANALYST_PROBATION` path (D5). Path A (direct application) and Path B (contribution-triggered candidacy) both remain live, non-exclusive routes to the same reviewed activation gate. *Sec low · UX medium · Impl small · Mig low (additive trigger only).*
+
 ---
 
 ## Remaining deferred feature flags
 - `OSI_V2_WRITES_ENABLED` — default **false** until Stage-5 write-gate work is verified (D14).
 - `OSI_V2_FALLBACK_GOVERNANCE` — default **false** first release (D3).
+- `OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED` — default **false**; time-boxed cold-start mechanism, self-decaying by live analyst count (D17).
 - Per-surface `OSI_V2_UI` flags for staged rollout.
 
 ## Implementation details requiring measurement

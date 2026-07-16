@@ -47,6 +47,15 @@ function optionalText(value, field, maximum) {
 
 export function validateGovernanceTargetRef(action, value) {
   const ref = text(value, "target_ref", 10, 64);
+  if (action === "resolution_finalize") {
+    // Normally the resolution ref. The D17 bootstrap cold start may name the
+    // Case ref instead, because with no eligible analysts no selection review
+    // could have created the resolution parent yet.
+    if (!RESOLUTION_REF.test(ref) && !CASE_REF.test(ref)) {
+      throw new TypeError("target_ref is invalid");
+    }
+    return ref;
+  }
   const expected = action === "resolution_review"
     ? CASE_REF
     : action.startsWith("challenge_") && action !== "challenge_submit"
@@ -108,6 +117,15 @@ export function normalizeGovernancePayload(action, input) {
       reason_code: text(input.reason_code, "reason_code", 1, 96, /^[a-z][a-z0-9_:-]{0,95}$/),
       public_rationale: text(input.public_rationale, "public_rationale", 10, 2000),
       private_note: optionalText(input.private_note, "private_note", 4000),
+    };
+  }
+  if (action === "resolution_finalize") {
+    // Normal finalize carries an empty payload and is unchanged. Only the
+    // explicit D17 bootstrap request names one exact published version; the
+    // database decides whether that channel may be used at all.
+    if (input.report_version_ref == null || input.report_version_ref === "") return {};
+    return {
+      report_version_ref: text(input.report_version_ref, "report_version_ref", 23, 23, VERSION_REF),
     };
   }
   return {};

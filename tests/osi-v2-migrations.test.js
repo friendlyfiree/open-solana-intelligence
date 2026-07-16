@@ -24,6 +24,7 @@ const expectedFiles = [
   '20260714082218_osi_v2_resolution_challenge_seal.sql',
   '20260715053828_osi_v2_native_sol_payments.sql',
   '20260715112621_osi_v2_shared_read_session.sql',
+  '20260716063000_osi_v2_bootstrap_governance.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -41,6 +42,7 @@ const reportIntake = sqlByFile['20260714044036_osi_v2_case_report_intake.sql'] |
 const resolutionLifecycle = sqlByFile['20260714082218_osi_v2_resolution_challenge_seal.sql'] || '';
 const nativePayments = sqlByFile['20260715053828_osi_v2_native_sol_payments.sql'] || '';
 const sharedReadSession = sqlByFile['20260715112621_osi_v2_shared_read_session.sql'] || '';
+const bootstrapGovernance = sqlByFile['20260716063000_osi_v2_bootstrap_governance.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const analystProductionWorkflow = fs.readFileSync(
@@ -686,6 +688,43 @@ ok(
   'reward/support constrained to non-custodial SOL records',
   schema.includes("constraint reward_pledges_token_check")
     && schema.includes("constraint support_events_token_check"),
+);
+
+ok(
+  'bootstrap maintainer quorum ships disabled and fail-closed (D17)',
+  bootstrapGovernance.includes("('OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED', 'false'")
+    && /osi_v2_bootstrap_tier\(\)/.test(bootstrapGovernance),
+);
+ok(
+  'bootstrap tier is computed additively from the live eligible-analyst count',
+  /count\(\*\)::integer into live_count[\s\S]*status in \(\s*'probationary_analyst', 'verified_analyst', 'senior_analyst'\s*\)[\s\S]*approved is true/i
+    .test(bootstrapGovernance)
+    && bootstrapGovernance.includes("live_count < 20")
+    && bootstrapGovernance.includes("live_count < 30")
+    && bootstrapGovernance.includes("live_count < 50"),
+);
+ok(
+  'bootstrap migration is additive only (no destructive DDL on populated tables)',
+  !/drop\s+table|truncate\s+|drop\s+schema/i.test(bootstrapGovernance)
+    && /drop function public\.osi_v2_prepare_report_publication/i.test(bootstrapGovernance),
+);
+ok(
+  'every bootstrap receipt carries a distinct, honestly labeled decision channel (D17)',
+  /add column decision_channel text not null default 'standard'/i.test(bootstrapGovernance)
+    && bootstrapGovernance.includes('maintainer_bootstrap'),
+);
+ok(
+  'bootstrap channel is structurally impossible for challenge and AI Pack receipts (D17)',
+  /event_receipts_bootstrap_channel_scope_check[\s\S]*event_type in \(\s*'REPORT_PUBLISHED', 'REPORT_SELECTED_WINNING', 'RECORD_SEALED'\s*\)/i
+    .test(bootstrapGovernance),
+);
+ok(
+  'Path B promotes only a real quorum-selected winning author, receipt-free (D18)',
+  /create trigger osi_v2_promote_winning_author[\s\S]*after update of winning_report_version_id on public\.case_resolutions/i
+    .test(bootstrapGovernance)
+    && /when \(old\.winning_report_version_id is null and new\.winning_report_version_id is not null\)/i
+      .test(bootstrapGovernance)
+    && /then 'analyst_candidate' else public\.analyst_profiles\.status end/.test(bootstrapGovernance),
 );
 
 const identifiers = [

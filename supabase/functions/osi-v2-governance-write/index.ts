@@ -328,6 +328,8 @@ async function commit(req: Request, body: Row): Promise<Response> {
   });
   if (error || !data?.[0]) return rpcFailure(error);
   const committed = data[0];
+  const bootstrapChannel =
+    bound.binding_context?.server_binding?.decision_channel === "maintainer_bootstrap";
   return jsonResponse(200, {
     ok: true, action: committed.action, purpose: committed.purpose,
     target_public_ref: committed.target_public_ref,
@@ -335,11 +337,13 @@ async function commit(req: Request, body: Row): Promise<Response> {
     resolution_public_ref: committed.resolution_public_ref || null,
     challenge_public_ref: committed.challenge_public_ref || null,
     state: committed.state, receipt_id: committed.receipt_id,
+    decision_channel: bootstrapChannel ? "maintainer_bootstrap" : "standard",
     proof: {
       event_type: committed.purpose,
       label: governanceProofLabel(committed.purpose),
       proof_type: isMemo ? "solana_memo" : "wallet_signed_server_verified",
       tx_sig: txSig, server_verified: true,
+      decision_channel: bootstrapChannel ? "maintainer_bootstrap" : "standard",
     },
     idempotent_replay: committed.idempotent_replay === true,
   });

@@ -53,7 +53,7 @@ const VERSION_COLS =
 const CASE_COLS = "id,public_ref,stage,visibility,risk_tier,submitted_by_wallet";
 const EVIDENCE_COLS = "id,kind,ref,sha256,is_public,moderation_state";
 const RECEIPT_COLS =
-  "id,event_version,event_type,target_type,target_id,actor_wallet,actor_role,decision,weight,reason_code,proof_type,tx_sig,server_verified,occurred_at";
+  "id,event_version,event_type,target_type,target_id,actor_wallet,actor_role,decision,weight,reason_code,proof_type,tx_sig,server_verified,occurred_at,decision_channel";
 const REVIEW_COLS =
   "id,report_version_id,reviewer_wallet,decision,weight,reason_code,is_active,event_receipt_id,public_ref,tier_snapshot,public_rationale,private_note,created_at";
 
