@@ -75,6 +75,8 @@ jobs:
           node tests/osi-v2-sas-core.test.mjs
           deno check supabase/functions/_shared/osi-v2-sas-core.mjs
           deno check supabase/functions/_shared/osi-v2-sas-onchain.ts
+          deno check supabase/functions/_shared/osi-v2-sas-sdk.ts
+          deno check supabase/functions/_shared/osi-v2-sas-issuer.ts
           deno check supabase/functions/osi-v2-case-read/index.ts
           deno check supabase/functions/osi-v2-case-write/index.ts
           deno check supabase/functions/osi-v2-analyst/index.ts

@@ -162,5 +162,78 @@ ok("public DTO carries no secret-looking fields",
 const nc = core.notConfiguredResponse(SCHEMA);
 ok("not-configured DTO is honest", nc.valid === false && nc.reason === "not_configured");
 
+// ---- base58Encode (round-trips, incl. all-zero edge case) ----
+for (const k of [
+  "11111111111111111111111111111111",
+  "So11111111111111111111111111111111111111112",
+  "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
+  "HGzKE9KTjugR2WrQd1wpqr6gcZT6GZGLtr4L5SPYDR9G",
+]) {
+  ok("base58 round-trip " + k.slice(0, 8), core.base58Encode(core.base58Decode(k)) === k);
+}
+
+// ---- isOnCurve (reference vectors from @solana/web3.js PublicKey.isOnCurve) ----
+ok("isOnCurve: system program is on curve",
+  core.isOnCurve(core.base58Decode("11111111111111111111111111111111")) === true);
+ok("isOnCurve: SAS program id is on curve",
+  core.isOnCurve(core.base58Decode(PROGRAM)) === true);
+ok("isOnCurve: a derived PDA is OFF curve",
+  core.isOnCurve(core.base58Decode("HGzKE9KTjugR2WrQd1wpqr6gcZT6GZGLtr4L5SPYDR9G")) === false);
+
+// ---- findProgramAddress / deriveAttestationPda (vs @solana/web3.js) ----
+// Vector 1: seeds [ "attestation", CRED, SCHEMA, WALLET ], program = SAS
+//   web3.js findProgramAddressSync => HGzKE9KTjugR2WrQd1wpqr6gcZT6GZGLtr4L5SPYDR9G, bump 255
+const pdaVec1 = await core.deriveAttestationPda({
+  credential: "8krGZVXQipRG3d29QQgi3nT9Ufg1VMc48VN7Gcbb9G2G",
+  schema: "So11111111111111111111111111111111111111112",
+  wallet: "SysvarC1ock11111111111111111111111111111111",
+});
+ok("deriveAttestationPda matches web3.js (bump 255)",
+  pdaVec1 === "HGzKE9KTjugR2WrQd1wpqr6gcZT6GZGLtr4L5SPYDR9G", pdaVec1);
+// Vector 2: exercises the bump search (first off-curve bump is 253)
+const enc = new TextEncoder();
+const vec2 = await core.findProgramAddress(
+  [
+    enc.encode("attestation"),
+    core.base58Decode("So11111111111111111111111111111111111111112"),
+    core.base58Decode("8krGZVXQipRG3d29QQgi3nT9Ufg1VMc48VN7Gcbb9G2G"),
+    core.base58Decode(PROGRAM),
+  ],
+  PROGRAM,
+);
+ok("findProgramAddress bump search matches web3.js (bump 253)",
+  vec2.address === "6rHiseWZPcKM6jfDCaG8Tf8xkWE7XQ7ayDvry1JRFuR3" && vec2.bump === 253,
+  vec2.address + "/" + vec2.bump);
+
+// ---- base64ToBytes ----
+ok("base64ToBytes decodes account data",
+  (() => {
+    const b = core.base64ToBytes("AAECaGk="); // 00 01 02 'h' 'i'
+    return b.length === 5 && b[0] === 0 && b[1] === 1 && b[2] === 2 && b[3] === 104 && b[4] === 105;
+  })());
+
+// ---- glue / shim / issuer wiring (import shape only, no network) ----
+const { readFileSync } = await import("node:fs");
+const read = (p) => readFileSync(new URL("../supabase/functions/" + p, import.meta.url), "utf8");
+const glue = read("_shared/osi-v2-sas-onchain.ts");
+const shim = read("_shared/osi-v2-sas-sdk.ts");
+const issuer = read("_shared/osi-v2-sas-issuer.ts");
+const analyst = read("osi-v2-analyst/index.ts");
+
+ok("read glue has NO computed/dynamic import and NO remote esm.sh import",
+  !/computedImport/.test(glue) && !/import\((?!\s*["']\.)/.test(glue) && !/esm\.sh/.test(glue));
+ok("read glue derives the PDA SDK-free and reads via fetch",
+  /deriveAttestationPda/.test(glue) && /fetch\(RPC_URL/.test(glue) && /getAccountInfo/.test(glue));
+ok("read glue never returns a raw error in a public reason (neutral rpc_unavailable)",
+  /rpc_unavailable/.test(glue) && /rawError/.test(glue));
+ok("SDK shim carries @ts-nocheck and statically imports the pinned SDK URLs",
+  /^\/\/ @ts-nocheck/.test(shim)
+    && /from "https:\/\/esm\.sh\/@solana\/kit@5"/.test(shim)
+    && /from "https:\/\/esm\.sh\/sas-lib@1\.0\.10"/.test(shim));
+ok("issuer imports the SDK from the static shim (not a dynamic import)",
+  /from "\.\/osi-v2-sas-sdk\.ts"/.test(issuer) && !/computedImport|import\(/.test(issuer));
+ok("analyst imports issuance from the issuer module",
+  /maybeReconcileSasCredential.*from "\.\.\/_shared\/osi-v2-sas-issuer\.ts"/.test(analyst));
+
 console.log(`osi-v2-sas-core: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

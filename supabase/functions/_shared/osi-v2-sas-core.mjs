@@ -75,6 +75,131 @@ export function base58Decode(value) {
   return Uint8Array.from(bytes.reverse());
 }
 
+// Encode raw bytes into a base58 string (Solana/Bitcoin alphabet). Used to turn a
+// derived program-address hash into the account address the RPC read needs.
+export function base58Encode(bytes) {
+  const input = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes || []);
+  let zeros = 0;
+  while (zeros < input.length && input[zeros] === 0) zeros += 1;
+  const digits = [];
+  for (let i = zeros; i < input.length; i += 1) {
+    let carry = input[i];
+    for (let j = 0; j < digits.length; j += 1) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = Math.floor(carry / 58);
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = Math.floor(carry / 58);
+    }
+  }
+  let out = "1".repeat(zeros);
+  for (let k = digits.length - 1; k >= 0; k -= 1) out += BASE58_ALPHABET[digits[k]];
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// SDK-free program-derived-address derivation. This exists so the critical read
+// path (public verifier + shadow validation) never depends on a bundled Solana
+// SDK at runtime: it uses only Web Crypto (SHA-256) and pure BigInt field math
+// to reproduce Solana's find_program_address exactly. Validated against
+// @solana/web3.js reference vectors in tests/osi-v2-sas-core.test.mjs.
+// ---------------------------------------------------------------------------
+const ED25519_P = (1n << 255n) - 19n;
+function edMod(a) {
+  const r = a % ED25519_P;
+  return r >= 0n ? r : r + ED25519_P;
+}
+function edPow(base, exp) {
+  let result = 1n;
+  let b = edMod(base);
+  let e = exp;
+  while (e > 0n) {
+    if (e & 1n) result = edMod(result * b);
+    b = edMod(b * b);
+    e >>= 1n;
+  }
+  return result;
+}
+const ED25519_D = edMod(-121665n * edPow(121666n, ED25519_P - 2n));
+const ED25519_SQRT_M1 = edPow(2n, (ED25519_P - 1n) / 4n);
+
+// Returns true if the 32-byte little-endian value decodes to a valid ed25519
+// point (i.e., could be a real public key), matching PublicKey.isOnCurve.
+export function isOnCurve(bytes) {
+  const input = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes || []);
+  if (input.length !== 32) return false;
+  let y = 0n;
+  for (let i = 31; i >= 0; i -= 1) y = (y << 8n) | BigInt(input[i]);
+  const sign = (y >> 255n) & 1n;
+  y &= (1n << 255n) - 1n;
+  if (y >= ED25519_P) return false;
+  const y2 = edMod(y * y);
+  const u = edMod(y2 - 1n);
+  const v = edMod(ED25519_D * y2 + 1n);
+  const v3 = edMod(edMod(v * v) * v);
+  const v7 = edMod(edMod(v3 * v3) * v);
+  let x = edMod(edMod(u * v3) * edPow(edMod(u * v7), (ED25519_P - 5n) / 8n));
+  const vx2 = edMod(edMod(v * x) * x);
+  if (vx2 === edMod(u)) {
+    // x is already correct
+  } else if (vx2 === edMod(-u)) {
+    x = edMod(x * ED25519_SQRT_M1);
+  } else {
+    return false; // no square root -> off curve
+  }
+  if (x === 0n && sign === 1n) return false;
+  return true;
+}
+
+async function sha256Bytes(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return new Uint8Array(digest);
+}
+
+const PDA_MARKER = new TextEncoder().encode("ProgramDerivedAddress");
+
+function concatBytes(chunks) {
+  let total = 0;
+  for (const c of chunks) total += c.length;
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.length;
+  }
+  return out;
+}
+
+// Reproduces Solana's find_program_address: search bump 255..0 for the first
+// seed+bump whose SHA-256 hash is OFF the ed25519 curve. Returns { address, bump }.
+export async function findProgramAddress(seeds, programId) {
+  const programIdBytes = typeof programId === "string" ? base58Decode(programId) : programId;
+  for (let bump = 255; bump >= 0; bump -= 1) {
+    const buf = concatBytes([...seeds, Uint8Array.of(bump), programIdBytes, PDA_MARKER]);
+    const hash = await sha256Bytes(buf);
+    if (!isOnCurve(hash)) return { address: base58Encode(hash), bump };
+  }
+  throw new Error("unable to find a viable program address bump");
+}
+
+// Derive the OSI attestation account address for a subject wallet, SDK-free.
+export async function deriveAttestationPda({ programId, credential, schema, wallet }) {
+  const seeds = buildAttestationSeeds({ credential, schema, wallet });
+  const { address } = await findProgramAddress(seeds, programId || SAS_PROGRAM_ID);
+  return address;
+}
+
+// Decode a base64 string (RPC account data) into bytes. Runtime-agnostic (atob is
+// available in both Deno and Node).
+export function base64ToBytes(b64) {
+  const binary = atob(b64);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
 function utf8Bytes(str) {
   return new TextEncoder().encode(str);
 }
