@@ -25,6 +25,7 @@ const expectedFiles = [
   '20260715053828_osi_v2_native_sol_payments.sql',
   '20260715112621_osi_v2_shared_read_session.sql',
   '20260716063000_osi_v2_bootstrap_governance.sql',
+  '20260716120000_osi_v2_sas_credential.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -43,6 +44,7 @@ const resolutionLifecycle = sqlByFile['20260714082218_osi_v2_resolution_challeng
 const nativePayments = sqlByFile['20260715053828_osi_v2_native_sol_payments.sql'] || '';
 const sharedReadSession = sqlByFile['20260715112621_osi_v2_shared_read_session.sql'] || '';
 const bootstrapGovernance = sqlByFile['20260716063000_osi_v2_bootstrap_governance.sql'] || '';
+const sasCredential = sqlByFile['20260716120000_osi_v2_sas_credential.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const analystProductionWorkflow = fs.readFileSync(
@@ -212,6 +214,10 @@ const infraTables = [
   'osi_read_nonces',
   'migration_crosswalk',
   'migration_manual_queue',
+  // D19 SAS: service-only telemetry/state, labeled infrastructure (not domain).
+  'osi_v2_sas_wallet_credentials',
+  'osi_v2_sas_review_verifications',
+  'osi_v2_sas_verify_events',
 ];
 const expectedPhysicalTables = logicalDomainTables
   .map((name) => name === 'challenges' ? 'challenges_v2' : name)
@@ -223,9 +229,9 @@ const createdTables = [...allSql.matchAll(
 )].map((match) => match[1]).sort();
 
 ok('32 logical domain tables', logicalDomainTables.length === 32);
-ok('4 separate infrastructure tables', infraTables.length === 4);
+ok('7 separate infrastructure tables', infraTables.length === 7);
 ok(
-  '36 expected physical tables represented',
+  '39 expected physical tables represented',
   JSON.stringify(createdTables) === JSON.stringify(expectedPhysicalTables),
   createdTables.join(', '),
 );
@@ -253,7 +259,10 @@ for (const table of expectedPhysicalTables.filter((name) => name !== 'osi_config
       || (table === 'osi_read_nonces'
         && /alter table public\.osi_read_nonces enable row level security/i.test(lifecycle)
         && /alter table public\.osi_read_nonces force row level security/i.test(lifecycle)
-        && /revoke all privileges on table public\.osi_read_nonces from public, anon, authenticated/i.test(lifecycle)),
+        && /revoke all privileges on table public\.osi_read_nonces from public, anon, authenticated/i.test(lifecycle))
+      // D19 SAS infrastructure tables force RLS and service-role grants inside
+      // their own additive migration (same fail-closed pattern as default-deny).
+      || (table.startsWith('osi_v2_sas_') && sasCredential.includes("'" + table + "'")),
   );
 }
 ok(
@@ -725,6 +734,63 @@ ok(
     && /when \(old\.winning_report_version_id is null and new\.winning_report_version_id is not null\)/i
       .test(bootstrapGovernance)
     && /then 'analyst_candidate' else public\.analyst_profiles\.status end/.test(bootstrapGovernance),
+);
+
+// ---- D19 SAS Verified Analyst credential gate (structural invariants) ----
+ok(
+  'D19 issuance flag ships live-capable (true)',
+  /'OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED',\s*'true'/.test(sasCredential),
+);
+ok(
+  'D19 enforcement flag ships OFF (false)',
+  /'OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED',\s*'false'/.test(sasCredential),
+);
+ok(
+  'D19 Step 0 pubkeys seeded empty (fail-closed until published on chain)',
+  /'OSI_V2_SAS_CREDENTIAL_PUBKEY',\s*''/.test(sasCredential)
+    && /'OSI_V2_SAS_SCHEMA_PUBKEY',\s*''/.test(sasCredential)
+    && /'OSI_V2_SAS_ISSUER_PUBKEY',\s*''/.test(sasCredential),
+);
+ok(
+  'D19 three service-only tables FORCE RLS and grant only service_role',
+  /osi_v2_sas_wallet_credentials/.test(sasCredential)
+    && /osi_v2_sas_review_verifications/.test(sasCredential)
+    && /osi_v2_sas_verify_events/.test(sasCredential)
+    && /force row level security/i.test(sasCredential)
+    && /revoke all privileges on table public\.%I from public, anon, authenticated/i.test(sasCredential)
+    && /grant select, insert, update, delete on table public\.%I to service_role/i.test(sasCredential),
+);
+ok(
+  'D19 per-review snapshot uses typed-FK-per-target with exactly-one-target check',
+  /osi_v2_sas_review_verifications_exactly_one_target_check[\s\S]*num_nonnulls\(/i.test(sasCredential)
+    && /case_initial_review_id uuid[\s\S]*references public\.case_initial_reviews/i.test(sasCredential)
+    && /ai_pack_review_id uuid[\s\S]*references public\.ai_pack_reviews/i.test(sasCredential),
+);
+ok(
+  'D19 gate helper short-circuits to TRUE when enforcement is off',
+  /create function osi_private\.osi_v2_sas_review_counts[\s\S]*if not osi_private\.osi_v2_sas_enforcement_enabled\(\) then\s*return true;/i
+    .test(sasCredential),
+);
+ok(
+  'D19 gate helper has a maintainer_bootstrap bypass hook',
+  /current_setting\('osi_v2\.sas_bypass', true\)/.test(sasCredential),
+);
+ok(
+  'D19 all five quorum functions are CREATE OR REPLACE with the guarded predicate',
+  /create or replace function osi_private\.osi_v2_report_quorum/i.test(sasCredential)
+    && /create or replace function osi_private\.osi_v2_case_review_quorum/i.test(sasCredential)
+    && /create or replace function osi_private\.osi_v2_resolution_quorum/i.test(sasCredential)
+    && /create or replace function osi_private\.osi_v2_seal_quorum/i.test(sasCredential)
+    && /create or replace function osi_private\.osi_v2_challenge_quorum/i.test(sasCredential)
+    && (sasCredential.match(/osi_private\.osi_v2_sas_review_counts\(/g) || []).length >= 6,
+);
+ok(
+  'D19 case_review_quorum exempts maintainer (bootstrap) rows from the gate',
+  /reviewer_role <> 'analyst'\s*\n?\s*or osi_private\.osi_v2_sas_review_counts\('case_initial'/i.test(sasCredential),
+);
+ok(
+  'D19 report quorum gates the case_report review kind',
+  /osi_private\.osi_v2_sas_review_counts\('case_report', review\.id\)/.test(sasCredential),
 );
 
 const identifiers = [

@@ -72,6 +72,9 @@ jobs:
           node tests/osi-v2-report.test.mjs
           node tests/osi-v2-governance.test.mjs
           node tests/osi-v2-payment.test.mjs
+          node tests/osi-v2-sas-core.test.mjs
+          deno check supabase/functions/_shared/osi-v2-sas-core.mjs
+          deno check supabase/functions/_shared/osi-v2-sas-onchain.ts
           deno check supabase/functions/osi-v2-case-read/index.ts
           deno check supabase/functions/osi-v2-case-write/index.ts
           deno check supabase/functions/osi-v2-analyst/index.ts
@@ -79,6 +82,7 @@ jobs:
           deno check supabase/functions/osi-v2-report-write/index.ts
           deno check supabase/functions/osi-v2-governance-write/index.ts
           deno check supabase/functions/osi-v2-payment/index.ts
+          deno check supabase/functions/osi-v2-proof/index.ts
           deno check supabase/functions/_shared/osi-v2-read-session-core.mjs
 
       - name: Chromium UI contracts

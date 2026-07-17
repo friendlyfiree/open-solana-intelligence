@@ -17,6 +17,7 @@ import {
   validateProofBinding,
   validateWallet,
 } from "../_shared/osi-v2-proof-core.mjs";
+import { publicVerify } from "../_shared/osi-v2-sas-onchain.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -129,6 +130,34 @@ async function issueNonce(req: Request, body: Record<string, unknown>): Promise<
   });
 }
 
+// Step 2 public verifier: unauthenticated, works for ANY wallet from ANY caller.
+// Live-checked against Solana (SAS is authoritative); rate-limited by the same
+// keyed request fingerprint used by the nonce issuer.
+async function sasVerify(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const wallet = safeText(body.wallet);
+  try {
+    validateWallet(wallet);
+  } catch {
+    return jsonResponse(400, { ok: false, error: "bad_wallet" });
+  }
+  const fingerprint = await requestFingerprint(
+    SERVICE_ROLE_KEY,
+    trustedClientAddress(req.headers),
+  );
+  const { error: rateError } = await admin.rpc("osi_v2_sas_check_verify_rate", {
+    p_request_fingerprint_hash: fingerprint,
+    p_wallet: wallet,
+  });
+  if (rateError) {
+    if (String(rateError.message ?? "").toLowerCase().includes("rate limit")) {
+      return jsonResponse(429, { ok: false, error: "rate_limited" });
+    }
+    return jsonResponse(503, { ok: false, error: "sas_verify_unavailable" });
+  }
+  const result = await publicVerify(admin, wallet);
+  return jsonResponse(200, result);
+}
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return jsonResponse(405, { ok: false, error: "method_not_allowed" });
@@ -155,6 +184,9 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(400, { ok: false, error: "bad_json" });
   }
 
+  if (body.mode === "sas_verify") {
+    return await sasVerify(req, body);
+  }
   if (body.mode !== "issue_nonce") {
     return jsonResponse(400, { ok: false, error: "bad_mode" });
   }
