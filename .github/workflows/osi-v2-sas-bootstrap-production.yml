@@ -1,0 +1,295 @@
+name: OSI V2 Bootstrap Governance and SAS Credential Production
+
+# Manual-only rollout for the two additive governance slices that are merged on
+# main but not yet applied to production:
+#   * 20260716063000_osi_v2_bootstrap_governance.sql (D17 + D18)
+#   * 20260716120000_osi_v2_sas_credential.sql       (D19 Phase 1)
+# and redeployment of the seven Edge Functions those slices touched.
+#
+# SAFETY CONTRACT (mirrors osi-v2-read-session-production.yml):
+#   * workflow_dispatch ONLY, from current main, with a typed confirmation.
+#   * Everything lands fail-closed: OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED
+#     stays false, OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED stays false, and
+#     SAS issuance is a safe no-op until the Step 0 pubkeys are configured in a
+#     separate, explicit follow-up. This workflow never enables a quorum-
+#     affecting behavior and never touches any pre-existing flag.
+#   * Dry-run must contain exactly the two expected versions, in order.
+#   * V1 row counts are snapshotted before and diffed after.
+#   * Secrets are never printed; the issuer secret is only checked for
+#     existence by name.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type BOOTSTRAP-SAS-DEPLOY-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-sas-bootstrap-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  NEW_VERSIONS: "20260716063000 20260716120000"
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean local bootstrap and SAS gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "BOOTSTRAP-SAS-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out exact dispatched commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Verify exact fifteen-migration repository
+        run: |
+          set -euo pipefail
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Repository migration set is not the exact expected fifteen versions."; exit 1; }
+          test -f "supabase/migrations/20260716063000_osi_v2_bootstrap_governance.sql"
+          test -f "supabase/migrations/20260716120000_osi_v2_sas_credential.sql"
+
+      - name: Full Node and touched-function battery
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          deno check supabase/functions/_shared/osi-v2-sas-core.mjs
+          deno check supabase/functions/_shared/osi-v2-sas-onchain.ts
+          deno check supabase/functions/osi-v2-analyst/index.ts
+          deno check supabase/functions/osi-v2-case-read/index.ts
+          deno check supabase/functions/osi-v2-case-write/index.ts
+          deno check supabase/functions/osi-v2-governance-write/index.ts
+          deno check supabase/functions/osi-v2-report-read/index.ts
+          deno check supabase/functions/osi-v2-report-write/index.ts
+          deno check supabase/functions/osi-v2-proof/index.ts
+
+      - name: Fresh PostgreSQL 17 migration lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Fresh local migration history is not exact."; exit 1; }
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard disposable local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact migrations functions smoke and verify
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Verify credentials project and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "::error::Validated commit is no longer current main."; exit 1; }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot V1 counts and all existing feature flags
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          for key in OSI_V2_WRITES_ENABLED OSI_V2_PROOF_ENABLED OSI_V2_CASE_WRITES_ENABLED OSI_V2_ANALYST_WRITES_ENABLED OSI_V2_REPORT_WRITES_ENABLED OSI_V2_REPORT_REVIEW_WRITES_ENABLED OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED OSI_V2_PAYMENT_WRITES_ENABLED OSI_V2_READ_SESSION_ENABLED; do
+            value="$(psql -Atqc "select value from public.osi_config where key='${key}'")"
+            case "$value" in true|false) : ;; *) echo "::error::${key} is absent or malformed."; exit 1 ;; esac
+            echo "${key}_BEFORE=$value" >> "$GITHUB_ENV"
+          done
+
+      - name: Link and verify exact remote migration history
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          before="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          after="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$before" ]; then echo "MODE=deploy" >> "$GITHUB_ENV";
+          elif [ "$got" = "$after" ]; then echo "MODE=resume" >> "$GITHUB_ENV";
+          else echo "::error::Remote history is not the exact before or after state."; exit 1; fi
+
+      - name: Record exact disable and forward-fix plan
+        run: |
+          echo "Everything in this rollout lands fail-closed or inert:"
+          echo "  * OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED ships false; enabling it is a separate explicit step."
+          echo "  * OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED ships false."
+          echo "  * SAS issuance is a logged no-op until the Step 0 pubkeys are configured afterward."
+          echo "Disable plan: set the single relevant flag back to false. Immutable domain data is untouched."
+          echo "No drop, reset, repair, truncation, broad update, or data rewrite is an acceptable rollback."
+
+      - name: Dry-run exactly the two new migrations
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/bootstrap-sas-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/bootstrap-sas-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$NEW_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Dry-run is not exactly the two expected versions."; exit 1; }
+
+      - name: Apply exactly the two additive migrations
+        if: ${{ env.MODE == 'deploy' }}
+        run: supabase db push --linked --yes
+
+      - name: Verify history flags and fail-closed isolation
+        run: |
+          set -euo pipefail
+          [ "$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")" = "$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED'")" = "true" ]
+          [ "$(psql -Atqc "select count(*) from public.osi_config where key in ('OSI_V2_SAS_CREDENTIAL_PUBKEY','OSI_V2_SAS_SCHEMA_PUBKEY','OSI_V2_SAS_ISSUER_PUBKEY')")" = "3" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_PROGRAM_ID'")" = "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG" ]
+          for key in OSI_V2_WRITES_ENABLED OSI_V2_PROOF_ENABLED OSI_V2_CASE_WRITES_ENABLED OSI_V2_ANALYST_WRITES_ENABLED OSI_V2_REPORT_WRITES_ENABLED OSI_V2_REPORT_REVIEW_WRITES_ENABLED OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED OSI_V2_PAYMENT_WRITES_ENABLED OSI_V2_READ_SESSION_ENABLED; do
+            before_name="${key}_BEFORE"; [ "$(psql -Atqc "select value from public.osi_config where key='${key}'")" = "${!before_name}" ]
+          done
+
+      - name: Report issuer and RPC secret existence without values
+        run: |
+          set -euo pipefail
+          secrets="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF")"
+          if echo "$secrets" | grep -q 'OSI_V2_SAS_ISSUER_SECRET'; then
+            echo "OSI_V2_SAS_ISSUER_SECRET: present"
+          else
+            echo "::warning::OSI_V2_SAS_ISSUER_SECRET is absent; issuance stays a safe no-op until it is set."
+          fi
+          if echo "$secrets" | grep -q 'SOLANA_RPC_URL'; then
+            echo "SOLANA_RPC_URL: present"
+          else
+            echo "::warning::SOLANA_RPC_URL is absent; functions fall back to the rate-limited public endpoint."
+          fi
+
+      - name: Deploy exactly the seven touched functions
+        run: |
+          set -euo pipefail
+          for fn in osi-v2-analyst osi-v2-case-read osi-v2-case-write osi-v2-governance-write osi-v2-report-read osi-v2-report-write osi-v2-proof; do
+            supabase functions deploy "$fn" --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          done
+
+      - name: Read-only production smoke
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          origin_header="Origin: ${PRODUCTION_WEB_URL}"
+          wallet='11111111111111111111111111111112'
+          curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_cases"}' > /tmp/public-cases.json
+          if grep -Eq '"(details_restricted|body_private|private_note|signature|nonce)"[[:space:]]*:' /tmp/public-cases.json; then echo "::error::Public response exposed a restricted field."; exit 1; fi
+          session="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "$origin_header" -H 'Content-Type: application/json' -d "{\"op\":\"issue_read_session_challenge\",\"wallet\":\"${wallet}\"}")"
+          echo "$session" | grep -q '"challenge"' || { echo "::error::Read-session challenge regressed."; exit 1; }
+          # The old proof function answered bad_mode here; the new op returns a
+          # program_id in both its unconfigured and configured honest responses.
+          verify="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-proof" -H "$origin_header" -H 'Content-Type: application/json' -d "{\"mode\":\"sas_verify\",\"wallet\":\"${wallet}\"}")"
+          echo "$verify" | grep -q '"program_id"' || { echo "::error::sas_verify op is not live on the deployed proof function."; exit 1; }
+          echo "$verify" | grep -q '"valid":false' || { echo "::error::sas_verify claimed validity for a wallet with no credential."; exit 1; }
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          diff -u /tmp/v1-before.txt /tmp/v1-after.txt
