@@ -39,7 +39,7 @@ import {
   readSessionIssuer,
   verifyReadSessionToken,
 } from "../_shared/osi-v2-read-session-core.mjs";
-import { maybeReconcileSasCredential } from "../_shared/osi-v2-sas-onchain.ts";
+import { maybeReconcileSasCredential } from "../_shared/osi-v2-sas-issuer.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
