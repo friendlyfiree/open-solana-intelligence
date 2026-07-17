@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>OSI SAS Setup (maintainer one-time tool)</title>
+<style>
+  /* This is a standalone maintainer utility. It deliberately does NOT use the
+     OSI product design system. Keep it plain, legible, and self-contained. */
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    max-width: 820px; margin-inline: auto;
+    background: #10131a; color: #e8eaf0;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 28px 0 8px; }
+  .sub { color: #97a0b3; margin: 0 0 20px; }
+  .card { background: #191d27; border: 1px solid #2a2f3d; border-radius: 10px; padding: 18px; margin: 14px 0; }
+  .step-num { display: inline-block; min-width: 24px; height: 24px; line-height: 24px; text-align: center;
+    border-radius: 50%; background: #2a2f3d; margin-right: 8px; font-weight: 600; }
+  label { display: block; font-weight: 600; margin: 10px 0 4px; }
+  input[type=text] { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #39415a;
+    background: #0d1017; color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  button { appearance: none; border: 0; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 600;
+    cursor: pointer; background: #3d63ff; color: #fff; min-height: 42px; }
+  button.secondary { background: #2a2f3d; color: #e8eaf0; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; word-break: break-all; }
+  a { color: #7f9bff; }
+  .out { background: #0d1017; border: 1px solid #2a2f3d; border-radius: 8px; padding: 12px; margin-top: 10px;
+    white-space: pre-wrap; word-break: break-all; }
+  .ok { color: #5bd68a; } .err { color: #ff7a7a; } .warn { color: #ffcf6b; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #2a2f3d; }
+  .banner { border-left: 3px solid #ffcf6b; padding: 10px 14px; background: #221d12; border-radius: 6px; margin: 14px 0; }
+  .kv { margin: 6px 0; }
+  .kv b { color: #97a0b3; font-weight: 600; }
+  hr { border: 0; border-top: 1px solid #2a2f3d; margin: 22px 0; }
+  .foot { color: #6b7385; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>OSI SAS Setup <span class="pill">maintainer one-time tool</span></h1>
+  <p class="sub">
+    Creates the two on-chain accounts that the <code>OSI_VERIFIED_ANALYST</code> credential
+    is built on: the OSI <b>Credential</b> account and the <b>Schema</b> account under it, on
+    <b>Solana mainnet</b>, via the Solana Attestation Service (program
+    <code>22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG</code>, SDK <code>sas-lib</code>).
+  </p>
+
+  <div class="banner">
+    <b>Read before you sign.</b> This page never asks for, holds, stores, or transmits a private key.
+    Each action is one normal Phantom approval that you perform by hand, exactly once. Connect the
+    <b>configured OSI maintainer wallet only</b> (it becomes the credential authority / issuer, and
+    it pays the small rent for the two accounts). No name, case data, or personal information is
+    written on chain: the schema carries only integer tier/status codes.
+  </div>
+
+  <div class="card">
+    <h2>Configuration</h2>
+    <label for="rpc">Mainnet RPC URL</label>
+    <input id="rpc" type="text" value="https://api.mainnet-beta.solana.com"
+      spellcheck="false" autocomplete="off" />
+    <p class="foot">A public endpoint works for two transactions but may rate-limit. Paste your own
+      (e.g. QuickNode) mainnet endpoint for reliability. This URL is used only from your browser.</p>
+
+    <label for="credName">Credential name</label>
+    <input id="credName" type="text" value="OSI" spellcheck="false" autocomplete="off" />
+
+    <label for="schemaName">Schema name</label>
+    <input id="schemaName" type="text" value="OSI_VERIFIED_ANALYST" spellcheck="false" autocomplete="off" />
+
+    <label for="schemaVersion">Schema version</label>
+    <input id="schemaVersion" type="text" value="1" spellcheck="false" autocomplete="off" />
+
+    <p class="foot">Schema fields are fixed and minimal: <code>tier</code> (u8) and
+      <code>status</code> (u8). No free-text, no PII.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">1</span>Connect Phantom</h2>
+    <button id="btnConnect">Connect Phantom</button>
+    <div id="outConnect" class="out">Not connected.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span>Preview derived addresses (no signature)</h2>
+    <p class="foot">Derives the exact Credential and Schema account addresses from the connected
+      wallet + names above, so you can confirm them before spending anything. These accounts will
+      not exist on chain until you sign in steps 3 and 4.</p>
+    <button id="btnDerive" class="secondary" disabled>Derive addresses</button>
+    <div id="outDerive" class="out">Connect first.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">3</span>Create the OSI Credential account (mainnet signature)</h2>
+    <button id="btnCredential" disabled>Sign: create Credential</button>
+    <div id="outCredential" class="out">Derive addresses first.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">4</span>Define the OSI_VERIFIED_ANALYST Schema account (mainnet signature)</h2>
+    <button id="btnSchema" disabled>Sign: create Schema</button>
+    <div id="outSchema" class="out">Create the Credential first.</div>
+  </div>
+
+  <hr />
+  <div class="card">
+    <h2>Record these values</h2>
+    <p class="foot">After both signatures confirm, copy the block below into
+      <code>osi_config</code> (they are public on-chain addresses, not secrets) and paste the two
+      Solscan links back to the engineer for the handoff.</p>
+    <div id="outFinal" class="out">Pending both signatures.</div>
+  </div>
+
+  <p class="foot">Program: Solana Attestation Service · This tool is intentionally excluded from
+    search engines and from the OSI product shell.</p>
+
+<script type="module">
+  // sas-lib produces @solana/kit instructions ({ programAddress, accounts:[{address,role}], data:Uint8Array }).
+  // Phantom's provider signs @solana/web3.js v1 transactions. We build instructions with sas-lib
+  // (authoritative SAS encoding) and bridge them into a v1 Transaction for Phantom to sign+send.
+  import * as web3 from "https://esm.sh/@solana/web3.js@1.98.0";
+  import { Buffer as BufferPoly } from "https://esm.sh/buffer@6.0.3";
+  import {
+    deriveCredentialPda,
+    deriveSchemaPda,
+    getCreateCredentialInstruction,
+    getCreateSchemaInstruction,
+    SOLANA_ATTESTATION_SERVICE_PROGRAM_ADDRESS,
+  } from "https://esm.sh/sas-lib@1.0.10";
+
+  if (!globalThis.Buffer) globalThis.Buffer = BufferPoly;
+
+  const $ = (id) => document.getElementById(id);
+  const SOLSCAN_ACC = (a) => `https://solscan.io/account/${a}`;
+  const SOLSCAN_TX = (s) => `https://solscan.io/tx/${s}`;
+
+  // @solana/kit AccountRole: READONLY=0, WRITABLE=1, READONLY_SIGNER=2, WRITABLE_SIGNER=3.
+  const isSigner = (role) => role === 2 || role === 3;
+  const isWritable = (role) => role === 1 || role === 3;
+
+  function kitToV1(ix) {
+    return new web3.TransactionInstruction({
+      programId: new web3.PublicKey(String(ix.programAddress)),
+      keys: (ix.accounts || []).map((a) => ({
+        pubkey: new web3.PublicKey(String(a.address)),
+        isSigner: isSigner(a.role),
+        isWritable: isWritable(a.role),
+      })),
+      data: globalThis.Buffer.from(ix.data || new Uint8Array()),
+    });
+  }
+
+  function provider() {
+    const p = window.phantom?.solana ?? window.solana;
+    if (!p || !p.isPhantom) throw new Error("Phantom wallet not found. Install/enable Phantom, then reload.");
+    return p;
+  }
+
+  const state = {
+    wallet: null,        // web3.PublicKey
+    walletStr: null,     // base58 string (kit Address at runtime is just the string)
+    credentialPda: null, // string
+    schemaPda: null,     // string
+    credentialSig: null,
+    schemaSig: null,
+  };
+
+  function setOut(el, text, cls) {
+    el.className = "out" + (cls ? " " + cls : "");
+    el.textContent = text;
+  }
+  function setHtml(el, html) { el.className = "out"; el.innerHTML = html; }
+
+  async function connection() {
+    const url = $("rpc").value.trim();
+    if (!/^https:\/\//i.test(url)) throw new Error("RPC URL must be https://");
+    return new web3.Connection(url, "confirmed");
+  }
+
+  // Both payer and authority are the connected maintainer wallet. sas-lib's codegen
+  // instruction builders only read `.address` off a signer at build time (no signing),
+  // so a minimal { address } object is sufficient; Phantom provides the real signature.
+  function signer() { return { address: state.walletStr }; }
+
+  $("btnConnect").onclick = async () => {
+    const el = $("outConnect");
+    try {
+      setOut(el, "Requesting connection...");
+      const res = await provider().connect();
+      const pk = res?.publicKey ?? provider().publicKey;
+      state.wallet = new web3.PublicKey(pk.toString());
+      state.walletStr = state.wallet.toBase58();
+      setHtml(el, `<span class="ok">Connected.</span><div class="kv"><b>Maintainer wallet:</b> ` +
+        `<span class="mono">${state.walletStr}</span></div>` +
+        `<div class="foot">Confirm this is the configured OSI maintainer wallet before signing anything.</div>`);
+      $("btnDerive").disabled = false;
+    } catch (e) {
+      setOut(el, "Connect failed: " + (e?.message || e), "err");
+    }
+  };
+
+  $("btnDerive").onclick = async () => {
+    const el = $("outDerive");
+    try {
+      setOut(el, "Deriving...");
+      const credName = $("credName").value.trim();
+      const schemaName = $("schemaName").value.trim();
+      const version = Number($("schemaVersion").value.trim());
+      if (!credName || !schemaName || !Number.isInteger(version) || version < 1) {
+        throw new Error("Fill in credential name, schema name, and an integer version >= 1.");
+      }
+      const [credentialPda] = await deriveCredentialPda({ authority: state.walletStr, name: credName });
+      const [schemaPda] = await deriveSchemaPda({ credential: credentialPda, name: schemaName, version });
+      state.credentialPda = String(credentialPda);
+      state.schemaPda = String(schemaPda);
+      setHtml(el,
+        `<div class="kv"><b>SAS program:</b> <span class="mono">${String(SOLANA_ATTESTATION_SERVICE_PROGRAM_ADDRESS)}</span></div>` +
+        `<div class="kv"><b>Credential PDA:</b> <span class="mono">${state.credentialPda}</span> ` +
+        `<a href="${SOLSCAN_ACC(state.credentialPda)}" target="_blank" rel="noopener">Solscan</a></div>` +
+        `<div class="kv"><b>Schema PDA:</b> <span class="mono">${state.schemaPda}</span> ` +
+        `<a href="${SOLSCAN_ACC(state.schemaPda)}" target="_blank" rel="noopener">Solscan</a></div>` +
+        `<div class="foot warn">These Solscan pages will read "account not found" until you sign steps 3 and 4.</div>`);
+      $("btnCredential").disabled = false;
+      setOut($("outCredential"), "Ready. Click to sign the Credential creation.");
+    } catch (e) {
+      setOut(el, "Derive failed: " + (e?.message || e), "err");
+    }
+  };
+
+  async function signSend(instruction) {
+    const conn = await connection();
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("finalized");
+    const tx = new web3.Transaction({ feePayer: state.wallet, blockhash, lastValidBlockHeight });
+    tx.add(kitToV1(instruction));
+    const signed = await provider().signAndSendTransaction(tx);
+    const signature = signed?.signature ?? signed;
+    await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+    return signature;
+  }
+
+  $("btnCredential").onclick = async () => {
+    const el = $("outCredential");
+    try {
+      $("btnCredential").disabled = true;
+      setOut(el, "Building and requesting Phantom approval...");
+      const ix = getCreateCredentialInstruction({
+        payer: signer(),
+        credential: state.credentialPda,
+        authority: signer(),
+        name: $("credName").value.trim(),
+        // Authorized signer(s) for future attestation issuance = the maintainer issuer authority.
+        signers: [state.walletStr],
+      });
+      const sig = await signSend(ix);
+      state.credentialSig = sig;
+      setHtml(el, `<span class="ok">Credential created.</span>` +
+        `<div class="kv"><b>Credential pubkey:</b> <span class="mono">${state.credentialPda}</span> ` +
+        `<a href="${SOLSCAN_ACC(state.credentialPda)}" target="_blank" rel="noopener">Solscan account</a></div>` +
+        `<div class="kv"><b>Transaction:</b> <span class="mono">${sig}</span> ` +
+        `<a href="${SOLSCAN_TX(sig)}" target="_blank" rel="noopener">Solscan tx</a></div>`);
+      $("btnSchema").disabled = false;
+      setOut($("outSchema"), "Ready. Click to sign the Schema creation.");
+      renderFinal();
+    } catch (e) {
+      setOut(el, "Credential creation failed: " + (e?.message || e), "err");
+      $("btnCredential").disabled = false;
+    }
+  };
+
+  $("btnSchema").onclick = async () => {
+    const el = $("outSchema");
+    try {
+      $("btnSchema").disabled = true;
+      setOut(el, "Building and requesting Phantom approval...");
+      const ix = getCreateSchemaInstruction({
+        payer: signer(),
+        authority: signer(),
+        credential: state.credentialPda,
+        schema: state.schemaPda,
+        name: $("schemaName").value.trim(),
+        description: "OSI verified analyst review-authority tier/status. No PII, no case data.",
+        // Layout codes: u8=0. Two fields, both u8. fieldNames pairs 1:1 with layout.
+        layout: new Uint8Array([0, 0]),
+        fieldNames: ["tier", "status"],
+      });
+      const sig = await signSend(ix);
+      state.schemaSig = sig;
+      setHtml(el, `<span class="ok">Schema created.</span>` +
+        `<div class="kv"><b>Schema pubkey:</b> <span class="mono">${state.schemaPda}</span> ` +
+        `<a href="${SOLSCAN_ACC(state.schemaPda)}" target="_blank" rel="noopener">Solscan account</a></div>` +
+        `<div class="kv"><b>Transaction:</b> <span class="mono">${sig}</span> ` +
+        `<a href="${SOLSCAN_TX(sig)}" target="_blank" rel="noopener">Solscan tx</a></div>`);
+      renderFinal();
+    } catch (e) {
+      setOut(el, "Schema creation failed: " + (e?.message || e), "err");
+      $("btnSchema").disabled = false;
+    }
+  };
+
+  function renderFinal() {
+    if (!state.credentialSig && !state.schemaSig) return;
+    const lines = [];
+    lines.push("# osi_config values (public on-chain addresses, not secrets)");
+    lines.push(`OSI_V2_SAS_ISSUER_PUBKEY   = ${state.walletStr || "(connect wallet)"}`);
+    lines.push(`OSI_V2_SAS_CREDENTIAL_PUBKEY = ${state.credentialPda || "(pending)"}`);
+    lines.push(`OSI_V2_SAS_SCHEMA_PUBKEY     = ${state.schemaPda || "(pending)"}`);
+    lines.push("");
+    lines.push("# Solscan links for the handoff");
+    if (state.credentialPda) lines.push(`Credential account: ${SOLSCAN_ACC(state.credentialPda)}`);
+    if (state.credentialSig) lines.push(`Credential tx:      ${SOLSCAN_TX(state.credentialSig)}`);
+    if (state.schemaPda) lines.push(`Schema account:     ${SOLSCAN_ACC(state.schemaPda)}`);
+    if (state.schemaSig) lines.push(`Schema tx:          ${SOLSCAN_TX(state.schemaSig)}`);
+    setOut($("outFinal"), lines.join("\n"), state.credentialSig && state.schemaSig ? "ok" : "warn");
+  }
+</script>
+</body>
+</html>

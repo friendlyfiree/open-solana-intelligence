@@ -23,6 +23,8 @@ import {
   validateGovernanceProofText,
   validateGovernanceTargetRef,
 } from "../_shared/osi-v2-governance-core.mjs";
+import { reviewKindForGovernanceAction } from "../_shared/osi-v2-sas-core.mjs";
+import { resolveReviewIdByReceipt, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -328,6 +330,14 @@ async function commit(req: Request, body: Row): Promise<Response> {
   });
   if (error || !data?.[0]) return rpcFailure(error);
   const committed = data[0];
+  // D19 Step 3: best-effort shadow validation of the just-committed analyst
+  // review. The receipt is already durably recorded above; this only records
+  // SAS telemetry and never affects the commit or its response.
+  const reviewKind = reviewKindForGovernanceAction(action);
+  if (reviewKind && committed.receipt_id) {
+    const reviewId = await resolveReviewIdByReceipt(admin, reviewKind, committed.receipt_id);
+    await runShadowValidation(admin, { reviewKind, reviewId, wallet });
+  }
   const bootstrapChannel =
     bound.binding_context?.server_binding?.decision_channel === "maintainer_bootstrap";
   return jsonResponse(200, {

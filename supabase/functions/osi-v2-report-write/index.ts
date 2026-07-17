@@ -25,6 +25,7 @@ import {
   validateReportIdempotencyKey,
   validateReportMemoBinding,
 } from "../_shared/osi-v2-report-core.mjs";
+import { resolveReviewIdByPublicRef, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
 import { maintainerGate } from "../_shared/osi-v2-case-write-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -502,6 +503,9 @@ async function commitReview(body: Row): Promise<Response> {
   });
   if (error || !data?.[0]) return rpcFailure(error, true);
   const committed = data[0];
+  // D19 Step 3: best-effort SAS shadow validation of the committed report review.
+  const reviewId = await resolveReviewIdByPublicRef(admin, "case_report", committed.review_public_ref);
+  await runShadowValidation(admin, { reviewKind: "case_report", reviewId, wallet });
   return jsonResponse(200, {
     ok: true,
     case_public_ref: committed.case_public_ref,

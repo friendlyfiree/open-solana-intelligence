@@ -23,6 +23,7 @@ import {
   validateConfirmedMemoTransaction,
   validateIdempotencyKey,
 } from "../_shared/osi-v2-case-write-core.mjs";
+import { resolveReviewIdByPublicRef, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -387,6 +388,12 @@ async function commitReview(req: Request, body: Row): Promise<Response> {
     p_actor_role: actor.role, p_decision: input.decision, p_reason_code: input.reason_code,
   });
   if (error || !data?.[0]) return rpcFailure(error);
+  // D19 Step 3: best-effort SAS shadow validation for genuine analyst reviews.
+  // Maintainer (bootstrap) reviews are never subject to the credential gate.
+  if (actor.role !== "maintainer") {
+    const reviewId = await resolveReviewIdByPublicRef(admin, "case_initial", data[0].public_ref);
+    await runShadowValidation(admin, { reviewKind: "case_initial", reviewId, wallet });
+  }
   return jsonResponse(200, {
     ok: true, public_ref: data[0].public_ref, actor_role: actor.role,
     analyst_ready: data[0].analyst_ready === true,

@@ -39,6 +39,7 @@ import {
   readSessionIssuer,
   verifyReadSessionToken,
 } from "../_shared/osi-v2-read-session-core.mjs";
+import { maybeReconcileSasCredential } from "../_shared/osi-v2-sas-onchain.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -592,6 +593,13 @@ async function commitActivation(req: Request, body: Row): Promise<Response> {
     p_memo_ref: memo, p_occurred_at: (chain as { occurred_at: string }).occurred_at,
   });
   if (error || !data?.[0]) return rpcFailure(error);
+  // D19 Step 1: additive, best-effort SAS credential reconciliation. Analyst
+  // activation (DB state + Memo) has already succeeded above; this never blocks
+  // or fails the activation and is a logged no-op until Step 0 pubkeys exist.
+  await maybeReconcileSasCredential(admin, {
+    wallet: data[0].analyst_wallet,
+    status: data[0].status,
+  });
   return jsonResponse(200, {
     ok: true,
     analyst: {
