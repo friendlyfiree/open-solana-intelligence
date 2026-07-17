@@ -23,7 +23,7 @@
   .step-num { display: inline-block; min-width: 24px; height: 24px; line-height: 24px; text-align: center;
     border-radius: 50%; background: #2a2f3d; margin-right: 8px; font-weight: 600; }
   label { display: block; font-weight: 600; margin: 10px 0 4px; }
-  input[type=text] { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #39415a;
+  input[type=text], textarea { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #39415a;
     background: #0d1017; color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
   button { appearance: none; border: 0; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 600;
     cursor: pointer; background: #3d63ff; color: #fff; min-height: 42px; }
@@ -49,14 +49,25 @@
     is built on: the OSI <b>Credential</b> account and the <b>Schema</b> account under it, on
     <b>Solana mainnet</b>, via the Solana Attestation Service (program
     <code>22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG</code>, SDK <code>sas-lib</code>).
+    It also creates the dedicated low-privilege issuer key the server later uses for
+    automated issuance.
   </p>
 
   <div class="banner">
-    <b>Read before you sign.</b> This page never asks for, holds, stores, or transmits a private key.
-    Each action is one normal Phantom approval that you perform by hand, exactly once. Connect the
-    <b>configured OSI maintainer wallet only</b> (it becomes the credential authority / issuer, and
-    it pays the small rent for the two accounts). No name, case data, or personal information is
-    written on chain: the schema carries only integer tier/status codes.
+    <b>Read before you sign.</b> This page never asks for, holds, stores, or transmits your
+    wallet's private key. Each on-chain action is one normal Phantom approval that you perform by
+    hand, exactly once. Connect the <b>configured OSI maintainer wallet only</b> (it becomes the
+    credential authority and pays the small rent for the two accounts). No name, case data, or
+    personal information is written on chain: the schema carries only integer tier/status codes.
+    <br /><br />
+    <b>Two keys, two jobs.</b> Your maintainer wallet is the credential authority: it signs by
+    hand in Phantom and its secret key must never be typed, exported, or stored anywhere, not
+    even on OSI's own server. Automated day-to-day issuance instead uses the separate dedicated
+    issuer key created in step 2: a low-privilege key whose only job is signing
+    OSI_VERIFIED_ANALYST credential issue/revoke transactions, and the only secret this page
+    ever shows. That dedicated secret is the only key that ever goes on the server, so if the
+    server is ever compromised your wallet, your governance authority, and your funds are not,
+    and the issuer key can be replaced from your wallet at any time.
   </div>
 
   <div class="card">
@@ -87,22 +98,46 @@
   </div>
 
   <div class="card">
-    <h2><span class="step-num">2</span>Preview derived addresses (no signature)</h2>
+    <h2><span class="step-num">2</span>Create the dedicated issuer key (browser-only, no signature)</h2>
+    <p class="foot">The server needs a key of its own to sign automatic credential issuance
+      whenever an analyst is approved. That must never be your maintainer wallet key. This step
+      creates a fresh, dedicated keypair inside your browser using the browser's own secure
+      random generator. It is not derived from your wallet, is never fetched from any server,
+      and never leaves this page.</p>
+    <button id="btnGenerateIssuer" class="secondary">Generate dedicated issuer key</button>
+    <div id="outIssuer" class="out">Not generated yet.</div>
+    <label for="issuerPaste">Ran this tool before? Paste that run's dedicated issuer PUBLIC key instead</label>
+    <input id="issuerPaste" type="text" placeholder="Existing dedicated issuer public key (base58)"
+      spellcheck="false" autocomplete="off" />
+    <button id="btnUsePastedIssuer" class="secondary">Use pasted public key</button>
+    <p class="foot">Fund the issuer once: send a small amount of SOL (about 0.05 SOL is plenty to
+      start) from your maintainer wallet to the issuer pubkey above. The issuer pays the network
+      fee and a small refundable account deposit each time a credential is issued. This is a
+      normal, visible Phantom transfer, separate from the two setup transactions below; you can
+      send it yourself in Phantom or use this button.</p>
+    <label for="fundAmount">Funding amount (SOL)</label>
+    <input id="fundAmount" type="text" value="0.05" spellcheck="false" autocomplete="off" />
+    <button id="btnFund" class="secondary" disabled>Send funding with Phantom</button>
+    <div id="outFund" class="out">Connect Phantom and create or paste the issuer key first.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">3</span>Preview derived addresses (no signature)</h2>
     <p class="foot">Derives the exact Credential and Schema account addresses from the connected
       wallet + names above, so you can confirm them before spending anything. These accounts will
-      not exist on chain until you sign in steps 3 and 4.</p>
+      not exist on chain until you sign in steps 4 and 5.</p>
     <button id="btnDerive" class="secondary" disabled>Derive addresses</button>
     <div id="outDerive" class="out">Connect first.</div>
   </div>
 
   <div class="card">
-    <h2><span class="step-num">3</span>Create the OSI Credential account (mainnet signature)</h2>
+    <h2><span class="step-num">4</span>Create the OSI Credential account (mainnet signature)</h2>
     <button id="btnCredential" disabled>Sign: create Credential</button>
     <div id="outCredential" class="out">Derive addresses first.</div>
   </div>
 
   <div class="card">
-    <h2><span class="step-num">4</span>Define the OSI_VERIFIED_ANALYST Schema account (mainnet signature)</h2>
+    <h2><span class="step-num">5</span>Define the OSI_VERIFIED_ANALYST Schema account (mainnet signature)</h2>
     <button id="btnSchema" disabled>Sign: create Schema</button>
     <div id="outSchema" class="out">Create the Credential first.</div>
   </div>
@@ -111,8 +146,10 @@
   <div class="card">
     <h2>Record these values</h2>
     <p class="foot">After both signatures confirm, copy the block below into
-      <code>osi_config</code> (they are public on-chain addresses, not secrets) and paste the two
-      Solscan links back to the engineer for the handoff.</p>
+      <code>osi_config</code> (these are public on-chain addresses, not secrets; the issuer
+      pubkey identifies the dedicated key from step 2) and paste the two Solscan links back to
+      the engineer for the handoff. The issuer SECRET key is never part of this block: it goes
+      only into the <code>OSI_V2_SAS_ISSUER_SECRET</code> Supabase Edge Function secret.</p>
     <div id="outFinal" class="out">Pending both signatures.</div>
   </div>
 
@@ -164,17 +201,40 @@
   const state = {
     wallet: null,        // web3.PublicKey
     walletStr: null,     // base58 string (kit Address at runtime is just the string)
+    issuerPubkey: null,  // dedicated low-privilege issuer pubkey (string); its
+                         // secret is NEVER kept in state, only shown once in the DOM
     credentialPda: null, // string
     schemaPda: null,     // string
     credentialSig: null,
     schemaSig: null,
+    fundSig: null,
   };
+
+  const PUBKEY_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
   function setOut(el, text, cls) {
     el.className = "out" + (cls ? " " + cls : "");
     el.textContent = text;
   }
   function setHtml(el, html) { el.className = "out"; el.innerHTML = html; }
+
+  // Steps 2 (funding) and 4 (Credential) both depend on the dedicated issuer key.
+  function updateIssuerDependentButtons() {
+    $("btnFund").disabled = !(state.wallet && state.issuerPubkey);
+    if (state.wallet && state.issuerPubkey && !state.fundSig) {
+      setOut($("outFund"), "Ready. Sending is one normal Phantom approval.");
+    }
+    if (!state.credentialSig) {
+      const credReady = Boolean(state.credentialPda && state.issuerPubkey);
+      $("btnCredential").disabled = !credReady;
+      if (credReady) {
+        setOut($("outCredential"), "Ready. Click to sign the Credential creation. " +
+          "Authorized signers: your maintainer wallet plus the dedicated issuer.");
+      } else if (state.credentialPda) {
+        setOut($("outCredential"), "Create or paste the dedicated issuer key (step 2) first.");
+      }
+    }
+  }
 
   async function connection() {
     const url = $("rpc").value.trim();
@@ -199,8 +259,107 @@
         `<span class="mono">${state.walletStr}</span></div>` +
         `<div class="foot">Confirm this is the configured OSI maintainer wallet before signing anything.</div>`);
       $("btnDerive").disabled = false;
+      updateIssuerDependentButtons();
     } catch (e) {
       setOut(el, "Connect failed: " + (e?.message || e), "err");
+    }
+  };
+
+  $("btnGenerateIssuer").onclick = () => {
+    const el = $("outIssuer");
+    try {
+      if (state.issuerPubkey
+          && !confirm("Replace the current dedicated issuer key? A previous secret can never be shown again.")) {
+        return;
+      }
+      // A fresh, dedicated keypair from the browser's own CSPRNG. It is completely
+      // independent of the connected wallet. The secret is rendered once below and
+      // is never stored in state, logged, or sent to any endpoint.
+      const keypair = web3.Keypair.generate();
+      const pubkey = keypair.publicKey.toBase58();
+      const secretJson = JSON.stringify(Array.from(keypair.secretKey));
+      state.issuerPubkey = pubkey;
+      setHtml(el,
+        `<div class="kv"><b>Dedicated issuer pubkey (safe to store server-side):</b> ` +
+        `<span class="mono">${pubkey}</span></div>` +
+        `<div class="kv"><b class="warn">Dedicated issuer SECRET key. This is the only time it will ever be shown.</b></div>` +
+        `<textarea id="issuerSecretField" rows="3" readonly spellcheck="false"></textarea>` +
+        `<div style="margin-top:8px">` +
+        `<button id="btnCopyIssuerSecret" class="secondary">Copy secret</button> ` +
+        `<button id="btnClearIssuerSecret" class="secondary">I stored it. Clear from this page</button>` +
+        `</div>` +
+        `<div class="foot err" style="margin-top:8px">Copy it now and store it ONLY as the ` +
+        `OSI_V2_SAS_ISSUER_SECRET Supabase Edge Function secret. Do not put it in a note app, ` +
+        `a chat, an email, osi_config, or git. This page keeps no copy: closing or refreshing ` +
+        `loses it forever, and only the public key is ever recorded anywhere else.</div>`);
+      $("issuerSecretField").value = secretJson;
+      $("btnCopyIssuerSecret").onclick = async () => {
+        const field = $("issuerSecretField");
+        try {
+          await navigator.clipboard.writeText(field.value);
+          $("btnCopyIssuerSecret").textContent = "Copied";
+        } catch {
+          field.focus();
+          field.select();
+        }
+      };
+      $("btnClearIssuerSecret").onclick = () => {
+        if (!confirm("Confirm the secret is already stored as the OSI_V2_SAS_ISSUER_SECRET " +
+            "Supabase secret. It can never be shown again.")) return;
+        setOut(el, "Dedicated issuer pubkey: " + state.issuerPubkey +
+          "\nSecret cleared from this page. It now lives only in the Supabase secret store.", "ok");
+      };
+      updateIssuerDependentButtons();
+    } catch (e) {
+      setOut(el, "Key generation failed: " + (e?.message || e), "err");
+    }
+  };
+
+  $("btnUsePastedIssuer").onclick = () => {
+    const el = $("outIssuer");
+    const pasted = $("issuerPaste").value.trim();
+    if (!PUBKEY_RE.test(pasted)) {
+      setOut(el, "That does not look like a valid base58 public key.", "err");
+      return;
+    }
+    if (state.walletStr && pasted === state.walletStr) {
+      setOut(el, "The dedicated issuer must be a different key from the maintainer wallet.", "err");
+      return;
+    }
+    if (state.issuerPubkey && pasted !== state.issuerPubkey
+        && !confirm("Replace the current dedicated issuer key with the pasted one?")) {
+      return;
+    }
+    state.issuerPubkey = pasted;
+    setOut(el, "Using existing dedicated issuer pubkey: " + pasted +
+      "\nIts secret is not needed here and is never re-entered; it stays only in the Supabase secret store.", "ok");
+    updateIssuerDependentButtons();
+  };
+
+  $("btnFund").onclick = async () => {
+    const el = $("outFund");
+    try {
+      if (!state.wallet) throw new Error("Connect Phantom first.");
+      if (!state.issuerPubkey) throw new Error("Create or paste the dedicated issuer key first.");
+      const amount = Number($("fundAmount").value.trim());
+      if (!Number.isFinite(amount) || amount < 0.001 || amount > 0.5) {
+        throw new Error("Enter an amount between 0.001 and 0.5 SOL.");
+      }
+      $("btnFund").disabled = true;
+      setOut(el, "Requesting Phantom approval for the funding transfer...");
+      const sig = await signSendV1(web3.SystemProgram.transfer({
+        fromPubkey: state.wallet,
+        toPubkey: new web3.PublicKey(state.issuerPubkey),
+        lamports: Math.round(amount * 1_000_000_000),
+      }));
+      state.fundSig = sig;
+      setHtml(el, `<span class="ok">Funding sent to the dedicated issuer.</span>` +
+        `<div class="kv"><b>Transaction:</b> <span class="mono">${sig}</span> ` +
+        `<a href="${SOLSCAN_TX(sig)}" target="_blank" rel="noopener">Solscan tx</a></div>`);
+    } catch (e) {
+      setOut(el, "Funding failed: " + (e?.message || e), "err");
+    } finally {
+      $("btnFund").disabled = !(state.wallet && state.issuerPubkey);
     }
   };
 
@@ -224,28 +383,37 @@
         `<a href="${SOLSCAN_ACC(state.credentialPda)}" target="_blank" rel="noopener">Solscan</a></div>` +
         `<div class="kv"><b>Schema PDA:</b> <span class="mono">${state.schemaPda}</span> ` +
         `<a href="${SOLSCAN_ACC(state.schemaPda)}" target="_blank" rel="noopener">Solscan</a></div>` +
-        `<div class="foot warn">These Solscan pages will read "account not found" until you sign steps 3 and 4.</div>`);
-      $("btnCredential").disabled = false;
-      setOut($("outCredential"), "Ready. Click to sign the Credential creation.");
+        `<div class="foot warn">These Solscan pages will read "account not found" until you sign steps 4 and 5.</div>`);
+      updateIssuerDependentButtons();
     } catch (e) {
       setOut(el, "Derive failed: " + (e?.message || e), "err");
     }
   };
 
-  async function signSend(instruction) {
+  async function signSendV1(instructionV1) {
     const conn = await connection();
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("finalized");
     const tx = new web3.Transaction({ feePayer: state.wallet, blockhash, lastValidBlockHeight });
-    tx.add(kitToV1(instruction));
+    tx.add(instructionV1);
     const signed = await provider().signAndSendTransaction(tx);
     const signature = signed?.signature ?? signed;
     await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
     return signature;
   }
 
+  async function signSend(instruction) {
+    return await signSendV1(kitToV1(instruction));
+  }
+
   $("btnCredential").onclick = async () => {
     const el = $("outCredential");
     try {
+      if (!state.issuerPubkey) {
+        throw new Error("Create or paste the dedicated issuer key (step 2) first.");
+      }
+      if (state.issuerPubkey === state.walletStr) {
+        throw new Error("The dedicated issuer must be a different key from the maintainer wallet.");
+      }
       $("btnCredential").disabled = true;
       setOut(el, "Building and requesting Phantom approval...");
       const ix = getCreateCredentialInstruction({
@@ -253,14 +421,18 @@
         credential: state.credentialPda,
         authority: signer(),
         name: $("credName").value.trim(),
-        // Authorized signer(s) for future attestation issuance = the maintainer issuer authority.
-        signers: [state.walletStr],
+        // Authorized signers for future attestation issuance: the maintainer wallet
+        // (manual issue/revoke/rotation from Phantom; its key is never exported) plus
+        // the dedicated low-privilege issuer key (automated server-side issuance).
+        signers: [state.walletStr, state.issuerPubkey],
       });
       const sig = await signSend(ix);
       state.credentialSig = sig;
       setHtml(el, `<span class="ok">Credential created.</span>` +
         `<div class="kv"><b>Credential pubkey:</b> <span class="mono">${state.credentialPda}</span> ` +
         `<a href="${SOLSCAN_ACC(state.credentialPda)}" target="_blank" rel="noopener">Solscan account</a></div>` +
+        `<div class="kv"><b>Authorized signers:</b> <span class="mono">${state.walletStr}</span> ` +
+        `(maintainer, manual) + <span class="mono">${state.issuerPubkey}</span> (dedicated issuer, automated)</div>` +
         `<div class="kv"><b>Transaction:</b> <span class="mono">${sig}</span> ` +
         `<a href="${SOLSCAN_TX(sig)}" target="_blank" rel="noopener">Solscan tx</a></div>`);
       $("btnSchema").disabled = false;
@@ -306,9 +478,13 @@
     if (!state.credentialSig && !state.schemaSig) return;
     const lines = [];
     lines.push("# osi_config values (public on-chain addresses, not secrets)");
-    lines.push(`OSI_V2_SAS_ISSUER_PUBKEY   = ${state.walletStr || "(connect wallet)"}`);
+    lines.push(`OSI_V2_SAS_ISSUER_PUBKEY     = ${state.issuerPubkey || "(create the dedicated issuer key in step 2)"}`);
     lines.push(`OSI_V2_SAS_CREDENTIAL_PUBKEY = ${state.credentialPda || "(pending)"}`);
     lines.push(`OSI_V2_SAS_SCHEMA_PUBKEY     = ${state.schemaPda || "(pending)"}`);
+    lines.push("");
+    lines.push("# The issuer pubkey above is the DEDICATED key from step 2, not the maintainer");
+    lines.push("# wallet. Its secret key belongs in exactly one place: the OSI_V2_SAS_ISSUER_SECRET");
+    lines.push("# Supabase Edge Function secret. The maintainer wallet's key is never stored anywhere.");
     lines.push("");
     lines.push("# Solscan links for the handoff");
     if (state.credentialPda) lines.push(`Credential account: ${SOLSCAN_ACC(state.credentialPda)}`);

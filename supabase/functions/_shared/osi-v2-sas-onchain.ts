@@ -3,7 +3,13 @@
 // This module contains the only code that talks to Solana for the SAS credential
 // gate. The decision logic lives in the dependency-free osi-v2-sas-core.mjs; here
 // we derive the attestation PDA, read the account, and (when fully configured)
-// issue/revoke attestations from the maintainer issuer authority.
+// issue/revoke attestations from the dedicated operational issuer authority: a
+// separate, minimally-privileged keypair created by the Step 0 tool whose only
+// power is signing attestation create/close for OSI's one credential. It is
+// NEVER the maintainer wallet; the maintainer wallet's private key must never
+// be placed in any server secret. Verification compares against whichever
+// issuer pubkey osi_config carries (OSI_V2_SAS_ISSUER_PUBKEY), with no
+// assumption that the issuer equals the credential's creator/authority.
 //
 // The Solana SDKs are loaded through COMPUTED dynamic imports so `deno check`
 // never type-checks the remote packages (keeping the CI Deno gate green), and so
@@ -41,6 +47,8 @@ export type SasSettings = {
 };
 
 const RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "";
+// The dedicated low-privilege issuer keypair generated in the browser by the
+// Step 0 tool. This must never be the maintainer wallet's key.
 const ISSUER_SECRET = Deno.env.get("OSI_V2_SAS_ISSUER_SECRET") ?? "";
 
 function computedImport(specifier: string): Promise<Any> {
@@ -391,7 +399,8 @@ export async function maybeReconcileSasCredential(
 }
 
 // Sign + send the actual createAttestation / closeAttestation transaction from
-// the maintainer issuer authority. Uses sas-lib + @solana/kit at runtime only.
+// the dedicated operational issuer key (an authorized signer on the Credential
+// alongside the maintainer wallet). Uses sas-lib + @solana/kit at runtime only.
 // This on-chain write path is exercised manually after Step 0 (no automated
 // coverage is possible without the issuer secret and a mainnet signature).
 async function performOnChainReconcile(
