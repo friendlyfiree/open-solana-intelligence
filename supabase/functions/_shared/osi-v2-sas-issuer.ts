@@ -12,11 +12,19 @@
 import { reconcileIssuance, base58Decode } from "./osi-v2-sas-core.mjs";
 import { fetchSasSettings } from "./osi-v2-sas-onchain.ts";
 import type { SasSettings } from "./osi-v2-sas-onchain.ts";
-import * as sdk from "./osi-v2-sas-sdk.ts";
+import * as sdkModule from "./osi-v2-sas-sdk.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
 type Admin = Any;
+
+// The SDK surface is deliberately used untyped. The shim is @ts-nocheck, but its
+// re-exports still carry the SDK's branded types (Address<...>, transaction
+// message brands) when the checker resolves remote declarations, and those
+// brands reject the plain base58 strings this module passes. Erasing the types
+// here keeps `deno check` deterministic across environments while leaving the
+// static import (and therefore deploy-time bundling) fully intact.
+const sdk = sdkModule as Any;
 
 const RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "";
 // The dedicated low-privilege issuer keypair generated in the browser by the
