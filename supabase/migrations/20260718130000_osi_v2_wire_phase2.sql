@@ -1627,7 +1627,7 @@ begin
         using errcode = '42501';
     end if;
     case_id := gen_random_uuid();
-    case_ref := osi_private.osi_v2_make_public_ref('OSI-', case_id);
+    case_ref := 'OSI-' || upper(substr(replace(case_id::text, '-', ''), 1, 12));
     action_purpose := 'WIRE_PROMOTED';
     action_target_type := 'wire_version';
     action_target_id := version_row.id::text;

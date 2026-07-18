@@ -293,7 +293,8 @@ ok("Wire challenges accept only currently public approved linked evidence",
     && (phase2.match(/evidence_row\.moderation_state <> 'approved'/g) || []).length >= 2);
 ok("promotion creates a private initial-review Case without reward",
   /insert into public\.cases[\s\S]*null, bound\.actor_wallet, 'initial_review', 'private'/i.test(phase2)
-    && phase2.includes("'kind', 'wire_report_version'"));
+    && phase2.includes("'kind', 'wire_report_version'")
+    && phase2.includes("case_ref := 'OSI-' || upper(substr(replace(case_id::text, '-', ''), 1, 12))"));
 ok("publication is the exact evidence visibility boundary",
   /update public\.evidence_items as evidence[\s\S]*set moderation_state = 'approved', is_public = true/i.test(phase2)
     && (phase2.match(/evidence\.is_public = true[\s\S]{0,100}evidence\.moderation_state = 'approved'/g) || []).length >= 2);
