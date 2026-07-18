@@ -144,6 +144,55 @@ const wireFixture = {
   })),
 };
 
+const publicWireListItem = {
+  wire_report_public_ref: WIRE_REPORT_REF,
+  version_public_ref: WIRE_VERSION_REF,
+  version_no: 1,
+  title: 'Published Wire governance fixture',
+  summary: 'A reviewed standalone finding remains attributable, challengeable, and exact-version bound.',
+  author: { wallet: OTHER, handle: 'wire-author', display_name: 'Wire author fixture' },
+  evidence_count: 1, review_count: 2, challenge_count: 1,
+  support_lamports: '100000000', promoted: true, is_current_published: true,
+  challenge_state: 'challenge_upheld_under_re_review',
+  publication_channel: 'maintainer_bootstrap', published_at: iso(-2),
+  publication_proof: { event_type: 'WIRE_REPORT_PUBLISHED', label: 'Memo-anchored on Solana', proof_type: 'solana_memo', tx_sig: TX, occurred_at: iso(-2), decision_channel: 'maintainer_bootstrap' },
+  proof_log: [
+    { event_type: 'WIRE_REPORT_REVIEW_CAST', label: 'Wallet-signed and server-verified', proof_type: 'wallet_signed_server_verified', actor_wallet: WALLET, actor_role: 'analyst', decision: 'approve', weight: 1.5, occurred_at: iso(-3) },
+    { event_type: 'WIRE_REPORT_PUBLISHED', label: 'Memo-anchored on Solana', proof_type: 'solana_memo', actor_wallet: WALLET, actor_role: 'maintainer', decision: 'publish', decision_channel: 'maintainer_bootstrap', tx_sig: TX, occurred_at: iso(-2) },
+    { event_type: 'SUPPORT_PAYMENT_CONFIRMED', label: 'Memo-anchored on Solana', proof_type: 'solana_memo', actor_wallet: WALLET, actor_role: 'supporter', decision: 'sent', tx_sig: TX, occurred_at: iso(-1) },
+  ],
+};
+
+const publicWireDetail = {
+  ...publicWireListItem,
+  is_current_published: true,
+  analysis: 'The detailed published analysis follows the exact transaction sequence and records alternative explanations.',
+  uncertainties: 'Wallet control and attribution remain uncertain after independent review.',
+  evidence: [{ ordinal: 1, kind: 'onchain_tx', ref: TX, sha256: 'a'.repeat(64) }],
+  reviews: [
+    { review_public_ref: 'OSI-WRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'reviewer-one', display_name: 'Reviewer one' }, actor_role: 'analyst', decision: 'approve', weight: 1.5, tier_snapshot: 'verified', public_rationale: 'The exact evidence supports publication with the stated uncertainty.', proof_type: 'wallet_signed_server_verified', created_at: iso(-3) },
+    { review_public_ref: 'OSI-WRV-B1B2C3D4E5F6', reviewer: { wallet: '11111111111111111111111111111113', handle: 'reviewer-two', display_name: 'Reviewer two' }, actor_role: 'analyst', decision: 'approve', weight: .5, tier_snapshot: 'probationary', public_rationale: 'The limits are explicit and evidence remains independently inspectable.', proof_type: 'wallet_signed_server_verified', created_at: iso(-2.5) },
+  ],
+  challenges: [{
+    challenge_public_ref: 'OSI-CHL-A1B2C3D4E5F60718', challenger_wallet: '11111111111111111111111111111114', state: 'accepted',
+    public_safe_summary: 'The exact published version omitted material transaction context.', created_at: iso(-1.5), terminal_at: iso(-1),
+    reviews: [{ review_public_ref: 'OSI-CRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'challenge-reviewer', display_name: 'Challenge reviewer' }, actor_role: 'analyst', decision: 'accept', weight: 1.5, public_rationale: 'The linked evidence confirms a material omission.', proof_type: 'wallet_signed_server_verified', created_at: iso(-1) }],
+  }],
+  support: [{ amount_lamports: '100000000', from_wallet: WALLET, proof_type: 'solana_memo', tx_sig: TX, confirmed_at: iso(-1) }],
+  publication: publicWireListItem.publication_proof,
+};
+
+const wireQueueItem = {
+  wire_report_public_ref: 'OSI-WR-B1B2C3D4E5F6',
+  version_public_ref: 'OSI-WV-B1B2C3D4E5F60718',
+  title: 'Wire queue fixture', summary: 'A public-safe queue summary for exact review.',
+  analysis: 'Restricted queue analysis remains available only through the signed analyst projection and has sufficient detail.',
+  uncertainties: 'Attribution remains uncertain pending independent review.',
+  author_wallet: OTHER, lifecycle_state: 'in_review',
+  evidence: [{ ordinal: 1, kind: 'onchain_tx', ref: TX, sha256: 'b'.repeat(64) }],
+  quorum: { approve_count: 1, approve_weight: .5, required_count: 2, required_weight: 2 },
+};
+
 const analystFixture = {
   wallet: OTHER, handle: 'public-analyst', display_name: 'Public analyst fixture',
   bio: 'A public-safe profile returned by the analyst projection.', status: 'verified', tier_code: 'verified', weight: 1.5,
@@ -166,7 +215,7 @@ function token(origin) {
     v: 1, iss: 'osi-v2-case-read', aud: origin, sub: WALLET,
     iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300,
     jti: 'fixture-session-jti-00000000000000000001',
-    scp: ['case:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'wire:mine', 'analyst:workspace', 'analyst:maintainer'],
+    scp: ['case:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'wire:mine', 'wire:queue', 'analyst:workspace', 'analyst:maintainer'],
     auth_sub: null,
   })}.fixture-signature`;
 }
@@ -227,11 +276,22 @@ async function installFixtureNetwork(page) {
       else response.reports = [reportFixture];
     } else if (endpoint === 'osi-v2-wire') {
       if (body.op === 'capabilities') response = {
-        ok: true, wire_writes_enabled: true, publication_enabled: false,
+        ok: true, wire_writes_enabled: true, publication_enabled: true,
+        payment_writes_enabled: true, challenge_enabled: true, support_enabled: true,
+        analyst_eligible: true, maintainer_access: false, promotion_enabled: true,
         wallet_connected: true, prerequisite: null,
       };
       else if (body.op === 'list_my_wire_reports') response = {
         ok: true, reports: [wireFixture], private_projection: true,
+      };
+      else if (body.op === 'list_public_wire_reports') response = {
+        ok: true, reports: [publicWireListItem], public_projection: true,
+      };
+      else if (body.op === 'get_public_wire_report') response = {
+        ok: true, report: publicWireDetail, public_projection: true,
+      };
+      else if (body.op === 'list_wire_review_queue') response = {
+        ok: true, reports: [wireQueueItem], private_projection: true,
       };
     } else if (endpoint === 'osi-v2-analyst') {
       if (body.op === 'list_public_profiles') response.analysts = [analystFixture];
@@ -439,7 +499,7 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await expect(solscan).toBeVisible();
   await expect(solscan).toHaveAttribute('target', '_blank');
   await expect(solscan).toHaveAttribute('rel', /noopener/);
-  await page.locator('.osi-case-close').click();
+  await page.locator('#osi-case-drawer .osi-case-close').click();
 
   await page.evaluate(() => window.osiNavigate('records'));
   await expect(page.locator('#case-records')).toContainText(CASE_REF);
@@ -456,7 +516,7 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   expect((await page.evaluate(() => window.__fixtureProviderCounts())).signMessage).toBe(1);
   await page.locator(`[data-case-ref="${PRIVATE_REF}"]`).click();
   await expect(page.locator('#osi-case-content')).toContainText(PRIVATE_SENTINEL);
-  await page.locator('.osi-case-close').click();
+  await page.locator('#osi-case-drawer .osi-case-close').click();
 
   await page.evaluate(() => window.osiV2OpenMyReports());
   await expect(page.locator('#field-cases')).toContainText('Version history (3)');
@@ -510,13 +570,13 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   expectCleanRuntime(page);
 });
 
-test('Wire Phase 1 private fixture and revision form fit desktop and 390px', async ({ page }) => {
+test('Wire private fixture and revision form fit desktop and 390px', async ({ page }) => {
   await ready(page);
   await page.evaluate(() => window.osiV2OpenMyWireReports());
   await expect(page.locator('#wire-cases')).toContainText(WIRE_REPORT_REF);
   await expect(page.locator('#wire-cases')).toContainText('Version history (2)');
   await expect(page.locator('#wire-cases')).toContainText(WIRE_PRIVATE_SENTINEL);
-  await expect(page.locator('#wire-cases')).toContainText('Publication, review, challenge, support, and promotion are not enabled in Phase 1.');
+  await expect(page.locator('#wire-cases')).toContainText('Published content is exposed only through the public allowlist');
   expect((await page.evaluate(() => window.__fixtureProviderCounts())).signMessage).toBe(1);
 
   for (const width of [1280, 390]) {
@@ -537,6 +597,42 @@ test('Wire Phase 1 private fixture and revision form fit desktop and 390px', asy
   await page.evaluate(({ other }) => window.__fixtureProvider.__emit('accountChanged', { toString: () => other }), { other: OTHER });
   await expect(page.locator('body')).not.toContainText(WIRE_PRIVATE_SENTINEL);
   expect(await page.evaluate(() => sessionStorage.getItem('osi_v2_read_session_v1'))).toBeNull();
+  expectCleanRuntime(page);
+});
+
+test('published, challenged, supported, and promoted Wire states fit desktop and 390px', async ({ page }) => {
+  await ready(page);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate((versionRef) => window.osiV2OpenWireReport(versionRef), WIRE_VERSION_REF);
+    const drawer = page.locator('#osi-wire-drawer');
+    await expect(drawer).toHaveClass(/open/);
+    await expect(page.locator('#osi-wire-detail-state')).toContainText('Challenge upheld, under re-review');
+    await expect(page.locator('#osi-wire-detail-content')).toContainText('Wire author fixture');
+    for (const [tab, text] of [
+      ['evidence', TX.slice(0, 12)],
+      ['reviews', 'Reviewer one'],
+      ['challenges', 'material transaction context'],
+      ['support', '100000000 lamports'],
+      ['proof', /Wire Report Published/i],
+    ]) {
+      await page.locator(`[data-wire-tab="${tab}"]`).click();
+      await expect(page.locator('#osi-wire-detail-content')).toContainText(text);
+    }
+    await expect(page.locator('#osi-wire-detail-actions')).toContainText('Support current author');
+    await expect(page.locator('#osi-wire-detail-actions')).toContainText('already promoted');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    const box = await drawer.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.width).toBeLessThanOrEqual(width);
+    await page.keyboard.press('Escape');
+    await expect(drawer).not.toHaveClass(/open/);
+  }
+
+  await page.evaluate(() => window.osiV2OpenWireQueue());
+  await expect(page.locator('#wire-cases')).toContainText('Wire queue fixture');
+  await expect(page.locator('#wire-cases')).toContainText('Approve quorum 1 / 2 analysts');
+  await expect(page.locator('#wire-cases')).toContainText('Author self-review is rejected by the database');
   expectCleanRuntime(page);
 });
 
@@ -643,7 +739,7 @@ test('capture every populated main workspace for preview QA', async ({ page }) =
   await page.locator(`[data-case-ref="${CASE_REF}"]`).click();
   await page.locator('[data-tab="resolution"]').click();
   await capture('case-governance-populated');
-  await page.locator('.osi-case-close').click();
+  await page.locator('#osi-case-drawer .osi-case-close').click();
 
   await page.evaluate(() => window.osiNavigate('wire'));
   await page.waitForTimeout(120);

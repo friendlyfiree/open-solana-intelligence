@@ -239,8 +239,8 @@
     <div class="cr-hero">
       <div class="cr-hero-copy">
         <div class="cr-kicker mono">OSI &gt; Public Records</div>
-        <h1 class="cr-title">Public Case Records</h1>
-        <p class="cr-sub">Reviewed Solana incident records with public evidence, analyst review, and proof-log verification.</p>
+        <h1 class="cr-title">Public Records</h1>
+        <p class="cr-sub">Reviewed Case outcomes and published Wire findings with public evidence, attributable review, and proof-log verification.</p>
         <div class="cr-chips" aria-label="Public record trust anchors">
           <span>Reviewed records</span>
           <span>Public evidence</span>
@@ -257,7 +257,7 @@
     <div class="cr-console">
       <div class="cr-maincol">
         <div class="cr-toolbar">
-          <div class="cr-search-wrap"><input class="cr-search" id="cr-search" type="search" aria-label="Search public Case records" placeholder="Search by case ID, wallet, entity, title, or tx hash..." oninput="crSearch(this.value)"></div>
+          <div class="cr-search-wrap"><input class="cr-search" id="cr-search" type="search" aria-label="Search public records" placeholder="Search by Case or Wire ID, wallet, entity, title, or tx hash..." oninput="crSearch(this.value)"></div>
           <div class="rf-tabs cr-fils" id="cr-fils">
             <button class="rf-tab active" data-f="all" type="button" onclick="crFilter('all')">All</button>
             <button class="rf-tab" data-f="reviewed" type="button" onclick="crFilter('reviewed')">Reviewed</button>
@@ -652,7 +652,7 @@
     <div class="fo-form-head">
       <span class="fo-form-eyebrow">Wallet-authored standalone finding</span>
       <h2 id="osi-wire-modal-title">Submit an exact Wire Report version</h2>
-      <p id="osi-wire-modal-copy">This version and its evidence remain private until a later independent publication transition. This action anchors only the exact version hash and safe reference on Solana.</p>
+      <p id="osi-wire-modal-copy">This version and its evidence remain private until an authorized publication transition. This action anchors only the exact version hash and safe reference on Solana.</p>
     </div>
     <div class="osi-report-context" id="osi-wire-context" aria-live="polite"></div>
     <label class="fo-label" for="osi-wire-title">Public-safe title <span aria-hidden="true">*</span></label>
@@ -696,6 +696,16 @@
   </form>
 </div>
 
+<div class="osi-case-drawer" id="osi-wire-drawer" role="dialog" aria-modal="true" aria-labelledby="osi-wire-detail-title" hidden>
+  <button class="osi-case-scrim" type="button" tabindex="-1" onclick="osiV2CloseWireReport()" aria-label="Close Wire Report detail"></button>
+  <article class="osi-case-panel">
+    <header class="osi-case-panel-head"><div><div class="mono osi-case-ref" id="osi-wire-detail-ref"></div><h2 id="osi-wire-detail-title">Wire Report</h2><div class="osi-case-state" id="osi-wire-detail-state"></div></div><button class="osi-case-close" type="button" onclick="osiV2CloseWireReport()" aria-label="Close">&#10005;</button></header>
+    <nav class="osi-case-tabs" id="osi-wire-detail-tabs" aria-label="Wire Report detail sections"></nav>
+    <div class="osi-case-content" id="osi-wire-detail-content"></div>
+    <footer class="osi-case-actions" id="osi-wire-detail-actions"></footer>
+  </article>
+</div>
+
 <div class="osi-case-drawer" id="osi-case-drawer" role="dialog" aria-modal="true" aria-labelledby="osi-case-title" hidden>
   <button class="osi-case-scrim" type="button" tabindex="-1" onclick="osiV2CloseCase()" aria-label="Close Case detail"></button>
   <article class="osi-case-panel">
@@ -716,9 +726,9 @@
     <div class="wire-hero">
       <div class="wire-eyebrow"><span class="wire-live"></span>Open intelligence</div>
       <h1 class="wire-title">The Wire</h1>
-      <p class="wire-sub">Community-filed intelligence signals before they become formal cases.</p>
+      <p class="wire-sub">Reviewed standalone findings and community-filed intelligence signals.</p>
       <div class="wire-ops" id="wire-stats"></div>
-      <div><button class="wire-cta" id="osi-wire-intake-action" type="button" disabled title="Checking native Wire intake availability" onclick="osiV2OpenWireForm()">Checking Wire intake</button></div>
+      <div><button class="wire-cta" id="osi-wire-intake-action" type="button" disabled title="Checking native Wire intake availability" onclick="osiV2OpenWireForm()">Checking Wire intake</button> <button class="wire-cta" id="osi-wire-queue-action" type="button" onclick="osiV2OpenWireQueue()" hidden>Wire review queue</button></div>
     </div>
 
     <div class="wire-shell">

@@ -10,6 +10,18 @@ import { validateWallet } from "./osi-v2-proof-core.mjs";
 import { validateConfirmedMemoTransaction } from "./osi-v2-case-write-core.mjs";
 
 export const WIRE_EVENT_TYPE = "WIRE_REPORT_VERSION_SUBMITTED";
+export const WIRE_PUBLICATION_EVENT_TYPE = "WIRE_REPORT_PUBLISHED";
+export const WIRE_REVIEW_EVENT_TYPES = new Set([
+  "WIRE_REPORT_REVIEW_CAST",
+  "WIRE_REPORT_REVIEW_REVISED",
+]);
+export const WIRE_REVIEW_DECISIONS = new Set([
+  "approve", "reject", "request_revision", "abstain",
+]);
+export const WIRE_GOVERNANCE_ACTIONS = new Set([
+  "challenge_submit", "challenge_admit", "challenge_review",
+  "challenge_withdraw", "challenge_finalize", "wire_promote",
+]);
 export const WIRE_REVISION_REASONS = new Set([
   "author_correction",
   "new_evidence",
@@ -22,6 +34,7 @@ const WIRE_VERSION_REF = /^OSI-WV-[0-9A-F]{16}$/;
 const NONCE = /^[A-Za-z0-9_-]{32,128}$/;
 const HASH = /^[0-9a-f]{64}$/;
 const TX_SIG = /^[1-9A-HJ-NP-Za-km-z]{64,96}$/;
+const CHALLENGE_REF = /^OSI-CHL-[0-9A-F]{16}$/;
 const PROHIBITED_SECRET = /\b(seed phrase|recovery phrase|mnemonic|private key|secret key|keypair bytes?|access token|api key)\b/i;
 const ILLEGAL_ACCESS = /\b(stolen credentials?|credential dump|malware payload|exploit kit|unauthorized access)\b/i;
 const DOXXING = /\b(doxx(?:ing|ed)?|home address|private phone number|private messages?)\b/i;
@@ -86,6 +99,161 @@ export function validateWireReportRef(value, optional = false) {
 
 export function validateWireIdempotencyKey(value) {
   return validateReportIdempotencyKey(value);
+}
+
+export function validateWireVersionRef(value) {
+  const ref = cleanText(value);
+  if (!WIRE_VERSION_REF.test(ref)) throw new TypeError("Wire version reference is invalid");
+  return ref;
+}
+
+export function normalizeWireReview(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new TypeError("Wire review payload is invalid");
+  }
+  const version_public_ref = validateWireVersionRef(input.version_public_ref);
+  const decision = cleanText(input.decision);
+  const reason_code = cleanText(input.reason_code);
+  const public_rationale = cleanText(input.public_rationale);
+  const privateNote = cleanText(input.private_note);
+  if (!WIRE_REVIEW_DECISIONS.has(decision)) throw new TypeError("Wire review decision is invalid");
+  if (!/^[a-z][a-z0-9_:-]{0,95}$/.test(reason_code)) {
+    throw new TypeError("Wire review reason is invalid");
+  }
+  if (public_rationale.length < 10 || public_rationale.length > 2000) {
+    throw new TypeError("Wire public-safe rationale is invalid");
+  }
+  if (privateNote.length > 4000) throw new TypeError("Wire private analyst note is invalid");
+  rejectUnsafeContent(public_rationale + "\n" + privateNote);
+  return {
+    version_public_ref, decision, reason_code, public_rationale,
+    private_note: privateNote || null,
+  };
+}
+
+export function canonicalWireGovernanceMessage(binding) {
+  if (!binding || typeof binding !== "object" || Array.isArray(binding)) {
+    throw new TypeError("Wire governance binding is invalid");
+  }
+  const purpose = cleanText(binding.purpose);
+  const publicRef = validateWireVersionRef(binding.version_public_ref);
+  const role = cleanText(binding.actor_role);
+  const decision = cleanText(binding.decision);
+  const nonce = cleanText(binding.nonce);
+  const hash = cleanText(binding.payload_hash);
+  const issuedAt = Number(binding.issued_at);
+  const expiresAt = Number(binding.expires_at);
+  validateWallet(binding.actor_wallet);
+  const review = WIRE_REVIEW_EVENT_TYPES.has(purpose);
+  if ((!review && purpose !== WIRE_PUBLICATION_EVENT_TYPE)
+      || !(new Set(["analyst", "senior"]).has(role)
+        || (!review && role === "maintainer"))
+      || (review && !WIRE_REVIEW_DECISIONS.has(decision))
+      || (!review && decision !== "publish")
+      || !NONCE.test(nonce) || !HASH.test(hash)
+      || !Number.isSafeInteger(issuedAt) || !Number.isSafeInteger(expiresAt)
+      || expiresAt <= issuedAt || expiresAt - issuedAt > 300) {
+    throw new TypeError("Wire governance binding is invalid");
+  }
+  return [
+    "OSI2", "1", purpose, "t=wire_version", "id=" + publicRef,
+    "a=" + binding.actor_wallet, "r=" + role, "d=" + decision,
+    "n=" + nonce, "h=" + hash, "ts=" + issuedAt, "exp=" + expiresAt,
+  ].join("|");
+}
+
+export function parseWireGovernanceMessage(message) {
+  if (typeof message !== "string" || message.length < 140 || message.length > 512) return null;
+  const parts = message.split("|");
+  if (parts.length !== 12 || parts[0] !== "OSI2" || parts[1] !== "1") return null;
+  const take = (part, key) => part.startsWith(key + "=") ? part.slice(key.length + 1) : null;
+  const value = {
+    purpose: parts[2], target_type: take(parts[3], "t"),
+    version_public_ref: take(parts[4], "id"), actor_wallet: take(parts[5], "a"),
+    actor_role: take(parts[6], "r"), decision: take(parts[7], "d"),
+    nonce: take(parts[8], "n"), payload_hash: take(parts[9], "h"),
+    issued_at: Number(take(parts[10], "ts")),
+    expires_at: Number(take(parts[11], "exp")),
+  };
+  if (value.target_type !== "wire_version") return null;
+  try { if (canonicalWireGovernanceMessage(value) !== message) return null; }
+  catch { return null; }
+  return value;
+}
+
+export function validateWireGovernanceBinding(message, expected, nowSeconds) {
+  const parsed = parseWireGovernanceMessage(message);
+  if (!parsed) return { ok: false, reason: "bad_message" };
+  for (const field of [
+    "purpose", "version_public_ref", "actor_wallet", "actor_role", "decision",
+    "nonce", "payload_hash", "issued_at", "expires_at",
+  ]) {
+    if (parsed[field] !== expected[field]) return { ok: false, reason: "wrong_" + field };
+  }
+  if (nowSeconds > parsed.expires_at) return { ok: false, reason: "expired" };
+  if (parsed.issued_at > nowSeconds + 30) return { ok: false, reason: "not_yet_valid" };
+  return { ok: true, parsed };
+}
+
+function optionalText(value, name, maximum) {
+  const result = cleanText(value);
+  if (result.length > maximum) throw new TypeError(name + " is invalid");
+  return result || null;
+}
+
+export function validateWireGovernanceTargetRef(action, value) {
+  const ref = cleanText(value);
+  const expected = action === "challenge_submit" || action === "wire_promote"
+    ? WIRE_VERSION_REF : CHALLENGE_REF;
+  if (!expected.test(ref)) throw new TypeError("Wire governance target is invalid");
+  return ref;
+}
+
+export function normalizeWireGovernancePayload(action, input) {
+  if (!WIRE_GOVERNANCE_ACTIONS.has(action)
+      || !input || typeof input !== "object" || Array.isArray(input)) {
+    throw new TypeError("Wire governance payload is invalid");
+  }
+  if (action === "challenge_submit") {
+    const reason_code = cleanText(input.reason_code);
+    const public_safe_summary = cleanText(input.public_safe_summary);
+    const evidence_ordinal = Number(input.evidence_ordinal);
+    const evidence_sha256 = cleanText(input.evidence_sha256);
+    const restricted_detail = optionalText(input.restricted_detail, "restricted_detail", 8000);
+    if (!/^[a-z][a-z0-9_:-]{0,95}$/.test(reason_code)
+        || public_safe_summary.length < 20 || public_safe_summary.length > 2000
+        || !Number.isInteger(evidence_ordinal) || evidence_ordinal < 1 || evidence_ordinal > 12
+        || !HASH.test(evidence_sha256)) throw new TypeError("Wire challenge payload is invalid");
+    rejectUnsafeContent(public_safe_summary + "\n" + (restricted_detail || ""));
+    return {
+      reason_code, public_safe_summary, restricted_detail,
+      evidence_ordinal, evidence_sha256,
+    };
+  }
+  if (action === "challenge_admit") {
+    const decision = cleanText(input.decision);
+    if (!new Set(["accept", "reject"]).has(decision)) {
+      throw new TypeError("Wire challenge admissibility decision is invalid");
+    }
+    return { decision };
+  }
+  if (action === "challenge_review") {
+    const decision = cleanText(input.decision);
+    const reason_code = cleanText(input.reason_code);
+    const public_rationale = cleanText(input.public_rationale);
+    const private_note = optionalText(input.private_note, "private_note", 4000);
+    if (!new Set(["accept", "reject"]).has(decision)
+        || !/^[a-z][a-z0-9_:-]{0,95}$/.test(reason_code)
+        || public_rationale.length < 10 || public_rationale.length > 2000) {
+      throw new TypeError("Wire challenge review payload is invalid");
+    }
+    rejectUnsafeContent(public_rationale + "\n" + (private_note || ""));
+    return { decision, reason_code, public_rationale, private_note };
+  }
+  if (Object.keys(input).length !== 0) {
+    throw new TypeError("Wire governance payload is invalid");
+  }
+  return {};
 }
 
 export function canonicalWireMemo(binding) {

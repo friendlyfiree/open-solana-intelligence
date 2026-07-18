@@ -22,6 +22,7 @@ const context = {
   },
   console,
   Date,
+  URL,
   Promise,
   crypto: { randomUUID: () => "11111111-2222-4333-8444-555555555555" },
   setTimeout: () => 1,
@@ -88,15 +89,17 @@ const invalidProofCard = context.OSIWireUI.reportCard({
 ok("invalid proof references never become links", !invalidProofCard.includes("solscan.io/tx"));
 ok("submitted and revised immutable states are represented without inventing publication",
   card.includes("Version history (2)") && card.includes("version 2")
-    && card.includes("version 1") && !card.includes("Published"));
-ok("Phase 1 intake copy says submit and does not claim public publication",
+    && card.includes("version 1") && !card.includes("Open published version"));
+ok("Wire intake copy says submit while governed publication remains a separate action",
   source.includes("'Submit a Wire Report'")
     && source.includes("Create an exact private Wire Report version")
     && !source.includes("'Publish a Wire Report'"));
-ok("Wire Phase 1 modal reuses the fixed Report component vocabulary",
+ok("Wire modal and detail drawer reuse the fixed Case and Report component vocabulary",
   html.includes('id="osi-wire-modal"') && html.includes('class="fo-modal osi-report-modal"')
     && html.includes('class="osi-report-evidence"')
-    && html.includes('id="osi-wire-safety"'));
+    && html.includes('id="osi-wire-safety"')
+    && html.includes('id="osi-wire-drawer"')
+    && html.includes('class="osi-case-drawer"'));
 ok("Wire intake has keyboard focus trapping and reduced-motion support",
   source.includes("trapFocus(event,modal)")
     && reportCss.includes("@media(prefers-reduced-motion:reduce)"));
@@ -114,4 +117,47 @@ ok("wallet or private-session invalidation clears the rendered Wire workspace",
 ok("no new visual stylesheet was introduced for Wire",
   !html.includes("v2-wire-integration.css") && html.includes("v2-report-integration.css"));
 
-console.log(`\n${passed} Wire Phase 1 UI checks passed.`);
+const hostilePublicEvidence = context.OSIWireUI.publicEvidenceItem({
+  ordinal: 1,
+  kind: "url",
+  ref: 'https://example.org/path?q="><img src=x onerror=alert(9)>',
+  sha256: "c".repeat(64),
+});
+ok("published Wire evidence escapes hostile link text and attributes",
+  !hostilePublicEvidence.includes("<img")
+    && hostilePublicEvidence.includes("&lt;img")
+    && hostilePublicEvidence.includes('rel="noopener"'));
+const unsafePublicEvidence = context.OSIWireUI.publicEvidenceItem({
+  ordinal: 2, kind: "url", ref: "javascript:alert(10)", sha256: "d".repeat(64),
+});
+ok("non-HTTPS public evidence never becomes an executable link",
+  !unsafePublicEvidence.includes("href=") && unsafePublicEvidence.includes("javascript:alert"));
+ok("six published Wire detail sections and queue actions are behavior-enabled",
+  source.includes("['overview','Overview']")
+    && source.includes("['evidence','Evidence']")
+    && source.includes("['reviews','Reviews']")
+    && source.includes("['challenges','Challenges']")
+    && source.includes("['support','Support']")
+    && source.includes("['proof','Proof Log']")
+    && source.includes("data-wire-review")
+    && source.includes("data-wire-publish"));
+ok("current-version actions and exact lamport totals fail closed in the UI",
+  source.includes("item.is_current_published===true")
+    && source.includes("sum+BigInt(value)")
+    && source.includes("caps.support_enabled===true")
+    && source.includes("Wire and payment write gates."));
+ok("review, publication, and challenge controls honor the dedicated write capability",
+  source.includes("caps.review_enabled===true")
+    && source.includes("caps.publication_enabled===true")
+    && source.includes("caps.challenge_enabled===true"));
+ok("Wire detail tabs expose keyboard tab semantics",
+  source.includes("setAttribute('role','tablist')")
+    && source.includes('role="tab"')
+    && source.includes("event.key==='ArrowRight'")
+    && source.includes("fresh.focus()"));
+ok("bootstrap publication and accepted-challenge states are labeled honestly",
+  source.includes("Maintainer bootstrap publication")
+    && source.includes("Challenge upheld, under re-review")
+    && source.includes("Maintainer bootstrap is unavailable"));
+
+console.log(`\n${passed} Wire Phase 1 and Phase 2 UI checks passed.`);

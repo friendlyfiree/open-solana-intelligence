@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
   PAYMENT_MAX_RECIPIENTS,
+  PAYMENT_KIND,
   SOLANA_TRANSACTION_MAX_BYTES,
   canonicalPaymentMemo,
   estimatePaymentTransactionBytes,
@@ -15,6 +16,7 @@ import {
 } from "../supabase/functions/_shared/osi-v2-payment-core.mjs";
 
 const edge = fs.readFileSync(new URL("../supabase/functions/osi-v2-payment/index.ts", import.meta.url), "utf8");
+const phase2 = fs.readFileSync(new URL("../supabase/migrations/20260718130000_osi_v2_wire_phase2.sql", import.meta.url), "utf8");
 
 let passed = 0;
 function ok(name, fn) {
@@ -86,6 +88,10 @@ ok("only the canonical Solana mainnet genesis is accepted", () => {
 ok("payment target normalization accepts OSI refs and analyst wallets", () => {
   assert.equal(normalizePaymentTargetRef("OSI-CASE-123456"), "OSI-CASE-123456");
   assert.equal(normalizePaymentTargetRef(author), author);
+});
+ok("payment target normalization accepts an exact Wire version reference", () => {
+  assert.equal(normalizePaymentTargetRef("OSI-WV-1234567890ABCDEF"), "OSI-WV-1234567890ABCDEF");
+  assert.equal(PAYMENT_KIND.WIRE_SUPPORT, "wire_support");
 });
 ok("payment target normalization rejects mixed or arbitrary targets", () => {
   assert.throws(() => normalizePaymentTargetRef("OSI-private/ref"));
@@ -246,6 +252,23 @@ ok("wallet-only or auth-only maintainer state grants no payment bypass", () => {
   assert.ok(!edge.includes("maintainer_access"));
   assert.ok(!edge.includes("fullMaintainer"));
   assert.ok(edge.includes('actor_role: issued.actor_role'));
+});
+ok("Wire support prepare and commit both require the payment and Wire gates", () => {
+  assert.ok(edge.includes("Promise.all([\n    writesEnabled(), wireWritesEnabled(),"));
+  assert.ok(edge.includes('error: "wire_and_payment_writes_required"'));
+  assert.ok(edge.includes('binding_context?.payment_kind === "wire_support"'));
+  assert.ok(edge.includes('error: "wire_writes_disabled"'));
+});
+ok("Wire support uses the server-derived specialized intent before shared finality commit", () => {
+  assert.ok(edge.includes('admin.rpc("osi_v2_prepare_wire_support"'));
+  assert.ok(edge.includes('"osi_v2_record_wire_support_submission"'));
+  assert.ok(edge.includes('admin.rpc("osi_v2_commit_payment"'));
+});
+ok("confirmed support rows require exact server-verified finalized mainnet receipts", () => {
+  assert.ok(phase2.includes("receipt.event_version is distinct from 'OSI2'"));
+  assert.ok(phase2.includes("receipt.proof_type is distinct from 'solana_memo'"));
+  assert.ok(phase2.includes("receipt.server_verified is distinct from true"));
+  assert.ok(phase2.includes("receipt.verification_metadata->>'finality' is distinct from 'finalized'"));
 });
 
 if (!process.exitCode) console.log(`OK (${passed} assertions passed)`);

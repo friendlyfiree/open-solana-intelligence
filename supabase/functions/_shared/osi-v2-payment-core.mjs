@@ -10,10 +10,13 @@ const PUBLIC_REF = /^OSI-[A-Z0-9-]{6,56}$/;
 const SYSTEM_PROGRAM = "11111111111111111111111111111111";
 const MEMO_PROGRAM = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 
-export const PAYMENT_KIND = Object.freeze({ REWARD: "reward", SUPPORT: "support" });
+export const PAYMENT_KIND = Object.freeze({
+  REWARD: "reward", SUPPORT: "support", WIRE_SUPPORT: "wire_support",
+});
 export const PAYMENT_EVENT = Object.freeze({
   reward: "REWARD_PAYMENT_CONFIRMED",
   support: "SUPPORT_PAYMENT_CONFIRMED",
+  wire_support: "SUPPORT_PAYMENT_CONFIRMED",
 });
 export const PAYMENT_MAX_RECIPIENTS = 4;
 export const PAYMENT_MAX_LAMPORTS = 100_000_000_000n; // 100 SOL per intent.
@@ -130,7 +133,7 @@ export async function recipientManifestHash(manifest) {
 }
 
 export function canonicalPaymentMemo(intent) {
-  const kind = requireText(intent?.payment_kind, "payment_kind", /^(reward|support)$/, 16);
+  const kind = requireText(intent?.payment_kind, "payment_kind", /^(reward|support|wire_support)$/, 16);
   const event = PAYMENT_EVENT[kind];
   const targetType = kind === PAYMENT_KIND.REWARD ? "reward" : "support";
   const decision = kind === PAYMENT_KIND.REWARD ? "paid" : "sent";

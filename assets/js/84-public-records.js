@@ -47,7 +47,11 @@ function crProofState(r){
       && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(publicPayment.payer_wallet||''))
       && Array.isArray(publicPayment.recipient_manifest)
       && publicPayment.recipient_manifest.length>0
-      && /^[1-9][0-9]*$/.test(String(publicPayment.total_lamports||''));
+      && publicPayment.recipient_manifest.length<=4
+      && publicPayment.recipient_manifest.every(function(row){return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(row&&row.wallet||''))&&/^[1-9][0-9]*$/.test(String(row&&row.amount_lamports||''));})
+      && /^[1-9][0-9]*$/.test(String(publicPayment.total_lamports||''))
+      && publicPayment.memo_verified===true
+      && (publicPayment.system_program_transfers_verified===true||publicPayment.transfers_verified===true);
     if(publicLabel==='SOL transfer verified on Solana'&&publicSig&&paymentVerified) return {key:'transfer',label:'SOL transfer verified on Solana',tx_sig:publicSig,verified:true};
     if(publicLabel==='Memo-anchored on Solana'&&publicSig) return {key:'memo',label:'Memo-anchored on Solana',tx_sig:publicSig,verified:true};
     if(publicLabel==='Wallet-signed & server-verified'||publicLabel==='Wallet-signed and server-verified') return {key:'wallet',label:'Wallet-signed and server-verified',tx_sig:'',verified:true};
@@ -69,6 +73,13 @@ function crProofState(r){
 }
 function crStatus(r){
   var proof=crProofState(r);
+  if(r&&r.record_source==='native_wire_dto'){
+    if(r.challenge_state==='challenge_upheld_under_re_review') return { txt:'Under re-review', cls:'cr-pending', detail:'Published Wire challenge upheld; exact version preserved' };
+    if(r.is_current_published===false&&r.publication_channel==='maintainer_bootstrap') return { txt:'Superseded bootstrap', cls:'cr-reviewed', detail:'Prior immutable Wire publication via honestly labeled maintainer bootstrap; a later exact version is current' };
+    if(r.is_current_published===false) return { txt:'Superseded', cls:'cr-reviewed', detail:'Prior immutable Wire publication; a later exact version is current' };
+    if(r.publication_channel==='maintainer_bootstrap') return { txt:'Maintainer bootstrap', cls:'cr-reviewed', detail:'Wire publication via honestly labeled maintainer bootstrap' };
+    return { txt:'Reviewed', cls:'cr-reviewed', detail:'Wire publication via independent analyst quorum' };
+  }
   if(r&&r.record_source==='native_public_dto'){
     var stage=String(r.native_stage||r.stage||'');
     if(stage==='sealed'&&r.native_seal_verified===true&&proof.key==='memo') return { txt:'Sealed', cls:'cr-sealed', detail:'Native Memo-anchored record' };
@@ -97,7 +108,7 @@ function crLegacyTxSig(r){
   return crValidTxSig(candidate)?candidate:'';
 }
 function crHasMemo(r){ var key=crProofState(r).key; return key==='memo'||key==='transfer'; }
-function crIsNativeReviewed(r){ var status=crStatus(r).txt; return status==='Reviewed'||status==='Sealed'; }
+function crIsNativeReviewed(r){ var status=crStatus(r).txt; return status==='Reviewed'||status==='Sealed'||status==='Superseded'||status==='Superseded bootstrap'; }
 function crIsNativeSealed(r){ return crStatus(r).txt==='Sealed'; }
 function crChallengeCount(id){ return (window.__crChallengeCounts || {})[String(id)] || 0; }
 function crNativeProofRank(receipt){
@@ -133,6 +144,26 @@ function crNativeCaseRecord(item){
     publication_proof:Object.assign({},strongest,{proof_source:'native_public_dto'})
   };
 }
+function crNativeWireRecord(item){
+  item=item||{};
+  return {
+    id:String(item.version_public_ref||''),
+    public_ref:String(item.version_public_ref||''),
+    wire_report_public_ref:String(item.wire_report_public_ref||''),
+    company:String(item.title||'Published Wire Report'),
+    summary:String(item.summary||''),
+    wallet:String(item.author&&item.author.wallet||''),
+    created_at:item.published_at||null,
+    record_source:'native_wire_dto',
+    native_evidence_count:Number(item.evidence_count||0),
+    native_review_count:Number(item.review_count||0),
+    native_challenge_count:Number(item.challenge_count||0),
+    challenge_state:item.challenge_state||null,
+    is_current_published:item.is_current_published!==false,
+    publication_channel:String(item.publication_channel||''),
+    publication_proof:Object.assign({},item.publication_proof||{}, {proof_source:'native_public_dto'})
+  };
+}
 function crNativeChallengeState(nativeReports){
   var state={challenged:{},counts:{},total:0};
   (nativeReports||[]).forEach(function(row){
@@ -159,23 +190,25 @@ function crAddLegacyChallenges(state,challenges){
 
 var crState = { filter:'all', q:'', sort:'newest', page:1 };
 var CR_PER = 6;
-function crEvidenceCount(r){ if(r&&r.record_source==='native_public_dto') return Number(r.native_evidence_count||0); return crCountTokens(r.tx) + crCountTokens(r.onchain) + crCountTokens(r.offchain); }
+function crEvidenceCount(r){ if(r&&(r.record_source==='native_public_dto'||r.record_source==='native_wire_dto')) return Number(r.native_evidence_count||0); return crCountTokens(r.tx) + crCountTokens(r.onchain) + crCountTokens(r.offchain); }
 function crAnalystReviews(r){
-  if(r&&r.record_source==='native_public_dto') return Number(r.native_review_count||0);
+  if(r&&(r.record_source==='native_public_dto'||r.record_source==='native_wire_dto')) return Number(r.native_review_count||0);
   if(window.__crVouchesLoaded !== true || typeof vouchTally !== 'function') return null;
   var t = vouchTally('report', String(r.id));
   return (t.approve||[]).length + (t.reject||[]).length;
 }
 async function renderCaseRecords(){
   var host = document.getElementById('case-records'); if(!host) return;
-  if(typeof SUPA_ON === 'undefined' || !SUPA_ON){
+  var supabaseAvailable=typeof SUPA_ON!=='undefined'&&SUPA_ON;
+  var nativeAvailable=typeof window.osiPublicApi==='function'||typeof window.osiV2ListPublicWireReports==='function';
+  if(!supabaseAvailable&&!nativeAvailable){
     window.__crList = []; window.__crRecords = {}; window.__crPacks = {};
     window.__crChallenged = {}; window.__crChallengeCounts = {}; window.__crOpenChallengeCount = 0;
     window.__crSourceState = 'unavailable'; window.__crVouchesLoaded = false;
     crPaint(); return;
   }
   try{
-    var nativeReports=[],legacyReports=[],sourceFailures=0,sourceAttempts=0;
+    var nativeReports=[],nativeWireReports=[],legacyReports=[],sourceFailures=0,sourceAttempts=0;
     if(typeof window.osiPublicApi==='function'){
       sourceAttempts++;
       try{
@@ -183,13 +216,22 @@ async function renderCaseRecords(){
         nativeReports=(Array.isArray(result&&result.cases)?result.cases:[]).map(crNativeCaseRecord);
       }catch(_nativeError){ sourceFailures++; }
     }
-    sourceAttempts++;
-    try{
-      legacyReports = await supaGet('reports?select=id,company,summary,onchain,offchain,tx,wallet,sealed,approved,created_at&approved=eq.true&order=created_at.desc&limit=48') || [];
-      legacyReports=legacyReports.map(function(row){return Object.assign({},row,{record_source:'legacy_public_projection'});});
-    }catch(_legacyError){ sourceFailures++; legacyReports=[]; }
-    var nativeIds={};nativeReports.forEach(function(row){nativeIds[String(row.id)]=true;});
-    var reports=nativeReports.concat(legacyReports.filter(function(row){return !nativeIds[String(row.id)];}));
+    if(typeof window.osiV2ListPublicWireReports==='function'){
+      sourceAttempts++;
+      try{
+        var wireResult=await window.osiV2ListPublicWireReports();
+        nativeWireReports=(Array.isArray(wireResult&&wireResult.reports)?wireResult.reports:[]).map(crNativeWireRecord);
+      }catch(_wireError){ sourceFailures++; }
+    }
+    if(supabaseAvailable){
+      sourceAttempts++;
+      try{
+        legacyReports = await supaGet('reports?select=id,company,summary,onchain,offchain,tx,wallet,sealed,approved,created_at&approved=eq.true&order=created_at.desc&limit=48') || [];
+        legacyReports=legacyReports.map(function(row){return Object.assign({},row,{record_source:'legacy_public_projection'});});
+      }catch(_legacyError){ sourceFailures++; legacyReports=[]; }
+    }
+    var nativeIds={};nativeReports.concat(nativeWireReports).forEach(function(row){nativeIds[String(row.id)]=true;});
+    var reports=nativeReports.concat(nativeWireReports,legacyReports.filter(function(row){return !nativeIds[String(row.id)];}));
     var packs = [];
     if(reports.length){
       // Metadata only (no content). Full pack content is never anon-readable;
@@ -200,9 +242,11 @@ async function renderCaseRecords(){
     window.__crPacks = byCase;
     var recMap = {}; reports.forEach(function(r){ recMap[r.id] = r; });
     window.__crRecords = recMap; window.__crList = reports; window.__crSourceState = reports.length ? 'loaded' : (sourceAttempts&&sourceFailures===sourceAttempts?'error':(sourceFailures?'error':'empty'));
-    try{ await loadVouches(); window.__crVouchesLoaded = true; }catch(_e){ window.__crVouchesLoaded = false; }
+    if(supabaseAvailable){try{ await loadVouches(); window.__crVouchesLoaded = true; }catch(_e){ window.__crVouchesLoaded = false; }}else window.__crVouchesLoaded=false;
     var challengeState=crNativeChallengeState(nativeReports);
+    nativeWireReports.forEach(function(row){var count=Number(row.native_challenge_count||0);if(count>0){challengeState.challenged[String(row.id)]=1;challengeState.counts[String(row.id)]=count;challengeState.total+=count;}});
     try{
+      if(!supabaseAvailable)throw new Error('legacy source unavailable');
       var ch = await supaGet('challenges?select=item_id&item_type=eq.report&status=eq.open') || [];
       crAddLegacyChallenges(challengeState,ch);
     }catch(_e){}
@@ -253,7 +297,7 @@ function crPaint(){
   var q = crState.q;
   if(q){
     reports = reports.filter(function(r){
-      var hay=[r.company,r.summary,r.wallet,r.id,r.tx,r.onchain,osiCaseId(r.id)].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
+      var hay=[r.company,r.summary,r.wallet,r.id,r.public_ref,r.wire_report_public_ref,r.tx,r.onchain,osiCaseId(r.id)].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
       return hay.indexOf(q)!==-1;
     });
   }
@@ -306,6 +350,10 @@ function crCopyTx(hash){
 
 function openCaseRecord(id){
   var r = (window.__crRecords||{})[id]; if(!r) return;
+  if(r.record_source==='native_wire_dto'&&typeof window.osiV2OpenWireReport==='function'){
+    window.osiV2OpenWireReport(String(r.id));
+    return;
+  }
   var packs = (window.__crPacks||{})[id] || [];
   var drawer = document.getElementById('cr-drawer'), body = document.getElementById('cr-drawer-body');
   if(!drawer || !body) return;
@@ -347,12 +395,14 @@ function crCard(r, packs){
   var chValue = challengeCount ? String(challengeCount) : '<span class="cr-meta-v na">No open challenges</span>';
   var chSub = challengeCount ? ('Open challenge' + (challengeCount===1?'':'s')) : 'Challenge status clear';
   var recordDateLabel=proof.key==='legacy'?'Legacy record date ':'Published ';
+  var isWire=r.record_source==='native_wire_dto';
+  var recordKind=isWire?'Wire Report':'Case';
   var proofDetail=proof.key==='legacy'
     ? (legacyTxSig?'Unverified transaction reference '+escapeHtml(String(legacyTxSig).slice(0,5)+'...'+String(legacyTxSig).slice(-5))+' '+copyBtn:'No native proof receipt')
     : (txSig?'Tx '+escapeHtml(String(txSig).slice(0,5)+'...'+String(txSig).slice(-5))+' '+copyBtn:'Server receipt; no on-chain transaction');
-  return '<div class="'+cls+'" data-cid="'+crAttr(r.id)+'" role="button" tabindex="0" onclick="openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)" onkeydown="if(event.key===&quot;Enter&quot;){openCaseRecord(&quot;'+crAttr(r.id)+'&quot;);}" aria-label="Open public record '+cid+'">'
+  return '<div class="'+cls+'" data-cid="'+crAttr(r.id)+'" role="button" tabindex="0" onclick="openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)" onkeydown="if(event.key===&quot;Enter&quot;){openCaseRecord(&quot;'+crAttr(r.id)+'&quot;);}" aria-label="Open public '+recordKind+' record '+escapeHtml(cid)+'">'
     + '<div class="cr-card-main">'
-      + '<span class="cr-record-id">'+cid+'</span>'
+      + '<span class="cr-record-id">'+escapeHtml(cid)+(isWire?' | Wire Report':'')+'</span>'
       + '<div class="cr-title">'+title+'</div>'
       + '<div class="cr-wallet mono">'+wallet+'</div>'
       + '<div class="cr-summary">'+escapeHtml(String(r.summary || 'No public summary provided.').slice(0,220))+'</div>'
@@ -368,8 +418,8 @@ function crCard(r, packs){
       + '<div><div class="cr-meta-k">Proof Log</div>' + (proof.verified
         ? '<div class="cr-proof-state ok">'+escapeHtml(proof.label)+'</div><div class="cr-meta-sub">'+proofDetail+'</div>'
         : '<div class="cr-proof-state mut">'+escapeHtml(proof.label)+'</div><div class="cr-meta-sub">'+proofDetail+'</div>') + '</div>'
-      + '<div class="cr-actions"><button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)">View Record</button>'+verifyBtn+'</div>'
-      + '<div class="cr-actions secondary"><button class="cr-btn chx" type="button" onclick="event.stopPropagation();osiNavigate(&quot;field&quot;)">Open Case workspace</button></div>'
+      + '<div class="cr-actions"><button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)">View '+(isWire?'Wire Report':'Record')+'</button>'+verifyBtn+'</div>'
+      + '<div class="cr-actions secondary"><button class="cr-btn chx" type="button" onclick="event.stopPropagation();osiNavigate(&quot;'+(isWire?'wire':'field')+'&quot;)">Open '+(isWire?'The Wire':'Case workspace')+'</button></div>'
     + '</div>'
   + '</div>';
 }

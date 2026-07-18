@@ -689,7 +689,11 @@ async function createReadSession(req: Request, body: Row): Promise<Response> {
     READ_SESSION_SCOPES.ANALYST_WORKSPACE,
   ];
   if (analyst || maintainer) {
-    scopes.push(READ_SESSION_SCOPES.CASE_REVIEW, READ_SESSION_SCOPES.REPORT_REVIEW);
+    scopes.push(
+      READ_SESSION_SCOPES.CASE_REVIEW,
+      READ_SESSION_SCOPES.REPORT_REVIEW,
+      READ_SESSION_SCOPES.WIRE_QUEUE,
+    );
   }
   if (maintainer) {
     scopes.push(READ_SESSION_SCOPES.CASE_MAINTAINER, READ_SESSION_SCOPES.ANALYST_MAINTAINER);

@@ -10,6 +10,7 @@ const CASE_REF = /^OSI-[0-9A-F]{12}$/;
 const RESOLUTION_REF = /^OSI-RES-[0-9A-F]{16}$/;
 const CHALLENGE_REF = /^OSI-CHL-[0-9A-F]{16}$/;
 const VERSION_REF = /^OSI-RV-[0-9A-F]{16}$/;
+const WIRE_VERSION_REF = /^OSI-WV-[0-9A-F]{16}$/;
 const TARGET_ID = /^[0-9a-f-]{36}$/i;
 const IDEMPOTENCY = /^[A-Za-z0-9._:-]{16,128}$/;
 
@@ -21,7 +22,7 @@ export const GOVERNANCE_ACTIONS = new Set([
 
 export const GOVERNANCE_MEMO_EVENTS = new Set([
   "REPORT_SELECTED_WINNING", "CHALLENGE_ACCEPTED",
-  "CHALLENGE_REJECTED", "RECORD_SEALED",
+  "CHALLENGE_REJECTED", "RECORD_SEALED", "WIRE_PROMOTED",
 ]);
 
 const SIGNED_EVENTS = new Set([
@@ -142,11 +143,12 @@ export function parseGovernanceProofText(value) {
     payload_hash: take(parts[6], "h"), nonce: take(parts[7], "n"),
     issued_at_ms: Number(take(parts[8], "ts")), expires_at_ms: Number(take(parts[9], "exp")),
   };
-  if (!new Set(["resolution", "challenge"]).has(parsed.target_type)
+  if (!new Set(["resolution", "challenge", "wire_version"]).has(parsed.target_type)
       || !TARGET_ID.test(parsed.target_id ?? "")
       || !(RESOLUTION_REF.test(parsed.target_public_ref ?? "")
         || CHALLENGE_REF.test(parsed.target_public_ref ?? "")
-        || /^OSI-[RC]RV-[0-9A-F]{16}$/.test(parsed.target_public_ref ?? ""))
+        || /^OSI-[RC]RV-[0-9A-F]{16}$/.test(parsed.target_public_ref ?? "")
+        || WIRE_VERSION_REF.test(parsed.target_public_ref ?? ""))
       || !WALLET.test(parsed.actor_wallet ?? "") || !HASH.test(parsed.payload_hash ?? "")
       || !NONCE.test(parsed.nonce ?? "")
       || !Number.isSafeInteger(parsed.issued_at_ms) || !Number.isSafeInteger(parsed.expires_at_ms)

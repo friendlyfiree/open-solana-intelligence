@@ -198,7 +198,10 @@ function resolveWorkspaceContext(){
     permissions: {
       canOpenCase: walletConnected,
       canSubmitReport: walletConnected,
+      canSubmitWire: walletConnected,
       canReview: isMaintainer || (walletConnected && verifiedAnalyst),
+      canReviewWire: walletConnected && verifiedAnalyst,
+      canInspectWireQueue: isMaintainer || (walletConnected && verifiedAnalyst),
       canVouch: walletConnected && verifiedAnalyst,
       canAdminApprove: isMaintainer,
       canSealRecord: isMaintainer
@@ -576,6 +579,7 @@ function renderWorkspace(){
     cards = workspaceCards([
       ['My Cases','Private and public Cases authorized for this wallet.',"osiV2OpenMyCases()"],
       ['My Reports','Exact immutable Report version history.',"osiV2OpenMyReports()"],
+      ['My Wire Reports','Private and published Wire version history.',"osiV2OpenMyWireReports()"],
       ['Analyst Profile','Server-derived profile or application starting point.',"osiAnalystOpenWorkspace('profile')"],
       ['My Applications','Wallet-signed analyst application versions.',"osiAnalystOpenWorkspace('applications')"]
     ]);
@@ -587,7 +591,9 @@ function renderWorkspace(){
     cards = workspaceCards([
       ['My Reviews','Cases authorized for your typed review.',"osiV2OpenReviewQueue()"],
       ['Report Review Queue','Exact unpublished Report versions awaiting review.',"osiV2OpenReportQueue()"],
+      ['Wire Review Queue','Exact Wire versions awaiting review.',"osiV2OpenWireQueue()"],
       ['My Reports','Exact immutable Report version history.',"osiV2OpenMyReports()"],
+      ['My Wire Reports','Private and published Wire version history.',"osiV2OpenMyWireReports()"],
       ['Analyst Profile','Server-derived profile and application history.',"osiAnalystOpenWorkspace('profile')"]
     ]);
   } else if(role === 'maintainer'){
@@ -599,6 +605,8 @@ function renderWorkspace(){
       ['Operations Center','Double-gated lifecycle and publication controls.',"admOpen()"],
       ['Case Review Queue','Native Case reviews authorized for this maintainer.',"osiV2OpenReviewQueue()"],
       ['Report Review Queue','Exact Report versions awaiting authorized review.',"osiV2OpenReportQueue()"],
+      ['Wire Review Queue','Wire versions awaiting review or bootstrap publication inspection.',"osiV2OpenWireQueue()"],
+      ['My Wire Reports','Private and published Wire version history.',"osiV2OpenMyWireReports()"],
       ['Analyst Applications','Double-gated application review queue.',"admOpen()"]
     ]);
   } else {

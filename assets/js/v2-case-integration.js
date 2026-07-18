@@ -730,7 +730,9 @@
       if(state.current){state.tab='reward';renderTab();}return result;
     }
     state.paymentPending=null;showToast('Finalized direct SOL transfer verified. Receipt '+result.receipt.id+' is available in the Proof Log.');showPaymentReceipt(result.receipt);
-    if(pending.caseRef)await reloadPaymentCase(pending.caseRef);return result;
+    if(pending.caseRef)await reloadPaymentCase(pending.caseRef);
+    else if(pending.wireVersionRef&&typeof window.osiV2OpenWireReport==='function')await window.osiV2OpenWireReport(pending.wireVersionRef);
+    return result;
   }
   async function prepareAndSendPayment(kind,targetRef,recipients,amountSol){
     if(state.paymentBusy)return;state.paymentBusy=true;
@@ -771,6 +773,24 @@
     var amount=window.prompt('Exact native SOL amount (maximum 9 decimals). This voluntary direct transfer has no governance effect.','0.1');if(amount===null)return;amount=String(amount).trim();if(!validSolInput(amount)){showToast('Enter a positive SOL amount with at most 9 decimals.');return;}
     var recipient={target_type:targetType,target_ref:targetRef,amount_sol:amount};if(targetType==='counted_reviewer')recipient.reviewer_wallet=reviewerWallet;
     prepareAndSendPayment('support',targetRef,[recipient]);
+  }
+  async function supportWireAuthor(versionRef,authorWallet){
+    if(!/^OSI-WV-[0-9A-F]{16}$/.test(String(versionRef||''))||state.paymentBusy)return;
+    var amount=window.prompt('Exact native SOL amount (maximum 9 decimals). This voluntary direct transfer has no governance or ranking effect.','0.1');
+    if(amount===null)return;amount=String(amount).trim();
+    if(!validSolInput(amount)){showToast('Enter a positive SOL amount with at most 9 decimals.');return;}
+    state.paymentBusy=true;
+    try{
+      var wallet=await ensureWallet();
+      if(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(authorWallet||''))&&wallet===authorWallet){showToast('You cannot support your own Wire Report.');return;}
+      var prepared=await api(PAYMENT_URL,{op:'prepare_wire_support',wallet:wallet,version_public_ref:versionRef,amount_sol:amount,idempotency_key:randomKey('wire-support')});
+      if(!await paymentReview(prepared))return;
+      var txSig=await sendPreparedPayment(prepared);
+      var pending={wallet:wallet,caseRef:'',wireVersionRef:versionRef,prepared:prepared,txSig:txSig};
+      state.paymentPending=pending;
+      await verifyPreparedPayment(pending);
+    }catch(error){showToast(userError(error));}
+    finally{state.paymentBusy=false;}
   }
   function retryPayment(){if(state.paymentPending)verifyPreparedPayment(state.paymentPending).catch(function(error){paymentStatus(userError(error),'error');});}
 
@@ -817,6 +837,7 @@
   window.osiV2SupportReportAuthor=function(versionRef){supportExternal('report_author',versionRef);};
   window.osiV2SupportAnalyst=function(wallet){supportExternal('analyst',wallet);};
   window.osiV2SupportCountedReviewer=function(versionRef,wallet){supportExternal('counted_reviewer',versionRef,wallet);};
+  window.osiV2SupportWireAuthor=supportWireAuthor;
   window.osiV2RetryPayment=retryPayment;
   window.osiV2ClearPaymentState=clearPaymentState;
 
