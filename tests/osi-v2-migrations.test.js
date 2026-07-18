@@ -75,6 +75,14 @@ const wireProductionWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-wire-production.yml'),
   'utf8',
 );
+function workflowVersionList(name) {
+  const match = wireProductionWorkflow.match(new RegExp(`${name}: >-\\r?\\n\\s+([0-9 ]+)`));
+  return match ? match[1].trim().split(/\s+/) : [];
+}
+const expectedVersionIds = expectedFiles.map((name) => name.slice(0, 14));
+const wireBaseVersions = workflowVersionList('BASE_VERSIONS');
+const wirePhase1Versions = workflowVersionList('PHASE1_VERSIONS');
+const wireAfterVersions = workflowVersionList('AFTER_VERSIONS');
 const readSessionNormalizeStart = readSessionProductionWorkflow.indexOf(
   'Normalize only the shared read-session gate to disabled',
 );
@@ -599,14 +607,29 @@ ok(
     && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(reportProductionWorkflow),
 );
 ok(
-  'Wire Phase 2 production workflow is manual main-only and exact-migration pinned',
+  'Wire Phase 2 production workflow is manual main-only and exact-migration-chain pinned',
   wireProductionWorkflow.includes('workflow_dispatch:')
     && !wireProductionWorkflow.includes('pull_request:')
     && !wireProductionWorkflow.includes('push:')
     && wireProductionWorkflow.includes('refs/heads/main')
-    && wireProductionWorkflow.includes('NEW_VERSION: "20260718130000"')
+    && wireProductionWorkflow.includes('PHASE1_VERSION: "20260718120000"')
+    && wireProductionWorkflow.includes('PHASE2_VERSION: "20260718130000"')
     && wireProductionWorkflow.includes('WIRE-PHASE2-DEPLOY-${EXPECTED_PROJECT_REF}')
-    && wireProductionWorkflow.includes('Dry-run exactly the one Wire migration'),
+    && wireProductionWorkflow.includes('Dry-run exact pending Wire migrations')
+    && wireProductionWorkflow.includes('[ "$got" = "$PENDING_VERSIONS" ]')
+    && JSON.stringify(wireBaseVersions) === JSON.stringify(expectedVersionIds.slice(0, 15))
+    && JSON.stringify(wirePhase1Versions) === JSON.stringify(expectedVersionIds.slice(0, 16))
+    && JSON.stringify(wireAfterVersions) === JSON.stringify(expectedVersionIds),
+);
+ok(
+  'Wire rollout safely catches up an undeployed Phase 1 and treats an absent flag as closed',
+  wireProductionWorkflow.includes('MODE=catchup')
+    && wireProductionWorkflow.includes('MODE=deploy')
+    && wireProductionWorkflow.includes('MODE=resume')
+    && wireProductionWorkflow.includes('PENDING_VERSIONS=${PHASE1_VERSION} ${PHASE2_VERSION}')
+    && wireProductionWorkflow.includes('PENDING_VERSIONS=${PHASE2_VERSION}')
+    && wireProductionWorkflow.includes('if [ -z "$wire_flag" ]; then')
+    && wireProductionWorkflow.includes('Wire write flag is absent; writes remain fail closed.'),
 );
 ok(
   'Wire rollout validates fully and deploys only the three touched functions',
