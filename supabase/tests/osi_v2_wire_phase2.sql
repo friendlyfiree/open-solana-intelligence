@@ -197,9 +197,9 @@ select ok((select report.current_published_version_id=fixture.version_id
 insert into public.analyst_profiles (
   wallet,status,tier_code,verified,approved,weight_cached,handle,display_name
 ) values
-  ('21111111111111111111111111111111','verified_analyst','analyst_i',true,true,1.50,'wire-a','Wire analyst A'),
-  ('31111111111111111111111111111111','verified_analyst','analyst_i',true,true,1.50,'wire-b','Wire analyst B'),
-  ('41111111111111111111111111111111','verified_analyst','analyst_i',true,true,1.50,'wire-c','Wire analyst C');
+  ('21111111111111111111111111111111','verified_analyst','analyst_i',true,true,1.50,'wire_a','Wire analyst A'),
+  ('31111111111111111111111111111111','verified_analyst','analyst_i',true,true,1.50,'wire_b','Wire analyst B'),
+  ('41111111111111111111111111111111','verified_analyst','analyst_i',true,true,1.50,'wire_c','Wire analyst C');
 
 select throws_ok($test$
   select * from public.osi_v2_prepare_wire_review(

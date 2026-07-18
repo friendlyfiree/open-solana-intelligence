@@ -928,8 +928,8 @@ select is((
      and proc.proname <> 'osi_v2_bootstrap_tier'
      and proc.prosrc like '%osi_v2_bootstrap_tier%'
 ),
- 'osi_private.osi_v2_commit_governance_action,osi_private.osi_v2_commit_report_publication,osi_private.osi_v2_prepare_governance_action,osi_private.osi_v2_prepare_report_publication',
- 'only the three D17 outcome paths can reach the bootstrap tier at all');
+ 'osi_private.osi_v2_commit_governance_action,osi_private.osi_v2_commit_report_publication,osi_private.osi_v2_commit_wire_publication,osi_private.osi_v2_prepare_governance_action,osi_private.osi_v2_prepare_report_publication,osi_private.osi_v2_prepare_wire_publication',
+ 'only accepted D17 outcome functions and its Wire-publication amendment can reach the bootstrap tier');
 select throws_ok($test$
  insert into public.event_receipts (
   event_version,event_type,target_type,target_id,actor_wallet,actor_role,
