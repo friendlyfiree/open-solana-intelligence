@@ -21,7 +21,7 @@ function ok(name, value) {
   console.log(`PASS: ${name}`);
 }
 
-const expected = ["case", "report", "analyst", "review", "governance", "money", "proof", "operations"];
+const expected = ["case", "report", "wire", "analyst", "review", "governance", "money", "proof", "operations"];
 ok("action catalog covers every accepted live product family",
   JSON.stringify(Object.keys(surface.catalog)) === JSON.stringify(expected));
 ok("every action contract names its real read, capability, or prepare endpoint",
@@ -31,6 +31,7 @@ const calls = [];
 const env = {
   openCase: () => calls.push(["case"]),
   openMyReports: () => calls.push(["report"]),
+  openMyWireReports: () => calls.push(["wire"]),
   openAnalystApplications: () => calls.push(["analyst"]),
   openReviewQueue: () => calls.push(["review"]),
   openFieldStage: (stage) => calls.push(["field", stage]),
@@ -39,21 +40,21 @@ const env = {
 };
 expected.forEach((id) => surface.run(id, env));
 ok("fixture actions route to the exact implemented UI transitions", JSON.stringify(calls) === JSON.stringify([
-  ["case"], ["report"], ["analyst"], ["review"], ["field", "resolution_selection"],
+  ["case"], ["report"], ["wire"], ["analyst"], ["review"], ["field", "resolution_selection"],
   ["field", "sealed"], ["navigate", "prooflog"], ["operations"],
 ]));
 
 const cards = [...index.matchAll(/data-action-contract="([^"]+)" data-endpoint="([^"]+)"/g)];
-ok("all eight action contracts are registered exactly once", cards.length === 8 && new Set(cards.map((row) => row[1])).size === 8);
+ok("all nine action contracts are registered exactly once", cards.length === 9 && new Set(cards.map((row) => row[1])).size === 9);
 ok("endpoint labels match the executable contract",
   cards.every((row) => surface.catalog[row[1]] && surface.catalog[row[1]].endpoint === row[2]));
 ok("Home explains the product without duplicating action contracts", !home.includes("data-action-contract="));
 ok("Platform menu owns exactly the five public and governance contracts",
   (platformMenu.match(/data-action-contract=/g) || []).length === 5
     && ["case", "review", "governance", "money", "proof"].every((id) => platformMenu.includes(`data-action-contract="${id}"`)));
-ok("wallet menu owns exactly the three private and maintainer contracts",
-  (walletMenu.match(/data-action-contract=/g) || []).length === 3
-    && ["report", "analyst", "operations"].every((id) => walletMenu.includes(`data-action-contract="${id}"`)));
+ok("wallet menu owns exactly the four private and maintainer contracts",
+  (walletMenu.match(/data-action-contract=/g) || []).length === 4
+    && ["report", "wire", "analyst", "operations"].every((id) => walletMenu.includes(`data-action-contract="${id}"`)));
 ok("Operations is present only on the hidden maintainer menu item",
   /id="maintainerAccessMenu"[^>]*style="display:none"[^>]*data-action-contract="operations"/.test(walletMenu)
     && (index.match(/data-action-contract="operations"/g) || []).length === 1);
@@ -62,10 +63,12 @@ ok("Operations uses the native double-gated overview instead of a visible legacy
   index.includes('id="osi-native-ops-overview"')
     && index.includes('id="admConsole" hidden')
     && !index.includes('id="adm-edit-modal"'));
-ok("Wire intake is visibly unavailable and has no enabled production submit control",
-  index.includes('Wire intake unavailable')
-    && !/<button class="wire-pub-btn"(?![^>]*disabled)/.test(index)
-    && script.includes("window.submitIntel=function()"));
+ok("Wire intake is a real flag-gated native action with no legacy submit control",
+  index.includes('id="osi-wire-intake-action"')
+    && index.includes('onclick="osiV2OpenWireForm()"')
+    && index.includes('assets/js/v2-wire-integration.js')
+    && !index.includes('id="wire-subject-in"')
+    && !script.includes("window.submitIntel=function()"));
 ok("native AI Pack generation is not loaded or presented as a live control",
   !index.includes("assets/js/80-ai-pack.js") && !index.includes("escGenerate()"));
 ok("production root loads no sample-data, briefing, or legacy private-read bundle",

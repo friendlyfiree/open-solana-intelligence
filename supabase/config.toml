@@ -418,6 +418,12 @@ verify_jwt = false
 [functions.osi-v2-report-read]
 verify_jwt = false
 
+# Native Wire intake and private author history. Wallet identity, exact Memo
+# proof, and the shared read-only session are verified in-function before any
+# service-only database RPC or private projection is reached.
+[functions.osi-v2-wire]
+verify_jwt = false
+
 [functions.osi-v2-governance-write]
 verify_jwt = false
 

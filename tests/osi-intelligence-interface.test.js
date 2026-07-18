@@ -76,7 +76,7 @@ ok(home.includes('No custody') && home.includes('Support never changes review, r
 ok(!/SAS|durable record fields|<span>Planned<\/span>/i.test(home), 'premature SAS and planned durable-record claims are absent');
 ok(!home.includes('data-action-contract='), 'Home stays explanatory instead of duplicating the live action-contract surface');
 ok(home.includes('Only when an eligible transfer confirms') && home.includes('<strong>After confirmation</strong>'), 'static proof model uses conditional verification language');
-for (const action of ['case', 'report', 'analyst', 'review', 'governance', 'money', 'proof', 'operations']) {
+for (const action of ['case', 'report', 'wire', 'analyst', 'review', 'governance', 'money', 'proof', 'operations']) {
   ok((index.match(new RegExp(`data-action-contract="${action}"`, 'g')) || []).length === 1,
     `${action} action contract appears exactly once`);
 }
@@ -84,7 +84,7 @@ const platformMenuStart = index.indexOf('id="platform-menu"');
 const platformMenu = index.slice(platformMenuStart, index.indexOf('<button class="osi-nav-link"', platformMenuStart));
 const walletMenu = index.slice(index.indexOf('id="wbMenu"'), index.indexOf('</header>'));
 ok((platformMenu.match(/data-action-contract=/g) || []).length === 5, 'Platform menu owns its five public and governance action contracts');
-ok((walletMenu.match(/data-action-contract=/g) || []).length === 3, 'wallet menu owns its three private and maintainer action contracts');
+ok((walletMenu.match(/data-action-contract=/g) || []).length === 4, 'wallet menu owns its four private and maintainer action contracts');
 ok(/id="maintainerAccessMenu"[^>]*style="display:none"[^>]*data-action-contract="operations"/.test(walletMenu), 'Operations stays hidden behind the maintainer capability gate');
 
 ok(shell.includes("op: 'list_public_cases'") && shell.includes("op: 'list_public_profiles'"), 'homepage reads only dedicated public endpoints');

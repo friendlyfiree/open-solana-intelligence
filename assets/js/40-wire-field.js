@@ -1,10 +1,15 @@
 
 
 // ===== THE WIRE: open community intelligence, filed without a bounty =====
-let wireState = { sort:'newest', data:[], phase:'idle', sourceError:null };
+let wireState = { sort:'newest', data:[], phase:'idle', sourceError:null, mode:'public', renderToken:0 };
 
-async function renderWire(){
+async function renderWire(options){
   if(!document.getElementById('wire-cases')) return;
+  const activatePublic=!!(options&&options.activatePublic);
+  if(wireState.mode==='private'&&!activatePublic)return;
+  wireState.mode='public';
+  const renderToken=++wireState.renderToken;
+  if(typeof window.osiV2RefreshWireCapability==='function')window.osiV2RefreshWireCapability();
   wireState.phase = 'loading';
   wireState.sourceError = null;
   drawWire();
@@ -28,6 +33,7 @@ async function renderWire(){
         });
     }catch(e){ wireState.sourceError = e || new Error('wire_source_unavailable'); }
   }
+  if(renderToken!==wireState.renderToken||wireState.mode!=='public')return;
   wireState.data = featured.concat(community);
   wireState.phase = wireState.sourceError ? 'error' : 'ready';
   drawWire();
@@ -47,7 +53,7 @@ function drawWire(){
     : '';
   if(!list.length){
     if(sourceNotice){ host.innerHTML = sourceNotice; return; }
-    host.innerHTML = '<div class="wire-empty"><div class="wire-empty-h">The wire is quiet</div><p>No public dispatches are available yet. Native Wire intake remains unavailable until its dedicated production write path is approved.</p></div>';
+    host.innerHTML = '<div class="wire-empty"><div class="wire-empty-h">The wire is quiet</div><p>No public dispatches are available yet. Native submissions remain private until a later independent publication transition.</p></div>';
     return;
   }
   host.innerHTML = sourceNotice + list.map(wireCard).join('');
@@ -94,36 +100,19 @@ function wireStats(list){
     + '<div class="wire-op"><div class="wire-op-n">'+comm+'</div><div class="wire-op-l">Community filings</div></div>';
 }
 function wireSort(){ wireState.sort='newest'; document.querySelectorAll('.wire-sort').forEach(function(b){ b.classList.toggle('active', b.dataset.s==='newest'); }); drawWire(); }
-function wireOpenForm(){ const f=document.getElementById('wire-form'); if(f){ f.hidden=false; f.scrollIntoView({behavior:'smooth',block:'center'}); const t=document.getElementById('wire-subject-in'); if(t) t.focus(); } }
-function wireCloseForm(){ const f=document.getElementById('wire-form'); if(f) f.hidden=true; }
-
+function wireEnterPrivateMode(){wireState.mode='private';wireState.renderToken++;}
+function wireOpenPublic(){wireState.mode='public';return renderWire({activatePublic:true});}
+function wireClearPrivateMode(){if(wireState.mode==='private')return wireOpenPublic();}
+function wireOpenForm(){
+  if(typeof window.osiV2OpenWireForm==='function')return window.osiV2OpenWireForm();
+  if(typeof showToast==='function')showToast('Native Wire intake is safely unavailable.');
+}
+function wireCloseForm(){
+  if(typeof window.osiV2CloseWireForm==='function')return window.osiV2CloseWireForm();
+}
 async function submitIntel(){
-  const subject = (document.getElementById('wire-subject-in').value || '').trim();
-  const body = (document.getElementById('wire-body-in').value || '').trim();
-  if(!subject){ showToast("Give your dispatch a subject (the entity or wallet it concerns)."); return; }
-  if(!body){ showToast("Write up your findings before publishing."); return; }
-  if(!rateOk('submit', 6000)){ showToast("Give it a few seconds before filing another dispatch."); return; }
-  var _sgI = safetyGate(subject + "\n" + body);
-  if(!_sgI.ok){ osiBlockShow(_sgI.hits); return; }
-  const _its = Math.floor(Date.now()/1000);
-  const memo = "OSI_WIRE_DISPATCH_SUBMITTED|subject=" + String(subject).replace(/\|/g,"/") + "|analyst=" + (walletPubkey||"anon") + "|ts=" + _its;
-  withOnchainVote("File a dispatch", memo, async (sig)=>{
-    let att = '';
-    try{ att = await uploadPicked('wire'); }
-    catch(e){ showToast("Attachment upload failed, publishing without it."); }
-    const id = 'rep_' + Date.now();
-    const reports = lsGet('stw_reports', []);
-    reports.unshift({ id, bounty:'', company:subject, summary:body, onchain:'', offchain:'', attachment:att, wallet:walletPubkey||'', tx:sig||'', up:0, dn:0 });
-    lsSet('stw_reports', reports);
-    if(SUPA_ON){ try{ const row = { id, bounty:'', company:subject, wallet:walletPubkey||'', summary:body, onchain:'', offchain:'', tx:sig||'', approved:false }; if(att) row.attachment = att; await supaPost('reports', row); }catch(e){ console.warn('OSI: intel publish failed.', e); } }
-    recordOnchainEvent({ event_type:'wire_dispatch', item_type:'report', item_id:id, label:'filed a dispatch on '+subject, memo_text:memo, tx_sig:sig });
-    try{ await sendForm({ _subject:'OSI, Intel Dispatch: '+subject, type:'intel-listing', subject, wallet:walletPubkey||'(none)', summary:body, attachment:att||'(none)', tx:sig||'(none)' }); }catch(e){}
-    clearPickedFile('wire');
-    ['wire-subject-in','wire-body-in'].forEach(function(x){ const el=document.getElementById(x); if(el) el.value=''; });
-    wireCloseForm();
-    renderReviewQueue();
-    showToast("\\u2713 Dispatch Memo submitted. Publication remains separate and requires eligible analyst quorum.");
-  });
+  if(typeof window.osiV2SubmitWire==='function')return await window.osiV2SubmitWire();
+  throw new Error('native_wire_intake_unavailable');
 }
 
 // ===== Solana Pay: turn any tip/reward/support into a scannable payment request =====

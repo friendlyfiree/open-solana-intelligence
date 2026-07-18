@@ -685,6 +685,7 @@ async function createReadSession(req: Request, body: Row): Promise<Response> {
     READ_SESSION_SCOPES.CASE_MINE,
     READ_SESSION_SCOPES.CASE_DETAIL,
     READ_SESSION_SCOPES.REPORT_MINE,
+    READ_SESSION_SCOPES.WIRE_MINE,
     READ_SESSION_SCOPES.ANALYST_WORKSPACE,
   ];
   if (analyst || maintainer) {

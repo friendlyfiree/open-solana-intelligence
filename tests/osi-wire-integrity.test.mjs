@@ -15,6 +15,8 @@ const wireStatsHost = { innerHTML:'' };
 let wireRowsMode = 'pending';
 let releaseRows;
 const pendingRows = new Promise((resolve)=>{ releaseRows = resolve; });
+let releasePrivateRace;
+const privateRaceRows = new Promise((resolve)=>{ releasePrivateRace = resolve; });
 const wireContext = {
   window:null,
   document:{
@@ -30,6 +32,7 @@ const wireContext = {
   OSI_SUPPORT_WALLET:'',
   supaGet:async()=>{
     if(wireRowsMode==='pending') return pendingRows;
+    if(wireRowsMode==='private-race') return privateRaceRows;
     if(wireRowsMode==='error') throw new Error('source unavailable');
     return [];
   },
@@ -47,12 +50,24 @@ const firstRender = wireContext.renderWire();
 ok('The Wire exposes an explicit loading state before its source resolves', wireHost.innerHTML.includes('Opening the live wire'));
 releaseRows([]);
 await firstRender;
-ok('an available source with zero rows renders the genuine empty state without a dormant intake control', wireHost.innerHTML.includes('The wire is quiet') && wireHost.innerHTML.includes('Native Wire intake remains unavailable') && !wireHost.innerHTML.includes('wireOpenForm'));
+ok('an available source with zero rows renders a genuine public empty state without leaking private intake', wireHost.innerHTML.includes('The wire is quiet') && wireHost.innerHTML.includes('Native submissions remain private') && !wireHost.innerHTML.includes('wireOpenForm'));
 
 wireRowsMode = 'error';
 await wireContext.renderWire();
 ok('a source failure is distinct from empty and offers a real retry action', wireHost.innerHTML.includes('temporarily unavailable') && wireHost.innerHTML.includes('class="wire-retry"') && wireHost.innerHTML.includes('onclick="renderWire()"') && !wireHost.innerHTML.includes('The wire is quiet'));
+wireRowsMode = 'private-race';
+const stalePublicRender = wireContext.wireOpenPublic();
+wireContext.wireEnterPrivateMode();
+wireHost.innerHTML = 'PRIVATE WIRE WORKSPACE';
+releasePrivateRace([]);
+await stalePublicRender;
+await wireContext.renderWire();
+ok('private Wire workspace cannot be overwritten by stale or background public renders', wireHost.innerHTML === 'PRIVATE WIRE WORKSPACE');
+wireRowsMode = 'empty';
+await wireContext.wireOpenPublic();
+ok('explicit public Wire navigation exits private mode', wireHost.innerHTML.includes('The wire is quiet'));
 ok('functional-surface intake locking does not disable the live-source retry', !functionalSurfaceSource.includes('.wire-retry'));
+ok('functional-surface routing exposes the real private Wire workspace', functionalSurfaceSource.includes("wire:Object.freeze({endpoint:'osi-v2-wire:list_my_wire_reports'") && functionalSurfaceSource.includes("openMyWireReports"));
 
 const unattributed = vm.runInContext("wireCard({id:'wire-1',subject:'Public evidence',body:'Exact evidence only',premium:false,created_at:'2026-01-01'})", wireContext);
 ok('missing author attribution is labeled honestly instead of inventing an analyst', unattributed.includes('source not attributed') && !unattributed.includes('by analyst'));

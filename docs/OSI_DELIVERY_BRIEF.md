@@ -69,12 +69,14 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - The mature production shell responds successfully.
 - The native analyst activation migration and function are a merge/deploy candidate.
 - The native Case Report intake migration, read/write gateways, root UI integration, and main-only rollout workflow are a review candidate.
+- The native Wire Phase 1 migration, dedicated gateway, private author workspace, and main-only rollout workflow are a review candidate.
 - Production is unchanged until the reviewed PR is merged and rollout gates pass.
 - Broad `OSI_V2_WRITES_ENABLED` remains false.
 - Broad `OSI_V2_PROOF_ENABLED` remains false.
 - The Case slice uses exact `OSI_V2_CASE_WRITES_ENABLED` gating.
 - The analyst slice uses exact `OSI_V2_ANALYST_WRITES_ENABLED` gating.
 - The Report slice uses exact `OSI_V2_REPORT_WRITES_ENABLED` gating and is disabled by default until its reviewed rollout finishes.
+- Wire Phase 1 uses exact `OSI_V2_WIRE_WRITES_ENABLED` gating and is disabled by default until its reviewed rollout finishes.
 - Missing, malformed, or unavailable flags fail closed.
 
 ## 4. Global information architecture
@@ -234,9 +236,21 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Authors receive full private history through My Reports.
 - Eligible analysts and full maintainers receive a read-only awaiting-review projection.
 - Case ownership alone does not grant access to another author's unpublished Report.
-- Report rejection, reward, support, Wire intake, and AI Pack remain disabled. Report publication is live; exact primary Report selection, challenge, and Case sealing are implemented behind the atomic `OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED` rollout gate.
+- Report rejection, reward, support, and AI Pack remain disabled. Report publication is live; exact primary Report selection, challenge, and Case sealing are implemented behind the atomic `OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED` rollout gate.
 
-## 10. Next roadmap gates
+## 10. Native Wire Phase 1 intake candidate
+
+- Any connected wallet may prepare a new standalone Wire finding or revise one of its own native Wire headers.
+- Each version binds a public-safe title and summary, restricted analysis and uncertainties, and an ordered evidence manifest before wallet approval.
+- `WIRE_REPORT_VERSION_SUBMITTED` is a class-A Memo anchored by the author wallet and verified against Solana mainnet by the dedicated gateway.
+- Nonce consumption, receipt creation, header creation when needed, immutable version append, private evidence links, and the current-version pointer advance share one transaction.
+- Revisions preserve all earlier versions and fail safely if their reserved lineage becomes stale.
+- `current_published_version_id`, promotion, reviews, challenges, support, and public Wire projections are not changed by Phase 1.
+- My Wire Reports uses the existing shared read-session token with the exact `wire:mine` scope and no TTL or binding relaxation.
+- Public requests have no Wire list operation in Phase 1, and unpublished Wire existence, content, evidence, and author identity remain private.
+- The dedicated `osi-v2-wire` function isolates Wire behavior from the existing Report gateways and minimizes flag-off regression risk.
+
+## 11. Next roadmap gates
 
 - Merge and deploy the reviewed analyst activation slice only after clean CI and preview verification.
 - Run a soak period with broad V2 writes still disabled.
@@ -246,7 +260,10 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Add resolution proposal and nullable-state checks.
 - Production-activate exact primary Report selection, the seven-day challenge lifecycle, accepted-challenge reopen, and process sealing only after their dedicated rollout workflow passes.
 - Add reputation snapshot progression after real attributable contributions exist.
-- Add AI Pack and The Wire write flows after their evidence scopes are enforced.
+- Merge and deploy native Wire Phase 1 only after clean CI and the manual main-only rollout verifies the private intake boundary.
+- Soak Wire intake before adding analyst review, publication, public projections, challenges, support, or Case promotion.
+- Add the remaining Wire lifecycle only after each role, evidence, quorum, and typed-target boundary is enforced and tested.
+- Add AI Pack after its evidence scopes are enforced.
 - Add reward, support, My OSI expansion, and Operations Center later.
 - Retire legacy writes only after soak, reconciliation, and explicit cutover approval.
 

@@ -9,7 +9,10 @@ const CASE_REF = 'OSI-C-A1B2C3D4E5F60718';
 const PRIVATE_REF = 'OSI-C-PRIVATE000000001';
 const REPORT_REF = 'OSI-RPT-A1B2C3D4E5F6';
 const VERSION_REF = 'OSI-RV-A1B2C3D4E5F60718';
+const WIRE_REPORT_REF = 'OSI-WR-A1B2C3D4E5F6';
+const WIRE_VERSION_REF = 'OSI-WV-A1B2C3D4E5F60718';
 const PRIVATE_SENTINEL = 'PRIVATE_FIXTURE_SENTINEL';
+const WIRE_PRIVATE_SENTINEL = 'WIRE_PRIVATE_FIXTURE_SENTINEL';
 const now = Date.now();
 const iso = (offsetDays) => new Date(now + offsetDays * 86_400_000).toISOString();
 
@@ -117,6 +120,30 @@ const reportFixture = {
   ],
 };
 
+const wireFixture = {
+  wire_report_public_ref: WIRE_REPORT_REF,
+  status: 'active',
+  current_version_ref: `${WIRE_VERSION_REF.slice(0, -1)}2`,
+  current_version_no: 2,
+  current_published_version_ref: null,
+  revision_eligible: true,
+  versions: [1, 2].map((no) => ({
+    version_ref: `${WIRE_VERSION_REF.slice(0, -1)}${no}`,
+    version_no: no,
+    lifecycle_state: 'submitted',
+    title_public_safe: `Wire fixture version ${no}`,
+    content_public_safe: `Public-safe Wire fixture summary ${no} remains private before independent publication.`,
+    body_private: `${WIRE_PRIVATE_SENTINEL} restricted analysis version ${no} records transaction order, alternatives, and source limits.`,
+    uncertainties_private: `Attribution remains uncertain for Wire fixture version ${no}.`,
+    evidence_snapshot_hash: String(no).repeat(64),
+    revision_reason_code: no === 1 ? null : 'clarification',
+    supersedes_version_ref: no === 1 ? null : `${WIRE_VERSION_REF.slice(0, -1)}1`,
+    submitted_at: iso(-3 + no),
+    evidence: [{ ordinal: 1, kind: 'onchain_tx', ref: TX, sha256: 'a'.repeat(64) }],
+    proof: { proof_type: 'solana_memo', server_verified: true, tx_sig: TX, occurred_at: iso(-3 + no) },
+  })),
+};
+
 const analystFixture = {
   wallet: OTHER, handle: 'public-analyst', display_name: 'Public analyst fixture',
   bio: 'A public-safe profile returned by the analyst projection.', status: 'verified', tier_code: 'verified', weight: 1.5,
@@ -139,7 +166,7 @@ function token(origin) {
     v: 1, iss: 'osi-v2-case-read', aud: origin, sub: WALLET,
     iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300,
     jti: 'fixture-session-jti-00000000000000000001',
-    scp: ['case:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'analyst:workspace', 'analyst:maintainer'],
+    scp: ['case:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'wire:mine', 'analyst:workspace', 'analyst:maintainer'],
     auth_sub: null,
   })}.fixture-signature`;
 }
@@ -198,6 +225,14 @@ async function installFixtureNetwork(page) {
         publication_proof: { tx_sig: TX }, process_notice: 'Publication does not resolve the Case.',
       }];
       else response.reports = [reportFixture];
+    } else if (endpoint === 'osi-v2-wire') {
+      if (body.op === 'capabilities') response = {
+        ok: true, wire_writes_enabled: true, publication_enabled: false,
+        wallet_connected: true, prerequisite: null,
+      };
+      else if (body.op === 'list_my_wire_reports') response = {
+        ok: true, reports: [wireFixture], private_projection: true,
+      };
     } else if (endpoint === 'osi-v2-analyst') {
       if (body.op === 'list_public_profiles') response.analysts = [analystFixture];
       else if (body.op === 'my_workspace') response = analystWorkspace;
@@ -472,6 +507,36 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await page.waitForFunction(() => typeof window.osiV2OpenMyCases === 'function');
   expect(await page.evaluate(() => sessionStorage.getItem('osi_v2_read_session_v1'))).toBeNull();
   expect(await page.evaluate(() => sessionStorage.getItem('osi_v2_read_session_expired_v1'))).toBe('1');
+  expectCleanRuntime(page);
+});
+
+test('Wire Phase 1 private fixture and revision form fit desktop and 390px', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.osiV2OpenMyWireReports());
+  await expect(page.locator('#wire-cases')).toContainText(WIRE_REPORT_REF);
+  await expect(page.locator('#wire-cases')).toContainText('Version history (2)');
+  await expect(page.locator('#wire-cases')).toContainText(WIRE_PRIVATE_SENTINEL);
+  await expect(page.locator('#wire-cases')).toContainText('Publication, review, challenge, support, and promotion are not enabled in Phase 1.');
+  expect((await page.evaluate(() => window.__fixtureProviderCounts())).signMessage).toBe(1);
+
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate((reportRef) => window.osiV2OpenWireForm(reportRef), WIRE_REPORT_REF);
+    const modal = page.locator('#osi-wire-modal');
+    await expect(modal).toHaveClass(/open/);
+    await expect(page.locator('#osi-wire-context')).toContainText('Next version 3');
+    await expect(page.locator('#osi-wire-title')).toHaveValue('Wire fixture version 2');
+    await expect(page.locator('#osi-wire-modal-copy')).toContainText('remain private');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    const box = await page.locator('#osi-wire-modal .fo-form').boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.width).toBeLessThanOrEqual(width);
+    await page.keyboard.press('Escape');
+    await expect(modal).not.toHaveClass(/open/);
+  }
+  await page.evaluate(({ other }) => window.__fixtureProvider.__emit('accountChanged', { toString: () => other }), { other: OTHER });
+  await expect(page.locator('body')).not.toContainText(WIRE_PRIVATE_SENTINEL);
+  expect(await page.evaluate(() => sessionStorage.getItem('osi_v2_read_session_v1'))).toBeNull();
   expectCleanRuntime(page);
 });
 

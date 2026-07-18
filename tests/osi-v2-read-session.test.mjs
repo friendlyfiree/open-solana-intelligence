@@ -89,13 +89,15 @@ await (async () => {
 const caseRead = readFileSync(new URL("../supabase/functions/osi-v2-case-read/index.ts", import.meta.url), "utf8");
 const reportRead = readFileSync(new URL("../supabase/functions/osi-v2-report-read/index.ts", import.meta.url), "utf8");
 const analyst = readFileSync(new URL("../supabase/functions/osi-v2-analyst/index.ts", import.meta.url), "utf8");
-ok("all three private-read isolates verify the same stateless token core",
-  [caseRead, reportRead, analyst].every((source) => source.includes("verifyReadSessionToken")));
+const wire = readFileSync(new URL("../supabase/functions/osi-v2-wire/index.ts", import.meta.url), "utf8");
+ok("all four private-read isolates verify the same stateless token core",
+  [caseRead, reportRead, analyst, wire].every((source) => source.includes("verifyReadSessionToken")));
 ok("only the Case read gateway can mint a session after consuming a durable proof",
   caseRead.includes("issueReadSessionToken")
     && caseRead.includes('verifySignedRead(body, "CASE_READ_MY_CASES"')
     && !reportRead.includes("issueReadSessionToken")
-    && !analyst.includes("issueReadSessionToken"));
+    && !analyst.includes("issueReadSessionToken")
+    && !wire.includes("issueReadSessionToken"));
 ok("maintainer private reads still re-check wallet and Supabase identity",
   caseRead.includes("authValid") && caseRead.includes("walletValid")
     && reportRead.includes("walletGate && authGate")

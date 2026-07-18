@@ -8,6 +8,7 @@
   var catalog=Object.freeze({
     case:Object.freeze({endpoint:'osi-v2-case-write:actor_capabilities',state:'case_writes_enabled',approval:'one_memo_transaction'}),
     report:Object.freeze({endpoint:'osi-v2-report-read:list_my_reports',state:'shared_private_read_session',approval:'one_memo_transaction_per_version'}),
+    wire:Object.freeze({endpoint:'osi-v2-wire:list_my_wire_reports',state:'shared_private_read_session',approval:'one_memo_transaction_per_version'}),
     analyst:Object.freeze({endpoint:'osi-v2-analyst:my_workspace',state:'application_version_state',approval:'one_message_per_version'}),
     review:Object.freeze({endpoint:'osi-v2-case-read:list_reviewable_cases',state:'server_derived_eligibility',approval:'one_message_or_memo_per_write'}),
     governance:Object.freeze({endpoint:'osi-v2-governance-write:prepare',state:'exact_case_and_target_state',approval:'one_message_or_memo_per_write'}),
@@ -20,6 +21,7 @@
     if(!catalog[id])throw new Error('unknown_live_action');
     if(id==='case')return need(env,'openCase')();
     if(id==='report')return need(env,'openMyReports')();
+    if(id==='wire')return need(env,'openMyWireReports')();
     if(id==='analyst')return need(env,'openAnalystApplications')();
     if(id==='review')return need(env,'openReviewQueue')();
     if(id==='governance')return need(env,'openFieldStage')('resolution_selection');
@@ -38,6 +40,7 @@
     return{
       openCase:window.osiOpenCase,
       openMyReports:window.osiV2OpenMyReports,
+      openMyWireReports:window.osiV2OpenMyWireReports,
       openAnalystApplications:function(){return window.osiAnalystOpenWorkspace('applications');},
       openReviewQueue:window.osiV2OpenReviewQueue,
       openFieldStage:window.osiNavigateFieldStage,
@@ -97,14 +100,4 @@
   window.admRefresh=refreshNativeOperations;
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('operations',function(){clearNativeOperations('Private Operations data cleared. Unlock both maintainer gates to continue.');});
 
-  function disableWireIntake(){
-    document.querySelectorAll('#wire-view .wire-cta,#wire-view .wire-pub-btn').forEach(function(button){
-      button.disabled=true;button.textContent='Wire intake unavailable';button.title='Native Wire intake does not yet have an accepted production write path';
-    });
-  }
-  var feedRenderer=window.renderWire;
-  if(typeof feedRenderer==='function')window.renderWire=async function(){var result=await feedRenderer();disableWireIntake();return result;};
-  window.wireOpenForm=function(){disableWireIntake();if(typeof window.showToast==='function')window.showToast('Native Wire intake is unavailable until its reviewed signed endpoint is enabled.');};
-  window.submitIntel=function(){if(typeof window.showToast==='function')window.showToast('Native Wire intake is not enabled. No submission was sent.');return Promise.resolve(null);};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',disableWireIntake);else disableWireIntake();
 })();

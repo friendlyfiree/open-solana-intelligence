@@ -566,6 +566,188 @@ assert_eq "concurrent revisions leave unique monotonic version numbers" "2:2:2" 
 LOSER_RECEIPTS="$(psql_run -c "select count(*) from public.event_receipts where nonce = '$REV_NONCE_2';")"
 assert_eq "losing concurrent revision creates no receipt or partial effect" "0" "$LOSER_RECEIPTS"
 
+# --- Wire intake: exact Memo nonce and immutable lineage races ----------------
+WIRE_WALLET="33333333333333333333333333333333"
+WIRE_NONCE="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+WIRE_IDEM="osi-v2-wire-race-$(date +%s%N)"
+WIRE_TITLE="Independent Wire transfer sequence for review"
+WIRE_SUMMARY="A public-safe Wire summary records a linked transfer sequence without asserting identity or wrongdoing."
+WIRE_BODY="The restricted Wire analysis records transaction order, wallet relationships, alternative explanations, source limits, and exact evidence for independent review."
+WIRE_UNCERTAINTIES="Attribution and wallet ownership remain independently unconfirmed."
+WIRE_EVIDENCE_SQL="jsonb_build_array(jsonb_build_object('kind','wallet','ref','$WIRE_WALLET','sha256',encode(extensions.digest(convert_to('$WIRE_WALLET','UTF8'),'sha256'),'hex')))"
+WIRE_TX="$(printf 'W%.0s' $(seq 1 88))"
+WIRE_MEMO="OSI2 test WIRE_REPORT_VERSION_SUBMITTED concurrency v1"
+WIRE_C1_OUT="$WORKDIR/wire-conn1.out"
+WIRE_C2_OUT="$WORKDIR/wire-conn2.out"
+WIRE_HOLD_MARKER="$WORKDIR/wire-conn1-holding.marker"
+
+psql_run >/dev/null <<SQL
+update public.osi_config set value = 'true' where key = 'OSI_V2_WIRE_WRITES_ENABLED';
+update public.osi_config set value = '0' where key = 'OSI_V2_WIRE_COOLDOWN_SECONDS';
+select * from public.osi_v2_prepare_wire_version(
+  '$WIRE_NONCE', '$WIRE_WALLET', null,
+  '$WIRE_TITLE', '$WIRE_SUMMARY', '$WIRE_BODY', '$WIRE_UNCERTAINTIES', null,
+  $WIRE_EVIDENCE_SQL, '$WIRE_IDEM', '$(printf '6%.0s' $(seq 1 64))'
+);
+SQL
+
+WIRE_COMMIT_SQL="select receipt_id::text || ' ' || idempotent_replay::text
+  from public.osi_v2_commit_wire_version(
+    '$WIRE_NONCE', '$WIRE_TITLE', '$WIRE_SUMMARY', '$WIRE_BODY',
+    '$WIRE_UNCERTAINTIES', null, $WIRE_EVIDENCE_SQL,
+    '$WIRE_TX', '$WIRE_MEMO', statement_timestamp())"
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$WIRE_COMMIT_SQL
+\g $WIRE_C1_OUT
+\! touch $WIRE_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+WIRE_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$WIRE_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "Wire connection 1 never reached the holding state"
+    wait "$WIRE_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$WIRE_COMMIT_SQL
+\g $WIRE_C2_OUT
+commit;
+SQL
+WIRE_CONN2_PID=$!
+
+sleep 1
+WIRE_RACE_WAITERS="$(psql_run -c "
+  select count(*) from pg_stat_activity
+   where wait_event_type = 'Lock'
+     and query ilike '%osi_v2_commit_wire_version%';")"
+if [ "${WIRE_RACE_WAITERS:-0}" -ge 1 ]; then
+  pass "second Wire commit genuinely blocked on the exact nonce or lineage lock"
+else
+  fail "second Wire commit did not block on a lock"
+fi
+
+wait "$WIRE_CONN1_PID"
+wait "$WIRE_CONN2_PID"
+read -r WIRE_R1 WIRE_REPLAY1 < "$WIRE_C1_OUT"
+read -r WIRE_R2 WIRE_REPLAY2 < "$WIRE_C2_OUT"
+assert_eq "Wire race returns one shared receipt" "$WIRE_R1" "$WIRE_R2"
+assert_eq "first Wire commit creates the exact version" "false" "$WIRE_REPLAY1"
+assert_eq "second Wire commit is an idempotent replay" "true" "$WIRE_REPLAY2"
+
+WIRE_COUNTS="$(psql_run -c "
+  select count(distinct receipt.id) || ':' || count(distinct report.id) || ':' || count(distinct version.id)
+    from public.wire_reports report
+    join public.wire_report_versions version on version.wire_report_id = report.id
+    join public.event_receipts receipt on receipt.id = version.event_receipt_id
+   where report.author_wallet = '$WIRE_WALLET' and report.native_intake;")"
+assert_eq "Wire race creates one receipt one header and one version" "1:1:1" "$WIRE_COUNTS"
+
+WIRE_CHANGED_TITLE_ERR="$(psql "$DB_URL" -X -q -tA -c "
+  select * from public.osi_v2_commit_wire_version(
+    '$WIRE_NONCE', '${WIRE_TITLE} changed', '$WIRE_SUMMARY', '$WIRE_BODY',
+    '$WIRE_UNCERTAINTIES', null, $WIRE_EVIDENCE_SQL,
+    '$WIRE_TX', '$WIRE_MEMO', statement_timestamp());" 2>&1 || true)"
+if printf '%s' "$WIRE_CHANGED_TITLE_ERR" | grep -q 'Wire content or evidence changed after prepare'; then
+  pass "changed Wire content cannot reuse the consumed nonce"
+else
+  fail "changed Wire content was not rejected: $WIRE_CHANGED_TITLE_ERR"
+fi
+
+# Two independently prepared Wire revisions both reserve version 2. Only the
+# winner may advance the header; the stale revision leaves no receipt or row.
+WIRE_REPORT_REF="$(psql_run -c "select public_ref from public.wire_reports where author_wallet='$WIRE_WALLET' and native_intake;")"
+WIRE_REV_NONCE_1="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+WIRE_REV_NONCE_2="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+WIRE_REV_BODY_1="The first restricted Wire revision adds exact evidence context while preserving uncertainty, source limits, alternative explanations, and the immutable initial version."
+WIRE_REV_BODY_2="The second concurrent Wire revision proposes different context but must lose safely when the first revision advances the immutable lineage."
+WIRE_REV_TX_1="$(printf 'X%.0s' $(seq 1 88))"
+WIRE_REV_TX_2="$(printf 'Y%.0s' $(seq 1 88))"
+WIRE_REV_C1_OUT="$WORKDIR/wire-revision-conn1.out"
+WIRE_REV_C2_ERR="$WORKDIR/wire-revision-conn2.err"
+WIRE_REV_HOLD_MARKER="$WORKDIR/wire-revision-conn1-holding.marker"
+
+psql_run >/dev/null <<SQL
+select * from public.osi_v2_prepare_wire_version(
+  '$WIRE_REV_NONCE_1', '$WIRE_WALLET', '$WIRE_REPORT_REF',
+  '$WIRE_TITLE', '$WIRE_SUMMARY', '$WIRE_REV_BODY_1', '$WIRE_UNCERTAINTIES',
+  'new_evidence', $WIRE_EVIDENCE_SQL,
+  'osi-v2-wire-revision-one-$(date +%s%N)', '$(printf '7%.0s' $(seq 1 64))'
+);
+select * from public.osi_v2_prepare_wire_version(
+  '$WIRE_REV_NONCE_2', '$WIRE_WALLET', '$WIRE_REPORT_REF',
+  '$WIRE_TITLE', '$WIRE_SUMMARY', '$WIRE_REV_BODY_2', '$WIRE_UNCERTAINTIES',
+  'clarification', $WIRE_EVIDENCE_SQL,
+  'osi-v2-wire-revision-two-$(date +%s%N)', '$(printf '8%.0s' $(seq 1 64))'
+);
+SQL
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+select receipt_id::text from public.osi_v2_commit_wire_version(
+  '$WIRE_REV_NONCE_1', '$WIRE_TITLE', '$WIRE_SUMMARY', '$WIRE_REV_BODY_1',
+  '$WIRE_UNCERTAINTIES', 'new_evidence', $WIRE_EVIDENCE_SQL,
+  '$WIRE_REV_TX_1', 'OSI2 Wire revision race winner', statement_timestamp())
+\g $WIRE_REV_C1_OUT
+\! touch $WIRE_REV_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+WIRE_REV_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$WIRE_REV_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "Wire revision connection 1 never reached the holding state"
+    wait "$WIRE_REV_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q -c "
+  select * from public.osi_v2_commit_wire_version(
+    '$WIRE_REV_NONCE_2', '$WIRE_TITLE', '$WIRE_SUMMARY', '$WIRE_REV_BODY_2',
+    '$WIRE_UNCERTAINTIES', 'clarification', $WIRE_EVIDENCE_SQL,
+    '$WIRE_REV_TX_2', 'OSI2 Wire revision race loser', statement_timestamp());" \
+  >/dev/null 2>"$WIRE_REV_C2_ERR" &
+WIRE_REV_CONN2_PID=$!
+
+wait "$WIRE_REV_CONN1_PID"
+wait "$WIRE_REV_CONN2_PID" 2>/dev/null || true
+if grep -q 'Wire lineage advanced after prepare' "$WIRE_REV_C2_ERR"; then
+  pass "stale concurrent Wire revision is rejected after lineage advances"
+else
+  fail "stale concurrent Wire revision did not fail with the lineage guard"
+fi
+
+WIRE_REVISION_NUMBERS="$(psql_run -c "
+  select count(*) || ':' || count(distinct version_no) || ':' || max(version_no)
+    from public.wire_report_versions version
+    join public.wire_reports report on report.id = version.wire_report_id
+   where report.public_ref = '$WIRE_REPORT_REF';")"
+assert_eq "concurrent Wire revisions leave unique monotonic version numbers" "2:2:2" "$WIRE_REVISION_NUMBERS"
+
+WIRE_LOSER_RECEIPTS="$(psql_run -c "select count(*) from public.event_receipts where nonce = '$WIRE_REV_NONCE_2';")"
+assert_eq "losing concurrent Wire revision creates no partial effect" "0" "$WIRE_LOSER_RECEIPTS"
+
 # --- Report review: one signMessage nonce races two commit workers ------------
 REVIEW_NONCE="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
 REVIEW_WALLET="66666666666666666666666666666666"

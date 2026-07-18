@@ -14,6 +14,7 @@ if (!globalThis.atob) globalThis.atob = (value) => Buffer.from(value, "base64").
 
 const require = createRequire(import.meta.url);
 const clientCore = require("../assets/js/52-read-session.js");
+const wireIntegration = readFileSync(new URL("../assets/js/v2-wire-integration.js", import.meta.url), "utf8");
 let passed = 0;
 function ok(name, condition) {
   if (!condition) throw new Error(`FAIL: ${name}`);
@@ -125,6 +126,9 @@ for (const kind of writeKinds) {
 }
 ok("each Case, review, challenge, pledge, Report and analyst Class-B write has exactly one provider approval",
   writeKinds.every((kind) => writeApprovals.get(kind) === 1));
+ok("Wire Phase 1 requests exactly one class-A transaction approval per prepared version",
+  (wireIntegration.match(/state\.pending\.txSig=await castOnchainVote\(/g) || []).length === 1
+    && wireIntegration.includes("if(!state.pending.txSig)"));
 
 let databaseEffects = 0;
 try {
