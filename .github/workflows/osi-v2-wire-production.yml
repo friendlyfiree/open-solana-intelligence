@@ -1,7 +1,7 @@
 name: OSI V2 Wire Phase 2 Production
 
 # Manual, current-main-only rollout for the governed Wire lane. The additive
-# Phase 2 migration lands fail closed. This workflow deploys only the three
+# ordered Wire migrations land fail closed. This workflow deploys only the three
 # touched functions and enables only the dedicated Wire flag after all privacy,
 # regression, proof, and preservation checks.
 
@@ -23,8 +23,11 @@ concurrency:
 env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
   PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
-  NEW_VERSION: "20260718130000"
-  BEFORE_VERSIONS: >-
+  PHASE1_VERSION: "20260718120000"
+  PHASE2_VERSION: "20260718130000"
+  BASE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000
+  PHASE1_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000
   AFTER_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000
@@ -77,7 +80,8 @@ jobs:
           [ "$got" = "$expected" ] || {
             echo "::error::Repository migration set is not the exact expected seventeen versions."; exit 1;
           }
-          test -f "supabase/migrations/${NEW_VERSION}_osi_v2_wire_phase2.sql"
+          test -f "supabase/migrations/${PHASE1_VERSION}_osi_v2_wire_phase1.sql"
+          test -f "supabase/migrations/${PHASE2_VERSION}_osi_v2_wire_phase2.sql"
 
       - name: Full Node and touched-function battery
         run: |
@@ -207,11 +211,19 @@ jobs:
           supabase link --project-ref "$EXPECTED_PROJECT_REF"
           [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
           got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
-          before="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          base="$(echo "$BASE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          phase1="$(echo "$PHASE1_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
           after="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
-          if [ "$got" = "$before" ]; then echo "MODE=deploy" >> "$GITHUB_ENV";
-          elif [ "$got" = "$after" ]; then echo "MODE=resume" >> "$GITHUB_ENV";
-          else echo "::error::Remote history is not the exact before or after state."; exit 1; fi
+          if [ "$got" = "$base" ]; then
+            { echo "MODE=catchup"; echo "PENDING_VERSIONS=${PHASE1_VERSION} ${PHASE2_VERSION}"; } >> "$GITHUB_ENV"
+          elif [ "$got" = "$phase1" ]; then
+            { echo "MODE=deploy"; echo "PENDING_VERSIONS=${PHASE2_VERSION}"; } >> "$GITHUB_ENV"
+          elif [ "$got" = "$after" ]; then
+            { echo "MODE=resume"; echo "PENDING_VERSIONS="; } >> "$GITHUB_ENV"
+          else
+            echo "::error::Remote history is not the exact approved base, Phase 1, or Phase 2 state. Got versions: ${got:-<empty>}"
+            exit 1
+          fi
 
       - name: Record exact disable and forward-fix plan
         run: |
@@ -219,16 +231,16 @@ jobs:
           echo "Disable plan: restore that one flag to false; retain immutable rows and ship a reviewed forward fix."
           echo "No drop, reset, repair, truncation, broad update, or data rewrite is an acceptable rollback."
 
-      - name: Dry-run exactly the one Wire migration
-        if: ${{ env.MODE == 'deploy' }}
+      - name: Dry-run exact pending Wire migrations
+        if: ${{ env.MODE != 'resume' }}
         run: |
           set -euo pipefail
           supabase db push --linked --dry-run 2>&1 | tee /tmp/wire-phase2-dry-run.txt
           got="$(grep -oE '20[0-9]{12}' /tmp/wire-phase2-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
-          [ "$got" = "$NEW_VERSION" ] || { echo "::error::Dry-run is not exactly the expected Wire migration."; exit 1; }
+          [ "$got" = "$PENDING_VERSIONS" ] || { echo "::error::Dry-run is not exactly the expected pending Wire migration set."; exit 1; }
 
-      - name: Apply exactly the one additive migration
-        if: ${{ env.MODE == 'deploy' }}
+      - name: Apply exact pending additive Wire migrations
+        if: ${{ env.MODE != 'resume' }}
         run: supabase db push --linked --yes
 
       - name: Verify history privacy privileges indexes and fail-closed flag
@@ -406,6 +418,15 @@ jobs:
             echo "No production database session was established; this job did not enable Wire writes."
             exit 0
           fi
+          wire_flag="$(psql -v ON_ERROR_STOP=1 -Atqc "select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED'")"
+          if [ -z "$wire_flag" ]; then
+            echo "Wire write flag is absent; writes remain fail closed."
+            exit 0
+          fi
+          if [ "$wire_flag" = "false" ]; then
+            echo "Wire writes were already disabled."
+            exit 0
+          fi
           psql -v ON_ERROR_STOP=1 -Atq -c "
             update public.osi_config
                set value='false', updated_at=statement_timestamp()
@@ -420,7 +441,8 @@ jobs:
           mkdir -p deployment-receipt
           {
             echo "project_ref=${EXPECTED_PROJECT_REF}"
-            echo "migration=${NEW_VERSION}"
+            echo "migrations=${PHASE1_VERSION},${PHASE2_VERSION}"
+            echo "rollout_mode=${MODE}"
             echo "functions=osi-v2-case-read,osi-v2-wire,osi-v2-payment"
             echo "commit=$(git rev-parse HEAD)"
             echo "wire_writes=true"
