@@ -336,9 +336,9 @@ test('Home keeps a compact three-section product route with truthful live action
   await expect(page.locator('.osi-route-report .art-version-current')).toBeVisible();
   await expect(page.locator('.osi-route-report .art-hash-ring')).toBeVisible();
   await expect(page.locator('#platform-menu [data-action-contract]')).toHaveCount(5);
-  await expect(page.locator('#wbMenu [data-action-contract]')).toHaveCount(3);
+  await expect(page.locator('#wbMenu [data-action-contract]')).toHaveCount(4);
   await expect(page.locator('#maintainerAccessMenu')).toBeHidden();
-  for (const action of ['case', 'report', 'analyst', 'review', 'governance', 'money', 'proof', 'operations']) {
+  for (const action of ['case', 'report', 'wire', 'analyst', 'review', 'governance', 'money', 'proof', 'operations']) {
     await expect(page.locator(`[data-action-contract="${action}"]`)).toHaveCount(1);
   }
   await page.evaluate(() => window.osiNavigate('field'));
