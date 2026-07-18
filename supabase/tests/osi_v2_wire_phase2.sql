@@ -494,7 +494,7 @@ begin
   );
   if prepared.proof_type='solana_memo' then
     select * into committed from public.osi_v2_commit_wire_governance_action(
-      p_nonce,p_payload,null,repeat('T',88),prepared.proof_text,
+      p_nonce,p_payload,null,repeat(upper(substr(p_nonce,1,1)),88),prepared.proof_text,
       statement_timestamp(),p_auth
     );
   else
