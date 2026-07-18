@@ -69,6 +69,7 @@
         <div class="wb-menu-label">My work</div>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button>
         <button class="wb-mi" type="button" role="menuitem" data-action-contract="report" data-endpoint="osi-v2-report-read:list_my_reports" onclick="osiRunLiveAction('report');closeWalletMenu();">My Reports</button>
+        <button class="wb-mi" type="button" role="menuitem" data-action-contract="wire" data-endpoint="osi-v2-wire:list_my_wire_reports" onclick="osiV2OpenMyWireReports();closeWalletMenu();">My Wire Reports</button>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button>
         <div class="wb-menu-rule"></div>
         <div class="wb-menu-label">Analyst</div>
@@ -645,6 +646,56 @@
   </form>
 </div>
 
+<div class="fo-modal osi-report-modal" id="osi-wire-modal" role="dialog" aria-modal="true" aria-labelledby="osi-wire-modal-title" aria-describedby="osi-wire-modal-copy" onclick="if(event.target===this)osiV2CloseWireForm()">
+  <form class="fo-form" id="osi-wire-form" onsubmit="osiV2SubmitWire(event)" novalidate>
+    <button class="fo-x" type="button" onclick="osiV2CloseWireForm()" aria-label="Close Wire Report form">&times;</button>
+    <div class="fo-form-head">
+      <span class="fo-form-eyebrow">Wallet-authored standalone finding</span>
+      <h2 id="osi-wire-modal-title">Submit an exact Wire Report version</h2>
+      <p id="osi-wire-modal-copy">This version and its evidence remain private until a later independent publication transition. This action anchors only the exact version hash and safe reference on Solana.</p>
+    </div>
+    <div class="osi-report-context" id="osi-wire-context" aria-live="polite"></div>
+    <label class="fo-label" for="osi-wire-title">Public-safe title <span aria-hidden="true">*</span></label>
+    <input class="wire-in" id="osi-wire-title" type="text" minlength="8" maxlength="160" required placeholder="Treasury movement pattern for independent review">
+    <label class="fo-label" for="osi-wire-summary">Public-safe summary <span aria-hidden="true">*</span></label>
+    <textarea id="osi-wire-summary" rows="3" minlength="40" maxlength="4000" required></textarea>
+    <span class="fo-hint">The title and summary are still private until publication.</span>
+    <label class="fo-label" for="osi-wire-analysis">Detailed analysis <span aria-hidden="true">*</span></label>
+    <textarea id="osi-wire-analysis" rows="9" minlength="80" maxlength="100000" required></textarea>
+    <label class="fo-label" for="osi-wire-uncertainties">Uncertainties and limits <span aria-hidden="true">*</span></label>
+    <textarea id="osi-wire-uncertainties" rows="4" minlength="20" maxlength="4000" required></textarea>
+    <fieldset class="osi-report-evidence">
+      <legend>Structured evidence references <span aria-hidden="true">*</span></legend>
+      <label class="fo-label" for="osi-wire-wallets">Wallet addresses</label>
+      <textarea id="osi-wire-wallets" rows="2" spellcheck="false" placeholder="One address per line"></textarea>
+      <label class="fo-label" for="osi-wire-transactions">Solana transaction signatures</label>
+      <textarea id="osi-wire-transactions" rows="2" spellcheck="false" placeholder="One signature per line"></textarea>
+      <label class="fo-label" for="osi-wire-urls">HTTPS source URLs</label>
+      <textarea id="osi-wire-urls" rows="2" spellcheck="false" placeholder="https://example.org/source"></textarea>
+      <span class="fo-hint">Add at least one and no more than 12 total references. File upload is unavailable because no approved private storage path exists.</span>
+    </fieldset>
+    <div id="osi-wire-revision-wrap" hidden>
+      <label class="fo-label" for="osi-wire-revision-reason">Revision reason <span aria-hidden="true">*</span></label>
+      <select id="osi-wire-revision-reason">
+        <option value="">Choose a reason</option>
+        <option value="author_correction">Author correction</option>
+        <option value="new_evidence">New evidence</option>
+        <option value="clarification">Clarification</option>
+        <option value="review_response">Review response</option>
+      </select>
+    </div>
+    <label class="osi-report-safety" for="osi-wire-safety">
+      <input id="osi-wire-safety" type="checkbox" required>
+      <span>I confirm that this Wire Report contains no seed phrase, private key, access token, stolen credential, illegal-access material, doxxing, payment-card number, or government identity number.</span>
+    </label>
+    <div class="osi-form-status mono" id="osi-wire-form-status" role="status" aria-live="polite"></div>
+    <div class="fo-form-actions">
+      <button class="btn-ghost" type="button" onclick="osiV2CloseWireForm()">Cancel</button>
+      <button class="btn-fill" id="osi-wire-submit" type="submit">Prepare exact Memo</button>
+    </div>
+  </form>
+</div>
+
 <div class="osi-case-drawer" id="osi-case-drawer" role="dialog" aria-modal="true" aria-labelledby="osi-case-title" hidden>
   <button class="osi-case-scrim" type="button" tabindex="-1" onclick="osiV2CloseCase()" aria-label="Close Case detail"></button>
   <article class="osi-case-panel">
@@ -667,27 +718,7 @@
       <h1 class="wire-title">The Wire</h1>
       <p class="wire-sub">Community-filed intelligence signals before they become formal cases.</p>
       <div class="wire-ops" id="wire-stats"></div>
-      <div><button class="wire-cta" type="button" disabled title="Native Wire intake does not yet have an accepted production write path">Wire intake unavailable</button></div>
-    </div>
-
-    <div class="wire-form" id="wire-form" hidden>
-      <div class="wire-form-h">⊹ File an intelligence dispatch</div>
-      <p class="wire-form-sub">This retired form is not a production action. Native standalone finding intake remains unavailable until its reviewed signed endpoint and state transition are enabled.</p>
-      <input id="wire-subject-in" class="wire-in" placeholder="Subject  ·  the entity, fund, or wallet set this dispatch concerns">
-      <textarea id="wire-body-in" class="wire-in wire-ta" placeholder="Your dispatch  ·  the wallets, the trace, your confidence per address, and any links (Solscan, exchange tickets, sources). Everything you found, in your own words."></textarea>
-      <div class="file-drop" id="wire-file-drop">
-        <input type="file" id="wire-file" accept="image/*,.pdf,.csv,.txt,.json,.xlsx" style="display:none" onchange="onPickFile('wire')">
-        <button type="button" class="file-btn" onclick="document.getElementById('wire-file').click()">📎 Attach image or file</button>
-        <span class="file-name mono" id="wire-file-name"></span>
-        <div class="file-prev" id="wire-file-prev"></div>
-      </div>
-      <div class="wire-form-foot">
-        <span class="fo-form-note">Backing and supporting are the on-chain actions. Filing is free, signed to prove authorship.</span>
-        <div style="display:flex;gap:8px">
-          <button class="fo-cancel" onclick="wireCloseForm()">Cancel</button>
-      <button class="wire-pub-btn" type="button" disabled title="Native Wire intake is not enabled">Wire intake unavailable</button>
-        </div>
-      </div>
+      <div><button class="wire-cta" id="osi-wire-intake-action" type="button" disabled title="Checking native Wire intake availability" onclick="osiV2OpenWireForm()">Checking Wire intake</button></div>
     </div>
 
     <div class="wire-shell">
@@ -1026,6 +1057,7 @@
 <script defer src="./assets/js/84-public-records.js"></script>
 <script defer src="./assets/js/v2-case-integration.js"></script>
 <script defer src="./assets/js/v2-report-integration.js"></script>
+<script defer src="./assets/js/v2-wire-integration.js"></script>
 <script defer src="./assets/js/v2-analyst-integration.js"></script>
 <script defer src="./assets/js/88-functional-surface.js"></script>
 <script defer src="./assets/js/99-app.js"></script>

@@ -310,7 +310,7 @@ function showView(v){
   if(v==='workspace' && typeof renderWorkspace==='function'){ renderWorkspace(); }
   if(v==='profile'){ renderProfile(); }
   if(v==='field'){ renderFieldOffice(); }
-  if(v==='wire'){ renderWire(); }
+  if(v==='wire'){ renderWire({activatePublic:true}); }
   if(v==='analysts'){ renderLeaderboard(); }
   if(v==='prooflog'){ renderProofLog(); }
   if(v==='records'){ if(typeof renderCaseRecords==='function' && (typeof demoRecState==='undefined' || demoRecState===null)){ try{ renderCaseRecords(); }catch(e){} } }

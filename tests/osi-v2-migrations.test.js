@@ -26,6 +26,7 @@ const expectedFiles = [
   '20260715112621_osi_v2_shared_read_session.sql',
   '20260716063000_osi_v2_bootstrap_governance.sql',
   '20260716120000_osi_v2_sas_credential.sql',
+  '20260718120000_osi_v2_wire_phase1.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -45,6 +46,7 @@ const nativePayments = sqlByFile['20260715053828_osi_v2_native_sol_payments.sql'
 const sharedReadSession = sqlByFile['20260715112621_osi_v2_shared_read_session.sql'] || '';
 const bootstrapGovernance = sqlByFile['20260716063000_osi_v2_bootstrap_governance.sql'] || '';
 const sasCredential = sqlByFile['20260716120000_osi_v2_sas_credential.sql'] || '';
+const wirePhase1 = sqlByFile['20260718120000_osi_v2_wire_phase1.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const analystProductionWorkflow = fs.readFileSync(
@@ -65,6 +67,10 @@ const paymentProductionWorkflow = fs.readFileSync(
 );
 const readSessionProductionWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-read-session-production.yml'),
+  'utf8',
+);
+const wireProductionWorkflow = fs.readFileSync(
+  path.join(root, '.github', 'workflows', 'osi-v2-wire-production.yml'),
   'utf8',
 );
 const readSessionNormalizeStart = readSessionProductionWorkflow.indexOf(
@@ -160,6 +166,7 @@ for (const functionName of [
   'osi-v2-report-write', 'osi-v2-report-read',
   'osi-v2-governance-write',
   'osi-v2-payment',
+  'osi-v2-wire',
 ]) {
   const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   ok(
@@ -407,6 +414,9 @@ for (const required of [
   'osi_v2_prepare_report_version',
   'osi_v2_commit_report_version',
   'osi_v2_report_writes_enabled',
+  'osi_v2_prepare_wire_version',
+  'osi_v2_commit_wire_version',
+  'osi_v2_wire_writes_enabled',
 ]) {
   ok('required integrity guard exists: ' + required, allSql.includes(required));
 }
@@ -470,6 +480,19 @@ ok(
     && reportIntake.includes("where key = 'OSI_V2_REPORT_WRITES_ENABLED'")
     && reportIntake.includes("value = 'true'")
     && !reportIntake.includes("('OSI_V2_REPORT_WRITES_ENABLED', 'true'"),
+);
+ok(
+  'Wire Phase 1 has its own disabled-by-default fail-closed gate',
+  wirePhase1.includes("('OSI_V2_WIRE_WRITES_ENABLED', 'false'")
+    && wirePhase1.includes("where key = 'OSI_V2_WIRE_WRITES_ENABLED'")
+    && wirePhase1.includes("value = 'true'")
+    && !wirePhase1.includes("('OSI_V2_WIRE_WRITES_ENABLED', 'true'"),
+);
+ok(
+  'Wire Phase 1 writes exact private lineage without publication or Case mutation',
+  /osi_v2_commit_wire_version[\s\S]*insert into public\.event_receipts[\s\S]*insert into public\.wire_report_versions[\s\S]*insert into public\.wire_report_version_evidence[\s\S]*update public\.wire_reports/i.test(wirePhase1)
+    && !/set\s+current_published_version_id\s*=/i.test(wirePhase1)
+    && !/update\s+public\.cases/i.test(wirePhase1),
 );
 ok(
   'Report writes atomically bind exact version evidence receipt and pointer',
@@ -572,6 +595,41 @@ ok(
   'Report production workflow has no planner-foldable constant error assertions',
   !/cast\s*\(\s*1\s*\/\s*0/i.test(reportProductionWorkflow)
     && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(reportProductionWorkflow),
+);
+ok(
+  'Wire Phase 1 production workflow is manual main-only and exact-migration pinned',
+  wireProductionWorkflow.includes('workflow_dispatch:')
+    && !wireProductionWorkflow.includes('pull_request:')
+    && !wireProductionWorkflow.includes('push:')
+    && wireProductionWorkflow.includes('refs/heads/main')
+    && wireProductionWorkflow.includes('NEW_VERSION: "20260718120000"')
+    && wireProductionWorkflow.includes('WIRE-PHASE1-DEPLOY-${EXPECTED_PROJECT_REF}')
+    && wireProductionWorkflow.includes('Dry-run exactly the one Wire migration'),
+);
+ok(
+  'Wire rollout validates fully and deploys only the two touched functions',
+  wireProductionWorkflow.includes('needs: validate')
+    && wireProductionWorkflow.includes('supabase db reset --local --no-seed')
+    && wireProductionWorkflow.includes('supabase db lint --local --level error')
+    && wireProductionWorkflow.includes('supabase test db')
+    && wireProductionWorkflow.includes('bash tests/osi-v2-concurrency.test.sh')
+    && wireProductionWorkflow.includes('for fn in osi-v2-case-read osi-v2-wire')
+    && !wireProductionWorkflow.includes('functions deploy osi-v2-report-write')
+    && !wireProductionWorkflow.includes('functions deploy osi-v2-payment'),
+);
+ok(
+  'Wire rollout snapshots every pre-existing config and enables only after smoke',
+  wireProductionWorkflow.includes("where key not like 'OSI_V2_WIRE_%'")
+    && wireProductionWorkflow.indexOf('Pre-enable read-only privacy and regression smoke')
+      < wireProductionWorkflow.indexOf('Enable only the dedicated Wire write flag')
+    && wireProductionWorkflow.includes("key='OSI_V2_WIRE_WRITES_ENABLED' and value='false'")
+    && wireProductionWorkflow.includes('Fail closed after any rollout or smoke failure')
+    && wireProductionWorkflow.includes("set value='false', updated_at=statement_timestamp()"),
+);
+ok(
+  'Wire production workflow has no planner-foldable constant error assertions',
+  !/cast\s*\(\s*1\s*\/\s*0/i.test(wireProductionWorkflow)
+    && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(wireProductionWorkflow),
 );
 ok(
   'Resolution production workflow is manual main-only and exact-migration pinned',
