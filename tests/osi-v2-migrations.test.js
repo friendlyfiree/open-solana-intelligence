@@ -27,6 +27,7 @@ const expectedFiles = [
   '20260716063000_osi_v2_bootstrap_governance.sql',
   '20260716120000_osi_v2_sas_credential.sql',
   '20260718120000_osi_v2_wire_phase1.sql',
+  '20260718130000_osi_v2_wire_phase2.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -47,6 +48,7 @@ const sharedReadSession = sqlByFile['20260715112621_osi_v2_shared_read_session.s
 const bootstrapGovernance = sqlByFile['20260716063000_osi_v2_bootstrap_governance.sql'] || '';
 const sasCredential = sqlByFile['20260716120000_osi_v2_sas_credential.sql'] || '';
 const wirePhase1 = sqlByFile['20260718120000_osi_v2_wire_phase1.sql'] || '';
+const wirePhase2 = sqlByFile['20260718130000_osi_v2_wire_phase2.sql'] || '';
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const analystProductionWorkflow = fs.readFileSync(
@@ -597,34 +599,83 @@ ok(
     && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(reportProductionWorkflow),
 );
 ok(
-  'Wire Phase 1 production workflow is manual main-only and exact-migration pinned',
+  'Wire Phase 2 production workflow is manual main-only and exact-migration pinned',
   wireProductionWorkflow.includes('workflow_dispatch:')
     && !wireProductionWorkflow.includes('pull_request:')
     && !wireProductionWorkflow.includes('push:')
     && wireProductionWorkflow.includes('refs/heads/main')
-    && wireProductionWorkflow.includes('NEW_VERSION: "20260718120000"')
-    && wireProductionWorkflow.includes('WIRE-PHASE1-DEPLOY-${EXPECTED_PROJECT_REF}')
+    && wireProductionWorkflow.includes('NEW_VERSION: "20260718130000"')
+    && wireProductionWorkflow.includes('WIRE-PHASE2-DEPLOY-${EXPECTED_PROJECT_REF}')
     && wireProductionWorkflow.includes('Dry-run exactly the one Wire migration'),
 );
 ok(
-  'Wire rollout validates fully and deploys only the two touched functions',
+  'Wire rollout validates fully and deploys only the three touched functions',
   wireProductionWorkflow.includes('needs: validate')
     && wireProductionWorkflow.includes('supabase db reset --local --no-seed')
     && wireProductionWorkflow.includes('supabase db lint --local --level error')
     && wireProductionWorkflow.includes('supabase test db')
     && wireProductionWorkflow.includes('bash tests/osi-v2-concurrency.test.sh')
-    && wireProductionWorkflow.includes('for fn in osi-v2-case-read osi-v2-wire')
+    && wireProductionWorkflow.includes('for fn in osi-v2-case-read osi-v2-wire osi-v2-payment')
     && !wireProductionWorkflow.includes('functions deploy osi-v2-report-write')
-    && !wireProductionWorkflow.includes('functions deploy osi-v2-payment'),
+    && wireProductionWorkflow.includes('deno check supabase/functions/osi-v2-payment/index.ts'),
 );
 ok(
   'Wire rollout snapshots every pre-existing config and enables only after smoke',
-  wireProductionWorkflow.includes("where key not like 'OSI_V2_WIRE_%'")
+  wireProductionWorkflow.includes('/tmp/config-before.txt')
+    && wireProductionWorkflow.includes('/tmp/config-pre-enable.txt')
+    && wireProductionWorkflow.includes("where key <> 'OSI_V2_WIRE_WRITES_ENABLED'")
     && wireProductionWorkflow.indexOf('Pre-enable read-only privacy and regression smoke')
       < wireProductionWorkflow.indexOf('Enable only the dedicated Wire write flag')
     && wireProductionWorkflow.includes("key='OSI_V2_WIRE_WRITES_ENABLED' and value='false'")
     && wireProductionWorkflow.includes('Fail closed after any rollout or smoke failure')
     && wireProductionWorkflow.includes("set value='false', updated_at=statement_timestamp()"),
+);
+ok(
+  'Wire Phase 2 uses exact normal quorum and reuses the bounded bootstrap tier',
+  wirePhase2.includes("('OSI_V2_WIRE_STANDARD_MIN_COUNT', '2'")
+    && wirePhase2.includes("('OSI_V2_WIRE_STANDARD_MIN_WEIGHT', '2.00'")
+    && wirePhase2.includes('osi_private.osi_v2_bootstrap_tier()')
+    && wirePhase2.includes("channel_value := 'maintainer_bootstrap'"),
+);
+ok(
+  'Wire bootstrap support counts only exact verified native review receipts',
+  /osi_v2_wire_bootstrap_support[\s\S]*join public\.event_receipts as receipt[\s\S]*receipt\.event_version = 'OSI2'[\s\S]*receipt\.server_verified = true[\s\S]*review\.public_ref is not null[\s\S]*osi_v2_prepare_wire_publication/i.test(wirePhase2),
+);
+ok(
+  'Wire Phase 2 public reads are service-only explicit allowlists',
+  wirePhase2.includes('Public Wire projection is service-only')
+    && wirePhase2.includes('Public Wire detail is service-only')
+    && wirePhase2.includes('from public, anon, authenticated')
+    && wirePhase2.includes('private review note')
+    && !/grant\s+select\s+on\s+public\.wire_/i.test(wirePhase2),
+);
+ok(
+  'Wire publication exposes only the exact approved public evidence set',
+  /update public\.evidence_items as evidence[\s\S]*set moderation_state = 'approved', is_public = true/i.test(wirePhase2)
+    && (wirePhase2.match(/evidence\.is_public = true\s+and evidence\.moderation_state = 'approved'/g) || []).length >= 2
+    && wirePhase2.includes('Wire publication evidence did not become public-safe'),
+);
+ok(
+  'Wire support finalization fails closed across the shared payment commit path',
+  /create or replace function public\.osi_v2_guard_support_event\(\)[\s\S]*osi_v2_wire_writes_enabled\(\)[\s\S]*osi_v2_payment_writes_enabled\(\)/i.test(wirePhase2)
+    && wirePhase2.includes('Wire and payment writes must both be enabled'),
+);
+ok(
+  'Wire challenge bootstrap is unreachable and accepted history is preserved',
+  wirePhase2.includes('Bootstrap channel is unreachable for Wire challenges and promotion')
+    && wirePhase2.includes("challenge_quorum.outcome = 'accept' and version_row.contested_at is null")
+    && /set contested_at = p_occurred_at/i.test(wirePhase2)
+    && !/set\s+current_published_version_id\s*=\s*null/i.test(wirePhase2),
+);
+ok(
+  'Wire challenge evidence remains public approved at prepare and commit',
+  (wirePhase2.match(/evidence_row\.is_public is distinct from true/g) || []).length >= 2
+    && (wirePhase2.match(/evidence_row\.moderation_state <> 'approved'/g) || []).length >= 2,
+);
+ok(
+  'Wire promotion enters normal private initial review with no reward',
+  /insert into public\.cases[\s\S]*reward_intent_lamports[\s\S]*null, bound\.actor_wallet, 'initial_review', 'private'/i.test(wirePhase2)
+    && wirePhase2.includes("'kind', 'wire_report_version'"),
 );
 ok(
   'Wire production workflow has no planner-foldable constant error assertions',

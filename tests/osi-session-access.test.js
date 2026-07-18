@@ -42,6 +42,8 @@ ok(readSession.includes("window.osiV2ReadSessionHandleAuth=client.handleAuth"), 
 ok(!read('assets/js/v2-case-integration.js').includes("op:'issue_read_challenge'"), 'Case private reads no longer request a signature per navigation');
 ok(!report.includes("op:'issue_challenge'"), 'Report private reads no longer request a signature per navigation');
 ok(wire.includes("window.osiV2ReadSession(['wire:mine']") && !wire.includes("issue_read_challenge"), 'Wire private reads reuse the shared session without a signature per navigation');
+ok(wire.includes("window.osiV2ReadSession(['wire:queue']"), 'Wire analyst queue reuses the shared scoped read session');
+ok(wire.includes("state.queue=[];state.current=null") && wire.includes("osiV2RegisterPrivateCache('wire',clearSessionState)"), 'Wire queue and detail state clear with wallet or session invalidation');
 ok(!read('assets/js/v2-analyst-integration.js').includes("op:'issue_read_challenge'"), 'Analyst private reads no longer request a signature per navigation');
 
 ok(core.includes('window.supabase.createClient'), 'Supabase Auth uses the supported client session model');

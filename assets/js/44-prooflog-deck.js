@@ -30,6 +30,11 @@ function plGoCase(id, canonicalRef){
   if(rec && typeof openCaseRecord==='function'){ plNavigate('records'); setTimeout(function(){ openCaseRecord(id); },120); return; }
   plNavigate('records');
 }
+function plGoWire(versionRef){
+  if(!/^OSI-WV-[0-9A-F]{16}$/.test(String(versionRef||''))) return;
+  plNavigate('wire');
+  setTimeout(function(){ if(typeof window.osiV2OpenWireReport==='function') window.osiV2OpenWireReport(versionRef); },120);
+}
 function plCopyFallback(text, done){
   try{ var ta=document.createElement('textarea'); ta.value=String(text); ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
   catch(e){ showToast('Could not copy automatically.'); }
@@ -65,15 +70,33 @@ function plGroup(ev){
   var itemType = String((ev && ev.item_type) || '').toLowerCase();
   var vote = String((ev && ev.vote) || '').toLowerCase();
   if(t==='analyst_vouch' && (itemType==='challenge' || vote==='challenge')) return 'challenge';
-  if(t==='analyst_vouch' || t==='review_signed' || t==='analyst_review') return 'vote';
-  if(t==='report_submitted' || t==='wire_dispatch') return 'report';
-  if(t==='demand_signal' || t==='support' || t==='support_signal') return 'support';
+  if(t==='analyst_vouch' || t==='review_signed' || t==='analyst_review' || t==='wire_report_review_cast' || t==='wire_report_review_revised') return 'vote';
+  if(t==='report_submitted' || t==='wire_dispatch' || t==='wire_report_version_submitted' || t==='wire_report_published' || t==='wire_promoted') return 'report';
+  if(t==='demand_signal' || t==='support' || t==='support_signal' || t==='support_payment_confirmed') return 'support';
   if(t==='maintainer_seal' || t==='record_sealed' || t==='public_record_sealed') return 'seal';
   if(t==='case_opened' || t==='case_created' || t==='bounty_opened') return 'case';
   if(t.indexOf('challenge') !== -1) return 'challenge';
   return 'other';
 }
 function plMemo(ev){
+  var exact={
+    wire_report_version_submitted:{tag:'OSI_WIRE_SUBMITTED',title:'Wire Version Submitted',cls:'report'},
+    wire_report_review_cast:{tag:'OSI_WIRE_REVIEW',title:'Wire Review Cast',cls:'review'},
+    wire_report_review_revised:{tag:'OSI_WIRE_REVIEW',title:'Wire Review Revised',cls:'review'},
+    wire_report_published:{tag:'OSI_WIRE_PUBLISHED',title:'Wire Report Published',cls:'report'},
+    wire_promoted:{tag:'OSI_WIRE_PROMOTED',title:'Wire Promoted to Case',cls:'case'},
+    support_payment_confirmed:{tag:'OSI_SUPPORT_CONFIRMED',title:'Support Transfer Confirmed',cls:'support'},
+    challenge_submitted:{tag:'OSI_CHALLENGE_SUBMITTED',title:'Challenge Submitted',cls:'challenge'},
+    challenge_admissibility_accepted:{tag:'OSI_CHALLENGE_ADMITTED',title:'Challenge Admitted',cls:'challenge'},
+    challenge_admissibility_rejected:{tag:'OSI_CHALLENGE_REJECTED',title:'Challenge Not Admitted',cls:'challenge'},
+    challenge_review_cast:{tag:'OSI_CHALLENGE_REVIEW',title:'Challenge Review Cast',cls:'challenge'},
+    challenge_review_revised:{tag:'OSI_CHALLENGE_REVIEW',title:'Challenge Review Revised',cls:'challenge'},
+    challenge_accepted:{tag:'OSI_CHALLENGE_ACCEPTED',title:'Challenge Accepted',cls:'challenge'},
+    challenge_rejected:{tag:'OSI_CHALLENGE_REJECTED',title:'Challenge Rejected',cls:'challenge'},
+    challenge_withdrawn:{tag:'OSI_CHALLENGE_WITHDRAWN',title:'Challenge Withdrawn',cls:'challenge'}
+  };
+  var eventType=String(ev&&ev.event_type||'').toLowerCase();
+  if(exact[eventType]) return exact[eventType];
   var map = {
     case:      { tag:'OSI_CASE_OPENED',      title:'Case Opened',      cls:'case' },
     report:    { tag:'OSI_REPORT_SUBMITTED', title:'Report Submitted', cls:'report' },
@@ -106,6 +129,7 @@ function plSignerRole(ev){
     report_author:'Report author',
     challenger:'Challenger',
     supporter:'Supporter',
+    wire_author:'Wire author',
     maintainer:'Maintainer',
     system:'System'
   };
@@ -182,10 +206,20 @@ function plCanonicalCaseRef(ev){
   }
   return '';
 }
+function plCanonicalWireRef(ev){
+  var values=[ev&&ev.version_public_ref,ev&&ev.target_public_ref,ev&&ev.public_ref,ev&&ev.item_id];
+  for(var i=0;i<values.length;i++){
+    var ref=String(values[i]||'').toUpperCase();
+    if(/^OSI-WV-[0-9A-F]{16}$/.test(ref)) return ref;
+  }
+  return '';
+}
 function plReferenceHtml(ev){
   var raw = ev && ev.item_id != null ? String(ev.item_id) : '';
   if(!raw) return 'Reference unavailable';
   var group = plGroup(ev);
+  var wireRef=plCanonicalWireRef(ev);
+  if(wireRef) return '<button class="plc-ref-link" type="button" onclick="plGoWire(\''+plJsString(wireRef)+'\')">'+escapeHtml(wireRef)+'</button>';
   var canonical=plCanonicalCaseRef(ev);
   var display = canonical || ((group==='case' || group==='vote' || group==='challenge' || group==='seal' || group==='support') ? osiCaseId(raw) : raw);
   return '<button class="plc-ref-link" type="button" onclick="plGoCase(\''+plJsString(raw)+'\',\''+plJsString(canonical)+'\')">'+escapeHtml(display)+'</button>';
@@ -255,6 +289,7 @@ function plSchemaRender(){
   var rows=[
     ['OSI_CASE_OPENED','cy'],
     ['OSI_REPORT_SUBMITTED','vio'],
+    ['OSI_WIRE_PUBLISHED','vio'],
     ['OSI_REVIEW_SIGNED','vio'],
     ['OSI_CHALLENGE_FILED','warn'],
     ['OSI_RECORD_SEALED','ok'],
@@ -327,7 +362,9 @@ async function renderProofLog(){
   var nativeEvents = [];
   var legacyEvents = [];
   var source = 'unavailable';
-  if(typeof SUPA_ON!=='undefined' && SUPA_ON){
+  var supabaseAvailable=typeof SUPA_ON!=='undefined'&&SUPA_ON;
+  var nativeAvailable=typeof window.osiPublicApi==='function'||typeof window.osiV2ListPublicWireReports==='function';
+  if(supabaseAvailable||nativeAvailable){
     var attempts=0, failures=0;
     if(typeof window.osiPublicApi==='function'){
       attempts++;
@@ -348,11 +385,32 @@ async function renderProofLog(){
         });
       }catch(e){ failures++; }
     }
-    attempts++;
-    try{
-      legacyEvents = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || [];
-      legacyEvents=legacyEvents.map(function(event){ return Object.assign({},event,{proof_source:'legacy_public_projection',actor_role:''}); });
-    }catch(e){ failures++; legacyEvents=[]; }
+    if(typeof window.osiV2ListPublicWireReports==='function'){
+      attempts++;
+      try{
+        var wireResult=await window.osiV2ListPublicWireReports();
+        (Array.isArray(wireResult&&wireResult.reports)?wireResult.reports:[]).forEach(function(item){
+          var versionRef=String(item&&item.version_public_ref||'');
+          (Array.isArray(item&&item.proof_log)?item.proof_log:[]).forEach(function(receipt){
+            nativeEvents.push(Object.assign({},receipt,{
+              proof_source:'native_public_dto',
+              item_type:'wire',
+              item_id:versionRef,
+              version_public_ref:versionRef,
+              wire_report_public_ref:String(item&&item.wire_report_public_ref||''),
+              created_at:receipt.occurred_at
+            }));
+          });
+        });
+      }catch(e){ failures++; }
+    }
+    if(supabaseAvailable){
+      attempts++;
+      try{
+        legacyEvents = await supaGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,amount,token,label,tx_sig,created_at&order=created_at.desc&limit=100') || [];
+        legacyEvents=legacyEvents.map(function(event){ return Object.assign({},event,{proof_source:'legacy_public_projection',actor_role:''}); });
+      }catch(e){ failures++; legacyEvents=[]; }
+    }
     var seen={};
     var events=nativeEvents.concat(legacyEvents).filter(function(event){
       var key=[event.event_type,event.item_id,event.actor_wallet,event.tx_sig,event.created_at].map(function(value){return String(value||'');}).join('|');

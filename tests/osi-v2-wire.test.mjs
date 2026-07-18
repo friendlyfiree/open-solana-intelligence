@@ -160,19 +160,101 @@ ok("Phase 1 DTO never invents public or governance controls",
     && dto.review_mutations_enabled === undefined
     && dto.publication_enabled === undefined);
 
+const review = core.normalizeWireReview({
+  version_public_ref: binding.version_public_ref,
+  decision: "approve",
+  reason_code: "wire_evidence_assessment",
+  public_rationale: "The exact evidence manifest supports publication with the recorded limitations.",
+  private_note: "Restricted analyst context remains outside every public DTO.",
+});
+ok("Wire reviews bind an exact version and the four accepted decisions",
+  review.version_public_ref === binding.version_public_ref
+    && core.WIRE_REVIEW_DECISIONS.size === 4
+    && core.WIRE_REVIEW_DECISIONS.has("request_revision"));
+await rejects("Wire review rejects an invented decision", () => Promise.resolve(
+  core.normalizeWireReview({ ...review, decision: "publish" }),
+), /decision/);
+const reviewBinding = {
+  purpose: "WIRE_REPORT_REVIEW_CAST",
+  version_public_ref: binding.version_public_ref,
+  actor_wallet: OTHER,
+  actor_role: "analyst",
+  decision: "approve",
+  nonce: "q".repeat(43),
+  payload_hash: "b".repeat(64),
+  issued_at: NOW,
+  expires_at: NOW + 120,
+};
+const reviewMessage = core.canonicalWireGovernanceMessage(reviewBinding);
+ok("Wire review signMessage binds purpose target actor decision nonce and payload",
+  core.validateWireGovernanceBinding(reviewMessage, reviewBinding, NOW + 10).ok === true);
+const publicationBinding = {
+  ...reviewBinding,
+  purpose: core.WIRE_PUBLICATION_EVENT_TYPE,
+  actor_role: "maintainer",
+  decision: "publish",
+};
+ok("Wire publication Memo accepts the explicitly labeled maintainer actor path",
+  core.parseWireGovernanceMessage(core.canonicalWireGovernanceMessage(publicationBinding))?.actor_role === "maintainer");
+ok("Wire governance target parser keeps challenge and promotion targets typed",
+  core.validateWireGovernanceTargetRef("wire_promote", binding.version_public_ref) === binding.version_public_ref
+    && core.validateWireGovernanceTargetRef("challenge_finalize", "OSI-CHL-A1B2C3D4E5F60718") === "OSI-CHL-A1B2C3D4E5F60718");
+const challengePayload = core.normalizeWireGovernancePayload("challenge_submit", {
+  reason_code: "material_evidence_challenge",
+  public_safe_summary: "The exact published evidence needs independent review.",
+  restricted_detail: null,
+  evidence_ordinal: 1,
+  evidence_sha256: "c".repeat(64),
+});
+ok("Wire challenges bind public evidence coordinates without exposing its UUID",
+  challengePayload.evidence_ordinal === 1
+    && challengePayload.evidence_sha256 === "c".repeat(64)
+    && challengePayload.evidence_item_id === undefined);
+await rejects("Wire promotion accepts no client-derived Case payload", () => Promise.resolve(
+  core.normalizeWireGovernancePayload("wire_promote", { title: "invented" }),
+), /invalid|payload/i);
+
 const gateway = readFileSync(new URL("../supabase/functions/osi-v2-wire/index.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../supabase/migrations/20260718120000_osi_v2_wire_phase1.sql", import.meta.url), "utf8");
-ok("Wire gateway fails closed on its exact flag before both write operations",
-  (gateway.match(/if \(!await wireWritesEnabled\(\)\)/g) || []).length >= 2
+const phase2 = readFileSync(new URL("../supabase/migrations/20260718130000_osi_v2_wire_phase2.sql", import.meta.url), "utf8");
+ok("Wire gateway fails closed on its exact flag before every write family",
+  (gateway.match(/if \(!await wireWritesEnabled\(\)\)/g) || []).length >= 6
     && gateway.includes('data?.[0]?.value === "true"'));
-ok("Wire gateway has no public list operation in Phase 1",
-  !gateway.includes("list_public_wire") && gateway.includes('case "list_my_wire_reports"'));
-ok("private Wire reads require the dedicated shared session scope",
+ok("Wire capabilities expose the independent payment gate for honest support controls",
+  gateway.includes('configEnabled("OSI_V2_PAYMENT_WRITES_ENABLED")')
+    && gateway.includes("support_enabled: enabled && paymentEnabled"));
+ok("Wire gateway exposes only explicit public list and detail operations",
+  gateway.includes('case "list_public_wire_reports"')
+    && gateway.includes('case "get_public_wire_report"')
+    && !gateway.includes('select("*")'));
+const publicListGateway = gateway.slice(
+  gateway.indexOf("async function listPublicWireReports("),
+  gateway.indexOf("async function getPublicWireReport("),
+);
+const publicDetailGateway = gateway.slice(
+  gateway.indexOf("async function getPublicWireReport("),
+  gateway.indexOf("async function listWireReviewQueue("),
+);
+const queueGateway = gateway.slice(
+  gateway.indexOf("async function listWireReviewQueue("),
+  gateway.indexOf("function wireGovernanceBinding("),
+);
+ok("JSONB list and detail RPC results preserve their exact response shapes",
+  publicListGateway.includes("const reports = data;")
+    && publicListGateway.includes("Array.isArray(reports)")
+    && publicDetailGateway.includes("const report = data;")
+    && queueGateway.includes("const reports = data;")
+    && !gateway.includes("scalarJson"));
+ok("private Wire reads require the dedicated shared session scopes",
   gateway.includes("READ_SESSION_SCOPES.WIRE_MINE")
+    && gateway.includes("READ_SESSION_SCOPES.WIRE_QUEUE")
     && gateway.includes("verifyReadSessionToken"));
-ok("Wire responses do not expose internal receipt UUIDs",
-  !gateway.includes("receipt_id: issued.consumed_receipt_id")
-    && !gateway.includes("receipt_id: committed.receipt_id"));
+const intakeGateway = gateway.slice(
+  gateway.indexOf("async function prepareWire("),
+  gateway.indexOf("async function verifyReadSession("),
+);
+ok("private intake responses do not expose internal receipt UUIDs",
+  !intakeGateway.includes("receipt_id:"));
 ok("database RPCs are service-only and browser roles are revoked",
   migration.includes("Wire prepare is service-only")
     && migration.includes("Wire commit is service-only")
@@ -183,5 +265,53 @@ ok("Wire intake cannot advance publication or Case state",
   migration.includes("current_published_version_id")
     && !/set\s+current_published_version_id\s*=/i.test(migration)
     && !/update\s+public\.cases/i.test(migration));
+ok("Phase 2 publication has exact normal count and weight defaults",
+  phase2.includes("('OSI_V2_WIRE_STANDARD_MIN_COUNT', '2'")
+    && phase2.includes("('OSI_V2_WIRE_STANDARD_MIN_WEIGHT', '2.00'")
+    && phase2.includes("current_published_version_id = version_row.id"));
+ok("Wire self-review and bootstrap self-publication are database denials",
+  phase2.includes("Wire author cannot review this Wire version")
+    && (phase2.match(/p_actor_wallet = report_row\.author_wallet/g) || []).length >= 2);
+const bootstrapSupport = phase2.slice(
+  phase2.indexOf("create function osi_private.osi_v2_wire_bootstrap_support("),
+  phase2.indexOf("create function osi_private.osi_v2_prepare_wire_publication("),
+);
+ok("Wire bootstrap support counts only exact verified native review receipts",
+  bootstrapSupport.includes("join public.event_receipts as receipt")
+    && bootstrapSupport.includes("receipt.event_version = 'OSI2'")
+    && bootstrapSupport.includes("receipt.server_verified = true")
+    && bootstrapSupport.includes("review.public_ref is not null"));
+ok("challenge finalization cannot select the bootstrap decision channel",
+  phase2.includes("Bootstrap channel is unreachable for Wire challenges and promotion")
+    && phase2.includes("binding->>'decision_channel' is distinct from 'standard'"));
+ok("accepted challenges preserve publication and add an under-re-review marker",
+  /challenge_quorum\.outcome = 'accept'[\s\S]*set contested_at = p_occurred_at/i.test(phase2)
+    && phase2.includes("challenge_quorum.outcome = 'accept' and version_row.contested_at is null")
+    && !/challenge_quorum\.outcome = 'accept'[\s\S]{0,500}current_published_version_id\s*=\s*null/i.test(phase2));
+ok("Wire challenges accept only currently public approved linked evidence",
+  (phase2.match(/evidence_row\.is_public is distinct from true/g) || []).length >= 2
+    && (phase2.match(/evidence_row\.moderation_state <> 'approved'/g) || []).length >= 2);
+ok("promotion creates a private initial-review Case without reward",
+  /insert into public\.cases[\s\S]*null, bound\.actor_wallet, 'initial_review', 'private'/i.test(phase2)
+    && phase2.includes("'kind', 'wire_report_version'")
+    && phase2.includes("case_ref := 'OSI-' || upper(substr(replace(case_id::text, '-', ''), 1, 12))"));
+ok("publication is the exact evidence visibility boundary",
+  /update public\.evidence_items as evidence[\s\S]*set moderation_state = 'approved', is_public = true/i.test(phase2)
+    && (phase2.match(/evidence\.is_public = true[\s\S]{0,100}evidence\.moderation_state = 'approved'/g) || []).length >= 2);
+ok("public Wire history keeps superseded exact publications discoverable",
+  /version\.lifecycle_state in \('published', 'superseded'\)/i.test(phase2)
+    && phase2.includes("'is_current_published', report.current_published_version_id = version.id"));
+ok("Wire support finalization rechecks both flags and the current author target",
+  /create or replace function public\.osi_v2_guard_support_event\(\)[\s\S]*osi_v2_wire_writes_enabled\(\)[\s\S]*osi_v2_payment_writes_enabled\(\)/i.test(phase2)
+    && phase2.includes("Wire and payment writes must both be enabled")
+    && phase2.includes("Wire support requires the exact current published author target")
+    && phase2.includes("report.current_published_version_id = version.id"));
+ok("Wire-targeted lazy challenge expiry also fails closed on the dedicated flag",
+  /create or replace function osi_private\.osi_v2_expire_due_challenges[\s\S]*challenge\.wire_report_version_id is null[\s\S]*osi_v2_wire_writes_enabled\(\) is true/i.test(phase2)
+    && gateway.includes('action.startsWith("challenge_") && !await expireDueChallenges()'));
+ok("public Wire Proof Logs use explicit event and support-receipt allowlists",
+  (phase2.match(/receipt\.event_type in \([\s\S]*?'WIRE_REPORT_VERSION_SUBMITTED'[\s\S]*?'WIRE_PROMOTED'[\s\S]*?\)/g) || []).length >= 2
+    && (phase2.match(/support\.id::text = receipt\.target_id/g) || []).length >= 2
+    && (phase2.match(/profile\.verified = true[\s\S]*?profile\.approved = true/g) || []).length >= 4);
 
-console.log(`\n${passed} native Wire Phase 1 checks passed.`);
+console.log(`\n${passed} native Wire Phase 1 and Phase 2 checks passed.`);

@@ -20,6 +20,7 @@ const privateRaceRows = new Promise((resolve)=>{ releasePrivateRace = resolve; }
 const wireContext = {
   window:null,
   document:{
+    addEventListener:()=>{},
     getElementById:(id)=>id==='wire-cases' ? wireHost : (id==='wire-stats' ? wireStatsHost : null),
     querySelectorAll:()=>[],
   },
@@ -50,7 +51,7 @@ const firstRender = wireContext.renderWire();
 ok('The Wire exposes an explicit loading state before its source resolves', wireHost.innerHTML.includes('Opening the live wire'));
 releaseRows([]);
 await firstRender;
-ok('an available source with zero rows renders a genuine public empty state without leaking private intake', wireHost.innerHTML.includes('The wire is quiet') && wireHost.innerHTML.includes('Native submissions remain private') && !wireHost.innerHTML.includes('wireOpenForm'));
+ok('an available source with zero rows renders a genuine public empty state without leaking private intake', wireHost.innerHTML.includes('The wire is quiet') && wireHost.innerHTML.includes('Unpublished submissions remain private') && !wireHost.innerHTML.includes('wireOpenForm'));
 
 wireRowsMode = 'error';
 await wireContext.renderWire();
@@ -72,6 +73,8 @@ ok('functional-surface routing exposes the real private Wire workspace', functio
 const unattributed = vm.runInContext("wireCard({id:'wire-1',subject:'Public evidence',body:'Exact evidence only',premium:false,created_at:'2026-01-01'})", wireContext);
 ok('missing author attribution is labeled honestly instead of inventing an analyst', unattributed.includes('source not attributed') && !unattributed.includes('by analyst'));
 ok('Wire interest uses the dedicated stateful action hook', unattributed.includes('data-wire-interest') && unattributed.includes('stakeBoost(this)'));
+const governed = vm.runInContext("wireCard({id:'OSI-WV-A1B2C3D4E5F60718',version_public_ref:'OSI-WV-A1B2C3D4E5F60718',subject:'Reviewed finding',body:'Public-safe governed summary',author:'11111111111111111111111111111112',native:true,contested_at:'2026-07-18T12:00:00Z'})", wireContext);
+ok('governed Wire cards show real lifecycle state instead of a dormant interest count', governed.includes('Challenge upheld') && !governed.includes('interest signals'));
 
 const supportSource = readFileSync(new URL('../assets/js/70-support-transfer.js', import.meta.url), 'utf8');
 const saved = {};

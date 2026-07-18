@@ -14,6 +14,7 @@ export const READ_SESSION_SCOPES = Object.freeze({
   REPORT_MINE: "report:mine",
   REPORT_REVIEW: "report:review",
   WIRE_MINE: "wire:mine",
+  WIRE_QUEUE: "wire:queue",
   ANALYST_WORKSPACE: "analyst:workspace",
   ANALYST_MAINTAINER: "analyst:maintainer",
 });

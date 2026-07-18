@@ -124,6 +124,7 @@ ok('server-projected verified actor role is displayed from the DTO',
   }) === 'Analyst');
 ok('Proof Log reads native public DTO receipts before the legacy projection',
   proofSource.includes("window.osiPublicApi('osi-v2-case-read',{op:'list_public_cases'})")
+    && proofSource.includes('window.osiV2ListPublicWireReports()')
     && proofSource.includes("proof_source:'native_public_dto'")
     && proofSource.includes("proof_source:'legacy_public_projection'"));
 
@@ -144,6 +145,12 @@ const refHtml = proof.plReferenceHtml({
 ok('canonical Case reference remains exact in the Proof Log', refHtml.includes(CASE_REF));
 ok('Proof Log Case reference is a keyboard-accessible button',
   refHtml.includes('<button') && refHtml.includes('type="button"'));
+const wireRefHtml = proof.plReferenceHtml({
+  event_type: 'WIRE_REPORT_PUBLISHED', item_type: 'wire',
+  item_id: 'OSI-WV-A1B2C3D4E5F60718',
+});
+ok('exact Wire version reference stays exact and keyboard-accessible in the Proof Log',
+  wireRefHtml.includes('OSI-WV-A1B2C3D4E5F60718') && wireRefHtml.includes('plGoWire'));
 let openedView = '';
 let openedCase = '';
 proof.showView = (view) => { openedView = view; };
@@ -216,6 +223,30 @@ const nativeSealed = records.crNativeCaseRecord({
 });
 ok('native sealed status requires the exact server-projected RECORD_SEALED Memo receipt',
   records.crStatus(nativeSealed).txt === 'Sealed' && records.crHasMemo(nativeSealed));
+const nativeWire = records.crNativeWireRecord({
+  version_public_ref: 'OSI-WV-A1B2C3D4E5F60718',
+  wire_report_public_ref: 'OSI-WR-A1B2C3D4E5F6',
+  title: 'Published Wire finding', summary: 'Public-safe Wire summary.',
+  evidence_count: 2, review_count: 2, challenge_count: 1,
+  publication_channel: 'maintainer_bootstrap',
+  publication_proof: { label: 'Memo-anchored on Solana', tx_sig: TX },
+});
+ok('published Wire record labels the bootstrap channel honestly',
+  records.crStatus(nativeWire).txt === 'Maintainer bootstrap'
+    && records.crStatus(nativeWire).detail.includes('maintainer bootstrap')
+    && records.crHasMemo(nativeWire));
+const supersededBootstrapWire = records.crNativeWireRecord({
+  ...nativeWire,
+  version_public_ref: 'OSI-WV-B1B2C3D4E5F60718',
+  is_current_published: false,
+});
+ok('superseded Wire bootstrap record preserves both lifecycle labels',
+  records.crStatus(supersededBootstrapWire).txt === 'Superseded bootstrap'
+    && records.crStatus(supersededBootstrapWire).detail.includes('maintainer bootstrap'));
+ok('published Wire record keeps public counts from the explicit DTO',
+  records.crEvidenceCount(nativeWire) === 2
+    && records.crAnalystReviews(nativeWire) === 2
+    && nativeWire.native_challenge_count === 1);
 const sealedWithPaymentOnly = records.crNativeCaseRecord({
   public_ref: 'OSI-C-SEALED0000002',
   title: 'Payment-only sealed Case',
@@ -251,7 +282,9 @@ ok('legacy challenge rows add to rather than replace native challenge state',
     && nativeChallengeState.counts['legacy-a'] === 1);
 ok('Public Records reads the least-privilege native Case projection and keeps legacy rows labeled',
   recordsSource.includes("window.osiPublicApi('osi-v2-case-read',{op:'list_public_cases'})")
+    && recordsSource.includes('window.osiV2ListPublicWireReports()')
     && recordsSource.includes("record_source:'native_public_dto'")
+    && recordsSource.includes("record_source:'native_wire_dto'")
     && recordsSource.includes("record_source:'legacy_public_projection'"));
 
 const stats = { innerHTML: '' };

@@ -13,10 +13,28 @@ async function renderWire(options){
   wireState.phase = 'loading';
   wireState.sourceError = null;
   drawWire();
+  let native = [];
+  if(typeof window.osiV2ListPublicWireReports==='function'){
+    try{
+      const result=await window.osiV2ListPublicWireReports();
+      native=(result.reports||[]).map(function(row){
+        return{
+          id:row.version_public_ref,version_public_ref:row.version_public_ref,
+          wire_report_public_ref:row.wire_report_public_ref,
+          subject:row.title,body:row.summary,
+          author:row.author&&row.author.wallet||'',author_handle:row.author&&row.author.handle||'',
+          created_at:row.published_at,native:true,publication_channel:row.publication_channel,
+          contested_at:row.contested_at,support_lamports:row.support_lamports||0,
+          promoted:row.promoted===true,is_current_published:row.is_current_published!==false
+        };
+      });
+    }catch(e){ wireState.sourceError=e||new Error('wire_native_source_unavailable'); }
+  }
   // Flagship investigations (the curated case studies) feature at the top of the wire.
   const featured = (window.CASE_STUDIES || []).map(function(cs){
     return { id:'cs_'+cs.id, _case:cs.id, subject: cs.company + (cs.ticker ? (' (' + cs.ticker + ')') : ''),
-             body: cs.summary || cs.intro || '', author: (cs.author || ''), premium:true, image:'', wallet:'', created_at:'2099-01-01' };
+             body: cs.summary || cs.intro || '', author: (cs.author || ''), premium:true, legacy:true,
+             image:'', wallet:'', created_at:cs.published_at||cs.created_at||'2020-01-01' };
   });
   let community = [];
   if(SUPA_ON){
@@ -26,7 +44,7 @@ async function renderWire(options){
         .filter(function(r){ return !(r.bounty && String(r.bounty).trim()); })   // intel = no bounty
         .map(function(r){
           const isImg = r.attachment && /\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(r.attachment);
-          return { id:r.id, subject:(r.company || 'Intel dispatch'), body:(r.summary || ''),
+          return { id:r.id, subject:(r.company || 'Intel dispatch'), body:(r.summary || ''),legacy:true,
                    author:(r.wallet ? short(r.wallet) : ''), wallet:(r.wallet || ''),
                    image:(isImg ? r.attachment : ''), attachment:(r.attachment || ''),
                    created_at:r.created_at, premium:false };
@@ -34,7 +52,7 @@ async function renderWire(options){
     }catch(e){ wireState.sourceError = e || new Error('wire_source_unavailable'); }
   }
   if(renderToken!==wireState.renderToken||wireState.mode!=='public')return;
-  wireState.data = featured.concat(community);
+  wireState.data = native.concat(featured,community);
   wireState.phase = wireState.sourceError ? 'error' : 'ready';
   drawWire();
 }
@@ -47,13 +65,13 @@ function drawWire(){
   }
   wireStats(wireState.data);
   let list = wireState.data.slice();
-  list.sort(function(a,b){ if(a.premium!==b.premium) return a.premium?-1:1; return new Date(b.created_at||0) - new Date(a.created_at||0); });
+  list.sort(function(a,b){ return new Date(b.created_at||0) - new Date(a.created_at||0); });
   const sourceNotice = wireState.phase==='error'
     ? '<div class="wire-empty wire-source-error" role="alert"><div class="wire-empty-h">Live dispatches are temporarily unavailable.</div><p>'+(list.length ? 'Curated public reports are still available below.' : 'We could not reach the intelligence network just now.')+'</p><button class="wire-retry" type="button" onclick="renderWire()">Retry live source</button></div>'
     : '';
   if(!list.length){
     if(sourceNotice){ host.innerHTML = sourceNotice; return; }
-    host.innerHTML = '<div class="wire-empty"><div class="wire-empty-h">The wire is quiet</div><p>No public dispatches are available yet. Native submissions remain private until a later independent publication transition.</p></div>';
+    host.innerHTML = '<div class="wire-empty"><div class="wire-empty-h">The wire is quiet</div><p>No reviewed Wire Reports have been published yet. Unpublished submissions remain private.</p></div>';
     return;
   }
   host.innerHTML = sourceNotice + list.map(wireCard).join('');
@@ -67,12 +85,24 @@ function wireCard(d){
   const full = String(d.body || '');
   const snippet = escapeHtml(full.slice(0,130)) + (full.length>130 ? '\u2026' : '');
   const count = ((window.boostCounts||{})[d.id]) || 0;
-  const author = d.author ? escapeHtml(d.author) : '';
-  const attribution = author ? ('by '+author) : 'source not attributed';
+  const authorRaw = String(d.author||'');
+  const author = authorRaw ? escapeHtml(authorRaw) : '';
+  const attribution = d.native
+    ? ('by '+escapeHtml(d.author_handle?('@'+d.author_handle+' · '+authorRaw):authorRaw||'wallet unavailable'))
+    : (author ? ('by '+author) : 'source not attributed');
   const status = d.premium ? 'flag' : 'open';
-  const statusLabel = d.premium ? 'FLAGSHIP' : 'DISPATCH';
+  const statusLabel = d.native
+    ? (d.is_current_published===false
+      ? (d.publication_channel==='maintainer_bootstrap'?'SUPERSEDED · BOOTSTRAP':'SUPERSEDED · REVIEWED')
+      : (d.publication_channel==='maintainer_bootstrap'?'MAINTAINER BOOTSTRAP':'REVIEWED'))
+    : (d.premium ? 'FLAGSHIP · LEGACY' : 'DISPATCH · LEGACY');
+  const activity = d.native
+    ? (d.contested_at?'Challenge upheld':(d.promoted?'Promoted to Case':(d.is_current_published===false?'Immutable publication history':'Published finding')))
+    : '<span class="b-reward"><span class="n">'+count+'</span></span> interest signals';
   let actions = '';
-  if(d.premium && d._case){
+  if(d.native && /^OSI-WV-[0-9A-F]{16}$/.test(String(d.version_public_ref||''))){
+    actions += '<button class="wr-act primary" type="button" data-wire-version="'+escapeHtml(d.version_public_ref)+'">Open Wire Report \u2192</button>';
+  } else if(d.premium && d._case){
     actions += '<button class="wr-act primary" type="button" onclick="openReport(\'case\',\''+d._case+'\')">Read report \u2192</button>';
     // Voluntary support to the configured OSI wallet only (no per-dispatch wallet).
     if(OSI_SUPPORT_WALLET){ actions += '<button class="wr-act ghost" type="button" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\'OSI project support\',0.5,\'\\u25ce Voluntary support\')">\u25ce Support</button>'; }
@@ -83,7 +113,7 @@ function wireCard(d){
   }
   return '<div class="wire-card bounty'+(d.premium?' premium':'')+'" data-bid="'+id+'">'
     + '<span class="fc-stripe"></span>'
-    + '<div class="wr-head"><span class="wr-st '+status+'">'+statusLabel+'</span><span class="wr-by mono">'+attribution+'</span><span class="wr-back mono"><span class="b-reward"><span class="n">'+count+'</span></span> interest signals</span></div>'
+    + '<div class="wr-head"><span class="wr-st '+status+'">'+statusLabel+'</span><span class="wr-by mono">'+attribution+'</span><span class="wr-back mono">'+activity+'</span></div>'
     + '<div class="fc-title b-target wr-title">'+subject+'</div>'
     + (snippet ? '<div class="wr-snip">'+snippet+'</div>' : '')
     + '<div class="wr-acts">'+actions+'</div>'
@@ -92,13 +122,21 @@ function wireCard(d){
 function wireStats(list){
   const host=document.getElementById('wire-stats'); if(!host) return;
   const total = list.length;
-  const flag = list.filter(function(d){ return d.premium; }).length;
-  const comm = total - flag;
+  const published = list.filter(function(d){ return d.native; }).length;
+  const legacy = total - published;
   host.innerHTML =
       '<div class="wire-op"><div class="wire-op-n cy">'+total+'</div><div class="wire-op-l">Dispatches</div></div>'
-    + '<div class="wire-op"><div class="wire-op-n">'+flag+'</div><div class="wire-op-l">Flagship reports</div></div>'
-    + '<div class="wire-op"><div class="wire-op-n">'+comm+'</div><div class="wire-op-l">Community filings</div></div>';
+    + '<div class="wire-op"><div class="wire-op-n">'+published+'</div><div class="wire-op-l">Reviewed publications</div></div>'
+    + '<div class="wire-op"><div class="wire-op-n">'+legacy+'</div><div class="wire-op-l">Legacy references</div></div>';
 }
+document.addEventListener('click',function(event){
+  var button=event.target&&event.target.closest?event.target.closest('[data-wire-version]'):null;
+  if(!button)return;
+  var ref=String(button.getAttribute('data-wire-version')||'');
+  if(/^OSI-WV-[0-9A-F]{16}$/.test(ref)&&typeof window.osiV2OpenWireReport==='function'){
+    window.osiV2OpenWireReport(ref);
+  }
+});
 function wireSort(){ wireState.sort='newest'; document.querySelectorAll('.wire-sort').forEach(function(b){ b.classList.toggle('active', b.dataset.s==='newest'); }); drawWire(); }
 function wireEnterPrivateMode(){wireState.mode='private';wireState.renderToken++;}
 function wireOpenPublic(){wireState.mode='public';return renderWire({activatePublic:true});}

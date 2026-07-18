@@ -76,6 +76,12 @@ async function writesEnabled(): Promise<boolean> {
   return !error && data?.[0]?.value === "true";
 }
 
+async function wireWritesEnabled(): Promise<boolean> {
+  const { data, error } = await admin.from("osi_config").select("value")
+    .eq("key", "OSI_V2_WIRE_WRITES_ENABLED").limit(1);
+  return !error && data?.[0]?.value === "true";
+}
+
 async function fingerprint(req: Request): Promise<string> {
   return await requestFingerprint(
     SERVICE_ROLE_KEY + "\u0000osi-v2-payment",
@@ -291,6 +297,60 @@ async function preparePayment(req: Request, body: Row): Promise<Response> {
   });
 }
 
+async function prepareWireSupport(req: Request, body: Row): Promise<Response> {
+  const [paymentsEnabled, wireEnabled] = await Promise.all([
+    writesEnabled(), wireWritesEnabled(),
+  ]);
+  if (!paymentsEnabled || !wireEnabled) {
+    return jsonResponse(503, { ok: false, error: "wire_and_payment_writes_required" });
+  }
+  let wallet: string;
+  let versionRef: string;
+  let amountLamports: string;
+  let idempotency: string;
+  try {
+    wallet = validateWallet(safeText(body.wallet));
+    versionRef = normalizePaymentTargetRef(body.version_public_ref);
+    if (!/^OSI-WV-[0-9A-F]{16}$/.test(versionRef)) {
+      throw new TypeError("Wire version reference is invalid");
+    }
+    amountLamports = exactLamports(body.amount_sol);
+    idempotency = normalizeIdempotency(body.idempotency_key);
+  } catch (error) {
+    return jsonResponse(400, { ok: false, error: errorMessage(error) });
+  }
+  const { data, error } = await admin.rpc("osi_v2_prepare_wire_support", {
+    p_nonce: randomNonce(), p_payer_wallet: wallet,
+    p_version_ref: versionRef, p_amount_lamports: amountLamports,
+    p_idempotency_key: idempotency,
+    p_request_fingerprint_hash: await fingerprint(req),
+  });
+  if (error || !data?.[0]) return rpcFailure(error);
+  const issued = data[0];
+  const recipients = (issued.recipient_manifest ?? []).map((entry: Row) => ({
+    ordinal: Number(entry.ordinal), wallet: entry.wallet,
+    recipient_type: entry.recipient_type, target_ref: entry.target_ref,
+    amount_lamports: String(entry.amount_lamports),
+    amount_sol: formatLamportsAsSol(String(entry.amount_lamports)),
+  }));
+  return jsonResponse(200, {
+    ok: true, already_committed: !!issued.consumed_receipt_id,
+    payment_id: issued.payment_id, payment_kind: "wire_support",
+    purpose: issued.purpose, network: "mainnet-beta", payer_wallet: wallet,
+    actor_role: issued.actor_role, target_public_ref: issued.target_public_ref,
+    recipient_manifest: recipients, recipient_count: recipients.length,
+    manifest_hash: issued.manifest_hash,
+    total_lamports: String(issued.total_lamports),
+    total_sol: formatLamportsAsSol(String(issued.total_lamports)),
+    nonce: issued.issued_nonce, payload_hash: issued.payload_hash,
+    memo: issued.memo, issued_at: issued.issued_at, expires_at: issued.expires_at,
+    receipt_id: issued.consumed_receipt_id ?? null,
+    direct_wallet_to_wallet: true, osi_custody: false,
+    governance_influence: false, ranking_influence: false,
+    irreversible: true, idempotent_replay: issued.idempotent_replay === true,
+  });
+}
+
 async function rpcTransaction(txSig: string): Promise<Row> {
   let response: Response;
   try {
@@ -320,6 +380,13 @@ async function rpcTransaction(txSig: string): Promise<Row> {
   };
 }
 
+async function recordPaymentSubmission(bound: Row, nonce: string, txSig: string) {
+  const rpc = bound.binding_context?.payment_kind === "wire_support"
+    ? "osi_v2_record_wire_support_submission"
+    : "osi_v2_record_payment_submission";
+  return await admin.rpc(rpc, { p_nonce: nonce, p_tx_sig: txSig });
+}
+
 async function commitPayment(body: Row): Promise<Response> {
   if (!await writesEnabled()) return jsonResponse(503, { ok: false, error: "payment_writes_disabled" });
   const wallet = safeText(body.wallet);
@@ -334,6 +401,10 @@ async function commitPayment(body: Row): Promise<Response> {
   if (loaded.error || !bound || bound.actor_wallet !== wallet
       || !["REWARD_PAYMENT_CONFIRMED", "SUPPORT_PAYMENT_CONFIRMED"].includes(bound.purpose)) {
     return jsonResponse(409, { ok: false, error: "unknown_or_wrong_payment_nonce" });
+  }
+  if (bound.binding_context?.payment_kind === "wire_support"
+      && !await wireWritesEnabled()) {
+    return jsonResponse(503, { ok: false, error: "wire_writes_disabled" });
   }
   let rpc: Row;
   try { rpc = await rpcTransaction(txSig); }
@@ -356,9 +427,7 @@ async function commitPayment(body: Row): Promise<Response> {
   );
   if (!verified.ok && verified.state === "awaiting_finality") {
     if (rpc.transaction) {
-      const { error } = await admin.rpc("osi_v2_record_payment_submission", {
-        p_nonce: nonce, p_tx_sig: txSig,
-      });
+      const { error } = await recordPaymentSubmission(bound, nonce, txSig);
       if (error) return rpcFailure(error);
     }
     return jsonResponse(202, {
@@ -373,6 +442,10 @@ async function commitPayment(body: Row): Promise<Response> {
   }
   if (!verified.ok) {
     if (rpc.transaction) {
+      if (bound.binding_context?.payment_kind === "wire_support") {
+        const recorded = await recordPaymentSubmission(bound, nonce, txSig);
+        if (recorded.error) return rpcFailure(recorded.error);
+      }
       const { error } = await admin.rpc("osi_v2_record_payment_failure", {
         p_nonce: nonce, p_tx_sig: txSig, p_error: verified.reason,
       });
@@ -384,6 +457,10 @@ async function commitPayment(body: Row): Promise<Response> {
       state: "verification_failed",
       paid: false,
     });
+  }
+  if (bound.binding_context?.payment_kind === "wire_support") {
+    const recorded = await recordPaymentSubmission(bound, nonce, txSig);
+    if (recorded.error) return rpcFailure(recorded.error);
   }
   const { data, error } = await admin.rpc("osi_v2_commit_payment", {
     p_nonce: nonce,
@@ -450,6 +527,7 @@ serve(async (req: Request): Promise<Response> => {
     case "prepare_pledge": return await preparePledge(req, body);
     case "commit_pledge": return await commitPledge(body);
     case "prepare_payment": return await preparePayment(req, body);
+    case "prepare_wire_support": return await prepareWireSupport(req, body);
     case "commit_payment": return await commitPayment(body);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });
   }

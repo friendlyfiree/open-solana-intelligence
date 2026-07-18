@@ -1,15 +1,15 @@
-name: OSI V2 Wire Phase 1 Production
+name: OSI V2 Wire Phase 2 Production
 
-# Manual, current-main-only rollout for native Wire intake and the author's
-# private Wire workspace. The one additive migration lands fail closed. This
-# workflow deploys only the two touched functions and enables only the
-# dedicated Wire flag after all privacy, regression, and preservation checks.
+# Manual, current-main-only rollout for the governed Wire lane. The additive
+# Phase 2 migration lands fail closed. This workflow deploys only the three
+# touched functions and enables only the dedicated Wire flag after all privacy,
+# regression, proof, and preservation checks.
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type WIRE-PHASE1-DEPLOY-afibxpniwfnavdobecrn to authorize"
+        description: "Type WIRE-PHASE2-DEPLOY-afibxpniwfnavdobecrn to authorize"
         required: true
         default: ""
 
@@ -17,29 +17,29 @@ permissions:
   contents: read
 
 concurrency:
-  group: osi-v2-wire-phase1-production
+  group: osi-v2-wire-phase2-production
   cancel-in-progress: false
 
 env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
   PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
-  NEW_VERSION: "20260718120000"
+  NEW_VERSION: "20260718130000"
   BEFORE_VERSIONS: >-
-    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000
-  AFTER_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000
   OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
   validate:
-    name: Clean local Wire Phase 1 gate
+    name: Clean local Wire Phase 2 gate
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - name: Require exact confirmation and current main
         run: |
           set -euo pipefail
-          [ "${{ github.event.inputs.confirm }}" = "WIRE-PHASE1-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
+          [ "${{ github.event.inputs.confirm }}" = "WIRE-PHASE2-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
             echo "::error::Confirmation phrase mismatch."; exit 1;
           }
           [ "${GITHUB_REF}" = "refs/heads/main" ] || {
@@ -69,15 +69,15 @@ jobs:
         with:
           version: 2.109.1
 
-      - name: Verify exact sixteen-migration repository
+      - name: Verify exact seventeen-migration repository
         run: |
           set -euo pipefail
           got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
           expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
           [ "$got" = "$expected" ] || {
-            echo "::error::Repository migration set is not the exact expected sixteen versions."; exit 1;
+            echo "::error::Repository migration set is not the exact expected seventeen versions."; exit 1;
           }
-          test -f "supabase/migrations/${NEW_VERSION}_osi_v2_wire_phase1.sql"
+          test -f "supabase/migrations/${NEW_VERSION}_osi_v2_wire_phase2.sql"
 
       - name: Full Node and touched-function battery
         run: |
@@ -85,8 +85,11 @@ jobs:
           for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
           deno check supabase/functions/_shared/osi-v2-read-session-core.mjs
           deno check supabase/functions/_shared/osi-v2-wire-core.mjs
+          deno check supabase/functions/_shared/osi-v2-governance-core.mjs
+          deno check supabase/functions/_shared/osi-v2-payment-core.mjs
           deno check supabase/functions/osi-v2-case-read/index.ts
           deno check supabase/functions/osi-v2-wire/index.ts
+          deno check supabase/functions/osi-v2-payment/index.ts
 
       - name: Chromium UI contracts
         run: |
@@ -145,7 +148,7 @@ jobs:
         run: |
           set -euo pipefail
           secrets="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF")"
-          for key in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY OSI_V2_ALLOWED_ORIGIN; do
+          for key in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY OSI_V2_ALLOWED_ORIGIN OSI_MAINTAINER_AUTH_UUID; do
             echo "$secrets" | grep -q "$key" || { echo "::error::$key is absent."; exit 1; }
           done
           if echo "$secrets" | grep -q 'SOLANA_RPC_URL'; then
@@ -194,7 +197,6 @@ jobs:
           begin read only;
           select key || '|' || encode(convert_to(value, 'UTF8'), 'base64')
             from public.osi_config
-           where key not like 'OSI_V2_WIRE_%'
            order by key;
           commit;
           SQL
@@ -221,8 +223,8 @@ jobs:
         if: ${{ env.MODE == 'deploy' }}
         run: |
           set -euo pipefail
-          supabase db push --linked --dry-run 2>&1 | tee /tmp/wire-phase1-dry-run.txt
-          got="$(grep -oE '20[0-9]{12}' /tmp/wire-phase1-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/wire-phase2-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/wire-phase2-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
           [ "$got" = "$NEW_VERSION" ] || { echo "::error::Dry-run is not exactly the expected Wire migration."; exit 1; }
 
       - name: Apply exactly the one additive migration
@@ -238,11 +240,14 @@ jobs:
           begin
             if (select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED') is distinct from 'false'
               then raise exception 'Wire flag did not land false'; end if;
+            if (select value from public.osi_config where key='OSI_V2_WIRE_STANDARD_MIN_COUNT') is distinct from '2'
+               or (select value from public.osi_config where key='OSI_V2_WIRE_STANDARD_MIN_WEIGHT') is distinct from '2.00'
+              then raise exception 'Wire standard publication quorum defaults are not exact'; end if;
             if (select value from public.osi_config where key='OSI_V2_WRITES_ENABLED') is distinct from 'false'
                or (select value from public.osi_config where key='OSI_V2_PROOF_ENABLED') is distinct from 'false'
               then raise exception 'broad V2 flags are not closed'; end if;
             if exists (
-              select 1 from (values ('wire_reports'),('wire_report_versions'),('wire_report_version_evidence'),('evidence_items'),('event_receipts'),('osi_nonces')) required(name)
+              select 1 from (values ('wire_reports'),('wire_report_versions'),('wire_report_version_evidence'),('wire_report_reviews'),('challenges_v2'),('support_events'),('evidence_items'),('event_receipts'),('osi_nonces')) required(name)
               where not exists (
                 select 1 from pg_class
                  where oid=('public.' || required.name)::regclass
@@ -252,6 +257,7 @@ jobs:
             if has_table_privilege('anon','public.wire_reports','SELECT')
                or has_table_privilege('authenticated','public.wire_report_versions','INSERT')
                or has_function_privilege('authenticated','public.osi_v2_commit_wire_version(text,text,text,text,text,text,jsonb,text,text,timestamptz)','EXECUTE')
+               or has_function_privilege('anon','public.osi_v2_list_public_wire_reports(integer,timestamp with time zone)','EXECUTE')
               then raise exception 'browser can bypass the Wire gateway'; end if;
             if to_regclass('public.wire_reports_public_ref_uidx') is null
                or to_regclass('public.wire_report_versions_version_ref_uidx') is null
@@ -264,27 +270,39 @@ jobs:
           begin read only;
           select key || '|' || encode(convert_to(value, 'UTF8'), 'base64')
             from public.osi_config
-           where key not like 'OSI_V2_WIRE_%'
            order by key;
           commit;
           SQL
-          diff -u /tmp/config-before.txt /tmp/config-after-migration.txt
+          if [ -n "$(comm -23 /tmp/config-before.txt /tmp/config-after-migration.txt)" ]; then
+            echo "::error::A pre-existing config key or value changed during migration."; exit 1;
+          fi
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/config-pre-enable.txt <<'SQL'
+          begin read only;
+          select key || '|' || encode(convert_to(value, 'UTF8'), 'base64')
+            from public.osi_config
+           where key <> 'OSI_V2_WIRE_WRITES_ENABLED'
+           order by key;
+          commit;
+          SQL
 
-      - name: Deploy exactly the two touched Edge Functions
+      - name: Deploy exactly the three touched Edge Functions
         run: |
           set -euo pipefail
-          for fn in osi-v2-case-read osi-v2-wire; do
+          for fn in osi-v2-case-read osi-v2-wire osi-v2-payment; do
             supabase functions deploy "$fn" --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
           done
           functions="$(supabase functions list --project-ref "$EXPECTED_PROJECT_REF")"
           echo "$functions" | grep -q 'osi-v2-case-read' || { echo "::error::Case read function unavailable."; exit 1; }
           echo "$functions" | grep -q 'osi-v2-wire' || { echo "::error::Wire function unavailable."; exit 1; }
+          echo "$functions" | grep -q 'osi-v2-payment' || { echo "::error::Payment function unavailable."; exit 1; }
 
-      - name: Verify production web exposes the merged private Wire intake UI
+      - name: Verify production web exposes the governed Wire surfaces
         run: |
           set -euo pipefail
           curl -sS --fail --max-time 30 "$PRODUCTION_WEB_URL" > /tmp/production-index.html
           grep -q 'id="osi-wire-intake-action"' /tmp/production-index.html || { echo "::error::Production web does not expose the Wire intake action."; exit 1; }
+          grep -q 'id="osi-wire-queue-action"' /tmp/production-index.html || { echo "::error::Production web does not expose the authorized Wire queue action."; exit 1; }
+          grep -q 'id="osi-wire-drawer"' /tmp/production-index.html || { echo "::error::Production web does not expose the Wire detail drawer."; exit 1; }
           grep -q 'assets/js/v2-wire-integration.js' /tmp/production-index.html || { echo "::error::Production web does not load the native Wire integration."; exit 1; }
           if grep -q 'id="wire-form"' /tmp/production-index.html; then
             echo "::error::Retired legacy Wire submission form remains in production."; exit 1;
@@ -298,20 +316,20 @@ jobs:
           wallet='11111111111111111111111111111112'
           capability="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-wire" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"capabilities"}')"
           echo "$capability" | grep -q '"wire_writes_enabled":false' || { echo "::error::Wire flag was not closed before smoke."; exit 1; }
-          code="$(curl -sS --max-time 30 -o /tmp/no-public-wire.json -w '%{http_code}' -X POST "$base/osi-v2-wire" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_wire"}')"
-          [ "$code" = "400" ] || { echo "::error::Phase 1 unexpectedly exposed a public Wire operation."; exit 1; }
-          code="$(curl -sS --max-time 30 -o /tmp/no-wire-session.json -w '%{http_code}' -X POST "$base/osi-v2-wire" -H "$origin_header" -H 'Content-Type: application/json' -d "{"op":"list_my_wire_reports","wallet":"${wallet}"}")"
+          curl -sS --fail --max-time 30 -o /tmp/public-wire.json -X POST "$base/osi-v2-wire" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_wire_reports","limit":40}'
+          grep -Eq '"reports"[[:space:]]*:[[:space:]]*\[[[:space:]]*\]' /tmp/public-wire.json || { echo "::error::Phase 2 public Wire list is not honestly empty before first publication."; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/no-wire-session.json -w '%{http_code}' -X POST "$base/osi-v2-wire" -H "$origin_header" -H 'Content-Type: application/json' --data-binary "$(printf '{\"op\":\"list_my_wire_reports\",\"wallet\":\"%s\"}' "$wallet")")"
           [ "$code" != "200" ] || { echo "::error::Private Wire history was returned without a shared read session."; exit 1; }
-          if grep -Eq '"(body_private|uncertainties_private|evidence_snapshot_hash|author_wallet|signature|nonce)"[[:space:]]*:' /tmp/no-public-wire.json; then
-            echo "::error::Unsupported public Wire response exposed private material."; exit 1;
+          if grep -Eq '"(body_private|uncertainties_private|evidence_snapshot_hash|private_note|restricted_detail|signature|nonce|payload_hash|wire_report_id|wire_report_version_id)"[[:space:]]*:' /tmp/public-wire.json; then
+            echo "::error::Public Wire list exposed restricted or internal material."; exit 1;
           fi
           curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_cases"}' > /tmp/public-cases.json
           if grep -Eq '"(details_restricted|body_private|uncertainties_private|private_note|signature|nonce)"[[:space:]]*:' /tmp/public-cases.json; then
             echo "::error::Public Case response exposed a restricted field."; exit 1;
           fi
-          session="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "$origin_header" -H 'Content-Type: application/json' -d "{"op":"issue_read_session_challenge","wallet":"${wallet}"}")"
+          session="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "$origin_header" -H 'Content-Type: application/json' --data-binary "$(printf '{\"op\":\"issue_read_session_challenge\",\"wallet\":\"%s\"}' "$wallet")")"
           echo "$session" | grep -q '"challenge"' || { echo "::error::Shared read-session challenge regressed."; exit 1; }
-          verify="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-proof" -H "$origin_header" -H 'Content-Type: application/json' -d "{"mode":"sas_verify","wallet":"${wallet}"}")"
+          verify="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-proof" -H "$origin_header" -H 'Content-Type: application/json' --data-binary "$(printf '{\"mode\":\"sas_verify\",\"wallet\":\"%s\"}' "$wallet")")"
           echo "$verify" | grep -q '"program_id"' || { echo "::error::sas_verify regressed."; exit 1; }
           echo "$verify" | grep -q '"valid":false' || { echo "::error::sas_verify claimed validity for an uncredentialed wallet."; exit 1; }
 
@@ -343,6 +361,8 @@ jobs:
           echo "$capability" | grep -q '"wire_writes_enabled":true' || { echo "::error::Wire capability did not observe the enabled flag."; exit 1; }
           code="$(curl -sS --max-time 30 -o /tmp/bad-wire-wallet.json -w '%{http_code}' -X POST "$base/osi-v2-wire" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"prepare_wire","wallet":"bad","wire":{},"idempotency_key":"wire-production-negative-0001"}')"
           [ "$code" = "400" ] || { echo "::error::Invalid Wire wallet was not rejected before nonce issuance."; exit 1; }
+          curl -sS --fail --max-time 30 -o /tmp/public-wire-after.json -X POST "$base/osi-v2-wire" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_wire_reports","limit":40}'
+          grep -Eq '"reports"[[:space:]]*:[[:space:]]*\[[[:space:]]*\]' /tmp/public-wire-after.json || { echo "::error::Enabling writes invented a public Wire record."; exit 1; }
           [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED'")" = "true" ]
           [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")" = "false" ]
           [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")" = "false" ]
@@ -350,11 +370,11 @@ jobs:
           begin read only;
           select key || '|' || encode(convert_to(value, 'UTF8'), 'base64')
             from public.osi_config
-           where key not like 'OSI_V2_WIRE_%'
+           where key <> 'OSI_V2_WIRE_WRITES_ENABLED'
            order by key;
           commit;
           SQL
-          diff -u /tmp/config-before.txt /tmp/config-after-enable.txt
+          diff -u /tmp/config-pre-enable.txt /tmp/config-after-enable.txt
 
       - name: Prove protected V1 row counts are unchanged
         run: |
@@ -401,18 +421,18 @@ jobs:
           {
             echo "project_ref=${EXPECTED_PROJECT_REF}"
             echo "migration=${NEW_VERSION}"
-            echo "functions=osi-v2-case-read,osi-v2-wire"
+            echo "functions=osi-v2-case-read,osi-v2-wire,osi-v2-payment"
             echo "commit=$(git rev-parse HEAD)"
             echo "wire_writes=true"
             echo "broad_v2_writes=false"
             echo "broad_v2_proof=false"
-            echo "public_wire_projection=not_enabled_in_phase1"
+            echo "public_wire_projection=enabled_and_empty_until_governed_publication"
             echo "rollback=disable_wire_flag_and_forward_fix"
-          } > deployment-receipt/osi-v2-wire-phase1-production.txt
+          } > deployment-receipt/osi-v2-wire-phase2-production.txt
 
       - name: Upload deployment receipt
         uses: actions/upload-artifact@v4
         with:
-          name: osi-v2-wire-phase1-production-${{ github.sha }}
-          path: deployment-receipt/osi-v2-wire-phase1-production.txt
+          name: osi-v2-wire-phase2-production-${{ github.sha }}
+          path: deployment-receipt/osi-v2-wire-phase2-production.txt
           retention-days: 30
