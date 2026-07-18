@@ -329,7 +329,7 @@ test('Home keeps a compact three-section product route with truthful live action
   const wordCount = await page.locator('main > section.osi-home').evaluateAll((sections) =>
     sections.reduce((count, section) => count + (section.textContent || '').trim().split(/\s+/).filter(Boolean).length, 0));
   expect(wordCount).toBeLessThanOrEqual(390);
-  await expect(page.locator('[data-action-contract]')).toHaveCount(8);
+  await expect(page.locator('[data-action-contract]')).toHaveCount(9);
   await expect(page.locator('main > section.osi-home [data-action-contract]')).toHaveCount(0);
   await expect(page.locator('.osi-route-gallery > .osi-route-card')).toHaveCount(4);
   await expect(page.locator('.osi-route-report .art-manifest')).toBeVisible();
