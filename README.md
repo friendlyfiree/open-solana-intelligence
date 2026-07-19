@@ -28,7 +28,7 @@ OSI's answer is **process integrity**: a public system that proves who submitted
 | Native SOL reward and voluntary support (non-custodial, RPC-verified) | Live |
 | The Wire: standalone intelligence publication lane | Live |
 | Analyst onboarding with on-chain SAS credentials | Live |
-| AI Pack: evidence-bound, three-layer AI briefs with analyst approval | Live |
+| AI Pack: evidence-bound, three-layer AI briefs with analyst approval | In development |
 | Shared private read session (one signature per 5 minutes) | Live |
 | Bootstrap governance (transparent, self-decaying cold-start mode) | Live |
 
