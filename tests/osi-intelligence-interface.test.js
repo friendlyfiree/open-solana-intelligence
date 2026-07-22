@@ -2,6 +2,7 @@
 // Run: node tests/osi-intelligence-interface.test.js
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -124,6 +125,15 @@ ok(index.includes('<form class="adm-card" onsubmit="event.preventDefault();admLo
 ok(!/onclick="[^"]*showView\(/.test(index), 'visible document actions use canonical navigation instead of bypassing history state');
 
 ok(!records.includes('reports.updated_at') && !records.includes('created_at,updated_at'), 'legacy public record query does not request a missing column');
+const idContext = { Math };
+vm.runInNewContext(records.slice(records.indexOf('function crStableIdHash'), records.indexOf('function crCountTokens')), idContext);
+const legacyRefA = idContext.osiCaseId('rep_1782886895974');
+const legacyRefB = idContext.osiCaseId('rep_1782633406125');
+ok(legacyRefA !== legacyRefB && /^OSI-[A-Z0-9]{6}-[A-F0-9]{8}$/.test(legacyRefA), 'legacy fallback references are stable and do not collapse records with a shared prefix');
+ok(records.includes("return '<article class=\"'+cls+'\" data-cid=\"'+crAttr(r.id)+'\">'") && !records.includes('role="button" tabindex="0" onclick="openCaseRecord'), 'public record cards avoid nested interactive controls');
+ok(index.includes('id="cr-drawer" aria-hidden="true" hidden') && index.includes('aria-modal="true" aria-labelledby="cr-drawer-title"'), 'public record drawer starts hidden and exposes modal semantics');
+ok(records.includes("event.key==='Escape'") && records.includes('crDrawerReturnFocus') && records.includes("event.key!=='Tab'"), 'public record drawer closes on Escape, traps focus and restores the trigger');
+ok(records.includes('Imported test material') && records.includes('Treat certainty claims as unverified.'), 'legacy test and certainty language is visibly qualified');
 ok(!index.includes('Recently updated</option>'), 'unsupported recently-updated sort is not exposed');
 ok(!safety.includes('setTimeout(welcomeShow, 800)'), 'first load no longer forces an unsolicited briefing modal');
 ok(!index.includes('12-demo-briefing.js') && !index.includes('id="demo-root"'), 'production document contains no briefing or demo runtime');

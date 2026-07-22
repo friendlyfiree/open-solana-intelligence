@@ -64,6 +64,11 @@ const aiPackApprovalCommit = aiPackPhase1.slice(
 );
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
+const openDecisions = fs.readFileSync(path.join(root, 'docs', 'OSI_V2_OPEN_DECISIONS.md'), 'utf8');
+const sasBootstrapWorkflow = fs.readFileSync(
+  path.join(root, '.github', 'workflows', 'osi-v2-sas-bootstrap-production.yml'),
+  'utf8',
+);
 const foundationWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-foundation.yml'),
   'utf8',
@@ -1011,6 +1016,11 @@ ok(
   'bootstrap maintainer quorum ships disabled and fail-closed (D17)',
   bootstrapGovernance.includes("('OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED', 'false'")
     && /osi_v2_bootstrap_tier\(\)/.test(bootstrapGovernance),
+);
+ok(
+  'accepted-document conflict keeps the bootstrap channel on explicit production hold',
+  openDecisions.includes('must stay production-disabled')
+    && !/OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED[^\n]*true/.test(sasBootstrapWorkflow),
 );
 ok(
   'bootstrap tier is computed additively from the live eligible-analyst count',

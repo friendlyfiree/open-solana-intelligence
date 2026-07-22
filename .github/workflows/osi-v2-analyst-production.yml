@@ -45,7 +45,7 @@ jobs:
           }
 
       - name: Check out exact dispatched commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -59,17 +59,17 @@ jobs:
           echo "Validated main commit $(git rev-parse HEAD)."
 
       - name: Set up Node.js and Deno
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
 
       - name: Set up Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.4.1
 
       - name: Install pinned Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
           version: 2.109.1
 
@@ -127,7 +127,7 @@ jobs:
       PGSSLMODE: require
     steps:
       - name: Check out exact validated main commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -141,7 +141,7 @@ jobs:
           [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "::error::Validated commit is no longer current main."; exit 1; }
 
       - name: Install pinned Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
           version: 2.109.1
 
@@ -313,7 +313,7 @@ jobs:
           } > deployment-receipt/osi-v2-analyst-production.txt
 
       - name: Upload deployment receipt
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: osi-v2-analyst-production-${{ github.sha }}
           path: deployment-receipt/osi-v2-analyst-production.txt

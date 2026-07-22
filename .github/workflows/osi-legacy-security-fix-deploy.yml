@@ -48,7 +48,7 @@ jobs:
           fi
 
       - name: Check out repository at the dispatched ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Verify secrets present, ref pinned, sources exist, and this is current main
         run: |
@@ -61,7 +61,7 @@ jobs:
           [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "::error::Not current origin/main."; exit 1; }
 
       - name: Install pinned Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
           version: 2.109.1
 

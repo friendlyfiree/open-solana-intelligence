@@ -306,6 +306,7 @@ function renderCaseStudies(){
 // ---- top-level view tabs ----
 const VIEW_OF = { registry:'registry', how:'methodology', methodology:'methodology', 'case-studies':'research', community:'community', roadmap:'community', newsletter:'community' };
 function showView(v){
+  if(v!=='records' && typeof closeCaseDrawer==='function') closeCaseDrawer();
   if(v!=='registry' && typeof window.osiActivateRouteStyles==='function') window.osiActivateRouteStyles();
   document.body.dataset.view = v;
   if(v==='admin' && typeof renderAdminAccess==='function'){ renderAdminAccess({refresh:true}); }

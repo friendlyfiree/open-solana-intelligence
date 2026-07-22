@@ -67,6 +67,8 @@ Problem: before an independent analyst network exists, Report publication, resol
 
 Decision: a new, explicitly enabled, fail-closed mechanism — **`OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED`** (default `false`) — lets the full double-gated maintainer (configured admin wallet **and** authenticated Supabase maintainer identity, exactly as every other maintainer action already requires) additionally finalize three outcomes while the live eligible-analyst count is low: **Report publication, resolution/winning-Report selection, and seal**. This is a bounded, code-computed extension of the existing Case-initial-open maintainer-alternative path (D5); it never touches AI Pack approval or challenge accept/reject, which always remain analyst-quorum-only (the maintainer must never rule on a challenge to their own prior bootstrap decision).
 
+Implementation hold (2026-07-22): this lower-priority decision conflicts with Product Constitution P3/P5 and the accepted State Machines, which limit maintainer-only authority and require independent analyst quorum for normal publication. Under the repository source-precedence and least-privilege rules, the implementation may remain present for review but **must stay production-disabled** until an explicit accepted Constitution/State-Machine amendment resolves that conflict. No workflow in this repository may enable `OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED`; the reviewed production workflow verifies that its value remains exactly `false`.
+
 The server computes a live tier from `count(analyst_profiles where status in ('probationary_analyst','verified_analyst','senior_analyst') and approved)` — no manual flag flips:
 
 | Live eligible-analyst count | Required signer(s) for the three bootstrap-eligible outcomes |
