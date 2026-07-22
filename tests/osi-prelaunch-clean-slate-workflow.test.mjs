@@ -26,7 +26,7 @@ ok("V1 target counts and stable content identities are asserted",
   && workflow.includes("V1 bounty boost target set changed")
   && workflow.includes("V1 request vote target set changed")
   && workflow.includes("V1 on-chain event target set changed")
-  && workflow.includes("Expected exactly two approved and verified V1 analysts"));
+  && workflow.includes("Expected exactly two V1 analyst rows to purge"));
 ok("children are deleted before parents",
   workflow.indexOf("delete from public.bounty_boosts")
     < workflow.indexOf("delete from public.bounties")
