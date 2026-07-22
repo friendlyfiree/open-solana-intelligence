@@ -10,6 +10,7 @@ const surface = require("../assets/js/88-functional-surface.js");
 const index = read("index.html");
 const legacy = read("legacy.html");
 const script = read("assets/js/88-functional-surface.js");
+const aiPack = read("assets/js/v2-ai-pack-integration.js");
 const home = index.slice(index.indexOf('<section class="osi-home osi-home-hero"'), index.indexOf('<section class="sec" id="records-hero"'));
 const platformMenuStart = index.indexOf('id="platform-menu"');
 const platformMenu = index.slice(platformMenuStart, index.indexOf('<button class="osi-nav-link"', platformMenuStart));
@@ -69,8 +70,15 @@ ok("Wire intake is a real flag-gated native action with no legacy submit control
     && index.includes('assets/js/v2-wire-integration.js')
     && !index.includes('id="wire-subject-in"')
     && !script.includes("window.submitIntel=function()"));
-ok("native AI Pack generation is not loaded or presented as a live control",
-  !index.includes("assets/js/80-ai-pack.js") && !index.includes("escGenerate()"));
+ok("native AI Pack is a real Case-drawer surface while the legacy generator stays retired",
+  index.includes("assets/js/v2-ai-pack-integration.js")
+    && index.indexOf("assets/js/v2-ai-pack-integration.js") < index.indexOf("assets/js/v2-case-integration.js")
+    && aiPack.includes("op:'capabilities'")
+    && aiPack.includes("case_ref:ref")
+    && aiPack.includes("ai_pack_writes_enabled")
+    && aiPack.includes("can_generate")
+    && !index.includes("assets/js/80-ai-pack.js")
+    && !index.includes("escGenerate()"));
 ok("production root loads no sample-data, briefing, or legacy private-read bundle",
   !index.includes("assets/js/02-data-stubs.js")
     && !index.includes("assets/js/12-demo-briefing.js")

@@ -6,6 +6,7 @@
   var WRITE_URL = SUPABASE_URL + '/functions/v1/osi-v2-case-write';
   var GOVERNANCE_URL = SUPABASE_URL + '/functions/v1/osi-v2-governance-write';
   var PAYMENT_URL = SUPABASE_URL + '/functions/v1/osi-v2-payment';
+  var AI_PACK_URL = SUPABASE_URL + '/functions/v1/osi-v2-ai-pack';
   var PAGE_SIZE = 12;
   var state = {
     cases: [], mode: 'public', actorRole: 'public', query: '', stage: 'open_public',
@@ -312,7 +313,13 @@
         api(GOVERNANCE_URL,{op:'actor_capabilities',wallet:walletPubkey}),
         api(PAYMENT_URL,{op:'capabilities',wallet:walletPubkey})
       ]);
-      state.capabilities=Object.assign({},results[0],results[1],results[2]);
+      var aiPackCapabilities={ai_pack_writes_enabled:false,ai_pack_review_writes_enabled:false,can_generate:false,generation_prerequisite:'AI Pack capabilities are safely unavailable.'};
+      try{aiPackCapabilities=await api(AI_PACK_URL,{
+        op:'capabilities',
+        wallet:walletPubkey,
+        case_ref:state.current&&state.current.public_ref||undefined
+      });}catch(aiPackError){}
+      state.capabilities=Object.assign({},results[0],results[1],results[2],aiPackCapabilities);
       if(typeof setMaintainerServerGate==='function') setMaintainerServerGate(state.capabilities.maintainer_access===true,state.capabilities.maintainer_gate||'denied');
       setAdminVisibility(state.capabilities.maintainer_access===true);
       setReviewNavigationVisibility(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true);
@@ -394,7 +401,7 @@
     finally{button.disabled=false;}
   }
 
-  var tabs=[['overview','Overview'],['evidence','Evidence'],['reports','Reports'],['resolution','Resolution'],['challenges','Challenges'],['reward','Rewards & Support'],['proof','Proof Log']];
+  var tabs=[['overview','Overview'],['evidence','Evidence'],['reports','Reports'],['ai_pack','AI Pack'],['resolution','Resolution'],['challenges','Challenges'],['reward','Rewards & Support'],['proof','Proof Log']];
   async function openCase(publicRef){
     var item=state.cases.find(function(entry){return entry.public_ref===publicRef;});
     try{
@@ -412,11 +419,33 @@
       setTimeout(function(){var close=drawer.querySelector('.osi-case-close');if(close)close.focus();},30);
     }catch(error){showToast(userError(error));}
   }
-  function closeCase(){var drawer=document.getElementById('osi-case-drawer');if(drawer)drawer.hidden=true;document.body.classList.remove('osi-case-open');syncBodyLock();state.current=null;restoreFocus(state.drawerReturnFocus);state.drawerReturnFocus=null;}
+  function wipeCaseDrawerContent(){
+    if(typeof window.osiV2AiPackClear==='function')window.osiV2AiPackClear();
+    var content=document.getElementById('osi-case-content');
+    if(content){
+      if(typeof content.replaceChildren==='function')content.replaceChildren();
+      else content.innerHTML='';
+    }
+  }
+  function closeCase(){
+    var drawer=document.getElementById('osi-case-drawer');
+    if(drawer)drawer.hidden=true;
+    document.body.classList.remove('osi-case-open');
+    syncBodyLock();
+    wipeCaseDrawerContent();
+    state.current=null;
+    restoreFocus(state.drawerReturnFocus);
+    state.drawerReturnFocus=null;
+  }
   function drawTabs(){
     var host=document.getElementById('osi-case-tabs');
     host.setAttribute('role','tablist');
-    host.innerHTML=tabs.map(function(tab){var active=tab[0]===state.tab;return'<button class="osi-case-tab '+(active?'active':'')+'" type="button" role="tab" aria-selected="'+active+'" tabindex="'+(active?'0':'-1')+'" data-tab="'+tab[0]+'">'+esc(tab[1])+'</button>';}).join('');
+    host.innerHTML=tabs.map(function(tab){
+      var active=tab[0]===state.tab;
+      return'<button class="osi-case-tab '+(active?'active':'')+'" id="osi-case-tab-'+tab[0]+
+        '" type="button" role="tab" aria-controls="osi-case-content" aria-selected="'+active+
+        '" tabindex="'+(active?'0':'-1')+'" data-tab="'+tab[0]+'">'+esc(tab[1])+'</button>';
+    }).join('');
     var selected=host.querySelector('[aria-selected="true"]');if(selected&&typeof selected.scrollIntoView==='function')selected.scrollIntoView({block:'nearest',inline:'nearest'});
     Array.prototype.forEach.call(host.querySelectorAll('[data-tab]'),function(button){
       button.addEventListener('click',function(){state.tab=button.dataset.tab;drawTabs();renderTab();});
@@ -550,8 +579,24 @@
   }
   function renderTab(){
     var item=state.current;if(!item)return;
-    var html=state.tab==='overview'?overview(item):state.tab==='evidence'?evidence(item):state.tab==='reports'?reports(item):state.tab==='resolution'?resolution(item):state.tab==='challenges'?challenges(item):state.tab==='reward'?reward(item):proof(item);
-    var content=document.getElementById('osi-case-content');content.setAttribute('role','tabpanel');content.innerHTML=html;
+    if(state.tab!=='ai_pack'&&typeof window.osiV2AiPackClear==='function')window.osiV2AiPackClear();
+    var aiPackAvailable=typeof window.osiV2AiPackRender==='function';
+    var html=state.tab==='overview'?overview(item)
+      :state.tab==='evidence'?evidence(item)
+      :state.tab==='reports'?reports(item)
+      :state.tab==='ai_pack'&&aiPackAvailable?window.osiV2AiPackRender(item,state.capabilities||{},state.mode)
+      :state.tab==='ai_pack'?'<section class="osi-case-section"><h3>AI Pack</h3><div class="osi-v2-empty osi-v2-error"><b>AI Pack view unavailable</b><span>The AI Pack interface did not load. Reload the page to retry safely.</span><button class="osi-action" id="osi-ai-pack-script-retry" type="button">Reload page</button></div></section>'
+      :state.tab==='resolution'?resolution(item)
+      :state.tab==='challenges'?challenges(item)
+      :state.tab==='reward'?reward(item)
+      :proof(item);
+    var content=document.getElementById('osi-case-content');
+    content.setAttribute('role','tabpanel');
+    content.setAttribute('tabindex','0');
+    content.setAttribute('aria-labelledby','osi-case-tab-'+state.tab);
+    content.innerHTML=html;
+    var retry=document.getElementById('osi-ai-pack-script-retry');
+    if(retry)retry.addEventListener('click',function(){window.location.reload();});
   }
   function activeOpeningRoute(item){
     var wallet=String(walletPubkey||'');var caps=state.capabilities||{};
@@ -844,6 +889,7 @@
   function clearPrivateCaseCache(){
     if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.current=null;state.actorRole='public';state.mode='public';}
     state.capabilities=null;state.governanceBusy=false;clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
+    wipeCaseDrawerContent();
     var drawer=document.getElementById('osi-case-drawer');if(drawer)drawer.hidden=true;
   }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('cases',clearPrivateCaseCache);
