@@ -3584,12 +3584,16 @@ declare
   case_id_value uuid;
   manifest_value jsonb;
 begin
-  select version, pack.case_id
-    into version_row, case_id_value
+  select version.* into version_row
     from public.ai_pack_versions as version
-    join public.ai_packs as pack on pack.id = version.pack_id
    where version.id = p_version_id;
   if version_row.id is null then
+    return;
+  end if;
+  select pack.case_id into case_id_value
+    from public.ai_packs as pack
+   where pack.id = version_row.pack_id;
+  if case_id_value is null then
     return;
   end if;
   manifest_value := osi_private.osi_v2_ai_pack_evidence_manifest(
@@ -3775,14 +3779,18 @@ declare
   review_reason text;
   finalize_reason text;
 begin
-  select version, case_item.submitted_by_wallet
-    into version_row, case_owner
+  select version.* into version_row
     from public.ai_pack_versions as version
-    join public.ai_packs as pack on pack.id = version.pack_id
-    join public.cases as case_item on case_item.id = pack.case_id
    where version.id = p_version_id
      and version.version_ref is not null;
   if version_row.id is null then
+    return null;
+  end if;
+  select case_item.submitted_by_wallet into case_owner
+    from public.ai_packs as pack
+    join public.cases as case_item on case_item.id = pack.case_id
+   where pack.id = version_row.pack_id;
+  if case_owner is null then
     return null;
   end if;
   select * into drift

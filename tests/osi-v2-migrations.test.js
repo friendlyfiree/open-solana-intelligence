@@ -837,6 +837,12 @@ ok(
     && (aiPackPhase1.match(/osi_v2_ai_pack_layer_drift\(version_row\.id\)/g) || []).length >= 5,
 );
 ok(
+  'AI Pack projections do not mix rowtype records with scalar INTO targets',
+  !/select version,\s*(?:pack\.case_id|case_item\.submitted_by_wallet)\s+into version_row,/i
+    .test(aiPackPhase1)
+    && (aiPackPhase1.match(/select version\.\* into version_row/g) || []).length >= 2,
+);
+ok(
   'expired provider reservations have a bounded forward recovery path',
   /update public\.osi_v2_ai_pack_generation_runs as abandoned[\s\S]*abandoned\.state = 'reserved'[\s\S]*abandoned\.expires_at <= now_value/i
     .test(aiPackPhase1)
