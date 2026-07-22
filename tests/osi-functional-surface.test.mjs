@@ -92,6 +92,10 @@ ok("retired preview file is absent and permanently redirected to root",
   !existsSync(join(root, "v2-preview.html"))
     && read("vercel.json").includes('"source": "/v2-preview.html"')
     && read("vercel.json").includes('"permanent": true'));
-ok("premature SAS and planned durable-record claims are absent", !/\bSAS\b|durable record fields|>Planned</i.test(index));
+ok("live SAS verification stays in About while Home and durable-record claims remain honest",
+  !/\bSAS\b|durable record fields|>Planned</i.test(home)
+    && !/durable record fields|>Planned</i.test(index)
+    && index.includes('id="sas-verifier"')
+    && index.includes('assets/js/96-sas-public.js'));
 
 console.log(`\n${passed} functional surface and retirement checks passed.`);

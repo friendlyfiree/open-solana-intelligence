@@ -85,6 +85,7 @@
   function proofLabel(type){return type==='solana_memo'?'Memo-anchored on Solana':type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Legacy, not server-verified';}
   function solFromLamports(value){var text=String(value==null?'0':value);if(!/^\d+$/.test(text))return'0';text=text.replace(/^0+(?=\d)/,'');var padded=text.padStart(10,'0'),whole=padded.slice(0,-9),fraction=padded.slice(-9).replace(/0+$/,'');return whole+(fraction?'.'+fraction:'');}
   function statusBadge(status){return '<span class="osi-status '+esc(status)+'">'+esc(label(status))+'</span>';}
+  function sasSlot(wallet,status){return '<span data-sas-wallet="'+esc(wallet)+'" data-sas-role="'+esc(status||'analyst_profile')+'"></span>';}
   function empty(title,body){return '<div class="osi-activation-empty"><b>'+esc(title)+'</b><span>'+esc(body)+'</span></div>';}
 
   function syncAnalystMaps(rows){
@@ -130,7 +131,7 @@
     var contributions=(profile.contributions||[]).map(function(row){return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b><span>'+esc(label(row.subject_type))+' / '+esc(short(row.subject_id))+'</span></div><time>'+esc(dateText(row.created_at))+'</time></div>';}).join('');
     var proofs=(profile.proof_history||[]).map(publicProof).join('');
     var body=document.getElementById('ap-modal-body');if(!body)return;
-    body.innerHTML='<div class="osi-public-profile"><header>'+avatar(profile,64)+'<div><span class="mono">@'+esc(profile.handle)+'</span><h3>'+esc(profile.display_name||profile.handle)+'</h3><p>'+esc(profile.bio)+'</p></div></header>'
+    body.innerHTML='<div class="osi-public-profile"><header>'+avatar(profile,64)+'<div><span class="mono">@'+esc(profile.handle)+'</span><h3>'+esc(profile.display_name||profile.handle)+sasSlot(profile.wallet,profile.status)+'</h3><p>'+esc(profile.bio)+'</p></div></header>'
       +'<div class="osi-profile-facts"><div><span>Status</span>'+statusBadge(profile.status)+'</div><div><span>Server-derived weight</span><b>'+Number(profile.weight||0).toFixed(2)+'</b></div><div><span>Tier</span><b>'+esc(label(profile.tier_code))+'</b></div></div>'
       +'<section><h4>Expertise</h4><div class="osi-tag-list">'+(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section>'
       +(links?'<section><h4>Safe public links</h4><div class="osi-safe-links">'+links+'</div></section>':'')
