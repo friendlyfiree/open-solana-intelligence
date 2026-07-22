@@ -112,6 +112,7 @@
       prohibited_secret_material:'Remove any seed phrase, recovery phrase, mnemonic, private key, or secret key reference.',
       prohibited_illegal_access_material:'Illegal-access material cannot be submitted.',
       rate_limited:'Too many proof requests. Wait a few minutes and try again.'
+      ,read_failed:'The public Case registry could not be loaded. Retry when the service is available.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
       ,read_session_expired:'Your five-minute private read session expired. Refresh it explicitly to continue.'
@@ -199,7 +200,18 @@
   function stageClass(item){return item.visibility==='private'?'private':'';}
   function drawReviewTasks(host){
     var groups=state.reviewTasks||{};
-    var lanes=[['report_publication','Report publication reviews'],['resolution_selection','Resolution selection'],['challenge_admissibility','Challenge admissibility'],['challenge_adjudication','Challenge adjudication'],['seal_reviews','Seal reviews']];
+    var initialOpen=(state.cases||[]).filter(function(item){
+      return item&&item.visibility==='private'&&['draft','submitted','initial_review'].indexOf(String(item.stage||''))>=0;
+    }).map(function(item){
+      var own=(item.reviews||[]).find(function(review){return review.is_active===true&&String(review.reviewer_wallet||'')===String(walletPubkey||'');});
+      return{
+        lane:'initial_open',case_ref:item.public_ref,exact_target:item.public_ref,deadline:null,conflict:false,
+        current_vote:own?own.decision:null,weight_snapshot:own?Number(own.weight||0):null,
+        next_action:state.actorRole==='maintainer'?'Review the independent maintainer initial-open path':'Review private Case for public opening'
+      };
+    });
+    groups=Object.assign({},groups,{initial_open:initialOpen});
+    var lanes=[['initial_open','Initial Case reviews'],['report_publication','Report publication reviews'],['resolution_selection','Resolution selection'],['challenge_admissibility','Challenge admissibility'],['challenge_adjudication','Challenge adjudication'],['seal_reviews','Seal reviews']];
     var total=lanes.reduce(function(sum,lane){return sum+(groups[lane[0]]||[]).length;},0);
     host.innerHTML='<div class="osi-review-lanes">'+lanes.map(function(lane){
       var tasks=groups[lane[0]]||[];
@@ -407,6 +419,10 @@
   }
 
   var tabs=[['overview','Overview'],['evidence','Evidence'],['reports','Reports'],['ai_pack','AI Pack'],['resolution','Resolution'],['challenges','Challenges'],['reward','Rewards & Support'],['proof','Proof Log']];
+  function visibleTabs(){
+    if(state.mode==='review'&&state.current&&state.current.visibility==='private')return tabs.slice(0,1).concat([['reviews','Initial Review']],tabs.slice(1));
+    return tabs;
+  }
   async function openCase(publicRef){
     var item=state.cases.find(function(entry){return entry.public_ref===publicRef;});
     try{
@@ -444,8 +460,9 @@
   }
   function drawTabs(){
     var host=document.getElementById('osi-case-tabs');
+    var rows=visibleTabs();
     host.setAttribute('role','tablist');
-    host.innerHTML=tabs.map(function(tab){
+    host.innerHTML=rows.map(function(tab){
       var active=tab[0]===state.tab;
       return'<button class="osi-case-tab '+(active?'active':'')+'" id="osi-case-tab-'+tab[0]+
         '" type="button" role="tab" aria-controls="osi-case-content" aria-selected="'+active+
@@ -456,9 +473,9 @@
       button.addEventListener('click',function(){state.tab=button.dataset.tab;drawTabs();renderTab();});
       button.addEventListener('keydown',function(event){
         var keys=['ArrowLeft','ArrowRight','Home','End'];if(keys.indexOf(event.key)<0)return;
-        event.preventDefault();var current=tabs.findIndex(function(tab){return tab[0]===state.tab;});
-        var next=event.key==='Home'?0:event.key==='End'?tabs.length-1:event.key==='ArrowLeft'?(current-1+tabs.length)%tabs.length:(current+1)%tabs.length;
-        state.tab=tabs[next][0];drawTabs();renderTab();
+        event.preventDefault();var current=rows.findIndex(function(tab){return tab[0]===state.tab;});
+        var next=event.key==='Home'?0:event.key==='End'?rows.length-1:event.key==='ArrowLeft'?(current-1+rows.length)%rows.length:(current+1)%rows.length;
+        state.tab=rows[next][0];drawTabs();renderTab();
         var target=host.querySelector('[data-tab="'+state.tab+'"]');if(target)target.focus();
       });
     });
@@ -589,6 +606,7 @@
     var html=state.tab==='overview'?overview(item)
       :state.tab==='evidence'?evidence(item)
       :state.tab==='reports'?reports(item)
+      :state.tab==='reviews'?reviews(item)
       :state.tab==='ai_pack'&&aiPackAvailable?window.osiV2AiPackRender(item,state.capabilities||{},state.mode)
       :state.tab==='ai_pack'?'<section class="osi-case-section"><h3>AI Pack</h3><div class="osi-v2-empty osi-v2-error"><b>AI Pack view unavailable</b><span>The AI Pack interface did not load. Reload the page to retry safely.</span><button class="osi-action" id="osi-ai-pack-script-retry" type="button">Reload page</button></div></section>'
       :state.tab==='resolution'?resolution(item)
