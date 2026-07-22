@@ -810,6 +810,7 @@ test("gateway statically preserves the service-only, fail-closed boundary", asyn
   assert.match(source, /validateConfirmedMemoTransaction/);
   assert.match(source, /MAINNET_GENESIS_HASH/);
   assert.match(source, /maintainerGate/);
+  assert.match(source, /gate\.reason \?\? "maintainer_denied"/);
   assert.match(source, /OSI_V2_AI_PACK_WRITES_ENABLED/);
   assert.match(source, /OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED/);
   assert.match(source, /osi_v2_reserve_ai_pack_generation/);
@@ -829,4 +830,9 @@ test("gateway statically preserves the service-only, fail-closed boundary", asyn
   assert.doesNotMatch(source, /console\.(?:log|info|warn|error|debug)/);
   assert.doesNotMatch(source, /body\.(?:model|max_tokens|max_output_tokens|max_input_chars)/);
   assert.doesNotMatch(source, /ANTHROPIC_API_KEY[^;\n]*body/);
+  const coreSource = await readFile(
+    new URL("../supabase/functions/osi-v2-ai-pack/core.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(coreSource, /GenerationRpc[\s\S]*PromiseLike/);
 });

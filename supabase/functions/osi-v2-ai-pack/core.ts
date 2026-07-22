@@ -1147,7 +1147,7 @@ export async function providerRequestReferenceHash(requestIds: Array<string | nu
 export type GenerationRpc = (
   name: string,
   args: Record<string, unknown>,
-) => Promise<{ data: any; error: Row | null }>;
+) => PromiseLike<{ data: any; error: Row | null }>;
 
 export class GenerationExecutionError extends Error {
   code: string;

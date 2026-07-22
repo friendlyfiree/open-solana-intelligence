@@ -336,7 +336,9 @@ async function verifySignedWrite(
   let authId: string | null = null;
   if (binding.actor_role === "maintainer") {
     const gate = await fullMaintainer(req, wallet);
-    if (!gate.ok) throw new GenerationExecutionError(gate.reason, 403);
+    if (!gate.ok) {
+      throw new GenerationExecutionError(gate.reason ?? "maintainer_denied", 403);
+    }
     authId = gate.auth_id;
   }
   return { wallet, nonce, message, signature, row, binding, authId };
