@@ -1,0 +1,377 @@
+name: OSI Legacy Demo Data Cleanup
+
+# Manual-only cleanup of two exact legacy reports and the one legacy escalation
+# pack attached to the demo report. The V2 materialized rows and proof receipt
+# are intentionally retained because production enforces append-only DELETE
+# guards on every one of those tables.
+#
+# SAFETY CONTRACT:
+#   * workflow_dispatch ONLY, typed confirmation, pinned production project ref,
+#     current-main verification, and a pinned checkout/upload-artifact supply chain.
+#   * Every named row is re-selected by exact ID and content before any write.
+#   * A full-row JSONL snapshot is uploaded before deletion. It is not printed.
+#   * One transaction deletes exactly one escalation_packs row and two reports
+#     rows. No V2 guard is disabled or bypassed; no migration, function, flag,
+#     secret, Vercel surface, or other table is changed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CLEAN-LEGACY-DEMO-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-legacy-demo-cleanup
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+
+jobs:
+  cleanup:
+    name: Snapshot and remove exact legacy demo rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Validate confirmation input
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm }}" != "CLEAN-LEGACY-DEMO-${EXPECTED_PROJECT_REF}" ]; then
+            echo "::error::Confirmation phrase mismatch."
+            exit 1
+          fi
+
+      - name: Check out repository at the dispatched ref
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Verify secrets, project ref, workflow scope, and current main
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PROJECT_ID_SECRET; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Secret $name is ABSENT."
+              missing=1
+            else
+              echo "$name: PRESENT"
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || {
+            echo "::error::SUPABASE_PROJECT_ID does not match the pinned production ref."
+            exit 1
+          }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::This workflow may run only from current origin/main."
+            exit 1
+          }
+          if grep -Eq 'ALTER[[:space:]]+TABLE|session_replication_role|DISABLE[[:space:]]+TRIGGER' \
+            .github/workflows/osi-legacy-demo-cleanup.yml; then
+            echo "::error::The cleanup workflow must never bypass append-only guards."
+            exit 1
+          fi
+
+      - name: Resolve the pinned production pooler connection
+        run: |
+          set -euo pipefail
+          resp="$(curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coords="$(printf '%s' "$resp" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coords"
+          case "${PGHOST:-}" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "${PGUSER:-}" = "postgres.${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Pooler user does not target the pinned production ref."
+            exit 1
+          }
+          {
+            echo "PGHOST=$PGHOST"
+            echo "PGPORT=$PGPORT"
+            echo "PGUSER=$PGUSER"
+            echo "PGDATABASE=${PGDATABASE:-postgres}"
+          } >> "$GITHUB_ENV"
+          echo "Pinned production pooler coordinates resolved."
+
+      - name: Verify connectivity and every exact precondition
+        run: |
+          set -euo pipefail
+          who="$(psql -Atqc 'select current_user')"
+          case "$who" in postgres|service_role|supabase_admin) : ;; *) echo "::error::Unexpected DB role."; exit 1 ;; esac
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare
+            row_json jsonb;
+            row_count bigint;
+            ids text[];
+          begin
+            select to_jsonb(r) into row_json from public.reports r where r.id = 'rep_1782886895974';
+            if row_json is null or row_json->>'company' is distinct from 'Hyperion DeFi, Inc.' then
+              raise exception 'Hyperion report precondition changed';
+            end if;
+            if exists (select 1 from public.migration_crosswalk where legacy_id = 'rep_1782886895974') then
+              raise exception 'Hyperion unexpectedly has a migration crosswalk';
+            end if;
+
+            select to_jsonb(r) into row_json from public.reports r where r.id = 'rep_1782633406125';
+            if row_json is null or row_json->>'company' is distinct from 'Demo wallet-drainer incident evidence pack' then
+              raise exception 'Demo report precondition changed';
+            end if;
+            select count(*) into row_count from public.reports;
+            if row_count <> 2 then raise exception 'Expected exactly two legacy reports, found %', row_count; end if;
+
+            select to_jsonb(p) into row_json from public.escalation_packs p
+              where p.id = '1b3299bc-1095-410b-9827-b73544094ca7';
+            if row_json is null or row_json->>'case_ref' is distinct from 'rep_1782633406125' then
+              raise exception 'Demo escalation pack precondition changed';
+            end if;
+
+            select count(*), array_agg(id::text order by id::text) into row_count, ids
+              from public.migration_crosswalk where legacy_id = 'rep_1782633406125';
+            if row_count <> 2 or ids is distinct from array[
+              'a6580e2a-d8e8-4764-a002-13f03fafd038',
+              'cf4b48f5-56b5-457d-9aec-ab6ebcdf3c4b'
+            ]::text[] then raise exception 'Demo migration crosswalk precondition changed'; end if;
+
+            select to_jsonb(v) into row_json from public.case_report_versions v
+              where v.id = '1e933489-a2a8-4e46-9857-acb1f9de3f17';
+            if row_json is null
+               or row_json->>'report_id' is distinct from '672826f6-23fa-468d-829c-ebf46a2bfcfe' then
+              raise exception 'Demo Report version precondition changed';
+            end if;
+
+            select to_jsonb(r) into row_json from public.case_reports r
+              where r.id = '672826f6-23fa-468d-829c-ebf46a2bfcfe';
+            if row_json is null
+               or row_json->>'case_id' is distinct from '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9'
+               or row_json->>'current_version_id' is distinct from '1e933489-a2a8-4e46-9857-acb1f9de3f17' then
+              raise exception 'Demo Report header precondition changed';
+            end if;
+
+            select to_jsonb(c) into row_json from public.cases c
+              where c.id = '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9';
+            if row_json is null
+               or row_json->>'title' is distinct from 'Demo wallet-drainer incident evidence pack'
+               or row_json->>'category' is distinct from 'legacy_import'
+               or row_json->>'visibility' is distinct from 'private'
+               or row_json->>'stage' is distinct from 'draft' then
+              raise exception 'Demo Case precondition changed';
+            end if;
+
+            select to_jsonb(e) into row_json from public.event_receipts e
+              where e.id = '485e80da-7626-376a-e4a5-354cd391aa72';
+            if row_json is null
+               or row_json->>'event_type' is distinct from 'LEGACY_CASE_REPORT_IMPORT'
+               or row_json->>'target_id' is distinct from '1e933489-a2a8-4e46-9857-acb1f9de3f17'
+               or row_json->>'server_verified' is distinct from 'false'
+               or row_json->>'proof_type' is distinct from 'legacy_imported' then
+              raise exception 'Demo proof receipt precondition changed';
+            end if;
+
+            if (select count(*) from public.cases where id in (
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+            ) and title in ('Upexi', 'SOL Strategies')
+              and submitted_by_wallet = '42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y') <> 2 then
+              raise exception 'Protected Upexi/SOL Strategies Cases changed';
+            end if;
+            if (select count(*) from public.event_receipts
+                where event_type = 'LEGACY_DEMAND_SIGNAL'
+                  and target_id in (
+                    '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+                    'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+                  )) <> 2 then
+              raise exception 'Protected Upexi/SOL Strategies demand receipts changed';
+            end if;
+
+            if (select count(*) from pg_trigger t
+                join pg_class c on c.oid = t.tgrelid
+                join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = 'public' and c.relname in (
+                  'migration_crosswalk','case_report_versions','case_reports','cases','event_receipts'
+                ) and t.tgname = 'osi_v2_reject_delete' and not t.tgisinternal and t.tgenabled <> 'D') <> 5 then
+              raise exception 'Expected append-only DELETE guards are not all active';
+            end if;
+          end $$;
+          SQL
+          echo "All exact production preconditions and V2 delete guards match."
+
+      - name: Snapshot every named row before deletion
+        run: |
+          set -euo pipefail
+          umask 077
+          psql -v ON_ERROR_STOP=1 -Atq > /tmp/osi-legacy-demo-cleanup-snapshot.jsonl <<'SQL'
+          select jsonb_build_object('table','reports','row',to_jsonb(r)) from public.reports r
+            where r.id in ('rep_1782886895974','rep_1782633406125') order by r.id;
+          select jsonb_build_object('table','escalation_packs','row',to_jsonb(p)) from public.escalation_packs p
+            where p.id = '1b3299bc-1095-410b-9827-b73544094ca7';
+          select jsonb_build_object('table','migration_crosswalk','row',to_jsonb(c)) from public.migration_crosswalk c
+            where c.legacy_id = 'rep_1782633406125' order by c.id;
+          select jsonb_build_object('table','case_report_versions','row',to_jsonb(v)) from public.case_report_versions v
+            where v.id = '1e933489-a2a8-4e46-9857-acb1f9de3f17';
+          select jsonb_build_object('table','case_reports','row',to_jsonb(r)) from public.case_reports r
+            where r.id = '672826f6-23fa-468d-829c-ebf46a2bfcfe';
+          select jsonb_build_object('table','cases','row',to_jsonb(c)) from public.cases c
+            where c.id in (
+              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+            ) order by c.id;
+          select jsonb_build_object('table','event_receipts','row',to_jsonb(e)) from public.event_receipts e
+            where e.id = '485e80da-7626-376a-e4a5-354cd391aa72'
+               or (e.event_type = 'LEGACY_DEMAND_SIGNAL' and e.target_id in (
+                 '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+                 'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+               )) order by e.id;
+          SQL
+          [ "$(wc -l < /tmp/osi-legacy-demo-cleanup-snapshot.jsonl)" -eq 13 ] || {
+            echo "::error::Snapshot row count changed; refusing to delete."
+            exit 1
+          }
+          sha256sum /tmp/osi-legacy-demo-cleanup-snapshot.jsonl > /tmp/osi-legacy-demo-cleanup-snapshot.sha256
+          echo "Snapshot captured: 13 exact rows. Contents are withheld from the public log."
+
+      - name: Upload recoverable pre-delete snapshot
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: osi-legacy-demo-cleanup-pre-delete-${{ github.run_id }}
+          path: |
+            /tmp/osi-legacy-demo-cleanup-snapshot.jsonl
+            /tmp/osi-legacy-demo-cleanup-snapshot.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Capture protected V2 rows for byte-for-byte post-check
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq > /tmp/protected-before.jsonl <<'SQL'
+          select jsonb_build_object('table','migration_crosswalk','row',to_jsonb(c)) from public.migration_crosswalk c
+            where c.legacy_id = 'rep_1782633406125' order by c.id;
+          select jsonb_build_object('table','case_report_versions','row',to_jsonb(v)) from public.case_report_versions v
+            where v.id = '1e933489-a2a8-4e46-9857-acb1f9de3f17';
+          select jsonb_build_object('table','case_reports','row',to_jsonb(r)) from public.case_reports r
+            where r.id = '672826f6-23fa-468d-829c-ebf46a2bfcfe';
+          select jsonb_build_object('table','cases','row',to_jsonb(c)) from public.cases c
+            where c.id in (
+              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+            ) order by c.id;
+          select jsonb_build_object('table','event_receipts','row',to_jsonb(e)) from public.event_receipts e
+            where e.id = '485e80da-7626-376a-e4a5-354cd391aa72'
+               or (e.event_type = 'LEGACY_DEMAND_SIGNAL' and e.target_id in (
+                 '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+                 'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+               )) order by e.id;
+          SQL
+          [ "$(wc -l < /tmp/protected-before.jsonl)" -eq 10 ] || {
+            echo "::error::Protected V2 baseline row count changed."
+            exit 1
+          }
+
+      - name: Delete exactly the unprotected legacy rows in one transaction
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          begin;
+          set local lock_timeout = '5s';
+          set local statement_timeout = '30s';
+          do $$
+          declare deleted_count bigint;
+          begin
+            delete from public.escalation_packs
+              where id = '1b3299bc-1095-410b-9827-b73544094ca7'
+                and case_ref = 'rep_1782633406125';
+            get diagnostics deleted_count = row_count;
+            if deleted_count <> 1 then raise exception 'Expected one exact escalation pack delete, got %', deleted_count; end if;
+
+            delete from public.reports
+              where id = 'rep_1782886895974' and company = 'Hyperion DeFi, Inc.';
+            get diagnostics deleted_count = row_count;
+            if deleted_count <> 1 then raise exception 'Expected one exact Hyperion report delete, got %', deleted_count; end if;
+
+            delete from public.reports
+              where id = 'rep_1782633406125'
+                and company = 'Demo wallet-drainer incident evidence pack';
+            get diagnostics deleted_count = row_count;
+            if deleted_count <> 1 then raise exception 'Expected one exact demo report delete, got %', deleted_count; end if;
+          end $$;
+          commit;
+          SQL
+          echo "Deleted exactly 3 legacy rows; no V2 row was targeted."
+
+      - name: Prove cleanup and protected-row preservation
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          begin
+            if exists (select 1 from public.reports
+                where company ilike '%hyperion%'
+                   or company ilike '%wallet-drainer%'
+                   or company ilike '%demo%') then
+              raise exception 'A named legacy/demo report still remains';
+            end if;
+            if (select count(*) from public.reports) <> 0 then
+              raise exception 'Expected public.reports to contain zero rows after cleanup';
+            end if;
+            if exists (select 1 from public.escalation_packs
+                where id = '1b3299bc-1095-410b-9827-b73544094ca7') then
+              raise exception 'Demo escalation pack still remains';
+            end if;
+            if (select count(*) from public.cases where id in (
+              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+            )) <> 3 then raise exception 'A protected V2 Case changed'; end if;
+            if (select count(*) from public.event_receipts
+                where id = '485e80da-7626-376a-e4a5-354cd391aa72'
+                   or (event_type = 'LEGACY_DEMAND_SIGNAL' and target_id in (
+                     '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+                     'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+                   ))) <> 3 then raise exception 'A protected receipt changed'; end if;
+          end $$;
+          SQL
+
+          psql -v ON_ERROR_STOP=1 -Atq > /tmp/protected-after.jsonl <<'SQL'
+          select jsonb_build_object('table','migration_crosswalk','row',to_jsonb(c)) from public.migration_crosswalk c
+            where c.legacy_id = 'rep_1782633406125' order by c.id;
+          select jsonb_build_object('table','case_report_versions','row',to_jsonb(v)) from public.case_report_versions v
+            where v.id = '1e933489-a2a8-4e46-9857-acb1f9de3f17';
+          select jsonb_build_object('table','case_reports','row',to_jsonb(r)) from public.case_reports r
+            where r.id = '672826f6-23fa-468d-829c-ebf46a2bfcfe';
+          select jsonb_build_object('table','cases','row',to_jsonb(c)) from public.cases c
+            where c.id in (
+              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+            ) order by c.id;
+          select jsonb_build_object('table','event_receipts','row',to_jsonb(e)) from public.event_receipts e
+            where e.id = '485e80da-7626-376a-e4a5-354cd391aa72'
+               or (e.event_type = 'LEGACY_DEMAND_SIGNAL' and e.target_id in (
+                 '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+                 'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+               )) order by e.id;
+          SQL
+          diff -u /tmp/protected-before.jsonl /tmp/protected-after.jsonl || {
+            echo "::error::One or more protected V2 rows changed."
+            exit 1
+          }
+          echo "Post-check passed: reports=0; demo pack removed; protected V2 rows, Upexi, SOL Strategies, and their receipts are unchanged."
