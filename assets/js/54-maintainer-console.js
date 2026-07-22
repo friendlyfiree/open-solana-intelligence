@@ -439,11 +439,11 @@ async function admRefresh(){
   if(host){ host.className='moc-shell'; host.innerHTML='<div class="moc-loading">Loading real maintainer data...</div>'; }
   try{
     const reads = await Promise.all([
-      admSafeGet('reports?select=*&order=created_at.desc&limit=200'),
-      admSafeGet('bounties?select=*&order=created_at.desc&limit=200'),
-      admSafeGet('analysts?select=*&order=created_at.desc&limit=300'),
-      admSafeGet('challenges?select=*&order=created_at.desc&limit=200'),
-      admSafeGet('escalation_packs?select=*&order=created_at.desc&limit=200'),
+      admSafeGet('reports?select=id,company,bounty,summary,onchain,offchain,tx,image,wallet,approved,review_status,sealed,created_at&order=created_at.desc&limit=200'),
+      admSafeGet('bounties?select=id,target,title,detail,onchain,image,created_by,approved,review_status,winner_wallet,winner_label,reward_sol,created_at&order=created_at.desc&limit=200'),
+      admSafeGet('analysts?select=wallet,handle,name,bio,avatar_url,tier_weight,verified,approved,created_at&order=created_at.desc&limit=300'),
+      admSafeGet('challenges?select=id,item_type,item_id,item_label,challenger,reason,status,created_at&order=created_at.desc&limit=200'),
+      Promise.resolve({ok:false,rows:[],error:new Error('native_ai_pack_unavailable')}),
       admSafeGet('vouches?select=item_type,item_id,analyst,vote&limit=1000'),
       admSafeGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,label,tx_sig,created_at&order=created_at.desc&limit=80'),
       typeof osiV2LoadMaintainerOverview==='function' ? osiV2LoadMaintainerOverview().then(function(value){return{ok:true,overview:value.overview};}).catch(function(error){return{ok:false,error:error};}) : Promise.resolve({ok:false})

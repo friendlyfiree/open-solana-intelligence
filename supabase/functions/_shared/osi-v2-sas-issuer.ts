@@ -57,14 +57,17 @@ export async function maybeReconcileSasCredential(
       p_error: result.ok ? null : (result.error ?? "issuance_failed"),
     });
     if (result.ok) {
+      // sendTransaction proves submission, not confirmation. Keep the public
+      // cache pending so the verifier performs a live confirmed-state check
+      // before it reports this credential as valid or revoked.
       await admin.rpc("osi_v2_sas_record_wallet_state", {
         p_wallet: input.wallet,
-        p_state: decision.action === "issue" ? "verified" : "revoked",
+        p_state: "pending_verification",
         p_credential: settings?.credential ?? null,
         p_schema: settings?.schema ?? null,
         p_issuer: settings?.issuer ?? null,
         p_attestation: result.attestation ?? null,
-        p_result: decision.action,
+        p_result: decision.action + "_submitted",
       });
     }
     return { action: decision.action, reason: decision.reason, txSig: result.txSig ?? null };
