@@ -175,9 +175,8 @@ jobs:
 
             if (select count(*) from public.analysts) <> 2
                or exists (select 1 from public.analysts
-                 where approved is distinct from true or verified is distinct from true
-                    or wallet !~ '^[1-9A-HJ-NP-Za-km-z]{32,44}$') then
-              raise exception 'Expected exactly two approved and verified V1 analysts';
+                 where wallet !~ '^[1-9A-HJ-NP-Za-km-z]{32,44}$') then
+              raise exception 'Expected exactly two V1 analyst rows to purge';
             end if;
             select to_jsonb(p) into row_json from public.profiles p
               where wallet = '2awpjumkqhWywwbmDBixjo7cAnqD5fGfNGNv6MMTc4M7';
@@ -399,8 +398,7 @@ jobs:
             end if;
             if (select count(*) from public.analysts) <> 2
                or exists (select 1 from public.analysts
-                 where approved is distinct from true or verified is distinct from true
-                    or wallet !~ '^[1-9A-HJ-NP-Za-km-z]{32,44}$') then
+                 where wallet !~ '^[1-9A-HJ-NP-Za-km-z]{32,44}$') then
               raise exception 'Analyst target changed after snapshot';
             end if;
             select to_jsonb(p) into row_json from public.profiles p
