@@ -16,6 +16,7 @@
   }
   function short(value){value=String(value||'');return value.length>18?value.slice(0,8)+'...'+value.slice(-6):value;}
   function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();});}
+  function sasSlot(wallet,role){role=String(role||'').toLowerCase();return['analyst','verified_analyst','senior_analyst','probationary_analyst'].indexOf(role)>=0?'<span data-sas-wallet="'+esc(wallet)+'" data-sas-role="'+esc(role)+'"></span>':'';}
   function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});}
   function randomKey(){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return'wire:'+id.replace(/[^A-Za-z0-9.-]/g,'');}
   function headers(){var token=typeof SUPA_AUTH_TOKEN==='string'&&SUPA_AUTH_TOKEN?SUPA_AUTH_TOKEN:SUPABASE_ANON_KEY;return{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};}
@@ -196,7 +197,7 @@
   }
   function attribution(actor,role){
     actor=actor||{};var handle=actor.handle?'@'+actor.handle:'';
-    return'<div class="osi-report-proof"><b>'+esc(actor.display_name||handle||'Wallet contributor')+'</b><span class="mono">'+esc(actor.wallet||'Wallet unavailable')+'</span><span>'+esc(label(role||''))+(handle?' | '+esc(handle):'')+'</span></div>';
+    return'<div class="osi-report-proof"><b>'+esc(actor.display_name||handle||'Wallet contributor')+sasSlot(actor.wallet,role)+'</b><span class="mono">'+esc(actor.wallet||'Wallet unavailable')+'</span><span>'+esc(label(role||''))+(handle?' | '+esc(handle):'')+'</span></div>';
   }
   function verifiedPaymentProof(value){
     value=value&&typeof value==='object'?value:{};var manifest=Array.isArray(value.recipient_manifest)?value.recipient_manifest:[];
@@ -248,7 +249,7 @@
     var total=totalLamports(item.support),rows=(item.support||[]).map(function(row){return'<article class="osi-report-version"><p><b>'+esc(row.amount_lamports)+' lamports</b> from <span class="mono">'+esc(row.from_wallet)+'</span></p>'+publicProof({event_type:'SUPPORT_PAYMENT_CONFIRMED',proof_type:row.proof_type,payment_proof:row.payment_proof,tx_sig:row.tx_sig,occurred_at:row.confirmed_at})+'</article>';}).join('');
     return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Voluntary direct SOL</span><h3>Support</h3></div><span class="osi-chip">'+esc(total)+' lamports</span></div>'+(rows||'<p>No finalized support transfer is recorded.</p>')+'<div class="osi-case-note">Support is non-custodial and has zero influence on ranking, recommendation, review priority, reputation, voting power, or governance.</div></section>';
   }
-  function proofTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Honest transport labels</span><h3>Proof Log</h3></div></div>'+((item.proof_log||[]).map(function(row){return'<article class="osi-report-version"><div class="osi-report-version-head"><b>'+esc(label(row.event_type))+'</b><span class="mono">'+esc(row.receipt_id)+'</span></div><p>Actor <span class="mono">'+esc(row.actor_wallet||'System')+'</span> | '+esc(label(row.actor_role))+(row.weight!=null?' | Weight '+esc(row.weight):'')+'</p>'+publicProof(row)+'</article>';}).join('')||'<p>No public proof events were recorded.</p>')+'</section>';}
+  function proofTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Honest transport labels</span><h3>Proof Log</h3></div></div>'+((item.proof_log||[]).map(function(row){return'<article class="osi-report-version"><div class="osi-report-version-head"><b>'+esc(label(row.event_type))+'</b><span class="mono">'+esc(row.receipt_id)+'</span></div><p>Actor <span class="mono">'+esc(row.actor_wallet||'System')+'</span>'+sasSlot(row.actor_wallet,row.actor_role)+' | '+esc(label(row.actor_role))+(row.weight!=null?' | Weight '+esc(row.weight):'')+'</p>'+publicProof(row)+'</article>';}).join('')||'<p>No public proof events were recorded.</p>')+'</section>';}
   function renderDetail(){
     var item=state.current,host=document.getElementById('osi-wire-detail-content');if(!item||!host)return;
     drawDetailTabs();var html=state.tab==='evidence'?evidenceTab(item):state.tab==='reviews'?reviewsTab(item):state.tab==='challenges'?challengesTab(item):state.tab==='support'?supportTab(item):state.tab==='proof'?proofTab(item):overviewTab(item);host.innerHTML=html;

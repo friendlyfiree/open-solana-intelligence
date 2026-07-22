@@ -917,6 +917,33 @@
       </div>
     </section>
 
+    <section class="osi-about-section osi-about-boundaries" id="sas-verifier" aria-labelledby="sas-verifier-title">
+      <div class="osi-about-heading">
+        <p class="osi-kicker">Analyst authority</p>
+        <h2 id="sas-verifier-title">Verify an OSI analyst credential on Solana.</h2>
+        <p>The Solana Attestation Service credential confirms that one wallet currently has OSI review authority under the exact OSI_VERIFIED_ANALYST credential, schema, and issuer. It is not KYC, proof of a person's identity, an endorsement, or proof that a review is correct.</p>
+      </div>
+      <div class="osi-about-boundary-grid">
+        <article class="osi-about-boundary is">
+          <span class="osi-about-boundary-tag">What the badge means</span>
+          <ul>
+            <li>The public verifier returned <b>valid</b> with the exact verified state.</li>
+            <li>The answer is tied to the pasted wallet and OSI's on-chain SAS configuration.</li>
+            <li>A missing, expired, invalid, or unavailable credential never earns a badge.</li>
+            <li>Review authority is separate from truth, correctness, identity, or legal certainty.</li>
+          </ul>
+        </article>
+        <form class="osi-about-boundary" id="sas-verifier-form">
+          <span class="osi-about-boundary-tag">Public wallet verifier</span>
+          <label class="osi-field" for="sas-verifier-wallet"><span>Solana wallet address</span><input class="fo-in" id="sas-verifier-wallet" type="text" inputmode="text" autocomplete="off" spellcheck="false" minlength="32" maxlength="44" required placeholder="Paste any Solana wallet address"></label>
+          <p>No wallet connection is needed. OSI displays only the answer returned by the existing public sas_verify endpoint.</p>
+          <button class="osi-button osi-button-secondary" type="submit">Verify wallet</button>
+          <div class="osi-form-status mono" id="sas-verifier-status" role="status" aria-live="polite"></div>
+          <div class="osi-case-note" id="sas-verifier-result" hidden></div>
+        </form>
+      </div>
+    </section>
+
     <section class="osi-about-section osi-about-principles" aria-labelledby="osi-about-principles-title">
       <div class="osi-about-heading">
         <p class="osi-kicker">Protocol principles</p>
@@ -1111,5 +1138,6 @@
 <script defer src="./assets/js/93-navigation-intent.js"></script>
 <script defer src="./assets/js/94-navigation-shell.js"></script>
 <script defer src="./assets/js/95-signal-interactions.js"></script>
+<script defer src="./assets/js/96-sas-public.js"></script>
 </body>
 </html>

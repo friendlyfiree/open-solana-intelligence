@@ -136,6 +136,11 @@ function plSignerRole(ev){
   if(labels[role]) return labels[role];
   return proof.key==='system' ? 'System' : 'Verified actor';
 }
+function plSasSlot(ev){
+  var proof=plProofState(ev),role=String((ev&&ev.actor_role)||'').trim().toLowerCase();
+  if(proof.key==='legacy'||['analyst','verified_analyst','senior_analyst','probationary_analyst'].indexOf(role)<0)return'';
+  return'<span data-sas-wallet="'+escapeHtml(ev&&ev.actor_wallet||'')+'" data-sas-role="'+escapeHtml(role)+'"></span>';
+}
 function plJsString(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\r?\n/g,' '); }
 function plShortSig(sig){ sig=String(sig||''); return sig ? (sig.slice(0,5)+'...'+sig.slice(-5)) : ''; }
 function plFullDate(ts){
@@ -237,7 +242,7 @@ function plTimelineCard(ev){
   var sig=proof.tx_sig||proof.legacy_tx_sig||'';
   var wallet = ev.actor_wallet ? String(ev.actor_wallet) : '';
   var walletCell = wallet
-    ? '<span title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'
+    ? '<span title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span>'+plSasSlot(ev)+'<button class="plc-copy" type="button" title="Copy wallet" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'
     : '<span>Wallet unavailable</span>';
   var label = plCleanLabel(ev);
   var when = plFullDate(ev.created_at);
