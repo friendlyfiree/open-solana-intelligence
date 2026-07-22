@@ -195,8 +195,8 @@ jobs:
             if (select count(*) from public.event_receipts
                 where event_type = 'LEGACY_DEMAND_SIGNAL'
                   and target_id in (
-                    '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
-                    'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+                    'OSI-8FC9FE7EF57F4761BA73',
+                    'OSI-BA9A6B5830934A19894A'
                   )) <> 2 then
               raise exception 'Protected Upexi/SOL Strategies demand receipts changed';
             end if;
@@ -237,8 +237,8 @@ jobs:
           select jsonb_build_object('table','event_receipts','row',to_jsonb(e)) from public.event_receipts e
             where e.id = '485e80da-7626-376a-e4a5-354cd391aa72'
                or (e.event_type = 'LEGACY_DEMAND_SIGNAL' and e.target_id in (
-                 '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
-                 'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+                 'OSI-8FC9FE7EF57F4761BA73',
+                 'OSI-BA9A6B5830934A19894A'
                )) order by e.id;
           SQL
           [ "$(wc -l < /tmp/osi-legacy-demo-cleanup-snapshot.jsonl)" -eq 13 ] || {
@@ -277,8 +277,8 @@ jobs:
           select jsonb_build_object('table','event_receipts','row',to_jsonb(e)) from public.event_receipts e
             where e.id = '485e80da-7626-376a-e4a5-354cd391aa72'
                or (e.event_type = 'LEGACY_DEMAND_SIGNAL' and e.target_id in (
-                 '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
-                 'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+                 'OSI-8FC9FE7EF57F4761BA73',
+                 'OSI-BA9A6B5830934A19894A'
                )) order by e.id;
           SQL
           [ "$(wc -l < /tmp/protected-before.jsonl)" -eq 10 ] || {
@@ -344,8 +344,8 @@ jobs:
             if (select count(*) from public.event_receipts
                 where id = '485e80da-7626-376a-e4a5-354cd391aa72'
                    or (event_type = 'LEGACY_DEMAND_SIGNAL' and target_id in (
-                     '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
-                     'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+                     'OSI-8FC9FE7EF57F4761BA73',
+                     'OSI-BA9A6B5830934A19894A'
                    ))) <> 3 then raise exception 'A protected receipt changed'; end if;
           end $$;
           SQL
@@ -366,8 +366,8 @@ jobs:
           select jsonb_build_object('table','event_receipts','row',to_jsonb(e)) from public.event_receipts e
             where e.id = '485e80da-7626-376a-e4a5-354cd391aa72'
                or (e.event_type = 'LEGACY_DEMAND_SIGNAL' and e.target_id in (
-                 '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
-                 'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+                 'OSI-8FC9FE7EF57F4761BA73',
+                 'OSI-BA9A6B5830934A19894A'
                )) order by e.id;
           SQL
           diff -u /tmp/protected-before.jsonl /tmp/protected-after.jsonl || {
