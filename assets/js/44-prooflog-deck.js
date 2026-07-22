@@ -615,15 +615,10 @@ function fieldOpenForm(){ var m=document.getElementById('fo-modal'); if(!m) retu
 function fieldCloseForm(){ var m=document.getElementById('fo-modal'); if(m) m.classList.remove('open'); document.body.style.overflow=''; }
 document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ var m=document.getElementById('fo-modal'); if(m && m.classList.contains('open')) fieldCloseForm(); var x=document.getElementById('apx-modal'); if(x && x.classList.contains('open')) apxClose(); var c=document.getElementById('chx-modal'); if(c && c.classList.contains('open')) chxClose(); var rv=document.getElementById('rv-drawer'); if(rv && rv.classList.contains('open')) rvClose(); } });
 
-// RPC endpoints. Helius plus public RPCs, used via RPC_FALLBACKS below.
-// NOTE: this key is visible in the page source, that's unavoidable for a static
-// site. Protect it by locking allowed domains in your Helius dashboard.
-const HELIUS_RPC = "https://mainnet.helius-rpc.com/?api-key=6cb1f3a8-f0cc-404b-a403-37afd1f3f427";
 // Multiple CORS-friendly public RPCs so one flaky endpoint never blocks signing.
 // Phantom itself broadcasts the transaction; these are only used to fetch a recent blockhash.
 const RPC_FALLBACKS = [
   "https://solana-rpc.publicnode.com",
-  HELIUS_RPC,
   "https://api.mainnet-beta.solana.com",
   "https://solana.drpc.org",
   "https://endpoints.omniatech.io/v1/sol/mainnet/public"

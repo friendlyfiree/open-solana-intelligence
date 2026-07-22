@@ -13,7 +13,7 @@ window.VERIFIED_ANALYSTS = window.VERIFIED_ANALYSTS || {};
 async function loadAnalysts(){
   if(!SUPA_ON) return;
   try{
-    const a = await supaGet('analysts?select=*&approved=eq.true&verified=eq.true') || [];
+    const a = await supaGet('analysts?select=wallet,handle,name,bio,avatar_url,tier_weight,verified,approved,created_at&approved=eq.true&verified=eq.true') || [];
     const map={}, wmap={};
     a.forEach(function(x){ if(x.wallet){ map[String(x.wallet)] = { handle:x.handle, name:x.name, avatar_url:x.avatar_url||'' }; wmap[String(x.wallet)] = (x.tier_weight==null?1:Number(x.tier_weight)); } });
     window.VERIFIED_ANALYSTS = map; window.ANALYST_WEIGHT = wmap;
@@ -50,7 +50,7 @@ async function renderAnalysts(){
   const host=document.getElementById('analyst-roster'); if(!host) return;
   if(!SUPA_ON){ host.innerHTML=''; return; }
   let analysts=[], reports=[], bounties=[];
-  try{ analysts = await supaGet('analysts?select=*&approved=eq.true') || []; }catch(e){}
+  try{ analysts = await supaGet('analysts?select=wallet,handle,name,bio,avatar_url,tier_weight,verified,approved,created_at&approved=eq.true') || []; }catch(e){}
   try{ reports  = await supaGet('reports?select=wallet&approved=eq.true') || []; }catch(e){}
   try{ bounties = await supaGet('bounties?select=winner_wallet&winner_wallet=not.is.null') || []; }catch(e){}
   if(!analysts.length){ host.innerHTML=''; return; }
@@ -182,7 +182,7 @@ function renderLeaderboard(){
 async function lbHydrateReal(){
   if(!SUPA_ON) return;
   try{
-    var analysts=await supaGet('analysts?select=*&approved=eq.true')||[];
+    var analysts=await supaGet('analysts?select=wallet,handle,name,bio,avatar_url,tier_weight,verified,approved,created_at&approved=eq.true')||[];
     if(!analysts.length) return;
     var reports=[], bounties=[];
     try{ reports=await supaGet('reports?select=wallet&approved=eq.true')||[]; }catch(e){}

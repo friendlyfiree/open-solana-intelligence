@@ -275,7 +275,7 @@ async function renderFieldOffice(){
   window.__foError = false;
   if(SUPA_ON){
     try{
-      const rows = await supaGet('bounties?select=*&approved=eq.true&order=created_at.desc');
+      const rows = await supaGet('bounties?select=id,target,title,detail,reward_sol,image,created_by,approved,review_status,winner_wallet,winner_label,onchain,tx,expires_at,created_at&approved=eq.true&order=created_at.desc');
       list = rows || [];
     }catch(e){
       list = demo ? FIELD_SEED.slice() : [];   // live mode: NO seed cards on failure

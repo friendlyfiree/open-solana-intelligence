@@ -222,33 +222,8 @@ function consensusMeter(type,id,row){
     + '</div></div>';
 }
 async function vouch(type,id,vote,creator){
-  if(!isVerifiedAnalyst(walletPubkey)){ showToast("Only verified analysts can vote. Apply from the Analysts tab, or earn a seat by signed work."); return; }
-  if(creator && walletPubkey && String(creator)===String(walletPubkey)){ showToast("You cannot vote on your own submission."); return; }
-  const row = (window.__rfRows||{})[vouchKey(type,id)] || null;
-  if(vouchDecision(type,id,row)){ showToast("This item is locked \u00b7 consensus already decided."); return; }
-  if(myVouch(type,id)){ showToast("Your vote is on-chain and immutable \u00b7 one vote per item."); return; }
-  const _vts = Math.floor(Date.now()/1000);
-  const _vmemo = vote==='approve'
-    ? "OSI_ANALYST_VOUCH|item_type="+type+"|item_id="+id+"|vote=approve|weight="+analystWeight(walletPubkey)+"|analyst="+(walletPubkey||'')+"|ts="+_vts
-    : "OSI_CHALLENGE_FILED|item_type="+type+"|item_id="+id+"|weight="+analystWeight(walletPubkey)+"|challenger="+(walletPubkey||'')+"|ts="+_vts;
-  withOnchainVote(vote==='approve' ? 'Vouch to publish' : 'Vote to close', _vmemo, async (sig)=>{
-    try{
-      // Keep the signed proof-log event (Stage 1 behavior; onchain_events insert).
-      recordOnchainEvent({ event_type:'analyst_vouch', item_type:type, item_id:id, vote:vote, label:(vote==='approve'?'approved':'challenged')+' '+type, memo_text:_vmemo, tx_sig:sig });
-      // Stage 2C: the vote + any publication are performed server-side by the
-      // verified Edge Function (no direct anon vouches insert, no anon publish).
-      var _res = await osiReviewAction({ item_type:type, item_id:id, vote:(vote==='approve'?'approve':'challenge'), tx_sig:sig });
-      if(_res && (_res.reports||_res.bounties||_res.challenges)){
-        window.__osiIntake = { at: Date.now(), data: { reports:_res.reports||[], bounties:_res.bounties||[], challenges:_res.challenges||[] } };
-      }
-      showToast('Review action recorded.');
-      if(_res && _res.published) showToast('Record approved for public review.');
-      await loadVouches();
-      renderReviewFloor();
-      if(typeof renderActivity==='function'){ try{ renderActivity(); }catch(e){} }
-      if(_res && _res.published){ try{ renderFieldOffice(); renderWire(); if(typeof hydrateReportsFromSupabase==='function') hydrateReportsFromSupabase(); loadAnalysts(); if(typeof renderCaseRecords==='function') renderCaseRecords(); }catch(e){} }
-    }catch(e){ showToast((e && e.status===403) ? 'Analyst access required \u00b7 verify your analyst wallet.' : 'Could not record the review action. Please try again.'); }
-  });
+  void type; void id; void vote; void creator;
+  showToast("Legacy review voting is disabled. Open native Case review for current governance.");
 }
 // ===== challenges: any wallet can contest a published record; analysts judge it =====
 var chxCtx=null;

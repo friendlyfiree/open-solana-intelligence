@@ -1,67 +1,26 @@
 
 // ============================================================
-//  Secure analyst/maintainer intake (Stage 2B)
-//  Pending case/report intake is RLS-protected (Stage 2A). Verified analysts
-//  prove wallet ownership with an off-chain signed message; the maintainer uses
-//  the existing Supabase session. The Edge Function osi-analyst-intake verifies
-//  server-side and returns pending rows. The client checks below are UI hints
-//  only, never the security boundary.
+//  Legacy analyst/maintainer intake (read-only compatibility)
+//  Pending V1 rows are returned only through a short-lived, origin-bound V2
+//  read session. The Edge Function rechecks the current V2 analyst roster or
+//  the full maintainer gate. Legacy voting is disabled; use native Case review.
 // ============================================================
-function osiB64(bytes){
-  var u = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes||[]);
-  var s=''; for(var i=0;i<u.length;i++) s += String.fromCharCode(u[i]);
-  return btoa(s);
-}
-async function osiAnalystIntakeProof(){
-  // Reuse a recent proof (well inside the server's 120s window) so unlocking the
-  // floor and then voting does not trigger a second signMessage prompt.
-  if(window.__osiProof && window.__osiProof.proof && window.__osiProof.proof.wallet===walletPubkey && (Date.now()-window.__osiProof.at < 90000)){
-    return window.__osiProof.proof;
-  }
-  var prov = (typeof getConnectedProvider==='function') ? getConnectedProvider() : (typeof getProvider==='function'?getProvider():null);
-  if(!walletPubkey || !prov){
-    if(typeof toggleWallet==='function'){ try{ await toggleWallet(); }catch(e){} }
-    prov = (typeof getConnectedProvider==='function') ? getConnectedProvider() : (typeof getProvider==='function'?getProvider():null);
-  }
-  if(!walletPubkey || !prov){ var e0=new Error('no_wallet'); e0.status=401; throw e0; }
-  if(typeof prov.signMessage !== 'function'){ var e1=new Error('This wallet cannot sign messages.'); e1.status=400; throw e1; }
-  var msg = 'OSI Analyst Intake Access v1\nwallet: '+walletPubkey+'\nissued: '+Date.now()+'\nnonce: '+(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2));
-  var res = await prov.signMessage(new TextEncoder().encode(msg), 'utf8');
-  var sigBytes = (res && res.signature) ? res.signature : res;
-  var proof = { wallet: walletPubkey, message: msg, signature: osiB64(sigBytes) };
-  window.__osiProof = { at: Date.now(), proof: proof };
-  return proof;
-}
-// Stage 2C: record a verified analyst review action (approve/challenge) through
-// the secure Edge Function. Identity is the wallet signMessage proof; tx_sig is
-// the on-chain memo reference (required, but never trusted as identity). The DB
-// write + any publication happen server-side (service role), never anon.
 async function osiReviewAction(o){
-  var proof = await osiAnalystIntakeProof();
-  var url = SUPABASE_URL + '/functions/v1/osi-analyst-intake';
-  var headers = { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SUPABASE_ANON_KEY };
-  var payload = { mode:'review_action', wallet:proof.wallet, message:proof.message, signature:proof.signature, item_type:o.item_type, item_id:o.item_id, vote:o.vote, tx_sig:o.tx_sig };
-  var res = await fetch(url, { method:'POST', headers: headers, body: JSON.stringify(payload) });
-  if(!res.ok){ var er=new Error('review_'+res.status); er.status=res.status; throw er; }
-  return await res.json();
+  void o;
+  var er=new Error('legacy_review_writes_disabled'); er.status=503; throw er;
 }
-// Fetch pending intake from the secure endpoint. Caches per session so tab
-// switches / pagination do not re-prompt Phantom; pass {force:true} to refresh.
+// Fetch pending intake through the shared V2 read session. The session is
+// read-only and cannot authorize a vote or any other mutation.
 async function osiAnalystIntakeFetch(opts){
   opts = opts || {};
   if(!opts.force && window.__osiIntake && (Date.now()-window.__osiIntake.at < 300000)){ return window.__osiIntake.data; }
+  if(typeof osiV2ReadSession!=='function'){ var e0=new Error('read_session_unavailable'); e0.status=503; throw e0; }
+  var session = await osiV2ReadSession(['case:review'], { explicitRefresh:!!opts.force });
   var url = SUPABASE_URL + '/functions/v1/osi-analyst-intake';
   var headers = { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY };
-  var maint = (typeof resolveMaintainerAccess==='function') ? resolveMaintainerAccess().allowed : false;
-  var body;
-  if(maint && SUPA_AUTH_TOKEN){
-    headers['Authorization'] = 'Bearer ' + SUPA_AUTH_TOKEN;   // maintainer: Supabase session JWT
-    body = '{}';
-  } else {
-    headers['Authorization'] = 'Bearer ' + SUPABASE_ANON_KEY; // analyst: gateway apikey; auth is the wallet proof
-    body = JSON.stringify(await osiAnalystIntakeProof());
-  }
-  var res = await fetch(url, { method:'POST', headers: headers, body: body });
+  headers['Authorization'] = 'Bearer ' + (SUPA_AUTH_TOKEN || SUPABASE_ANON_KEY);
+  var body = JSON.stringify({ wallet:session.wallet, read_session:session.token });
+  var res = await fetch(url, { method:'POST', headers: headers, body:body });
   if(!res.ok){ var er=new Error('intake_'+res.status); er.status=res.status; throw er; }
   var data = await res.json();
   window.__osiIntake = { at: Date.now(), data: data };
@@ -84,7 +43,7 @@ function rfGatedHtml(state){
     note='Analyst access required · this wallet is not on the verified roster.';
     action='<a class="rvq-apply-link" onclick="apxOpen()" style="color:var(--sol);cursor:pointer;text-decoration:none">Apply as analyst →</a>';
   } else if(state==='needs_unlock'){
-    note='Verify your analyst wallet to load the pending review floor.';
+    note='Authorize a short read-only session to load the pending review floor.';
     action='<button class="fo-cta" type="button" onclick="osiIntakeUnlock()">Unlock review floor</button>';
   } else {
     note='Analyst intake temporarily unavailable. Please try again in a moment.';
@@ -98,7 +57,7 @@ async function renderReviewFloor(){
   const isMaint = (typeof resolveMaintainerAccess === 'function') ? resolveMaintainerAccess().allowed : false;
   let reports=[], bounties=[], challenges=[];
   // Stage 2B: pending intake is RLS-protected. Read it only through the secure
-  // Edge Function (verified analyst via wallet signature, or maintainer via JWT).
+  // Edge Function (origin-bound read session plus server-side eligibility).
   // Never fall back to anon pending reads.
   var intakeState='ok';
   var demoMode = (window.OSI_DEMO_MODE === true);
@@ -289,14 +248,12 @@ function rvDrawerHtml(type,id,row){
   var voteBtns='';
   if(canVouch && !locked && !own && !mine){
     voteBtns='<div class="rvd-actions">'
-      + '<button class="rvd-vote ap" onclick="vouch(\''+type+'\',\''+crAttr(id)+'\',\'approve\',\''+crAttr(creator)+'\');rvClose()">\u2713 Vouch to publish</button>'
-      + '<button class="rvd-vote rj" onclick="vouch(\''+type+'\',\''+crAttr(id)+'\',\'reject\',\''+crAttr(creator)+'\');rvClose()">\u2715 Vote to close</button>'
-      + (type!=='challenge' ? ('<button class="rvd-vote ch" onclick="rvClose();showView(\'field\')">Open native Case review</button>') : '')
+      + '<button class="rvd-vote ch" onclick="rvClose();showView(\'field\')">Open native Case review</button>'
     + '</div>';
   } else if(own){
     voteBtns='<div class="rvd-note mono">This is your submission \u00b7 you cannot vote on your own work.</div>';
   } else if(mine){
-    voteBtns='<div class="rvd-note mono">'+(mine==='approve'?'\u2713 You voted to publish':'\u2715 You voted to close')+' \u00b7 your vote is on-chain and immutable.</div>';
+    voteBtns='<div class="rvd-note mono">Legacy vote shown for historical context. Use native Case review for current governance.</div>';
   } else if(locked){
     voteBtns='<div class="rvd-note mono">This item is locked \u00b7 consensus has decided.</div>';
   } else if(!canVouch){
