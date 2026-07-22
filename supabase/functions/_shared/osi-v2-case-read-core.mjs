@@ -76,15 +76,21 @@ export const ANALYST_READ_STAGES = new Set([
   ...PUBLIC_CASE_STAGES,
 ]);
 
+export function isCaseArchived(caseRow) {
+  return caseRow?.archived_at != null && String(caseRow.archived_at).trim() !== "";
+}
+
 export function isCasePublic(caseRow) {
-  return caseRow?.visibility === "public" && PUBLIC_CASE_STAGES.has(String(caseRow?.stage ?? ""));
+  return !isCaseArchived(caseRow)
+    && caseRow?.visibility === "public"
+    && PUBLIC_CASE_STAGES.has(String(caseRow?.stage ?? ""));
 }
 
 // actor: { kind: 'anonymous' | 'owner' | 'report_author' | 'analyst' | 'maintainer', wallet?: string }
 // The caller is responsible for having PROVEN the actor claim (signature,
 // analyst lookup, maintainer double-gate) before asking this question.
 export function canActorReadCase(actor, caseRow) {
-  if (!caseRow) return false;
+  if (!caseRow || isCaseArchived(caseRow)) return false;
   if (isCasePublic(caseRow)) return true;
   const kind = actor?.kind;
   if (kind === "maintainer") return true;
@@ -607,15 +613,16 @@ export function maintainerOverviewDto(input) {
     manualQueueCount = 0,
     flags = {},
   } = input;
+  const visibleCases = cases.filter((caseRow) => !isCaseArchived(caseRow));
   return {
     totals: {
-      cases: cases.length,
-      cases_by_stage: cases.reduce((acc, c) => {
+      cases: visibleCases.length,
+      cases_by_stage: visibleCases.reduce((acc, c) => {
         const key = String(c.stage ?? "unknown");
         acc[key] = (acc[key] ?? 0) + 1;
         return acc;
       }, {}),
-      cases_by_visibility: cases.reduce((acc, c) => {
+      cases_by_visibility: visibleCases.reduce((acc, c) => {
         const key = String(c.visibility ?? "unknown");
         acc[key] = (acc[key] ?? 0) + 1;
         return acc;
@@ -631,7 +638,7 @@ export function maintainerOverviewDto(input) {
       OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED:
         String(flags.OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED ?? ""),
     },
-    cases: cases.map((caseRow) => authorizedCaseDto(
+    cases: visibleCases.map((caseRow) => authorizedCaseDto(
       caseRow,
       reportsByCase[caseRow.id] ?? [],
       versionsByReport,
