@@ -1,0 +1,98 @@
+name: OSI Legacy Security-Fix Function Deploy
+
+# Manual-only deployment of the two legacy Edge Functions hardened in PR #43
+# (osi-analyst-intake, osi-ai-pack) to the pinned production project, followed
+# by anonymous deny-by-default smoke tests.
+#
+# SAFETY CONTRACT:
+#   * workflow_dispatch ONLY. Typed confirmation required; SUPABASE_PROJECT_ID
+#     must equal the pinned ref or the run aborts before any deploy.
+#   * Deploys EXACTLY these two functions from the checked-out commit with the
+#     pinned CLI. No migration, no db push, no other function, no Vercel action,
+#     no flag change, no secret change.
+#   * verify_jwt=false comes from supabase/config.toml; each function performs
+#     its own strict in-function authorization. Secrets are never printed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY-LEGACY-FIX-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-legacy-security-fix-deploy
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+
+jobs:
+  deploy:
+    name: Deploy hardened legacy functions and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Validate confirmation input
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm }}" != "DEPLOY-LEGACY-FIX-${EXPECTED_PROJECT_REF}" ]; then
+            echo "::error::Confirmation phrase mismatch."; exit 1
+          fi
+
+      - name: Check out repository at the dispatched ref
+        uses: actions/checkout@v4
+
+      - name: Verify secrets present, ref pinned, sources exist, and this is current main
+        run: |
+          set -euo pipefail
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::SUPABASE_ACCESS_TOKEN ABSENT."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::project ref mismatch."; exit 1; }
+          [ -f supabase/functions/osi-analyst-intake/index.ts ] || { echo "::error::analyst-intake source missing."; exit 1; }
+          [ -f supabase/functions/osi-ai-pack/index.ts ] || { echo "::error::ai-pack source missing."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "::error::Not current origin/main."; exit 1; }
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Deploy exactly the two hardened legacy functions
+        run: |
+          set -euo pipefail
+          supabase functions deploy osi-analyst-intake --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy osi-ai-pack --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Deny-by-default smoke tests
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+
+          echo "== analyst-intake: legacy review write must be disabled (expect 503) =="
+          code="$(curl -sS --max-time 30 -o /tmp/a.json -w '%{http_code}' -X POST "$base/osi-analyst-intake" \
+            -H 'Content-Type: application/json' -d '{"mode":"review_action"}')"
+          cat /tmp/a.json; echo
+          [ "$code" = "503" ] || { echo "::error::expected 503 legacy_review_writes_disabled, got $code"; exit 1; }
+          grep -q 'legacy_review_writes_disabled' /tmp/a.json || { echo "::error::wrong denial reason"; exit 1; }
+
+          echo "== analyst-intake: ungated pending read must be denied, not leaked (expect non-200) =="
+          code="$(curl -sS --max-time 30 -o /tmp/b.json -w '%{http_code}' -X POST "$base/osi-analyst-intake" \
+            -H 'Content-Type: application/json' -d '{"wallet":"11111111111111111111111111111112"}')"
+          cat /tmp/b.json; echo
+          [ "$code" != "200" ] || { echo "::error::ungated pending read returned 200 (leak)"; exit 1; }
+
+          echo "== ai-pack: reachable and does not 500 on a bad request =="
+          code="$(curl -sS --max-time 30 -o /tmp/c.json -w '%{http_code}' -X POST "$base/osi-ai-pack" \
+            -H 'Content-Type: application/json' -d '{}')"
+          cat /tmp/c.json; echo
+          [ "$code" != "500" ] || { echo "::error::ai-pack 500 on bad request"; exit 1; }
+
+          echo "Smoke passed: legacy review disabled, ungated pending read denied, ai-pack healthy."
