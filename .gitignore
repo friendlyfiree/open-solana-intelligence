@@ -21,3 +21,6 @@ yarn-error.log*
 *.log
 .env
 .env.local
+
+# Internal tooling artifacts
+.superstack/
