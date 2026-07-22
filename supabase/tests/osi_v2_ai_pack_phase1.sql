@@ -670,7 +670,7 @@ select throws_ok(
      where id = (select version_id from pg_temp.ai_pack_main_prepare)
   $test$,
   '55000',
-  'Published AI Pack artifact content and identity are immutable',
+  'AI Pack version content, identity, manifests and profile are immutable',
   'generated layer content cannot be rewritten'
 );
 

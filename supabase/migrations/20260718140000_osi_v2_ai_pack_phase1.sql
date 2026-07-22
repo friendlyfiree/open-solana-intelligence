@@ -3311,7 +3311,6 @@ begin
     join public.cases as case_item on case_item.id = pack.case_id
    where pack.id = version_row.pack_id;
   if version_row.id is null
-     or version_row.lifecycle_state <> 'supported'
      or p_maintainer_wallet in (
        version_row.created_by_wallet, case_owner
      ) then
@@ -3329,7 +3328,8 @@ begin
     from osi_private.osi_v2_ai_pack_quorum(
       version_row.id, p_maintainer_wallet
     );
-  if quorum.quorum_ready is distinct from true then
+  if version_row.lifecycle_state <> 'supported'
+     or quorum.quorum_ready is distinct from true then
     raise exception 'ai_pack_approval_quorum_not_ready' using errcode = '42501';
   end if;
   exact_hash := osi_private.osi_v2_ai_pack_approval_payload_hash(

@@ -835,6 +835,11 @@ ok(
     && !/osi_v2_bootstrap|maintainer_bootstrap/i.test(aiPackApprovalCommit),
 );
 ok(
+  'full maintainer without a supported quorum is denied as quorum-not-ready',
+  /if version_row\.lifecycle_state <> 'supported'[\s\S]*quorum\.quorum_ready is distinct from true[\s\S]*ai_pack_approval_quorum_not_ready/i
+    .test(aiPackPhase1),
+);
+ok(
   'AI Pack generation rechecks the public Case boundary before provider work and commit',
   (aiPackPhase1.match(/case_row\.visibility\s*<>\s*'public'/g) || []).length >= 3
     && (aiPackPhase1.match(/case_row\.stage\s+not\s+in/g) || []).length >= 3,
