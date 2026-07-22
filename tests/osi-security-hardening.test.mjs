@@ -47,8 +47,13 @@ const workflowSource = fs.readdirSync(workflowDir)
   .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
   .map((name) => read(`.github/workflows/${name}`))
   .join("\n");
-ok("checkout and Supabase setup actions are immutable SHA-pinned", !/(?:actions\/checkout|supabase\/setup-cli)@v\d/.test(workflowSource)
+const workflowUses = [...workflowSource.matchAll(/\buses:\s*([^\s#]+)/g)].map((match) => match[1]);
+ok("every external workflow action is immutable SHA-pinned", workflowUses.length > 0
+  && workflowUses.every((value) => /@[a-f0-9]{40}$/.test(value))
   && /actions\/checkout@[a-f0-9]{40}/.test(workflowSource)
+  && /actions\/setup-node@[a-f0-9]{40}/.test(workflowSource)
+  && /actions\/upload-artifact@[a-f0-9]{40}/.test(workflowSource)
+  && /denoland\/setup-deno@[a-f0-9]{40}/.test(workflowSource)
   && /supabase\/setup-cli@[a-f0-9]{40}/.test(workflowSource));
 
 const intakeEdge = read("supabase/functions/osi-analyst-intake/index.ts");

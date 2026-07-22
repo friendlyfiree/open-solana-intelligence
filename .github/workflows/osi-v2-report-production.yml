@@ -60,12 +60,12 @@ jobs:
           echo "Validated main commit $(git rev-parse HEAD)."
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
 
       - name: Set up Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.4.1
 
@@ -396,7 +396,7 @@ jobs:
           } > deployment-receipt/osi-v2-report-production.txt
 
       - name: Upload deployment receipt
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: osi-v2-report-production-${{ github.sha }}
           path: deployment-receipt/osi-v2-report-production.txt
