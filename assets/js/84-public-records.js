@@ -22,7 +22,19 @@ function crAttr(s){
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;');
 }
-function osiCaseId(id){ var s=String(id==null?'':id).replace(/[^a-zA-Z0-9]/g,'').toUpperCase(); return 'OSI-' + (s ? s.slice(0,6) : '000000'); }
+function crStableIdHash(value){
+  var hash=2166136261;
+  for(var i=0;i<value.length;i++){
+    hash^=value.charCodeAt(i);
+    hash=Math.imul(hash,16777619);
+  }
+  return (hash>>>0).toString(16).toUpperCase().padStart(8,'0');
+}
+function osiCaseId(id){
+  var normalized=String(id==null?'':id).replace(/[^a-zA-Z0-9]/g,'').toUpperCase();
+  if(!normalized) return 'OSI-00000000';
+  return 'OSI-'+normalized.slice(0,6).padEnd(6,'0')+'-'+crStableIdHash(normalized);
+}
 function crCountTokens(v){ if(!v) return 0; return String(v).split(/[\s,;\n]+/).filter(function(x){ return x && x.length>3; }).length; }
 function crValidTxSig(sig){ return /^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(sig||'')); }
 function crProofFields(r){
@@ -93,9 +105,15 @@ function crStatus(r){
     if(stage==='halted') return { txt:'Halted', cls:'cr-pending', detail:'Lifecycle halted by an authorized transition' };
     return { txt:'Public Case', cls:'cr-pending', detail:'Native public lifecycle state' };
   }
-  if(proof.key==='legacy') return { txt:'Legacy / unverified', cls:'cr-pending', detail:'Imported status; not native-reviewed' };
+  if(proof.key==='legacy'&&crIsLegacyTestRecord(r)) return { txt:'Legacy test data', cls:'cr-pending', detail:'Imported test material; not a native-reviewed OSI finding' };
+  if(proof.key==='legacy') return { txt:'Legacy / unverified', cls:'cr-pending', detail:'Imported status and wording; not native-reviewed' };
   if(r && r.sealed===true && proof.key==='memo') return { txt:'Sealed', cls:'cr-sealed', detail:'Native Memo-anchored record' };
   return { txt:'Under review', cls:'cr-pending' };
+}
+function crIsLegacyTestRecord(r){
+  if(!r||crProofState(r).key!=='legacy') return false;
+  var text=[r.company,r.summary,r.title,r.description].map(function(v){return String(v||'');}).join(' ').toLowerCase();
+  return /\b(?:demo|fixture|test record|for testing)\b/.test(text);
 }
 function crDate(v){ return v ? new Date(v).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''; }
 function crTxSig(r){
@@ -348,6 +366,7 @@ function crCopyTx(hash){
   else{ crCopyFallback(full, done); }
 }
 
+var crDrawerReturnFocus=null;
 function openCaseRecord(id){
   var r = (window.__crRecords||{})[id]; if(!r) return;
   if(r.record_source==='native_wire_dto'&&typeof window.osiV2OpenWireReport==='function'){
@@ -357,11 +376,38 @@ function openCaseRecord(id){
   var packs = (window.__crPacks||{})[id] || [];
   var drawer = document.getElementById('cr-drawer'), body = document.getElementById('cr-drawer-body');
   if(!drawer || !body) return;
+  crDrawerReturnFocus=document.activeElement&&typeof document.activeElement.focus==='function'?document.activeElement:null;
   body.innerHTML = crDrawerHtml(r, packs);
+  drawer.hidden=false;
   drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false');
   document.body.classList.add('cr-drawer-lock');
+  setTimeout(function(){ var close=drawer.querySelector('.cr-drawer-x'); if(close) close.focus(); },0);
 }
-function closeCaseDrawer(){ var d=document.getElementById('cr-drawer'); if(d){ d.classList.remove('open'); d.setAttribute('aria-hidden','true'); } document.body.classList.remove('cr-drawer-lock'); }
+function closeCaseDrawer(){
+  var d=document.getElementById('cr-drawer');
+  if(d){ d.classList.remove('open'); d.setAttribute('aria-hidden','true'); d.hidden=true; }
+  document.body.classList.remove('cr-drawer-lock');
+  if(crDrawerReturnFocus&&document.contains(crDrawerReturnFocus)) crDrawerReturnFocus.focus();
+  crDrawerReturnFocus=null;
+}
+function crDrawerKeydown(event){
+  var drawer=document.getElementById('cr-drawer');
+  if(!drawer||drawer.hidden||!drawer.classList.contains('open')) return;
+  if(event.key==='Escape'){
+    event.preventDefault();
+    event.stopPropagation();
+    closeCaseDrawer();
+    return;
+  }
+  if(event.key!=='Tab') return;
+  var focusable=Array.prototype.slice.call(drawer.querySelectorAll('a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])'))
+    .filter(function(node){return node.offsetParent!==null;});
+  if(!focusable.length){ event.preventDefault(); return; }
+  var first=focusable[0],last=focusable[focusable.length-1];
+  if(event.shiftKey&&document.activeElement===first){ event.preventDefault(); last.focus(); }
+  else if(!event.shiftKey&&document.activeElement===last){ event.preventDefault(); first.focus(); }
+}
+document.addEventListener('keydown',crDrawerKeydown);
 
 function crShort(v){
   v = String(v || '');
@@ -400,7 +446,7 @@ function crCard(r, packs){
   var proofDetail=proof.key==='legacy'
     ? (legacyTxSig?'Unverified transaction reference '+escapeHtml(String(legacyTxSig).slice(0,5)+'...'+String(legacyTxSig).slice(-5))+' '+copyBtn:'No native proof receipt')
     : (txSig?'Tx '+escapeHtml(String(txSig).slice(0,5)+'...'+String(txSig).slice(-5))+' '+copyBtn:'Server receipt; no on-chain transaction');
-  return '<div class="'+cls+'" data-cid="'+crAttr(r.id)+'" role="button" tabindex="0" onclick="openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)" onkeydown="if(event.key===&quot;Enter&quot;){openCaseRecord(&quot;'+crAttr(r.id)+'&quot;);}" aria-label="Open public '+recordKind+' record '+escapeHtml(cid)+'">'
+  return '<article class="'+cls+'" data-cid="'+crAttr(r.id)+'">'
     + '<div class="cr-card-main">'
       + '<span class="cr-record-id">'+escapeHtml(cid)+(isWire?' | Wire Report':'')+'</span>'
       + '<div class="cr-title">'+title+'</div>'
@@ -421,7 +467,7 @@ function crCard(r, packs){
       + '<div class="cr-actions"><button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)">View '+(isWire?'Wire Report':'Record')+'</button>'+verifyBtn+'</div>'
       + '<div class="cr-actions secondary"><button class="cr-btn chx" type="button" onclick="event.stopPropagation();osiNavigate(&quot;'+(isWire?'wire':'field')+'&quot;)">Open '+(isWire?'The Wire':'Case workspace')+'</button></div>'
     + '</div>'
-  + '</div>';
+  + '</article>';
 }
 function crVerify(hash){
   if(!hash) return;
@@ -440,7 +486,7 @@ function crDrawerHtml(r, packs){
   var displayedSig=txSig||legacyTxSig;
   var solUrl = displayedSig ? ((typeof solscanTx === 'function') ? solscanTx(displayedSig) : ('https://solscan.io/tx/' + encodeURIComponent(displayedSig))) : '';
   var verifyRow = displayedSig
-    ? '<div class="crd-verify"><span class="crd-vk">'+escapeHtml(proof.label)+'</span><a class="crd-vlink" href="' + escapeHtml(solUrl) + '" target="_blank" rel="noopener">' + escapeHtml(String(displayedSig).slice(0,16)) + '... '+(txSig?'Verify on Solana':'Inspect unverified reference')+'</a></div>'
+    ? '<div class="crd-verify"><span class="crd-vk">'+escapeHtml(proof.label)+'</span><a class="crd-vlink" href="' + escapeHtml(solUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(String(displayedSig).slice(0,16)) + '... '+(txSig?'Verify on Solana':'Inspect unverified reference')+'</a></div>'
     : '<div class="crd-verify"><span class="crd-vk">'+escapeHtml(proof.label)+'</span><span class="mono" style="color:var(--ink-faint);font-size:11px">No native proof receipt</span></div>';
   var packRows = packs.length
     ? packs.map(function(p,i){ return '<div class="crd-pack"><div><div class="crd-pack-t">' + escapeHtml(escPackLabel(p.pack_type)) + '</div><div class="crd-pack-d">Public escalation pack metadata</div></div><button class="crd-dl" type="button" onclick="crDownloadPack(&quot;' + crAttr(r.id) + '&quot;,' + i + ')">Download</button></div>'; }).join('')
@@ -451,10 +497,14 @@ function crDrawerHtml(r, packs){
   var ev = evCount ? (evCount + ' public evidence reference' + (evCount===1?'':'s') + ' indexed from record fields.') : 'Evidence not indexed.';
   var rev = revCount==null ? 'Review data unavailable.' : (revCount + ' analyst review' + (revCount===1?'':'s') + ' indexed.');
   var ch = challengeCount ? (challengeCount + ' open challenge' + (challengeCount===1?'':'s') + '.') : 'No open challenges.';
+  var legacyNotice=proof.key==='legacy'
+    ? '<div class="crd-legacy-note" role="note"><strong>'+(crIsLegacyTestRecord(r)?'Imported test material':'Imported legacy record')+'</strong><span>Historical wording and conclusions are not native-reviewed OSI findings. Treat certainty claims as unverified.</span></div>'
+    : '';
   return ''
-    + '<div class="crd-head"><span class="cr-cid mono">' + cid + '</span><span class="cr-status ' + st.cls + '">' + st.txt + '</span></div>'
-    + '<h3 class="crd-title">' + title + '</h3>'
+    + '<div class="crd-head"><span class="cr-cid mono">' + escapeHtml(cid) + '</span><span class="cr-status ' + st.cls + '">' + st.txt + '</span></div>'
+    + '<h3 class="crd-title" id="cr-drawer-title">' + title + '</h3>'
     + '<div class="crd-meta mono">' + (date ? ((proof.key==='legacy'?'Legacy record date ':'Published ') + date) : 'Record date unavailable') + (updated ? (' | Updated ' + updated) : '') + '</div>'
+    + legacyNotice
     + '<div class="crd-block"><div class="crd-h">VERIFICATION</div>' + verifyRow + '</div>'
     + '<div class="crd-block"><div class="crd-h">SUMMARY</div><p class="crd-sum">' + escapeHtml(r.summary || 'No public summary provided.') + '</p></div>'
     + '<div class="crd-block"><div class="crd-h">EVIDENCE</div><div class="crd-ev">' + escapeHtml(ev) + '</div></div>'
@@ -462,7 +512,7 @@ function crDrawerHtml(r, packs){
     + '<div class="crd-block"><div class="crd-h">CHALLENGE STATUS</div><div class="crd-ev">' + escapeHtml(ch) + '</div></div>'
     + '<div class="crd-block"><div class="crd-h">ESCALATION PACKS <span class="crd-h-sub">Public metadata only</span></div>' + packRows + '</div>'
     + '<div class="crd-actions">'
-      + (displayedSig ? '<a class="crd-act '+(txSig?'primary':'')+'" href="' + escapeHtml(solUrl) + '" target="_blank" rel="noopener">'+(txSig?'Verify on Solana':'Inspect transaction')+'</a>' : '')
+      + (displayedSig ? '<a class="crd-act '+(txSig?'primary':'')+'" href="' + escapeHtml(solUrl) + '" target="_blank" rel="noopener noreferrer">'+(txSig?'Verify on Solana':'Inspect transaction')+'</a>' : '')
       + '<button class="crd-act" type="button" onclick="crCopySummary(&quot;' + crAttr(r.id) + '&quot;)">Copy summary</button>'
     + '</div>'
     + '<div class="crd-disc">OSI records are informational only. No legal certainty, no recovery promise, and no custody of funds or private keys.</div>';

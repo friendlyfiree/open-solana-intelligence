@@ -60,7 +60,7 @@ jobs:
           }
 
       - name: Check out exact dispatched commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -78,7 +78,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.4.1
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
           version: 2.109.1
 
@@ -133,10 +133,10 @@ jobs:
       PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
       PGSSLMODE: require
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
           version: 2.109.1
 

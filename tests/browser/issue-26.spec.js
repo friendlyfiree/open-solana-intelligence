@@ -406,7 +406,14 @@ async function installFixtureNetwork(page) {
 async function ready(page) {
   page.__issue26Errors = [];
   page.on('pageerror', (error) => page.__issue26Errors.push(`page: ${error.message}`));
-  page.on('console', (message) => { if (message.type() === 'error') page.__issue26Errors.push(`console: ${message.text()}`); });
+  page.on('console', (message) => {
+    if (message.type() !== 'error') return;
+    const text = message.text();
+    const fixtureSriBlock = text.includes("Failed to find a valid digest in the 'integrity' attribute")
+      && /https:\/\/(?:bundle\.run|unpkg\.com|cdn\.jsdelivr\.net)\//.test(text)
+      && text.includes("OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb");
+    if (!fixtureSriBlock) page.__issue26Errors.push(`console: ${text}`);
+  });
   page.on('requestfailed', (request) => {
     const failure = request.failure() && request.failure().errorText || 'unknown';
     if (!failure.includes('ERR_ABORTED')) page.__issue26Errors.push(`network: ${request.url()} ${failure}`);
@@ -599,6 +606,25 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await expect(page.locator('#case-records')).toContainText(CASE_REF);
   await expect(page.locator('#case-records')).toContainText('Reviewed');
   await expect(page.locator('#case-records')).toContainText('SOL transfer verified on Solana');
+  const publicRecordCard = page.locator(`[data-cid="${CASE_REF}"]`);
+  await expect(publicRecordCard).toHaveJSProperty('tagName', 'ARTICLE');
+  await expect(publicRecordCard).not.toHaveAttribute('role', 'button');
+  const publicRecordOpener = publicRecordCard.getByRole('button', { name: 'View Record' });
+  await publicRecordOpener.focus();
+  await publicRecordOpener.click();
+  const publicRecordDrawer = page.locator('#cr-drawer');
+  await expect(publicRecordDrawer).toBeVisible();
+  await expect(publicRecordDrawer).toHaveAttribute('aria-hidden', 'false');
+  await expect(publicRecordDrawer.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
+  await expect(publicRecordDrawer.locator('.cr-drawer-x')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(publicRecordDrawer).toBeHidden();
+  await expect(publicRecordDrawer).toHaveAttribute('aria-hidden', 'true');
+  await expect(publicRecordOpener).toBeFocused();
+  await publicRecordOpener.click();
+  await expect(publicRecordDrawer).toBeVisible();
+  await page.evaluate(() => window.osiNavigate('field'));
+  await expect(publicRecordDrawer).toBeHidden();
 
   await page.evaluate(() => window.osiNavigate('prooflog'));
   await expect(page.locator('#pl-dash .pl-stat.seal .pl-stat-val')).toHaveText('2');

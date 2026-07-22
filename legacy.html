@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <!-- Buffer polyfill, web3.js needs a global Buffer when building transactions in the browser. Must load before web3.js. -->
-<script src="https://bundle.run/buffer@6.0.3"></script>
+<script src="https://bundle.run/buffer@6.0.3" integrity="sha384-PMSj0RMOtmkmKsWcDKPG3C6+cBg9JTZ+NnsE2U0yuOUA9Wzn5FQFnJeLS8EK5nW+" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="./assets/js/00-buffer-shim.js"></script>
-<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js" integrity="sha384-xo1g+ODR6i1cxIVZeALc/apXFHeaJHO1j1whMO3dhtdBChWeaihnDs7UnXs9ch78" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <link rel="stylesheet" href="./assets/css/00-theme-base.css">
 </head>
 <body data-view="registry" data-sub="tab-analysts">
@@ -657,10 +657,10 @@
     </div>
   </div>
 </section>
-<div class="cr-drawer" id="cr-drawer" aria-hidden="true">
-  <div class="cr-drawer-bg" onclick="closeCaseDrawer()"></div>
-  <aside class="cr-drawer-panel" role="dialog" aria-label="Case record">
-    <button class="cr-drawer-x" type="button" onclick="closeCaseDrawer()" aria-label="Close">&times;</button>
+<div class="cr-drawer" id="cr-drawer" aria-hidden="true" hidden>
+  <button class="cr-drawer-bg" type="button" onclick="closeCaseDrawer()" aria-label="Close public record"></button>
+  <aside class="cr-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="cr-drawer-title">
+    <button class="cr-drawer-x" type="button" onclick="closeCaseDrawer()" aria-label="Close public record">&times;</button>
     <div class="cr-drawer-body" id="cr-drawer-body"></div>
   </aside>
 </div>

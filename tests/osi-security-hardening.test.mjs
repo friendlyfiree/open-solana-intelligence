@@ -19,6 +19,38 @@ ok("browser bundle contains no keyed URL credential", !/[?&](?:api[_-]?key|acces
 ok("browser RPC fallback contains no private provider constant", !/HELIUS_RPC|helius-rpc\.com/i.test(read("assets/js/44-prooflog-deck.js")));
 ok("legacy browser reads use explicit projections", !/select=\*/.test(browserSource));
 
+const externalScriptTags = browserSource.match(/<script\b[^>]*\bsrc="https:\/\/[^\"]+"[^>]*><\/script>/g) || [];
+ok("third-party browser scripts carry SHA-384 SRI and anonymous CORS", externalScriptTags.length >= 2
+  && externalScriptTags.every((tag) => /\bintegrity="sha384-[A-Za-z0-9+/=]+"/.test(tag)
+    && /\bcrossorigin="anonymous"/.test(tag)
+    && /\breferrerpolicy="no-referrer"/.test(tag)));
+for (const integrity of [
+  "sha384-PMSj0RMOtmkmKsWcDKPG3C6+cBg9JTZ+NnsE2U0yuOUA9Wzn5FQFnJeLS8EK5nW+",
+  "sha384-xo1g+ODR6i1cxIVZeALc/apXFHeaJHO1j1whMO3dhtdBChWeaihnDs7UnXs9ch78",
+  "sha384-GFr3yTh5lJznCbZfpTtXnwboFsxqtTQoeTZCRHhE0579KrRmlCzen5AA8ohaB5ug",
+]) {
+  ok(`approved dependency integrity is pinned: ${integrity.slice(0, 20)}`, browserSource.includes(`integrity="${integrity}"`));
+}
+
+const vercel = JSON.parse(read("vercel.json"));
+const securityHeaders = new Map((vercel.headers?.[0]?.headers || []).map((row) => [row.key, row.value]));
+ok("Vercel denies framing and MIME sniffing", securityHeaders.get("Content-Security-Policy")?.includes("frame-ancestors 'none'")
+  && securityHeaders.get("Content-Security-Policy")?.includes("object-src 'none'")
+  && securityHeaders.get("X-Content-Type-Options") === "nosniff"
+  && securityHeaders.get("X-Frame-Options") === "DENY");
+ok("Vercel enforces transport and privacy headers", securityHeaders.get("Strict-Transport-Security")?.includes("max-age=63072000")
+  && securityHeaders.get("Referrer-Policy") === "strict-origin-when-cross-origin"
+  && securityHeaders.has("Permissions-Policy"));
+
+const workflowDir = path.join(root, ".github", "workflows");
+const workflowSource = fs.readdirSync(workflowDir)
+  .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
+  .map((name) => read(`.github/workflows/${name}`))
+  .join("\n");
+ok("checkout and Supabase setup actions are immutable SHA-pinned", !/(?:actions\/checkout|supabase\/setup-cli)@v\d/.test(workflowSource)
+  && /actions\/checkout@[a-f0-9]{40}/.test(workflowSource)
+  && /supabase\/setup-cli@[a-f0-9]{40}/.test(workflowSource));
+
 const intakeEdge = read("supabase/functions/osi-analyst-intake/index.ts");
 const intakeUi = read("assets/js/22-analyst-intake.js");
 const legacySafety = read("assets/js/20-safety-consensus.js");
