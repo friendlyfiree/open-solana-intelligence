@@ -80,8 +80,12 @@ export function isCaseArchived(caseRow) {
   return caseRow?.archived_at != null && String(caseRow.archived_at).trim() !== "";
 }
 
+export function isCaseHiddenFromOperationalViews(caseRow) {
+  return isCaseArchived(caseRow) || caseRow?.category === "legacy_import";
+}
+
 export function isCasePublic(caseRow) {
-  return !isCaseArchived(caseRow)
+  return !isCaseHiddenFromOperationalViews(caseRow)
     && caseRow?.visibility === "public"
     && PUBLIC_CASE_STAGES.has(String(caseRow?.stage ?? ""));
 }
@@ -90,7 +94,7 @@ export function isCasePublic(caseRow) {
 // The caller is responsible for having PROVEN the actor claim (signature,
 // analyst lookup, maintainer double-gate) before asking this question.
 export function canActorReadCase(actor, caseRow) {
-  if (!caseRow || isCaseArchived(caseRow)) return false;
+  if (!caseRow || isCaseHiddenFromOperationalViews(caseRow)) return false;
   if (isCasePublic(caseRow)) return true;
   const kind = actor?.kind;
   if (kind === "maintainer") return true;
@@ -613,7 +617,7 @@ export function maintainerOverviewDto(input) {
     manualQueueCount = 0,
     flags = {},
   } = input;
-  const visibleCases = cases.filter((caseRow) => !isCaseArchived(caseRow));
+  const visibleCases = cases.filter((caseRow) => !isCaseHiddenFromOperationalViews(caseRow));
   return {
     totals: {
       cases: visibleCases.length,

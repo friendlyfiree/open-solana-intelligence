@@ -20,7 +20,7 @@ ok("production ref, main, and typed phrase are pinned",
   && workflow.includes('"refs/heads/main"'));
 ok("full target snapshot is uploaded before mutation",
   workflow.indexOf("Upload recoverable pre-mutation snapshot")
-    < workflow.indexOf("Delete exact V1 rows and archive exact Cases in one transaction"));
+    < workflow.indexOf("Delete exact V1 rows in one transaction"));
 ok("V1 target counts and stable content identities are asserted",
   workflow.includes("V1 bounty target set changed")
   && workflow.includes("V1 bounty boost target set changed")
@@ -32,12 +32,23 @@ ok("children are deleted before parents",
     < workflow.indexOf("delete from public.bounties")
   && workflow.indexOf("delete from public.request_votes")
     < workflow.indexOf("delete from public.requests"));
-ok("three exact Cases are archived without deleting V2 history",
-  workflow.includes("update public.cases set archived_at = clock_timestamp()")
-  && workflow.includes("75d786cf-e633-4a16-9d9f-c06c4eb1f0d9")
+ok("three exact Cases remain present and byte-unchanged without any V2 mutation",
+  workflow.includes("75d786cf-e633-4a16-9d9f-c06c4eb1f0d9")
   && workflow.includes("8fc9fe7e-f57f-4761-ba73-47c2e3a4a230")
   && workflow.includes("ba9a6b58-3093-4a19-894a-eabc6a4dc8ed")
-  && !/delete\s+from\s+public\.(?:cases|case_reports|case_report_versions|event_receipts|migration_crosswalk)/i.test(workflow));
+  && workflow.includes("and visibility = 'private' and archived_at is null) <> 3")
+  && workflow.includes("jsonb_build_object('table','cases','row',to_jsonb(r))")
+  && !/(?:delete\s+from|update)\s+public\.(?:cases|case_reports|case_report_versions|event_receipts|migration_crosswalk)/i.test(workflow));
+ok("the transaction deletes only the exact 36 V1 rows with children first",
+  workflow.includes("Expected 5 bounty_boost deletes")
+  && workflow.includes("Expected 4 request_vote deletes")
+  && workflow.includes("Expected 0 vouch deletes")
+  && workflow.includes("Expected 6 onchain_event deletes")
+  && workflow.includes("Expected 1 request delete")
+  && workflow.includes("Expected 17 bounty deletes")
+  && workflow.includes("Expected 2 analyst deletes")
+  && workflow.includes("Expected 1 profile delete")
+  && workflow.includes("Deleted exactly 36 V1 rows; no V2 row was targeted."));
 ok("append-only guards are asserted and never bypassed",
   workflow.includes("osi_v2_reject_delete")
   && !/^\s*(?:SET\s+(?:LOCAL\s+)?session_replication_role|DISABLE\s+TRIGGER)/mi.test(workflow));
