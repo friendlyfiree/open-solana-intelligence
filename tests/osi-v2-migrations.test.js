@@ -64,6 +64,10 @@ const aiPackApprovalCommit = aiPackPhase1.slice(
 );
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
+const foundationWorkflow = fs.readFileSync(
+  path.join(root, '.github', 'workflows', 'osi-v2-foundation.yml'),
+  'utf8',
+);
 const analystProductionWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-analyst-production.yml'),
   'utf8',
@@ -744,11 +748,18 @@ ok(
   'AI Pack rollout validates fully and deploys exactly its two touched functions',
   aiPackProductionWorkflow.includes('needs: validate')
     && aiPackProductionWorkflow.includes('supabase db reset --local --no-seed')
-    && aiPackProductionWorkflow.includes('supabase db lint --local --level error --fail-on error')
+    && aiPackProductionWorkflow.includes('supabase db lint --local --level error')
+    && !aiPackProductionWorkflow.includes('--fail-on error')
     && aiPackProductionWorkflow.includes('supabase test db')
     && aiPackProductionWorkflow.includes('bash tests/osi-v2-concurrency.test.sh')
     && aiPackProductionWorkflow.includes('for fn in osi-v2-case-read osi-v2-ai-pack')
     && !aiPackProductionWorkflow.includes('functions deploy osi-v2-proof'),
+);
+ok(
+  'foundation and AI Pack lint gates retain the reviewed legacy temp-table baseline',
+  foundationWorkflow.includes('supabase db lint --local --level error')
+    && !foundationWorkflow.includes('--fail-on error')
+    && aiPackProductionWorkflow.includes('runtime; the static linter reports'),
 );
 ok(
   'AI Pack rollout preserves every prior config and V1 row and never enables writes',

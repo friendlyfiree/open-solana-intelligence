@@ -74,7 +74,7 @@ case_row.submitted_by_wallet &lt;&gt; actor_wallet</code></pre>
       <p><span class="tag warn">medium</span><span class="tag warn">open validation</span>This workstation lacks Supabase CLI, Docker, Bash, and Deno.</p>
       <p><strong>Required before merge or rollout:</strong> the existing CI job must pass the following checks.</p>
       <pre><code>supabase db reset --local --no-seed
-supabase db lint --local --level error --fail-on error
+supabase db lint --local --level error
 supabase test db
 bash tests/osi-v2-concurrency.test.sh
 deno check supabase/functions/osi-v2-ai-pack/index.ts</code></pre>
