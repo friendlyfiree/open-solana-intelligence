@@ -1,0 +1,573 @@
+name: OSI Pre-launch Clean Slate
+
+# Manual-only production maintenance. This workflow removes only the exact
+# unprotected V1 launch-demo rows described below and archives three exact V2
+# legacy-import Cases without weakening their append-only guards. Immutable V2
+# receipts, Report history, migration history, SAS state, and bootstrap state
+# are snapshot and compared before and after the transaction.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CLEAN-SLATE-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-prelaunch-clean-slate
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+
+jobs:
+  cleanup:
+    name: Snapshot, clean V1, archive exact legacy Cases, and smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Validate confirmation input
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm }}" != "CLEAN-SLATE-${EXPECTED_PROJECT_REF}" ]; then
+            echo "::error::Confirmation phrase mismatch."
+            exit 1
+          fi
+
+      - name: Check out repository at the dispatched ref
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Verify secrets, project ref, workflow scope, and current main
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PROJECT_ID_SECRET; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Secret $name is ABSENT."
+              missing=1
+            else
+              echo "$name: PRESENT"
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || {
+            echo "::error::SUPABASE_PROJECT_ID does not match the pinned production ref."
+            exit 1
+          }
+          [ "${{ github.ref }}" = "refs/heads/main" ] || {
+            echo "::error::This production workflow may run only from main."
+            exit 1
+          }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::This workflow may run only from current origin/main."
+            exit 1
+          }
+          if grep -Eq 'session_replication[_]role|DISABLE[[:space:]]+TRIGGER|DROP[[:space:]]|TRUNCATE[[:space:]]' .github/workflows/osi-prelaunch-clean-slate.yml; then
+            echo "::error::The cleanup workflow must never bypass guards or use destructive DDL."
+            exit 1
+          fi
+
+      - name: Resolve the pinned production pooler connection
+        run: |
+          set -euo pipefail
+          resp="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coords="$(printf '%s' "$resp" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coords"
+          case "${PGHOST:-}" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "${PGUSER:-}" = "postgres.${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Pooler user does not target the pinned production ref."
+            exit 1
+          }
+          {
+            echo "PGHOST=$PGHOST"
+            echo "PGPORT=$PGPORT"
+            echo "PGUSER=$PGUSER"
+            echo "PGDATABASE=${PGDATABASE:-postgres}"
+          } >> "$GITHUB_ENV"
+          echo "Pinned production pooler coordinates resolved."
+
+      - name: Verify DB role, exact content preconditions, and active V2 guards
+        run: |
+          set -euo pipefail
+          who="$(psql -Atqc 'select current_user')"
+          case "$who" in postgres|service_role|supabase_admin) : ;; *) echo "::error::Unexpected DB role."; exit 1 ;; esac
+
+          echo "Foreign keys touching cleanup tables:"
+          psql -v ON_ERROR_STOP=1 -P pager=off -c "
+            select con.conname,
+                   child_ns.nspname || '.' || child.relname as child_table,
+                   parent_ns.nspname || '.' || parent.relname as parent_table
+              from pg_constraint con
+              join pg_class child on child.oid = con.conrelid
+              join pg_namespace child_ns on child_ns.oid = child.relnamespace
+              join pg_class parent on parent.oid = con.confrelid
+              join pg_namespace parent_ns on parent_ns.oid = parent.relnamespace
+             where con.contype = 'f'
+               and (child.relname = any(array['bounties','bounty_boosts','requests','request_votes','vouches','analysts','profiles','onchain_events'])
+                 or parent.relname = any(array['bounties','bounty_boosts','requests','request_votes','vouches','analysts','profiles','onchain_events']))
+             order by child_table, con.conname"
+
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare
+            ids text[];
+            keys text[];
+            row_count bigint;
+            row_json jsonb;
+          begin
+            select count(*), array_agg(id order by id) into row_count, ids from public.bounties;
+            if row_count <> 17 or ids is distinct from array[
+              'bnt_1782629622201','bnt_1782886689175','bnt_1783581450609',
+              'seed_brooker','seed_classover','seed_devvstream','seed_dfdv',
+              'seed_digitalx','seed_exodus','seed_galaxy','seed_lion',
+              'seed_phoenix','seed_solai','seed_torrent','seed_upexi',
+              'seed_wize','seed_yueda'
+            ]::text[] then raise exception 'V1 bounty target set changed'; end if;
+            if exists (select 1 from public.bounties
+              where approved is distinct from true or review_status is distinct from 'pending'
+                 or title is distinct from target) then
+              raise exception 'V1 bounty content changed';
+            end if;
+
+            select count(*), array_agg(bounty_id || '|' || voter order by bounty_id, voter)
+              into row_count, keys from public.bounty_boosts;
+            if row_count <> 5 or keys is distinct from array[
+              'bnt_1782886689175|v_nvxqpfdle28mqhthe5j',
+              'bnt_1783581450609|v_3rrpbosjq6zmrd6fgkm',
+              'cs_sharps-technology|v_op5oflluqamqj4pmtn',
+              'dfdv|v_nvxqpfdle28mqhthe5j',
+              'rep_1782886895974|v_nvxqpfdle28mqhthe5j'
+            ]::text[] then raise exception 'V1 bounty boost target set changed'; end if;
+
+            select to_jsonb(r) into row_json from public.requests r where id = 'req_1781865158881';
+            if (select count(*) from public.requests) <> 1
+               or row_json->>'name' is distinct from 'Pantera Capital'
+               or row_json->>'approved' is distinct from 'false' then
+              raise exception 'V1 request content changed';
+            end if;
+            select count(*), array_agg(request_id || '|' || voter order by request_id, voter)
+              into row_count, keys from public.request_votes;
+            if row_count <> 4 or keys is distinct from array[
+              'classover|v_nvxqpfdle28mqhthe5j',
+              'upexi|v_nvxqpfdle28mqhthe5j',
+              'upexi|v_op5oflluqamqj4pmtn',
+              'yueda|v_nvxqpfdle28mqhthe5j'
+            ]::text[] then raise exception 'V1 request vote target set changed'; end if;
+            if exists (select 1 from public.vouches) then raise exception 'Expected V1 vouches to be empty'; end if;
+
+            if (select count(*) from public.analysts) <> 2
+               or exists (select 1 from public.analysts
+                 where approved is distinct from true or verified is distinct from true
+                    or wallet !~ '^[1-9A-HJ-NP-Za-km-z]{32,44}$') then
+              raise exception 'Expected exactly two approved and verified V1 analysts';
+            end if;
+            select to_jsonb(p) into row_json from public.profiles p
+              where wallet = '2awpjumkqhWywwbmDBixjo7cAnqD5fGfNGNv6MMTc4M7';
+            if (select count(*) from public.profiles) <> 1
+               or row_json->>'name' is distinct from 'Belisarius' then
+              raise exception 'V1 profile content changed';
+            end if;
+
+            if (select count(*) from public.onchain_events) <> 6
+               or (select array_agg(id::bigint order by id) from public.onchain_events)
+                    is distinct from array[1,2,3,4,5,6]::bigint[]
+               or exists (select 1 from public.onchain_events
+                 where actor_wallet is distinct from '42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y'
+                    or status is distinct from 'confirmed')
+               or (select array_agg(event_type || '|' || item_type || '|' || item_id order by id)
+                     from public.onchain_events) is distinct from array[
+                  'demand_signal|bounty|bnt_1782886689175',
+                  'wire_dispatch|report|rep_1782886895974',
+                  'demand_signal|bounty|rep_1782886895974',
+                  'demand_signal|bounty|rep_1782886895974',
+                  'demand_signal|bounty|rep_1782886895974',
+                  'demand_signal|bounty|bnt_1783581450609'
+               ]::text[] then raise exception 'V1 on-chain event target set changed'; end if;
+
+            if exists (select 1 from public.reports) then raise exception 'Expected public.reports to be empty'; end if;
+            if exists (select 1 from public.analyst_profiles) then
+              raise exception 'V2 analyst_profiles is no longer empty; stop for review';
+            end if;
+
+            if (select count(*) from public.cases where id in (
+              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+            ) and category = 'legacy_import' and stage = 'draft' and visibility = 'private'
+              and archived_at is null) <> 3 then
+              raise exception 'Exact legacy-import Case preconditions changed';
+            end if;
+            if not exists (select 1 from public.cases
+              where id = '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9'
+                and public_ref = 'OSI-75D786CFE6334A169D9F'
+                and title = 'Demo wallet-drainer incident evidence pack') then
+              raise exception 'Demo Case identity changed';
+            end if;
+            if not exists (select 1 from public.cases
+              where id = '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230'
+                and public_ref = 'OSI-8FC9FE7EF57F4761BA73' and title = 'Upexi') then
+              raise exception 'Upexi Case identity changed';
+            end if;
+            if not exists (select 1 from public.cases
+              where id = 'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+                and public_ref = 'OSI-BA9A6B5830934A19894A' and title = 'SOL Strategies') then
+              raise exception 'SOL Strategies Case identity changed';
+            end if;
+
+            if (select count(*) from public.event_receipts
+                where id = '485e80da-7626-376a-e4a5-354cd391aa72'
+                   or (event_type = 'LEGACY_DEMAND_SIGNAL' and target_id in (
+                     'OSI-8FC9FE7EF57F4761BA73','OSI-BA9A6B5830934A19894A'
+                   ))) <> 3 then raise exception 'Protected legacy receipts changed'; end if;
+            if exists (select 1 from public.event_receipts
+                where (id = '485e80da-7626-376a-e4a5-354cd391aa72'
+                   or (event_type = 'LEGACY_DEMAND_SIGNAL' and target_id in (
+                     'OSI-8FC9FE7EF57F4761BA73','OSI-BA9A6B5830934A19894A'
+                   ))) and (proof_type is distinct from 'legacy_imported'
+                     or server_verified is distinct from false)) then
+              raise exception 'Protected legacy receipt classification changed';
+            end if;
+            if (select count(*) from public.case_reports
+                where id = '672826f6-23fa-468d-829c-ebf46a2bfcfe'
+                  and case_id = '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9') <> 1
+               or (select count(*) from public.case_report_versions
+                where id = '1e933489-a2a8-4e46-9857-acb1f9de3f17'
+                  and report_id = '672826f6-23fa-468d-829c-ebf46a2bfcfe') <> 1
+               or (select count(*) from public.migration_crosswalk
+                where legacy_id = 'rep_1782633406125') <> 2 then
+              raise exception 'Protected V2 Report history changed';
+            end if;
+            if (select count(*) from pg_trigger t
+                join pg_class c on c.oid = t.tgrelid
+                join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = 'public' and c.relname in (
+                  'migration_crosswalk','case_report_versions','case_reports','cases','event_receipts'
+                ) and t.tgname = 'osi_v2_reject_delete' and not t.tgisinternal and t.tgenabled <> 'D') <> 5 then
+              raise exception 'Expected append-only DELETE guards are not all active';
+            end if;
+            if not exists (select 1 from public.osi_config
+              where key ilike '%SAS%' or key ilike '%BOOTSTRAP%') then
+              raise exception 'Expected SAS/bootstrap configuration keys';
+            end if;
+          end $$;
+          SQL
+          echo "All exact cleanup targets, protected V2 rows, and guards match."
+
+      - name: Snapshot every target and protected row before mutation
+        run: |
+          set -euo pipefail
+          umask 077
+          psql -v ON_ERROR_STOP=1 -Atq > /tmp/osi-prelaunch-clean-slate-snapshot.jsonl <<'SQL'
+          select jsonb_build_object('table','manifest','row',jsonb_build_object(
+            'captured_at',clock_timestamp(),'project_ref','afibxpniwfnavdobecrn'));
+          select jsonb_build_object('table','bounties','row',to_jsonb(r)) from public.bounties r order by id;
+          select jsonb_build_object('table','bounty_boosts','row',to_jsonb(r)) from public.bounty_boosts r order by bounty_id,voter;
+          select jsonb_build_object('table','requests','row',to_jsonb(r)) from public.requests r order by id;
+          select jsonb_build_object('table','request_votes','row',to_jsonb(r)) from public.request_votes r order by request_id,voter;
+          select jsonb_build_object('table','analysts','row',to_jsonb(r)) from public.analysts r order by wallet;
+          select jsonb_build_object('table','profiles','row',to_jsonb(r)) from public.profiles r order by wallet;
+          select jsonb_build_object('table','onchain_events','row',to_jsonb(r)) from public.onchain_events r order by id;
+          select jsonb_build_object('table','cases','row',to_jsonb(r)) from public.cases r where id in (
+            '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+            '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+            'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed') order by id;
+          select jsonb_build_object('table','case_reports','row',to_jsonb(r)) from public.case_reports r
+            where id = '672826f6-23fa-468d-829c-ebf46a2bfcfe';
+          select jsonb_build_object('table','case_report_versions','row',to_jsonb(r)) from public.case_report_versions r
+            where id = '1e933489-a2a8-4e46-9857-acb1f9de3f17';
+          select jsonb_build_object('table','migration_crosswalk','row',to_jsonb(r)) from public.migration_crosswalk r
+            where legacy_id = 'rep_1782633406125' order by id;
+          select jsonb_build_object('table','event_receipts','row',to_jsonb(r)) from public.event_receipts r
+            where id = '485e80da-7626-376a-e4a5-354cd391aa72'
+               or (event_type = 'LEGACY_DEMAND_SIGNAL' and target_id in (
+                 'OSI-8FC9FE7EF57F4761BA73','OSI-BA9A6B5830934A19894A')) order by id;
+          select jsonb_build_object('table','osi_config','row',to_jsonb(r)) from public.osi_config r
+            where key ilike '%SAS%' or key ilike '%BOOTSTRAP%' order by key;
+          SQL
+          [ "$(wc -l < /tmp/osi-prelaunch-clean-slate-snapshot.jsonl)" -ge 46 ] || {
+            echo "::error::Snapshot row count is smaller than the verified target set."
+            exit 1
+          }
+          sha256sum /tmp/osi-prelaunch-clean-slate-snapshot.jsonl > /tmp/osi-prelaunch-clean-slate-snapshot.sha256
+          echo "Full pre-mutation snapshot captured as a restricted artifact."
+
+      - name: Upload recoverable pre-mutation snapshot
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: osi-prelaunch-clean-slate-before-${{ github.run_id }}
+          path: |
+            /tmp/osi-prelaunch-clean-slate-snapshot.jsonl
+            /tmp/osi-prelaunch-clean-slate-snapshot.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Capture immutable and configuration baseline
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq > /tmp/protected-before.jsonl <<'SQL'
+          select jsonb_build_object('table','cases','row',to_jsonb(r)-'archived_at'-'updated_at')
+            from public.cases r where id in (
+              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed') order by id;
+          select jsonb_build_object('table','case_reports','row',to_jsonb(r)) from public.case_reports r
+            where id = '672826f6-23fa-468d-829c-ebf46a2bfcfe';
+          select jsonb_build_object('table','case_report_versions','row',to_jsonb(r)) from public.case_report_versions r
+            where id = '1e933489-a2a8-4e46-9857-acb1f9de3f17';
+          select jsonb_build_object('table','migration_crosswalk','row',to_jsonb(r)) from public.migration_crosswalk r
+            where legacy_id = 'rep_1782633406125' order by id;
+          select jsonb_build_object('table','event_receipts','row',to_jsonb(r)) from public.event_receipts r
+            where id = '485e80da-7626-376a-e4a5-354cd391aa72'
+               or (event_type = 'LEGACY_DEMAND_SIGNAL' and target_id in (
+                 'OSI-8FC9FE7EF57F4761BA73','OSI-BA9A6B5830934A19894A')) order by id;
+          select jsonb_build_object('table','osi_config','row',to_jsonb(r)) from public.osi_config r
+            where key ilike '%SAS%' or key ilike '%BOOTSTRAP%' order by key;
+          SQL
+
+      - name: Delete exact V1 rows and archive exact Cases in one transaction
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          begin;
+          set local lock_timeout = '5s';
+          set local statement_timeout = '45s';
+          lock table public.bounty_boosts, public.request_votes, public.vouches,
+            public.onchain_events, public.requests, public.bounties,
+            public.analysts, public.profiles in share row exclusive mode;
+          do $$
+          declare
+            changed bigint;
+            ids text[];
+            keys text[];
+            row_json jsonb;
+          begin
+            select array_agg(id order by id) into ids from public.bounties;
+            if ids is distinct from array[
+              'bnt_1782629622201','bnt_1782886689175','bnt_1783581450609',
+              'seed_brooker','seed_classover','seed_devvstream','seed_dfdv',
+              'seed_digitalx','seed_exodus','seed_galaxy','seed_lion',
+              'seed_phoenix','seed_solai','seed_torrent','seed_upexi',
+              'seed_wize','seed_yueda'
+            ]::text[] or exists (select 1 from public.bounties
+                 where approved is distinct from true or review_status is distinct from 'pending'
+                    or title is distinct from target) then
+              raise exception 'Bounty target changed after snapshot';
+            end if;
+            select array_agg(bounty_id || '|' || voter order by bounty_id, voter)
+              into keys from public.bounty_boosts;
+            if keys is distinct from array[
+              'bnt_1782886689175|v_nvxqpfdle28mqhthe5j',
+              'bnt_1783581450609|v_3rrpbosjq6zmrd6fgkm',
+              'cs_sharps-technology|v_op5oflluqamqj4pmtn',
+              'dfdv|v_nvxqpfdle28mqhthe5j',
+              'rep_1782886895974|v_nvxqpfdle28mqhthe5j'
+            ]::text[] then raise exception 'Bounty boost target changed after snapshot'; end if;
+            select to_jsonb(r) into row_json from public.requests r where id = 'req_1781865158881';
+            if (select count(*) from public.requests) <> 1
+               or row_json->>'name' is distinct from 'Pantera Capital'
+               or row_json->>'approved' is distinct from 'false' then
+              raise exception 'Request target changed after snapshot';
+            end if;
+            select array_agg(request_id || '|' || voter order by request_id, voter)
+              into keys from public.request_votes;
+            if keys is distinct from array[
+              'classover|v_nvxqpfdle28mqhthe5j',
+              'upexi|v_nvxqpfdle28mqhthe5j',
+              'upexi|v_op5oflluqamqj4pmtn',
+              'yueda|v_nvxqpfdle28mqhthe5j'
+            ]::text[] then raise exception 'Request vote target changed after snapshot'; end if;
+            if exists (select 1 from public.vouches) then
+              raise exception 'Vouches changed after snapshot';
+            end if;
+            if (select count(*) from public.analysts) <> 2
+               or exists (select 1 from public.analysts
+                 where approved is distinct from true or verified is distinct from true
+                    or wallet !~ '^[1-9A-HJ-NP-Za-km-z]{32,44}$') then
+              raise exception 'Analyst target changed after snapshot';
+            end if;
+            select to_jsonb(p) into row_json from public.profiles p
+              where wallet = '2awpjumkqhWywwbmDBixjo7cAnqD5fGfNGNv6MMTc4M7';
+            if (select count(*) from public.profiles) <> 1
+               or row_json->>'name' is distinct from 'Belisarius' then
+              raise exception 'Profile target changed after snapshot';
+            end if;
+            if (select array_agg(id::bigint order by id) from public.onchain_events)
+                 is distinct from array[1,2,3,4,5,6]::bigint[]
+               or exists (select 1 from public.onchain_events
+                 where actor_wallet is distinct from '42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y'
+                    or status is distinct from 'confirmed')
+               or (select array_agg(event_type || '|' || item_type || '|' || item_id order by id)
+                     from public.onchain_events) is distinct from array[
+                  'demand_signal|bounty|bnt_1782886689175',
+                  'wire_dispatch|report|rep_1782886895974',
+                  'demand_signal|bounty|rep_1782886895974',
+                  'demand_signal|bounty|rep_1782886895974',
+                  'demand_signal|bounty|rep_1782886895974',
+                  'demand_signal|bounty|bnt_1783581450609'
+               ]::text[] then raise exception 'On-chain event target changed after snapshot';
+            end if;
+            if (select count(*) from public.cases where id in (
+              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
+            ) and category = 'legacy_import' and stage = 'draft' and visibility = 'private'
+              and archived_at is null) <> 3 then
+              raise exception 'A V2 archive target changed after snapshot';
+            end if;
+
+            delete from public.bounty_boosts; get diagnostics changed = row_count;
+            if changed <> 5 then raise exception 'Expected 5 bounty_boost deletes, got %', changed; end if;
+            delete from public.request_votes; get diagnostics changed = row_count;
+            if changed <> 4 then raise exception 'Expected 4 request_vote deletes, got %', changed; end if;
+            delete from public.vouches; get diagnostics changed = row_count;
+            if changed <> 0 then raise exception 'Expected 0 vouch deletes, got %', changed; end if;
+            delete from public.onchain_events; get diagnostics changed = row_count;
+            if changed <> 6 then raise exception 'Expected 6 onchain_event deletes, got %', changed; end if;
+            delete from public.requests; get diagnostics changed = row_count;
+            if changed <> 1 then raise exception 'Expected 1 request delete, got %', changed; end if;
+            delete from public.bounties; get diagnostics changed = row_count;
+            if changed <> 17 then raise exception 'Expected 17 bounty deletes, got %', changed; end if;
+            delete from public.analysts; get diagnostics changed = row_count;
+            if changed <> 2 then raise exception 'Expected 2 analyst deletes, got %', changed; end if;
+            delete from public.profiles; get diagnostics changed = row_count;
+            if changed <> 1 then raise exception 'Expected 1 profile delete, got %', changed; end if;
+
+            update public.cases set archived_at = clock_timestamp()
+              where id in (
+                '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+                '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+                'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed')
+                and category = 'legacy_import' and stage = 'draft'
+                and visibility = 'private' and archived_at is null;
+            get diagnostics changed = row_count;
+            if changed <> 3 then raise exception 'Expected 3 exact Case archives, got %', changed; end if;
+
+            if exists (select 1 from public.bounties)
+               or exists (select 1 from public.bounty_boosts)
+               or exists (select 1 from public.requests)
+               or exists (select 1 from public.request_votes)
+               or exists (select 1 from public.vouches)
+               or exists (select 1 from public.analysts)
+               or exists (select 1 from public.profiles)
+               or exists (select 1 from public.onchain_events)
+               or exists (select 1 from public.reports) then
+              raise exception 'One or more V1 cleanup tables are not empty';
+            end if;
+            if (select count(*) from public.cases where id in (
+              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed') and archived_at is not null) <> 3 then
+              raise exception 'Exact Cases were not archived';
+            end if;
+            if (select count(*) from public.event_receipts
+                where id = '485e80da-7626-376a-e4a5-354cd391aa72'
+                   or (event_type = 'LEGACY_DEMAND_SIGNAL' and target_id in (
+                     'OSI-8FC9FE7EF57F4761BA73','OSI-BA9A6B5830934A19894A'))) <> 3
+               or (select count(*) from public.case_reports
+                 where id = '672826f6-23fa-468d-829c-ebf46a2bfcfe') <> 1
+               or (select count(*) from public.case_report_versions
+                 where id = '1e933489-a2a8-4e46-9857-acb1f9de3f17') <> 1
+               or (select count(*) from public.migration_crosswalk
+                 where legacy_id = 'rep_1782633406125') <> 2 then
+              raise exception 'Protected V2 history changed inside transaction';
+            end if;
+          end $$;
+          commit;
+          SQL
+          echo "Deleted exactly 36 V1 rows and archived exactly 3 V2 legacy-import Cases."
+
+      - name: Prove immutable history and SAS/bootstrap config preservation
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq > /tmp/protected-after.jsonl <<'SQL'
+          select jsonb_build_object('table','cases','row',to_jsonb(r)-'archived_at'-'updated_at')
+            from public.cases r where id in (
+              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
+              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed') order by id;
+          select jsonb_build_object('table','case_reports','row',to_jsonb(r)) from public.case_reports r
+            where id = '672826f6-23fa-468d-829c-ebf46a2bfcfe';
+          select jsonb_build_object('table','case_report_versions','row',to_jsonb(r)) from public.case_report_versions r
+            where id = '1e933489-a2a8-4e46-9857-acb1f9de3f17';
+          select jsonb_build_object('table','migration_crosswalk','row',to_jsonb(r)) from public.migration_crosswalk r
+            where legacy_id = 'rep_1782633406125' order by id;
+          select jsonb_build_object('table','event_receipts','row',to_jsonb(r)) from public.event_receipts r
+            where id = '485e80da-7626-376a-e4a5-354cd391aa72'
+               or (event_type = 'LEGACY_DEMAND_SIGNAL' and target_id in (
+                 'OSI-8FC9FE7EF57F4761BA73','OSI-BA9A6B5830934A19894A')) order by id;
+          select jsonb_build_object('table','osi_config','row',to_jsonb(r)) from public.osi_config r
+            where key ilike '%SAS%' or key ilike '%BOOTSTRAP%' order by key;
+          SQL
+          diff -u /tmp/protected-before.jsonl /tmp/protected-after.jsonl || {
+            echo "::error::Protected V2 history or SAS/bootstrap configuration changed."
+            exit 1
+          }
+          echo "Protected receipts, Report rows, crosswalk rows, Case content, and SAS/bootstrap keys are unchanged."
+
+      - name: Anonymous production clean-slate smoke
+        run: |
+          set -euo pipefail
+          curl -sS --fail --max-time 30 "${PRODUCTION_WEB_URL}/" > /tmp/live-index.html
+          grep -Fq 'Open Solana Intelligence' /tmp/live-index.html
+          for asset in 94-navigation-shell.js v2-case-integration.js 84-public-records.js 44-prooflog-deck.js; do
+            curl -sS --fail --max-time 30 "${PRODUCTION_WEB_URL}/assets/js/$asset" > "/tmp/$asset"
+          done
+          grep -Fq 'No public V2 Cases yet' /tmp/v2-case-integration.js
+          grep -Fq 'No activated analysts yet' /tmp/94-navigation-shell.js
+          grep -Fq 'No public records have been sealed yet' /tmp/84-public-records.js
+          grep -Fq 'No proof events found yet' /tmp/44-prooflog-deck.js
+
+          PUBLIC_KEY="$(python3 - <<'PY'
+          import re
+          text = open('assets/js/01-public-config.js', encoding='utf-8').read()
+          match = re.search(r'OSI_SUPABASE_KEY\s*=\s*"([^"]+)"', text)
+          if not match:
+              raise SystemExit('public key not found')
+          print(match.group(1))
+          PY
+          )"
+          API="https://${EXPECTED_PROJECT_REF}.supabase.co"
+          headers=(-H "apikey: $PUBLIC_KEY" -H "Authorization: Bearer $PUBLIC_KEY")
+          post_headers=("${headers[@]}" -H 'Content-Type: application/json')
+          curl -sS --fail --max-time 30 "${post_headers[@]}" -d '{"op":"list_public_cases"}' "$API/functions/v1/osi-v2-case-read" > /tmp/cases.json
+          curl -sS --fail --max-time 30 "${post_headers[@]}" -d '{"op":"list_public_profiles"}' "$API/functions/v1/osi-v2-analyst" > /tmp/public-analysts.json
+          curl -sS --fail --max-time 30 "${post_headers[@]}" -d '{"op":"list_public_wire_reports","limit":40}' "$API/functions/v1/osi-v2-wire" > /tmp/wire.json
+          for table in bounties analysts reports onchain_events; do
+            curl -sS --fail --max-time 30 "${headers[@]}" "$API/rest/v1/$table?select=*&limit=1" > "/tmp/legacy-$table.json"
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          def load(name):
+              return json.loads(Path('/tmp/' + name).read_text(encoding='utf-8'))
+          assert load('cases.json').get('cases') == []
+          assert load('public-analysts.json').get('analysts') == []
+          assert load('wire.json').get('reports') == []
+          for name in ('legacy-bounties.json','legacy-analysts.json','legacy-reports.json','legacy-onchain_events.json'):
+              assert load(name) == [], (name, load(name))
+          rendered_sources = ''.join(
+              Path('/tmp/' + name).read_text(encoding='utf-8')
+              for name in ('cases.json','public-analysts.json','wire.json','legacy-bounties.json','legacy-reports.json','legacy-onchain_events.json')
+          )
+          for raw in ('undefined', 'null', 'NaN', 'raw error'):
+              assert raw not in rendered_sources
+          PY
+          echo "Anonymous production smoke passed: Field Office, Analyst Network, Public Records, and Proof Log sources are empty."
