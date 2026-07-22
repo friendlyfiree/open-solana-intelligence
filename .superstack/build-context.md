@@ -8,7 +8,7 @@
 |-------|-------|
 | Template | Static HTML, modular CSS, classic JavaScript |
 | Architecture pattern | Additive OSI V2 Supabase PostgreSQL and Edge Functions |
-| Completed at | 2026-07-22T08:00:20Z |
+| Completed at | 2026-07-22T08:35:02Z |
 
 ### Skills Installed
 
@@ -19,7 +19,7 @@
 | Field | Value |
 |-------|-------|
 | MVP complete | No |
-| Tests passing | Partially: all local Node and Playwright tests passed; database, Deno, and concurrency suites require CI tooling |
+| Tests passing | Yes: local Node and Playwright suites plus PR #41 Stage-5 CI passed |
 | Devnet deployed | No |
 | Mainnet deployed | No |
 
@@ -28,7 +28,7 @@
 - [x] Native V2 AI Pack Phase 1 implementation reviewed and completed (2026-07-22T08:00:20Z)
 - [x] Local dependency-free Node regression battery passed (2026-07-22T08:00:20Z)
 - [x] Local Playwright browser suite passed, 11 tests (2026-07-22T08:00:20Z)
-- [ ] Supabase migration, pgTAP, concurrency, and Deno checks pass in CI
+- [x] Supabase migration, pgTAP, concurrency, and Deno checks passed in CI (2026-07-22T08:35:02Z)
 - [ ] Dedicated AI Pack generation flag receives a separate observed rollout decision
 - [ ] Dedicated AI Pack review and approval flag receives a later governance decision
 
@@ -39,7 +39,7 @@
 | Security score | B |
 | Quality score | B |
 | Ready for mainnet | No |
-| Completed at | 2026-07-22T08:00:20Z |
+| Completed at | 2026-07-22T08:35:02Z |
 
 ### Findings
 
@@ -51,7 +51,7 @@
 | high, resolved | state machine | Replacement approval did not terminally supersede every older AI Pack review state, while the approval-shape constraint assumed every superseded version had approval metadata. | Permit accepted state-to-superseded transitions, preserve optional approval metadata as an all-null or all-present group, and bind predecessors to the replacement version. |
 | medium, resolved | availability | A terminated Edge isolate could leave an expired reserved generation blocking that Case and pack type indefinitely. | Atomically fail the expired reservation on the next signed reservation attempt and retain unreconciled provider telemetry as null. |
 | medium, resolved | delivery | Production smoke called `capabilities` without its required wallet and Case reference, and recorded an undefined rollout mode. | Remove the invalid smoke request and write the fixed `deploy-disabled` rollout receipt. |
-| medium, open | validation | This machine has no Supabase CLI, Docker, Bash, or Deno, so clean migration, pgTAP, database concurrency, lint, and Edge type checks were not executable locally. | Require the existing AI Pack CI validation job to pass `supabase db reset`, `supabase test db`, concurrency, lint, and `deno check` before merge or rollout. |
+| medium, resolved | validation | This machine has no Supabase CLI, Docker, Bash, or Deno, so clean migration, pgTAP, database concurrency, lint, and Edge type checks were not executable locally. | PR #41 Stage-5 CI passed clean migration, visible baseline lint, pgTAP, concurrency, browser, Node, and Deno checks. |
 
 ### Scope Notes
 
@@ -62,6 +62,9 @@
   database paths.
 - Both dedicated AI Pack flags remain fail-closed. No Supabase or Vercel
   production surface was changed by this review.
+- Database lint retains the reviewed main-branch behavior: known legacy
+  runtime-only `pg_temp` relation findings remain visible, while migration,
+  pgTAP, and concurrency gates fail the job on real errors.
 
 ### Source Reports
 

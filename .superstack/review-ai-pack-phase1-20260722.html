@@ -27,7 +27,7 @@
     <section class="grid" aria-label="Review scores">
       <article class="card"><div class="muted">Security</div><div class="score">B</div><div class="good">Critical findings resolved</div></article>
       <article class="card"><div class="muted">Quality</div><div class="score">B</div><div class="good">Node and browser suites green</div></article>
-      <article class="card"><div class="muted">Production</div><div class="score warn">No</div><div>CI database and Deno gates remain mandatory</div></article>
+      <article class="card"><div class="muted">Production</div><div class="score warn">No</div><div>CI passed; production rollout remains separate</div></article>
     </section>
 
     <section class="card">
@@ -70,9 +70,9 @@ case_row.submitted_by_wallet &lt;&gt; actor_wallet</code></pre>
       <p><span class="tag warn">medium</span><span class="tag good">resolved</span>The production smoke used an invalid bare capabilities request and an undefined rollout-mode variable.</p>
       <p><strong>Fix:</strong> remove the malformed request and record the exact fixed mode <code>deploy-disabled</code>.</p>
     </article>
-    <article class="card finding open">
-      <p><span class="tag warn">medium</span><span class="tag warn">open validation</span>This workstation lacks Supabase CLI, Docker, Bash, and Deno.</p>
-      <p><strong>Required before merge or rollout:</strong> the existing CI job must pass the following checks.</p>
+    <article class="card finding resolved">
+      <p><span class="tag warn">medium</span><span class="tag good">resolved in CI</span>This workstation lacks Supabase CLI, Docker, Bash, and Deno.</p>
+      <p><strong>Resolution:</strong> PR #41 Stage-5 CI passed the following checks.</p>
       <pre><code>supabase db reset --local --no-seed
 supabase db lint --local --level error
 supabase test db
@@ -88,10 +88,10 @@ deno check supabase/functions/osi-v2-ai-pack/index.ts</code></pre>
           <tr><td>Dependency-free Node regression battery</td><td class="good">24 files passed</td></tr>
           <tr><td>AI Pack core</td><td class="good">25 passed</td></tr>
           <tr><td>AI Pack UI</td><td class="good">23 passed</td></tr>
-          <tr><td>Migration structure</td><td class="good">269 assertions passed</td></tr>
+          <tr><td>Migration structure</td><td class="good">272 assertions passed</td></tr>
           <tr><td>Playwright browser</td><td class="good">11 passed</td></tr>
           <tr><td>Whitespace and patch integrity</td><td class="good"><code>git diff --check</code> passed</td></tr>
-          <tr><td>Supabase, pgTAP, concurrency, Deno</td><td class="warn">Not runnable locally; required in CI</td></tr>
+          <tr><td>Supabase, pgTAP, concurrency, Deno</td><td class="good">Stage-5 CI passed in 4m15s</td></tr>
         </tbody>
       </table>
     </section>
