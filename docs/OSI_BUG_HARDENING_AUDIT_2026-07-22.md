@@ -3,13 +3,13 @@
 ## Scope and baseline
 
 - Branch: `codex/bug-hardening-audit`
-- Local `main` and local `origin/main` baseline: `c52ec5acb86cbaa511036df831aaec0488328664`
-- Remote refresh was attempted but GitHub DNS resolution was unavailable, so the local tracking ref is the recorded baseline.
+- Verified remote `origin/main` baseline: `fcf8d311940f3f716d5c01d4b1eea2b7b1d36a51`
+- The task started from stale local tracking commit `c52ec5acb86cbaa511036df831aaec0488328664` while GitHub DNS was unavailable. When connectivity returned, current `origin/main` was fetched and merged without rewriting history before final validation.
 - Production project named by the delivery brief: `afibxpniwfnavdobecrn`
 - Production URL checked read-only: `https://open-solana-intel.vercel.app`
 - No production database, Edge Function, feature flag, secret, or Vercel deployment was changed.
 
-The audit prompt says that native AI Pack is merged. The accepted delivery brief and V2 blueprint say native AI Pack remains a later rollout slice and the production root intentionally exposes no native generation control. The safer accepted interpretation was used: legacy reviewed-pack compatibility remains read-only and generation stays fail-closed until its native schema, three evidence layers, Stage-5 write proof, quota, and dedicated capability flag exist.
+Current `main` includes native V2 AI Pack Phase 1 in a dedicated `osi-v2-ai-pack` gateway. It was audited separately from the legacy V1 `osi-ai-pack` endpoint. The native slice has immutable Case-bound versions, three isolated evidence layers, exact manifest hashes, Stage-5 proofs, durable provider reservations, quota/cooldown controls, independent review quorum, class-A maintainer approval, minimized DTOs, and dedicated fail-closed flags. The unsafe legacy lane remains read-only and cannot generate, approve, or seal.
 
 ## Findings register
 
@@ -34,17 +34,18 @@ The audit prompt says that native AI Pack is merged. The accepted delivery brief
 - Payments/support: existing tests cover exact sender, recipients, lamports, mainnet/finality, memo binding, partial payment, retry/idempotency, and support isolation. No transfer was attempted.
 - Proof semantics: wallet-signed, Memo-anchored, verified SOL, system, and legacy labels remain distinct. Invalid transaction references do not become Solscan proof links.
 - The Wire: native typed evidence, uncertainty field, governance, promotion, challenge, and support boundaries remain covered by the existing 47 core and 19 UI tests.
-- AI Pack: native V2 is not yet implemented under the accepted delivery brief. The unsafe legacy generation lane was contained instead of being presented as native or production-ready.
-- UI truth and responsive behavior: production and local root were checked in a real Chrome session; local viewport was explicitly set to 390px. No horizontal overflow or console warning/error was observed. Root exposes no native AI generation control.
-- Capability flags: read-session checks accept exactly `"true"`; absent, malformed, or unavailable configuration denies restricted legacy reads. Legacy review and AI generation do not have an enable path in this slice.
+- AI Pack: native Phase 1 uses a separate V2 gateway and additive migration. Public output independently requires an approval receipt/time and exposes only the public brief plus the five-component confidence profile. Owner-safe and analyst-restricted layers, private notes, provider telemetry, and unapproved versions stay out of public DTOs. Generation is denied to Case owners, evidence is filtered before provider contact, and reservations enforce per-wallet, per-fingerprint, per-Case, and global limits. Twenty-five core and twenty-three UI checks passed. The unsafe legacy lane was contained rather than mixed into native governance.
+- UI truth and responsive behavior: production and local root were checked in a real Chrome session; local viewport was explicitly set to 390px. No horizontal overflow or console warning/error was observed. Native AI Pack is a real Case-drawer surface whose controls follow server capabilities; the legacy generator stays retired.
+- Capability flags: read-session and native AI Pack checks accept exactly `"true"`; absent, malformed, or unavailable configuration denies the affected path. Native generation requires the base write/proof flags plus `OSI_V2_AI_PACK_WRITES_ENABLED`; review/approval additionally require `OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED`. Legacy review and legacy AI generation have no enable path in this slice.
 - Data model and migration safety: no migration, destructive SQL, rename, drop, data rewrite, or schema count change was introduced.
 
 ## Tests and evidence
 
-- All 23 top-level Node test files passed after the fix.
+- All 25 top-level Node test files passed after merging current `origin/main` and applying the fix.
 - New `tests/osi-security-hardening.test.mjs`: 17/17 passed.
+- Native AI Pack core suite: 25/25 passed; native AI Pack UI suite: 23/23 passed.
 - Existing SAS suite: 48/48 passed.
-- Existing XSS suite: 35/35 passed.
+- Existing XSS suite: 36/36 passed.
 - JavaScript syntax checks passed for every modified browser script.
 - Browser: production root loaded without console warnings/errors; local root at 390px had `scrollWidth === clientWidth`; local legacy document loaded without console warnings/errors.
 - Not run: Deno type-check/lint, pgTAP/RLS matrix, clean database migration from zero, database lint, Supabase dry-run, two-connection PostgreSQL concurrency, and repository Playwright suite. The required runtimes/CLI packages are not available locally; no result is inferred for them.
@@ -52,7 +53,7 @@ The audit prompt says that native AI Pack is merged. The accepted delivery brief
 
 ## Rollout and rollback
 
-This branch has no production effect until reviewed and deployed. A safe rollout requires current `main`, the exact project ref, green CI including database/RLS jobs, function diff review, and read-only smoke checks. Deploy only `osi-analyst-intake` and `osi-ai-pack` if the reviewed workflow names them; static assets and the SAS issuer change follow the normal site/function rollout.
+This branch has no production effect until reviewed and deployed. A safe rollout requires current `main`, the exact project ref, green CI including database/RLS jobs, function diff review, and read-only smoke checks. The audit diff changes only the legacy `osi-analyst-intake` and `osi-ai-pack` functions; the native `osi-v2-ai-pack` implementation arrived unchanged from current `main`. Static assets and the SAS issuer change follow the normal reviewed rollout. Deploy only task-scoped functions named by that workflow.
 
 The rollback for the containment controls is a forward fix, not re-enabling the unsafe legacy writes. If restricted legacy reads fail after deployment, keep writes and generation disabled, verify the exact allowed origin and `OSI_V2_READ_SESSION_ENABLED`, and correct configuration or code through a focused PR. Do not drop or rewrite data.
 
