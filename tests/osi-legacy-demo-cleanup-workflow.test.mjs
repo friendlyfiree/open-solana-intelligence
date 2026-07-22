@@ -35,8 +35,15 @@ ok("delete statements never target V2 history tables",
 ok("the two real legacy Cases and demand receipts are protected",
   workflow.includes("8fc9fe7e-f57f-4761-ba73-47c2e3a4a230")
   && workflow.includes("ba9a6b58-3093-4a19-894a-eabc6a4dc8ed")
+  && workflow.includes("OSI-8FC9FE7EF57F4761BA73")
+  && workflow.includes("OSI-BA9A6B5830934A19894A")
   && workflow.includes("LEGACY_DEMAND_SIGNAL")
   && workflow.includes("diff -u /tmp/protected-before.jsonl /tmp/protected-after.jsonl"));
+ok("demand receipt lookups use stored public refs instead of Case UUIDs",
+  [...workflow.matchAll(/event_type = 'LEGACY_DEMAND_SIGNAL'\s+and (?:e\.)?target_id in \(\s*'([^']+)',\s*'([^']+)'/g)]
+    .every(([, first, second]) => first === "OSI-8FC9FE7EF57F4761BA73"
+      && second === "OSI-BA9A6B5830934A19894A")
+  && [...workflow.matchAll(/event_type = 'LEGACY_DEMAND_SIGNAL'\s+and (?:e\.)?target_id in \(/g)].length === 5);
 ok("post-check requires the legacy reports table to be empty",
   workflow.includes("Expected public.reports to contain zero rows after cleanup"));
 
