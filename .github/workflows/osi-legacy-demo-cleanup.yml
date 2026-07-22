@@ -77,7 +77,7 @@ jobs:
             echo "::error::This workflow may run only from current origin/main."
             exit 1
           }
-          if grep -Eq 'ALTER[[:space:]]+TABLE|session_replication_role|DISABLE[[:space:]]+TRIGGER' \
+          if grep -Eq 'ALTER[[:space:]]+TABLE|session_replication[_]role|DISABLE[[:space:]]+TRIGGER' \
             .github/workflows/osi-legacy-demo-cleanup.yml; then
             echo "::error::The cleanup workflow must never bypass append-only guards."
             exit 1
