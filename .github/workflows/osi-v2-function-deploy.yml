@@ -34,10 +34,11 @@ concurrency:
 env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
   FUNCTION_SLUG: osi-v2-case-read
+  FUNCTION_SLUGS: "osi-v2-case-read osi-v2-report-read"
 
 jobs:
   deploy:
-    name: Deploy osi-v2-case-read and smoke test
+    name: Deploy read-only functions and smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -60,20 +61,25 @@ jobs:
           set -euo pipefail
           [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::SUPABASE_ACCESS_TOKEN ABSENT."; exit 1; }
           [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::SUPABASE_PROJECT_ID does not match the pinned ref."; exit 1; }
-          [ -f "supabase/functions/${FUNCTION_SLUG}/index.ts" ] || { echo "::error::Function source missing."; exit 1; }
+          for slug in $FUNCTION_SLUGS; do
+            [ -f "supabase/functions/${slug}/index.ts" ] || { echo "::error::Function source missing: ${slug}."; exit 1; }
+          done
 
       - name: Install pinned Supabase CLI
         uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
         with:
           version: 2.109.1
 
-      - name: Deploy exactly the one read-only function
+      - name: Deploy exactly the read-only functions
         run: |
           set -euo pipefail
-          supabase functions deploy "$FUNCTION_SLUG" \
-            --project-ref "$EXPECTED_PROJECT_REF" \
-            --no-verify-jwt \
-            --use-api
+          for slug in $FUNCTION_SLUGS; do
+            echo "== deploying ${slug} =="
+            supabase functions deploy "$slug" \
+              --project-ref "$EXPECTED_PROJECT_REF" \
+              --no-verify-jwt \
+              --use-api
+          done
 
       - name: Anonymous smoke test (public-only, deny-by-default)
         run: |
