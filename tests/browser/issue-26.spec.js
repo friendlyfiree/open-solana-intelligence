@@ -6,6 +6,10 @@ const WALLET = '11111111111111111111111111111111';
 const OTHER = '11111111111111111111111111111112';
 const TX = '2'.repeat(88);
 const CASE_REF = 'OSI-C-A1B2C3D4E5F60718';
+const AI_CASE_REF = 'OSI-A1B2C3D4E5F6';
+const AI_PACK_REF = 'OSI-AP-A1B2C3D4E5F6';
+const AI_VERSION_REF = 'OSI-APV-A1B2C3D4E5F60718';
+const AI_REVIEW_REF = 'OSI-APR-A1B2C3D4E5F60718';
 const PRIVATE_REF = 'OSI-C-PRIVATE000000001';
 const REPORT_REF = 'OSI-RPT-A1B2C3D4E5F6';
 const VERSION_REF = 'OSI-RV-A1B2C3D4E5F60718';
@@ -13,6 +17,8 @@ const WIRE_REPORT_REF = 'OSI-WR-A1B2C3D4E5F6';
 const WIRE_VERSION_REF = 'OSI-WV-A1B2C3D4E5F60718';
 const PRIVATE_SENTINEL = 'PRIVATE_FIXTURE_SENTINEL';
 const WIRE_PRIVATE_SENTINEL = 'WIRE_PRIVATE_FIXTURE_SENTINEL';
+const AI_RESTRICTED_SENTINEL = 'AI_RESTRICTED_FIXTURE_SENTINEL';
+const AI_LONG_TOKEN = '3'.repeat(240);
 const now = Date.now();
 const iso = (offsetDays) => new Date(now + offsetDays * 86_400_000).toISOString();
 
@@ -79,8 +85,21 @@ const richCase = {
   proof_log: proofRows,
 };
 
+const aiCase = {
+  ...richCase,
+  public_ref: AI_CASE_REF,
+  title: 'AI Pack evidence-layer fixture',
+  summary: 'A fixture Case with approved evidence for the native AI Pack drawer.',
+  stage: 'open_public',
+  submitted_by_wallet: OTHER,
+  governance: {},
+  money: {},
+  proof_log: [],
+};
+
 const publicCases = [
   richCase,
+  aiCase,
   { ...richCase, public_ref: 'OSI-C-PLEDGED00000001', title: 'Pledged reward state', stage: 'open_public', money: { reward: { status: 'pledged' } }, governance: {}, proof_log: [] },
   { ...richCase, public_ref: 'OSI-C-FULFILLED000001', title: 'Fulfilled reward state', stage: 'sealed', money: { reward: { status: 'fulfilled' } }, governance: {}, proof_log: proofRows },
 ];
@@ -118,6 +137,53 @@ const reportFixture = {
     version(2, 'in_review', ['reject', 'request_revision']),
     version(3, 'submitted', ['abstain']),
   ],
+};
+
+const aiPackFixture = {
+  viewer_role: 'analyst',
+  packs: [{
+    public_ref: AI_PACK_REF,
+    case_public_ref: AI_CASE_REF,
+    pack_type: 'exchange',
+    current_version_ref: AI_VERSION_REF,
+    versions: [{
+      version_ref: AI_VERSION_REF,
+      version_no: 1,
+      lifecycle_state: 'review_required',
+      created_at: iso(-1),
+      created_by_wallet: OTHER,
+      created_by_role: 'analyst',
+      content_public_brief: `Public evidence-layer fixture ${AI_LONG_TOKEN}`,
+      content_owner_safe: `Owner-safe fixture ${AI_LONG_TOKEN}`,
+      content_analyst_restricted: `${AI_RESTRICTED_SENTINEL} lawful context ${AI_LONG_TOKEN}`,
+      confidence_profile: {
+        public_verifiability: { label: 'High', basis: 'All public citations are independently retrievable.' },
+        onchain_reproducibility: { value: 2, denominator: 2, basis: 'Both cited transactions resolve on mainnet.' },
+        evidence_coverage: { status: 'partial', basis: 'One open Case question remains.' },
+        source_consistency: { label: 'Corroborated', basis: 'Two independent sources agree.' },
+        analyst_attestation: { value: 1.5, basis: 'Count gate remains unmet.' },
+      },
+      staleness: {
+        public: { stale: false },
+        owner_safe: { stale: true, stale_at: iso(-.25), reason: 'Owner-safe evidence changed after generation.' },
+        analyst_restricted: { stale: false },
+      },
+      quorum: { approve_count: 1, approve_weight: 1.5, required_count: 2, required_weight: 2.5, ready: false },
+      reviews: [{
+        review_public_ref: AI_REVIEW_REF,
+        reviewer_wallet: WALLET,
+        decision: 'support',
+        weight: 1.5,
+        public_rationale: 'The artifact remains evidence-bound but needs one more independent analyst.',
+        proof_label: 'Wallet-signed and server-verified',
+        created_at: iso(-.5),
+      }],
+      can_review_exact_version: true,
+      review_prerequisite: null,
+      can_finalize: false,
+      finalize_prerequisite: 'Needs one more independent analyst and 1.00 counted weight.',
+    }],
+  }],
 };
 
 const wireFixture = {
@@ -215,7 +281,7 @@ function token(origin) {
     v: 1, iss: 'osi-v2-case-read', aud: origin, sub: WALLET,
     iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300,
     jti: 'fixture-session-jti-00000000000000000001',
-    scp: ['case:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'wire:mine', 'wire:queue', 'analyst:workspace', 'analyst:maintainer'],
+    scp: ['case:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'wire:mine', 'wire:queue', 'analyst:workspace', 'analyst:maintainer', 'aipack:detail'],
     auth_sub: null,
   })}.fixture-signature`;
 }
@@ -274,6 +340,34 @@ async function installFixtureNetwork(page) {
         publication_proof: { tx_sig: TX }, process_notice: 'Publication does not resolve the Case.',
       }];
       else response.reports = [reportFixture];
+    } else if (endpoint === 'osi-v2-ai-pack') {
+      if (body.op === 'capabilities') {
+        const owner = body.case_ref === CASE_REF || body.case_ref === PRIVATE_REF;
+        response = {
+          ok: true,
+          ai_pack_writes_enabled: true,
+          ai_pack_review_writes_enabled: false,
+          wallet_connected: true,
+          viewer_role: owner ? 'owner' : 'analyst',
+          analyst_eligible: !owner,
+          maintainer_access: false,
+          can_generate: !owner,
+          generation_prerequisite: owner
+            ? 'Case-owner generation is deferred until a separate budget and quota release.'
+            : null,
+        };
+      } else if (body.op === 'get_case_packs') {
+        response = { ok: true, ...aiPackFixture };
+      } else if (body.op === 'list_public_case_packs') {
+        response = { ok: true, viewer_role: 'public', packs: [] };
+      } else if (body.op === 'prepare_generation') {
+        await new Promise((resolve) => setTimeout(resolve, 180));
+        response = {
+          ok: false,
+          error: 'ai_pack_case_cooldown_active',
+          details: { retry_after_seconds: 90 },
+        };
+      }
     } else if (endpoint === 'osi-v2-wire') {
       if (body.op === 'capabilities') response = {
         ok: true, wire_writes_enabled: true, publication_enabled: true,
@@ -567,6 +661,78 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await page.waitForFunction(() => typeof window.osiV2OpenMyCases === 'function');
   expect(await page.evaluate(() => sessionStorage.getItem('osi_v2_read_session_v1'))).toBeNull();
   expect(await page.evaluate(() => sessionStorage.getItem('osi_v2_read_session_expired_v1'))).toBe('1');
+  expectCleanRuntime(page);
+});
+
+test('AI Pack drawer preserves capability, keyboard, reduced-motion, and 390px contracts', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await ready(page);
+  await page.evaluate(() => window.osiNavigate('field'));
+  await page.getByLabel('Filter by status').selectOption('all');
+  const opener = page.locator(`[data-case-ref="${AI_CASE_REF}"]`);
+  await expect(opener).toBeVisible();
+  await opener.click();
+  await expect(page.locator('#osi-case-drawer')).toBeVisible();
+
+  const aiTab = page.locator('[data-tab="ai_pack"]');
+  await aiTab.click();
+  await expect(page.locator('#osi-ai-pack-root')).toContainText(AI_RESTRICTED_SENTINEL);
+  await expect(page.locator('#osi-ai-pack-root')).toContainText('Evidence Confidence Profile');
+  await expect(page.locator('#osi-ai-pack-root')).toContainText('current at last server check');
+  await expect(page.locator('#osi-ai-pack-generate')).toBeEnabled();
+  await expect(page.locator('#osi-ai-review-submit')).toBeDisabled();
+  await expect(page.locator('#osi-ai-review-help')).toContainText('production-disabled');
+  await expect(page.locator('#osi-ai-layer option')).toHaveCount(3);
+  await page.locator('#osi-ai-pack-generate').click();
+  await expect(page.locator('#osi-ai-pack-generate')).toBeDisabled();
+  await expect(page.locator('#osi-ai-pack-generation-status')).toContainText('Try again in 2 minutes.');
+  await expect(page.locator('#osi-ai-pack-generate')).toBeEnabled();
+
+  await aiTab.focus();
+  await aiTab.press('ArrowRight');
+  await expect(page.locator('[data-tab="resolution"]')).toBeFocused();
+  await expect(page.locator('#osi-case-content')).toHaveAttribute('aria-labelledby', 'osi-case-tab-resolution');
+  await page.locator('[data-tab="resolution"]').press('ArrowLeft');
+  await expect(page.locator('[data-tab="ai_pack"]')).toBeFocused();
+  await expect(page.locator('#osi-case-content')).toHaveAttribute('aria-labelledby', 'osi-case-tab-ai_pack');
+  await expect(page.locator('#osi-ai-pack-root')).toContainText(AI_RESTRICTED_SENTINEL);
+
+  await page.locator('#osi-ai-layer').selectOption('owner_safe');
+  await expect(page.locator('#osi-ai-pack-root')).toContainText('Owner-safe fixture');
+  await page.locator('#osi-ai-layer').selectOption('analyst_restricted');
+  await expect(page.locator('#osi-ai-pack-root')).toContainText(AI_RESTRICTED_SENTINEL);
+
+  const versionButton = page.locator('[data-ai-version]').first();
+  await versionButton.focus();
+  await expect(versionButton).toBeFocused();
+  await expect(versionButton).toHaveAttribute('aria-current', 'true');
+  const focusStyle = await versionButton.evaluate((node) => {
+    const style = getComputedStyle(node);
+    const rect = node.getBoundingClientRect();
+    return { outline: parseFloat(style.outlineWidth), height: rect.height };
+  });
+  expect(focusStyle.outline).toBeGreaterThanOrEqual(2);
+  expect(focusStyle.height).toBeGreaterThanOrEqual(40);
+  expect(await page.locator('#osi-case-drawer .osi-case-panel').evaluate((node) => getComputedStyle(node).animationName)).toBe('none');
+
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(page.locator('#osi-ai-pack-root')).toContainText(AI_LONG_TOKEN.slice(0, 80));
+    const overflow = await page.locator('#osi-case-drawer').evaluate((drawer) => {
+      const panel = drawer.querySelector('.osi-case-panel');
+      const content = drawer.querySelector('.osi-case-content');
+      return {
+        document: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+        panel: panel.scrollWidth <= panel.clientWidth + 1,
+        content: content.scrollWidth <= content.clientWidth + 1,
+      };
+    });
+    expect(overflow).toEqual({ document: true, panel: true, content: true });
+  }
+
+  await page.locator('#osi-case-drawer .osi-case-close').click();
+  await expect(page.locator('#osi-case-drawer')).toBeHidden();
+  await expect(opener).toBeFocused();
   expectCleanRuntime(page);
 });
 

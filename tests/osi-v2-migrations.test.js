@@ -28,6 +28,7 @@ const expectedFiles = [
   '20260716120000_osi_v2_sas_credential.sql',
   '20260718120000_osi_v2_wire_phase1.sql',
   '20260718130000_osi_v2_wire_phase2.sql',
+  '20260718140000_osi_v2_ai_pack_phase1.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -49,6 +50,18 @@ const bootstrapGovernance = sqlByFile['20260716063000_osi_v2_bootstrap_governanc
 const sasCredential = sqlByFile['20260716120000_osi_v2_sas_credential.sql'] || '';
 const wirePhase1 = sqlByFile['20260718120000_osi_v2_wire_phase1.sql'] || '';
 const wirePhase2 = sqlByFile['20260718130000_osi_v2_wire_phase2.sql'] || '';
+const aiPackPhase1 = sqlByFile['20260718140000_osi_v2_ai_pack_phase1.sql'] || '';
+const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
+  'create function osi_private.osi_v2_commit_ai_pack_approval',
+);
+const aiPackApprovalCommitEnd = aiPackPhase1.indexOf(
+  'create function public.osi_v2_prepare_ai_pack_generation',
+  aiPackApprovalCommitStart,
+);
+const aiPackApprovalCommit = aiPackPhase1.slice(
+  aiPackApprovalCommitStart,
+  aiPackApprovalCommitEnd,
+);
 const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const analystProductionWorkflow = fs.readFileSync(
@@ -73,6 +86,10 @@ const readSessionProductionWorkflow = fs.readFileSync(
 );
 const wireProductionWorkflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'osi-v2-wire-production.yml'),
+  'utf8',
+);
+const aiPackProductionWorkflow = fs.readFileSync(
+  path.join(root, '.github', 'workflows', 'osi-v2-ai-pack-production.yml'),
   'utf8',
 );
 function workflowVersionList(name) {
@@ -177,6 +194,7 @@ for (const functionName of [
   'osi-v2-governance-write',
   'osi-v2-payment',
   'osi-v2-wire',
+  'osi-v2-ai-pack',
 ]) {
   const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   ok(
@@ -235,6 +253,8 @@ const infraTables = [
   'osi_v2_sas_wallet_credentials',
   'osi_v2_sas_review_verifications',
   'osi_v2_sas_verify_events',
+  // AI Pack Phase 1: provider reservation/cost state, never a domain entity.
+  'osi_v2_ai_pack_generation_runs',
 ];
 const expectedPhysicalTables = logicalDomainTables
   .map((name) => name === 'challenges' ? 'challenges_v2' : name)
@@ -246,9 +266,9 @@ const createdTables = [...allSql.matchAll(
 )].map((match) => match[1]).sort();
 
 ok('32 logical domain tables', logicalDomainTables.length === 32);
-ok('7 separate infrastructure tables', infraTables.length === 7);
+ok('8 separate infrastructure tables', infraTables.length === 8);
 ok(
-  '39 expected physical tables represented',
+  '40 expected physical tables represented',
   JSON.stringify(createdTables) === JSON.stringify(expectedPhysicalTables),
   createdTables.join(', '),
 );
@@ -279,7 +299,11 @@ for (const table of expectedPhysicalTables.filter((name) => name !== 'osi_config
         && /revoke all privileges on table public\.osi_read_nonces from public, anon, authenticated/i.test(lifecycle))
       // D19 SAS infrastructure tables force RLS and service-role grants inside
       // their own additive migration (same fail-closed pattern as default-deny).
-      || (table.startsWith('osi_v2_sas_') && sasCredential.includes("'" + table + "'")),
+      || (table.startsWith('osi_v2_sas_') && sasCredential.includes("'" + table + "'"))
+      || (table === 'osi_v2_ai_pack_generation_runs'
+        && /alter table public\.osi_v2_ai_pack_generation_runs enable row level security/i.test(aiPackPhase1)
+        && /alter table public\.osi_v2_ai_pack_generation_runs force row level security/i.test(aiPackPhase1)
+        && /revoke all privileges on table public\.osi_v2_ai_pack_generation_runs[\s\S]*from public, anon, authenticated/i.test(aiPackPhase1)),
   );
 }
 ok(
@@ -619,7 +643,7 @@ ok(
     && wireProductionWorkflow.includes('[ "$got" = "$PENDING_VERSIONS" ]')
     && JSON.stringify(wireBaseVersions) === JSON.stringify(expectedVersionIds.slice(0, 15))
     && JSON.stringify(wirePhase1Versions) === JSON.stringify(expectedVersionIds.slice(0, 16))
-    && JSON.stringify(wireAfterVersions) === JSON.stringify(expectedVersionIds),
+    && JSON.stringify(wireAfterVersions) === JSON.stringify(expectedVersionIds.slice(0, 17)),
 );
 ok(
   'Wire rollout safely catches up an undeployed Phase 1 and treats an absent flag as closed',
@@ -704,6 +728,136 @@ ok(
   'Wire production workflow has no planner-foldable constant error assertions',
   !/cast\s*\(\s*1\s*\/\s*0/i.test(wireProductionWorkflow)
     && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(wireProductionWorkflow),
+);
+ok(
+  'AI Pack production workflow is manual current-main-only and exact-migration pinned',
+  aiPackProductionWorkflow.includes('workflow_dispatch:')
+    && !aiPackProductionWorkflow.includes('pull_request:')
+    && !aiPackProductionWorkflow.includes('push:')
+    && aiPackProductionWorkflow.includes('refs/heads/main')
+    && aiPackProductionWorkflow.includes('NEW_VERSION: "20260718140000"')
+    && aiPackProductionWorkflow.includes('AI-PACK-PHASE1-DEPLOY-${EXPECTED_PROJECT_REF}')
+    && aiPackProductionWorkflow.includes('supabase db push --linked --dry-run')
+    && aiPackProductionWorkflow.includes('[ "$got" = "$NEW_VERSION" ]'),
+);
+ok(
+  'AI Pack rollout validates fully and deploys exactly its two touched functions',
+  aiPackProductionWorkflow.includes('needs: validate')
+    && aiPackProductionWorkflow.includes('supabase db reset --local --no-seed')
+    && aiPackProductionWorkflow.includes('supabase db lint --local --level error --fail-on error')
+    && aiPackProductionWorkflow.includes('supabase test db')
+    && aiPackProductionWorkflow.includes('bash tests/osi-v2-concurrency.test.sh')
+    && aiPackProductionWorkflow.includes('for fn in osi-v2-case-read osi-v2-ai-pack')
+    && !aiPackProductionWorkflow.includes('functions deploy osi-v2-proof'),
+);
+ok(
+  'AI Pack rollout preserves every prior config and V1 row and never enables writes',
+  aiPackProductionWorkflow.includes('/tmp/config-before.txt')
+    && aiPackProductionWorkflow.includes('/tmp/config-after-migration-all.txt')
+    && aiPackProductionWorkflow.includes('/tmp/config-final-all.txt')
+    && aiPackProductionWorkflow.includes(
+      'diff -u /tmp/config-after-migration-all.txt /tmp/config-final-all.txt',
+    )
+    && aiPackProductionWorkflow.includes('/tmp/v1-before.txt')
+    && aiPackProductionWorkflow.includes('/tmp/v1-after.txt')
+    && !aiPackProductionWorkflow.includes('Enable only the dedicated AI Pack')
+    && aiPackProductionWorkflow.includes("'OSI_V2_AI_PACK_WRITES_ENABLED', 'false'")
+    && aiPackProductionWorkflow.includes("'OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED', 'false'")
+    && aiPackProductionWorkflow.includes("key='OSI_V2_WRITES_ENABLED'")
+    && aiPackProductionWorkflow.includes("key='OSI_V2_PROOF_ENABLED'")
+    && aiPackProductionWorkflow.includes('Fail closed after any rollout or smoke failure'),
+);
+ok(
+  'AI Pack rollout gates the provider secret and runs privacy plus sibling smoke',
+  aiPackProductionWorkflow.includes('ANTHROPIC_API_KEY')
+    && aiPackProductionWorkflow.includes('SOLANA_RPC_URL')
+    && aiPackProductionWorkflow.includes('grep -Fxq "$name"')
+    && aiPackProductionWorkflow.includes('list_public_packs')
+    && aiPackProductionWorkflow.includes('list_public_cases')
+    && aiPackProductionWorkflow.includes('issue_read_session_challenge')
+    && aiPackProductionWorkflow.includes('sas_verify')
+    && aiPackProductionWorkflow.includes('list_public_wire_reports')
+    && aiPackProductionWorkflow.includes('content_analyst_restricted'),
+);
+ok(
+  'AI Pack production workflow has no planner-foldable constant error assertions',
+  !/cast\s*\(\s*1\s*\/\s*0/i.test(aiPackProductionWorkflow)
+    && !/(?:^|[^\w])\d+\s*\/\s*0(?:[^\w]|$)/m.test(aiPackProductionWorkflow),
+);
+ok(
+  'AI Pack production smoke uses executable requests and a defined disabled rollout receipt',
+  !aiPackProductionWorkflow.includes('-d \'{"op":"capabilities"}\'')
+    && aiPackProductionWorkflow.includes('-d \'{"op":"list_public_packs"}\'')
+    && aiPackProductionWorkflow.includes('rollout_mode=deploy-disabled')
+    && !aiPackProductionWorkflow.includes('rollout_mode=${MODE}'),
+);
+
+// ---- Native V2 AI Pack Phase 1 structural invariants ----
+ok(
+  'AI Pack Phase 1 has separate fail-closed generation and review gates',
+  /'OSI_V2_AI_PACK_WRITES_ENABLED',\s*'false'/i.test(aiPackPhase1)
+    && /'OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED',\s*'false'/i.test(aiPackPhase1),
+);
+ok(
+  'AI Pack telemetry is additive infrastructure with FORCE RLS and service-only access',
+  /create table public\.osi_v2_ai_pack_generation_runs/i.test(aiPackPhase1)
+    && /alter table public\.osi_v2_ai_pack_generation_runs force row level security/i.test(aiPackPhase1)
+    && /revoke all privileges on table public\.osi_v2_ai_pack_generation_runs[\s\S]*from public, anon, authenticated/i.test(aiPackPhase1)
+    && /grant select, insert, update on table public\.osi_v2_ai_pack_generation_runs[\s\S]*to service_role/i.test(aiPackPhase1),
+);
+ok(
+  'AI Pack public projection is approval-bound and excludes private layers',
+  /create function public\.osi_v2_list_public_ai_packs/i.test(aiPackPhase1)
+    && /approval_receipt_id is not null/i.test(aiPackPhase1)
+    && !/grant\s+select\s+on\s+public\.ai_pack_/i.test(aiPackPhase1)
+    && /procedure\.proname like 'osi_v2%ai_pack%'/i.test(aiPackPhase1)
+    && /revoke all privileges on function %s from public, anon, authenticated/i.test(aiPackPhase1)
+    && /grant execute on function %s to service_role/i.test(aiPackPhase1),
+);
+ok(
+  'AI Pack approval is normal-quorum only and explicitly excludes bootstrap',
+  /OSI_V2_AI_PACK_MIN_COUNT/i.test(aiPackPhase1)
+    && /OSI_V2_AI_PACK_MIN_WEIGHT/i.test(aiPackPhase1)
+    && /osi_v2_ai_pack_quorum/i.test(aiPackApprovalCommit)
+    && /decision_channel\s*<>\s*'standard'/i.test(aiPackApprovalCommit)
+    && /'standard'/i.test(aiPackApprovalCommit)
+    && !/osi_v2_bootstrap|maintainer_bootstrap/i.test(aiPackApprovalCommit),
+);
+ok(
+  'AI Pack generation rechecks the public Case boundary before provider work and commit',
+  (aiPackPhase1.match(/case_row\.visibility\s*<>\s*'public'/g) || []).length >= 3
+    && (aiPackPhase1.match(/case_row\.stage\s+not\s+in/g) || []).length >= 3,
+);
+ok(
+  'AI Pack review and approval fail closed on live per-layer evidence drift',
+  aiPackPhase1.includes('ai_pack_review_evidence_stale')
+    && aiPackPhase1.includes('ai_pack_approval_evidence_stale')
+    && aiPackPhase1.includes('Regenerate before review.')
+    && aiPackPhase1.includes('Regenerate before approval.')
+    && (aiPackPhase1.match(/osi_v2_ai_pack_layer_drift\(version_row\.id\)/g) || []).length >= 5,
+);
+ok(
+  'expired provider reservations have a bounded forward recovery path',
+  /update public\.osi_v2_ai_pack_generation_runs as abandoned[\s\S]*abandoned\.state = 'reserved'[\s\S]*abandoned\.expires_at <= now_value/i
+    .test(aiPackPhase1)
+    && aiPackPhase1.includes('ai_pack_generation_abandoned_after_expiry'),
+);
+ok(
+  'AI Pack replacement lineage reaches superseded without inventing approval metadata',
+  /create or replace function public\.osi_v2_valid_ai_pack_transition[\s\S]*'review_required'[\s\S]*'disputed'[\s\S]*and new_state = 'superseded'/i
+    .test(aiPackPhase1)
+    && /prior\.lifecycle_state = 'revision_requested'/i.test(aiPackPhase1)
+    && /prior\.lifecycle_state in \([\s\S]*'review_required'[\s\S]*'attached_to_resolution'[\s\S]*\)/i
+      .test(aiPackApprovalCommit)
+    && /lifecycle_state = 'superseded'[\s\S]*approved_at is not null[\s\S]*or \([\s\S]*approved_at is null/i
+      .test(aiPackPhase1),
+);
+ok(
+  'AI Pack manifests use exact Case-bound evidence rather than mutable promoted Wire headers',
+  /create function osi_private\.osi_v2_ai_pack_evidence_manifest[\s\S]*public\.case_evidence_links[\s\S]*public\.case_report_version_evidence/i
+    .test(aiPackPhase1)
+    && !/create function osi_private\.osi_v2_ai_pack_evidence_manifest[\s\S]*promoted_to_case_id\s*=\s*p_case_id[\s\S]*create function osi_private\.osi_v2_ai_pack_manifest_hash/i
+      .test(aiPackPhase1),
 );
 ok(
   'Resolution production workflow is manual main-only and exact-migration pinned',

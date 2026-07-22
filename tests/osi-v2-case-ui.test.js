@@ -11,6 +11,7 @@ const app = read('assets/js/v2-case-integration.js');
 const css = read('assets/css/v2-case-integration.css');
 const reportIntegration = read('assets/js/v2-report-integration.js');
 const analystIntegration = read('assets/js/v2-analyst-integration.js');
+const aiPackIntegration = read('assets/js/v2-ai-pack-integration.js');
 const functionalSurface = read('assets/js/88-functional-surface.js');
 const briefing = read('assets/js/12-demo-briefing.js');
 
@@ -29,6 +30,9 @@ ok('Home exposes the primary Case and public-record actions',
     && index.includes('onclick="osiNavigate(\'records\')">Browse Public Records</button>'));
 ok('Case integration overrides the legacy Field renderer before app boot',
   index.indexOf('assets/js/v2-case-integration.js') < index.indexOf('assets/js/99-app.js'));
+ok('AI Pack integration loads before the Case drawer that consumes it',
+  index.indexOf('assets/js/v2-ai-pack-integration.js') > 0
+    && index.indexOf('assets/js/v2-ai-pack-integration.js') < index.indexOf('assets/js/v2-case-integration.js'));
 ok('legacy fallback does not load the V2 Case integration',
   !legacy.includes('v2-case-integration'));
 ok('preview is not promoted from the primary app',
@@ -65,7 +69,7 @@ for (const field of [
 ok('Case form uses the real signed submission handler',
   index.includes('onsubmit="osiV2SubmitCase(event)"'));
 for (const section of [
-  'Overview', 'Evidence', 'Reports', 'Reviews',
+  'Overview', 'Evidence', 'Reports', 'Reviews', 'AI Pack',
   'Resolution', 'Challenges', 'Rewards & Support', 'Proof Log',
 ]) {
   ok('Case detail exposes ' + section, app.includes(section));
@@ -74,6 +78,38 @@ for (const section of [
 ok('browser calls dedicated read and write functions',
   app.includes('/functions/v1/osi-v2-case-read') &&
   app.includes('/functions/v1/osi-v2-case-write'));
+ok('AI Pack browser calls only its dedicated trusted gateway',
+  aiPackIntegration.includes('/functions/v1/osi-v2-ai-pack')
+    && !/supa(?:Post|Patch|Delete)|\.from\(/.test(aiPackIntegration));
+ok('AI Pack generation is Case-specific and fails closed on the server capability',
+  aiPackIntegration.includes("op:'capabilities'")
+    && aiPackIntegration.includes('case_ref:ref')
+    && aiPackIntegration.includes('!reason&&caps.can_generate===true'));
+ok('AI Pack exact-version review and finalization use server-derived capability fields',
+  aiPackIntegration.includes('version.can_review_exact_version===true')
+    && aiPackIntegration.includes('version.review_prerequisite')
+    && aiPackIntegration.includes('version.can_finalize===true')
+    && aiPackIntegration.includes('version.finalize_prerequisite'));
+ok('AI Pack public and owner viewers cannot render a returned restricted layer',
+  aiPackIntegration.includes("role!=='public'&&Object.prototype.hasOwnProperty.call(version,'content_owner_safe')")
+    && aiPackIntegration.includes("restrictedViewer(role)&&Object.prototype.hasOwnProperty.call(version,'content_analyst_restricted')")
+    && aiPackIntegration.includes("role==='public'&&!publicLifecycle(version)"));
+ok('AI Pack never invents staleness or receipt verification',
+  aiPackIntegration.includes('staleness unavailable')
+    && aiPackIntegration.includes('Proof unavailable')
+    && !aiPackIntegration.includes("row.proof_label||'Wallet-signed and server-verified'"));
+ok('AI Pack content remains a component profile rather than one headline score',
+  aiPackIntegration.includes('Public verifiability')
+    && aiPackIntegration.includes('Count-gated analyst attestation')
+    && aiPackIntegration.includes('does not calculate an accuracy'));
+ok('AI Pack missing-script state cannot silently fall through to Proof Log',
+  app.includes('AI Pack interface did not load')
+    && app.includes("state.tab==='ai_pack'?"));
+ok('closing or invalidating a Case wipes AI Pack state and rendered drawer content',
+  app.includes('function wipeCaseDrawerContent()')
+    && app.includes('window.osiV2AiPackClear()')
+    && aiPackIntegration.includes('state.loadToken++')
+    && aiPackIntegration.includes('root.replaceChildren()'));
 ok('browser calls the dedicated server-only native SOL gateway',
   app.includes('/functions/v1/osi-v2-payment') && app.includes("op:'prepare_payment'")
     && app.includes("op:'commit_payment'"));
@@ -105,8 +141,8 @@ ok('primary UI exposes no nonfunctional Solana Pay control',
   !/Solana Pay/i.test(app + reportIntegration + analystIntegration + index + briefing)
     && !index.includes('tip-pay-toggle'));
 ok('browser bundle contains no service-role credential name',
-  !/service[_-]?role/i.test(app));
-ok('browser bundle has no console logging', !/console\s*\./.test(app));
+  !/service[_-]?role/i.test(app + aiPackIntegration));
+ok('browser bundle has no console logging', !/console\s*\./.test(app + aiPackIntegration));
 ok('maintainer control uses the mature shell button id',
   app.includes("getElementById('admLockBtn')"));
 ok('owners are told self-review is unavailable',
@@ -143,7 +179,9 @@ ok('Case form and drawer trap keyboard focus',
   (app.includes("event.key==='Tab'") || app.includes("event.key!=='Tab'")));
 ok('Case detail tabs expose tab semantics',
   app.includes('role="tab"') && app.includes('aria-selected=') &&
-  app.includes("'ArrowLeft','ArrowRight','Home','End'"));
+  app.includes("'ArrowLeft','ArrowRight','Home','End'") &&
+  app.includes('aria-controls="osi-case-content"') &&
+  app.includes("content.setAttribute('aria-labelledby'"));
 
 function uiFiles(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

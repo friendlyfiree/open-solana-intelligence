@@ -12,6 +12,7 @@ const boot = read('assets/js/99-app.js');
 const maintainer = read('assets/js/54-maintainer-console.js');
 const report = read('assets/js/v2-report-integration.js');
 const wire = read('assets/js/v2-wire-integration.js');
+const aiPack = read('assets/js/v2-ai-pack-integration.js');
 const html = read('index.html');
 
 let assertions = 0;
@@ -30,7 +31,9 @@ ok(wallet.includes('clearWalletAuthorization()'), 'wallet changes clear derived 
 ok(wallet.includes('osiV2ReportClearSession'), 'wallet change clears cached private Report DTOs');
 ok(report.includes('state.reviewPending={};state.publicationPending={}'), 'wallet/session reset discards pending Report proofs');
 ok(html.indexOf('assets/js/52-read-session.js') < html.indexOf('assets/js/v2-case-integration.js')
-  && html.indexOf('assets/js/52-read-session.js') < html.indexOf('assets/js/v2-wire-integration.js'), 'shared read-session client loads before every V2 integration');
+  && html.indexOf('assets/js/52-read-session.js') < html.indexOf('assets/js/v2-wire-integration.js')
+  && html.indexOf('assets/js/52-read-session.js') < html.indexOf('assets/js/v2-ai-pack-integration.js')
+  && html.indexOf('assets/js/v2-ai-pack-integration.js') < html.indexOf('assets/js/v2-case-integration.js'), 'shared read-session client loads before every V2 integration and AI Pack loads before its Case consumer');
 ok(readSession.includes('storage:sessionStorage'), 'private read capability is held in browser-session storage only');
 ok(!/localStorage\.(?:getItem|setItem)\([^)]*read_session/i.test(readSession), 'private read capability is never persisted in localStorage');
 ok(readSession.includes("TOKEN_KEY='osi_v2_read_session_v1'"), 'one shared private capability key spans Case, Report, Wire, and Analyst');
@@ -44,6 +47,13 @@ ok(!report.includes("op:'issue_challenge'"), 'Report private reads no longer req
 ok(wire.includes("window.osiV2ReadSession(['wire:mine']") && !wire.includes("issue_read_challenge"), 'Wire private reads reuse the shared session without a signature per navigation');
 ok(wire.includes("window.osiV2ReadSession(['wire:queue']"), 'Wire analyst queue reuses the shared scoped read session');
 ok(wire.includes("state.queue=[];state.current=null") && wire.includes("osiV2RegisterPrivateCache('wire',clearSessionState)"), 'Wire queue and detail state clear with wallet or session invalidation');
+ok(aiPack.includes("window.osiV2ReadSession(['aipack:detail']"), 'AI Pack authorized layers reuse the exact shared read-session scope');
+ok(aiPack.includes('function shouldUsePrivate(')
+  && aiPack.includes("['owner','analyst','senior','maintainer'].indexOf(role)>=0")
+  && aiPack.includes("op:'list_public_case_packs'"), 'AI Pack avoids a private signature for an ordinary public viewer');
+ok(aiPack.includes("osiV2RegisterPrivateCache('ai-packs',clear)")
+  && aiPack.includes('state.loadToken++')
+  && aiPack.includes('root.replaceChildren()'), 'AI Pack invalidates stale reads and wipes rendered private content with the shared session');
 ok(!read('assets/js/v2-analyst-integration.js').includes("op:'issue_read_challenge'"), 'Analyst private reads no longer request a signature per navigation');
 
 ok(core.includes('window.supabase.createClient'), 'Supabase Auth uses the supported client session model');

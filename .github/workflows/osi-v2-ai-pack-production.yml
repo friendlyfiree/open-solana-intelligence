@@ -1,0 +1,537 @@
+name: OSI V2 AI Pack Phase 1 Production
+
+# Manual, current-main-only rollout for the additive AI Pack Phase 1 slice.
+# Generation costs money, so this workflow deliberately does not enable either
+# dedicated write flag. Enabling generation or governed review is a separate
+# production decision after telemetry and budget monitoring are ready.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type AI-PACK-PHASE1-DEPLOY-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-ai-pack-phase1-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  NEW_VERSION: "20260718140000"
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000 20260718140000
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean local AI Pack Phase 1 gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Require exact confirmation and current main
+        env:
+          CONFIRMATION: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [ "$CONFIRMATION" = "AI-PACK-PHASE1-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out exact dispatched commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Verify exact eighteen-migration repository
+        run: |
+          set -euo pipefail
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || {
+            echo "::error::Repository migration set is not the exact expected eighteen versions."; exit 1;
+          }
+          test -f "supabase/migrations/${NEW_VERSION}_osi_v2_ai_pack_phase1.sql"
+
+      - name: Full Node and touched-function battery
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          deno check supabase/functions/_shared/osi-v2-read-session-core.mjs
+          deno check supabase/functions/osi-v2-case-read/index.ts
+          deno check supabase/functions/osi-v2-ai-pack/index.ts
+
+      - name: Chromium UI contracts
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @playwright/test@1.55.0 http-server@14.1.1
+          npx playwright install --with-deps chromium
+          npx playwright test --config tests/browser/playwright.config.js
+
+      - name: Fresh PostgreSQL 17 migration lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Fresh local migration history is not exact."; exit 1; }
+          supabase db lint --local --level error --fail-on error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard disposable local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact migration two functions smoke and verify disabled
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Verify credentials project and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Validated commit is no longer current main."; exit 1;
+          }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot protected V1 counts and every pre-existing config value
+        run: |
+          set -euo pipefail
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")" = "false" ] || {
+            echo "::error::Broad V2 writes must remain disabled for this rollout."; exit 1;
+          }
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")" = "false" ] || {
+            echo "::error::Broad V2 proof must remain disabled for this rollout."; exit 1;
+          }
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/ai-pack-domain-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'ai_packs' table_name, (select count(*) from public.ai_packs) row_count
+            union all select 'ai_pack_versions', (select count(*) from public.ai_pack_versions)
+            union all select 'ai_pack_version_evidence', (select count(*) from public.ai_pack_version_evidence)
+            union all select 'ai_pack_reviews', (select count(*) from public.ai_pack_reviews)
+            union all select 'ai_pack_owner_feedback', (select count(*) from public.ai_pack_owner_feedback)
+          ) counts order by table_name;
+          commit;
+          SQL
+          [ "$(awk -F'|' '{total += $2} END {print total + 0}' /tmp/ai-pack-domain-before.txt)" = "0" ] || {
+            echo "::error::AI Pack Phase 1 requires an empty domain-table baseline."; exit 1;
+          }
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/config-before.txt <<'SQL'
+          begin read only;
+          select key || '|' || encode(convert_to(value, 'UTF8'), 'base64')
+            from public.osi_config
+           where key not in (
+             'OSI_V2_AI_PACK_WRITES_ENABLED',
+             'OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED',
+             'OSI_V2_AI_PACK_MODEL',
+             'OSI_V2_AI_PACK_RATE_WINDOW_SECONDS',
+             'OSI_V2_AI_PACK_MAX_PER_WALLET',
+             'OSI_V2_AI_PACK_MAX_PER_FINGERPRINT',
+             'OSI_V2_AI_PACK_CASE_COOLDOWN_SECONDS',
+             'OSI_V2_AI_PACK_DAILY_QUOTA',
+             'OSI_V2_AI_PACK_MAX_INPUT_CHARS',
+             'OSI_V2_AI_PACK_MAX_OUTPUT_TOKENS',
+             'OSI_V2_AI_PACK_MAX_OUTPUT_CHARS',
+             'OSI_V2_AI_PACK_MAX_EVIDENCE_ITEMS',
+             'OSI_V2_AI_PACK_PROVIDER_TIMEOUT_MS',
+             'OSI_V2_AI_PACK_INPUT_USD_MICROS_PER_MTOK',
+             'OSI_V2_AI_PACK_OUTPUT_USD_MICROS_PER_MTOK'
+           )
+           order by key;
+          commit;
+          SQL
+
+      - name: Link and verify exact remote migration history
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          before="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          after="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$before" ]; then echo "MODE=deploy" >> "$GITHUB_ENV";
+          elif [ "$got" = "$after" ]; then echo "MODE=resume" >> "$GITHUB_ENV";
+          else echo "::error::Remote history is not the exact before or after state."; exit 1; fi
+
+      - name: Record exact disable and forward-fix plan
+        run: |
+          echo "OSI_V2_AI_PACK_WRITES_ENABLED lands false and is not enabled by this workflow."
+          echo "OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED lands false and is not enabled by this workflow."
+          echo "Disable plan: keep both dedicated flags false and prepare a focused forward-fix."
+          echo "Immutable versions, manifests, receipts, feedback, reviews, and telemetry are retained."
+          echo "No drop, reset, repair, truncation, broad update, or data rewrite is an acceptable rollback."
+
+      - name: Dry-run exactly the AI Pack migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/ai-pack-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/ai-pack-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ] || { echo "::error::Dry-run is not exactly the expected AI Pack version."; exit 1; }
+
+      - name: Apply exactly the additive AI Pack migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Current main changed after validation; migration was not applied."; exit 1;
+          }
+          supabase db push --linked --yes
+
+      - name: Verify history defaults RLS grants and existing config isolation
+        run: |
+          set -euo pipefail
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")" = "$expected" ]
+          psql -v ON_ERROR_STOP=1 -Atq -f - <<'SQL'
+          do $$
+          declare
+            expected jsonb := jsonb_build_object(
+            'OSI_V2_AI_PACK_WRITES_ENABLED', 'false',
+            'OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED', 'false',
+            'OSI_V2_AI_PACK_MIN_COUNT', '2',
+            'OSI_V2_AI_PACK_MIN_WEIGHT', '2.50',
+            'OSI_V2_AI_PACK_MODEL', 'claude-sonnet-5',
+            'OSI_V2_AI_PACK_RATE_WINDOW_SECONDS', '3600',
+            'OSI_V2_AI_PACK_MAX_PER_WALLET', '2',
+            'OSI_V2_AI_PACK_MAX_PER_FINGERPRINT', '4',
+            'OSI_V2_AI_PACK_CASE_COOLDOWN_SECONDS', '21600',
+            'OSI_V2_AI_PACK_DAILY_QUOTA', '10',
+            'OSI_V2_AI_PACK_MAX_INPUT_CHARS', '24000',
+            'OSI_V2_AI_PACK_MAX_OUTPUT_TOKENS', '1000',
+            'OSI_V2_AI_PACK_MAX_OUTPUT_CHARS', '12000',
+            'OSI_V2_AI_PACK_MAX_EVIDENCE_ITEMS', '40',
+            'OSI_V2_AI_PACK_PROVIDER_TIMEOUT_MS', '45000',
+            'OSI_V2_AI_PACK_INPUT_USD_MICROS_PER_MTOK', '3000000',
+            'OSI_V2_AI_PACK_OUTPUT_USD_MICROS_PER_MTOK', '15000000'
+          );
+            table_name text;
+            role_name text;
+            privilege_name text;
+          begin
+            if exists (
+              select 1 from jsonb_each_text(expected) e
+              left join public.osi_config c on c.key = e.key
+              where c.value is distinct from e.value
+            ) then raise exception 'AI Pack config default is absent or changed'; end if;
+            foreach table_name in array array[
+              'ai_packs',
+              'ai_pack_versions',
+              'ai_pack_version_evidence',
+              'ai_pack_reviews',
+              'ai_pack_owner_feedback',
+              'osi_v2_ai_pack_generation_runs'
+            ] loop
+              if not (
+                select relrowsecurity and relforcerowsecurity
+                  from pg_class
+                 where oid = format('public.%I', table_name)::regclass
+              ) then
+                raise exception 'AI Pack table % is not FORCE RLS', table_name;
+              end if;
+              if not has_table_privilege(
+                'service_role',
+                format('public.%I', table_name),
+                'select'
+              ) then
+                raise exception 'AI Pack table % is not readable by service_role',
+                  table_name;
+              end if;
+              foreach role_name in array array['anon', 'authenticated'] loop
+                foreach privilege_name in array array[
+                  'select', 'insert', 'update', 'delete',
+                  'truncate', 'references', 'trigger'
+                ] loop
+                  if has_table_privilege(
+                    role_name,
+                    format('public.%I', table_name),
+                    privilege_name
+                  ) then
+                    raise exception 'AI Pack table % grants % to %',
+                      table_name, privilege_name, role_name;
+                  end if;
+                end loop;
+              end loop;
+            end loop;
+            if exists (
+              select 1
+                from pg_proc as proc
+                join pg_namespace as namespace on namespace.oid = proc.pronamespace
+               where namespace.nspname = 'public'
+                 and proc.proname like 'osi_v2_%ai_pack%'
+                 and (
+                   has_function_privilege('anon', proc.oid, 'execute')
+                   or has_function_privilege('authenticated', proc.oid, 'execute')
+                   or not has_function_privilege('service_role', proc.oid, 'execute')
+                 )
+            ) then
+              raise exception 'AI Pack RPC execute grants are not service-role-only';
+            end if;
+          end
+          $$;
+          SQL
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/config-after.txt <<'SQL'
+          begin read only;
+          select key || '|' || encode(convert_to(value, 'UTF8'), 'base64')
+            from public.osi_config
+           where key not in (
+             'OSI_V2_AI_PACK_WRITES_ENABLED',
+             'OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED',
+             'OSI_V2_AI_PACK_MODEL',
+             'OSI_V2_AI_PACK_RATE_WINDOW_SECONDS',
+             'OSI_V2_AI_PACK_MAX_PER_WALLET',
+             'OSI_V2_AI_PACK_MAX_PER_FINGERPRINT',
+             'OSI_V2_AI_PACK_CASE_COOLDOWN_SECONDS',
+             'OSI_V2_AI_PACK_DAILY_QUOTA',
+             'OSI_V2_AI_PACK_MAX_INPUT_CHARS',
+             'OSI_V2_AI_PACK_MAX_OUTPUT_TOKENS',
+             'OSI_V2_AI_PACK_MAX_OUTPUT_CHARS',
+             'OSI_V2_AI_PACK_MAX_EVIDENCE_ITEMS',
+             'OSI_V2_AI_PACK_PROVIDER_TIMEOUT_MS',
+             'OSI_V2_AI_PACK_INPUT_USD_MICROS_PER_MTOK',
+             'OSI_V2_AI_PACK_OUTPUT_USD_MICROS_PER_MTOK'
+           )
+           order by key;
+          commit;
+          SQL
+          diff -u /tmp/config-before.txt /tmp/config-after.txt
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/ai-pack-domain-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'ai_packs' table_name, (select count(*) from public.ai_packs) row_count
+            union all select 'ai_pack_versions', (select count(*) from public.ai_pack_versions)
+            union all select 'ai_pack_version_evidence', (select count(*) from public.ai_pack_version_evidence)
+            union all select 'ai_pack_reviews', (select count(*) from public.ai_pack_reviews)
+            union all select 'ai_pack_owner_feedback', (select count(*) from public.ai_pack_owner_feedback)
+          ) counts order by table_name;
+          commit;
+          SQL
+          diff -u /tmp/ai-pack-domain-before.txt /tmp/ai-pack-domain-after.txt
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/config-after-migration-all.txt <<'SQL'
+          begin read only;
+          select key || '|' || encode(convert_to(value, 'UTF8'), 'base64')
+            from public.osi_config
+           order by key;
+          commit;
+          SQL
+
+      - name: Require provider and authorization secrets by name without values
+        run: |
+          set -euo pipefail
+          secret_rows="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF")"
+          printf '%s\n' "$secret_rows" | awk -F '|' '{
+            name=$1; gsub(/^[[:space:]]+|[[:space:]]+$/, "", name);
+            if (name ~ /^[A-Z][A-Z0-9_]+$/) print name
+          }' | sort -u > /tmp/edge-secret-names.txt
+          for name in ANTHROPIC_API_KEY OSI_MAINTAINER_AUTH_UUID OSI_V2_ALLOWED_ORIGIN SOLANA_RPC_URL; do
+            grep -Fxq "$name" /tmp/edge-secret-names.txt || {
+              echo "::error::Required Edge Function secret ${name} is absent."; exit 1;
+            }
+            echo "${name}: present"
+          done
+
+      - name: Deploy exactly the two touched functions
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Current main changed before function deploy."; exit 1;
+          }
+          for fn in osi-v2-case-read osi-v2-ai-pack; do
+            supabase functions deploy "$fn" --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          done
+
+      - name: Read-only production privacy and regression smoke
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          origin_header="Origin: ${PRODUCTION_WEB_URL}"
+          wallet='11111111111111111111111111111112'
+          curl -sS --fail --max-time 30 -X POST "$base/osi-v2-ai-pack" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_packs"}' > /tmp/public-ai-packs.json
+          jq -e '
+            .ok == true
+            and .packs == []
+            and ((keys | sort) == ["ok", "packs"])
+          ' /tmp/public-ai-packs.json >/dev/null || {
+            echo "::error::Public AI Pack projection is not honestly empty."; exit 1;
+          }
+          if grep -Eiq '"(content_owner_safe|content_analyst_restricted|private_note|signature|nonce|prompt|provider_request_id|input_tokens|output_tokens)"[[:space:]]*:' /tmp/public-ai-packs.json; then
+            echo "::error::Public AI Pack response exposed a restricted field."; exit 1;
+          fi
+          curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_cases"}' > /tmp/public-cases.json
+          grep -q '"cases"' /tmp/public-cases.json || { echo "::error::list_public_cases regressed."; exit 1; }
+          session="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "$origin_header" -H 'Content-Type: application/json' -d "{\"op\":\"issue_read_session_challenge\",\"wallet\":\"${wallet}\"}")"
+          echo "$session" | grep -q '"challenge"' || { echo "::error::Read-session challenge regressed."; exit 1; }
+          verify="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-proof" -H "$origin_header" -H 'Content-Type: application/json' -d "{\"mode\":\"sas_verify\",\"wallet\":\"${wallet}\"}")"
+          echo "$verify" | grep -q '"program_id"' || { echo "::error::sas_verify regressed."; exit 1; }
+          echo "$verify" | grep -q '"valid":false' || {
+            echo "::error::sas_verify claimed validity for the uncredentialed smoke wallet."; exit 1;
+          }
+          wire="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-wire" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_wire_reports","limit":1}')"
+          echo "$wire" | grep -q '"reports"' || { echo "::error::Public Wire read regressed."; exit 1; }
+          [ "$(psql -Atqc "select count(*) from public.ai_pack_versions where approval_receipt_id is not null")" = "0" ] || {
+            echo "::error::An approved AI Pack unexpectedly exists before review rollout."; exit 1;
+          }
+
+      - name: Prove protected V1 rows and both AI Pack flags are unchanged
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          diff -u /tmp/v1-before.txt /tmp/v1-after.txt
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_AI_PACK_WRITES_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")" = "false" ]
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/config-final-all.txt <<'SQL'
+          begin read only;
+          select key || '|' || encode(convert_to(value, 'UTF8'), 'base64')
+            from public.osi_config
+           order by key;
+          commit;
+          SQL
+          diff -u /tmp/config-after-migration-all.txt /tmp/config-final-all.txt
+
+      - name: Fail closed after any rollout or smoke failure
+        if: ${{ failure() }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PGHOST:-}" ] || [ -z "${PGUSER:-}" ]; then
+            echo "No production database session was established; AI Pack writes were not enabled."
+            exit 0
+          fi
+          psql -v ON_ERROR_STOP=1 -Atq -f - <<'SQL'
+          update public.osi_config
+             set value='false', updated_at=statement_timestamp()
+           where key in (
+             'OSI_V2_AI_PACK_WRITES_ENABLED',
+             'OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED'
+           )
+             and value is distinct from 'false';
+          SQL
+          [ "$(psql -Atqc "select coalesce((select value from public.osi_config where key='OSI_V2_AI_PACK_WRITES_ENABLED'),'false')")" = "false" ]
+          [ "$(psql -Atqc "select coalesce((select value from public.osi_config where key='OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED'),'false')")" = "false" ]
+          echo "AI Pack write paths are disabled. Immutable data remains retained for a reviewed forward fix."
+
+      - name: Write deployment receipt artifact
+        run: |
+          mkdir -p deployment-receipt
+          {
+            echo "project_ref=${EXPECTED_PROJECT_REF}"
+            echo "migration=${NEW_VERSION}"
+            echo "rollout_mode=deploy-disabled"
+            echo "functions=osi-v2-case-read,osi-v2-ai-pack"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "ai_pack_writes=false"
+            echo "ai_pack_review_writes=false"
+            echo "broad_v2_writes=false"
+            echo "broad_v2_proof=false"
+            echo "provider_secret=confirmed_present_without_value"
+            echo "public_projection=empty"
+            echo "rollback=keep_dedicated_flags_false_and_forward_fix"
+          } > deployment-receipt/osi-v2-ai-pack-phase1-production.txt
+
+      - name: Upload deployment receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: osi-v2-ai-pack-phase1-production-${{ github.sha }}
+          path: deployment-receipt/osi-v2-ai-pack-phase1-production.txt
+          retention-days: 30

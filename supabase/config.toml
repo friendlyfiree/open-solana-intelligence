@@ -424,6 +424,14 @@ verify_jwt = false
 [functions.osi-v2-wire]
 verify_jwt = false
 
+# Native V2 AI Pack generation, governed review/finalization, and authorized
+# layered reads. The gateway validates wallet proofs, the shared read session,
+# and the maintainer JWT itself before service-only database actions run.
+# Provider credentials stay in Edge Function secrets and are never sent to the
+# browser. Both dedicated write flags land disabled.
+[functions.osi-v2-ai-pack]
+verify_jwt = false
+
 [functions.osi-v2-governance-write]
 verify_jwt = false
 
