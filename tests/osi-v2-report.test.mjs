@@ -287,6 +287,10 @@ ok("read gateway derives analyst eligibility and full maintainer double gate",
     && readSource.includes("walletGate && authGate")
     && readSource.includes("half_maintainer_wallet_only")
     && readSource.includes("half_maintainer_auth_only"));
+ok("author, review and public Report reads exclude archived parent Cases",
+  readSource.includes('in("id", caseIds).is("archived_at", null)')
+    && readSource.includes('eq("visibility", "public").is("archived_at", null)')
+    && readSource.includes('return !!caseRow && (access !== "analyst"'));
 ok("read gateway has durable issue and consume RPCs but no domain writes",
   readSource.includes('rpc("osi_v2_issue_read_nonce"')
     && readSource.includes('rpc("osi_v2_consume_read_nonce"')

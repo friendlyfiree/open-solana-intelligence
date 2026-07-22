@@ -122,7 +122,7 @@ function timingSafeEqualHex(left: string, right: string): boolean {
 // ---------------------------------------------------------------------------
 
 const CASE_COLS =
-  "id,public_ref,title,category,summary_public,details_restricted,reward_intent_lamports,submitted_by_wallet,stage,visibility,risk_tier,sealed_at,created_at,updated_at";
+  "id,public_ref,title,category,summary_public,details_restricted,reward_intent_lamports,submitted_by_wallet,stage,visibility,risk_tier,sealed_at,archived_at,created_at,updated_at";
 const REPORT_COLS =
   "id,case_id,author_wallet,current_version_id,current_published_version_id,status,public_ref,native_intake,created_at";
 const VERSION_COLS =
@@ -464,6 +464,7 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
 
 async function listPublicCases(): Promise<Response> {
   const { data, error } = await admin.from("cases").select(CASE_COLS)
+    .is("archived_at", null)
     .eq("visibility", "public")
     .in("stage", [...PUBLIC_CASE_STAGES])
     .order("created_at", { ascending: false })
@@ -492,7 +493,7 @@ async function getPublicCase(body: Row): Promise<Response> {
     return jsonResponse(400, { ok: false, error: "bad_public_ref" });
   }
   const { data, error } = await admin.from("cases").select(CASE_COLS)
-    .eq("public_ref", publicRef).limit(1);
+    .eq("public_ref", publicRef).is("archived_at", null).limit(1);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   const caseRow = data?.[0];
   // Private and nonexistent Cases are indistinguishable to anonymous callers.
@@ -737,6 +738,7 @@ async function listMyCases(req: Request, body: Row): Promise<Response> {
 
   const { data, error } = await admin.from("cases").select(CASE_COLS)
     .eq("submitted_by_wallet", proof.actor.wallet)
+    .is("archived_at", null)
     .order("created_at", { ascending: false }).limit(100);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   const caseRows = data ?? [];
@@ -892,6 +894,7 @@ async function listReviewableCases(req: Request, body: Row): Promise<Response> {
       "initial_review", "open_public", "in_review", "ready_for_finalization",
       "resolution_proposed", "in_challenge_window", "resolved", "reopened",
     ])
+    .is("archived_at", null)
     .neq("submitted_by_wallet", wallet)
     .order("created_at", { ascending: true }).limit(100);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
@@ -960,7 +963,7 @@ async function getAuthorizedCase(req: Request, body: Row): Promise<Response> {
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
 
   const { data, error } = await admin.from("cases").select(CASE_COLS)
-    .eq("public_ref", caseRef).limit(1);
+    .eq("public_ref", caseRef).is("archived_at", null).limit(1);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   const caseRow = data?.[0];
   if (!caseRow) return jsonResponse(404, { ok: false, error: "not_found_or_denied" });
@@ -1070,17 +1073,22 @@ async function maintainerCaseOverview(req: Request, body: Row): Promise<Response
   if (!authValid) return jsonResponse(403, { ok: false, error: "half_maintainer_wallet_only" });
   if (!walletValid) return jsonResponse(403, { ok: false, error: "half_maintainer_auth_only" });
 
-  const [casesRes, receiptsRes, crosswalkRes, queueRes] = await Promise.all([
-    admin.from("cases").select(CASE_COLS).order("created_at", { ascending: true }).limit(200),
+  const [casesRes, receiptsRes, crosswalkRes, queueRes, hiddenReceiptTargets] = await Promise.all([
+    admin.from("cases").select(CASE_COLS).is("archived_at", null)
+      .order("created_at", { ascending: true }).limit(200),
     admin.from("event_receipts").select(RECEIPT_COLS).limit(1000),
     admin.from("migration_crosswalk").select("id", { count: "exact", head: true }),
     admin.from("migration_manual_queue").select("id", { count: "exact", head: true }),
+    archivedCaseReceiptTargets(),
   ]);
-  if (casesRes.error) return jsonResponse(500, { ok: false, error: "read_failed" });
+  if (casesRes.error || receiptsRes.error) {
+    return jsonResponse(500, { ok: false, error: "read_failed" });
+  }
   const caseRows = casesRes.data ?? [];
   const graph = await loadCaseGraph(caseRows);
   const receiptTotals: Record<string, number> = {};
   for (const receipt of receiptsRes.data ?? []) {
+    if (hiddenReceiptTargets.has(String(receipt.target_id))) continue;
     const label = proofLabel(receipt);
     receiptTotals[label] = (receiptTotals[label] ?? 0) + 1;
   }
@@ -1104,6 +1112,28 @@ async function maintainerCaseOverview(req: Request, body: Row): Promise<Response
       },
     }),
   });
+}
+
+async function archivedCaseReceiptTargets(): Promise<Set<string>> {
+  const { data: archivedCases, error } = await admin.from("cases")
+    .select("id,public_ref").not("archived_at", "is", null).limit(500);
+  if (error) throw new Error("read_failed");
+  const caseIds = (archivedCases ?? []).map((row) => String(row.id));
+  const targets = new Set((archivedCases ?? []).flatMap((row) => [
+    String(row.id), String(row.public_ref),
+  ]));
+  if (!caseIds.length) return targets;
+  const { data: reports, error: reportError } = await admin.from("case_reports")
+    .select("id").in("case_id", caseIds).limit(1000);
+  if (reportError) throw new Error("read_failed");
+  const reportIds = (reports ?? []).map((row) => String(row.id));
+  for (const reportId of reportIds) targets.add(reportId);
+  if (!reportIds.length) return targets;
+  const { data: versions, error: versionError } = await admin.from("case_report_versions")
+    .select("id").in("report_id", reportIds).limit(3000);
+  if (versionError) throw new Error("read_failed");
+  for (const version of versions ?? []) targets.add(String(version.id));
+  return targets;
 }
 
 // ---------------------------------------------------------------------------
