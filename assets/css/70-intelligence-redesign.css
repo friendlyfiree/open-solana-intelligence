@@ -1752,6 +1752,15 @@ footer > .wrap {
   padding: clamp(20px, 3vw, 34px);
 }
 
+.osi-native-ops::before {
+  left: 0;
+  right: 0;
+}
+
+.osi-native-ops > * {
+  min-width: 0;
+}
+
 #osi-native-ops-overview {
   min-height: 92px;
   margin-top: 18px;

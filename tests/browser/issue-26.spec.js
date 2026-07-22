@@ -19,6 +19,16 @@ const PRIVATE_SENTINEL = 'PRIVATE_FIXTURE_SENTINEL';
 const WIRE_PRIVATE_SENTINEL = 'WIRE_PRIVATE_FIXTURE_SENTINEL';
 const AI_RESTRICTED_SENTINEL = 'AI_RESTRICTED_FIXTURE_SENTINEL';
 const AI_LONG_TOKEN = '3'.repeat(240);
+const ROLE_WALLETS = Object.freeze({
+  legacy: WALLET,
+  ordinary_wallet: WALLET,
+  analyst_candidate: '11111111111111111111111111111115',
+  verified_analyst: '11111111111111111111111111111116',
+  maintainer: '11111111111111111111111111111117',
+});
+const APPLICATION_ID = '55555555-5555-4555-8555-555555555555';
+const APPLICATION_VERSION_ID = '66666666-6666-4666-8666-666666666666';
+const APPLICATION_VERSION_REF = 'OSI-AV-B1B2C3D4E5F60718';
 const now = Date.now();
 const iso = (offsetDays) => new Date(now + offsetDays * 86_400_000).toISOString();
 
@@ -103,6 +113,55 @@ const publicCases = [
   { ...richCase, public_ref: 'OSI-C-PLEDGED00000001', title: 'Pledged reward state', stage: 'open_public', money: { reward: { status: 'pledged' } }, governance: {}, proof_log: [] },
   { ...richCase, public_ref: 'OSI-C-FULFILLED000001', title: 'Fulfilled reward state', stage: 'sealed', money: { reward: { status: 'fulfilled' } }, governance: {}, proof_log: proofRows },
 ];
+
+const resolutionSelectionCase = {
+  ...richCase,
+  public_ref: 'OSI-C-1111111111111111',
+  title: 'Resolution selection control fixture',
+  stage: 'resolution_selection',
+  submitted_by_wallet: OTHER,
+  governance: {
+    resolution: {
+      public_ref: 'OSI-RES-1111111111111111',
+      state: 'selection_open',
+      selection_quorum: {
+        leader_version_ref: VERSION_REF,
+        leader_count: 3,
+        leader_weight: 4.75,
+        required_count: 3,
+        required_weight: 4.5,
+        tie_unresolved: false,
+      },
+      reviews: [],
+    },
+    challenges: [],
+  },
+  money: {},
+  proof_log: [],
+};
+
+const sealReadyCase = {
+  ...richCase,
+  public_ref: 'OSI-C-2222222222222222',
+  title: 'Seal-ready lifecycle control fixture',
+  stage: 'resolved',
+  submitted_by_wallet: OTHER,
+  governance: {
+    resolution: {
+      public_ref: 'OSI-RES-2222222222222222',
+      state: 'in_challenge_window',
+      winning_report_version_ref: VERSION_REF,
+      challenge_window_opens_at: iso(-9),
+      challenge_window_closes_at: iso(-2),
+      selection_quorum: { leader_version_ref: VERSION_REF, leader_count: 3, leader_weight: 4.75, required_count: 3, required_weight: 4.5, tie_unresolved: false },
+      seal_quorum: { approve_count: 3, approve_weight: 4.75, required_count: 3, required_weight: 4.5, ready: true },
+      reviews: [],
+    },
+    challenges: [],
+  },
+  money: {},
+  proof_log: [],
+};
 
 const privateCase = {
   ...richCase, public_ref: PRIVATE_REF, title: 'Private owner workspace', visibility: 'private', stage: 'submitted',
@@ -275,10 +334,34 @@ const analystWorkspace = {
   }],
 };
 
-function token(origin) {
+const candidateApplication = {
+  id: APPLICATION_ID,
+  status: 'submitted',
+  applicant_wallet: ROLE_WALLETS.analyst_candidate,
+  profile: {
+    wallet: ROLE_WALLETS.analyst_candidate,
+    handle: 'candidate-fixture',
+    display_name: 'Analyst candidate fixture',
+    bio: 'Contributor applying through the immutable analyst-candidacy path.',
+  },
+  version: {
+    id: APPLICATION_VERSION_ID,
+    version_ref: APPLICATION_VERSION_REF,
+    version_no: 1,
+    expertise_public: ['onchain_tracing'],
+    details_restricted: {
+      motivation: 'Contribute reproducible public Solana incident research.',
+      experience: 'Published wallet-flow notes with explicit uncertainty.',
+      proof_urls: ['https://example.org/candidate-proof'],
+    },
+  },
+  reviews: [],
+};
+
+function token(origin, wallet = WALLET) {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
   return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
-    v: 1, iss: 'osi-v2-case-read', aud: origin, sub: WALLET,
+    v: 1, iss: 'osi-v2-case-read', aud: origin, sub: wallet,
     iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300,
     jti: 'fixture-session-jti-00000000000000000001',
     scp: ['case:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'wire:mine', 'wire:queue', 'analyst:workspace', 'analyst:maintainer', 'aipack:detail'],
@@ -286,16 +369,32 @@ function token(origin) {
   })}.fixture-signature`;
 }
 
-async function installFixtureNetwork(page) {
-  await page.addInitScript(({ wallet }) => {
+async function installFixtureNetwork(page, options = {}) {
+  const role = options.role || 'legacy';
+  const connected = role !== 'anonymous';
+  const wallet = ROLE_WALLETS[role] || WALLET;
+  page.__fixtureRole = role;
+  page.__fixtureOps = [];
+  await page.addInitScript(({ wallet: fixtureWallet, connected: initiallyConnected, maintainer }) => {
     const count = (name) => Number(sessionStorage.getItem(`fixture_provider_${name}`) || 0);
     const bump = (name) => sessionStorage.setItem(`fixture_provider_${name}`, String(count(name) + 1));
     const listeners = {};
+    const publicKey = { toString: () => fixtureWallet };
     const provider = {
-      isPhantom: true, isConnected: true,
-      publicKey: { toString: () => wallet },
-      connect: async (options) => { bump(options && options.onlyIfTrusted ? 'trustedConnect' : 'connect'); return { publicKey: provider.publicKey }; },
-      disconnect: async () => { (listeners.disconnect || []).forEach((fn) => fn()); },
+      isPhantom: true, isConnected: initiallyConnected,
+      publicKey: initiallyConnected ? publicKey : null,
+      connect: async (connectOptions) => {
+        bump(connectOptions && connectOptions.onlyIfTrusted ? 'trustedConnect' : 'connect');
+        if (!initiallyConnected && window.__fixtureAllowExplicitConnect !== true) throw new Error(connectOptions && connectOptions.onlyIfTrusted ? 'not trusted' : 'not connected');
+        provider.isConnected = true;
+        provider.publicKey = publicKey;
+        return { publicKey };
+      },
+      disconnect: async () => {
+        provider.isConnected = false;
+        provider.publicKey = null;
+        (listeners.disconnect || []).forEach((fn) => fn());
+      },
       signMessage: async () => { bump('signMessage'); return { signature: new Uint8Array(64).fill(7) }; },
       signAndSendTransaction: async () => { bump('transaction'); return { signature: '2'.repeat(88) }; },
       on: (name, fn) => { (listeners[name] || (listeners[name] = [])).push(fn); },
@@ -309,7 +408,38 @@ async function installFixtureNetwork(page) {
       connect: count('connect'), trustedConnect: count('trustedConnect'),
       signMessage: count('signMessage'), transaction: count('transaction'),
     });
-  }, { wallet: WALLET });
+    if (maintainer) {
+      const session = {
+        access_token: 'fixture-maintainer-session',
+        user: { id: '77777777-7777-4777-8777-777777777777', email: 'maintainer@example.org' },
+      };
+      window.supabase = {
+        createClient: () => ({
+          auth: {
+            onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+            getSession: async () => ({ data: { session }, error: null }),
+            signInWithPassword: async () => ({ data: { session }, error: null }),
+            signOut: async () => ({ error: null }),
+          },
+        }),
+      };
+    }
+  }, { wallet, connected, maintainer: role === 'maintainer' });
+
+  const roleAudit = role !== 'legacy';
+  const lifecycle = options.lifecycle === true;
+  const empty = options.empty === true;
+  const publicFailure = options.publicFailure === true;
+  const analystEligible = role === 'verified_analyst';
+  const maintainerAccess = role === 'maintainer';
+  const writesEnabled = connected;
+  let submittedCase = false;
+  let caseReviewed = false;
+  let openedCase = false;
+  let applicationReviewed = false;
+  let applicationActivated = false;
+  let wireReviewed = false;
+  let wirePublished = false;
 
   await page.route(/https:\/\/(?:bundle\.run|unpkg\.com|cdn\.jsdelivr\.net)\/.*/, (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
   await page.route('https://api.coingecko.com/**', (route) => route.fulfill({
@@ -317,33 +447,141 @@ async function installFixtureNetwork(page) {
     contentType: 'application/json',
     body: JSON.stringify({ solana: { usd: 0, usd_24h_change: 0 }, bitcoin: { usd: 0, usd_24h_change: 0 }, ethereum: { usd: 0, usd_24h_change: 0 } }),
   }));
-  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/**', (route) => {
+    const requestUrl = new URL(route.request().url());
+    const rows = maintainerAccess && requestUrl.pathname.endsWith('/osi_config')
+      ? [{ key: 'admin_wallet', value: wallet }]
+      : [];
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
+  });
   await page.route('**/functions/v1/**', async (route) => {
     const request = route.request();
     let body = {};
     try { body = request.postDataJSON() || {}; } catch (_) {}
     const endpoint = new URL(request.url()).pathname.split('/').pop();
+    page.__fixtureOps.push({
+      endpoint,
+      op: body.op || '',
+      action: body.action || '',
+      phase: body.payload && body.payload.phase || '',
+      target: body.target_ref || body.version_public_ref || body.case_ref || '',
+    });
+    let responseStatus = 200;
     let response = { ok: true };
     if (endpoint === 'osi-v2-case-read') {
-      if (body.op === 'list_public_cases') response.cases = publicCases;
-      else if (body.op === 'get_public_case') response.case = publicCases.find((item) => item.public_ref === body.public_ref) || richCase;
-      else if (body.op === 'list_my_cases') response.cases = [privateCase];
-      else if (body.op === 'list_reviewable_cases') response.cases = [privateCase];
+      const openedFixture = { ...privateCase, visibility: 'public', stage: 'open_public', details_restricted: undefined };
+      const lifecycleRichCase = lifecycle ? {
+        ...richCase,
+        governance: {
+          ...richCase.governance,
+          challenges: richCase.governance.challenges.map((challenge) => ({
+            ...challenge,
+            outcome_quorum: { accept_count: 3, accept_weight: 4.75, reject_count: 0, reject_weight: 0, required_count: 3, required_weight: 4.5 },
+          })),
+        },
+      } : richCase;
+      const baseCases = publicCases.map((item) => item.public_ref === CASE_REF ? lifecycleRichCase : item);
+      const auditCases = roleAudit ? baseCases.concat(resolutionSelectionCase, sealReadyCase) : baseCases;
+      if (body.op === 'list_public_cases') {
+        if (publicFailure) responseStatus = 503;
+        response = publicFailure
+          ? { ok: false, error: 'read_failed' }
+          : { ok: true, cases: empty ? [] : (openedCase ? auditCases.concat(openedFixture) : auditCases) };
+      }
+      else if (body.op === 'get_public_case') response.case = (openedCase && body.public_ref === PRIVATE_REF)
+        ? openedFixture
+        : auditCases.find((item) => item.public_ref === body.public_ref) || richCase;
+      else if (body.op === 'list_my_cases') response.cases = submittedCase ? [privateCase] : [privateCase];
+      else if (body.op === 'list_reviewable_cases') {
+        const reviewedFixture = caseReviewed ? {
+          ...privateCase,
+          reviews: privateCase.reviews.concat({
+            reviewer_wallet: wallet,
+            reviewer_role: analystEligible ? 'analyst' : 'maintainer',
+            decision: 'approve_open',
+            reason_code: 'public_scope_clear',
+            weight: analystEligible ? .5 : 0,
+            is_active: true,
+            proof_label: 'Wallet-signed and server-verified',
+            created_at: iso(0),
+          }),
+        } : privateCase;
+        response = roleAudit && !(analystEligible || maintainerAccess)
+          ? { ok: false, error: 'not_eligible_reviewer' }
+          : { ok: true, cases: [reviewedFixture] };
+      }
       else if (body.op === 'issue_read_session_challenge') response.challenge = 'OSI private read fixture challenge';
-      else if (body.op === 'create_read_session') response.read_session = token(new URL(page.url()).origin);
-      else if (body.op === 'maintainer_case_overview') response = { ok: true, metrics: {}, flags: {} };
+      else if (body.op === 'create_read_session') response.read_session = token(new URL(page.url()).origin, wallet);
+      else if (body.op === 'maintainer_case_overview') response = {
+        ok: true,
+        overview: { totals: { cases: 4, cases_by_visibility: { private: 1, public: 3 }, migration_manual_queue_rows: 0 }, flags: { OSI_V2_WRITES_ENABLED: 'false' } },
+      };
+    } else if (endpoint === 'osi-v2-case-write') {
+      if (body.op === 'actor_capabilities') response = {
+        ok: true,
+        case_writes_enabled: writesEnabled,
+        report_writes_enabled: writesEnabled,
+        analyst_eligible: analystEligible,
+        maintainer_access: maintainerAccess,
+        maintainer_gate: maintainerAccess ? 'full' : 'denied',
+        prerequisite: writesEnabled ? null : 'Connect a wallet to continue.',
+      };
+      else if (body.op === 'prepare_case') response = { ok: true, nonce: 'case-nonce', memo: 'OSI CASE_SUBMITTED fixture memo' };
+      else if (body.op === 'commit_case') {
+        submittedCase = true;
+        response = { ok: true, case: privateCase };
+      } else if (body.op === 'prepare_review') response = { ok: true, nonce: 'case-review-nonce', message: 'OSI CASE_REVIEWED fixture message' };
+      else if (body.op === 'commit_review') {
+        caseReviewed = true;
+        response = { ok: true, actor_open_ready: false };
+      }
+      else if (body.op === 'prepare_open') response = { ok: true, nonce: 'case-open-nonce', memo: 'OSI CASE_OPENED fixture memo' };
+      else if (body.op === 'commit_open') {
+        openedCase = true;
+        response = { ok: true, case: { ...privateCase, visibility: 'public', stage: 'open_public' } };
+      }
+    } else if (endpoint === 'osi-v2-governance-write') {
+      if (body.op === 'actor_capabilities') response = {
+        ok: true,
+        resolution_lifecycle_writes_enabled: writesEnabled,
+        analyst_eligible: analystEligible,
+        maintainer_access: maintainerAccess,
+      };
+      else if (body.op === 'prepare') {
+        const memoActions = ['resolution_finalize', 'seal_finalize', 'challenge_finalize'];
+        response = {
+          ok: true,
+          nonce: `governance-${body.action}-nonce`,
+          proof_text: `OSI ${body.action} fixture proof`,
+          proof_type: memoActions.includes(body.action) ? 'solana_memo' : 'wallet_signed_server_verified',
+          purpose: body.action,
+        };
+      } else if (body.op === 'commit') response = { ok: true, action: body.action };
     } else if (endpoint === 'osi-v2-report-read') {
-      if (body.op === 'list_public_reports') response.reports = [{
+      if (body.op === 'list_public_reports' && publicFailure) { responseStatus = 503; response = { ok: false, error: 'read_failed' }; }
+      else if (body.op === 'list_public_reports' && empty) response.reports = [];
+      else if (body.op === 'list_public_reports') response.reports = [{
         report_public_ref: REPORT_REF, version_public_ref: VERSION_REF, version_no: 1, state: 'published',
         body: 'Published public Report content.', content_public_safe: 'Public-safe Report summary.', evidence: [], review_timeline: [],
         quorum: { approve_count: 3, approve_weight: 4.75, required_count: 3, required_weight: 4.5 },
         publication_proof: { tx_sig: TX }, process_notice: 'Publication does not resolve the Case.',
       }];
+      else if (body.op === 'list_review_queue' && roleAudit && !(analystEligible || maintainerAccess)) response = { ok: false, error: 'not_eligible_or_full_maintainer' };
       else response.reports = [reportFixture];
     } else if (endpoint === 'osi-v2-ai-pack') {
       if (body.op === 'capabilities') {
         const owner = body.case_ref === CASE_REF || body.case_ref === PRIVATE_REF;
-        response = {
+        response = roleAudit ? {
+          ok: true,
+          ai_pack_writes_enabled: writesEnabled,
+          ai_pack_review_writes_enabled: writesEnabled && (analystEligible || maintainerAccess),
+          wallet_connected: connected,
+          viewer_role: maintainerAccess ? 'maintainer' : (analystEligible ? 'analyst' : (connected ? 'owner' : 'public')),
+          analyst_eligible: analystEligible,
+          maintainer_access: maintainerAccess,
+          can_generate: analystEligible,
+          generation_prerequisite: analystEligible ? null : 'Generation requires an eligible analyst and the dedicated write gate.',
+        } : {
           ok: true,
           ai_pack_writes_enabled: true,
           ai_pack_review_writes_enabled: false,
@@ -357,19 +595,44 @@ async function installFixtureNetwork(page) {
             : null,
         };
       } else if (body.op === 'get_case_packs') {
-        response = { ok: true, ...aiPackFixture };
+        const roleVersion = {
+          ...aiPackFixture.packs[0].versions[0],
+          can_review_exact_version: analystEligible,
+          review_prerequisite: analystEligible ? null : 'Only an independently eligible analyst may review this exact version.',
+          can_finalize: maintainerAccess,
+          finalize_prerequisite: maintainerAccess ? null : 'Full maintainer double-gate and analyst quorum are required.',
+          quorum: maintainerAccess
+            ? { approve_count: 2, approve_weight: 2.5, required_count: 2, required_weight: 2.5, ready: true }
+            : aiPackFixture.packs[0].versions[0].quorum,
+        };
+        response = roleAudit
+          ? { ok: true, viewer_role: maintainerAccess ? 'maintainer' : (analystEligible ? 'analyst' : 'owner'), packs: [{ ...aiPackFixture.packs[0], versions: [roleVersion] }] }
+          : { ok: true, ...aiPackFixture };
       } else if (body.op === 'list_public_case_packs') {
         response = { ok: true, viewer_role: 'public', packs: [] };
       } else if (body.op === 'prepare_generation') {
-        await new Promise((resolve) => setTimeout(resolve, 180));
-        response = {
-          ok: false,
-          error: 'ai_pack_case_cooldown_active',
-          details: { retry_after_seconds: 90 },
-        };
-      }
+        if (lifecycle) response = { ok: true, nonce: 'ai-generation-nonce', message: 'OSI AI PACK generation fixture message' };
+        else {
+          await new Promise((resolve) => setTimeout(resolve, 180));
+          response = {
+            ok: false,
+            error: 'ai_pack_case_cooldown_active',
+            details: { retry_after_seconds: 90 },
+          };
+        }
+      } else if (body.op === 'commit_generation') response = { ok: true, version_ref: AI_VERSION_REF };
+      else if (body.op === 'prepare_review') response = { ok: true, nonce: 'ai-review-nonce', message: 'OSI AI PACK review fixture message' };
+      else if (body.op === 'commit_review') response = { ok: true, review_ref: AI_REVIEW_REF };
+      else if (body.op === 'prepare_approval') response = { ok: true, nonce: 'ai-approval-nonce', memo: 'OSI AI_PACK_APPROVED fixture memo' };
+      else if (body.op === 'commit_approval') response = { ok: true, version_ref: AI_VERSION_REF };
     } else if (endpoint === 'osi-v2-wire') {
-      if (body.op === 'capabilities') response = {
+      if (body.op === 'capabilities') response = roleAudit ? {
+        ok: true, wire_writes_enabled: writesEnabled, publication_enabled: analystEligible || maintainerAccess,
+        payment_writes_enabled: writesEnabled, challenge_enabled: writesEnabled, support_enabled: writesEnabled,
+        analyst_eligible: analystEligible, maintainer_access: maintainerAccess, promotion_enabled: analystEligible || maintainerAccess,
+        review_enabled: analystEligible, wallet_connected: connected,
+        prerequisite: connected ? null : 'Connect a wallet to continue.',
+      } : {
         ok: true, wire_writes_enabled: true, publication_enabled: true,
         payment_writes_enabled: true, challenge_enabled: true, support_enabled: true,
         analyst_eligible: true, maintainer_access: false, promotion_enabled: true,
@@ -379,55 +642,491 @@ async function installFixtureNetwork(page) {
         ok: true, reports: [wireFixture], private_projection: true,
       };
       else if (body.op === 'list_public_wire_reports') response = {
-        ok: true, reports: [publicWireListItem], public_projection: true,
+        ok: !publicFailure,
+        error: publicFailure ? 'read_failed' : undefined,
+        reports: empty ? [] : [{ ...publicWireListItem, promoted: lifecycle ? false : publicWireListItem.promoted }],
+        public_projection: true,
       };
       else if (body.op === 'get_public_wire_report') response = {
-        ok: true, report: publicWireDetail, public_projection: true,
+        ok: true, report: { ...publicWireDetail, promoted: lifecycle ? false : publicWireDetail.promoted }, public_projection: true,
       };
       else if (body.op === 'list_wire_review_queue') response = {
-        ok: true, reports: [wireQueueItem], private_projection: true,
+        ok: !(roleAudit && !(analystEligible || maintainerAccess)),
+        error: roleAudit && !(analystEligible || maintainerAccess) ? 'not_eligible_or_full_maintainer' : undefined,
+        reports: [{
+          ...wireQueueItem,
+          lifecycle_state: wirePublished ? 'published' : wireQueueItem.lifecycle_state,
+          quorum: { ...wireQueueItem.quorum, approve_ready: wireReviewed },
+          my_active_review: wireReviewed ? { decision: 'approve' } : null,
+        }],
+        private_projection: true,
+      };
+      else if (body.op === 'prepare_wire') response = { ok: true, nonce: 'wire-submit-nonce', memo: 'OSI WIRE_REPORT_VERSION_SUBMITTED fixture memo' };
+      else if (body.op === 'commit_wire') response = { ok: true, wire_report_public_ref: WIRE_REPORT_REF, version_no: 1 };
+      else if (body.op === 'prepare_wire_review') response = { ok: true, nonce: 'wire-review-nonce', message: 'OSI WIRE review fixture message' };
+      else if (body.op === 'commit_wire_review') {
+        wireReviewed = true;
+        response = { ok: true, review_ref: 'OSI-WRV-C1B2C3D4E5F6' };
+      } else if (body.op === 'prepare_wire_publication') response = { ok: true, nonce: 'wire-publication-nonce', memo: 'OSI WIRE_REPORT_PUBLISHED fixture memo' };
+      else if (body.op === 'commit_wire_publication') {
+        wirePublished = true;
+        response = { ok: true, version_public_ref: body.version_public_ref };
+      } else if (body.op === 'prepare_wire_promotion') response = { ok: true, nonce: 'wire-promotion-nonce', proof_text: 'OSI WIRE promoted fixture message', proof_type: 'wallet_signed_server_verified', purpose: 'wire_promote' };
+      else if (body.op === 'commit_wire_promotion') response = { ok: true, case_public_ref: 'OSI-C-3333333333333333' };
+      else if (body.op === 'prepare_wire_challenge') response = { ok: true, nonce: 'wire-challenge-nonce', proof_text: `OSI ${body.action} fixture message`, proof_type: 'wallet_signed_server_verified', purpose: body.action };
+      else if (body.op === 'commit_wire_challenge') response = { ok: true, action: body.action };
+    } else if (endpoint === 'osi-v2-proof' && body.mode === 'sas_verify') {
+      const verified = [OTHER, ROLE_WALLETS.verified_analyst].includes(body.wallet);
+      response = {
+        ok: true,
+        valid: verified,
+        state: verified ? 'verified' : 'not_found',
+        reason: verified ? null : 'No current OSI analyst credential.',
+        source: 'fixture_sas_public_verifier',
+        credential: verified ? OTHER : null,
+        schema: verified ? ROLE_WALLETS.verified_analyst : null,
+        checked_at: iso(0),
       };
     } else if (endpoint === 'osi-v2-analyst') {
-      if (body.op === 'list_public_profiles') response.analysts = [analystFixture];
-      else if (body.op === 'my_workspace') response = analystWorkspace;
-      else if (body.op === 'maintainer_queue') response.applications = [];
+      const roleAnalystProfile = { ...analystFixture, wallet, handle: 'verified-role-fixture', display_name: 'Verified analyst role fixture' };
+      const candidateWorkspaceApplication = {
+        id: APPLICATION_ID,
+        status: applicationActivated ? 'probationary' : 'submitted',
+        versions: [{
+          id: APPLICATION_VERSION_ID,
+          version_no: 1,
+          version_ref: APPLICATION_VERSION_REF,
+          details_restricted: candidateApplication.version.details_restricted,
+          expertise_public: candidateApplication.version.expertise_public,
+        }],
+        reviews: [],
+      };
+      if (body.op === 'list_public_profiles') response = publicFailure
+        ? { ok: false, error: 'read_failed' }
+        : { ok: true, analysts: empty ? [] : (analystEligible ? [analystFixture, roleAnalystProfile] : [analystFixture]) };
+      else if (body.op === 'my_workspace') {
+        if (!roleAudit) response = analystWorkspace;
+        else if (analystEligible) response = { ...analystWorkspace, profile: { ...roleAnalystProfile, weight_cached: 1.5, expertise_public: ['onchain_tracing'], links_public: [] } };
+        else if (role === 'analyst_candidate') response = { ok: true, profile: null, applications: [candidateWorkspaceApplication] };
+        else response = { ok: true, profile: null, applications: [] };
+      } else if (body.op === 'maintainer_queue') {
+        const reviews = applicationReviewed ? [{
+          reviewer_wallet: wallet,
+          decision: 'approve',
+          reason_code: 'meets_probationary_baseline',
+          is_active: true,
+          created_at: iso(-.1),
+        }] : [];
+        response.applications = applicationActivated ? [] : [{ ...candidateApplication, reviews }];
+      } else if (body.op === 'prepare_application') response = { ok: true, nonce: 'application-nonce', message: 'OSI analyst application fixture message', version_ref: APPLICATION_VERSION_REF };
+      else if (body.op === 'commit_application') response = { ok: true, application: { id: APPLICATION_ID, version_no: 1 } };
+      else if (body.op === 'prepare_review') response = { ok: true, nonce: 'application-review-nonce', message: 'OSI analyst application review fixture message' };
+      else if (body.op === 'commit_review') {
+        applicationReviewed = true;
+        response = { ok: true, activation_ready: true };
+      } else if (body.op === 'prepare_activation') response = { ok: true, nonce: 'application-activation-nonce', memo: 'OSI ANALYST_PROBATION fixture memo' };
+      else if (body.op === 'commit_activation') {
+        applicationActivated = true;
+        response = { ok: true, analyst: { wallet: ROLE_WALLETS.analyst_candidate, tier: 'probationary', weight: .5 } };
+      }
     } else if (body.op === 'actor_capabilities' || body.op === 'capabilities') {
-      response = {
+      response = roleAudit ? {
+        ok: true,
+        case_writes_enabled: writesEnabled,
+        report_writes_enabled: writesEnabled,
+        resolution_lifecycle_writes_enabled: writesEnabled,
+        payment_writes_enabled: writesEnabled,
+        analyst_eligible: analystEligible,
+        maintainer_access: maintainerAccess,
+        prerequisite: connected ? null : 'Connect a wallet to continue.',
+      } : {
         ok: true, case_writes_enabled: false, report_writes_enabled: false,
         resolution_lifecycle_writes_enabled: false, payment_writes_enabled: false,
         analyst_eligible: true, maintainer_access: false,
         prerequisite: 'Fixture keeps production writes disabled.',
       };
     }
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) });
+    if (publicFailure && ((endpoint === 'osi-v2-wire' && body.op === 'list_public_wire_reports') || (endpoint === 'osi-v2-analyst' && body.op === 'list_public_profiles'))) responseStatus = 503;
+    await route.fulfill({ status: responseStatus, contentType: 'application/json', body: JSON.stringify(response) });
   });
 }
 
-async function ready(page) {
+async function ready(page, options = {}) {
   page.__issue26Errors = [];
   page.on('pageerror', (error) => page.__issue26Errors.push(`page: ${error.message}`));
   page.on('console', (message) => {
-    if (message.type() !== 'error') return;
+    if (!['error', 'warning'].includes(message.type())) return;
     const text = message.text();
     const fixtureSriBlock = text.includes("Failed to find a valid digest in the 'integrity' attribute")
       && /https:\/\/(?:bundle\.run|unpkg\.com|cdn\.jsdelivr\.net)\//.test(text)
       && text.includes("OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb");
-    if (!fixtureSriBlock) page.__issue26Errors.push(`console: ${text}`);
+    const expectedPublicFailure = options.publicFailure
+      && message.type() === 'error'
+      && /^Failed to load resource: the server responded with a status of 503 \(Service Unavailable\)$/.test(text);
+    if (!fixtureSriBlock && !expectedPublicFailure) page.__issue26Errors.push(`console ${message.type()}: ${text}`);
   });
   page.on('requestfailed', (request) => {
     const failure = request.failure() && request.failure().errorText || 'unknown';
     if (!failure.includes('ERR_ABORTED')) page.__issue26Errors.push(`network: ${request.url()} ${failure}`);
   });
-  page.on('response', (response) => { if (response.status() >= 400) page.__issue26Errors.push(`http: ${response.status()} ${response.url()}`); });
-  await installFixtureNetwork(page);
+  page.on('response', (response) => {
+    if (response.status() >= 400 && !(options.publicFailure && response.status() === 503 && response.url().includes('/functions/v1/'))) {
+      page.__issue26Errors.push(`http: ${response.status()} ${response.url()}`);
+    }
+  });
+  await installFixtureNetwork(page, options);
   await page.goto('/');
   await page.waitForFunction(() => typeof window.osiNavigate === 'function' && typeof window.osiV2OpenMyCases === 'function');
-  await expect(page.locator('#osi-home-live-state')).toContainText('Reviewed transfer-path investigation');
+  if (options.publicFailure) await expect(page.locator('#osi-home-live-state')).toContainText('Public Case index unavailable');
+  else if (options.empty) await expect(page.locator('#osi-home-live-state')).toContainText('No public Cases are listed');
+  else await expect(page.locator('#osi-home-live-state')).toContainText('Reviewed transfer-path investigation');
+  const role = options.role || 'legacy';
+  const wallet = ROLE_WALLETS[role] || WALLET;
+  if (role === 'verified_analyst') {
+    await page.evaluate(({ actor }) => {
+      window.VERIFIED_ANALYSTS = window.VERIFIED_ANALYSTS || {};
+      window.ANALYST_WEIGHT = window.ANALYST_WEIGHT || {};
+      window.VERIFIED_ANALYSTS[actor] = { wallet: actor, handle: 'verified-role-fixture', display_name: 'Verified analyst role fixture', tier: 'verified', weight: 1.5 };
+      window.ANALYST_WEIGHT[actor] = 1.5;
+      if (typeof updateWalletUI === 'function') updateWalletUI();
+    }, { actor: wallet });
+  }
+  if (role === 'maintainer') {
+    await page.evaluate(async ({ actor }) => {
+      if (typeof SUPA_AUTH_READY !== 'undefined') await SUPA_AUTH_READY;
+      if (typeof loadConfig === 'function') await loadConfig();
+      OSI_ADMIN_WALLET = actor;
+      if (typeof setMaintainerServerGate === 'function') setMaintainerServerGate(true, 'full');
+      if (typeof updateWalletUI === 'function') updateWalletUI();
+    }, { actor: wallet });
+    await page.waitForFunction(() => typeof resolveMaintainerAccess === 'function' && resolveMaintainerAccess().allowed === true);
+  }
 }
 
 function expectCleanRuntime(page) {
   expect(page.__issue26Errors).toEqual([]);
 }
+
+async function openPlatformItem(page, name) {
+  const trigger = page.locator('#platform-menu-trigger');
+  await trigger.click();
+  await expect(page.locator('#platform-menu')).toBeVisible();
+  const item = page.locator('#platform-menu').getByRole('button', { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) });
+  await expect(item).toHaveCount(1);
+  await item.click();
+}
+
+async function expectNoPageOverflow(page) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+}
+
+async function auditPublicFilters(page) {
+  await page.evaluate(() => window.osiNavigate('records'));
+  for (const filter of ['all', 'reviewed', 'memo', 'challenged', 'sealed']) {
+    const button = page.locator(`#cr-fils [data-f="${filter}"]`);
+    await button.click();
+    await expect(button).toHaveClass(/active/);
+  }
+
+  await page.evaluate(() => window.osiNavigate('prooflog'));
+  for (const filter of ['all', 'case', 'report', 'vote', 'challenge', 'support', 'seal']) {
+    const button = page.locator(`#pl-fils [data-f="${filter}"]`);
+    await button.click();
+    await expect(button).toHaveClass(/active/);
+  }
+}
+
+const readinessRoles = [
+  ['anonymous', 'Connect Wallet', false, false],
+  ['ordinary_wallet', 'My OSI', false, false],
+  ['analyst_candidate', 'My OSI', false, false],
+  ['verified_analyst', 'Analyst Desk', true, false],
+  ['maintainer', 'Maintainer Console', false, true],
+];
+
+for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
+  test(`launch readiness: ${role} reaches every authorized top-level and role workspace surface`, async ({ page }) => {
+    await ready(page, { role });
+
+    await page.locator('#global-nav [data-global-view="registry"]').click();
+    await expect(page.locator('body')).toHaveAttribute('data-view', 'registry');
+    for (const [label, view] of [
+      ['Field Office', 'field'],
+      ['The Wire', 'wire'],
+      ['Public Records', 'records'],
+      ['Proof Log', 'prooflog'],
+      ['Analyst Network', 'analysts'],
+    ]) {
+      await openPlatformItem(page, label);
+      await expect(page.locator('body')).toHaveAttribute('data-view', view);
+    }
+
+    await page.locator('#global-nav [data-global-view="methodology"]').click();
+    await expect(page.locator('#about-hero')).toBeVisible();
+    await page.locator('#sas-verifier-wallet').fill(OTHER);
+    await page.locator('#sas-verifier-form').getByRole('button', { name: 'Verify wallet' }).click();
+    await expect(page.locator('#sas-verifier-status')).toContainText('Verified:');
+
+    await openPlatformItem(page, 'Resolution lifecycle');
+    await expect(page.getByLabel('Filter by status')).toHaveValue('resolution_selection');
+    await openPlatformItem(page, 'Reward & support');
+    await expect(page.getByLabel('Filter by status')).toHaveValue('sealed');
+
+    await auditPublicFilters(page);
+
+    await openPlatformItem(page, 'My OSI');
+    await expect(page.locator('#workspace-view')).toBeVisible();
+    await expect(page.locator('#workspace-body')).toContainText(workspaceTitle);
+
+    await openPlatformItem(page, 'Open a Case');
+    if (role === 'anonymous') {
+      await expect(page.locator('#fo-modal')).not.toHaveClass(/open/);
+      await expect(page.locator('#stw-toast')).toContainText(/Connect (Phantom first|a Solana wallet to continue)/);
+    } else {
+      await expect(page.locator('#fo-modal')).toHaveClass(/open/);
+      await page.locator('#fo-modal .fo-x').click();
+    }
+
+    await openPlatformItem(page, 'Review Queue');
+    if (canReview || canMaintain) {
+      await expect(page.locator(`[data-case-ref="${PRIVATE_REF}"]`)).toBeVisible();
+    } else {
+      await expect(page.locator('#field-cases')).toContainText(/workspace unavailable|eligible V2 analyst|full maintainer|wallet not connected/i);
+    }
+
+    await page.evaluate(() => window.osiNavigate('identity'));
+    if (role === 'anonymous') {
+      await expect(page.locator('#identity-body')).toContainText('Wallet Required');
+    } else {
+      const tabs = page.locator('.identity-tabs [role="tab"]');
+      await expect(tabs).toHaveCount(6);
+      for (let index = 0; index < 6; index += 1) {
+        await tabs.nth(index).click();
+        await expect(page.locator('.identity-pane.active')).toBeVisible();
+      }
+    }
+
+    if (role === 'analyst_candidate') {
+      await page.evaluate(() => window.osiAnalystOpenWorkspace('applications'));
+      await expect(page.locator('#identity-body')).toContainText('Submitted');
+      await expect(page.locator('#identity-body')).toContainText('Current version 1');
+    }
+
+    if (canMaintain) {
+      await page.locator('#walletBtn').click();
+      const operations = page.locator('#maintainerAccessMenu');
+      await expect(operations).toBeVisible();
+      await operations.click();
+      await expect(page.locator('#admPanel')).toBeVisible();
+      await page.getByRole('button', { name: 'Refresh overview' }).click();
+      await expect(page.locator('#osi-native-ops-overview')).toContainText('Cases');
+    } else {
+      await page.evaluate(() => window.osiNavigate('admin'));
+      await expect(page.locator('#admLocked')).toContainText(/Access denied|Connect the configured|Connected wallet is not authorized/i);
+      await expect(page.locator('#admPanel')).toBeHidden();
+    }
+
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const view of ['registry', 'field', 'wire', 'records', 'analysts', 'prooflog', 'methodology', 'identity', 'workspace', 'admin']) {
+        await page.evaluate((target) => window.osiNavigate(target), view);
+        await expectNoPageOverflow(page);
+      }
+    }
+    expectCleanRuntime(page);
+  });
+}
+
+test('launch readiness: public empty states are explanatory and contain no raw sentinel values', async ({ page }) => {
+  await ready(page, { role: 'anonymous', empty: true });
+  await page.evaluate(() => window.osiNavigate('field'));
+  await expect(page.locator('#field-cases')).toContainText('No public V2 Cases yet');
+
+  await page.evaluate(async () => {
+    window.CASE_STUDIES = [];
+    window.osiNavigate('wire');
+    await window.wireOpenPublic();
+  });
+  await expect(page.locator('#wire-cases')).toContainText('The wire is quiet');
+
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await expect(page.locator('#lb-body')).toContainText('No activated analysts yet');
+  await page.evaluate(() => window.osiNavigate('records'));
+  await expect(page.locator('#case-records')).toContainText('No public records have been sealed yet');
+  await page.evaluate(() => window.osiNavigate('prooflog'));
+  await expect(page.locator('#pl-body')).toContainText(/No proof events|No matching proof/i);
+  expect(await page.locator('#main-content').innerText()).not.toMatch(/\b(?:undefined|NaN)\b/);
+  expectCleanRuntime(page);
+});
+
+test('launch readiness: public read failures stay retryable, fail closed, and avoid raw errors', async ({ page }) => {
+  await ready(page, { role: 'anonymous', publicFailure: true });
+  await expect(page.locator('#osi-home-live-state')).toContainText('No cached or invented Case data is shown');
+
+  await page.evaluate(() => window.osiNavigate('field'));
+  await expect(page.locator('#field-cases')).toContainText('Public registry unavailable');
+  await page.evaluate(async () => {
+    window.CASE_STUDIES = [];
+    window.osiNavigate('wire');
+    await window.wireOpenPublic();
+  });
+  await expect(page.locator('#wire-cases')).toContainText('Live dispatches are temporarily unavailable');
+  await expect(page.locator('#wire-cases').getByRole('button', { name: 'Retry live source' })).toBeVisible();
+  expect(await page.locator('#main-content').innerText()).not.toMatch(/read[_ ]failed|undefined|NaN/i);
+  expectCleanRuntime(page);
+});
+
+async function expectFixtureOperation(page, endpoint, op, action = '') {
+  await expect.poll(() => page.__fixtureOps.some((entry) => entry.endpoint === endpoint && entry.op === op && (!action || entry.action === action))).toBe(true);
+}
+
+function fixtureOperationCount(page, endpoint, op, action = '', phase = '') {
+  return page.__fixtureOps.filter((entry) => entry.endpoint === endpoint && entry.op === op
+    && (!action || entry.action === action) && (!phase || entry.phase === phase)).length;
+}
+
+async function expectNewFixtureOperation(page, endpoint, op, action, phase, previousCount) {
+  await expect.poll(() => fixtureOperationCount(page, endpoint, op, action, phase)).toBeGreaterThan(previousCount);
+}
+
+test('launch readiness: verified analyst controls traverse Case, Wire, governance, challenge, and AI Pack writes', async ({ page }) => {
+  test.setTimeout(180_000);
+  page.on('dialog', (dialog) => dialog.accept(dialog.type() === 'prompt'
+    ? 'The exact evidence and process prerequisites were independently reviewed.'
+    : undefined));
+  await ready(page, { role: 'verified_analyst', lifecycle: true });
+  await page.evaluate((tx) => { window.castOnchainVote = async () => tx; }, TX);
+
+  await openPlatformItem(page, 'Open a Case');
+  await expect(page.locator('#v2-case-title')).toBeFocused();
+  await page.locator('#v2-case-title').fill('Lifecycle fixture Case');
+  await page.locator('#v2-case-summary').fill('A neutral public-safe Case summary with enough detail for independent review and publication.');
+  await page.locator('#v2-case-details').fill('Restricted fixture context records transaction order, uncertainty, and review limits without prohibited data.');
+  await page.locator('#v2-case-transactions').fill(TX);
+  await page.locator('#v2-case-confirm').check();
+  await page.locator('#v2-case-submit').click();
+  await expectFixtureOperation(page, 'osi-v2-case-write', 'commit_case');
+  await page.waitForTimeout(800);
+
+  await page.evaluate(() => window.osiV2OpenReviewQueue());
+  const initialReview = page.locator(`[data-case-ref="${PRIVATE_REF}"]`).first();
+  await expect(initialReview).toBeVisible();
+  await initialReview.click();
+  await expect(page.locator('#osi-case-drawer')).toBeVisible();
+  await page.getByRole('button', { name: 'Record review' }).click();
+  await page.locator('#osi-review-submit').click();
+  await expectFixtureOperation(page, 'osi-v2-case-write', 'commit_review');
+  const anchorOpen = page.getByRole('button', { name: 'Anchor public open' });
+  await expect(anchorOpen).toBeVisible();
+  await anchorOpen.click();
+  await expectFixtureOperation(page, 'osi-v2-case-write', 'commit_open');
+  await page.evaluate(() => window.osiV2CloseCase());
+
+  await page.evaluate(() => window.osiV2OpenWireForm());
+  await expect(page.locator('#osi-wire-title')).toBeFocused();
+  await page.locator('#osi-wire-title').fill('Lifecycle Wire fixture');
+  await page.locator('#osi-wire-summary').fill('A public-safe standalone finding prepared for independent review and exact publication.');
+  await page.locator('#osi-wire-analysis').fill('The detailed fixture analysis follows transaction order, competing explanations, and reproducible evidence limitations.');
+  await page.locator('#osi-wire-uncertainties').fill('Wallet control and attribution remain uncertain after the observed transfers.');
+  await page.locator('#osi-wire-transactions').fill(TX);
+  await page.locator('#osi-wire-safety').check();
+  await page.locator('#osi-wire-submit').click();
+  await expectFixtureOperation(page, 'osi-v2-wire', 'commit_wire');
+  await page.evaluate(() => window.osiV2CloseWireForm());
+
+  await page.evaluate(() => window.osiV2OpenWireQueue());
+  await expect(page.locator('[data-wire-queue-card]')).toBeVisible();
+  await page.locator('[data-wire-review-rationale]').fill('The exact evidence supports publication with the stated limits.');
+  await page.locator('[data-wire-review]').click();
+  await expectFixtureOperation(page, 'osi-v2-wire', 'commit_wire_review');
+  await expect(page.locator('[data-wire-publish]')).toBeVisible();
+  await page.locator('[data-wire-publish]').dispatchEvent('click');
+  await expectFixtureOperation(page, 'osi-v2-wire', 'commit_wire_publication');
+
+  await page.evaluate((versionRef) => window.osiV2OpenWireReport(versionRef), WIRE_VERSION_REF);
+  await page.locator('[data-wire-tab="challenges"]').click();
+  await page.locator('#osi-wire-challenge-summary').fill('This exact publication requires additional material transaction context.');
+  await page.locator('[data-wire-governance="submit"]').click();
+  await expectFixtureOperation(page, 'osi-v2-wire', 'commit_wire_challenge', 'challenge_submit');
+  await expect(page.locator('[data-wire-promote]')).toBeVisible();
+  await page.locator('[data-wire-promote]').click();
+  await expectFixtureOperation(page, 'osi-v2-wire', 'commit_wire_promotion', 'wire_promote');
+  await page.waitForTimeout(200);
+  await page.evaluate(() => window.osiV2CloseWireReport());
+
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), resolutionSelectionCase.public_ref);
+  await page.locator('[data-tab="resolution"]').click();
+  await page.locator('#osi-resolution-rationale').fill('This exact published version leads the independent count and weight gates.');
+  const selectionReviewCount = fixtureOperationCount(page, 'osi-v2-governance-write', 'commit', 'resolution_review', 'selection');
+  await page.getByRole('button', { name: 'Sign and record review' }).click();
+  await expectNewFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'resolution_review', 'selection', selectionReviewCount);
+  await page.waitForTimeout(200);
+
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), sealReadyCase.public_ref);
+  await page.locator('[data-tab="resolution"]').click();
+  const sealReviewCount = fixtureOperationCount(page, 'osi-v2-governance-write', 'commit', 'resolution_review', 'seal');
+  await page.getByRole('button', { name: 'Sign seal review' }).click();
+  await expectNewFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'resolution_review', 'seal', sealReviewCount);
+  await page.waitForTimeout(200);
+
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), CASE_REF);
+  await page.locator('[data-tab="challenges"]').click();
+  await page.locator('#osi-challenge-summary').fill('The selected exact version needs additional independent transaction context.');
+  await page.locator('#osi-challenge-evidence').fill('88888888-8888-4888-8888-888888888888');
+  await page.getByRole('button', { name: 'Sign and submit challenge' }).click();
+  await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'challenge_submit');
+  await page.waitForTimeout(200);
+  await page.locator('[data-tab="challenges"]').click();
+  await page.getByRole('button', { name: 'Accept review' }).click();
+  await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'challenge_review');
+  await page.waitForTimeout(200);
+  await page.locator('[data-tab="challenges"]').click();
+  await page.getByRole('button', { name: 'Memo-anchor quorum outcome' }).click();
+  await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'challenge_finalize');
+  await page.waitForTimeout(200);
+
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), AI_CASE_REF);
+  await page.locator('[data-tab="ai_pack"]').click();
+  await page.locator('#osi-ai-pack-generate').click();
+  await expectFixtureOperation(page, 'osi-v2-ai-pack', 'commit_generation');
+  await page.waitForTimeout(200);
+  await page.locator('#osi-ai-review-rationale').fill('The immutable artifact remains evidence-bound and appropriately qualified.');
+  await page.locator('#osi-ai-review-submit').click();
+  await expectFixtureOperation(page, 'osi-v2-ai-pack', 'commit_review');
+  expectCleanRuntime(page);
+});
+
+test('launch readiness: full maintainer controls review candidacy and finalize only analyst-ready outcomes', async ({ page }) => {
+  test.setTimeout(120_000);
+  page.on('dialog', (dialog) => dialog.accept());
+  await ready(page, { role: 'maintainer', lifecycle: true });
+  await page.evaluate((tx) => { window.castOnchainVote = async () => tx; }, TX);
+
+  await page.evaluate(() => window.admOpen());
+  await expect(page.locator('#admPanel')).toBeVisible();
+  await page.getByRole('button', { name: 'Refresh queue' }).click();
+  const application = page.locator(`[data-application-id="${APPLICATION_ID}"]`);
+  await expect(application).toBeVisible();
+  await application.getByRole('button', { name: 'Approve' }).click();
+  await expectFixtureOperation(page, 'osi-v2-analyst', 'commit_review');
+  await expectFixtureOperation(page, 'osi-v2-analyst', 'commit_activation');
+
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), resolutionSelectionCase.public_ref);
+  await page.locator('[data-tab="resolution"]').click();
+  await page.getByRole('button', { name: 'Finalize server-derived leader' }).click();
+  await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'resolution_finalize');
+
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), sealReadyCase.public_ref);
+  await page.locator('[data-tab="resolution"]').click();
+  await page.getByRole('button', { name: 'Memo-anchor process seal' }).click();
+  await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'seal_finalize');
+
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), AI_CASE_REF);
+  await page.locator('[data-tab="ai_pack"]').click();
+  await page.locator('#osi-ai-approve').click();
+  await expectFixtureOperation(page, 'osi-v2-ai-pack', 'commit_approval');
+  expectCleanRuntime(page);
+});
 
 test('Platform menu exercises hover intent, keyboard, click and touch behavior', async ({ page }) => {
   await ready(page);
