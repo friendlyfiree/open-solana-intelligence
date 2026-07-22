@@ -28,6 +28,8 @@ ok("workflow snapshots before the delete step",
 ok("V2 append-only guards are asserted and never bypassed",
   workflow.includes("t.tgname = 'osi_v2_reject_delete'")
   && !/^\s*(?:ALTER\s+TABLE|SET\s+(?:LOCAL\s+)?session_replication_role|DISABLE\s+TRIGGER)/mi.test(workflow));
+ok("runtime guard-bypass scan does not reject its own policy expression",
+  !/(?:ALTER\s+TABLE|session_replication_role|DISABLE\s+TRIGGER)/i.test(workflow));
 ok("delete statements never target V2 history tables",
   !/delete\s+from\s+public\.(?:migration_crosswalk|case_report_versions|case_reports|cases|event_receipts)/i.test(workflow));
 ok("the two real legacy Cases and demand receipts are protected",
