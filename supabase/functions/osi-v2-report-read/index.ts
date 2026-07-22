@@ -50,7 +50,7 @@ const REPORT_COLS =
   "id,case_id,author_wallet,current_version_id,current_published_version_id,status,public_ref,native_intake,created_at,updated_at";
 const VERSION_COLS =
   "id,report_id,version_no,version_ref,created_by_wallet,body_private,content_public_safe,evidence_snapshot_hash,supersedes_version_id,revision_reason_code,lifecycle_state,event_receipt_id,publication_receipt_id,publication_quorum_hash,published_at,created_at";
-const CASE_COLS = "id,public_ref,stage,visibility,risk_tier,submitted_by_wallet";
+const CASE_COLS = "id,public_ref,stage,visibility,risk_tier,submitted_by_wallet,archived_at";
 const EVIDENCE_COLS = "id,kind,ref,sha256,is_public,moderation_state";
 const RECEIPT_COLS =
   "id,event_version,event_type,target_type,target_id,actor_wallet,actor_role,decision,weight,reason_code,proof_type,tx_sig,server_verified,occurred_at,decision_channel";
@@ -345,7 +345,7 @@ async function loadReports(
   const [{ data: versions, error: versionError }, { data: cases, error: caseError }] = await Promise.all([
     admin.from("case_report_versions").select(VERSION_COLS)
       .in("report_id", reportIds).order("version_no", { ascending: true }).limit(1000),
-    admin.from("cases").select(CASE_COLS).in("id", caseIds).limit(500),
+    admin.from("cases").select(CASE_COLS).in("id", caseIds).is("archived_at", null).limit(500),
   ]);
   if (versionError || caseError) throw new Error("read_failed");
   const versionRows = versions ?? [];
@@ -357,15 +357,7 @@ async function loadReports(
   if (reviewError) throw new Error("read_failed");
   const receiptIds = [...new Set([
     ...versionRows.map((row) => String(row.event_receipt_id)),
-    ...versionRows.map((row) => String(row.publication_receipt_id || "")).filter(Boolean),
-    ...(reviews ?? []).map((row) => String(row.event_receipt_id)),
-  ])];
-  const reviewerWallets = [...new Set((reviews ?? []).map((row) => String(row.reviewer_wallet)))];
-  const [{ data: links, error: linkError }, { data: receipts, error: receiptError }, profileResult, thresholds] = await Promise.all([
-    versionIds.length
-      ? admin.from("case_report_version_evidence")
-        .select("report_version_id,evidence_item_id,ordinal")
-        .in("report_version_id", versionIds).order("ordinal", { ascending: true }).limit(5000)
+    ...versionRows.map((row) => String(row.publication_receipt_id || "")).filt×­m¢G§²ÚîÆ­yÞ_id", versionIds).order("ordinal", { ascending: true }).limit(5000)
       : Promise.resolve({ data: [], error: null }),
     receiptIds.length
       ? admin.from("event_receipts").select(RECEIPT_COLS).in("id", receiptIds).limit(6000)
@@ -419,10 +411,10 @@ async function loadReports(
   const reviewEnabled = await reviewWritesEnabled();
   return headers.filter((header) => {
     const caseRow = caseById.get(String(header.case_id));
-    return access !== "analyst" || (
+    return !!caseRow && (access !== "analyst" || (
       header.author_wallet !== viewerWallet
       && caseRow?.submitted_by_wallet !== viewerWallet
-    );
+    ));
   }).map((header) => {
     const caseRow = caseById.get(String(header.case_id));
     const reportVersions = versionRows
@@ -532,8 +524,8 @@ async function listPublicReports(body: Row): Promise<Response> {
     return jsonResponse(404, { ok: false, error: "case_not_available" });
   }
   const { data: cases, error: caseError } = await admin.from("cases")
-    .select("id,public_ref,risk_tier,visibility")
-    .eq("public_ref", caseRef).eq("visibility", "public").limit(1);
+    .select("id,public_ref,risk_tier,visibility,archived_at")
+    .eq("public_ref", caseRef).eq("visibility", "public").is("archived_at", null).limit(1);
   const caseRow = cases?.[0];
   if (caseError || !caseRow) {
     return jsonResponse(404, { ok: false, error: "case_not_available" });

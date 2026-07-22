@@ -122,7 +122,7 @@ function timingSafeEqualHex(left: string, right: string): boolean {
 // ---------------------------------------------------------------------------
 
 const CASE_COLS =
-  "id,public_ref,title,category,summary_public,details_restricted,reward_intent_lamports,submitted_by_wallet,stage,visibility,risk_tier,sealed_at,created_at,updated_at";
+  "id,public_ref,title,category,summary_public,details_restricted,reward_intent_lamports,submitted_by_wallet,stage,visibility,risk_tier,sealed_at,archived_at,created_at,updated_at";
 const REPORT_COLS =
   "id,case_id,author_wallet,current_version_id,current_published_version_id,status,public_ref,native_intake,created_at";
 const VERSION_COLS =
@@ -294,868 +294,4 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
   // Case-targeted receipts key on public_ref; report-version receipts on the
   // version uuid. Both are folded into the owning Case's proof log.
   const versionIds = Object.values(versionsByReport).flat().map((v) => String(v.id));
-  const versionCaseRef: Record<string, string> = {};
-  for (const [reportId, versions] of Object.entries(versionsByReport)) {
-    const report = (reports ?? []).find((r) => String(r.id) === reportId);
-    const caseRow = report ? caseRows.find((c) => String(c.id) === String(report.case_id)) : null;
-    if (!caseRow) continue;
-    for (const version of versions) versionCaseRef[String(version.id)] = String(caseRow.public_ref);
-  }
-  const paymentIds = [...(payments ?? []), ...(supports ?? [])].map((row) => String(row.id));
-  const paymentCaseRef: Record<string, string> = {};
-  for (const caseRow of caseRows) {
-    const money = moneyByCase[String(caseRow.id)] ?? {};
-    for (const row of [...(money.payments as Row[] ?? []), ...(money.supports as Row[] ?? [])]) {
-      paymentCaseRef[String(row.id)] = String(caseRow.public_ref);
-    }
-  }
-  const targetIds = [...publicRefs, ...caseIds, ...versionIds, ...resolutionIds, ...challengeIds, ...paymentIds];
-  if (targetIds.length) {
-    const { data: receipts } = await admin.from("event_receipts").select(RECEIPT_COLS)
-      .in("target_id", targetIds).order("occurred_at", { ascending: true }).limit(400);
-    for (const receipt of receipts ?? []) {
-      const targetId = String(receipt.target_id);
-      const directCase = caseRows.find((c) => String(c.id) === targetId);
-      const resolution = (resolutions ?? []).find((row) => String(row.id) === targetId);
-      const challenge = (challenges ?? []).find((row) => String(row.id) === targetId);
-      const challengeResolution = challenge
-        ? (resolutions ?? []).find((row) => String(row.id) === String(challenge.resolution_id))
-        : null;
-      const governanceCase = resolution ?? challengeResolution;
-      const governanceCaseRow = governanceCase
-        ? caseRows.find((row) => String(row.id) === String(governanceCase.case_id))
-        : null;
-      const ref = publicRefs.includes(targetId)
-        ? targetId : (directCase ? String(directCase.public_ref)
-          : (versionCaseRef[targetId] ?? paymentCaseRef[targetId]
-            ?? (governanceCaseRow ? String(governanceCaseRow.public_ref) : "")));
-      if (!ref) continue;
-      (receiptsByCaseTarget[ref] ??= []).push(receipt);
-    }
-  }
-
-  const [{ data: links }, { data: reviews }] = await Promise.all([
-    admin.from("case_evidence_links").select("case_id,evidence_item_id")
-      .in("case_id", caseIds).limit(400),
-    admin.from("case_initial_reviews").select(REVIEW_COLS)
-      .in("case_id", caseIds).order("created_at", { ascending: true }).limit(400),
-  ]);
-  const evidenceIds = (links ?? []).map((link) => String(link.evidence_item_id));
-  let evidence: Row[] = [];
-  if (evidenceIds.length) {
-    const result = await admin.from("evidence_items").select(EVIDENCE_COLS)
-      .in("id", evidenceIds).order("created_at", { ascending: true }).limit(400);
-    evidence = result.data ?? [];
-  }
-  for (const link of links ?? []) {
-    const item = evidence.find((entry) => String(entry.id) === String(link.evidence_item_id));
-    if (item) (evidenceByCase[String(link.case_id)] ??= []).push(item);
-  }
-  const receiptById: Record<string, Row> = {};
-  for (const rows of Object.values(receiptsByCaseTarget)) {
-    for (const receipt of rows) receiptById[String(receipt.id)] = receipt;
-  }
-  for (const review of reviews ?? []) {
-    const value = { ...review, receipt: receiptById[String(review.event_receipt_id)] ?? null };
-    (reviewsByCase[String(review.case_id)] ??= []).push(value);
-  }
-
-  const versionRefById: Record<string, string> = {};
-  for (const version of Object.values(versionsByReport).flat()) {
-    versionRefById[String(version.id)] = String(version.version_ref ?? "");
-  }
-  for (const version of winningVersions ?? []) {
-    versionRefById[String(version.id)] = String(version.version_ref ?? "");
-  }
-  const config: Record<string, number> = {};
-  for (const row of configRows ?? []) config[String(row.key)] = Number(row.value);
-  const tally = (rows: Row[], decision: string) => {
-    const selected = rows.filter((row) => row.is_active === true && row.decision === decision);
-    return { count: selected.length, weight: selected.reduce((sum, row) => sum + Number(row.weight ?? 0), 0) };
-  };
-  for (const caseRow of caseRows) {
-    const caseResolutions = (resolutions ?? []).filter((row) => String(row.case_id) === String(caseRow.id));
-    const resolution = caseResolutions.slice().sort((left, right) => (
-      new Date(String(right.created_at)).getTime() - new Date(String(left.created_at)).getTime()
-    ))[0];
-    if (!resolution) { governanceByCase[String(caseRow.id)] = { resolution: null, challenges: [] }; continue; }
-    const resReviews = (resolutionReviews ?? []).filter((row) => String(row.resolution_id) === String(resolution.id));
-    const minimumCount = caseRow.risk_tier === "high"
-      ? config.OSI_V2_RESOLUTION_HIGH_MIN_COUNT : config.OSI_V2_RESOLUTION_STANDARD_MIN_COUNT;
-    const minimumWeight = caseRow.risk_tier === "high"
-      ? config.OSI_V2_RESOLUTION_HIGH_MIN_WEIGHT : config.OSI_V2_RESOLUTION_STANDARD_MIN_WEIGHT;
-    const candidateTallies: Record<string, { count: number; weight: number }> = {};
-    // The modeled table has one globally active review per resolution/wallet.
-    // A later seal-phase cast therefore retires that wallet's active selection
-    // row without erasing it. Derive the immutable selection snapshot from the
-    // latest row in the selection phase, never from the cross-phase active bit.
-    const latestSelectionByWallet = new Map<string, Row>();
-    for (const review of resReviews.filter((row) => row.phase === "selection")) {
-      latestSelectionByWallet.set(String(review.reviewer_wallet), review);
-    }
-    for (const review of [...latestSelectionByWallet.values()]
-      .filter((row) => row.decision === "select")) {
-      const key = String(review.candidate_report_version_id);
-      const entry = candidateTallies[key] ??= { count: 0, weight: 0 };
-      entry.count += 1; entry.weight += Number(review.weight ?? 0);
-    }
-    const ready = Object.entries(candidateTallies)
-      .filter(([, value]) => value.count >= minimumCount && value.weight >= minimumWeight)
-      .sort((left, right) => right[1].weight - left[1].weight
-        || right[1].count - left[1].count || left[0].localeCompare(right[0]));
-    const tie = ready.length > 1 && ready[0][1].weight === ready[1][1].weight
-      && ready[0][1].count === ready[1][1].count;
-    const sealTally = tally(resReviews.filter((row) => row.phase === "seal"), "select");
-    const resolutionChallenges = (challenges ?? []).filter((row) => String(row.resolution_id) === String(resolution.id));
-    governanceByCase[String(caseRow.id)] = {
-      resolution: {
-        ...resolution,
-        winning_report_version_ref: versionRefById[String(resolution.winning_report_version_id)] || null,
-        final_receipt: receiptById[String(resolution.final_receipt_id)] ?? null,
-        seal_receipt: receiptById[String(resolution.seal_receipt_id)] ?? null,
-        selection_quorum: {
-          leader_version_ref: tie || !ready[0] ? null : versionRefById[ready[0][0]] || null,
-          leader_count: ready[0]?.[1].count ?? 0,
-          leader_weight: ready[0]?.[1].weight ?? 0,
-          required_count: minimumCount || 0, required_weight: minimumWeight || 0,
-          ready_candidate_count: ready.length, tie_unresolved: tie,
-        },
-        seal_quorum: {
-          approve_count: sealTally.count, approve_weight: sealTally.weight,
-          required_count: config.OSI_V2_SEAL_MIN_COUNT || 0,
-          required_weight: config.OSI_V2_SEAL_MIN_WEIGHT || 0,
-          ready: sealTally.count >= config.OSI_V2_SEAL_MIN_COUNT
-            && sealTally.weight >= config.OSI_V2_SEAL_MIN_WEIGHT,
-        },
-      },
-      resolution_reviews: resReviews.map((review) => ({
-        ...review,
-        candidate_version_ref: versionRefById[String(review.candidate_report_version_id)] || null,
-        receipt: receiptById[String(review.event_receipt_id)] ?? null,
-      })),
-      challenges: resolutionChallenges.map((challenge) => {
-        const rows = (challengeReviews ?? []).filter((row) => String(row.challenge_id) === String(challenge.id));
-        const accepted = tally(rows.filter((row) => row.phase === "merit"), "accept");
-        const rejected = tally(rows.filter((row) => row.phase === "merit"), "reject");
-        return {
-          ...challenge,
-          outcome_quorum: {
-            accept_count: accepted.count, accept_weight: accepted.weight,
-            reject_count: rejected.count, reject_weight: rejected.weight,
-            required_count: config.OSI_V2_CHALLENGE_MIN_COUNT || 0,
-            required_weight: config.OSI_V2_CHALLENGE_MIN_WEIGHT || 0,
-          },
-          submitted_receipt: receiptById[String(challenge.submitted_receipt_id)] ?? null,
-          opened_receipt: receiptById[String(challenge.opened_receipt_id)] ?? null,
-          resolved_receipt: receiptById[String(challenge.resolved_receipt_id)] ?? null,
-          reviews: rows.map((review) => ({
-            ...review, receipt: receiptById[String(review.event_receipt_id)] ?? null,
-          })),
-        };
-      }),
-    };
-  }
-  return { reportsByCase, versionsByReport, receiptsByCaseTarget, evidenceByCase, reviewsByCase, governanceByCase, moneyByCase };
-}
-
-// ---------------------------------------------------------------------------
-// Anonymous operations
-// ---------------------------------------------------------------------------
-
-async function listPublicCases(): Promise<Response> {
-  const { data, error } = await admin.from("cases").select(CASE_COLS)
-    .eq("visibility", "public")
-    .in("stage", [...PUBLIC_CASE_STAGES])
-    .order("created_at", { ascending: false })
-    .limit(PUBLIC_LIST_LIMIT);
-  if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
-  const caseRows = (data ?? []).filter(isCasePublic);
-  const graph = await loadCaseGraph(caseRows, true);
-  return jsonResponse(200, {
-    ok: true,
-    cases: caseRows.map((caseRow) => publicCaseDto(
-      caseRow,
-      graph.reportsByCase[String(caseRow.id)] ?? [],
-      graph.versionsByReport,
-      graph.receiptsByCaseTarget[String(caseRow.public_ref)] ?? [],
-      graph.evidenceByCase[String(caseRow.id)] ?? [],
-      graph.reviewsByCase[String(caseRow.id)] ?? [],
-      graph.governanceByCase[String(caseRow.id)] ?? {},
-      graph.moneyByCase[String(caseRow.id)] ?? {},
-    )),
-  });
-}
-
-async function getPublicCase(body: Row): Promise<Response> {
-  const publicRef = safeText(body.public_ref);
-  if (!/^OSI-[0-9A-Z]{6,20}$/.test(publicRef)) {
-    return jsonResponse(400, { ok: false, error: "bad_public_ref" });
-  }
-  const { data, error } = await admin.from("cases").select(CASE_COLS)
-    .eq("public_ref", publicRef).limit(1);
-  if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
-  const caseRow = data?.[0];
-  // Private and nonexistent Cases are indistinguishable to anonymous callers.
-  if (!caseRow || !isCasePublic(caseRow)) {
-    return jsonResponse(404, { ok: false, error: "not_found_or_private" });
-  }
-  const graph = await loadCaseGraph([caseRow], true);
-  return jsonResponse(200, {
-    ok: true,
-    case: publicCaseDto(
-      caseRow,
-      graph.reportsByCase[String(caseRow.id)] ?? [],
-      graph.versionsByReport,
-      graph.receiptsByCaseTarget[String(caseRow.public_ref)] ?? [],
-      graph.evidenceByCase[String(caseRow.id)] ?? [],
-      graph.reviewsByCase[String(caseRow.id)] ?? [],
-      graph.governanceByCase[String(caseRow.id)] ?? {},
-      graph.moneyByCase[String(caseRow.id)] ?? {},
-    ),
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Signed-read challenge issuance and verification
-// ---------------------------------------------------------------------------
-
-function challengeTargetFor(purpose: string, wallet: string, caseRef: string) {
-  if (purpose === "CASE_READ_MY_CASES") return { target_type: "wallet_cases", target_id: wallet };
-  if (purpose === "CASE_READ_AUTHORIZED_CASE") return { target_type: "case", target_id: caseRef };
-  if (purpose === "CASE_READ_REVIEW_QUEUE") {
-    return { target_type: "review_queue", target_id: wallet };
-  }
-  if (purpose === "CASE_READ_MAINTAINER_OVERVIEW") {
-    return { target_type: "config", target_id: "maintainer_overview" };
-  }
-  return null;
-}
-
-async function issueReadChallenge(req: Request, body: Row): Promise<Response> {
-  const purpose = safeText(body.purpose);
-  const wallet = safeText(body.wallet);
-  const caseRef = safeText(body.case_ref);
-  if (!READ_PURPOSES.has(purpose)) return jsonResponse(400, { ok: false, error: "bad_purpose" });
-  try {
-    validateWallet(wallet);
-  } catch {
-    return jsonResponse(400, { ok: false, error: "bad_wallet" });
-  }
-  if (purpose === "CASE_READ_AUTHORIZED_CASE" && !/^OSI-[0-9A-Z]{6,20}$/.test(caseRef)) {
-    return jsonResponse(400, { ok: false, error: "bad_case_ref" });
-  }
-  const target = challengeTargetFor(purpose, wallet, caseRef);
-  if (!target) return jsonResponse(400, { ok: false, error: "bad_purpose" });
-
-  const nonce = randomNonce();
-  const fingerprintHash = await requestFingerprint(
-    SERVICE_ROLE_KEY + "\u0000osi-v2-case-read",
-    trustedClientAddress(req.headers),
-  );
-  const { data, error } = await admin.rpc("osi_v2_issue_read_nonce", {
-    p_nonce: nonce,
-    p_purpose: purpose,
-    p_actor_wallet: wallet,
-    p_target_type: target.target_type,
-    p_target_id: target.target_id,
-    p_request_fingerprint_hash: fingerprintHash,
-  });
-  if (error || !data?.[0]) {
-    return jsonResponse(error?.code === "P0001" ? 429 : 503, {
-      ok: false,
-      error: error?.code === "P0001" ? "rate_limited" : "challenge_unavailable",
-    });
-  }
-  const issuedAt = Math.floor(Date.parse(String(data[0].issued_at)) / 1000);
-  const expiresAt = Math.floor(Date.parse(String(data[0].expires_at)) / 1000);
-  const fields = {
-    purpose,
-    target_type: target.target_type,
-    target_id: target.target_id,
-    wallet,
-    nonce,
-    issued_at: issuedAt,
-    expires_at: expiresAt,
-  };
-  const mac = await hmacHex(challengeSigningInput(fields));
-  return jsonResponse(200, {
-    ok: true,
-    challenge: buildChallenge(fields, mac),
-    expires_at: fields.expires_at,
-  });
-}
-
-type ProvenActor = { wallet: string };
-
-async function verifySignedRead(
-  body: Row,
-  purpose: string,
-  expectedTarget: { target_type: string; target_id: string },
-): Promise<{ ok: true; actor: ProvenActor } | { ok: false; status: number; reason: string }> {
-  const wallet = safeText(body.wallet);
-  const challenge = safeText(body.challenge);
-  const signature = safeText(body.signature);
-  if (!wallet || !challenge || !signature) {
-    return { ok: false, status: 400, reason: "missing_fields" };
-  }
-  const fields = parseChallenge(challenge);
-  if (!fields) return { ok: false, status: 400, reason: "bad_challenge" };
-
-  const expectedMac = await hmacHex(challengeSigningInput(fields));
-  if (!timingSafeEqualHex(expectedMac, fields.hmac ?? "")) {
-    return { ok: false, status: 403, reason: "bad_challenge" };
-  }
-  const binding = validateChallengeBinding(
-    fields,
-    { purpose, wallet, ...expectedTarget },
-    Math.floor(Date.now() / 1000),
-  );
-  if (!binding.ok) return { ok: false, status: 403, reason: binding.reason ?? "bad_binding" };
-  const validSignature = await verifyEd25519Signature(challenge, signature, wallet);
-  if (!validSignature) return { ok: false, status: 403, reason: "bad_signature" };
-  const { data: consumed, error: consumeError } = await admin.rpc("osi_v2_consume_read_nonce", {
-    p_nonce: fields.nonce,
-    p_purpose: fields.purpose,
-    p_actor_wallet: fields.wallet,
-    p_target_type: fields.target_type,
-    p_target_id: fields.target_id,
-  });
-  if (consumeError) return { ok: false, status: 503, reason: "challenge_unavailable" };
-  if (consumed !== true) return { ok: false, status: 403, reason: "replayed_or_expired" };
-  return { ok: true, actor: { wallet } };
-}
-
-async function verifyReadSession(
-  req: Request,
-  body: Row,
-  requiredScope: string,
-): Promise<{ ok: true; actor: ProvenActor; payload: Row } | { ok: false; status: number; reason: string }> {
-  if (!await readSessionEnabled()) {
-    return { ok: false, status: 503, reason: "read_session_disabled_or_unavailable" };
-  }
-  const verified = await verifyReadSessionToken({
-    token: safeText(body.read_session),
-    secret: SERVICE_ROLE_KEY,
-    issuer: readSessionIssuer(SUPABASE_URL),
-    origin: req.headers.get("origin") ?? "",
-    allowedOrigin: ALLOWED_ORIGIN,
-    wallet: safeText(body.wallet),
-    requiredScope,
-  });
-  if (verified.ok === true && typeof verified.wallet === "string") {
-    return { ok: true, actor: { wallet: verified.wallet }, payload: verified.payload as Row };
-  }
-  return {
-    ok: false,
-    status: typeof verified.status === "number" ? verified.status : 403,
-    reason: typeof verified.reason === "string" ? verified.reason : "read_session_tampered",
-  };
-}
-
-async function issueReadSessionChallenge(req: Request, body: Row): Promise<Response> {
-  if (!await readSessionEnabled()) {
-    return jsonResponse(503, { ok: false, error: "read_session_disabled_or_unavailable" });
-  }
-  if (!isExactReadSessionOrigin(req.headers.get("origin") ?? "", ALLOWED_ORIGIN)) {
-    return jsonResponse(403, { ok: false, error: "read_session_wrong_origin" });
-  }
-  return await issueReadChallenge(req, {
-    ...body,
-    purpose: "CASE_READ_MY_CASES",
-    case_ref: "",
-  });
-}
-
-async function createReadSession(req: Request, body: Row): Promise<Response> {
-  if (!await readSessionEnabled()) {
-    return jsonResponse(503, { ok: false, error: "read_session_disabled_or_unavailable" });
-  }
-  const wallet = safeText(body.wallet);
-  const proof = await verifySignedRead(body, "CASE_READ_MY_CASES", {
-    target_type: "wallet_cases",
-    target_id: wallet,
-  });
-  if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
-
-  const [analyst, maintainer] = await Promise.all([
-    isVerifiedAnalyst(wallet),
-    hasFullMaintainerAccess(req, wallet),
-  ]);
-  const scopes: string[] = [
-    READ_SESSION_SCOPES.CASE_MINE,
-    READ_SESSION_SCOPES.CASE_DETAIL,
-    READ_SESSION_SCOPES.REPORT_MINE,
-    READ_SESSION_SCOPES.WIRE_MINE,
-    READ_SESSION_SCOPES.AIPACK_DETAIL,
-    READ_SESSION_SCOPES.ANALYST_WORKSPACE,
-  ];
-  if (analyst || maintainer) {
-    scopes.push(
-      READ_SESSION_SCOPES.CASE_REVIEW,
-      READ_SESSION_SCOPES.REPORT_REVIEW,
-      READ_SESSION_SCOPES.WIRE_QUEUE,
-    );
-  }
-  if (maintainer) {
-    scopes.push(READ_SESSION_SCOPES.CASE_MAINTAINER, READ_SESSION_SCOPES.ANALYST_MAINTAINER);
-  }
-  try {
-    const issued = await issueReadSessionToken({
-      secret: SERVICE_ROLE_KEY,
-      issuer: readSessionIssuer(SUPABASE_URL),
-      audience: req.headers.get("origin") ?? "",
-      allowedOrigin: ALLOWED_ORIGIN,
-      wallet,
-      scopes,
-      authSubject: maintainer ? MAINTAINER_AUTH_UUID : null,
-      jti: randomNonce(),
-    });
-    return jsonResponse(200, {
-      ok: true,
-      read_session: issued.token,
-      wallet,
-      scopes: issued.payload.scp,
-      issued_at: issued.payload.iat,
-      expires_at: issued.payload.exp,
-      ttl_seconds: issued.payload.exp - issued.payload.iat,
-      auth_user_id: issued.payload.auth_sub,
-      read_only: true,
-    });
-  } catch {
-    return jsonResponse(503, { ok: false, error: "read_session_configuration_invalid" });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Signed operations
-// ---------------------------------------------------------------------------
-
-async function listMyCases(req: Request, body: Row): Promise<Response> {
-  const wallet = safeText(body.wallet);
-  const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_MINE);
-  if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
-
-  const { data, error } = await admin.from("cases").select(CASE_COLS)
-    .eq("submitted_by_wallet", proof.actor.wallet)
-    .order("created_at", { ascending: false }).limit(100);
-  if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
-  const caseRows = data ?? [];
-  const graph = await loadCaseGraph(caseRows);
-  return jsonResponse(200, {
-    ok: true,
-    cases: caseRows.map((caseRow) => authorizedCaseDto(
-      caseRow,
-      graph.reportsByCase[String(caseRow.id)] ?? [],
-      graph.versionsByReport,
-      graph.receiptsByCaseTarget[String(caseRow.public_ref)] ?? [],
-      { kind: "owner", wallet: proof.actor.wallet },
-      graph.evidenceByCase[String(caseRow.id)] ?? [],
-      graph.reviewsByCase[String(caseRow.id)] ?? [],
-      graph.governanceByCase[String(caseRow.id)] ?? {},
-      graph.moneyByCase[String(caseRow.id)] ?? {},
-    )),
-  });
-}
-
-async function isVerifiedAnalyst(wallet: string): Promise<boolean> {
-  const { data } = await admin.from("analyst_profiles")
-    .select("wallet,status,verified,approved,weight_cached")
-    .eq("wallet", wallet).limit(1);
-  const analyst = data?.[0];
-  return !!analyst && analyst.verified === true && analyst.approved === true
-    && ["probationary_analyst", "verified_analyst", "senior_analyst"].includes(analyst.status)
-    && Number(analyst.weight_cached) >= 0.50;
-}
-
-function buildReviewTasks(
-  cases: Row[], wallet: string, actorKind: "analyst" | "maintainer",
-  analystWeight: number | null, reportVotesByVersion: Record<string, Row>,
-) {
-  const groups: Record<string, Row[]> = {
-    report_publication: [], resolution_selection: [], challenge_admissibility: [],
-    challenge_adjudication: [], seal_reviews: [],
-  };
-  const task = (lane: string, value: Row) => groups[lane].push({
-    lane, deadline: null, conflict: false, current_vote: null,
-    weight_snapshot: actorKind === "analyst" ? analystWeight : null,
-    ...value,
-  });
-  for (const caseItem of cases) {
-    const caseRef = String(caseItem.public_ref ?? "");
-    const reports = Array.isArray(caseItem.reports) ? caseItem.reports as Row[] : [];
-    for (const report of reports) {
-      const author = String(report.author_wallet ?? "");
-      for (const version of Array.isArray(report.versions) ? report.versions as Row[] : []) {
-        if (version.lifecycle_state !== "in_review") continue;
-        const ref = String(version.version_ref ?? "");
-        const vote = reportVotesByVersion[ref];
-        task("report_publication", {
-          case_ref: caseRef, exact_target: ref, conflict: author === wallet,
-          current_vote: vote ? String(vote.decision ?? "") : null,
-          weight_snapshot: vote ? Number(vote.weight ?? analystWeight ?? 0)
-            : (actorKind === "analyst" ? analystWeight : null),
-          next_action: author === wallet ? "Self-review excluded"
-            : (actorKind === "analyst" ? "Review exact Report version" : "Analyst quorum required"),
-        });
-      }
-    }
-    const governance = caseItem.governance && typeof caseItem.governance === "object"
-      ? caseItem.governance as Row : {};
-    const resolution = governance.resolution && typeof governance.resolution === "object"
-      ? governance.resolution as Row : null;
-    if (!resolution) continue;
-    const reviews = Array.isArray(resolution.reviews) ? resolution.reviews as Row[] : [];
-    const winningRef = String(resolution.winning_report_version_ref ?? "");
-    const selectedReport = reports.find((report) => (
-      (Array.isArray(report.versions) ? report.versions as Row[] : [])
-        .some((version) => String(version.version_ref ?? "") === winningRef)
-    ));
-    const selectedAuthorConflict = String(selectedReport?.author_wallet ?? "") === wallet;
-    if (resolution.state === "selection_open") {
-      for (const report of reports) {
-        const author = String(report.author_wallet ?? "");
-        for (const version of Array.isArray(report.versions) ? report.versions as Row[] : []) {
-          if (version.lifecycle_state !== "published") continue;
-          const ref = String(version.version_ref ?? "");
-          const own = reviews.find((review) => review.is_active === true
-            && review.phase === "selection" && review.reviewer_wallet === wallet
-            && review.target_version_ref === ref);
-          task("resolution_selection", {
-            case_ref: caseRef, exact_target: ref, conflict: author === wallet,
-            current_vote: own ? String(own.decision ?? "") : null,
-            weight_snapshot: own ? Number(own.weight ?? analystWeight ?? 0)
-              : (actorKind === "analyst" ? analystWeight : null),
-            next_action: author === wallet ? "Selected Report author excluded"
-              : (actorKind === "analyst" ? "Review exact primary candidate" : "Finalize only after unique analyst quorum"),
-          });
-        }
-      }
-    }
-    const challenges = Array.isArray(governance.challenges) ? governance.challenges as Row[] : [];
-    for (const challenge of challenges) {
-      const conflict = String(challenge.challenger_wallet ?? "") === wallet || selectedAuthorConflict;
-      if (["submitted", "admissibility_review"].includes(String(challenge.state ?? ""))) {
-        task("challenge_admissibility", {
-          case_ref: caseRef, exact_target: String(challenge.public_ref ?? ""),
-          deadline: challenge.admissibility_deadline_at ?? null, conflict,
-          next_action: conflict ? "Conflicted actor excluded"
-            : (actorKind === "analyst" ? "Decide admissibility" : "Double-gated admissibility decision"),
-        });
-      }
-      if (["open", "under_review"].includes(String(challenge.state ?? ""))) {
-        const own = (Array.isArray(challenge.reviews) ? challenge.reviews as Row[] : [])
-          .find((review) => review.is_active === true && review.reviewer_wallet === wallet);
-        task("challenge_adjudication", {
-          case_ref: caseRef, exact_target: String(challenge.public_ref ?? ""),
-          deadline: challenge.review_deadline_at ?? null, conflict,
-          current_vote: own ? String(own.decision ?? "") : null,
-          weight_snapshot: own ? Number(own.weight ?? analystWeight ?? 0)
-            : (actorKind === "analyst" ? analystWeight : null),
-          next_action: conflict ? "Conflicted actor excluded"
-            : (actorKind === "analyst" ? "Review challenge merits" : "Analyst quorum required"),
-        });
-      }
-    }
-    const windowEnd = Date.parse(String(resolution.challenge_window_closes_at ?? ""));
-    const blockers = challenges.some((challenge) => ["open", "under_review"].includes(String(challenge.state ?? "")));
-    if (resolution.state === "in_challenge_window" && Number.isFinite(windowEnd)
-        && windowEnd <= Date.now() && !blockers) {
-      const own = reviews.find((review) => review.is_active === true
-        && review.phase === "seal" && review.reviewer_wallet === wallet);
-      task("seal_reviews", {
-        case_ref: caseRef, exact_target: String(resolution.public_ref ?? ""),
-        deadline: resolution.challenge_window_closes_at ?? null,
-        conflict: selectedAuthorConflict,
-        current_vote: own ? String(own.decision ?? "") : null,
-        weight_snapshot: own ? Number(own.weight ?? analystWeight ?? 0)
-          : (actorKind === "analyst" ? analystWeight : null),
-        next_action: selectedAuthorConflict ? "Selected Report author excluded"
-          : (actorKind === "analyst" ? "Review process seal" : "Finalize only after analyst seal quorum"),
-      });
-    }
-  }
-  return groups;
-}
-
-async function listReviewableCases(req: Request, body: Row): Promise<Response> {
-  const wallet = safeText(body.wallet);
-  const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_REVIEW);
-  if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
-
-  let actorKind: "analyst" | "maintainer" | null = null;
-  if (await isVerifiedAnalyst(wallet)) actorKind = "analyst";
-  else if (await hasFullMaintainerAccess(req, wallet)) actorKind = "maintainer";
-  if (!actorKind) return jsonResponse(403, { ok: false, error: "not_eligible_reviewer" });
-
-  const { data, error } = await admin.from("cases").select(CASE_COLS)
-    .in("stage", [
-      "initial_review", "open_public", "in_review", "ready_for_finalization",
-      "resolution_proposed", "in_challenge_window", "resolved", "reopened",
-    ])
-    .neq("submitted_by_wallet", wallet)
-    .order("created_at", { ascending: true }).limit(100);
-  if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
-  const caseRows = data ?? [];
-  const graph = await loadCaseGraph(caseRows);
-  const caseDtos = caseRows.map((caseRow) => authorizedCaseDto(
-    caseRow,
-    graph.reportsByCase[String(caseRow.id)] ?? [],
-    graph.versionsByReport,
-    graph.receiptsByCaseTarget[String(caseRow.public_ref)] ?? [],
-    { kind: actorKind, wallet },
-    graph.evidenceByCase[String(caseRow.id)] ?? [],
-    graph.reviewsByCase[String(caseRow.id)] ?? [],
-    graph.governanceByCase[String(caseRow.id)] ?? {},
-    graph.moneyByCase[String(caseRow.id)] ?? {},
-  ));
-  const versionRefById: Record<string, string> = {};
-  for (const versions of Object.values(graph.versionsByReport)) {
-    for (const version of versions) versionRefById[String(version.id)] = String(version.version_ref ?? "");
-  }
-  const versionIds = Object.keys(versionRefById);
-  const { data: reportVotes } = versionIds.length
-    ? await admin.from("case_report_reviews")
-      .select("report_version_id,reviewer_wallet,decision,weight,is_active")
-      .in("report_version_id", versionIds).eq("reviewer_wallet", wallet).eq("is_active", true)
-      .limit(400)
-    : { data: [] };
-  const reportVotesByVersion: Record<string, Row> = {};
-  for (const review of reportVotes ?? []) {
-    const ref = versionRefById[String(review.report_version_id)];
-    if (ref) reportVotesByVersion[ref] = review;
-  }
-  const { data: profileRows } = actorKind === "analyst"
-    ? await admin.from("analyst_profiles").select("weight_cached").eq("wallet", wallet).limit(1)
-    : { data: [] };
-  const analystWeight = actorKind === "analyst" ? Number(profileRows?.[0]?.weight_cached ?? 0) : null;
-  return jsonResponse(200, {
-    ok: true,
-    actor_role: actorKind,
-    cases: caseDtos,
-    review_tasks: buildReviewTasks(
-      caseDtos, wallet, actorKind, analystWeight, reportVotesByVersion,
-    ),
-  });
-}
-
-async function hasFullMaintainerAccess(req: Request, wallet: string): Promise<boolean> {
-  if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(MAINTAINER_AUTH_UUID)) return false;
-  const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (!token) return false;
-  const [{ data: configRows }, authResult] = await Promise.all([
-    admin.from("osi_config").select("value").eq("key", "admin_wallet").limit(1),
-    admin.auth.getUser(token),
-  ]);
-  return authResult.error == null
-    && authResult.data?.user?.id === MAINTAINER_AUTH_UUID
-    && configRows?.[0]?.value === wallet;
-}
-
-async function getAuthorizedCase(req: Request, body: Row): Promise<Response> {
-  const caseRef = safeText(body.case_ref);
-  if (!/^OSI-[0-9A-Z]{6,20}$/.test(caseRef)) {
-    return jsonResponse(400, { ok: false, error: "bad_case_ref" });
-  }
-  const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_DETAIL);
-  if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
-
-  const { data, error } = await admin.from("cases").select(CASE_COLS)
-    .eq("public_ref", caseRef).limit(1);
-  if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
-  const caseRow = data?.[0];
-  if (!caseRow) return jsonResponse(404, { ok: false, error: "not_found_or_denied" });
-
-  // Server-derived actor model. A Report author receives only their own
-  // unpublished versions plus public Case material; that role is derived from
-  // the exact Case/report relationship and never accepted from the client.
-  let actorKind: "owner" | "report_author" | "analyst" | "maintainer" | null = null;
-  if (caseRow.submitted_by_wallet === proof.actor.wallet) {
-    actorKind = "owner";
-  } else if (await isVerifiedAnalyst(proof.actor.wallet)) {
-    actorKind = "analyst";
-  } else {
-    const { data: authoredReports } = await admin.from("case_reports").select("id")
-      .eq("case_id", caseRow.id).eq("author_wallet", proof.actor.wallet).limit(1);
-    if ((authoredReports ?? []).length > 0) actorKind = "report_author";
-    else if (await hasFullMaintainerAccess(req, proof.actor.wallet)) actorKind = "maintainer";
-  }
-  const actor = actorKind
-    ? { kind: actorKind, wallet: proof.actor.wallet }
-    : { kind: "anonymous" as const };
-  if (!canActorReadCase(actor, caseRow)) {
-    return jsonResponse(404, { ok: false, error: "not_found_or_denied" });
-  }
-  const graph = await loadCaseGraph([caseRow]);
-  const reports = graph.reportsByCase[String(caseRow.id)] ?? [];
-  const receipts = graph.receiptsByCaseTarget[String(caseRow.public_ref)] ?? [];
-  // A proven wallet with no owner/analyst standing gets ONLY the public
-  // projection of a public Case â€” never the authorized field set.
-  if (!actorKind) {
-    return jsonResponse(200, {
-      ok: true,
-      actor_role: "public",
-      case: publicCaseDto(
-        caseRow,
-        reports,
-        graph.versionsByReport,
-        receipts,
-        graph.evidenceByCase[String(caseRow.id)] ?? [],
-        graph.reviewsByCase[String(caseRow.id)] ?? [],
-        graph.governanceByCase[String(caseRow.id)] ?? {},
-        graph.moneyByCase[String(caseRow.id)] ?? {},
-      ),
-    });
-  }
-  return jsonResponse(200, {
-    ok: true,
-    actor_role: actorKind,
-    case: authorizedCaseDto(
-      caseRow,
-      reports,
-      graph.versionsByReport,
-      receipts,
-      { kind: actorKind, wallet: proof.actor.wallet },
-      graph.evidenceByCase[String(caseRow.id)] ?? [],
-      graph.reviewsByCase[String(caseRow.id)] ?? [],
-      graph.governanceByCase[String(caseRow.id)] ?? {},
-      graph.moneyByCase[String(caseRow.id)] ?? {},
-    ),
-  });
-}
-
-// Maintainer double-gate. BOTH must hold, in this order, always evaluated
-// fail-closed:
-//   Gate 1 â€” a valid Supabase user session JWT whose subject equals the
-//            explicitly configured maintainer auth UUID;
-//   Gate 2 â€” a fresh signed read challenge from the CONFIGURED admin wallet.
-// A missing/blank configured admin wallet denies everyone (fail closed).
-async function maintainerCaseOverview(req: Request, body: Row): Promise<Response> {
-  const authHeader = req.headers.get("authorization") ?? "";
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  let authValid = false;
-  if (token) {
-    try {
-      const { data, error } = await admin.auth.getUser(token);
-      authValid = !error
-        && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(MAINTAINER_AUTH_UUID)
-        && data?.user?.id === MAINTAINER_AUTH_UUID;
-    } catch {
-      authValid = false;
-    }
-  }
-
-  const { data: configRows } = await admin.from("osi_config").select("key,value")
-    .in("key", [
-      "admin_wallet", "OSI_V2_WRITES_ENABLED", "OSI_V2_PROOF_ENABLED",
-      "OSI_V2_CASE_WRITES_ENABLED", "OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED",
-    ]);
-  const config: Record<string, string> = {};
-  for (const row of configRows ?? []) config[String(row.key)] = String(row.value ?? "");
-  const adminWallet = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(config.admin_wallet ?? "")
-    ? config.admin_wallet
-    : "";
-
-  const wallet = safeText(body.wallet);
-  let walletValid = false;
-  if (adminWallet && wallet === adminWallet) {
-    const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_MAINTAINER);
-    walletValid = proof.ok;
-  }
-
-  // Half-maintainer states are explicitly denied; the response names which
-  // gate is missing so the operator can complete it, but returns no data.
-  if (!authValid && !walletValid) {
-    return jsonResponse(403, { ok: false, error: "maintainer_denied" });
-  }
-  if (!authValid) return jsonResponse(403, { ok: false, error: "half_maintainer_wallet_only" });
-  if (!walletValid) return jsonResponse(403, { ok: false, error: "half_maintainer_auth_only" });
-
-  const [casesRes, receiptsRes, crosswalkRes, queueRes] = await Promise.all([
-    admin.from("cases").select(CASE_COLS).order("created_at", { ascending: true }).limit(200),
-    admin.from("event_receipts").select(RECEIPT_COLS).limit(1000),
-    admin.from("migration_crosswalk").select("id", { count: "exact", head: true }),
-    admin.from("migration_manual_queue").select("id", { count: "exact", head: true }),
-  ]);
-  if (casesRes.error) return jsonResponse(500, { ok: false, error: "read_failed" });
-  const caseRows = casesRes.data ?? [];
-  const graph = await loadCaseGraph(caseRows);
-  const receiptTotals: Record<string, number> = {};
-  for (const receipt of receiptsRes.data ?? []) {
-    const label = proofLabel(receipt);
-    receiptTotals[label] = (receiptTotals[label] ?? 0) + 1;
-  }
-  return jsonResponse(200, {
-    ok: true,
-    overview: maintainerOverviewDto({
-      cases: caseRows,
-      reportsByCase: graph.reportsByCase,
-      versionsByReport: graph.versionsByReport,
-      receiptsByCaseTarget: graph.receiptsByCaseTarget,
-      governanceByCase: graph.governanceByCase,
-      receiptTotals,
-      crosswalkCount: crosswalkRes.count ?? 0,
-      manualQueueCount: queueRes.count ?? 0,
-      flags: {
-        OSI_V2_WRITES_ENABLED: config.OSI_V2_WRITES_ENABLED ?? "",
-        OSI_V2_PROOF_ENABLED: config.OSI_V2_PROOF_ENABLED ?? "",
-        OSI_V2_CASE_WRITES_ENABLED: config.OSI_V2_CASE_WRITES_ENABLED ?? "",
-        OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED:
-          config.OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED ?? "",
-      },
-    }),
-  });
-}
-
-// ---------------------------------------------------------------------------
-
-serve(async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
-  if (req.method !== "POST") return jsonResponse(405, { ok: false, error: "method_not_allowed" });
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    return jsonResponse(503, { ok: false, error: "not_configured" });
-  }
-
-  const declaredLength = Number(req.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
-    return jsonResponse(413, { ok: false, error: "body_too_large" });
-  }
-  let body: Row;
-  try {
-    const raw = await req.text();
-    if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
-      return jsonResponse(413, { ok: false, error: "body_too_large" });
-    }
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new TypeError();
-    body = parsed as Row;
-  } catch {
-    return jsonResponse(400, { ok: false, error: "bad_json" });
-  }
-
-  // Deterministic DB-clock maintenance. This is service-only and clients
-  // cannot choose the deadline, timestamp or terminal state.
-  await admin.rpc("osi_v2_expire_due_challenges", { p_limit: 25 });
-
-  switch (body.op) {
-    case "list_public_cases":
-      return await listPublicCases();
-    case "get_public_case":
-      return await getPublicCase(body);
-    case "issue_read_challenge":
-      return await issueReadChallenge(req, body);
-    case "issue_read_session_challenge":
-      return await issueReadSessionChallenge(req, body);
-    case "create_read_session":
-      return await createReadSession(req, body);
-    case "list_my_cases":
-      return await listMyCases(req, body);
-    case "list_reviewable_cases":
-      return await listReviewableCases(req, body);
-    case "get_authorized_case":
-      return await getAuthorizedCase(req, body);
-    case "maintainer_case_overview":
-      return await maintainerCaseOverview(req, body);
-    default:
-      return jsonResponse(400, { ok: false, error: "bad_op" });
-  }
-});
+  const versionCaseRef: Record<string, string> = {ó½}¶‰ËkºwµçA¹Õ±°¤°(€€€€€€€€€¹•áÑ}…Ñ¥½¸è½¹™±¥Ğ€ü€‰½¹™±¥Ñ•…Ñ½È•á±Õ‘•ˆ(€€€€€€€€€€€€è€¡…Ñ½É-¥¹€ôôô€‰…¹…±åÍĞˆ€ü€‰I•Ù¥•Ü¡…±±•¹”µ•É¥ÑÌˆ€è€‰¹…±åÍĞÅÕ½ÉÕ´É•ÅÕ¥É•ˆ¤°(€€€€€€€ô¤ì(€€€€€ô(€€€ô(€€€½¹ÍĞİ¥¹‘½İ¹€ô…Ñ”¹Á…ÉÍ”¡MÑÉ¥¹œ¡É•Í½±ÕÑ¥½¸¹¡…±±•¹•}İ¥¹‘½İ}±½Í•Í}…Ğ€üü€ˆˆ¤¤ì(€€€½¹ÍĞ‰±½­•ÉÌ€ô¡…±±•¹•Ì¹Í½µ” ¡¡…±±•¹”¤€ôøl‰½Á•¸ˆ°€‰Õ¹‘•É}É•Ù¥•Ü‰t¹¥¹±Õ‘•Ì¡MÑÉ¥¹œ¡¡…±±•¹”¹ÍÑ…Ñ”€üü€ˆˆ¤¤¤ì(€€€¥˜€¡É•Í½±ÕÑ¥½¸¹ÍÑ…Ñ”€ôôô€‰¥¹}¡…±±•¹•}İ¥¹‘½Üˆ€˜˜9Õµ‰•È¹¥Í¥¹¥Ñ”¡İ¥¹‘½İ¹¤(€€€€€€€€˜˜İ¥¹‘½İ¹€ğô…Ñ”¹¹½Ü ¤€˜˜€…‰±½­•ÉÌ¤ì(€€€€€½¹ÍĞ½İ¸€ôÉ•Ù¥•İÌ¹™¥¹ ¡É•Ù¥•Ü¤€ôøÉ•Ù¥•Ü¹¥Í}…Ñ¥Ù”€ôôôÑÉÕ”(€€€€€€€€˜˜É•Ù¥•Ü¹Á¡…Í”€ôôô€‰Í•…°ˆ€˜˜É•Ù¥•Ü¹É•Ù¥•İ•É}İ…±±•Ğ€ôôôİ…±±•Ğ¤ì(€€€€€Ñ…Í¬ ‰Í•…±}É•Ù¥•İÌˆ°ì(€€€€€€€…Í•}É•˜è…Í•I•˜°•á…Ñ}Ñ…É•ĞèMÑÉ¥¹œ¡É•Í½±ÕÑ¥½¸¹ÁÕ‰±¥}É•˜€üü€ˆˆ¤°(€€€€€€€‘•…‘±¥¹”èÉ•Í½±ÕÑ¥½¸¹¡…±±•¹•}İ¥¹‘½İ}±½Í•Í}…Ğ€üü¹Õ±°°(€€€€€€€½¹™±¥ĞèÍ•±•Ñ•‘ÕÑ¡½É½¹™±¥Ğ°(€€€€€€€ÕÉÉ•¹Ñ}Ù½Ñ”è½İ¸€üMÑÉ¥¹œ¡½İ¸¹‘•¥Í¥½¸€üü€ˆˆ¤€è¹Õ±°°(€€€€€€€İ•¥¡Ñ}Í¹…ÁÍ¡½Ğè½İ¸€ü9Õµ‰•È¡½İ¸¹İ•¥¡Ğ€üü…¹…±åÍÑ]•¥¡Ğ€üü€À¤(€€€€€€€€€€è€¡…Ñ½É-¥¹€ôôô€‰…¹…±åÍĞˆ€ü…¹…±åÍÑ]•¥¡Ğ€è¹Õ±°¤°(€€€€€€€¹•áÑ}…Ñ¥½¸èÍ•±•Ñ•‘ÕÑ¡½É½¹™±¥Ğ€ü€‰M•±•Ñ•I•Á½ÉĞ…ÕÑ¡½È•á±Õ‘•ˆ(€€€€€€€€€€è€¡…Ñ½É-¥¹€ôôô€‰…¹…±åÍĞˆ€ü€‰I•Ù¥•ÜÁÉ½•ÍÌÍ•…°ˆ€è€‰¥¹…±¥é”½¹±ä…™Ñ•È…¹…±åÍĞÍ•…°ÅÕ½ÉÕ´ˆ¤°(€€€€€ô¤ì(€€€ô(€ô(€É•ÑÕÉ¸É½ÕÁÌì)ô()…Íå¹Œ™Õ¹Ñ¥½¸±¥ÍÑI•Ù¥•İ…‰±•…Í•Ì¡É•ÄèI•ÅÕ•ÍĞ°‰½‘äèI½Ü¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”øì(€½¹ÍĞİ…±±•Ğ€ôÍ…™•Q•áĞ¡‰½‘ä¹İ…±±•Ğ¤ì(€½¹ÍĞÁÉ½½˜€ô…İ…¥ĞÙ•É¥™åI•…‘M•ÍÍ¥½¸¡É•Ä°‰½‘ä°I}MMM%=9}M=AL¹M}IY%\¤ì(€¥˜€ …ÁÉ½½˜¹½¬¤É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í”¡ÁÉ½½˜¹ÍÑ…ÑÕÌ°ì½¬è™…±Í”°•ÉÉ½ÈèÁÉ½½˜¹É•…Í½¸ô¤ì((€±•Ğ…Ñ½É-¥¹è€‰…¹…±åÍĞˆğ€‰µ…¥¹Ñ…¥¹•Èˆğ¹Õ±°€ô¹Õ±°ì(€¥˜€¡…İ…¥Ğ¥ÍY•É¥™¥•‘¹…±åÍĞ¡İ…±±•Ğ¤¤…Ñ½É-¥¹€ô€‰…¹…±åÍĞˆì(€•±Í”¥˜€¡…İ…¥Ğ¡…ÍÕ±±5…¥¹Ñ…¥¹•É•ÍÌ¡É•Ä°İ…±±•Ğ¤¤…Ñ½É-¥¹€ô€‰µ…¥¹Ñ…¥¹•Èˆì(€¥˜€ ……Ñ½É-¥¹¤É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀÌ°ì½¬è™…±Í”°•ÉÉ½Èè€‰¹½Ñ}•±¥¥‰±•}É•Ù¥•İ•Èˆô¤ì((€½¹ÍĞì‘…Ñ„°•ÉÉ½Èô€ô…İ…¥Ğ…‘µ¥¸¹™É½´ ‰…Í•Ìˆ¤¹Í•±•Ğ¡M}=1L¤(€€€€¹¥¸ ‰ÍÑ…”ˆ°l(€€€€€€‰¥¹¥Ñ¥…±}É•Ù¥•Üˆ°€‰½Á•¹}ÁÕ‰±¥Œˆ°€‰¥¹}É•Ù¥•Üˆ°€‰É•…‘å}™½É}™¥¹…±¥é…Ñ¥½¸ˆ°(€€€€€€‰É•Í½±ÕÑ¥½¹}ÁÉ½Á½Í•ˆ°€‰¥¹}¡…±±•¹•}İ¥¹‘½Üˆ°€‰É•Í½±Ù•ˆ°€‰É•½Á•¹•ˆ°(€€€t¤(€€€€¹¥Ì ‰…É¡¥Ù•‘}…Ğˆ°¹Õ±°¤(€€€€¹¹•Ä ‰ÍÕ‰µ¥ÑÑ•‘}‰å}İ…±±•Ğˆ°İ…±±•Ğ¤(€€€€¹½É‘•È ‰É•…Ñ•‘}…Ğˆ°ì…Í•¹‘¥¹œèÑÉÕ”ô¤¹±¥µ¥Ğ ÄÀÀ¤ì(€¥˜€¡•ÉÉ½È¤É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ÔÀÀ°ì½¬è™…±Í”°•ÉÉ½Èè€‰É•…‘}™…¥±•ˆô¤ì(€½¹ÍĞ…Í•I½İÌ€ô‘…Ñ„€üümtì(€½¹ÍĞÉ…Á €ô…İ…¥Ğ±½…‘…Í•É…Á ¡…Í•I½İÌ¤ì(€½¹ÍĞ…Í•Ñ½Ì€ô…Í•I½İÌ¹µ…À ¡…Í•I½Ü¤€ôø…ÕÑ¡½É¥é•‘…Í•Ñ¼ (€€€…Í•I½Ü°(€€€É…Á ¹É•Á½ÉÑÍ	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üümt°(€€€É…Á ¹Ù•ÉÍ¥½¹Í	åI•Á½ÉĞ°(€€€É…Á ¹É••¥ÁÑÍ	å…Í•Q…É•ÑmMÑÉ¥¹œ¡…Í•I½Ü¹ÁÕ‰±¥}É•˜¥t€üümt°(€€€ì­¥¹è…Ñ½É-¥¹°İ…±±•Ğô°(€€€É…Á ¹•Ù¥‘•¹•	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üümt°(€€€É…Á ¹É•Ù¥•İÍ	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üümt°(€€€É…Á ¹½Ù•É¹…¹•	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üüíô°(€€€É…Á ¹µ½¹•å	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üüíô°(€€¤¤ì(€½¹ÍĞÙ•ÉÍ¥½¹I•™	å%èI•½ÉñÍÑÉ¥¹œ°ÍÑÉ¥¹œø€ôíôì(€™½È€¡½¹ÍĞÙ•ÉÍ¥½¹Ì½˜=‰©•Ğ¹Ù…±Õ•Ì¡É…Á ¹Ù•ÉÍ¥½¹Í	åI•Á½ÉĞ¤¤ì(€€€™½È€¡½¹ÍĞÙ•ÉÍ¥½¸½˜Ù•ÉÍ¥½¹Ì¤Ù•ÉÍ¥½¹I•™	å%‘mMÑÉ¥¹œ¡Ù•ÉÍ¥½¸¹¥¥t€ôMÑÉ¥¹œ¡Ù•ÉÍ¥½¸¹Ù•ÉÍ¥½¹}É•˜€üü€ˆˆ¤ì(€ô(€½¹ÍĞÙ•ÉÍ¥½¹%‘Ì€ô=‰©•Ğ¹­•åÌ¡Ù•ÉÍ¥½¹I•™	å%¤ì(€½¹ÍĞì‘…Ñ„èÉ•Á½ÉÑY½Ñ•Ìô€ôÙ•ÉÍ¥½¹%‘Ì¹±•¹Ñ (€€€€ü…İ…¥Ğ…‘µ¥¸¹™É½´ ‰…Í•}É•Á½ÉÑ}É•Ù¥•İÌˆ¤(€€€€€€¹Í•±•Ğ ‰É•Á½ÉÑ}Ù•ÉÍ¥½¹}¥±É•Ù¥•İ•É}İ…±±•Ğ±‘•¥Í¥½¸±İ•¥¡Ğ±¥Í}…Ñ¥Ù”ˆ¤(€€€€€€¹¥¸ ‰É•Á½ÉÑ}Ù•ÉÍ¥½¹}¥ˆ°Ù•ÉÍ¥½¹%‘Ì¤¹•Ä ‰É•Ù¥•İ•É}İ…±±•Ğˆ°İ…±±•Ğ¤¹•Ä ‰¥Í}…Ñ¥Ù”ˆ°ÑÉÕ”¤(€€€€€€¹±¥µ¥Ğ ĞÀÀ¤(€€€€èì‘…Ñ„èmtôì(€½¹ÍĞÉ•Á½ÉÑY½Ñ•Í	åY•ÉÍ¥½¸èI•½ÉñÍÑÉ¥¹œ°I½Üø€ôíôì(€™½È€¡½¹ÍĞÉ•Ù¥•Ü½˜É•Á½ÉÑY½Ñ•Ì€üümt¤ì(€€€½¹ÍĞÉ•˜€ôÙ•ÉÍ¥½¹I•™	å%‘mMÑÉ¥¹œ¡É•Ù¥•Ü¹É•Á½ÉÑ}Ù•ÉÍ¥½¹}¥¥tì(€€€¥˜€¡É•˜¤É•Á½ÉÑY½Ñ•Í	åY•ÉÍ¥½¹mÉ•™t€ôÉ•Ù¥•Üì(€ô(€½¹ÍĞì‘…Ñ„èÁÉ½™¥±•I½İÌô€ô…Ñ½É-¥¹€ôôô€‰…¹…±åÍĞˆ(€€€€ü…İ…¥Ğ…‘µ¥¸¹™É½´ ‰…¹…±åÍÑ}ÁÉ½™¥±•Ìˆ¤¹Í•±•Ğ ‰İ•¥¡Ñ}…¡•ˆ¤¹•Ä ‰İ…±±•Ğˆ°İ…±±•Ğ¤¹±¥µ¥Ğ Ä¤(€€€€èì‘…Ñ„èmtôì(€½¹ÍĞ…¹…±åÍÑ]•¥¡Ğ€ô…Ñ½É-¥¹€ôôô€‰…¹…±åÍĞˆ€ü9Õµ‰•È¡ÁÉ½™¥±•I½İÌü¹lÁtü¹İ•¥¡Ñ}…¡•€üü€À¤€è¹Õ±°ì(€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ÈÀÀ°ì(€€€½¬èÑÉÕ”°(€€€…Ñ½É}É½±”è…Ñ½É-¥¹°(€€€…Í•Ìè…Í•Ñ½Ì°(€€€É•Ù¥•İ}Ñ…Í­Ìè‰Õ¥±‘I•Ù¥•İQ…Í­Ì (€€€€€…Í•Ñ½Ì°İ…±±•Ğ°…Ñ½É-¥¹°…¹…±åÍÑ]•¥¡Ğ°É•Á½ÉÑY½Ñ•Í	åY•ÉÍ¥½¸°(€€€€¤°(€ô¤ì)ô()…Íå¹Œ™Õ¹Ñ¥½¸¡…ÍÕ±±5…¥¹Ñ…¥¹•É•ÍÌ¡É•ÄèI•ÅÕ•ÍĞ°İ…±±•ĞèÍÑÉ¥¹œ¤èAÉ½µ¥Í”ñ‰½½±•…¸øì(€¥˜€ „½ylÀ´å„µ™uìáôµlÀ´å„µ˜µuìÈİô½¤¹Ñ•ÍĞ¡5%9Q%9I}UQ!}UU%¤¤É•ÑÕÉ¸™…±Í”ì(€½¹ÍĞÑ½­•¸€ô€¡É•Ä¹¡•…‘•ÉÌ¹•Ğ ‰…ÕÑ¡½É¥é…Ñ¥½¸ˆ¤€üü€ˆˆ¤¹É•Á±…” ½y	•…É•ÉqÌ¬½¤°€ˆˆ¤¹ÑÉ¥´ ¤ì(€¥˜€ …Ñ½­•¸¤É•ÑÕÉ¸™…±Í”ì(€½¹ÍĞmì‘…Ñ„è½¹™¥I½İÌô°…ÕÑ¡I•ÍÕ±Ñt€ô…İ…¥ĞAÉ½µ¥Í”¹…±°¡l(€€€…‘µ¥¸¹™É½´ ‰½Í¥}½¹™¥œˆ¤¹Í•±•Ğ ‰Ù…±Õ”ˆ¤¹•Ä ‰­•äˆ°€‰…‘µ¥¹}İ…±±•Ğˆ¤¹±¥µ¥Ğ Ä¤°(€€€…‘µ¥¸¹…ÕÑ ¹•ÑUÍ•È¡Ñ½­•¸¤°(€t¤ì(€É•ÑÕÉ¸…ÕÑ¡I•ÍÕ±Ğ¹•ÉÉ½È€ôô¹Õ±°(€€€€˜˜…ÕÑ¡I•ÍÕ±Ğ¹‘…Ñ„ü¹ÕÍ•Èü¹¥€ôôô5%9Q%9I}UQ!}UU%(€€€€˜˜½¹™¥I½İÌü¹lÁtü¹Ù…±Õ”€ôôôİ…±±•Ğì)ô()…Íå¹Œ™Õ¹Ñ¥½¸•ÑÕÑ¡½É¥é•‘…Í”¡É•ÄèI•ÅÕ•ÍĞ°‰½‘äèI½Ü¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”øì(€½¹ÍĞ…Í•I•˜€ôÍ…™•Q•áĞ¡‰½‘ä¹…Í•}É•˜¤ì(€¥˜€ „½y=M$µlÀ´åµiuìØ°ÈÁô¼¹Ñ•ÍĞ¡…Í•I•˜¤¤ì(€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀÀ°ì½¬è™…±Í”°•ÉÉ½Èè€‰‰…‘}…Í•}É•˜ˆô¤ì(€ô(€½¹ÍĞÁÉ½½˜€ô…İ…¥ĞÙ•É¥™åI•…‘M•ÍÍ¥½¸¡É•Ä°‰½‘ä°I}MMM%=9}M=AL¹M}Q%0¤ì(€¥˜€ …ÁÉ½½˜¹½¬¤É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í”¡ÁÉ½½˜¹ÍÑ…ÑÕÌ°ì½¬è™…±Í”°•ÉÉ½ÈèÁÉ½½˜¹É•…Í½¸ô¤ì((€½¹ÍĞì‘…Ñ„°•ÉÉ½Èô€ô…İ…¥Ğ…‘µ¥¸¹™É½´ ‰…Í•Ìˆ¤¹Í•±•Ğ¡M}=1L¤(€€€€¹•Ä ‰ÁÕ‰±¥}É•˜ˆ°…Í•I•˜¤¹¥Ì ‰…É¡¥Ù•‘}…Ğˆ°¹Õ±°¤¹±¥µ¥Ğ Ä¤ì(€¥˜€¡•ÉÉ½È¤É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ÔÀÀ°ì½¬è™…±Í”°•ÉÉ½Èè€‰É•…‘}™…¥±•ˆô¤ì(€½¹ÍĞ…Í•I½Ü€ô‘…Ñ„ü¹lÁtì(€¥˜€ ……Í•I½Ü¤É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀĞ°ì½¬è™…±Í”°•ÉÉ½Èè€‰¹½Ñ}™½Õ¹‘}½É}‘•¹¥•ˆô¤ì((€€¼¼M•ÉÙ•Èµ‘•É¥Ù•…Ñ½Èµ½‘•°¸I•Á½ÉĞ…ÕÑ¡½ÈÉ••¥Ù•Ì½¹±äÑ¡•¥È½İ¸(€€¼¼Õ¹ÁÕ‰±¥Í¡•Ù•ÉÍ¥½¹ÌÁ±ÕÌÁÕ‰±¥Œ…Í”µ…Ñ•É¥…°ìÑ¡…ĞÉ½±”¥Ì‘•É¥Ù•™É½´(€€¼¼Ñ¡”•á…Ğ…Í”½É•Á½ÉĞÉ•±…Ñ¥½¹Í¡¥À…¹¹•Ù•È…•ÁÑ•™É½´Ñ¡”±¥•¹Ğ¸(€±•Ğ…Ñ½É-¥¹è€‰½İ¹•Èˆğ€‰É•Á½ÉÑ}…ÕÑ¡½Èˆğ€‰…¹…±åÍĞˆğ€‰µ…¥¹Ñ…¥¹•Èˆğ¹Õ±°€ô¹Õ±°ì(€¥˜€¡…Í•I½Ü¹ÍÕ‰µ¥ÑÑ•‘}‰å}İ…±±•Ğ€ôôôÁÉ½½˜¹…Ñ½È¹İ…±±•Ğ¤ì(€€€…Ñ½É-¥¹€ô€‰½İ¹•Èˆì(€ô•±Í”¥˜€¡…İ…¥Ğ¥ÍY•É¥™¥•‘¹…±åÍĞ¡ÁÉ½½˜¹…Ñ½È¹İ…±±•Ğ¤¤ì(€€€…Ñ½É-¥¹€ô€‰…¹…±åÍĞˆì(€ô•±Í”ì(€€€½¹ÍĞì‘…Ñ„è…ÕÑ¡½É•‘I•Á½ÉÑÌô€ô…İ…¥Ğ…‘µ¥¸¹™É½´ ‰…Í•}É•Á½ÉÑÌˆ¤¹Í•±•Ğ ‰¥ˆ¤(€€€€€€¹•Ä ‰…Í•}¥ˆ°…Í•I½Ü¹¥¤¹•Ä ‰…ÕÑ¡½É}İ…±±•Ğˆ°ÁÉ½½˜¹…Ñ½È¹İ…±±•Ğ¤¹±¥µ¥Ğ Ä¤ì(€€€¥˜€ ¡…ÕÑ¡½É•‘I•Á½ÉÑÌ€üümt¤¹±•¹Ñ €ø€À¤…Ñ½É-¥¹€ô€‰É•Á½ÉÑ}…ÕÑ¡½Èˆì(€€€•±Í”¥˜€¡…İ…¥Ğ¡…ÍÕ±±5…¥¹Ñ…¥¹•É•ÍÌ¡É•Ä°ÁÉ½½˜¹…Ñ½È¹İ…±±•Ğ¤¤…Ñ½É-¥¹€ô€‰µ…¥¹Ñ…¥¹•Èˆì(€ô(€½¹ÍĞ…Ñ½È€ô…Ñ½É-¥¹(€€€€üì­¥¹è…Ñ½É-¥¹°İ…±±•ĞèÁÉ½½˜¹…Ñ½È¹İ…±±•Ğô(€€€€èì­¥¹è€‰…¹½¹åµ½ÕÌˆ…Ì½¹ÍĞôì(€¥˜€ ……¹Ñ½ÉI•…‘…Í”¡…Ñ½È°…Í•I½Ü¤¤ì(€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀĞ°ì½¬è™…±Í”°•ÉÉ½Èè€‰¹½Ñ}™½Õ¹‘}½É}‘•¹¥•ˆô¤ì(€ô(€½¹ÍĞÉ…Á €ô…İ…¥Ğ±½…‘…Í•É…Á ¡m…Í•I½İt¤ì(€½¹ÍĞÉ•Á½ÉÑÌ€ôÉ…Á ¹É•Á½ÉÑÍ	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üümtì(€½¹ÍĞÉ••¥ÁÑÌ€ôÉ…Á ¹É••¥ÁÑÍ	å…Í•Q…É•ÑmMÑÉ¥¹œ¡…Í•I½Ü¹ÁÕ‰±¥}É•˜¥t€üümtì(€€¼¼ÁÉ½Ù•¸İ…±±•Ğİ¥Ñ ¹¼½İ¹•È½…¹…±åÍĞÍÑ…¹‘¥¹œ•ÑÌ=91dÑ¡”ÁÕ‰±¥Œ(€€¼¼ÁÉ½©•Ñ¥½¸½˜„ÁÕ‰±¥Œ…Í”ƒŠP¹•Ù•ÈÑ¡”…ÕÑ¡½É¥é•™¥•±Í•Ğ¸(€¥˜€ ……Ñ½É-¥¹¤ì(€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ÈÀÀ°ì(€€€€€½¬èÑÉÕ”°(€€€€€…Ñ½É}É½±”è€‰ÁÕ‰±¥Œˆ°(€€€€€…Í”èÁÕ‰±¥…Í•Ñ¼ (€€€€€€€…Í•I½Ü°(€€€€€€€É•Á½ÉÑÌ°(€€€€€€€É…Á ¹Ù•ÉÍ¥½¹Í	åI•Á½ÉĞ°(€€€€€€€É••¥ÁÑÌ°(€€€€€€€É…Á ¹•Ù¥‘•¹•	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üümt°(€€€€€€€É…Á ¹É•Ù¥•İÍ	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üümt°(€€€€€€€É…Á ¹½Ù•É¹…¹•	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üüíô°(€€€€€€€É…Á ¹µ½¹•å	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üüíô°(€€€€€€¤°(€€€ô¤ì(€ô(€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ÈÀÀ°ì(€€€½¬èÑÉÕ”°(€€€…Ñ½É}É½±”è…Ñ½É-¥¹°(€€€…Í”è…ÕÑ¡½É¥é•‘…Í•Ñ¼ (€€€€€…Í•I½Ü°(€€€€€É•Á½ÉÑÌ°(€€€€€É…Á ¹Ù•ÉÍ¥½¹Í	åI•Á½ÉĞ°(€€€€€É••¥ÁÑÌ°(€€€€€ì­¥¹è…Ñ½É-¥¹°İ…±±•ĞèÁÉ½½˜¹…Ñ½È¹İ…±±•Ğô°(€€€€€É…Á ¹•Ù¥‘•¹•	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üümt°(€€€€€É…Á ¹É•Ù¥•İÍ	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üümt°(€€€€€É…Á ¹½Ù•É¹…¹•	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üüíô°(€€€€€É…Á ¹µ½¹•å	å…Í•mMÑÉ¥¹œ¡…Í•I½Ü¹¥¥t€üüíô°(€€€€¤°(€ô¤ì)ô((¼¼5…¥¹Ñ…¥¹•È‘½Õ‰±”µ…Ñ”¸	=Q µÕÍĞ¡½±°¥¸Ñ¡¥Ì½É‘•È°…±İ…åÌ•Ù…±Õ…Ñ•(¼¼™…¥°µ±½Í•è(¼¼€€…Ñ”€ÄƒŠP„Ù…±¥MÕÁ…‰…Í”ÕÍ•ÈÍ•ÍÍ¥½¸)]Pİ¡½Í”ÍÕ‰©•Ğ•ÅÕ…±ÌÑ¡”(¼¼€€€€€€€€€€€•áÁ±¥¥Ñ±ä½¹™¥ÕÉ•µ…¥¹Ñ…¥¹•È…ÕÑ UU%ì(¼¼€€…Ñ”€ÈƒŠP„™É•Í Í¥¹•É•…¡…±±•¹”™É½´Ñ¡”=9%UI…‘µ¥¸İ…±±•Ğ¸(¼¼µ¥ÍÍ¥¹œ½‰±…¹¬½¹™¥ÕÉ•…‘µ¥¸İ…±±•Ğ‘•¹¥•Ì•Ù•Éå½¹”€¡™…¥°±½Í•¤¸)…Íå¹Œ™Õ¹Ñ¥½¸µ…¥¹Ñ…¥¹•É…Í•=Ù•ÉÙ¥•Ü¡É•ÄèI•ÅÕ•ÍĞ°‰½‘äèI½Ü¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”øì(€½¹ÍĞ…ÕÑ¡!•…‘•È€ôÉ•Ä¹¡•…‘•ÉÌ¹•Ğ ‰…ÕÑ¡½É¥é…Ñ¥½¸ˆ¤€üü€ˆˆì(€½¹ÍĞÑ½­•¸€ô…ÕÑ¡!•…‘•È¹É•Á±…” ½y	•…É•ÉqÌ¬½¤°€ˆˆ¤¹ÑÉ¥´ ¤ì(€±•Ğ…ÕÑ¡Y…±¥€ô™…±Í”ì(€¥˜€¡Ñ½­•¸¤ì(€€€ÑÉäì(€€€€€½¹ÍĞì‘…Ñ„°•ÉÉ½Èô€ô…İ…¥Ğ…‘µ¥¸¹…ÕÑ ¹•ÑUÍ•È¡Ñ½­•¸¤ì(€€€€€…ÕÑ¡Y…±¥€ô€…•ÉÉ½È(€€€€€€€€˜˜€½ylÀ´å„µ™uìáôµlÀ´å„µ˜µuìÈİô½¤¹Ñ•ÍĞ¡5%9Q%9I}UQ!}UU%¤(€€€€€€€€˜˜‘…Ñ„ü¹ÕÍ•Èü¹¥€ôôô5%9Q%9I}UQ!}UU%ì(€€€ô…Ñ ì(€€€€€…ÕÑ¡Y…±¥€ô™…±Í”ì(€€€ô(€ô((€½¹ÍĞì‘…Ñ„è½¹™¥I½İÌô€ô…İ…¥Ğ…‘µ¥¸¹™É½´ ‰½Í¥}½¹™¥œˆ¤¹Í•±•Ğ ‰­•ä±Ù…±Õ”ˆ¤(€€€€¹¥¸ ‰­•äˆ°l(€€€€€€‰…‘µ¥¹}İ…±±•Ğˆ°€‰=M%}XÉ}]I%QM}9	1ˆ°€‰=M%}XÉ}AI==}9	1ˆ°(€€€€€€‰=M%}XÉ}M}]I%QM}9	1ˆ°€‰=M%}XÉ}IM=1UQ%=9}1%e1}]I%QM}9	1ˆ°(€€€t¤ì(€½¹ÍĞ½¹™¥œèI•½ÉñÍÑÉ¥¹œ°ÍÑÉ¥¹œø€ôíôì(€™½È€¡½¹ÍĞÉ½Ü½˜½¹™¥I½İÌ€üümt¤½¹™¥mMÑÉ¥¹œ¡É½Ü¹­•ä¥t€ôMÑÉ¥¹œ¡É½Ü¹Ù…±Õ”€üü€ˆˆ¤ì(€½¹ÍĞ…‘µ¥¹]…±±•Ğ€ô€½ylÄ´åµ!(µ9@µi„µ­´µéuìÌÈ°ĞÑô¼¹Ñ•ÍĞ¡½¹™¥œ¹…‘µ¥¹}İ…±±•Ğ€üü€ˆˆ¤(€€€€ü½¹™¥œ¹…‘µ¥¹}İ…±±•Ğ(€€€€è€ˆˆì((€½¹ÍĞİ…±±•Ğ€ôÍ…™•Q•áĞ¡‰½‘ä¹İ…±±•Ğ¤ì(€±•Ğİ…±±•ÑY…±¥€ô™…±Í”ì(€¥˜€¡…‘µ¥¹]…±±•Ğ€˜˜İ…±±•Ğ€ôôô…‘µ¥¹]…±±•Ğ¤ì(€€€½¹ÍĞÁÉ½½˜€ô…İ…¥ĞÙ•É¥™åI•…‘M•ÍÍ¥½¸¡É•Ä°‰½‘ä°I}MMM%=9}M=AL¹M}5%9Q%9H¤ì(€€€İ…±±•ÑY…±¥€ôÁÉ½½˜¹½¬ì(€ô((€€¼¼!…±˜µµ…¥¹Ñ…¥¹•ÈÍÑ…Ñ•Ì…É”•áÁ±¥¥Ñ±ä‘•¹¥•ìÑ¡”É•ÍÁ½¹Í”¹…µ•Ìİ¡¥ (€€¼¼…Ñ”¥Ìµ¥ÍÍ¥¹œÍ¼Ñ¡”½Á•É…Ñ½È…¸½µÁ±•Ñ”¥Ğ°‰ÕĞÉ•ÑÕÉ¹Ì¹¼‘…Ñ„¸(€¥˜€ ……ÕÑ¡Y…±¥€˜˜€…İ…±±•ÑY…±¥¤ì(€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀÌ°ì½¬è™…±Í”°•ÉÉ½Èè€‰µ…¥¹Ñ…¥¹•É}‘•¹¥•ˆô¤ì(€ô(€¥˜€ ……ÕÑ¡Y…±¥¤É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀÌ°ì½¬è™…±Í”°•ÉÉ½Èè€‰¡…±™}µ…¥¹Ñ…¥¹•É}İ…±±•Ñ}½¹±äˆô¤ì(€¥˜€ …İ…±±•ÑY…±¥¤É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀÌ°ì½¬è™…±Í”°•ÉÉ½Èè€‰¡…±™}µ…¥¹Ñ…¥¹•É}…ÕÑ¡}½¹±äˆô¤ì((€½¹ÍĞm…Í•ÍI•Ì°É••¥ÁÑÍI•Ì°É½ÍÍİ…±­I•Ì°ÅÕ•Õ•I•Ì°¡¥‘‘•¹I••¥ÁÑQ…É•ÑÍt€ô…İ…¥ĞAÉ½µ¥Í”¹…±°¡l(€€€…‘µ¥¸¹™É½´ ‰…Í•Ìˆ¤¹Í•±•Ğ¡M}=1L¤¹¥Ì ‰…É¡¥Ù•‘}…Ğˆ°¹Õ±°¤(€€€€€€¹½É‘•È ‰É•…Ñ•‘}…Ğˆ°ì…Í•¹‘¥¹œèÑÉÕ”ô¤¹±¥µ¥Ğ ÈÀÀ¤°(€€€…‘µ¥¸¹™É½´ ‰•Ù•¹Ñ}É••¥ÁÑÌˆ¤¹Í•±•Ğ¡I%AQ}=1L¤¹±¥µ¥Ğ ÄÀÀÀ¤°(€€€…‘µ¥¸¹™É½´ ‰µ¥É…Ñ¥½¹}É½ÍÍİ…±¬ˆ¤¹Í•±•Ğ ‰¥ˆ°ì½Õ¹Ğè€‰•á…Ğˆ°¡•…èÑÉÕ”ô¤°(€€€…‘µ¥¸¹™É½´ ‰µ¥É…Ñ¥½¹}µ…¹Õ…±}ÅÕ•Õ”ˆ¤¹Í•±•Ğ ‰¥ˆ°ì½Õ¹Ğè€‰•á…Ğˆ°¡•…èÑÉÕ”ô¤°(€€€…É¡¥Ù•‘…Í•I••¥ÁÑQ…É•ÑÌ ¤°(€t¤ì(€¥˜€¡…Í•ÍI•Ì¹•ÉÉ½ÈñğÉ••¥ÁÑÍI•Ì¹•ÉÉ½È¤ì(€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ÔÀÀ°ì½¬è™…±Í”°•ÉÉ½Èè€‰É•…‘}™…¥±•ˆô¤ì(€ô(€½¹ÍĞ…Í•I½İÌ€ô…Í•ÍI•Ì¹‘…Ñ„€üümtì(€½¹ÍĞÉ…Á €ô…İ…¥Ğ±½…‘…Í•É…Á ¡…Í•I½İÌ¤ì(€½¹ÍĞÉ••¥ÁÑQ½Ñ…±ÌèI•½ÉñÍÑÉ¥¹œ°¹Õµ‰•Èø€ôíôì(€™½È€¡½¹ÍĞÉ••¥ÁĞ½˜É••¥ÁÑÍI•Ì¹‘…Ñ„€üümt¤ì(€€€¥˜€¡¡¥‘‘•¹I••¥ÁÑQ…É•ÑÌ¹¡…Ì¡MÑÉ¥¹œ¡É••¥ÁĞ¹Ñ…É•Ñ}¥¤¤¤½¹Ñ¥¹Õ”ì(€€€½¹ÍĞ±…‰•°€ôÁÉ½½™1…‰•°¡É••¥ÁĞ¤ì(€€€É••¥ÁÑQ½Ñ…±Ím±…‰•±t€ô€¡É••¥ÁÑQ½Ñ…±Ím±…‰•±t€üü€À¤€¬€Äì(€ô(€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ÈÀÀ°ì(€€€½¬èÑÉÕ”°(€€€½Ù•ÉÙ¥•Üèµ…¥¹Ñ…¥¹•É=Ù•ÉÙ¥•İÑ¼¡ì(€€€€€…Í•Ìè…Í•I½İÌ°(€€€€€É•Á½ÉÑÍ	å…Í”èÉ…Á ¹É•Á½ÉÑÍ	å…Í”°(€€€€€Ù•ÉÍ¥½¹Í	åI•Á½ÉĞèÉ…Á ¹Ù•ÉÍ¥½¹Í	åI•Á½ÉĞ°(€€€€€É••¥ÁÑÍ	å…Í•Q…É•ĞèÉ…Á ¹É••¥ÁÑÍ	å…Í•Q…É•Ğ°(€€€€€½Ù•É¹…¹•	å…Í”èÉ…Á ¹½Ù•É¹…¹•	å…Í”°(€€€€€É••¥ÁÑQ½Ñ…±Ì°(€€€€€É½ÍÍİ…±­½Õ¹ĞèÉ½ÍÍİ…±­I•Ì¹½Õ¹Ğ€üü€À°(€€€€€µ…¹Õ…±EÕ•Õ•½Õ¹ĞèÅÕ•Õ•I•Ì¹½Õ¹Ğ€üü€À°(€€€€€™±…Ìèì(€€€€€€€=M%}XÉ}]I%QM}9	1è½¹™¥œ¹=M%}XÉ}]I%QM}9	1€üü€ˆˆ°(€€€€€€€=M%}XÉ}AI==}9	1è½¹™¥œ¹=M%}XÉ}AI==}9	1€üü€ˆˆ°(€€€€€€€=M%}XÉ}M}]I%QM}9	1è½¹™¥œ¹=M%}XÉ}M}]I%QM}9	1€üü€ˆˆ°(€€€€€€€=M%}XÉ}IM=1UQ%=9}1%e1}]I%QM}9	1è(€€€€€€€€€½¹™¥œ¹=M%}XÉ}IM=1UQ%=9}1%e1}]I%QM}9	1€üü€ˆˆ°(€€€€€ô°(€€€ô¤°(€ô¤ì)ô()…Íå¹Œ™Õ¹Ñ¥½¸…É¡¥Ù•‘…Í•I••¥ÁÑQ…É•ÑÌ ¤èAÉ½µ¥Í”ñM•ĞñÍÑÉ¥¹œøøì(€½¹ÍĞì‘…Ñ„è…É¡¥Ù•‘…Í•Ì°•ÉÉ½Èô€ô…İ…¥Ğ…‘µ¥¸¹™É½´ ‰…Í•Ìˆ¤(€€€€¹Í•±•Ğ ‰¥±ÁÕ‰±¥}É•˜ˆ¤¹¹½Ğ ‰…É¡¥Ù•‘}…Ğˆ°€‰¥Ìˆ°¹Õ±°¤¹±¥µ¥Ğ ÔÀÀ¤ì(€¥˜€¡•ÉÉ½È¤Ñ¡É½Ü¹•ÜÉÉ½È ‰É•…‘}™…¥±•ˆ¤ì(€½¹ÍĞ…Í•%‘Ì€ô€¡…É¡¥Ù•‘…Í•Ì€üümt¤¹µ…À ¡É½Ü¤€ôøMÑÉ¥¹œ¡É½Ü¹¥¤¤ì(€½¹ÍĞÑ…É•ÑÌ€ô¹•ÜM•Ğ ¡…É¡¥Ù•‘…Í•Ì€üümt¤¹™±…Ñ5…À ¡É½Ü¤€ôøl(€€€MÑÉ¥¹œ¡É½Ü¹¥¤°MÑÉ¥¹œ¡É½Ü¹ÁÕ‰±¥}É•˜¤°(€t¤¤ì(€¥˜€ ……Í•%‘Ì¹±•¹Ñ ¤É•ÑÕÉ¸Ñ…É•ÑÌì(€½¹ÍĞì‘…Ñ„èÉ•Á½ÉÑÌ°•ÉÉ½ÈèÉ•Á½ÉÑÉÉ½Èô€ô…İ…¥Ğ…‘µ¥¸¹™É½´ ‰…Í•}É•Á½ÉÑÌˆ¤(€€€€¹Í•±•Ğ ‰¥ˆ¤¹¥¸ ‰…Í•}¥ˆ°…Í•%‘Ì¤¹±¥µ¥Ğ ÄÀÀÀ¤ì(€¥˜€¡É•Á½ÉÑÉÉ½È¤Ñ¡É½Ü¹•ÜÉÉ½È ‰É•…‘}™…¥±•ˆ¤ì(€½¹ÍĞÉ•Á½ÉÑ%‘Ì€ô€¡É•Á½ÉÑÌ€üümt¤¹µ…À ¡É½Ü¤€ôøMÑÉ¥¹œ¡É½Ü¹¥¤¤ì(€™½È€¡½¹ÍĞÉ•Á½ÉÑ%½˜É•Á½ÉÑ%‘Ì¤Ñ…É•ÑÌ¹…‘¡É•Á½ÉÑ%¤ì(€¥˜€ …É•Á½ÉÑ%‘Ì¹±•¹Ñ ¤É•ÑÕÉ¸Ñ…É•ÑÌì(€½¹ÍĞì‘…Ñ„èÙ•ÉÍ¥½¹Ì°•ÉÉ½ÈèÙ•ÉÍ¥½¹ÉÉ½Èô€ô…İ…¥Ğ…‘µ¥¸¹™É½´ ‰…Í•}É•Á½ÉÑ}Ù•ÉÍ¥½¹Ìˆ¤(€€€€¹Í•±•Ğ ‰¥ˆ¤¹¥¸ ‰É•Á½ÉÑ}¥ˆ°É•Á½ÉÑ%‘Ì¤¹±¥µ¥Ğ ÌÀÀÀ¤ì(€¥˜€¡Ù•ÉÍ¥½¹ÉÉ½È¤Ñ¡É½Ü¹•ÜÉÉ½È ‰É•…‘}™…¥±•ˆ¤ì(€™½È€¡½¹ÍĞÙ•ÉÍ¥½¸½˜Ù•ÉÍ¥½¹Ì€üümt¤Ñ…É•ÑÌ¹…‘¡MÑÉ¥¹œ¡Ù•ÉÍ¥½¸¹¥¤¤ì(€É•ÑÕÉ¸Ñ…É•ÑÌì)ô((¼¼€´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´´()Í•ÉÙ”¡…Íå¹Œ€¡É•ÄèI•ÅÕ•ÍĞ¤èAÉ½µ¥Í”ñI•ÍÁ½¹Í”ø€ôøì(€¥˜€¡É•Ä¹µ•Ñ¡½€ôôô€‰=AQ%=9Lˆ¤É•ÑÕÉ¸¹•ÜI•ÍÁ½¹Í” ‰½¬ˆ°ì¡•…‘•ÉÌè½ÉÍ!•…‘•ÉÌ ¤ô¤ì(€¥˜€¡É•Ä¹µ•Ñ¡½€„ôô€‰A=MPˆ¤É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀÔ°ì½¬è™…±Í”°•ÉÉ½Èè€‰µ•Ñ¡½‘}¹½Ñ}…±±½İ•ˆô¤ì(€¥˜€ …MUA	M}UI0ñğ€…MIY%}I=1}-d¤ì(€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ÔÀÌ°ì½¬è™…±Í”°•ÉÉ½Èè€‰¹½Ñ}½¹™¥ÕÉ•ˆô¤ì(€ô((€½¹ÍĞ‘•±…É•‘1•¹Ñ €ô9Õµ‰•È¡É•Ä¹¡•…‘•ÉÌ¹•Ğ ‰½¹Ñ•¹Ğµ±•¹Ñ ˆ¤€üü€ˆÀˆ¤ì(€¥˜€¡9Õµ‰•È¹¥Í¥¹¥Ñ”¡‘•±…É•‘1•¹Ñ ¤€˜˜‘•±…É•‘1•¹Ñ €ø5a}	=e}	eQL¤ì(€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÄÌ°ì½¬è™…±Í”°•ÉÉ½Èè€‰‰½‘å}Ñ½½}±…É”ˆô¤ì(€ô(€±•Ğ‰½‘äèI½Üì(€ÑÉäì(€€€½¹ÍĞÉ…Ü€ô…İ…¥ĞÉ•Ä¹Ñ•áĞ ¤ì(€€€¥˜€¡¹•ÜQ•áÑ¹½‘•È ¤¹•¹½‘”¡É…Ü¤¹±•¹Ñ €ø5a}	=e}	eQL¤ì(€€€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÄÌ°ì½¬è™…±Í”°•ÉÉ½Èè€‰‰½‘å}Ñ½½}±…É”ˆô¤ì(€€€ô(€€€½¹ÍĞÁ…ÉÍ•€ô)M=8¹Á…ÉÍ”¡É…Ü¤ì(€€€¥˜€ …Á…ÉÍ•ñğÑåÁ•½˜Á…ÉÍ•€„ôô€‰½‰©•ĞˆñğÉÉ…ä¹¥ÍÉÉ…ä¡Á…ÉÍ•¤¤Ñ¡É½Ü¹•ÜQåÁ•ÉÉ½È ¤ì(€€€‰½‘ä€ôÁ…ÉÍ•…ÌI½Üì(€ô…Ñ ì(€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀÀ°ì½¬è™…±Í”°•ÉÉ½Èè€‰‰…‘}©Í½¸ˆô¤ì(€ô((€€¼¼•Ñ•Éµ¥¹¥ÍÑ¥Œµ±½¬µ…¥¹Ñ•¹…¹”¸Q¡¥Ì¥ÌÍ•ÉÙ¥”µ½¹±ä…¹±¥•¹ÑÌ(€€¼¼…¹¹½Ğ¡½½Í”Ñ¡”‘•…‘±¥¹”°Ñ¥µ•ÍÑ…µÀ½ÈÑ•Éµ¥¹…°ÍÑ…Ñ”¸(€…İ…¥Ğ…‘µ¥¸¹ÉÁŒ ‰½Í¥}ØÉ}•áÁ¥É•}‘Õ•}¡…±±•¹•Ìˆ°ìÁ}±¥µ¥Ğè€ÈÔô¤ì((€Íİ¥Ñ €¡‰½‘ä¹½À¤ì(€€€…Í”€‰±¥ÍÑ}ÁÕ‰±¥}…Í•Ìˆè(€€€€€É•ÑÕÉ¸…İ…¥Ğ±¥ÍÑAÕ‰±¥…Í•Ì ¤ì(€€€…Í”€‰•Ñ}ÁÕ‰±¥}…Í”ˆè(€€€€€É•ÑÕÉ¸…İ…¥Ğ•ÑAÕ‰±¥…Í”¡‰½‘ä¤ì(€€€…Í”€‰¥ÍÍÕ•}É•…‘}¡…±±•¹”ˆè(€€€€€É•ÑÕÉ¸…İ…¥Ğ¥ÍÍÕ•I•…‘¡…±±•¹”¡É•Ä°‰½‘ä¤ì(€€€…Í”€‰¥ÍÍÕ•}É•…‘}Í•ÍÍ¥½¹}¡…±±•¹”ˆè(€€€€€É•ÑÕÉ¸…İ…¥Ğ¥ÍÍÕ•I•…‘M•ÍÍ¥½¹¡…±±•¹”¡É•Ä°‰½‘ä¤ì(€€€…Í”€‰É•…Ñ•}É•…‘}Í•ÍÍ¥½¸ˆè(€€€€€É•ÑÕÉ¸…İ…¥ĞÉ•…Ñ•I•…‘M•ÍÍ¥½¸¡É•Ä°‰½‘ä¤ì(€€€…Í”€‰±¥ÍÑ}µå}…Í•Ìˆè(€€€€€É•ÑÕÉ¸…İ…¥Ğ±¥ÍÑ5å…Í•Ì¡É•Ä°‰½‘ä¤ì(€€€…Í”€‰±¥ÍÑ}É•Ù¥•İ…‰±•}…Í•Ìˆè(€€€€€É•ÑÕÉ¸…İ…¥Ğ±¥ÍÑI•Ù¥•İ…‰±•…Í•Ì¡É•Ä°‰½‘ä¤ì(€€€…Í”€‰•Ñ}…ÕÑ¡½É¥é•‘}…Í”ˆè(€€€€€É•ÑÕÉ¸…İ…¥Ğ•ÑÕÑ¡½É¥é•‘…Í”¡É•Ä°‰½‘ä¤ì(€€€…Í”€‰µ…¥¹Ñ…¥¹•É}…Í•}½Ù•ÉÙ¥•Üˆè(€€€€€É•ÑÕÉ¸…İ…¥Ğµ…¥¹Ñ…¥¹•É…Í•=Ù•ÉÙ¥•Ü¡É•Ä°‰½‘ä¤ì(€€€‘•™…Õ±Ğè(€€€€€É•ÑÕÉ¸©Í½¹I•ÍÁ½¹Í” ĞÀÀ°ì½¬è™…±Í”°•ÉÉ½Èè€‰‰…‘}½Àˆô¤ì(€ô)ô¤ì

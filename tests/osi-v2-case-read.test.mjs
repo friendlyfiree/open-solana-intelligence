@@ -69,6 +69,7 @@ const STRANGER = "5" + "b".repeat(43);
 const privateDraft = { visibility: "private", stage: "draft", submitted_by_wallet: OWNER };
 const publicOpen = { visibility: "public", stage: "open_public", submitted_by_wallet: OWNER };
 const privateSubmitted = { visibility: "private", stage: "submitted", submitted_by_wallet: OWNER };
+const archivedPublic = { ...publicOpen, archived_at: "2026-07-22T00:00:00Z" };
 
 ok("anonymous reads a public Case", core.canActorReadCase({ kind: "anonymous" }, publicOpen));
 ok("anonymous denied a private Case", !core.canActorReadCase({ kind: "anonymous" }, privateDraft));
@@ -82,10 +83,17 @@ ok("analyst reads a submitted (in-governance) Case",
   core.canActorReadCase({ kind: "analyst", wallet: STRANGER }, privateSubmitted));
 ok("maintainer reads a private draft",
   core.canActorReadCase({ kind: "maintainer" }, privateDraft));
+ok("archived Case is denied to anonymous, owner, analyst and maintainer",
+  !core.canActorReadCase({ kind: "anonymous" }, archivedPublic)
+    && !core.canActorReadCase({ kind: "owner", wallet: OWNER }, archivedPublic)
+    && !core.canActorReadCase({ kind: "analyst", wallet: STRANGER }, archivedPublic)
+    && !core.canActorReadCase({ kind: "maintainer" }, archivedPublic));
 ok("null case denied", !core.canActorReadCase({ kind: "maintainer" }, null));
 ok("public stage set mirrors the schema check",
   core.PUBLIC_CASE_STAGES.has("sealed") && !core.PUBLIC_CASE_STAGES.has("draft")
     && !core.PUBLIC_CASE_STAGES.has("submitted"));
+ok("archived_at overrides an otherwise public stage",
+  !core.isCasePublic(archivedPublic));
 
 // ---------------------------------------------------------------------------
 // Challenge build/parse/binding.
@@ -390,6 +398,12 @@ const overview = core.maintainerOverviewDto({
 });
 ok("maintainer overview never contains a private body",
   !JSON.stringify(overview).includes("private findings body"));
+const archivedOverview = core.maintainerOverviewDto({
+  cases: [{ ...caseRow, archived_at: "2026-07-22T00:00:00Z" }],
+  receiptTotals: {},
+});
+ok("maintainer overview defensively excludes archived Cases",
+  archivedOverview.totals.cases === 0 && archivedOverview.cases.length === 0);
 ok("maintainer overview reports broad and exact Case flags verbatim",
   overview.flags.OSI_V2_WRITES_ENABLED === "false"
     && overview.flags.OSI_V2_PROOF_ENABLED === "false"
@@ -436,6 +450,10 @@ ok("Edge derives exact Report-author Case access server-side",
   /actorKind: "owner" \| "report_author" \| "analyst" \| "maintainer"/.test(fnSource)
     && /from\("case_reports"\)\.select\("id"\)/.test(fnSource)
     && /\.eq\("case_id", caseRow\.id\)\.eq\("author_wallet", proof\.actor\.wallet\)/.test(fnSource));
+ok("all Case collection and detail reads explicitly exclude archived_at",
+  (fnSource.match(/\.is\("archived_at", null\)/g) || []).length >= 6
+    && fnSource.includes("archivedCaseReceiptTargets")
+    && fnSource.includes("hiddenReceiptTargets.has(String(receipt.target_id))"));
 ok("finalized selection tally uses each reviewer's phase-specific latest history",
   /latestSelectionByWallet = new Map/.test(fnSource)
     && /row\.phase === "selection"/.test(fnSource)
