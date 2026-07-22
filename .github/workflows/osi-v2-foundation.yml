@@ -65,6 +65,8 @@ jobs:
           node tests/osi-wire-integrity.test.mjs
           node tests/osi-v2-wire.test.mjs
           node tests/osi-v2-wire-ui.test.mjs
+          node tests/osi-v2-ai-pack.test.mjs
+          node tests/osi-v2-ai-pack-ui.test.mjs
           node tests/osi-proof-public-truth.test.js
           node tests/osi-functional-surface.test.mjs
           node tests/osi-intelligence-interface.test.js
@@ -88,6 +90,7 @@ jobs:
           deno check supabase/functions/osi-v2-payment/index.ts
           deno check supabase/functions/osi-v2-proof/index.ts
           deno check supabase/functions/osi-v2-wire/index.ts
+          deno check supabase/functions/osi-v2-ai-pack/index.ts
           deno check supabase/functions/_shared/osi-v2-read-session-core.mjs
           deno check supabase/functions/_shared/osi-v2-wire-core.mjs
 
@@ -104,6 +107,9 @@ jobs:
         run: supabase db reset --local --no-seed
 
       - name: Database lint (errors only)
+        # The accepted legacy materialization functions create pg_temp tables
+        # at runtime, which the static linter reports as absent. Keep those
+        # results visible while matching the reviewed main-branch lint gate.
         run: supabase db lint --local --level error
 
       - name: pgTAP database tests

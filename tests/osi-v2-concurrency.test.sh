@@ -50,7 +50,8 @@ cleanup() {
   # Restore the fail-closed default. The disposable database is discarded by CI;
   # this keeps the flag correct for anything that reuses the same local database.
   psql "$DB_URL" -X -q -tA \
-    -c "update public.osi_config set value='false' where key in ('OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED','OSI_V2_REPORT_REVIEW_WRITES_ENABLED','OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED','OSI_V2_PAYMENT_WRITES_ENABLED');" \
+    -c "update public.osi_config set value='false' where key in ('OSI_V2_WRITES_ENABLED','OSI_V2_PROOF_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED','OSI_V2_REPORT_REVIEW_WRITES_ENABLED','OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED','OSI_V2_PAYMENT_WRITES_ENABLED','OSI_V2_AI_PACK_WRITES_ENABLED','OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED');" \
+    -c "update public.osi_config set value=case key when 'OSI_V2_AI_PACK_MAX_PER_WALLET' then '2' when 'OSI_V2_AI_PACK_MAX_PER_FINGERPRINT' then '4' when 'OSI_V2_AI_PACK_CASE_COOLDOWN_SECONDS' then '21600' when 'OSI_V2_AI_PACK_DAILY_QUOTA' then '10' when 'OSI_V2_NONCE_MAX_PER_WALLET' then '20' when 'OSI_V2_NONCE_MAX_PER_FINGERPRINT' then '40' else value end where key in ('OSI_V2_AI_PACK_MAX_PER_WALLET','OSI_V2_AI_PACK_MAX_PER_FINGERPRINT','OSI_V2_AI_PACK_CASE_COOLDOWN_SECONDS','OSI_V2_AI_PACK_DAILY_QUOTA','OSI_V2_NONCE_MAX_PER_WALLET','OSI_V2_NONCE_MAX_PER_FINGERPRINT');" \
     >/dev/null 2>&1 || true
   rm -rf "$WORKDIR"
 }
@@ -1085,6 +1086,209 @@ if printf '%s' "$PAY_CHANGED_ERR" | grep -q 'Consumed payment nonce is bound to 
 else
   fail "changed payment transaction was not rejected: $PAY_CHANGED_ERR"
 fi
+
+# --- AI Pack generation: one reservation, one quota/provider slot ------------
+# The Edge gateway verifies the exact wallet proof before this RPC. The durable
+# database reservation is the final pre-provider boundary: two function
+# instances racing the same generation nonce must share one run, with the
+# second call explicitly marked as an idempotent replay.
+AI_PACK_NONCE="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+AI_PACK_CASE_ID="$(cat /proc/sys/kernel/random/uuid)"
+AI_PACK_CASE_REF="OSI-AIRACE$(printf '%s' "$AI_PACK_CASE_ID" | tr -d '-' | cut -c1-8 | tr '[:lower:]' '[:upper:]')"
+AI_PACK_EVIDENCE_ID="$(cat /proc/sys/kernel/random/uuid)"
+AI_PACK_LINK_ID="$(cat /proc/sys/kernel/random/uuid)"
+AI_PACK_VERIFY_RECEIPT_ID="$(cat /proc/sys/kernel/random/uuid)"
+AI_PACK_ACTOR="22222222222222222222222222222223"
+AI_PACK_VERIFIER="22222222222222222222222222222224"
+AI_PACK_OWNER="22222222222222222222222222222225"
+AI_PACK_SIG="$(printf 'V%.0s' $(seq 1 88))"
+AI_PACK_FINGERPRINT="$(printf 'f%.0s' $(seq 1 64))"
+AI_PACK_IDEM="osi-v2-ai-pack-race-$(date +%s%N)"
+AI_PACK_C1_OUT="$WORKDIR/ai-pack-conn1.out"
+AI_PACK_C2_OUT="$WORKDIR/ai-pack-conn2.out"
+AI_PACK_HOLD_MARKER="$WORKDIR/ai-pack-conn1-holding.marker"
+
+psql_run >/dev/null <<SQL
+update public.osi_config set value='true'
+ where key in (
+   'OSI_V2_WRITES_ENABLED',
+   'OSI_V2_PROOF_ENABLED',
+   'OSI_V2_AI_PACK_WRITES_ENABLED'
+ );
+update public.osi_config
+   set value = case key
+     when 'OSI_V2_AI_PACK_MAX_PER_WALLET' then '100'
+     when 'OSI_V2_AI_PACK_MAX_PER_FINGERPRINT' then '100'
+     when 'OSI_V2_AI_PACK_CASE_COOLDOWN_SECONDS' then '0'
+     when 'OSI_V2_AI_PACK_DAILY_QUOTA' then '100'
+     when 'OSI_V2_NONCE_MAX_PER_WALLET' then '100'
+     when 'OSI_V2_NONCE_MAX_PER_FINGERPRINT' then '200'
+     else value
+   end
+ where key in (
+   'OSI_V2_AI_PACK_MAX_PER_WALLET',
+   'OSI_V2_AI_PACK_MAX_PER_FINGERPRINT',
+   'OSI_V2_AI_PACK_CASE_COOLDOWN_SECONDS',
+   'OSI_V2_AI_PACK_DAILY_QUOTA',
+   'OSI_V2_NONCE_MAX_PER_WALLET',
+   'OSI_V2_NONCE_MAX_PER_FINGERPRINT'
+ );
+insert into public.event_receipts (
+  id,event_version,event_type,target_type,target_id,actor_role,decision,
+  proof_type,payload_hash,server_verified,occurred_at
+) values (
+  '$AI_PACK_VERIFY_RECEIPT_ID','legacy','ANALYST_VERIFIED','analyst',
+  '$AI_PACK_ACTOR','service','verify','legacy_imported',
+  '$(printf '1%.0s' $(seq 1 64))',false,statement_timestamp()
+);
+insert into public.analyst_profiles (
+  wallet,status,tier_code,verified,approved,weight_cached,
+  verified_by,verified_receipt_id
+) values (
+  '$AI_PACK_ACTOR','verified_analyst','analyst_i',true,true,1.25,
+  '$AI_PACK_VERIFIER','$AI_PACK_VERIFY_RECEIPT_ID'
+);
+insert into public.cases (
+  id,public_ref,title,category,summary_public,details_restricted,
+  submitted_by_wallet,stage,visibility,risk_tier,subject_refs
+) values (
+  '$AI_PACK_CASE_ID','$AI_PACK_CASE_REF',
+  'AI Pack reservation concurrency fixture','other',
+  'Public fixture proving one durable provider reservation.',
+  'Restricted fixture content is never sent by this database race.',
+  '$AI_PACK_OWNER','open_public','public','standard','[]'::jsonb
+);
+insert into public.evidence_items (
+  id,kind,ref,is_public,moderation_state,sha256,added_by_wallet
+) values (
+  '$AI_PACK_EVIDENCE_ID','url','https://example.test/ai-pack-race',
+  true,'approved','$(printf '2%.0s' $(seq 1 64))','$AI_PACK_OWNER'
+);
+insert into public.case_evidence_links (
+  id,case_id,evidence_item_id,added_by_wallet
+) values (
+  '$AI_PACK_LINK_ID','$AI_PACK_CASE_ID','$AI_PACK_EVIDENCE_ID',
+  '$AI_PACK_OWNER'
+);
+select * from public.osi_v2_prepare_ai_pack_generation(
+  '$AI_PACK_NONCE','$AI_PACK_ACTOR','$AI_PACK_CASE_REF','victim',
+  '$AI_PACK_IDEM','$AI_PACK_FINGERPRINT',null
+);
+SQL
+
+AI_PACK_PROOF="$(psql_run -c "
+  select proof_text
+    from public.osi_v2_ai_pack_generation_runs
+   where nonce='$AI_PACK_NONCE';")"
+AI_PACK_RESERVED_BEFORE="$(psql_run -c "
+  select count(*)
+    from public.osi_v2_ai_pack_generation_runs
+   where reserved_at is not null;")"
+AI_PACK_RESERVE_SQL="select generation_id::text || ' ' || idempotent_replay::text
+  from public.osi_v2_reserve_ai_pack_generation(
+    '$AI_PACK_NONCE','$AI_PACK_SIG','$AI_PACK_PROOF',null)"
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$AI_PACK_RESERVE_SQL
+\g $AI_PACK_C1_OUT
+\! touch $AI_PACK_HOLD_MARKER
+select pg_sleep(3);
+commit;
+SQL
+AI_PACK_CONN1_PID=$!
+
+waited=0
+while [ ! -f "$AI_PACK_HOLD_MARKER" ]; do
+  sleep 0.2
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "AI Pack connection 1 never reached the reservation holding state"
+    wait "$AI_PACK_CONN1_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+
+psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
+\pset tuples_only on
+\pset format unaligned
+begin;
+$AI_PACK_RESERVE_SQL
+\g $AI_PACK_C2_OUT
+commit;
+SQL
+AI_PACK_CONN2_PID=$!
+
+sleep 1
+AI_PACK_RACE_WAITERS="$(psql_run -c "
+  select count(*) from pg_stat_activity
+   where wait_event_type='Lock'
+     and query ilike '%osi_v2_reserve_ai_pack_generation%';")"
+if [ "${AI_PACK_RACE_WAITERS:-0}" -ge 1 ]; then
+  pass "second AI Pack reservation genuinely blocked on the durable run row"
+else
+  fail "second AI Pack reservation did not block on the durable run row"
+fi
+
+wait "$AI_PACK_CONN1_PID"
+wait "$AI_PACK_CONN2_PID"
+read -r AI_PACK_R1 AI_PACK_REPLAY1 < "$AI_PACK_C1_OUT"
+read -r AI_PACK_R2 AI_PACK_REPLAY2 < "$AI_PACK_C2_OUT"
+assert_eq "AI Pack race returns one shared generation id" "$AI_PACK_R1" "$AI_PACK_R2"
+assert_eq "first AI Pack reservation owns the provider slot" "false" "$AI_PACK_REPLAY1"
+assert_eq "second AI Pack reservation is an exact replay" "true" "$AI_PACK_REPLAY2"
+
+AI_PACK_RESERVED_AFTER="$(psql_run -c "
+  select count(*)
+    from public.osi_v2_ai_pack_generation_runs
+   where reserved_at is not null;")"
+AI_PACK_EXPECTED_RESERVED="$((AI_PACK_RESERVED_BEFORE + 1))"
+assert_eq "AI Pack race consumes one global quota slot" \
+  "$AI_PACK_EXPECTED_RESERVED" "$AI_PACK_RESERVED_AFTER"
+
+AI_PACK_RUN_SHAPE="$(psql_run -c "
+  select count(*) || ':' ||
+         count(*) filter (
+           where state='reserved'
+             and reserved_at is not null
+             and receipt_id is null
+             and signature='$AI_PACK_SIG'
+         ) || ':' ||
+         count(distinct reserved_at)
+    from public.osi_v2_ai_pack_generation_runs
+   where nonce='$AI_PACK_NONCE'
+     and id::text='$AI_PACK_R1';")"
+assert_eq "AI Pack race leaves one reserved telemetry row and timestamp" \
+  "1:1:1" "$AI_PACK_RUN_SHAPE"
+
+AI_PACK_NO_EFFECTS="$(psql_run -c "
+  select
+    (select count(*) from public.ai_packs
+      where case_id='$AI_PACK_CASE_ID') || ':' ||
+    (select count(*) from public.ai_pack_versions
+      where id::text=(
+        select version_id::text
+          from public.osi_v2_ai_pack_generation_runs
+         where nonce='$AI_PACK_NONCE'
+      )) || ':' ||
+    (select count(*) from public.event_receipts
+      where target_type='pack_version'
+        and target_id=(
+          select version_id::text
+            from public.osi_v2_ai_pack_generation_runs
+           where nonce='$AI_PACK_NONCE'
+        ));")"
+assert_eq "reservation race creates no Pack, version or receipt before provider success" \
+  "0:0:0" "$AI_PACK_NO_EFFECTS"
+
+AI_PACK_NONCE_SHAPE="$(psql_run -c "
+  select (consumed_at is null and consumed_by_receipt_id is null)::text
+    from public.osi_nonces
+   where nonce='$AI_PACK_NONCE';")"
+assert_eq "provider reservation does not falsely consume a receipt nonce" \
+  "true" "$AI_PACK_NONCE_SHAPE"
 
 # --- verdict ------------------------------------------------------------------
 echo "----"

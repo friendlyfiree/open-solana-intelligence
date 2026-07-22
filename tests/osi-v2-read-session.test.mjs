@@ -43,6 +43,23 @@ const valid = await verifyReadSessionToken({
   requiredScope: READ_SESSION_SCOPES.CASE_MINE, nowSeconds: now + 1,
 });
 ok("valid exact-origin, exact-wallet, scoped token is accepted", valid.ok && valid.wallet === wallet);
+const aiPackScoped = await verifyReadSessionToken({
+  token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet,
+  requiredScope: READ_SESSION_SCOPES.AIPACK_DETAIL, nowSeconds: now + 1,
+});
+ok("shared token carries the read-only AI Pack detail scope",
+  READ_SESSION_SCOPES.AIPACK_DETAIL === "aipack:detail" && aiPackScoped.ok);
+const withoutAiPack = await issueReadSessionToken({
+  secret, issuer, audience: origin, allowedOrigin: origin, wallet,
+  scopes: [READ_SESSION_SCOPES.CASE_DETAIL],
+  authSubject: null, jti: "C".repeat(32), nowSeconds: now,
+});
+const missingAiPackScope = await verifyReadSessionToken({
+  token: withoutAiPack.token, secret, issuer, origin, allowedOrigin: origin, wallet,
+  requiredScope: READ_SESSION_SCOPES.AIPACK_DETAIL, nowSeconds: now + 1,
+});
+ok("a valid token without AI Pack scope is denied",
+  !missingAiPackScope.ok && missingAiPackScope.reason === "read_session_wrong_scope");
 
 const wrongOrigin = await verifyReadSessionToken({
   token: issued.token, secret, issuer, origin: "https://preview.example", allowedOrigin: origin,
@@ -90,17 +107,22 @@ const caseRead = readFileSync(new URL("../supabase/functions/osi-v2-case-read/in
 const reportRead = readFileSync(new URL("../supabase/functions/osi-v2-report-read/index.ts", import.meta.url), "utf8");
 const analyst = readFileSync(new URL("../supabase/functions/osi-v2-analyst/index.ts", import.meta.url), "utf8");
 const wire = readFileSync(new URL("../supabase/functions/osi-v2-wire/index.ts", import.meta.url), "utf8");
-ok("all four private-read isolates verify the same stateless token core",
-  [caseRead, reportRead, analyst, wire].every((source) => source.includes("verifyReadSessionToken")));
+const aiPack = readFileSync(new URL("../supabase/functions/osi-v2-ai-pack/index.ts", import.meta.url), "utf8");
+ok("all five private-read isolates verify the same stateless token core",
+  [caseRead, reportRead, analyst, wire, aiPack].every((source) => source.includes("verifyReadSessionToken")));
 ok("only the Case read gateway can mint a session after consuming a durable proof",
   caseRead.includes("issueReadSessionToken")
     && caseRead.includes('verifySignedRead(body, "CASE_READ_MY_CASES"')
+    && caseRead.includes("READ_SESSION_SCOPES.AIPACK_DETAIL")
     && !reportRead.includes("issueReadSessionToken")
     && !analyst.includes("issueReadSessionToken")
-    && !wire.includes("issueReadSessionToken"));
+    && !wire.includes("issueReadSessionToken")
+    && !aiPack.includes("issueReadSessionToken"));
 ok("maintainer private reads still re-check wallet and Supabase identity",
   caseRead.includes("authValid") && caseRead.includes("walletValid")
     && reportRead.includes("walletGate && authGate")
-    && analyst.includes("fullMaintainer(req, verified.wallet)"));
+    && analyst.includes("fullMaintainer(req, verified.wallet)")
+    && aiPack.includes("fullMaintainer(req, proof.wallet)")
+    && aiPack.includes("p_maintainer_auth_uuid: maintainer.ok ? maintainer.auth_id : null"));
 
 console.log(`\n${passed} shared read-session security checks passed.`);
