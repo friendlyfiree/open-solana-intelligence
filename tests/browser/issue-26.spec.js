@@ -1006,7 +1006,8 @@ test('launch readiness: verified analyst controls traverse Case, Wire, governanc
   await page.locator('#v2-case-confirm').check();
   await page.locator('#v2-case-submit').click();
   await expectFixtureOperation(page, 'osi-v2-case-write', 'commit_case');
-  await page.waitForTimeout(800);
+  await expect(page.locator('#fo-modal')).not.toHaveClass(/\bopen\b/);
+  await expect(page.locator('#fo-title')).toHaveText('My Cases');
 
   await page.evaluate(() => window.osiV2OpenReviewQueue());
   const initialReview = page.locator(`[data-case-ref="${PRIVATE_REF}"]`).first();
@@ -1020,7 +1021,9 @@ test('launch readiness: verified analyst controls traverse Case, Wire, governanc
   await expect(anchorOpen).toBeVisible();
   await anchorOpen.click();
   await expectFixtureOperation(page, 'osi-v2-case-write', 'commit_open');
+  await expect(page.locator('#osi-case-state')).toContainText('Public investigation');
   await page.evaluate(() => window.osiV2CloseCase());
+  await expect(page.locator('#osi-case-drawer')).toBeHidden();
 
   await page.evaluate(() => window.osiV2OpenWireForm());
   await expect(page.locator('#osi-wire-title')).toBeFocused();
@@ -1032,7 +1035,8 @@ test('launch readiness: verified analyst controls traverse Case, Wire, governanc
   await page.locator('#osi-wire-safety').check();
   await page.locator('#osi-wire-submit').click();
   await expectFixtureOperation(page, 'osi-v2-wire', 'commit_wire');
-  await page.evaluate(() => window.osiV2CloseWireForm());
+  await expect(page.locator('#osi-wire-modal')).not.toHaveClass(/\bopen\b/);
+  await expect(page.locator('#wire-cases')).toContainText('Private author workspace');
 
   await page.evaluate(() => window.osiV2OpenWireQueue());
   await expect(page.locator('[data-wire-queue-card]')).toBeVisible();
