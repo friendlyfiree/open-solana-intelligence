@@ -16,7 +16,7 @@ The people who need on-chain forensics the most can reach it the least. Victims 
 
 OSI's answer is **process integrity**: a public system that proves who submitted what, which wallet signed which exact version, who reviewed it, what was decided, at what voting weight, whether it was challenged, and how it was sealed. OSI does not promise truth. It proves process, in public, on chain.
 
-## What is live
+## What is built and live
 
 | Capability | Status |
 |---|---|
@@ -27,10 +27,24 @@ OSI's answer is **process integrity**: a public system that proves who submitted
 | Resolution, 7-day challenge window, sealing | Live |
 | Native SOL reward and voluntary support (non-custodial, RPC-verified) | Live |
 | The Wire: standalone intelligence publication lane | Live |
-| Analyst onboarding with on-chain SAS credentials | Live |
-| AI Pack: evidence-bound, three-layer AI briefs with analyst approval | In development |
+| Analyst onboarding with on-chain SAS credentials and public verifier | Live |
 | Shared private read session (one signature per 5 minutes) | Live |
 | Bootstrap governance (transparent, self-decaying cold-start mode) | Live |
+| AI Pack: evidence-bound, three-layer AI briefs with analyst approval | Built, activation pending |
+| SAS credential enforcement in governance weight | In active development |
+| Memo-anchored public record links | In active development |
+
+The platform is deployed and open for its first Cases. The network is at its honest cold start: no invented activity, no vanity metrics, no fake wallets. Everything you see is either a real record or a truthful empty state.
+
+## Where Solana is load-bearing
+
+OSI is deliberate about what belongs on chain. Fast, private review and discussion run off chain where they should. Solana secures the parts where trust must become independently verifiable, and removing it would break the guarantee the product exists to make:
+
+- **The public governance record is Memo-anchored on mainnet.** Case submission, public opening, report publication, and sealing are confirmed Solana Memo transactions using a canonical grammar. The record is not OSI saying a thing happened; it is a transaction anyone can pull from the chain, and not even the maintainer can silently rewrite it.
+- **Payments are non-custodial and RPC-verified.** Rewards and support are direct wallet-to-wallet SOL transfers through the System Program. A payment is labeled confirmed only after finalized mainnet verification of exact payer, recipients, lamports, and memo. OSI never holds funds.
+- **Analyst authority is a portable on-chain credential.** Every active analyst holds a real Solana Attestation Service credential that any third party can verify directly against the chain, with no dependence on OSI's database. An analyst's standing survives even if OSI does not.
+
+We are actively deepening this: making the SAS credential a hard gate on governance weight, and attaching a resolvable public reference to every governance Memo so a Solana transaction alone leads anyone straight to the verifiable record. See **In active development** below.
 
 ## How a Case works
 
@@ -69,7 +83,7 @@ Every signed write is protected by a five-stage replay defense: a cryptographica
 
 Analysts earn authority, they are not appointed. Two onboarding paths exist: a direct wallet-signed application reviewed in public process, and automatic candidacy earned when a wallet's report wins a resolved Case. Voting power is bounded between 0.50 and 3.00 and grows only through a documented tier ladder based on accepted contributions and review quality. No payment, donation, or support ever influences weight, ranking, or governance.
 
-Every active analyst holds a real, revocable **Solana Attestation Service (SAS)** credential on mainnet, issued automatically at activation and revoked on demotion. Anyone, including third-party applications, can verify a wallet's analyst status directly against Solana without trusting OSI's database:
+Every active analyst holds a real, revocable **Solana Attestation Service (SAS)** credential on mainnet, issued automatically at activation and revoked on demotion. Anyone, including third-party applications and grant reviewers with no wallet of their own, can verify a wallet's analyst status directly against Solana without trusting OSI's database, through the public verifier on the About page or against the chain directly:
 
 - SAS Program: [`22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG`](https://solscan.io/account/22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG)
 - OSI Credential: [`D2tsrEHEXYPL82chv5PuwsQtALv1i5hXrWZorqyefJgX`](https://solscan.io/account/D2tsrEHEXYPL82chv5PuwsQtALv1i5hXrWZorqyefJgX)
@@ -85,7 +99,7 @@ During the network's cold start, a transparent **bootstrap mode** lets the doubl
 
 ## AI Pack
 
-An AI Pack is a versioned, evidence-bound intelligence brief generated from server-approved Case evidence. It is an artifact, never a verdict: OSI displays a transparent Evidence Confidence Profile (public verifiability, on-chain reproducibility, evidence coverage, source consistency, analyst attestation) and never a single accuracy, truth, or guilt score. Each version carries three separately hashed content layers (public brief, owner-safe, analyst-restricted), goes stale per layer when its underlying evidence changes, and becomes visible publicly only after independent analyst approval that the pack's creator can never take part in. Generation runs entirely server-side under strict rate, quota, and cost limits; no AI provider key ever reaches a browser.
+An AI Pack is a versioned, evidence-bound intelligence brief generated from server-approved Case evidence. It is an artifact, never a verdict: OSI displays a transparent Evidence Confidence Profile (public verifiability, on-chain reproducibility, evidence coverage, source consistency, analyst attestation) and never a single accuracy, truth, or guilt score. Each version carries three separately hashed content layers (public brief, owner-safe, analyst-restricted), goes stale per layer when its underlying evidence changes, and becomes visible publicly only after independent analyst approval that the pack's creator can never take part in. Generation runs entirely server-side under strict rate, quota, and cost limits; no AI provider key ever reaches a browser. The full mechanism is built and tested; public activation is deliberately gated behind a real analyst quorum.
 
 ## Payments without custody
 
@@ -113,11 +127,19 @@ PostgreSQL (Supabase)
 Key properties:
 
 - **Default deny everywhere.** Browsers hold no privileged database access. Every client-reachable table has forced row level security with zero anonymous policies; all mutations flow through service-only RPCs behind wallet proofs.
-- **Immutability by construction.** Published versions, reviews, and receipts are append-only. Corrections create new versions; history is never rewritten.
+- **Immutability by construction.** Published versions, reviews, and receipts are append-only. Corrections create new versions; history is never rewritten. This is enforced by database triggers, not convention: even the maintainer cannot delete or silently alter a sealed record or a Case's provenance.
 - **Fail-closed feature flags.** Every capability ships behind a dedicated flag that treats a missing or malformed value as off.
 - **Honest UI.** Every visible control maps to a real authorized endpoint. Disabled features state their exact unmet prerequisite. Empty states never invent activity.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full map and [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for the complete role-by-role handbook.
+
+## In active development
+
+These are the current build priorities. Each deepens the role Solana already plays rather than adding surface:
+
+- **SAS credential enforcement.** The credential is live on chain today and shown wherever an analyst appears. The enforcement path, where a review counts toward governance weight only when the caster's SAS credential verifies live on chain at the moment of the vote, is being activated so the on-chain credential becomes a hard gate on authority rather than a badge. The verification ledger already exists in the schema; activation is fail-closed and staged with the growing analyst network.
+- **Memo-anchored public record links.** Every public governance Memo is being extended to carry a neutral, resolvable public reference, so a single Solana transaction leads anyone directly from the chain to the exact verifiable record without trusting OSI's database. The reference is a non-narrative identifier only; no subject name or case content ever enters a Memo.
+- **Durable public record.** Sealed Cases mirrored to permanent content-addressed storage (Arweave), paid in SOL, with the content hash anchored by Memo, so the public record outlives any single database.
 
 ## Repository structure
 
@@ -137,14 +159,12 @@ tools/                  One-time maintainer utilities (SAS setup)
 
 ## Testing and delivery discipline
 
-Every change passes a full battery before reaching production: dependency-free Node suites, Deno type checks, a clean PostgreSQL migration from zero, database lint at error level, pgTAP authorization tests for every role, two-connection replay and race tests, stored-XSS regression coverage, and browser contracts at desktop and 390px mobile. Production rollouts run only through typed-confirmation, main-only workflows that dry-run the exact expected migrations, snapshot every feature flag and legacy row count before and after, and fail closed by disabling only the affected flag.
+Every change passes a full battery before reaching production: dependency-free Node suites, Deno type checks, a clean PostgreSQL migration from zero, database lint at error level, pgTAP authorization tests for every role, two-connection replay and race tests, stored-XSS regression coverage, and browser contracts at desktop and 390px mobile. Production rollouts run only through typed-confirmation, main-only workflows that dry-run the exact expected migrations, snapshot every feature flag and row count before and after, and fail closed by disabling only the affected flag.
 
 ## Roadmap
 
-Near-term direction, in no committed order:
+Beyond the active work above, in no committed order:
 
-- Durable public record: sealed Cases mirrored to permanent content-addressed storage (Arweave or IPFS) with the hash anchored by Memo, so the public record outlives any single database.
-- SAS credential enforcement: analyst reviews counted only for wallets holding a live on-chain credential, activated once the credentialed network reaches critical mass.
 - Reputation progression: automatic tier advancement from accepted contributions and review accuracy, with public analyst CV pages.
 - Notifications and My OSI: actionable indicators for reward due, revision requested, challenge opened, and seal ready.
 - Public metrics: independently verifiable network statistics with no vanity numbers.
