@@ -66,10 +66,17 @@ ok("unverified wallet-signed claim degrades to legacy label",
 // ---------------------------------------------------------------------------
 const OWNER = "4" + "a".repeat(43);
 const STRANGER = "5" + "b".repeat(43);
-const privateDraft = { visibility: "private", stage: "draft", submitted_by_wallet: OWNER };
-const publicOpen = { visibility: "public", stage: "open_public", submitted_by_wallet: OWNER };
-const privateSubmitted = { visibility: "private", stage: "submitted", submitted_by_wallet: OWNER };
+const privateDraft = {
+  category: "wallet_compromise", visibility: "private", stage: "draft", submitted_by_wallet: OWNER,
+};
+const publicOpen = {
+  category: "wallet_compromise", visibility: "public", stage: "open_public", submitted_by_wallet: OWNER,
+};
+const privateSubmitted = {
+  category: "wallet_compromise", visibility: "private", stage: "submitted", submitted_by_wallet: OWNER,
+};
 const archivedPublic = { ...publicOpen, archived_at: "2026-07-22T00:00:00Z" };
+const legacyPrivateDraft = { ...privateDraft, category: "legacy_import" };
 
 ok("anonymous reads a public Case", core.canActorReadCase({ kind: "anonymous" }, publicOpen));
 ok("anonymous denied a private Case", !core.canActorReadCase({ kind: "anonymous" }, privateDraft));
@@ -88,12 +95,20 @@ ok("archived Case is denied to anonymous, owner, analyst and maintainer",
     && !core.canActorReadCase({ kind: "owner", wallet: OWNER }, archivedPublic)
     && !core.canActorReadCase({ kind: "analyst", wallet: STRANGER }, archivedPublic)
     && !core.canActorReadCase({ kind: "maintainer" }, archivedPublic));
+ok("legacy-import private draft is denied to owner, analyst and maintainer operational reads",
+  !core.canActorReadCase({ kind: "owner", wallet: OWNER }, legacyPrivateDraft)
+    && !core.canActorReadCase({ kind: "analyst", wallet: STRANGER }, legacyPrivateDraft)
+    && !core.canActorReadCase({ kind: "maintainer" }, legacyPrivateDraft));
 ok("null case denied", !core.canActorReadCase({ kind: "maintainer" }, null));
 ok("public stage set mirrors the schema check",
   core.PUBLIC_CASE_STAGES.has("sealed") && !core.PUBLIC_CASE_STAGES.has("draft")
     && !core.PUBLIC_CASE_STAGES.has("submitted"));
 ok("archived_at overrides an otherwise public stage",
   !core.isCasePublic(archivedPublic));
+ok("a normal public Case remains public while legacy_import stays operationally hidden",
+  core.isCasePublic(publicOpen)
+    && !core.isCaseHiddenFromOperationalViews(publicOpen)
+    && core.isCaseHiddenFromOperationalViews(legacyPrivateDraft));
 
 // ---------------------------------------------------------------------------
 // Challenge build/parse/binding.
@@ -173,7 +188,7 @@ const caseRow = {
   id: "11111111-1111-1111-1111-111111111111",
   public_ref: "OSI-TESTREF000000001",
   title: "Fixture case",
-  category: "legacy_import",
+  category: "wallet_compromise",
   summary_public: "Public-safe summary",
   details_restricted: "SECRET owner intake detail",
   submitted_by_wallet: OWNER,
@@ -383,7 +398,15 @@ ok("the Report author receives no Case-owner wallet or reward-intent fields",
     && !("reward_intent_lamports" in authorView));
 
 const overview = core.maintainerOverviewDto({
-  cases: [caseRow],
+  cases: [caseRow, {
+    ...caseRow,
+    id: "99999999-9999-4999-8999-999999999999",
+    public_ref: "OSI-HIDDENLEGACY0001",
+    title: "Hidden legacy import fixture",
+    category: "legacy_import",
+    stage: "draft",
+    visibility: "private",
+  }],
   reportsByCase: { [caseRow.id]: [report] },
   versionsByReport: { [report.id]: [version] },
   receiptsByCaseTarget: { [caseRow.public_ref]: [receipt] },
@@ -398,6 +421,13 @@ const overview = core.maintainerOverviewDto({
 });
 ok("maintainer overview never contains a private body",
   !JSON.stringify(overview).includes("private findings body"));
+ok("maintainer overview excludes legacy-import counts and rows without hiding normal public Cases",
+  overview.totals.cases === 1
+    && overview.totals.cases_by_visibility.public === 1
+    && overview.totals.cases_by_visibility.private == null
+    && overview.cases.length === 1
+    && overview.cases[0].public_ref === caseRow.public_ref
+    && !JSON.stringify(overview).includes("Hidden legacy import fixture"));
 const archivedOverview = core.maintainerOverviewDto({
   cases: [{ ...caseRow, archived_at: "2026-07-22T00:00:00Z" }],
   receiptTotals: {},
@@ -450,9 +480,11 @@ ok("Edge derives exact Report-author Case access server-side",
   /actorKind: "owner" \| "report_author" \| "analyst" \| "maintainer"/.test(fnSource)
     && /from\("case_reports"\)\.select\("id"\)/.test(fnSource)
     && /\.eq\("case_id", caseRow\.id\)\.eq\("author_wallet", proof\.actor\.wallet\)/.test(fnSource));
-ok("all Case collection and detail reads explicitly exclude archived_at",
+ok("all Case collection and detail reads exclude archived and legacy-import Cases",
   (fnSource.match(/\.is\("archived_at", null\)/g) || []).length >= 6
-    && fnSource.includes("archivedCaseReceiptTargets")
+    && (fnSource.match(/\.neq\("category", "legacy_import"\)/g) || []).length >= 6
+    && fnSource.includes("hiddenCaseReceiptTargets")
+    && fnSource.includes('.or("archived_at.not.is.null,category.eq.legacy_import")')
     && fnSource.includes("hiddenReceiptTargets.has(String(receipt.target_id))"));
 ok("finalized selection tally uses each reviewer's phase-specific latest history",
   /latestSelectionByWallet = new Map/.test(fnSource)

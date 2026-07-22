@@ -465,6 +465,7 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
 async function listPublicCases(): Promise<Response> {
   const { data, error } = await admin.from("cases").select(CASE_COLS)
     .is("archived_at", null)
+    .neq("category", "legacy_import")
     .eq("visibility", "public")
     .in("stage", [...PUBLIC_CASE_STAGES])
     .order("created_at", { ascending: false })
@@ -493,7 +494,8 @@ async function getPublicCase(body: Row): Promise<Response> {
     return jsonResponse(400, { ok: false, error: "bad_public_ref" });
   }
   const { data, error } = await admin.from("cases").select(CASE_COLS)
-    .eq("public_ref", publicRef).is("archived_at", null).limit(1);
+    .eq("public_ref", publicRef).is("archived_at", null)
+    .neq("category", "legacy_import").limit(1);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   const caseRow = data?.[0];
   // Private and nonexistent Cases are indistinguishable to anonymous callers.
@@ -739,6 +741,7 @@ async function listMyCases(req: Request, body: Row): Promise<Response> {
   const { data, error } = await admin.from("cases").select(CASE_COLS)
     .eq("submitted_by_wallet", proof.actor.wallet)
     .is("archived_at", null)
+    .neq("category", "legacy_import")
     .order("created_at", { ascending: false }).limit(100);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   const caseRows = data ?? [];
@@ -895,6 +898,7 @@ async function listReviewableCases(req: Request, body: Row): Promise<Response> {
       "resolution_proposed", "in_challenge_window", "resolved", "reopened",
     ])
     .is("archived_at", null)
+    .neq("category", "legacy_import")
     .neq("submitted_by_wallet", wallet)
     .order("created_at", { ascending: true }).limit(100);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
@@ -963,7 +967,8 @@ async function getAuthorizedCase(req: Request, body: Row): Promise<Response> {
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
 
   const { data, error } = await admin.from("cases").select(CASE_COLS)
-    .eq("public_ref", caseRef).is("archived_at", null).limit(1);
+    .eq("public_ref", caseRef).is("archived_at", null)
+    .neq("category", "legacy_import").limit(1);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   const caseRow = data?.[0];
   if (!caseRow) return jsonResponse(404, { ok: false, error: "not_found_or_denied" });
@@ -1075,11 +1080,12 @@ async function maintainerCaseOverview(req: Request, body: Row): Promise<Response
 
   const [casesRes, receiptsRes, crosswalkRes, queueRes, hiddenReceiptTargets] = await Promise.all([
     admin.from("cases").select(CASE_COLS).is("archived_at", null)
+      .neq("category", "legacy_import")
       .order("created_at", { ascending: true }).limit(200),
     admin.from("event_receipts").select(RECEIPT_COLS).limit(1000),
     admin.from("migration_crosswalk").select("id", { count: "exact", head: true }),
     admin.from("migration_manual_queue").select("id", { count: "exact", head: true }),
-    archivedCaseReceiptTargets(),
+    hiddenCaseReceiptTargets(),
   ]);
   if (casesRes.error || receiptsRes.error) {
     return jsonResponse(500, { ok: false, error: "read_failed" });
@@ -1114,12 +1120,12 @@ async function maintainerCaseOverview(req: Request, body: Row): Promise<Response
   });
 }
 
-async function archivedCaseReceiptTargets(): Promise<Set<string>> {
-  const { data: archivedCases, error } = await admin.from("cases")
-    .select("id,public_ref").not("archived_at", "is", null).limit(500);
+async function hiddenCaseReceiptTargets(): Promise<Set<string>> {
+  const { data: hiddenCases, error } = await admin.from("cases")
+    .select("id,public_ref").or("archived_at.not.is.null,category.eq.legacy_import").limit(500);
   if (error) throw new Error("read_failed");
-  const caseIds = (archivedCases ?? []).map((row) => String(row.id));
-  const targets = new Set((archivedCases ?? []).flatMap((row) => [
+  const caseIds = (hiddenCases ?? []).map((row) => String(row.id));
+  const targets = new Set((hiddenCases ?? []).flatMap((row) => [
     String(row.id), String(row.public_ref),
   ]));
   if (!caseIds.length) return targets;

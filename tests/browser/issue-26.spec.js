@@ -11,6 +11,7 @@ const AI_PACK_REF = 'OSI-AP-A1B2C3D4E5F6';
 const AI_VERSION_REF = 'OSI-APV-A1B2C3D4E5F60718';
 const AI_REVIEW_REF = 'OSI-APR-A1B2C3D4E5F60718';
 const PRIVATE_REF = 'OSI-C-PRIVATE000000001';
+const LEGACY_IMPORT_REF = 'OSI-C-LEGACYIMPORT001';
 const REPORT_REF = 'OSI-RPT-A1B2C3D4E5F6';
 const VERSION_REF = 'OSI-RV-A1B2C3D4E5F60718';
 const WIRE_REPORT_REF = 'OSI-WR-A1B2C3D4E5F6';
@@ -167,6 +168,16 @@ const privateCase = {
   ...richCase, public_ref: PRIVATE_REF, title: 'Private owner workspace', visibility: 'private', stage: 'submitted',
   details_restricted: PRIVATE_SENTINEL, governance: {}, reports: [], proof_log: [], money: {},
 };
+const legacyImportPrivateDraft = {
+  ...privateCase,
+  public_ref: LEGACY_IMPORT_REF,
+  title: 'Hidden legacy import fixture',
+  category: 'legacy_import',
+  stage: 'draft',
+};
+const maintainerOperationalCases = [richCase, legacyImportPrivateDraft].filter((item) => (
+  item.category !== 'legacy_import' && !item.archived_at
+));
 
 function version(no, state, decisions) {
   return {
@@ -514,7 +525,15 @@ async function installFixtureNetwork(page, options = {}) {
       else if (body.op === 'create_read_session') response.read_session = token(new URL(page.url()).origin, wallet);
       else if (body.op === 'maintainer_case_overview') response = {
         ok: true,
-        overview: { totals: { cases: 4, cases_by_visibility: { private: 1, public: 3 }, migration_manual_queue_rows: 0 }, flags: { OSI_V2_WRITES_ENABLED: 'false' } },
+        overview: {
+          totals: {
+            cases: maintainerOperationalCases.length,
+            cases_by_visibility: { public: maintainerOperationalCases.length },
+            migration_manual_queue_rows: 0,
+          },
+          cases: maintainerOperationalCases,
+          flags: { OSI_V2_WRITES_ENABLED: 'false' },
+        },
       };
     } else if (endpoint === 'osi-v2-case-write') {
       if (body.op === 'actor_capabilities') response = {
@@ -936,6 +955,36 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
     expectCleanRuntime(page);
   });
 }
+
+test('legacy-import private drafts stay out of maintainer DOM counts and rows', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.locator('#walletBtn').click();
+  await page.locator('#maintainerAccessMenu').click();
+  await page.getByRole('button', { name: 'Refresh overview' }).click();
+
+  const operations = page.locator('#osi-native-ops-overview');
+  await expect(operations.locator('.osi-native-metric').filter({ hasText: 'Cases' }).locator('strong')).toHaveText('1');
+  await expect(operations.locator('.osi-native-metric').filter({ hasText: 'Public' }).locator('strong')).toHaveText('1');
+  await expect(operations.locator('.osi-native-metric').filter({ hasText: 'Private' }).locator('strong')).toHaveText('0');
+  await expect(operations).not.toContainText(LEGACY_IMPORT_REF);
+
+  await page.evaluate(async () => {
+    window.osiNavigate('field');
+    await window.fieldMine(false);
+    window.fieldFilter('all');
+  });
+  await expect(page.locator(`[data-case-ref="${CASE_REF}"]`)).toBeVisible();
+  await expect(page.locator(`[data-case-ref="${LEGACY_IMPORT_REF}"]`)).toHaveCount(0);
+
+  await page.evaluate(() => {
+    window.osiNavigate('field');
+    window.osiV2OpenReviewQueue();
+  });
+  await expect(page.locator(`[data-case-ref="${PRIVATE_REF}"]`)).toBeVisible();
+  await expect(page.locator(`[data-case-ref="${LEGACY_IMPORT_REF}"]`)).toHaveCount(0);
+  await expect(page.locator('#field-cases')).not.toContainText('Hidden legacy import fixture');
+  expectCleanRuntime(page);
+});
 
 test('launch readiness: public empty states are explanatory and contain no raw sentinel values', async ({ page }) => {
   await ready(page, { role: 'anonymous', empty: true });

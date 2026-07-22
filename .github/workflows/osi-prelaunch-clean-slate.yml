@@ -1,10 +1,10 @@
 name: OSI Pre-launch Clean Slate
 
 # Manual-only production maintenance. This workflow removes only the exact
-# unprotected V1 launch-demo rows described below and archives three exact V2
-# legacy-import Cases without weakening their append-only guards. Immutable V2
-# receipts, Report history, migration history, SAS state, and bootstrap state
-# are snapshot and compared before and after the transaction.
+# unprotected V1 launch-demo rows described below. Three exact V2 legacy-import
+# Cases and their immutable receipts, Report history, migration history, SAS
+# state, and bootstrap state are snapshot and compared byte-for-byte before and
+# after the transaction; no V2 row is mutated.
 
 on:
   workflow_dispatch:
@@ -27,7 +27,7 @@ env:
 
 jobs:
   cleanup:
-    name: Snapshot, clean V1, archive exact legacy Cases, and smoke
+    name: Snapshot, clean V1 only, preserve V2, and smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -206,14 +206,6 @@ jobs:
               raise exception 'V2 analyst_profiles is no longer empty; stop for review';
             end if;
 
-            if (select count(*) from public.cases where id in (
-              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
-              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
-              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
-            ) and category = 'legacy_import' and stage = 'draft' and visibility = 'private'
-              and archived_at is null) <> 3 then
-              raise exception 'Exact legacy-import Case preconditions changed';
-            end if;
             if not exists (select 1 from public.cases
               where id = '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9'
                 and public_ref = 'OSI-75D786CFE6334A169D9F'
@@ -322,7 +314,7 @@ jobs:
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -Atq > /tmp/protected-before.jsonl <<'SQL'
-          select jsonb_build_object('table','cases','row',to_jsonb(r)-'archived_at'-'updated_at')
+          select jsonb_build_object('table','cases','row',to_jsonb(r))
             from public.cases r where id in (
               '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
               '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
@@ -341,7 +333,7 @@ jobs:
             where key ilike '%SAS%' or key ilike '%BOOTSTRAP%' order by key;
           SQL
 
-      - name: Delete exact V1 rows and archive exact Cases in one transaction
+      - name: Delete exact V1 rows in one transaction
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
@@ -422,15 +414,6 @@ jobs:
                   'demand_signal|bounty|bnt_1783581450609'
                ]::text[] then raise exception 'On-chain event target changed after snapshot';
             end if;
-            if (select count(*) from public.cases where id in (
-              '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
-              '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
-              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed'
-            ) and category = 'legacy_import' and stage = 'draft' and visibility = 'private'
-              and archived_at is null) <> 3 then
-              raise exception 'A V2 archive target changed after snapshot';
-            end if;
-
             delete from public.bounty_boosts; get diagnostics changed = row_count;
             if changed <> 5 then raise exception 'Expected 5 bounty_boost deletes, got %', changed; end if;
             delete from public.request_votes; get diagnostics changed = row_count;
@@ -448,16 +431,6 @@ jobs:
             delete from public.profiles; get diagnostics changed = row_count;
             if changed <> 1 then raise exception 'Expected 1 profile delete, got %', changed; end if;
 
-            update public.cases set archived_at = clock_timestamp()
-              where id in (
-                '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
-                '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
-                'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed')
-                and category = 'legacy_import' and stage = 'draft'
-                and visibility = 'private' and archived_at is null;
-            get diagnostics changed = row_count;
-            if changed <> 3 then raise exception 'Expected 3 exact Case archives, got %', changed; end if;
-
             if exists (select 1 from public.bounties)
                or exists (select 1 from public.bounty_boosts)
                or exists (select 1 from public.requests)
@@ -472,8 +445,10 @@ jobs:
             if (select count(*) from public.cases where id in (
               '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
               '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
-              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed') and archived_at is not null) <> 3 then
-              raise exception 'Exact Cases were not archived';
+              'ba9a6b58-3093-4a19-894a-eabc6a4dc8ed')
+              and category = 'legacy_import' and stage = 'draft'
+              and visibility = 'private' and archived_at is null) <> 3 then
+              raise exception 'Protected legacy-import Cases changed inside transaction';
             end if;
             if (select count(*) from public.event_receipts
                 where id = '485e80da-7626-376a-e4a5-354cd391aa72'
@@ -490,13 +465,13 @@ jobs:
           end $$;
           commit;
           SQL
-          echo "Deleted exactly 36 V1 rows and archived exactly 3 V2 legacy-import Cases."
+          echo "Deleted exactly 36 V1 rows; no V2 row was targeted."
 
       - name: Prove immutable history and SAS/bootstrap config preservation
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -Atq > /tmp/protected-after.jsonl <<'SQL'
-          select jsonb_build_object('table','cases','row',to_jsonb(r)-'archived_at'-'updated_at')
+          select jsonb_build_object('table','cases','row',to_jsonb(r))
             from public.cases r where id in (
               '75d786cf-e633-4a16-9d9f-c06c4eb1f0d9',
               '8fc9fe7e-f57f-4761-ba73-47c2e3a4a230',
@@ -518,7 +493,7 @@ jobs:
             echo "::error::Protected V2 history or SAS/bootstrap configuration changed."
             exit 1
           }
-          echo "Protected receipts, Report rows, crosswalk rows, Case content, and SAS/bootstrap keys are unchanged."
+          echo "Protected receipts, Report rows, crosswalk rows, complete Case rows, and SAS/bootstrap keys are unchanged."
 
       - name: Anonymous production clean-slate smoke
         run: |
