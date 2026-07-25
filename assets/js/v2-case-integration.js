@@ -33,6 +33,14 @@
     if(['analyst','verified_analyst','senior_analyst','probationary_analyst'].indexOf(role)<0)return'';
     return'<span data-sas-wallet="'+esc(wallet)+'" data-sas-role="'+esc(role)+'"></span>';
   }
+  function sasAuthority(review){
+    var a=review&&review.sas_authority;
+    if(!a||a.enforced!==true)return'';
+    if(a.counted===true)return' <span class="osi-proof-label" data-sas-authority="counted">Authority verified on Solana</span>';
+    var pending=String(a.state||'')==='pending_verification';
+    return' <span class="osi-chip warning" data-sas-authority="excluded">'+
+      (pending?'Not counted: SAS credential not confirmed':'Not counted: no valid SAS credential')+'</span>';
+  }
   function hasBlockingChallenge(item){
     return !!(item&&item.governance&&(item.governance.challenges||[]).some(function(challenge){return challenge.blocking===true;}));
   }
@@ -498,7 +506,7 @@
   }
   function reviews(item){
     var rows=item.reviews||[];
-    var list=rows.length?'<div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,row.reviewer_role)+' &middot; '+esc(label(row.decision))+'</b><span class="osi-proof-label">'+esc(row.proof_label)+'</span></div><p>'+esc(label(row.reviewer_role))+' &middot; weight '+esc(row.weight)+' &middot; '+esc(dateText(row.created_at))+'</p>'+(row.reason_code?'<p>Reason code: '+esc(row.reason_code)+'</p>':'')+'</div>';}).join('')+'</div>':'<div class="osi-v2-empty"><b>Awaiting initial review</b><span>No eligible reviewer has recorded a decision yet.</span></div>';
+    var list=rows.length?'<div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,row.reviewer_role)+' &middot; '+esc(label(row.decision))+'</b><span class="osi-proof-label">'+esc(row.proof_label)+'</span></div><p>'+esc(label(row.reviewer_role))+' &middot; weight '+esc(row.weight)+sasAuthority(row)+' &middot; '+esc(dateText(row.created_at))+'</p>'+(row.reason_code?'<p>Reason code: '+esc(row.reason_code)+'</p>':'')+'</div>';}).join('')+'</div>':'<div class="osi-v2-empty"><b>Awaiting initial review</b><span>No eligible reviewer has recorded a decision yet.</span></div>';
     return '<section class="osi-case-section"><h3>Initial reviews</h3>'+list+'<div id="osi-review-compose"></div></section>';
   }
   function publishedCandidates(item){
@@ -515,7 +523,7 @@
   }
   function governanceTimeline(rows){
     if(!rows||!rows.length)return'<div class="osi-v2-empty"><b>No reviews recorded</b><span>Only eligible, independent analyst reviews count.</span></div>';
-    return '<div class="osi-governance-timeline">'+rows.map(function(row){var role=row.reviewer_role||row.actor_role||'';return'<div class="osi-governance-event"><span class="osi-proof-label">'+esc(row.proof_label||'Wallet-signed & server-verified')+'</span><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,role)+' &middot; '+esc(label(row.decision))+'</b><p>'+esc(row.target_version_ref||label(row.phase))+' &middot; weight '+esc(Number(row.weight||0).toFixed(2))+' &middot; '+esc(dateText(row.created_at))+'</p><p>'+esc(row.public_rationale||'No public rationale recorded.')+'</p></div>';}).join('')+'</div>';
+    return '<div class="osi-governance-timeline">'+rows.map(function(row){var role=row.reviewer_role||row.actor_role||'';return'<div class="osi-governance-event"><span class="osi-proof-label">'+esc(row.proof_label||'Wallet-signed & server-verified')+'</span><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,role)+' &middot; '+esc(label(row.decision))+'</b><p>'+esc(row.target_version_ref||label(row.phase))+' &middot; weight '+esc(Number(row.weight||0).toFixed(2))+sasAuthority(row)+' &middot; '+esc(dateText(row.created_at))+'</p><p>'+esc(row.public_rationale||'No public rationale recorded.')+'</p></div>';}).join('')+'</div>';
   }
   function resolution(item){
     var governance=item.governance||{};var row=governance.resolution;var candidates=publishedCandidates(item);var caps=state.capabilities||{};

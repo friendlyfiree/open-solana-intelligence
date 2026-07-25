@@ -17,6 +17,10 @@ import {
   verifyEd25519Signature,
 } from "../_shared/osi-v2-proof-core.mjs";
 import {
+  refreshReviewVerifications,
+  runShadowValidation,
+} from "../_shared/osi-v2-sas-onchain.ts";
+import {
   maintainerGate,
   validateConfirmedMemoTransaction,
 } from "../_shared/osi-v2-case-write-core.mjs";
@@ -836,6 +840,14 @@ async function commitReview(req: Request, body: Row): Promise<Response> {
     });
     if (error) return rpcFailure(req, error, "ai_pack_review_commit_failed");
     const row = firstRow(data);
+    // D19: record the caster's live SAS state for this exact review. The receipt
+    // is already durable; this only records the authority snapshot and never
+    // affects the commit or its response.
+    await runShadowValidation(admin, {
+      reviewKind: "ai_pack",
+      reviewId: row?.review_id ? String(row.review_id) : null,
+      wallet: verified.wallet,
+    });
     return jsonResponse(req, 200, {
       ok: true,
       ...committedWriteDto(row, verified.binding.version_ref),
@@ -969,6 +981,23 @@ async function commitOwnerFeedback(req: Request, body: Row): Promise<Response> {
   }
 }
 
+// Enforcement: settle every pending SAS snapshot on this exact Pack version
+// with a live on-chain read before its analyst quorum is computed. Maintainer
+// approval never replaces that quorum, so a Pack cannot be approved on the
+// strength of reviews whose authority could not be confirmed. No-op when
+// enforcement is off.
+async function settleSasForPackVersion(versionRef: string): Promise<void> {
+  let versionId: string | null = null;
+  try {
+    const { data } = await admin.from("ai_pack_versions").select("id")
+      .eq("version_ref", versionRef).maybeSingle();
+    versionId = data?.id ? String(data.id) : null;
+  } catch {
+    versionId = null;
+  }
+  await refreshReviewVerifications(admin, "pack_version", versionId);
+}
+
 async function prepareApproval(req: Request, body: Row): Promise<Response> {
   let wallet: string;
   let versionRef: string;
@@ -982,6 +1011,7 @@ async function prepareApproval(req: Request, body: Row): Promise<Response> {
   }
   const maintainer = await fullMaintainer(req, wallet);
   if (!maintainer.ok) return jsonResponse(req, 403, { ok: false, error: maintainer.reason });
+  await settleSasForPackVersion(versionRef);
   const { data, error } = await admin.rpc("osi_v2_prepare_ai_pack_approval", {
     p_nonce: randomNonce(),
     p_maintainer_wallet: wallet,
@@ -1173,6 +1203,7 @@ async function commitApproval(req: Request, body: Row): Promise<Response> {
     binding.expires_at,
   );
   if (!chain.ok) return jsonResponse(req, 409, { ok: false, error: chain.reason });
+  await refreshReviewVerifications(admin, "pack_version", String(bound.target_id ?? ""));
   const { data, error } = await admin.rpc("osi_v2_commit_ai_pack_approval", {
     p_nonce: nonce,
     p_tx_sig: txSig,

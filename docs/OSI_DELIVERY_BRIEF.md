@@ -78,6 +78,12 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - The Report slice uses exact `OSI_V2_REPORT_WRITES_ENABLED` gating and is disabled by default until its reviewed rollout finishes.
 - Wire Phase 1 uses exact `OSI_V2_WIRE_WRITES_ENABLED` gating and is disabled by default until its reviewed rollout finishes.
 - Missing, malformed, or unavailable flags fail closed.
+- SAS review authority uses exact `OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED` gating.
+- That flag is false in code and false in production.
+- Only the manual `osi-v2-sas-enforcement-production.yml` dispatch can turn it on.
+- With it off, every quorum computation is identical to the pre-enforcement baseline.
+- With it on, an analyst review counts only when that caster's SAS credential verified live on chain.
+- A wallet with no verifiable credential contributes zero weight and is labeled, never silently dropped.
 
 ## 4. Global information architecture
 
@@ -259,6 +265,8 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Add complete initial rejection quorum and terminal transition before enabling rejection.
 - Add resolution proposal and nullable-state checks.
 - Production-activate exact primary Report selection, the seven-day challenge lifecycle, accepted-challenge reopen, and process sealing only after their dedicated rollout workflow passes.
+- Turn SAS credential enforcement on only through its dedicated manual workflow, after the Step 0 credential, schema, and issuer pubkeys are published and the public verifier answers live.
+- SAS enforcement rollback is exactly one statement: set `OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED` back to false.
 - Add reputation snapshot progression after real attributable contributions exist.
 - Merge and deploy native Wire Phase 1 only after clean CI and the manual main-only rollout verifies the private intake boundary.
 - Soak Wire intake before adding analyst review, publication, public projections, challenges, support, or Case promotion.

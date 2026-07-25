@@ -21,6 +21,7 @@ import {
   authorizedReportDto,
   publicReportGovernanceDto,
 } from "../_shared/osi-v2-report-core.mjs";
+import { attachReviewAuthority } from "../_shared/osi-v2-sas-onchain.ts";
 import {
   READ_SESSION_SCOPES,
   readSessionIssuer,
@@ -356,6 +357,8 @@ async function loadReports(
       .in("report_version_id", versionIds).order("created_at", { ascending: true }).limit(5000)
     : { data: [], error: null };
   if (reviewError) throw new Error("read_failed");
+  // D19: label each review with whether its authority was SAS-verified on chain.
+  await attachReviewAuthority(admin, "case_report", reviews ?? []);
   const receiptIds = [...new Set([
     ...versionRows.map((row) => String(row.event_receipt_id)),
     ...versionRows.map((row) => String(row.publication_receipt_id || "")).filter(Boolean),
@@ -558,6 +561,8 @@ async function listPublicReports(body: Row): Promise<Response> {
       quorumThresholds(),
     ]);
     if (versionError || reviewError) throw new Error("read_failed");
+    // D19: label each review with whether its authority was SAS-verified on chain.
+    await attachReviewAuthority(admin, "case_report", reviews ?? []);
     const reviewerWallets = [...new Set((reviews ?? []).map((row) => String(row.reviewer_wallet)))];
     const receiptIds = [...new Set([
       ...(reviews ?? []).map((row) => String(row.event_receipt_id)),

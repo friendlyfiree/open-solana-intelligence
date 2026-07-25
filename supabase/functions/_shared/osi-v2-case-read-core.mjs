@@ -339,6 +339,18 @@ function publicEvidenceDto(evidence) {
   };
 }
 
+// D19 public-safe review authority label. Null unless the SAS credential gate is
+// actually deciding, so no surface can claim an authority check that is not on.
+function sasAuthorityDto(review) {
+  const authority = review && review.sas_authority;
+  if (!authority || authority.enforced !== true) return null;
+  return {
+    enforced: true,
+    counted: authority.counted === true,
+    state: String(authority.state || "unchecked"),
+  };
+}
+
 function reviewDto(review, includeReason) {
   const dto = {
     reviewer_wallet: String(review.reviewer_wallet ?? ""),
@@ -348,6 +360,7 @@ function reviewDto(review, includeReason) {
     is_active: review.is_active === true,
     created_at: isoOrNull(review.created_at),
     proof_label: proofLabel(review.receipt ?? {}),
+    sas_authority: sasAuthorityDto(review),
   };
   if (includeReason) dto.reason_code = review.reason_code == null ? null : String(review.reason_code);
   return dto;
@@ -368,6 +381,7 @@ function governanceReviewDto(review, includeRestricted) {
     created_at: isoOrNull(review.created_at),
     proof_label: proofLabel(review.receipt ?? {}),
     actor_role: String(review.receipt?.actor_role ?? ""),
+    sas_authority: sasAuthorityDto(review),
   };
   if (includeRestricted) dto.private_note = review.private_note == null
     ? null : String(review.private_note);

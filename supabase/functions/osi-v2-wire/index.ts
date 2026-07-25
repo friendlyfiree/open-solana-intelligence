@@ -36,7 +36,7 @@ import {
   validateGovernanceProofText,
 } from "../_shared/osi-v2-governance-core.mjs";
 import { maintainerGate } from "../_shared/osi-v2-case-write-core.mjs";
-import { resolveReviewIdByPublicRef, resolveReviewIdByReceipt, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
+import { refreshReviewVerifications, resolveReviewIdByPublicRef, resolveReviewIdByReceipt, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
 import {
   READ_SESSION_SCOPES,
   readSessionIssuer,
@@ -734,6 +734,7 @@ async function prepareWirePublication(req: Request, body: Row): Promise<Response
     return jsonResponse(404, { ok: false, error: "wire_version_not_available" });
   }
   const maintainer = await fullMaintainer(req, wallet);
+  await refreshReviewVerifications(admin, "wire_version", String(found.row.id));
   const { data, error } = await admin.rpc("osi_v2_prepare_wire_publication", {
     p_nonce: randomNonce(), p_actor_wallet: wallet, p_version_id: found.row.id,
     p_idempotency_key: idempotencyKey,
@@ -814,6 +815,7 @@ async function commitWirePublication(req: Request, body: Row): Promise<Response>
     if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
     maintainerAuthId = gate.auth_id;
   }
+  await refreshReviewVerifications(admin, "wire_version", String(bound.target_id ?? ""));
   const { data, error } = await admin.rpc("osi_v2_commit_wire_publication", {
     p_nonce: nonce, p_tx_sig: txSig, p_proof_text: memo,
     p_occurred_at: (chain as { occurred_at: string }).occurred_at,
@@ -842,6 +844,26 @@ async function commitWirePublication(req: Request, body: Row): Promise<Response>
 
 function wireActionNeedsAnalyst(action: string): boolean {
   return action === "challenge_review" || action === "challenge_finalize";
+}
+
+// Wire governance actions that recompute an analyst quorum. Enforcement settles
+// every pending SAS snapshot on the target with a live on-chain read right
+// before the computation. No-op when enforcement is off.
+function wireQuorumTarget(action: string): "challenge" | null {
+  return action === "challenge_finalize" ? "challenge" : null;
+}
+
+async function settleSasForWireAction(action: string, targetRef: string): Promise<void> {
+  if (!wireQuorumTarget(action)) return;
+  let targetId: string | null = null;
+  try {
+    const { data } = await admin.from("challenges_v2").select("id")
+      .eq("public_ref", targetRef).maybeSingle();
+    targetId = data?.id ? String(data.id) : null;
+  } catch {
+    targetId = null;
+  }
+  await refreshReviewVerifications(admin, "challenge", targetId);
 }
 
 function wireActionNeedsAnalystOrMaintainer(action: string): boolean {
@@ -883,6 +905,7 @@ async function prepareWireGovernance(req: Request, body: Row): Promise<Response>
   if (wireActionNeedsAnalystOrMaintainer(action) && !role && !maintainer.ok) {
     return jsonResponse(403, { ok: false, error: "not_eligible_or_full_maintainer" });
   }
+  await settleSasForWireAction(action, targetRef);
   const { data, error } = await admin.rpc("osi_v2_prepare_wire_governance_action", {
     p_nonce: randomNonce(), p_action: action, p_actor_wallet: wallet,
     p_target_ref: targetRef, p_payload: payload,
@@ -985,6 +1008,11 @@ async function commitWireGovernance(req: Request, body: Row): Promise<Response> 
     if (!await verifyEd25519Signature(proofText, signature, wallet)) {
       return jsonResponse(403, { ok: false, error: "bad_signature" });
     }
+  }
+  if (wireQuorumTarget(action)) {
+    await refreshReviewVerifications(
+      admin, String(bound.target_type ?? ""), String(bound.target_id ?? ""),
+    );
   }
   const { data, error } = await admin.rpc("osi_v2_commit_wire_governance_action", {
     p_nonce: nonce, p_payload: payload, p_signature: signature,

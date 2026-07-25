@@ -1,0 +1,397 @@
+name: OSI V2 SAS Credential Enforcement Production
+
+# Manual-only rollout for the D19 Step 4 enforcement slice:
+#   * 20260725120000_osi_v2_sas_enforcement.sql (additive)
+#   * redeployment of the Edge Functions that slice touched
+#   * and, as the LAST step, flipping the single flag
+#     OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED from false to true.
+#
+# SAFETY CONTRACT (mirrors osi-v2-sas-bootstrap-production.yml):
+#   * workflow_dispatch ONLY, from current main, with a typed confirmation.
+#   * The flag is false in code and stays false in production until a human
+#     dispatches THIS workflow. Nothing else in the repository can turn it on.
+#   * Preconditions are verified before the flip and the run fails closed if
+#     any of them is missing: the Step 0 credential, schema and issuer pubkeys
+#     must all be published, and the public verifier must answer live.
+#   * Full pre and post osi_config snapshot. Every other flag must be byte
+#     identical afterwards.
+#   * Rollback is exactly one statement: set the one flag back to false. It is
+#     wired into this workflow as an automatic fail-closed step, and is also
+#     available as the standalone rollback-only dispatch mode below.
+#   * Secrets are never printed; secret presence is checked by name only.
+#
+# Enabling is safe to schedule because enforcement is prospective: it decides
+# which reviews carry quorum count and voting weight from the moment it is on,
+# and it never rewrites a decided outcome. Reviews already recorded verified
+# under the currently published credential keep counting.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type SAS-ENFORCE-ON-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+      mode:
+        description: "enable (deploy then turn enforcement on) or rollback (set the flag back to false only)"
+        required: true
+        default: "enable"
+        type: choice
+        options:
+          - enable
+          - rollback
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-sas-enforcement-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  ENFORCEMENT_KEY: OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED
+  NEW_VERSIONS: "20260725120000"
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000 20260718140000
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000 20260718140000 20260725120000
+  UNCHANGED_FLAGS: >-
+    OSI_V2_WRITES_ENABLED OSI_V2_PROOF_ENABLED OSI_V2_CASE_WRITES_ENABLED OSI_V2_ANALYST_WRITES_ENABLED OSI_V2_REPORT_WRITES_ENABLED OSI_V2_REPORT_REVIEW_WRITES_ENABLED OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED OSI_V2_PAYMENT_WRITES_ENABLED OSI_V2_READ_SESSION_ENABLED OSI_V2_WIRE_WRITES_ENABLED OSI_V2_AI_PACK_WRITES_ENABLED OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED OSI_V2_FALLBACK_GOVERNANCE
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean local enforcement proof
+    if: ${{ github.event.inputs.mode == 'enable' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "SAS-ENFORCE-ON-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out exact dispatched commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Verify exact migration set and that the flag ships false in code
+        run: |
+          set -euo pipefail
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Repository migration set is not the exact expected versions."; exit 1; }
+          test -f "supabase/migrations/20260725120000_osi_v2_sas_enforcement.sql"
+          # The enforcement flag must ship false, and no migration may write it true.
+          grep -q "'${ENFORCEMENT_KEY}', 'false'" supabase/migrations/20260716120000_osi_v2_sas_credential.sql || {
+            echo "::error::Shipped enforcement default is no longer false."; exit 1;
+          }
+          if grep -rn "${ENFORCEMENT_KEY}" supabase/migrations | grep -E "=\s*'true'|,\s*'true'" ; then
+            echo "::error::A migration sets the enforcement flag true. Only this workflow may."; exit 1;
+          fi
+
+      - name: Full Node and touched-function battery
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          deno check supabase/functions/_shared/osi-v2-sas-core.mjs
+          deno check supabase/functions/_shared/osi-v2-sas-onchain.ts
+          deno check supabase/functions/_shared/osi-v2-case-read-core.mjs
+          deno check supabase/functions/_shared/osi-v2-report-core.mjs
+          deno check supabase/functions/osi-v2-ai-pack/index.ts
+          deno check supabase/functions/osi-v2-analyst/index.ts
+          deno check supabase/functions/osi-v2-case-read/index.ts
+          deno check supabase/functions/osi-v2-case-write/index.ts
+          deno check supabase/functions/osi-v2-governance-write/index.ts
+          deno check supabase/functions/osi-v2-proof/index.ts
+          deno check supabase/functions/osi-v2-report-read/index.ts
+          deno check supabase/functions/osi-v2-report-write/index.ts
+          deno check supabase/functions/osi-v2-wire/index.ts
+
+      - name: Fresh PostgreSQL 17 migration lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Fresh local migration history is not exact."; exit 1; }
+          # A clean local database must still ship enforcement OFF.
+          [ "$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select value from public.osi_config where key='${ENFORCEMENT_KEY}'")" = "false" ] || {
+            echo "::error::A clean database does not ship enforcement false."; exit 1;
+          }
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard disposable local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact migration functions preconditions and the single flag flip
+    if: ${{ github.event.inputs.mode == 'enable' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Verify credentials project and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "::error::Validated commit is no longer current main."; exit 1; }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot the complete osi_config before anything changes
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key || '|' || value from public.osi_config order by key" > /tmp/osi-config-before.txt
+          wc -l /tmp/osi-config-before.txt
+          value="$(psql -Atqc "select value from public.osi_config where key='${ENFORCEMENT_KEY}'")"
+          [ "$value" = "false" ] || { echo "::error::Enforcement is not currently false in production. Aborting."; exit 1; }
+          for key in $(echo "$UNCHANGED_FLAGS" | tr -s '[:space:]' ' '); do
+            flag="$(psql -Atqc "select value from public.osi_config where key='${key}'")"
+            case "$flag" in true|false) : ;; *) echo "::warning::${key} is absent or malformed; recorded as-is." ;; esac
+            echo "BEFORE_${key}=${flag}" >> "$GITHUB_ENV"
+          done
+
+      - name: Link and verify exact remote migration history
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          before="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          after="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$before" ]; then echo "MODE=deploy" >> "$GITHUB_ENV";
+          elif [ "$got" = "$after" ]; then echo "MODE=resume" >> "$GITHUB_ENV";
+          else echo "::error::Remote history is not the exact before or after state."; exit 1; fi
+
+      - name: Record exact disable and forward-fix plan
+        run: |
+          echo "Rollback for this rollout is exactly one statement:"
+          echo "  update public.osi_config set value='false', updated_at=now() where key='${ENFORCEMENT_KEY}';"
+          echo "Re-dispatch this workflow with mode=rollback to run it, or it runs automatically if a step below fails."
+          echo "Turning the flag back to false restores current main behavior exactly: the counting predicate"
+          echo "short-circuits to TRUE before reading any SAS table, so every quorum result is identical again."
+          echo "The additive migration and all immutable domain data stay in place. No drop, reset, repair,"
+          echo "truncation, broad update, or data rewrite is an acceptable rollback."
+
+      - name: Dry-run exactly the one new migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/sas-enforcement-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/sas-enforcement-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$NEW_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Dry-run is not exactly the one expected version."; exit 1; }
+
+      - name: Apply exactly the one additive migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: supabase db push --linked --yes
+
+      - name: Verify history and that the flag is still false after the migration
+        run: |
+          set -euo pipefail
+          [ "$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")" = "$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='${ENFORCEMENT_KEY}'")" = "false" ] || {
+            echo "::error::The migration changed the enforcement flag. Aborting before the flip."; exit 1;
+          }
+
+      - name: Deploy exactly the touched functions
+        run: |
+          set -euo pipefail
+          # Every function whose bundle includes a shared module this slice changed
+          # (osi-v2-sas-core.mjs, osi-v2-sas-onchain.ts, osi-v2-case-read-core.mjs,
+          # osi-v2-report-core.mjs) plus the functions changed directly.
+          for fn in osi-v2-ai-pack osi-v2-analyst osi-v2-case-read osi-v2-case-write osi-v2-governance-write osi-v2-proof osi-v2-report-read osi-v2-report-write osi-v2-wire; do
+            supabase functions deploy "$fn" --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          done
+
+      - name: Fail-closed preconditions for turning enforcement on
+        run: |
+          set -euo pipefail
+          # 1. Step 0 credential coordinates must all be published, otherwise
+          #    enforcement would withhold weight from every analyst review.
+          for key in OSI_V2_SAS_CREDENTIAL_PUBKEY OSI_V2_SAS_SCHEMA_PUBKEY OSI_V2_SAS_ISSUER_PUBKEY; do
+            value="$(psql -Atqc "select coalesce(nullif(value, ''), '') from public.osi_config where key='${key}'")"
+            [ -n "$value" ] || { echo "::error::${key} is not published. Run the Step 0 bootstrap first."; exit 1; }
+          done
+          [ "$(psql -Atqc "select osi_private.osi_v2_sas_configured()")" = "t" ] || {
+            echo "::error::SAS is not fully configured."; exit 1;
+          }
+          # 2. The public verifier must answer live before authority depends on it.
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          verify="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-proof" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d '{"mode":"sas_verify","wallet":"11111111111111111111111111111112"}')"
+          echo "$verify" | grep -q '"program_id"' || { echo "::error::sas_verify is not answering."; exit 1; }
+          echo "$verify" | grep -q '"valid":false' || { echo "::error::sas_verify claimed validity for a wallet with no credential."; exit 1; }
+          echo "$verify" | grep -q '"reason":"not_configured"' && { echo "::error::The deployed verifier still reports not_configured."; exit 1; }
+          # 3. Report how many activated analysts and pending snapshots exist, so
+          #    the operator sees exactly whose authority this flip starts gating.
+          psql -Atqc "select 'activated_analysts=' || count(*) from public.analyst_profiles where status in ('probationary_analyst','verified_analyst','senior_analyst') and approved is true"
+          psql -Atqc "select 'verified_snapshots=' || count(*) from public.osi_v2_sas_review_verifications where verification_state = 'verified'"
+          psql -Atqc "select 'unresolved_snapshots=' || count(*) from public.osi_v2_sas_review_verifications where verification_state in ('unchecked','pending_verification')"
+
+      - name: Turn enforcement on with exactly one statement
+        id: flip
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c \
+            "update public.osi_config set value='true', updated_at=now() where key='${ENFORCEMENT_KEY}'"
+          [ "$(psql -Atqc "select value from public.osi_config where key='${ENFORCEMENT_KEY}'")" = "true" ] || {
+            echo "::error::The flag did not flip."; exit 1;
+          }
+          [ "$(psql -Atqc "select osi_private.osi_v2_sas_enforcement_enabled()")" = "t" ]
+
+      - name: Verify only that one key changed and smoke the public surface
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key || '|' || value from public.osi_config order by key" > /tmp/osi-config-after.txt
+          diff -u /tmp/osi-config-before.txt /tmp/osi-config-after.txt > /tmp/osi-config-diff.txt || true
+          cat /tmp/osi-config-diff.txt
+          changed="$(grep -E '^[+-][A-Z_]+\|' /tmp/osi-config-diff.txt | sed -E 's/^[+-]([^|]+)\|.*/\1/' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$changed" = "${ENFORCEMENT_KEY}" ] || { echo "::error::More than the single enforcement key changed: ${changed}"; exit 1; }
+          for key in $(echo "$UNCHANGED_FLAGS" | tr -s '[:space:]' ' '); do
+            before_name="BEFORE_${key}"
+            [ "$(psql -Atqc "select value from public.osi_config where key='${key}'")" = "${!before_name}" ] || {
+              echo "::error::${key} changed."; exit 1;
+            }
+          done
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          origin_header="Origin: ${PRODUCTION_WEB_URL}"
+          curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_cases"}' > /tmp/public-cases.json
+          if grep -Eq '"(details_restricted|body_private|private_note|signature|nonce)"[[:space:]]*:' /tmp/public-cases.json; then
+            echo "::error::Public response exposed a restricted field."; exit 1;
+          fi
+          curl -sS --fail --max-time 30 -X POST "$base/osi-v2-report-read" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_reports"}' > /tmp/public-reports.json
+          if grep -Eq '"(body_private|private_note|signature|nonce)"[[:space:]]*:' /tmp/public-reports.json; then
+            echo "::error::Public report response exposed a restricted field."; exit 1;
+          fi
+          echo "Post-flip smoke complete."
+
+      - name: Fail closed by setting the one flag back to false
+        if: ${{ failure() && steps.flip.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c \
+            "update public.osi_config set value='false', updated_at=now() where key='${ENFORCEMENT_KEY}'"
+          echo "::warning::Verification failed after the flip. Enforcement was set back to false."
+          [ "$(psql -Atqc "select value from public.osi_config where key='${ENFORCEMENT_KEY}'")" = "false" ]
+
+  rollback:
+    name: Rollback only set the one flag back to false
+    if: ${{ github.event.inputs.mode == 'rollback' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "SAS-ENFORCE-ON-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollback must be dispatched from main."; exit 1;
+          }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Set only the enforcement flag back to false
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key || '|' || value from public.osi_config order by key" > /tmp/osi-config-before.txt
+          psql -v ON_ERROR_STOP=1 -c \
+            "update public.osi_config set value='false', updated_at=now() where key='${ENFORCEMENT_KEY}'"
+          [ "$(psql -Atqc "select value from public.osi_config where key='${ENFORCEMENT_KEY}'")" = "false" ] || {
+            echo "::error::Rollback did not take effect."; exit 1;
+          }
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key || '|' || value from public.osi_config order by key" > /tmp/osi-config-after.txt
+          diff -u /tmp/osi-config-before.txt /tmp/osi-config-after.txt > /tmp/osi-config-diff.txt || true
+          changed="$(grep -E '^[+-][A-Z_]+\|' /tmp/osi-config-diff.txt | sed -E 's/^[+-]([^|]+)\|.*/\1/' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ -z "$changed" ] || [ "$changed" = "${ENFORCEMENT_KEY}" ] || {
+            echo "::error::Rollback touched more than the single key: ${changed}"; exit 1;
+          }
+          echo "Enforcement is off. Quorum behavior is identical to the flag-off baseline."

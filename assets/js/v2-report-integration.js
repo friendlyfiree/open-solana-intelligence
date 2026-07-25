@@ -10,6 +10,14 @@
     reviewPending:{},publicationPending:{},queueMode:''
   };
 
+  function sasAuthority(review){
+    var a=review&&review.sas_authority;
+    if(!a||a.enforced!==true)return'';
+    if(a.counted===true)return' <span class="osi-proof-label" data-sas-authority="counted">Authority verified on Solana</span>';
+    var pending=String(a.state||'')==='pending_verification';
+    return' <span class="osi-chip warning" data-sas-authority="excluded">'+
+      (pending?'Not counted: SAS credential not confirmed':'Not counted: no valid SAS credential')+'</span>';
+  }
   function clearSessionState(){
     state.cacheWallet='';state.myReports=[];state.pending=null;state.idempotency='';
     state.reviewPending={};state.publicationPending={};state.queueMode='';
@@ -212,7 +220,7 @@
   function publicReviewTimeline(rows){
     if(!rows||!rows.length)return'';
     return'<div class="osi-report-timeline"><h4>Review timeline</h4>'+rows.map(function(review){
-      return'<div class="osi-report-timeline-item"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' weight · '+esc(label(review.tier_snapshot))+'</span></div><p>'+esc(review.public_rationale)+'</p><small>'+esc(review.actor_role)+' · '+esc(review.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof recorded')+' · '+esc(dateText(review.created_at))+(review.is_active?' · active':' · superseded')+'</small></div>';
+      return'<div class="osi-report-timeline-item"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' weight · '+esc(label(review.tier_snapshot))+sasAuthority(review)+'</span></div><p>'+esc(review.public_rationale)+'</p><small>'+esc(review.actor_role)+' · '+esc(review.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof recorded')+' · '+esc(dateText(review.created_at))+(review.is_active?' · active':' · superseded')+'</small></div>';
     }).join('')+'</div>';
   }
   function publicEvidence(rows){
@@ -284,7 +292,7 @@
     if(!reviews.length)return'<div class="osi-report-card-meta">No analyst reviews have been cast for this exact version.</div>';
     return'<div class="osi-report-review-history">'+reviews.map(function(review){
       var note=privateAccess&&review.private_note?'<p class="osi-report-private-note"><b>Restricted analyst note:</b> '+esc(review.private_note)+'</p>':'';
-      return'<div class="osi-report-review-row"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' · '+esc(label(review.tier_snapshot))+(review.is_active?' · active':' · superseded')+'</span></div><p>'+esc(review.public_rationale||'No public-safe rationale recorded.')+'</p>'+note+'<small>'+esc(review.proof&&review.proof.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof unavailable')+' · '+esc(dateText(review.created_at))+'</small></div>';
+      return'<div class="osi-report-review-row"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' · '+esc(label(review.tier_snapshot))+(review.is_active?' · active':' · superseded')+sasAuthority(review)+'</span></div><p>'+esc(review.public_rationale||'No public-safe rationale recorded.')+'</p>'+note+'<small>'+esc(review.proof&&review.proof.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof unavailable')+' · '+esc(dateText(review.created_at))+'</small></div>';
     }).join('')+'</div>';
   }
   function reviewControls(report,version){

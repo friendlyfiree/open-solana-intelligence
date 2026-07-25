@@ -29,6 +29,7 @@ const expectedFiles = [
   '20260718120000_osi_v2_wire_phase1.sql',
   '20260718130000_osi_v2_wire_phase2.sql',
   '20260718140000_osi_v2_ai_pack_phase1.sql',
+  '20260725120000_osi_v2_sas_enforcement.sql',
 ];
 
 const sqlByFile = Object.fromEntries(

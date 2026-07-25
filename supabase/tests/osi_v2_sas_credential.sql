@@ -97,6 +97,13 @@ select is(
   'enforcement OFF: maintainer approval counts'
 );
 
+-- Step 4 hardened the predicate: with enforcement on, a snapshot counts only
+-- when it is bound to the SAS coordinates OSI currently publishes. Publish
+-- them here so the enforcement-on assertions below exercise a real gate
+-- rather than the unconfigured fail-closed path.
+update public.osi_config set value = 'So11111111111111111111111111111111111111112' where key = 'OSI_V2_SAS_CREDENTIAL_PUBKEY';
+update public.osi_config set value = 'SysvarC1ock11111111111111111111111111111111' where key = 'OSI_V2_SAS_SCHEMA_PUBKEY';
+update public.osi_config set value = 'SysvarRent111111111111111111111111111111111' where key = 'OSI_V2_SAS_ISSUER_PUBKEY';
 update public.osi_config set value = 'true' where key = 'OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED';
 
 -- Fail-closed: an analyst review with no verified snapshot no longer counts.
@@ -120,7 +127,8 @@ select ok(
 select is(
   osi_private.osi_v2_sas_record_review_verification('case_initial',
     '33333333-3333-3333-3333-333333333333', 'AnaLystWa11etAAAAAAAAAAAAAAAAAAAAAAAAAAA111',
-    'pending_verification'),
+    'pending_verification',
+    'So11111111111111111111111111111111111111112', 'SysvarC1ock11111111111111111111111111111111', 'SysvarRent111111111111111111111111111111111'),
   'pending_verification',
   'a review whose live check failed is recorded pending_verification'
 );
@@ -133,7 +141,8 @@ select is(
 -- Lazy re-check: pending -> verified counts on the next quorum computation.
 select is(
   osi_private.osi_v2_sas_record_review_verification('case_initial',
-    '33333333-3333-3333-3333-333333333333', 'AnaLystWa11etAAAAAAAAAAAAAAAAAAAAAAAAAAA111', 'verified'),
+    '33333333-3333-3333-3333-333333333333', 'AnaLystWa11etAAAAAAAAAAAAAAAAAAAAAAAAAAA111', 'verified',
+    'So11111111111111111111111111111111111111112', 'SysvarC1ock11111111111111111111111111111111', 'SysvarRent111111111111111111111111111111111'),
   'verified',
   'lazy re-check resolves pending_verification to verified'
 );
@@ -146,7 +155,8 @@ select is(
 -- Prospective-only / immutability: a resolved snapshot is never rewritten.
 select is(
   osi_private.osi_v2_sas_record_review_verification('case_initial',
-    '33333333-3333-3333-3333-333333333333', 'AnaLystWa11etAAAAAAAAAAAAAAAAAAAAAAAAAAA111', 'invalid'),
+    '33333333-3333-3333-3333-333333333333', 'AnaLystWa11etAAAAAAAAAAAAAAAAAAAAAAAAAAA111', 'invalid',
+    'So11111111111111111111111111111111111111112', 'SysvarC1ock11111111111111111111111111111111', 'SysvarRent111111111111111111111111111111111'),
   'verified',
   'a resolved (verified) snapshot is immutable history and never downgrades'
 );

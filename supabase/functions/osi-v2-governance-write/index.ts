@@ -24,7 +24,7 @@ import {
   validateGovernanceTargetRef,
 } from "../_shared/osi-v2-governance-core.mjs";
 import { reviewKindForGovernanceAction } from "../_shared/osi-v2-sas-core.mjs";
-import { resolveReviewIdByReceipt, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
+import { refreshReviewVerifications, resolveReviewIdByReceipt, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -169,6 +169,35 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
   });
 }
 
+// Actions whose prepare and commit both recompute an analyst quorum. Enforcement
+// settles every pending SAS snapshot on the target with a live on-chain read
+// immediately before each of those computations. No-op when enforcement is off.
+const QUORUM_ACTION_TARGETS: Record<string, "resolution" | "challenge"> = {
+  resolution_finalize: "resolution",
+  seal_finalize: "resolution",
+  challenge_finalize: "challenge",
+};
+
+async function targetIdForRef(
+  targetType: "resolution" | "challenge",
+  publicRef: string,
+): Promise<string | null> {
+  const table = targetType === "resolution" ? "case_resolutions" : "challenges_v2";
+  try {
+    const { data } = await admin.from(table).select("id").eq("public_ref", publicRef).maybeSingle();
+    return data?.id ? String(data.id) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function settleSasForAction(action: string, targetRef: string): Promise<void> {
+  const targetType = QUORUM_ACTION_TARGETS[action];
+  if (!targetType) return;
+  const targetId = await targetIdForRef(targetType, targetRef);
+  await refreshReviewVerifications(admin, targetType, targetId);
+}
+
 async function prepare(req: Request, body: Row): Promise<Response> {
   if (!await lifecycleWritesEnabled()) {
     return jsonResponse(503, { ok: false, error: "resolution_lifecycle_writes_disabled" });
@@ -195,6 +224,7 @@ async function prepare(req: Request, body: Row): Promise<Response> {
   if (requiresAnalyst(action, payload) && !await analystRole(wallet)) {
     return jsonResponse(403, { ok: false, error: "not_eligible_analyst" });
   }
+  await settleSasForAction(action, targetRef);
   const { data, error } = await admin.rpc("osi_v2_prepare_governance_action", {
     p_nonce: randomNonce(), p_action: action, p_actor_wallet: wallet,
     p_target_ref: targetRef, p_payload: payload,
@@ -322,6 +352,11 @@ async function commit(req: Request, body: Row): Promise<Response> {
     if (!await verifyEd25519Signature(proofText, signature, wallet)) {
       return jsonResponse(403, { ok: false, error: "bad_signature" });
     }
+  }
+  if (QUORUM_ACTION_TARGETS[action]) {
+    await refreshReviewVerifications(
+      admin, String(bound.target_type ?? ""), String(bound.target_id ?? ""),
+    );
   }
   const { data, error } = await admin.rpc("osi_v2_commit_governance_action", {
     p_nonce: nonce, p_payload: payload, p_proof_text: proofText,

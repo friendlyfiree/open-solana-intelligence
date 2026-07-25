@@ -112,6 +112,19 @@ export async function normalizeReportPayload(input) {
   };
 }
 
+// D19 public-safe review authority label. Present only once enforcement is on;
+// absent (null) means the credential gate is not deciding anything yet, so no
+// surface should claim it did.
+export function sasAuthorityDto(review) {
+  const authority = review && review.sas_authority;
+  if (!authority || authority.enforced !== true) return null;
+  return {
+    enforced: true,
+    counted: authority.counted === true,
+    state: String(authority.state || "unchecked"),
+  };
+}
+
 export function validateReportIdempotencyKey(value) {
   const key = cleanText(value);
   if (!IDEMPOTENCY.test(key)) throw new TypeError("idempotency key is invalid");
@@ -358,6 +371,7 @@ function exactVersionDto(version, evidence, receipt, reviews = [], quorum = null
       is_active: review.is_active === true,
       created_at: review.created_at,
       proof: safeReceipt(review.receipt),
+      sas_authority: sasAuthorityDto(review),
     })),
     quorum: quorum ? {
       risk_tier: quorum.risk_tier,
@@ -468,6 +482,7 @@ export function publicReportGovernanceDto(report) {
       actor_role: String(review.receipt?.actor_role || ""),
       server_verified: review.receipt?.server_verified === true,
       created_at: review.created_at || null,
+      sas_authority: sasAuthorityDto(review),
     })),
     publication_proof: state === "published" ? safeReceipt(report.publication_receipt) : null,
     published_at: state === "published" ? report.published_at || null : null,
