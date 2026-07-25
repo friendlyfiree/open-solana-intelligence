@@ -190,8 +190,15 @@ select is(
 -- 4. Absent, expired, revoked and unreachable all contribute zero and are
 --    labeled, never silently dropped.
 -- ---------------------------------------------------------------------------
-insert into public.analyst_profiles (wallet, status, tier_code, verified, approved, weight_cached)
-values ('AnaLystWa11etBBBBBBBBBBBBBBBBBBBBBBBBBBB222', 'verified_analyst', 'verified', true, true, 1.00);
+insert into public.event_receipts (id, event_version, event_type, target_type, target_id, actor_role,
+  decision, proof_type, payload_hash, server_verified, occurred_at)
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'legacy', 'ANALYST_VERIFIED', 'analyst',
+  'AnaLystWa11etBBBBBBBBBBBBBBBBBBBBBBBBBBB222', 'service', 'verify', 'legacy_imported',
+  repeat('e', 64), false, statement_timestamp());
+insert into public.analyst_profiles (wallet, status, tier_code, verified, approved, weight_cached,
+  verified_by, verified_receipt_id)
+values ('AnaLystWa11etBBBBBBBBBBBBBBBBBBBBBBBBBBB222', 'verified_analyst', 'analyst_i', true, true, 1.00,
+  'Maintainer1111111111111111111111111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
 insert into public.event_receipts (id, event_version, event_type, target_type, target_id, actor_wallet,
   actor_role, decision, weight, proof_type, payload_hash, nonce, signature, server_verified, occurred_at)
 values ('66666666-6666-6666-6666-666666666666', 'OSI2', 'CASE_INITIAL_REVIEW_CAST', 'case',
@@ -240,8 +247,15 @@ select ok(
 -- ---------------------------------------------------------------------------
 -- 5. An unreachable verifier withholds weight and stays retryable.
 -- ---------------------------------------------------------------------------
-insert into public.analyst_profiles (wallet, status, tier_code, verified, approved, weight_cached)
-values ('AnaLystWa11etCCCCCCCCCCCCCCCCCCCCCCCCCCC333', 'verified_analyst', 'verified', true, true, 1.00);
+insert into public.event_receipts (id, event_version, event_type, target_type, target_id, actor_role,
+  decision, proof_type, payload_hash, server_verified, occurred_at)
+values ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'legacy', 'ANALYST_VERIFIED', 'analyst',
+  'AnaLystWa11etCCCCCCCCCCCCCCCCCCCCCCCCCCC333', 'service', 'verify', 'legacy_imported',
+  repeat('f', 64), false, statement_timestamp());
+insert into public.analyst_profiles (wallet, status, tier_code, verified, approved, weight_cached,
+  verified_by, verified_receipt_id)
+values ('AnaLystWa11etCCCCCCCCCCCCCCCCCCCCCCCCCCC333', 'verified_analyst', 'analyst_i', true, true, 1.00,
+  'Maintainer1111111111111111111111111111111111', 'cccccccc-cccc-cccc-cccc-cccccccccccc');
 insert into public.event_receipts (id, event_version, event_type, target_type, target_id, actor_wallet,
   actor_role, decision, weight, proof_type, payload_hash, nonce, signature, server_verified, occurred_at)
 values ('88888888-8888-8888-8888-888888888888', 'OSI2', 'CASE_INITIAL_REVIEW_CAST', 'case',
