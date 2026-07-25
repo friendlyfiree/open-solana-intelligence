@@ -308,7 +308,7 @@ jobs:
             "select key || '|' || value from public.osi_config order by key" > /tmp/osi-config-after.txt
           diff -u /tmp/osi-config-before.txt /tmp/osi-config-after.txt > /tmp/osi-config-diff.txt || true
           cat /tmp/osi-config-diff.txt
-          changed="$(grep -E '^[+-][A-Z_]+\|' /tmp/osi-config-diff.txt | sed -E 's/^[+-]([^|]+)\|.*/\1/' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          changed="$({ grep -E '^[+-][A-Z0-9_]+\|' /tmp/osi-config-diff.txt || true; } | sed -E 's/^[+-]([^|]+)\|.*/\1/' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
           [ "$changed" = "${ENFORCEMENT_KEY}" ] || { echo "::error::More than the single enforcement key changed: ${changed}"; exit 1; }
           for key in $(echo "$UNCHANGED_FLAGS" | tr -s '[:space:]' ' '); do
             before_name="BEFORE_${key}"
@@ -390,7 +390,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
             "select key || '|' || value from public.osi_config order by key" > /tmp/osi-config-after.txt
           diff -u /tmp/osi-config-before.txt /tmp/osi-config-after.txt > /tmp/osi-config-diff.txt || true
-          changed="$(grep -E '^[+-][A-Z_]+\|' /tmp/osi-config-diff.txt | sed -E 's/^[+-]([^|]+)\|.*/\1/' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          changed="$({ grep -E '^[+-][A-Z0-9_]+\|' /tmp/osi-config-diff.txt || true; } | sed -E 's/^[+-]([^|]+)\|.*/\1/' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
           [ -z "$changed" ] || [ "$changed" = "${ENFORCEMENT_KEY}" ] || {
             echo "::error::Rollback touched more than the single key: ${changed}"; exit 1;
           }
