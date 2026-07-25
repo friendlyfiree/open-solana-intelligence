@@ -28,6 +28,12 @@ env:
     20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000
   AFTER_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000 20260718140000
+  # The repository has moved past this slice: the D19 Step 4 enforcement
+  # migration is merged but not yet due for production. Repository and clean
+  # local checks assert this exact set, while BEFORE_VERSIONS and
+  # AFTER_VERSIONS keep pinning what this rollout may change in production.
+  REPO_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000 20260718140000 20260725120000
   OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
@@ -71,13 +77,13 @@ jobs:
         with:
           version: 2.109.1
 
-      - name: Verify exact eighteen-migration repository
+      - name: Verify exact repository migration set
         run: |
           set -euo pipefail
           got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
-          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          expected="$(echo "$REPO_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
           [ "$got" = "$expected" ] || {
-            echo "::error::Repository migration set is not the exact expected eighteen versions."; exit 1;
+            echo "::error::Repository migration set is not the exact expected versions."; exit 1;
           }
           test -f "supabase/migrations/${NEW_VERSION}_osi_v2_ai_pack_phase1.sql"
 
@@ -102,7 +108,7 @@ jobs:
           supabase db start
           supabase db reset --local --no-seed
           got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
-          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          expected="$(echo "$REPO_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
           [ "$got" = "$expected" ] || { echo "::error::Fresh local migration history is not exact."; exit 1; }
           # Existing legacy materialization functions create pg_temp tables at
           # runtime; the static linter reports those known baseline relations.
@@ -245,6 +251,28 @@ jobs:
           echo "Immutable versions, manifests, receipts, feedback, reviews, and telemetry are retained."
           echo "No drop, reset, repair, truncation, broad update, or data rewrite is an acceptable rollback."
 
+      - name: Hold back migrations newer than this slice
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          # The repository already carries the D19 Step 4 enforcement migration,
+          # which has its own guarded rollout. A push would otherwise apply it
+          # here too, so set aside anything newer than this slice and restore it
+          # immediately after the push. Nothing is deleted or rewritten.
+          mkdir -p /tmp/held-migrations
+          for path in supabase/migrations/*.sql; do
+            version="$(basename "$path" | sed -E 's/^([0-9]{14}).*/\1/')"
+            if [ "$version" -gt "$NEW_VERSION" ]; then
+              echo "Holding back $(basename "$path"): not due until its own rollout."
+              mv "$path" /tmp/held-migrations/
+            fi
+          done
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || {
+            echo "::error::Held-back set is wrong; the pushable repository is not exactly this slice."; exit 1;
+          }
+
       - name: Dry-run exactly the AI Pack migration
         if: ${{ env.MODE == 'deploy' }}
         run: |
@@ -262,6 +290,19 @@ jobs:
             echo "::error::Current main changed after validation; migration was not applied."; exit 1;
           }
           supabase db push --linked --yes
+
+      - name: Restore held-back migrations
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -d /tmp/held-migrations ]; then
+            find /tmp/held-migrations -maxdepth 1 -type f -name '*.sql' -exec mv -t supabase/migrations/ {} +
+          fi
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$REPO_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || {
+            echo "::error::Working tree was not restored to the exact repository migration set."; exit 1;
+          }
 
       - name: Verify history defaults RLS grants and existing config isolation
         run: |
