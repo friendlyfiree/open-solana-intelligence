@@ -314,6 +314,69 @@ export function shadowStateFor({ status, rpcFailed }) {
   return status && status.state ? status.state : SAS_STATE.PENDING;
 }
 
+// ---------------------------------------------------------------------------
+// Enforcement decision logic. Pure so it can be unit-tested against mocked
+// on-chain responses without a network, a wallet, or a database.
+// ---------------------------------------------------------------------------
+
+// Is a cached wallet answer still usable in place of an authoritative on-chain
+// read? Only inside the configured staleness window, and never for an
+// unresolved state. Beyond the window the cache is not an answer at all.
+export function cacheAnswerUsable({ state, checkedAt, nowMs, staleSeconds }) {
+  if (!state || state === SAS_STATE.PENDING || state === SAS_STATE.UNCHECKED) return false;
+  const checked = typeof checkedAt === "number" ? checkedAt : Date.parse(String(checkedAt ?? ""));
+  const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const window = Number(staleSeconds);
+  if (!Number.isFinite(checked) || !Number.isFinite(window) || window <= 0) return false;
+  const ageMs = now - checked;
+  if (!Number.isFinite(ageMs) || ageMs < 0) return false;
+  return ageMs < window * 1000;
+}
+
+// Turn a re-check worklist into at most one live on-chain read per distinct
+// wallet. Returns { skip, reason, batches, truncated }.
+//
+//   * enforcement off  -> skip, so the flag-off path is provably unchanged;
+//   * SAS unconfigured -> skip, so nothing is recorded and every affected
+//     review stays honestly uncounted rather than being granted authority.
+export function enforcementRecheckPlan({ settings, rows, budget = 12 }) {
+  if (!settings || settings.enforcementEnabled !== true) {
+    return { skip: true, reason: "enforcement_off", batches: [], truncated: false };
+  }
+  if (settings.configured !== true) {
+    return { skip: true, reason: "not_configured", batches: [], truncated: false };
+  }
+  const byWallet = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const wallet = String(row?.reviewer_wallet ?? "");
+    const reviewId = String(row?.review_id ?? "");
+    const reviewKind = String(row?.review_kind ?? "");
+    if (!isPubkey(wallet) || !reviewId || !reviewKind) continue;
+    const bucket = byWallet.get(wallet) ?? [];
+    bucket.push({ reviewKind, reviewId });
+    byWallet.set(wallet, bucket);
+  }
+  const all = [...byWallet].map(([wallet, reviews]) => ({ wallet, reviews }));
+  const bounded = Math.max(1, Number(budget) || 1);
+  return {
+    skip: false,
+    reason: "recheck",
+    batches: all.slice(0, bounded),
+    truncated: all.length > bounded,
+  };
+}
+
+// The snapshot state a live re-check result records, plus whether that state
+// grants authority. An RPC failure is pending_verification: the review keeps
+// its receipt, and simply carries no weight until the answer is obtainable.
+export function recheckStateFor(live) {
+  const state = shadowStateFor({
+    status: live && live.status,
+    rpcFailed: !!(live && live.rpcFailed),
+  });
+  return { state, counts: state === SAS_STATE.VERIFIED };
+}
+
 // Public verifier response DTO. `source` is "live" or "cache". No secrets/PII.
 export function publicVerifierResponse({ wallet, status, expected, source, checkedAt }) {
   const exp = expected || {};

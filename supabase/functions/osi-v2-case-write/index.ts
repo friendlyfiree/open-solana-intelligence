@@ -23,7 +23,7 @@ import {
   validateConfirmedMemoTransaction,
   validateIdempotencyKey,
 } from "../_shared/osi-v2-case-write-core.mjs";
-import { resolveReviewIdByPublicRef, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
+import { refreshReviewVerifications, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -391,7 +391,9 @@ async function commitReview(req: Request, body: Row): Promise<Response> {
   // D19 Step 3: best-effort SAS shadow validation for genuine analyst reviews.
   // Maintainer (bootstrap) reviews are never subject to the credential gate.
   if (actor.role !== "maintainer") {
-    const reviewId = await resolveReviewIdByPublicRef(admin, "case_initial", data[0].public_ref);
+    // case_initial_reviews has no public_ref column; the commit RPC returns the
+    // exact review id, which is the only reliable snapshot key here.
+    const reviewId = data[0].review_id ? String(data[0].review_id) : null;
     await runShadowValidation(admin, { reviewKind: "case_initial", reviewId, wallet });
   }
   return jsonResponse(200, {
@@ -439,6 +441,10 @@ async function prepareOpen(req: Request, body: Row): Promise<Response> {
   if (found.row.submitted_by_wallet === wallet) {
     return jsonResponse(403, { ok: false, error: "self_review_denied" });
   }
+  // Enforcement: settle every pending SAS snapshot on this Case with a live
+  // on-chain read before the initial-review quorum decides who may anchor
+  // CASE_OPENED. No-op when enforcement is off.
+  await refreshReviewVerifications(admin, "case", String(found.row.id));
   const hash = await payloadHash(openPayload(publicRef, actor.role));
   const { data, error } = await issueCaseNonce({
     p_nonce: randomNonce(), p_purpose: "CASE_OPENED", p_actor_wallet: wallet,
@@ -489,6 +495,9 @@ async function commitOpen(req: Request, body: Row): Promise<Response> {
   }
   const chain = await verifyMemoTransaction(txSig, wallet, memo, binding.issued_at, binding.expires_at);
   if (!chain.ok) return jsonResponse(409, { ok: false, error: chain.reason });
+  // The commit recomputes the initial-review quorum inside its transaction, so
+  // settle any pending SAS snapshot immediately before it. No-op when off.
+  await refreshReviewVerifications(admin, "case", String(found.row.id));
   const { data, error } = await admin.rpc("osi_v2_commit_case_open", {
     p_nonce: nonce, p_payload_hash: hash, p_tx_sig: txSig,
     p_memo_ref: memo, p_occurred_at: (chain as { occurred_at: string }).occurred_at,

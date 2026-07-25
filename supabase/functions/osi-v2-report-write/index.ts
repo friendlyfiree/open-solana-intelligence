@@ -25,7 +25,7 @@ import {
   validateReportIdempotencyKey,
   validateReportMemoBinding,
 } from "../_shared/osi-v2-report-core.mjs";
-import { resolveReviewIdByPublicRef, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
+import { refreshReviewVerifications, resolveReviewIdByPublicRef, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
 import { maintainerGate } from "../_shared/osi-v2-case-write-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -557,6 +557,9 @@ async function preparePublication(req: Request, body: Row): Promise<Response> {
     if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
     maintainerAuthId = gate.auth_id;
   }
+  // Enforcement: settle every pending SAS snapshot on this exact version with a
+  // live on-chain read before the publication quorum is computed. No-op off.
+  await refreshReviewVerifications(admin, "report_version", String(found.row.id));
   const { data, error } = await admin.rpc("osi_v2_prepare_report_publication", {
     p_nonce: randomNonce(),
     p_actor_wallet: wallet,
@@ -639,6 +642,8 @@ async function commitPublication(req: Request, body: Row): Promise<Response> {
     if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
     maintainerAuthId = gate.auth_id;
   }
+  // The commit recomputes the publication quorum inside its transaction.
+  await refreshReviewVerifications(admin, "report_version", String(bound.target_id ?? ""));
   const { data, error } = await admin.rpc("osi_v2_commit_report_publication", {
     p_nonce: nonce,
     p_tx_sig: txSig,

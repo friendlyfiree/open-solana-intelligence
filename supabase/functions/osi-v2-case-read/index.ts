@@ -49,6 +49,7 @@ import {
   READ_PURPOSES,
   validateChallengeBinding,
 } from "../_shared/osi-v2-case-read-core.mjs";
+import { attachReviewAuthority } from "../_shared/osi-v2-sas-onchain.ts";
 import {
   isExactReadSessionOrigin,
   issueReadSessionToken,
@@ -290,6 +291,10 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     ? await admin.from("challenge_reviews").select(CHALLENGE_REVIEW_COLS)
       .in("challenge_id", challengeIds).order("created_at", { ascending: true }).limit(1500)
     : { data: [] };
+  await Promise.all([
+    attachReviewAuthority(admin, "resolution", resolutionReviews ?? []),
+    attachReviewAuthority(admin, "challenge", challengeReviews ?? []),
+  ]);
 
   // Case-targeted receipts key on public_ref; report-version receipts on the
   // version uuid. Both are folded into the owning Case's proof log.
@@ -355,6 +360,9 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
   for (const rows of Object.values(receiptsByCaseTarget)) {
     for (const receipt of rows) receiptById[String(receipt.id)] = receipt;
   }
+  // D19: label each analyst review with whether its authority was SAS-verified
+  // on chain, so a surface that shows a weight can say why it counted or did not.
+  await attachReviewAuthority(admin, "case_initial", reviews ?? []);
   for (const review of reviews ?? []) {
     const value = { ...review, receipt: receiptById[String(review.event_receipt_id)] ?? null };
     (reviewsByCase[String(review.case_id)] ??= []).push(value);

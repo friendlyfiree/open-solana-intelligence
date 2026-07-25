@@ -25,6 +25,9 @@ import {
   publicVerifierResponse,
   notConfiguredResponse,
   isPubkey,
+  cacheAnswerUsable,
+  enforcementRecheckPlan,
+  recheckStateFor,
 } from "./osi-v2-sas-core.mjs";
 
 // deno-lint-ignore no-explicit-any
@@ -186,13 +189,14 @@ export async function publicVerify(admin: Admin, wallet: string): Promise<Record
       .eq("wallet", wallet)
       .maybeSingle();
     if (data && data.last_checked_at) {
-      const ageMs = Date.now() - Date.parse(data.last_checked_at);
-      if (
-        Number.isFinite(ageMs) &&
-        ageMs >= 0 &&
-        ageMs < settings.staleSeconds * 1000 &&
-        data.verification_state !== "pending_verification"
-      ) {
+      // A stale cached answer is not an answer: beyond the configured window
+      // the authoritative on-chain read is performed instead.
+      if (cacheAnswerUsable({
+        state: data.verification_state,
+        checkedAt: data.last_checked_at,
+        nowMs: Date.now(),
+        staleSeconds: settings.staleSeconds,
+      })) {
         const valid = data.verification_state === "verified";
         return publicVerifierResponse({
           wallet,
@@ -285,6 +289,160 @@ export async function resolveReviewIdByPublicRef(
     return data?.id ?? null;
   } catch {
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Enforcement: lazy bounded re-check before a quorum-dependent transition.
+//
+// A review only carries quorum count and voting weight when its per-review
+// snapshot says the caster's SAS credential verified live on chain under the
+// currently published credential, schema and issuer. Two things can leave a
+// snapshot uncountable through no fault of the analyst: the RPC was unreachable
+// at cast time (snapshot 'pending_verification'), or OSI rotated its credential
+// after the review was cast. Both are repaired here, with a fresh live
+// on-chain read, immediately before the transition that would count the review.
+//
+// A cached wallet row is NEVER consulted on this path: the cache is an index,
+// and enforcement asks the authoritative on-chain answer. This is a strict
+// no-op when enforcement is off (the worklist RPC also returns zero rows then),
+// and it never throws, so a verifier outage can never break a governance write:
+// it simply leaves the affected reviews uncounted.
+// ---------------------------------------------------------------------------
+export type SasRecheckOutcome = {
+  attempted: number;
+  verified: number;
+  unresolved: number;
+};
+
+const RECHECK_WALLET_BUDGET = 12;
+
+export async function refreshReviewVerifications(
+  admin: Admin,
+  targetType: string,
+  targetId: string | null | undefined,
+): Promise<SasRecheckOutcome> {
+  const outcome: SasRecheckOutcome = { attempted: 0, verified: 0, unresolved: 0 };
+  try {
+    if (!targetId) return outcome;
+    const settings = await fetchSasSettings(admin);
+    // Flag off: behave exactly as before enforcement existed.
+    if (!settings || settings.enforcementEnabled !== true) return outcome;
+    const { data, error } = await admin.rpc("osi_v2_sas_reviews_needing_recheck", {
+      p_target_type: targetType,
+      p_target_id: targetId,
+      p_limit: 200,
+    });
+    if (error || !Array.isArray(data) || data.length === 0) return outcome;
+    const plan = enforcementRecheckPlan({
+      settings,
+      rows: data as Record<string, unknown>[],
+      budget: RECHECK_WALLET_BUDGET,
+    });
+    // Unconfigured SAS records nothing: every affected review stays honestly
+    // uncounted rather than being granted an authority nobody could confirm.
+    if (plan.skip) {
+      outcome.unresolved = data.length;
+      return outcome;
+    }
+    // One live on-chain read per distinct wallet, bounded so a stalled verifier
+    // cannot hold a governance write open indefinitely.
+    for (const { wallet, reviews } of plan.batches) {
+      const live = await verifyWalletLive(settings, wallet);
+      const { state, counts } = recheckStateFor(live);
+      for (const review of reviews) {
+        outcome.attempted += 1;
+        if (counts) outcome.verified += 1;
+        else outcome.unresolved += 1;
+        await admin.rpc("osi_v2_sas_record_review_verification", {
+          p_review_kind: review.reviewKind,
+          p_review_id: review.reviewId,
+          p_wallet: wallet,
+          p_state: state,
+          p_credential: settings.credential,
+          p_schema: settings.schema,
+          p_issuer: settings.issuer,
+          p_latency_ms: live.latencyMs,
+          p_result: live.rpcFailed ? "rpc_failed" : live.status.reason,
+          p_error: live.rawError,
+        });
+      }
+      if (!live.rpcFailed) {
+        await admin.rpc("osi_v2_sas_record_wallet_state", {
+          p_wallet: wallet,
+          p_state: live.status.state,
+          p_credential: settings.credential,
+          p_schema: settings.schema,
+          p_issuer: settings.issuer,
+          p_attestation: live.attestation,
+          p_expiry: live.status.expiry ? new Date(live.status.expiry * 1000).toISOString() : null,
+          p_latency_ms: live.latencyMs,
+          p_result: live.status.reason,
+        });
+      }
+    }
+  } catch (error) {
+    // A verifier failure never blocks a governance write; it only withholds
+    // weight from the reviews it could not confirm.
+    console.log("sas_recheck_noncritical_error", shortError(error));
+  }
+  return outcome;
+}
+
+// Per-review authority for the surfaces that show a decision weight. Returns a
+// map from review id to the public-safe answer. Never throws; on any failure
+// the caller simply renders no authority label rather than a wrong one.
+export type SasReviewAuthority = {
+  enforced: boolean;
+  counted: boolean;
+  state: string;
+};
+
+export async function reviewAuthorityById(
+  admin: Admin,
+  reviewKind: string,
+  reviewIds: string[],
+): Promise<Record<string, SasReviewAuthority>> {
+  const out: Record<string, SasReviewAuthority> = {};
+  try {
+    const ids = [...new Set(reviewIds.filter((id) => typeof id === "string" && id))].slice(0, 400);
+    if (ids.length === 0) return out;
+    const { data, error } = await admin.rpc("osi_v2_sas_review_authority", {
+      p_review_kind: reviewKind,
+      p_review_ids: ids,
+    });
+    if (error || !Array.isArray(data)) return out;
+    for (const row of data as Record<string, unknown>[]) {
+      const id = String(row.review_id ?? "");
+      if (!id) continue;
+      out[id] = {
+        enforced: row.enforcement_enabled === true,
+        counted: row.counted === true,
+        state: String(row.verification_state ?? "unchecked"),
+      };
+    }
+  } catch {
+    // Absent authority data renders as no label at all.
+  }
+  return out;
+}
+
+// Attach the authority answer to review rows in place, under a public-safe
+// `sas_authority` key. Rows without an id are left untouched.
+export async function attachReviewAuthority(
+  admin: Admin,
+  reviewKind: string,
+  rows: Record<string, unknown>[],
+): Promise<void> {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  const byId = await reviewAuthorityById(
+    admin,
+    reviewKind,
+    rows.map((row) => String(row.id ?? "")),
+  );
+  for (const row of rows) {
+    const authority = byId[String(row.id ?? "")];
+    if (authority) row.sas_authority = authority;
   }
 }
 
