@@ -322,7 +322,13 @@ jobs:
           if grep -Eq '"(details_restricted|body_private|private_note|signature|nonce)"[[:space:]]*:' /tmp/public-cases.json; then
             echo "::error::Public response exposed a restricted field."; exit 1;
           fi
-          curl -sS --fail --max-time 30 -X POST "$base/osi-v2-report-read" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_reports"}' > /tmp/public-reports.json
+          # list_public_reports is a per-Case read and answers 404 case_not_available
+          # when the Case is not publicly readable, so calling it without a ref can
+          # only ever fail. Smoke it the way the Report review rollout already does:
+          # a deliberately unknown ref, which holds on any database state and still
+          # proves the denial path leaks nothing private.
+          code="$(curl -sS --max-time 30 -o /tmp/public-reports.json -w '%{http_code}' -X POST "$base/osi-v2-report-read" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_reports","case_ref":"OSI-000000000000"}')"
+          [ "$code" = "404" ] || { echo "::error::Unknown public Case Report read was not denied: ${code}"; exit 1; }
           if grep -Eq '"(body_private|private_note|signature|nonce)"[[:space:]]*:' /tmp/public-reports.json; then
             echo "::error::Public report response exposed a restricted field."; exit 1;
           fi
