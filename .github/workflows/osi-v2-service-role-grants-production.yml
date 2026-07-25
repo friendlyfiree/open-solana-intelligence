@@ -1,0 +1,267 @@
+name: OSI V2 Service Role Execute Grants Production
+
+# Manual-only rollout for the grants-only repair migration
+# 20260725140000_osi_v2_service_role_execute_grants.sql.
+#
+# WHY THIS EXISTS: every osi_private function is `security invoker`, so
+# service_role's own privileges decide every hop of a call chain. Several slice
+# migrations revoked their private functions from public/anon/authenticated and
+# granted only the public wrapper to service_role, leaving the next hop with no
+# grant at all. PostgreSQL then raises insufficient_privilege (42501), which the
+# Edge Functions surface as `not_authorized`. In production this made analyst
+# application submission, maintainer review and probation activation
+# unreachable — and with them SAS credential issuance, which fires only from
+# osi_v2_commit_analyst_probation() — plus the governance, resolution,
+# challenge, seal, wire and payment helper chains.
+#
+# SAFETY CONTRACT (mirrors the other production rollouts):
+#   * workflow_dispatch ONLY, from current main, with a typed confirmation.
+#   * The migration grants EXECUTE to service_role and to nothing else. It
+#     creates no function, alters no body, adds no table, and writes no
+#     osi_config value. anon and authenticated keep every revoke already in
+#     place, and that is asserted after the push.
+#   * Remote history must be exactly the nineteen known versions before, and
+#     exactly those plus this one after.
+#   * Full pre and post osi_config snapshot: every flag must be byte identical
+#     afterwards, including OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED.
+#   * No Edge Function is deployed: no function source changes in this slice.
+#   * Rollback is a revoke of exactly these grants, which returns the database
+#     to the broken-but-safe state. It is recorded below rather than automated,
+#     because reverting reinstates an outage rather than resolving one.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type GRANTS-REPAIR-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-service-role-grants-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  NEW_VERSION: "20260725140000"
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000 20260718140000 20260725120000
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949 20260712002518 20260712121301 20260713045903 20260713184533 20260714044036 20260714064501 20260714082218 20260715053828 20260715112621 20260716063000 20260716120000 20260718120000 20260718130000 20260718140000 20260725120000 20260725140000
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean local proof of the repaired grants
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Require exact confirmation and current main
+        env:
+          CONFIRMATION: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [ "$CONFIRMATION" = "GRANTS-REPAIR-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out exact dispatched commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Verify exact migration set and that this slice only grants
+        run: |
+          set -euo pipefail
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Repository migration set is not the exact expected versions."; exit 1; }
+          file="supabase/migrations/${NEW_VERSION}_osi_v2_service_role_execute_grants.sql"
+          test -f "$file"
+          # The whole point of this rollout is that it only widens execute to
+          # service_role. Anything that creates, alters, drops or writes rows
+          # does not belong in it.
+          if grep -inE '^[[:space:]]*(create|alter|drop|insert|update|delete|truncate)[[:space:]]' "$file"; then
+            echo "::error::This slice must contain grants and revokes only."; exit 1;
+          fi
+          if grep -inE 'to[[:space:]]+(anon|authenticated|public)([[:space:]]*;|[[:space:]]*,)' "$file"; then
+            echo "::error::This slice must never grant to a browser-facing role."; exit 1;
+          fi
+
+      - name: Dependency-free unit tests
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+
+      - name: Fresh PostgreSQL 17 migration lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Fresh local migration history is not exact."; exit 1; }
+          # The invariant this slice restores, proven on a clean database.
+          missing="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select coalesce(string_agg(p.proname, ', ' order by p.proname), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'osi_private' and not has_function_privilege('service_role', p.oid, 'EXECUTE')")"
+          [ -z "$missing" ] || { echo "::error::service_role still cannot execute: ${missing}"; exit 1; }
+          leaked="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select coalesce(string_agg(p.proname, ', ' order by p.proname), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'osi_private' and (has_function_privilege('anon', p.oid, 'EXECUTE') or has_function_privilege('authenticated', p.oid, 'EXECUTE'))")"
+          [ -z "$leaked" ] || { echo "::error::A browser-facing role gained execute on: ${leaked}"; exit 1; }
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard disposable local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact migration and proof that only execute widened
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Verify credentials project and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Validated commit is no longer current main."; exit 1;
+          }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot the complete osi_config before anything changes
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key || '|' || value from public.osi_config order by key" > /tmp/osi-config-before.txt
+          wc -l /tmp/osi-config-before.txt
+          psql -Atqc "select 'blocked_before=' || count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'osi_private' and not has_function_privilege('service_role', p.oid, 'EXECUTE')"
+
+      - name: Link and verify exact remote migration history
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          before="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          after="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$before" ]; then echo "MODE=deploy" >> "$GITHUB_ENV";
+          elif [ "$got" = "$after" ]; then echo "MODE=resume" >> "$GITHUB_ENV";
+          else echo "::error::Remote history is not the exact before or after state."; exit 1; fi
+
+      - name: Record exact disable and forward-fix plan
+        run: |
+          echo "This rollout grants EXECUTE to service_role and nothing else."
+          echo "Rollback is a revoke of exactly those grants from service_role, which"
+          echo "restores the previous state: safe, but with analyst application,"
+          echo "review, probation activation, SAS issuance, governance, resolution,"
+          echo "challenge, seal, wire and payment write paths unreachable again."
+          echo "No drop, reset, repair, truncation, broad update, or data rewrite is"
+          echo "an acceptable rollback, and no osi_config value is touched either way."
+
+      - name: Dry-run exactly the one grants migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/grants-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/grants-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ] || { echo "::error::Dry-run is not exactly the expected grants version."; exit 1; }
+
+      - name: Apply exactly the one grants migration
+        if: ${{ env.MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Current main changed after validation; migration was not applied."; exit 1;
+          }
+          supabase db push --linked --yes
+
+      - name: Prove the invoker chain is reachable and nothing else widened
+        run: |
+          set -euo pipefail
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")" = "$expected" ] || {
+            echo "::error::Remote history is not the exact after state."; exit 1;
+          }
+          missing="$(psql -Atqc "select coalesce(string_agg(p.proname, ', ' order by p.proname), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'osi_private' and not has_function_privilege('service_role', p.oid, 'EXECUTE')")"
+          [ -z "$missing" ] || { echo "::error::service_role still cannot execute: ${missing}"; exit 1; }
+          leaked="$(psql -Atqc "select coalesce(string_agg(p.proname, ', ' order by p.proname), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'osi_private' and (has_function_privilege('anon', p.oid, 'EXECUTE') or has_function_privilege('authenticated', p.oid, 'EXECUTE'))")"
+          [ -z "$leaked" ] || { echo "::error::A browser-facing role gained execute on: ${leaked}"; exit 1; }
+          for role in anon authenticated; do
+            [ "$(psql -Atqc "select has_schema_privilege('${role}', 'osi_private', 'USAGE')")" = "f" ] || {
+              echo "::error::${role} gained usage on the private schema."; exit 1;
+            }
+          done
+
+      - name: Verify not one config value changed and smoke the public surface
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key || '|' || value from public.osi_config order by key" > /tmp/osi-config-after.txt
+          diff -u /tmp/osi-config-before.txt /tmp/osi-config-after.txt > /tmp/osi-config-diff.txt || true
+          cat /tmp/osi-config-diff.txt
+          changed="$({ grep -E '^[+-][A-Z0-9_]+\|' /tmp/osi-config-diff.txt || true; } | sed -E 's/^[+-]([^|]+)\|.*/\1/' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ -z "$changed" ] || { echo "::error::A grants-only rollout changed config: ${changed}"; exit 1; }
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          origin_header="Origin: ${PRODUCTION_WEB_URL}"
+          curl -sS --fail --max-time 30 -X POST "$base/osi-v2-case-read" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_cases"}' > /tmp/public-cases.json
+          if grep -Eq '"(details_restricted|body_private|private_note|signature|nonce)"[[:space:]]*:' /tmp/public-cases.json; then
+            echo "::error::Public response exposed a restricted field."; exit 1;
+          fi
+          code="$(curl -sS --max-time 30 -o /tmp/public-reports.json -w '%{http_code}' -X POST "$base/osi-v2-report-read" -H "$origin_header" -H 'Content-Type: application/json' -d '{"op":"list_public_reports","case_ref":"OSI-000000000000"}')"
+          [ "$code" = "404" ] || { echo "::error::Unknown public Case Report read was not denied: ${code}"; exit 1; }
+          echo "Grants repair complete; no configuration value changed."
