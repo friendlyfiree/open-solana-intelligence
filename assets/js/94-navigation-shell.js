@@ -225,11 +225,12 @@
     if (navScrim) navScrim.addEventListener('click', function () { closeMobileNav(true); });
 
     document.addEventListener('keydown', function (event) {
-      if (event.key === 'Tab' || event.key.indexOf('Arrow') === 0) {
+      var key = typeof event.key === 'string' ? event.key : '';
+      if (key === 'Tab' || key.indexOf('Arrow') === 0) {
         document.documentElement.classList.add('osi-keyboard-input');
       }
       trapMobileFocus(event);
-      if (event.key === 'Escape') {
+      if (key === 'Escape') {
         if (document.body.classList.contains('nav-open')) closeMobileNav(true);
         else if (platformTrigger && platformTrigger.getAttribute('aria-expanded') === 'true') {
           setPlatform(false);
