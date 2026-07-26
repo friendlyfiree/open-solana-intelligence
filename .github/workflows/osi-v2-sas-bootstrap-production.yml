@@ -185,7 +185,7 @@ jobs:
           ) counts order by table_name;
           commit;
           SQL
-          for key in OSI_V2_WRITES_ENABLED OSI_V2_PROOF_ENABLED OSI_V2_CASE_WRITES_ENABLED OSI_V2_ANALYST_WRITES_ENABLED OSI_V2_REPORT_WRITES_ENABLED OSI_V2_REPORT_REVIEW_WRITES_ENABLED OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED OSI_V2_PAYMENT_WRITES_ENABLED OSI_V2_READ_SESSION_ENABLED; do
+          for key in OSI_V2_WRITES_ENABLED OSI_V2_PROOF_ENABLED OSI_V2_CASE_WRITES_ENABLED OSI_V2_ANALYST_WRITES_ENABLED OSI_V2_REPORT_WRITES_ENABLED OSI_V2_REPORT_REVIEW_WRITES_ENABLED OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED OSI_V2_PAYMENT_WRITES_ENABLED OSI_V2_READ_SESSION_ENABLED OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED; do
             value="$(psql -Atqc "select value from public.osi_config where key='${key}'")"
             case "$value" in true|false) : ;; *) echo "::error::${key} is absent or malformed."; exit 1 ;; esac
             echo "${key}_BEFORE=$value" >> "$GITHUB_ENV"
@@ -229,12 +229,15 @@ jobs:
         run: |
           set -euo pipefail
           [ "$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")" = "$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')" ]
-          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED'")" = "false" ]
-          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED'")" = "false" ]
+          # These two are governance state, not properties of this rollout: D17
+          # bootstrap is enabled under the 2026-07-25 Constitution amendment and
+          # SAS enforcement is on. Pinning them to a literal here would fail a
+          # re-run for a value this workflow never sets, so they are asserted
+          # unchanged in the loop below instead, which is the real guarantee.
           [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED'")" = "true" ]
           [ "$(psql -Atqc "select count(*) from public.osi_config where key in ('OSI_V2_SAS_CREDENTIAL_PUBKEY','OSI_V2_SAS_SCHEMA_PUBKEY','OSI_V2_SAS_ISSUER_PUBKEY')")" = "3" ]
           [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_PROGRAM_ID'")" = "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG" ]
-          for key in OSI_V2_WRITES_ENABLED OSI_V2_PROOF_ENABLED OSI_V2_CASE_WRITES_ENABLED OSI_V2_ANALYST_WRITES_ENABLED OSI_V2_REPORT_WRITES_ENABLED OSI_V2_REPORT_REVIEW_WRITES_ENABLED OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED OSI_V2_PAYMENT_WRITES_ENABLED OSI_V2_READ_SESSION_ENABLED; do
+          for key in OSI_V2_WRITES_ENABLED OSI_V2_PROOF_ENABLED OSI_V2_CASE_WRITES_ENABLED OSI_V2_ANALYST_WRITES_ENABLED OSI_V2_REPORT_WRITES_ENABLED OSI_V2_REPORT_REVIEW_WRITES_ENABLED OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED OSI_V2_PAYMENT_WRITES_ENABLED OSI_V2_READ_SESSION_ENABLED OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED; do
             before_name="${key}_BEFORE"; [ "$(psql -Atqc "select value from public.osi_config where key='${key}'")" = "${!before_name}" ]
           done
 

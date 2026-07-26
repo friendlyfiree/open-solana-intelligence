@@ -69,6 +69,12 @@ Decision: a new, explicitly enabled, fail-closed mechanism — **`OSI_V2_BOOTSTR
 
 Implementation hold (2026-07-22): this lower-priority decision conflicts with Product Constitution P3/P5 and the accepted State Machines, which limit maintainer-only authority and require independent analyst quorum for normal publication. Under the repository source-precedence and least-privilege rules, the implementation may remain present for review but **must stay production-disabled** until an explicit accepted Constitution/State-Machine amendment resolves that conflict. No workflow in this repository may enable `OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED`; the reviewed production workflow verifies that its value remains exactly `false`.
 
+**Hold lifted (2026-07-25, product-owner decision).** The amendment the hold asked for is now recorded: Product Constitution P3 and P5 carry an explicit cold-start carve-out naming exactly the four outcomes this channel may finalize, the tier ladder that governs them, and the point at which the exception disappears. The conflict is therefore resolved in the higher-precedence document rather than worked around, and the mechanism may run in production under that amendment.
+
+The reason is the one the decision was written for: below 20 live eligible analysts the ≥2-independent-analyst threshold is not merely hard, it is unreachable, so leaving the channel disabled does not enforce independent quorum — it stops the product at initial review and produces nothing to review. The exception is bounded (four outcomes, never AI-Pack approval or challenge accept/reject), server-computed, self-decaying at 50 analysts, and permanently labeled `maintainer_bootstrap`.
+
+What does **not** change: `OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED` remains a normal fail-closed config flag, so production state is what the flag says and the value is asserted unchanged by every rollout that touches config. Honest labeling stays a hard prohibition — a bootstrap outcome must never be rendered, counted, or described as independent analyst consensus. As the live analyst roster grows, prefer the standard channel; the bootstrap path exists so cold start is possible, not so it becomes the habit.
+
 The server computes a live tier from `count(analyst_profiles where status in ('probationary_analyst','verified_analyst','senior_analyst') and approved)` — no manual flag flips:
 
 | Live eligible-analyst count | Required signer(s) for the three bootstrap-eligible outcomes |
