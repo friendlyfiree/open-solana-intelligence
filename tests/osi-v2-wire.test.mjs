@@ -53,11 +53,18 @@ ok("Wire payload binds ordered structured evidence hashes",
   normalized.evidence.length === 3
     && normalized.evidence.every((item) => /^[0-9a-f]{64}$/.test(item.sha256)));
 await rejects("Wire requires a public-safe title", () => core.normalizeWirePayload({
-  ...validPayload, title_public_safe: "short",
+  ...validPayload, title_public_safe: "x",
 }), /title/i);
-await rejects("Wire requires an explicit uncertainty statement", () => core.normalizeWirePayload({
-  ...validPayload, uncertainties_private: "unknown",
-}), /uncertainties/i);
+const minimalWire = await core.normalizeWirePayload({
+  title_public_safe: "DEX",
+  content_public_safe: "Public flow",
+  body_private: "Public transactions show a repeated transfer pattern.",
+  uncertainties_private: "",
+  revision_reason_code: null,
+  evidence: [],
+});
+ok("Wire accepts optional uncertainties and an empty structured evidence manifest",
+  minimalWire.uncertainties_private === "" && minimalWire.evidence.length === 0);
 await rejects("Wire rejects non-HTTPS evidence", () => core.normalizeWirePayload({
   ...validPayload, evidence: [{ kind: "url", ref: "http://example.com" }],
 }), /URL/);
@@ -68,6 +75,10 @@ await rejects("Wire rejects secret material server-side", () => core.normalizeWi
   ...validPayload,
   body_private: "This detailed analysis is long enough but asks for a seed phrase and private key, which must never enter the Wire intake path.",
 }), /prohibited_secret_material/);
+await rejects("Wire rejects illegal-access material server-side", () => core.normalizeWirePayload({
+  ...validPayload,
+  body_private: "This detailed analysis is long enough but includes stolen credentials for unauthorized access, which must never enter the Wire intake path.",
+}), /prohibited_illegal_access_material/);
 await rejects("Wire rejects doxxing material server-side", () => core.normalizeWirePayload({
   ...validPayload,
   body_private: "This detailed analysis is long enough but includes a private home address for doxxing, which must never enter the Wire intake path.",

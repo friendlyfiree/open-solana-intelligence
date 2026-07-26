@@ -653,13 +653,13 @@ async function verifyReadSession(
     wallet: safeText(body.wallet),
     requiredScope,
   });
-  if (verified.ok === true && typeof verified.wallet === "string") {
-    return { ok: true, actor: { wallet: verified.wallet }, payload: verified.payload as Row };
+  if (verified.ok) {
+    return { ok: true, actor: { wallet: verified.wallet }, payload: verified.payload };
   }
   return {
     ok: false,
-    status: typeof verified.status === "number" ? verified.status : 403,
-    reason: typeof verified.reason === "string" ? verified.reason : "read_session_tampered",
+    status: verified.status,
+    reason: verified.reason,
   };
 }
 
@@ -728,12 +728,89 @@ async function createReadSession(req: Request, body: Row): Promise<Response> {
       scopes: issued.payload.scp,
       issued_at: issued.payload.iat,
       expires_at: issued.payload.exp,
+      absolute_expires_at: issued.payload.abs_exp,
       ttl_seconds: issued.payload.exp - issued.payload.iat,
       auth_user_id: issued.payload.auth_sub,
       read_only: true,
     });
   } catch {
     return jsonResponse(503, { ok: false, error: "read_session_configuration_invalid" });
+  }
+}
+
+async function renewReadSession(req: Request, body: Row): Promise<Response> {
+  if (!await readSessionEnabled()) {
+    return jsonResponse(503, { ok: false, error: "read_session_disabled_or_unavailable" });
+  }
+  const wallet = safeText(body.wallet);
+  const verified = await verifyReadSessionToken({
+    token: safeText(body.read_session),
+    secret: SERVICE_ROLE_KEY,
+    issuer: readSessionIssuer(SUPABASE_URL),
+    origin: req.headers.get("origin") ?? "",
+    allowedOrigin: ALLOWED_ORIGIN,
+    wallet,
+    requiredScope: READ_SESSION_SCOPES.CASE_MINE,
+  });
+  if (!verified.ok) {
+    return jsonResponse(verified.status, { ok: false, error: verified.reason });
+  }
+
+  const [analyst, maintainer] = await Promise.all([
+    isVerifiedAnalyst(wallet),
+    hasFullMaintainerAccess(req, wallet),
+  ]);
+  const currentlyAllowed = new Set<string>([
+    READ_SESSION_SCOPES.CASE_MINE,
+    READ_SESSION_SCOPES.CASE_DETAIL,
+    READ_SESSION_SCOPES.REPORT_MINE,
+    READ_SESSION_SCOPES.WIRE_MINE,
+    READ_SESSION_SCOPES.AIPACK_DETAIL,
+    READ_SESSION_SCOPES.ANALYST_WORKSPACE,
+  ]);
+  if (analyst || maintainer) {
+    currentlyAllowed.add(READ_SESSION_SCOPES.CASE_REVIEW);
+    currentlyAllowed.add(READ_SESSION_SCOPES.REPORT_REVIEW);
+    currentlyAllowed.add(READ_SESSION_SCOPES.WIRE_QUEUE);
+  }
+  if (maintainer) {
+    currentlyAllowed.add(READ_SESSION_SCOPES.CASE_MAINTAINER);
+    currentlyAllowed.add(READ_SESSION_SCOPES.ANALYST_MAINTAINER);
+  }
+  // Renewal may narrow stale authority, but possession of an existing token
+  // can never add a scope that was not approved by the original signature.
+  const scopes = verified.scopes.filter((scope: string) => currentlyAllowed.has(scope));
+  try {
+    const issued = await issueReadSessionToken({
+      secret: SERVICE_ROLE_KEY,
+      issuer: readSessionIssuer(SUPABASE_URL),
+      audience: req.headers.get("origin") ?? "",
+      allowedOrigin: ALLOWED_ORIGIN,
+      wallet,
+      scopes,
+      authSubject: maintainer && verified.payload.auth_sub === MAINTAINER_AUTH_UUID
+        ? MAINTAINER_AUTH_UUID : null,
+      jti: randomNonce(),
+      sessionStartedAt: verified.payload.sid_iat,
+      absoluteExpiresAt: verified.payload.abs_exp,
+    });
+    return jsonResponse(200, {
+      ok: true,
+      read_session: issued.token,
+      wallet,
+      scopes: issued.payload.scp,
+      issued_at: issued.payload.iat,
+      expires_at: issued.payload.exp,
+      absolute_expires_at: issued.payload.abs_exp,
+      ttl_seconds: issued.payload.exp - issued.payload.iat,
+      silently_renewed: true,
+      read_only: true,
+    });
+  } catch (error) {
+    return jsonResponse(401, {
+      ok: false,
+      error: error instanceof TypeError ? error.message : "read_session_expired",
+    });
   }
 }
 
@@ -1191,6 +1268,8 @@ serve(async (req: Request): Promise<Response> => {
       return await issueReadSessionChallenge(req, body);
     case "create_read_session":
       return await createReadSession(req, body);
+    case "renew_read_session":
+      return await renewReadSession(req, body);
     case "list_my_cases":
       return await listMyCases(req, body);
     case "list_reviewable_cases":

@@ -46,7 +46,7 @@
       prohibited_personal_data:'Remove doxxing, payment-card numbers, or government identity numbers.',
       read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.',
       read_session_required:'Unlock private views with one wallet signature.',
-      read_session_expired:'Your five-minute private read session expired. Refresh it explicitly to continue.',
+      read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; your draft is preserved.',
       read_session_wrong_origin:'This private session belongs to a different site origin.',
       read_session_wrong_wallet:'This private session belongs to a different wallet.',
       read_session_wrong_scope:'Refresh private access explicitly for this role.',
@@ -85,6 +85,31 @@
       evidence:lines('osi-wire-wallets','wallet').concat(lines('osi-wire-transactions','onchain_tx'),lines('osi-wire-urls','url'))
     };
   }
+  function draftKey(wallet,reportRef){return'wire:'+String(wallet||'')+':'+String(reportRef||'new');}
+  function saveDraft(){
+    if(!walletPubkey||typeof window.osiV2SaveDraft!=='function')return;
+    window.osiV2SaveDraft(draftKey(walletPubkey,state.reportRef),{wire:payload(),safety:!!document.getElementById('osi-wire-safety').checked});
+  }
+  function restoreDraft(wallet,reportRef){
+    if(typeof window.osiV2LoadDraft!=='function')return false;
+    var saved=window.osiV2LoadDraft(draftKey(wallet,reportRef));if(!saved||!saved.wire)return false;
+    document.getElementById('osi-wire-title').value=saved.wire.title_public_safe||'';
+    document.getElementById('osi-wire-summary').value=saved.wire.content_public_safe||'';
+    document.getElementById('osi-wire-analysis').value=saved.wire.body_private||'';
+    document.getElementById('osi-wire-uncertainties').value=saved.wire.uncertainties_private||'';
+    document.getElementById('osi-wire-revision-reason').value=saved.wire.revision_reason_code||'';
+    setEvidence(saved.wire.evidence||[]);document.getElementById('osi-wire-safety').checked=saved.safety===true;return true;
+  }
+  function queueDraftKey(wallet){return'wire-review:'+String(wallet||'');}
+  function saveQueueDraft(){
+    if(!state.queue.length||!walletPubkey||typeof window.osiV2SaveDraft!=='function')return;
+    var values={};document.querySelectorAll('[data-wire-queue-card]').forEach(function(card){var ref=card.getAttribute('data-wire-queue-card'),decision=card.querySelector('[data-wire-review-decision]'),rationale=card.querySelector('[data-wire-review-rationale]'),note=card.querySelector('[data-wire-review-note]');if(ref&&(decision||rationale||note))values[ref]={decision:decision&&decision.value||'',rationale:rationale&&rationale.value||'',note:note&&note.value||''};});
+    if(Object.keys(values).length)window.osiV2SaveDraft(queueDraftKey(walletPubkey),values);
+  }
+  function restoreQueueDraft(){
+    if(typeof window.osiV2LoadDraft!=='function')return;var values=window.osiV2LoadDraft(queueDraftKey(walletPubkey))||{};
+    Object.keys(values).forEach(function(ref){var card=document.querySelector('[data-wire-queue-card="'+ref+'"]'),saved=values[ref]||{};if(!card)return;var decision=card.querySelector('[data-wire-review-decision]'),rationale=card.querySelector('[data-wire-review-rationale]'),note=card.querySelector('[data-wire-review-note]');if(decision&&saved.decision)decision.value=saved.decision;if(rationale)rationale.value=saved.rationale||'';if(note)note.value=saved.note||'';});
+  }
   function setEvidence(items){
     var by={wallet:[],onchain_tx:[],url:[]};(items||[]).forEach(function(item){if(by[item.kind])by[item.kind].push(item.ref);});
     document.getElementById('osi-wire-wallets').value=by.wallet.join('\n');
@@ -117,6 +142,7 @@
         setEvidence(current.evidence||[]);
         context.textContent=reportRef+' | Revision | Next version '+(Number(report.current_version_no)+1);
       }else context.textContent='New standalone finding | Initial immutable version 1';
+      restoreDraft(wallet,state.reportRef);
       var modal=document.getElementById('osi-wire-modal');modal.classList.add('open');syncBodyLock();status('');
       setTimeout(function(){document.getElementById('osi-wire-title').focus();},40);
     }catch(error){status('');if(typeof showToast==='function')showToast(userError(error));if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;}
@@ -131,7 +157,7 @@
   }
   async function submitWire(event){
     if(event)event.preventDefault();var form=document.getElementById('osi-wire-form');if(!form||!form.reportValidity()||state.busy)return;
-    var wire=payload();if(wire.evidence.length<1){status('Add at least one wallet, transaction, or HTTPS evidence reference.','error');return;}if(wire.evidence.length>12){status('A Wire version can include at most 12 evidence references.','error');return;}
+    var wire=payload();if(wire.evidence.length>12){status('A Wire version can include at most 12 evidence references.','error');return;}
     state.busy=true;var button=document.getElementById('osi-wire-submit');button.disabled=true;button.setAttribute('aria-busy','true');
     try{
       var wallet=await ensureWallet(),key=JSON.stringify(wire);
@@ -148,8 +174,9 @@
       status('Version '+committed.version_no+' is submitted with a server-verified Solana Memo receipt.','success');
       if(typeof showToast==='function')showToast(committed.wire_report_public_ref+' version '+committed.version_no+' is Memo-anchored on Solana.');
       state.pending=null;state.idempotency='';form.reset();state.cacheWallet='';state.reports=[];
+      if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(draftKey(wallet,state.reportRef));
       setTimeout(function(){closeWireForm();openWorkspace();},650);
-    }catch(error){status(userError(error),'error');if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0){state.pending=null;state.idempotency=randomKey();}}
+    }catch(error){status(userError(error),'error');if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0){state.pending=null;state.idempotency=randomKey();}}
     finally{state.busy=false;button.disabled=false;button.removeAttribute('aria-busy');}
   }
   function evidenceHtml(items){if(!items||!items.length)return'';return'<div class="osi-report-evidence-list">'+items.map(function(item){return'<div class="osi-report-evidence-item"><span>#'+esc(item.ordinal)+'</span><span>'+esc(label(item.kind))+'</span><span>'+esc(item.ref)+'</span></div>';}).join('')+'</div>';}
@@ -268,21 +295,21 @@
     catch(error){showToast(userError(error));}finally{state.governanceBusy=false;}
   }
   async function submitWireReview(versionRef){
-    if(state.reviewBusy||!validVersion(versionRef))return;var root=document.querySelector('[data-wire-queue-card="'+versionRef+'"]');if(!root)return;var decision=root.querySelector('[data-wire-review-decision]').value,rationale=String(root.querySelector('[data-wire-review-rationale]').value||'').trim(),note=String(root.querySelector('[data-wire-review-note]').value||'').trim();if(rationale.length<10){showToast('Add a public-safe rationale of at least 10 characters.');return;}state.reviewBusy=true;try{var wallet=await ensureWallet(),review={version_public_ref:versionRef,decision:decision,reason_code:'wire_evidence_assessment',public_rationale:rationale,private_note:note||null},prepared=await api({op:'prepare_wire_review',wallet:wallet,review:review,idempotency_key:randomKey()});if(!prepared.already_committed){var signature=await signMessage(prepared.message);await api({op:'commit_wire_review',wallet:wallet,nonce:prepared.nonce,message:prepared.message,signature:signature,review:review});}showToast('Wire review recorded with wallet-signed server proof.');await openWireQueue();}catch(error){showToast(userError(error));}finally{state.reviewBusy=false;}
+    if(state.reviewBusy||!validVersion(versionRef))return;var root=document.querySelector('[data-wire-queue-card="'+versionRef+'"]');if(!root)return;var decision=root.querySelector('[data-wire-review-decision]').value,rationale=String(root.querySelector('[data-wire-review-rationale]').value||'').trim(),note=String(root.querySelector('[data-wire-review-note]').value||'').trim();if(rationale.length<10){showToast('Add a public-safe rationale of at least 10 characters.');return;}state.reviewBusy=true;try{var wallet=await ensureWallet(),review={version_public_ref:versionRef,decision:decision,reason_code:'wire_evidence_assessment',public_rationale:rationale,private_note:note||null},prepared=await api({op:'prepare_wire_review',wallet:wallet,review:review,idempotency_key:randomKey()});if(!prepared.already_committed){var signature=await signMessage(prepared.message);await api({op:'commit_wire_review',wallet:wallet,nonce:prepared.nonce,message:prepared.message,signature:signature,review:review});}if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(queueDraftKey(wallet));showToast('Wire review recorded with wallet-signed server proof.');await openWireQueue();}catch(error){showToast(userError(error));}finally{state.reviewBusy=false;}
   }
   async function publishWire(versionRef){
     if(!validVersion(versionRef)||state.governanceBusy)return;state.governanceBusy=true;try{var wallet=await ensureWallet(),prepared=await api({op:'prepare_wire_publication',wallet:wallet,version_public_ref:versionRef,idempotency_key:randomKey()});if(!prepared.already_committed){var txSig=await castOnchainVote(prepared.memo);await commitWithConfirmation({op:'commit_wire_publication',wallet:wallet,version_public_ref:versionRef,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig});}showToast('Wire Report published with a confirmed Memo receipt.');await openWireQueue();}catch(error){showToast(userError(error));}finally{state.governanceBusy=false;}
   }
   function queueCard(item){var ref=String(item.version_public_ref||'');if(!validVersion(ref))return'';var q=item.quorum||{},caps=state.capabilities||{},review=caps.review_enabled===true?'<label>Decision<select data-wire-review-decision><option value="approve">Approve</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Public-safe rationale<textarea data-wire-review-rationale minlength="10" maxlength="2000"></textarea></label><label>Restricted analyst note<textarea data-wire-review-note maxlength="4000"></textarea></label><button class="osi-action primary" type="button" data-wire-review="'+ref+'">Sign review</button>':caps.wire_writes_enabled!==true?'<div class="osi-case-note">Wire reviews require the dedicated Wire write gate.</div>':'<div class="osi-case-note">A full maintainer may inspect this queue, but only an independently eligible analyst may cast a weighted review.</div>',standardReady=caps.analyst_eligible===true&&q.approve_ready===true&&item.my_active_review&&item.my_active_review.decision==='approve',bootstrapCheck=caps.maintainer_access===true,publish=caps.publication_enabled===true&&(standardReady||bootstrapCheck)?'<button class="osi-action" type="button" data-wire-publish="'+ref+'">'+(standardReady?'Publish approved version':'Check bootstrap gates and publish')+'</button>':'<div class="osi-case-note">Publication is unavailable until both analyst quorum gates pass and this analyst approved the version, or the full maintainer satisfies the active D17 bootstrap tier.</div>';return'<article class="osi-report-card" data-wire-queue-card="'+ref+'"><div class="osi-report-card-head"><div><div class="osi-report-card-kicker"><span>'+esc(item.wire_report_public_ref)+'</span></div><h3>'+esc(item.title)+'</h3><div class="osi-report-card-meta">'+esc(ref)+' | Author '+esc(item.author_wallet)+'</div></div><span class="osi-report-state">'+esc(label(item.lifecycle_state))+'</span></div><p>'+esc(item.summary)+'</p><p>'+esc(item.analysis)+'</p><p><b>Uncertainties:</b> '+esc(item.uncertainties)+'</p>'+evidenceHtml(item.evidence)+'<div class="osi-payment-compose">'+review+publish+'</div><div class="osi-case-note">Approve quorum '+esc(q.approve_count||0)+' / '+esc(q.required_count||2)+' analysts and '+esc(q.approve_weight||0)+' / '+esc(q.required_weight||2)+' weight. The server chooses standard or maintainer-bootstrap publication.</div></article>';}
   async function openWireQueue(){
-    if(typeof showView==='function')showView('wire');if(typeof wireEnterPrivateMode==='function')wireEnterPrivateMode();var wallet=await ensureWallet(),session=await window.osiV2ReadSession(['wire:queue'],{allowUnlock:true}),results=await Promise.all([api({op:'list_wire_review_queue',wallet:wallet,read_session:session.token}),api({op:'capabilities',wallet:wallet})]),result=results[0];state.capabilities=results[1];state.queue=result.reports||[];var host=document.getElementById('wire-cases');if(host)host.innerHTML='<div class="osi-case-note"><button class="osi-report-action" type="button" onclick="wireOpenPublic()">Back to public Wire</button><span>Restricted analyst queue. Author self-review is rejected by the database.</span></div><div class="osi-report-workspace">'+(state.queue.map(queueCard).join('')||'<div class="osi-report-empty"><b>No Wire versions await review</b></div>')+'</div>';return result;
+    if(typeof showView==='function')showView('wire');if(typeof wireEnterPrivateMode==='function')wireEnterPrivateMode();var wallet=await ensureWallet(),session=await window.osiV2ReadSession(['wire:queue'],{allowUnlock:true}),results=await Promise.all([api({op:'list_wire_review_queue',wallet:wallet,read_session:session.token}),api({op:'capabilities',wallet:wallet})]),result=results[0];state.capabilities=results[1];state.queue=result.reports||[];var host=document.getElementById('wire-cases');if(host)host.innerHTML='<div class="osi-case-note"><button class="osi-report-action" type="button" onclick="wireOpenPublic()">Back to public Wire</button><span>Restricted analyst queue. Author self-review is rejected by the database.</span></div><div class="osi-report-workspace">'+(state.queue.map(queueCard).join('')||'<div class="osi-report-empty"><b>No Wire versions await review</b></div>')+'</div>';restoreQueueDraft();return result;
   }
   async function refreshCapability(){
     var button=document.getElementById('osi-wire-intake-action');if(!button)return;
     try{var result=await api({op:'capabilities',wallet:String(walletPubkey||'')});state.capabilities=result;button.disabled=result.wire_writes_enabled!==true;button.textContent=result.wire_writes_enabled===true?'Submit a Wire Report':'Wire intake unavailable';button.title=result.prerequisite||'Create an exact private Wire Report version';var queue=document.getElementById('osi-wire-queue-action');if(queue)queue.hidden=!(result.analyst_eligible||result.maintainer_access);}
     catch(_){button.disabled=true;button.textContent='Wire intake unavailable';button.title='Wire capability is temporarily unavailable';var queue=document.getElementById('osi-wire-queue-action');if(queue)queue.hidden=true;}
   }
-  function clearSessionState(){state.cacheWallet='';state.reports=[];state.queue=[];state.current=null;state.pending=null;state.idempotency='';state.capabilities=null;var form=document.getElementById('osi-wire-form');if(form)form.reset();var modal=document.getElementById('osi-wire-modal');if(modal)modal.classList.remove('open');var drawer=document.getElementById('osi-wire-drawer');if(drawer){drawer.classList.remove('open');drawer.hidden=true;}var queue=document.getElementById('osi-wire-queue-action');if(queue)queue.hidden=true;document.body.classList.remove('cr-drawer-lock');syncBodyLock();status('');if(typeof wireClearPrivateMode==='function')wireClearPrivateMode();}
+  function clearSessionState(reason){var preserve=reason==='expiry'||reason==='explicit_refresh';if(preserve)saveQueueDraft();state.cacheWallet='';state.reports=[];state.queue=[];state.current=null;state.capabilities=null;if(!preserve){state.pending=null;state.idempotency='';var form=document.getElementById('osi-wire-form');if(form)form.reset();var modal=document.getElementById('osi-wire-modal');if(modal)modal.classList.remove('open');status('');}var drawer=document.getElementById('osi-wire-drawer');if(drawer){drawer.classList.remove('open');drawer.hidden=true;}var queue=document.getElementById('osi-wire-queue-action');if(queue)queue.hidden=true;document.body.classList.remove('cr-drawer-lock');syncBodyLock();if(typeof wireClearPrivateMode==='function')wireClearPrivateMode();}
   function trapFocus(event,root){if(event.key!=='Tab'||!root)return;var nodes=Array.prototype.filter.call(root.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])'),function(node){return node.offsetParent!==null;});if(!nodes.length)return;var first=nodes[0],last=nodes[nodes.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
   document.addEventListener('click',function(event){
     var target=event.target&&event.target.closest?event.target.closest('[data-wire-tab],[data-wire-review],[data-wire-publish],[data-wire-governance],[data-wire-support],[data-wire-promote]'):null;if(!target)return;
@@ -312,6 +339,10 @@
   window.osiV2OpenWireReport=function(ref){return openPublicWireReport(ref).catch(function(error){showToast(userError(error));throw error;});};
   window.osiV2CloseWireReport=closePublicWireReport;
   window.osiV2RefreshWireCapability=refreshCapability;
+  var wireDraftForm=document.getElementById('osi-wire-form');
+  if(wireDraftForm){wireDraftForm.addEventListener('input',saveDraft);wireDraftForm.addEventListener('change',saveDraft);}
+  var wireWorkspace=document.getElementById('wire-cases');
+  if(wireWorkspace){wireWorkspace.addEventListener('input',saveQueueDraft);wireWorkspace.addEventListener('change',saveQueueDraft);}
   window.osiV2RefreshWireWorkspace=function(){return window.osiV2RefreshReadSession(['wire:mine']).then(openWorkspace);};
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('wire',clearSessionState);
 })();

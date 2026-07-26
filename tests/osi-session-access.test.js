@@ -38,8 +38,15 @@ ok(readSession.includes('storage:sessionStorage'), 'private read capability is h
 ok(!/localStorage\.(?:getItem|setItem)\([^)]*read_session/i.test(readSession), 'private read capability is never persisted in localStorage');
 ok(readSession.includes("TOKEN_KEY='osi_v2_read_session_v1'"), 'one shared private capability key spans Case, Report, Wire, and Analyst');
 ok(readSession.includes("issue_read_session_challenge") && readSession.includes("create_read_session"), 'one server-issued challenge creates the shared read-only capability');
+ok(readSession.includes("op:'renew_read_session'") && readSession.includes('read_session:record.token'), 'active renewal proves possession of the still-valid bearer token without another signature');
 ok(readSession.includes('var messages=new Map(),transactions=new Map()'), 'provider approval broker locks duplicate message and transaction requests');
-ok(readSession.includes("clear('expiry',{markExpired:true})"), 'expiry clears the shared capability without a silent renewal signature');
+ok(readSession.includes("renewRecord(current,currentPayload)") && readSession.includes("clear('expiry',{markExpired:true})"), 'active sessions renew silently and genuine lapse still clears the capability');
+ok(readSession.includes("OSI_READ_SESSION_ABSOLUTE_TTL_SECONDS=28800"), 'the browser exposes the bounded eight-hour absolute lifetime');
+ok(readSession.includes("DRAFT_PREFIX='osi_v2_draft_v1:'") && report.includes('saveDraft') && wire.includes('saveDraft'), 'private contributor drafts remain in tab-scoped storage across re-unlock');
+ok(report.includes("return'report-review:'") && report.includes('restoreWorkspaceDraft')
+  && wire.includes("return'wire-review:'") && wire.includes('restoreQueueDraft')
+  && aiPack.includes("return'ai-pack:'") && aiPack.includes('restoreFormDraft'),
+  'private review and feedback drafts also restore after a session boundary');
 ok(readSession.includes("window.osiV2ReadSessionHandleWallet=client.handleWallet"), 'wallet identity changes invalidate the shared capability');
 ok(readSession.includes("window.osiV2ReadSessionHandleAuth=client.handleAuth"), 'Supabase identity changes invalidate the shared capability');
 ok(!read('assets/js/v2-case-integration.js').includes("op:'issue_read_challenge'"), 'Case private reads no longer request a signature per navigation');

@@ -123,7 +123,7 @@
       ,read_failed:'The public Case registry could not be loaded. Retry when the service is available.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
-      ,read_session_expired:'Your five-minute private read session expired. Refresh it explicitly to continue.'
+      ,read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; typed drafts stay in this browser tab.'
       ,read_session_wrong_origin:'This private session belongs to a different site origin.'
       ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
       ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
@@ -438,6 +438,7 @@
         var result=await api(READ_URL,{op:'get_public_case',public_ref:publicRef});item=result.case;
       }
       state.current=item;state.tab='overview';
+      if(walletPubkey&&!state.capabilities)await refreshCapabilities();
       var drawer=document.getElementById('osi-case-drawer');
       if(drawer.hidden)state.drawerReturnFocus=document.activeElement;
       drawer.hidden=false;document.body.classList.add('osi-case-open');syncBodyLock();
@@ -646,7 +647,7 @@
       host.innerHTML='<span class="osi-action-help">Private and awaiting an eligible analyst or full maintainer review. Case owners cannot self-review.</span><button class="osi-action" disabled title="Requires an eligible analyst or full maintainer">Awaiting review</button>';
     }else{
       var hasGovernance=item.governance&&item.governance.resolution;
-      host.innerHTML='<span class="osi-action-help">Public because the open outcome has a confirmed canonical Memo receipt. Later outcomes remain reviewed and challengeable.</span>'+(hasGovernance?'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'resolution\')">Inspect resolution</button><button class="osi-action" type="button" onclick="osiV2ShowTab(\'challenges\')">Inspect challenges</button>':'')+'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'proof\')">Inspect proof</button>';
+      host.innerHTML='<span class="osi-action-help">Contribute findings to this public investigation. Reports remain private until reviewed publication.</span><button class="osi-action primary" type="button" onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button><button class="osi-action" type="button" onclick="osiV2ShowTab(\'evidence\')">Inspect evidence</button>'+(hasGovernance?'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'resolution\')">Inspect resolution</button><button class="osi-action" type="button" onclick="osiV2ShowTab(\'challenges\')">Inspect challenges</button>':'')+'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'proof\')">Inspect proof</button>';
     }
   }
   async function composeReview(){
@@ -948,6 +949,7 @@
     state.capabilities=null;state.governanceBusy=false;clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
     wipeCaseDrawerContent();
     var drawer=document.getElementById('osi-case-drawer');if(drawer)drawer.hidden=true;
+    document.body.classList.remove('osi-case-open');syncBodyLock();
   }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('cases',clearPrivateCaseCache);
 

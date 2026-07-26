@@ -57,7 +57,7 @@ const ALLOWED_ORIGIN = Deno.env.get("OSI_V2_ALLOWED_ORIGIN") ?? "";
 const SOLANA_RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "";
 const MAINTAINER_AUTH_UUID = Deno.env.get("OSI_MAINTAINER_AUTH_UUID") ?? "";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
+const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const MAX_BODY_BYTES = 96_000;
 const RPC_TIMEOUT_MS = 15_000;
 const UUID =
@@ -587,11 +587,11 @@ async function verifyPrivateRead(req: Request, body: Row) {
     wallet: safeText(body.wallet),
     requiredScope: READ_SESSION_SCOPES.AIPACK_DETAIL,
   });
-  if (verified.ok !== true || typeof verified.wallet !== "string") {
+  if (!verified.ok) {
     return {
       ok: false as const,
-      status: typeof verified.status === "number" ? verified.status : 403,
-      reason: typeof verified.reason === "string" ? verified.reason : "read_session_tampered",
+      status: verified.status,
+      reason: verified.reason,
     };
   }
   return { ok: true as const, wallet: verified.wallet };

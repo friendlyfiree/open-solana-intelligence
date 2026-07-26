@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import {
   isExactReadSessionOrigin,
   issueReadSessionToken,
+  READ_SESSION_ABSOLUTE_TTL_SECONDS,
+  READ_SESSION_IDLE_TTL_SECONDS,
   READ_SESSION_SCOPES,
   READ_SESSION_TTL_SECONDS,
   readSessionIssuer,
@@ -36,13 +38,19 @@ ok("exact production origin gate accepts only the configured origin",
   isExactReadSessionOrigin(origin, origin)
     && !isExactReadSessionOrigin("https://example.invalid", origin)
     && !isExactReadSessionOrigin("*", origin));
-ok("read session TTL is visibly bounded to five minutes", issued.payload.exp - issued.payload.iat === READ_SESSION_TTL_SECONDS && READ_SESSION_TTL_SECONDS === 300);
+ok("working session uses a bounded 30-minute inactivity window and eight-hour absolute lifetime",
+  issued.payload.exp - issued.payload.iat === READ_SESSION_TTL_SECONDS
+    && READ_SESSION_IDLE_TTL_SECONDS === 1800
+    && READ_SESSION_ABSOLUTE_TTL_SECONDS === 28800
+    && issued.payload.abs_exp - issued.payload.sid_iat === READ_SESSION_ABSOLUTE_TTL_SECONDS);
 
 const valid = await verifyReadSessionToken({
   token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet,
   requiredScope: READ_SESSION_SCOPES.CASE_MINE, nowSeconds: now + 1,
 });
 ok("valid exact-origin, exact-wallet, scoped token is accepted", valid.ok && valid.wallet === wallet);
+ok("verification result exposes scopes only on success",
+  valid.ok && Array.isArray(valid.scopes) && valid.scopes.includes(READ_SESSION_SCOPES.CASE_MINE));
 const aiPackScoped = await verifyReadSessionToken({
   token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet,
   requiredScope: READ_SESSION_SCOPES.AIPACK_DETAIL, nowSeconds: now + 1,
@@ -66,6 +74,8 @@ const wrongOrigin = await verifyReadSessionToken({
   wallet, requiredScope: READ_SESSION_SCOPES.CASE_MINE, nowSeconds: now + 1,
 });
 ok("wrong origin is denied", !wrongOrigin.ok && wrongOrigin.reason === "read_session_wrong_origin");
+ok("verification failure always carries an HTTP status",
+  !wrongOrigin.ok && Number.isInteger(wrongOrigin.status));
 
 const wrongWallet = await verifyReadSessionToken({
   token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet: otherWallet,
@@ -91,6 +101,27 @@ const expired = await verifyReadSessionToken({
   requiredScope: READ_SESSION_SCOPES.CASE_MINE, nowSeconds: issued.payload.exp,
 });
 ok("expired token is denied", !expired.ok && expired.reason === "read_session_expired");
+
+const renewed = await issueReadSessionToken({
+  secret, issuer, audience: origin, allowedOrigin: origin, wallet, scopes,
+  authSubject: null, jti: "R".repeat(32), nowSeconds: now + 1200,
+  sessionStartedAt: issued.payload.sid_iat,
+  absoluteExpiresAt: issued.payload.abs_exp,
+});
+ok("silent renewal keeps the original signed-session boundary while rotating the bearer window",
+  renewed.payload.iat === now + 1200
+    && renewed.payload.exp === now + 3000
+    && renewed.payload.sid_iat === issued.payload.sid_iat
+    && renewed.payload.abs_exp === issued.payload.abs_exp
+    && renewed.payload.jti !== issued.payload.jti);
+const finalWindow = await issueReadSessionToken({
+  secret, issuer, audience: origin, allowedOrigin: origin, wallet, scopes,
+  authSubject: null, jti: "Z".repeat(32), nowSeconds: issued.payload.abs_exp - 60,
+  sessionStartedAt: issued.payload.sid_iat,
+  absoluteExpiresAt: issued.payload.abs_exp,
+});
+ok("renewal can never extend the eight-hour absolute deadline",
+  finalWindow.payload.exp === issued.payload.abs_exp);
 
 await (async () => {
   let rejected = false;
@@ -118,6 +149,11 @@ ok("only the Case read gateway can mint a session after consuming a durable proo
     && !analyst.includes("issueReadSessionToken")
     && !wire.includes("issueReadSessionToken")
     && !aiPack.includes("issueReadSessionToken"));
+ok("silent renewal requires a still-valid scoped token and cannot add authority",
+  caseRead.includes("renewReadSession")
+    && caseRead.includes("verifyReadSessionToken")
+    && caseRead.includes("verified.scopes.filter")
+    && caseRead.includes("can never add a scope"));
 ok("maintainer private reads still re-check wallet and Supabase identity",
   caseRead.includes("authValid") && caseRead.includes("walletValid")
     && reportRead.includes("walletGate && authGate")

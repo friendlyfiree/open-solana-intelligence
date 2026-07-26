@@ -99,10 +99,10 @@ const expiryStorage = new MemoryStorage(storage);
 const expiring = client(expiryStorage);
 await expiring.get([READ_SESSION_SCOPES.CASE_MINE]);
 const beforeExpirySignatures = signMessageCalls;
-nowMs += 301_000;
+  nowMs += 1_801_000;
 let expiryDenied = false;
 try { await expiring.get([READ_SESSION_SCOPES.CASE_MINE]); } catch (error) { expiryDenied = error.message === "read_session_expired"; }
-ok("expiry clears private state and never silently signs", expiryDenied && signMessageCalls === beforeExpirySignatures);
+ok("genuine inactivity expiry clears private state and never silently signs", expiryDenied && signMessageCalls === beforeExpirySignatures);
 await expiring.get([READ_SESSION_SCOPES.CASE_MINE], { explicitRefresh: true });
 ok("explicit refresh performs exactly one new signMessage", signMessageCalls === beforeExpirySignatures + 1);
 expiring.clear("disconnect");

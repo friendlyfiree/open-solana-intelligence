@@ -366,6 +366,18 @@
     var number=Number(value);
     return Number.isFinite(number)?number.toFixed(2):'Unavailable';
   }
+  function formDraftKey(){return'ai-pack:'+wallet()+':'+caseRef()+':'+String(state.versionRef||'');}
+  function saveFormDraft(){
+    if(!wallet()||!caseRef()||!state.versionRef||typeof window.osiV2SaveDraft!=='function')return;
+    var ids=['osi-ai-review-decision','osi-ai-review-rationale','osi-ai-review-note','osi-ai-feedback-type','osi-ai-feedback-public','osi-ai-feedback-restricted'],values={};
+    ids.forEach(function(id){var node=document.getElementById(id);if(node)values[id]=node.value;});
+    if(Object.keys(values).length)window.osiV2SaveDraft(formDraftKey(),values);
+  }
+  function restoreFormDraft(){
+    if(typeof window.osiV2LoadDraft!=='function')return;var values=window.osiV2LoadDraft(formDraftKey())||{};
+    Object.keys(values).forEach(function(id){var node=document.getElementById(id);if(node)node.value=values[id];});
+  }
+  function removeFormDraft(){if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(formDraftKey());}
   function reviewPanel(version){
     var caps=state.capabilities||{};
     var role=viewerRole();
@@ -478,6 +490,7 @@
       '<h4>AI Pack artifacts</h4></div><span class="osi-chip">'+esc(rows.length)+' versions</span></div>'+
       historyPanel(rows)+versionPanel(selectedVersion());
     root.setAttribute('aria-busy','false');
+    restoreFormDraft();
     bind();
     if(options&&options.focusId)focusAfterRender(options.focusId);
   }
@@ -596,6 +609,7 @@
       await exactWrite('prepare_review','commit_review',version.version_ref,payload);
       if(ref!==caseRef())return;
       setStatus('review','Exact-version review recorded with its server-verified receipt.','success');
+      removeFormDraft();
       endAction();
       completed=true;
       await reload({focusId:'osi-ai-review-submit'});
@@ -624,6 +638,7 @@
       await exactWrite('prepare_owner_feedback','commit_owner_feedback',version.version_ref,payload);
       if(ref!==caseRef())return;
       setStatus('feedback','Advisory owner feedback recorded with zero review weight.','success');
+      removeFormDraft();
       endAction();
       completed=true;
       await reload({focusId:'osi-ai-feedback-submit'});
@@ -688,6 +703,7 @@
     if(feedbackButton&&!feedbackButton.disabled)feedbackButton.addEventListener('click',feedback);
     var approveButton=document.getElementById('osi-ai-approve');
     if(approveButton&&!approveButton.disabled)approveButton.addEventListener('click',approve);
+    var root=host();if(root){root.oninput=saveFormDraft;root.onchange=saveFormDraft;}
   }
   function render(caseItem,capabilities,mode){
     state.loadToken++;
@@ -713,6 +729,7 @@
       '<div class="osi-case-note">AI Pack content is model-generated and treated as untrusted text. It is never auto-published and never establishes truth, guilt, legal certainty, recovery, custody, or payment.</div></section>';
   }
   function clear(){
+    saveFormDraft();
     state.loadToken++;
     state.caseItem=null;
     state.capabilities=null;

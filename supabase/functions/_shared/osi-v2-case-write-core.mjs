@@ -90,11 +90,12 @@ export function normalizeCasePayload(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new TypeError("case payload is invalid");
   }
-  const title = requireLength(input.title, "title", 8, 160);
-  const category = cleanText(input.category);
+  const title = requireLength(input.title, "title", 3, 160);
+  const category = cleanText(input.category) || "other";
   if (!CASE_CATEGORIES.has(category)) throw new TypeError("category is invalid");
-  const summary_public = requireLength(input.summary_public, "public summary", 40, 2000);
-  const details_restricted = requireLength(input.details_restricted, "restricted details", 40, 12000);
+  const summary_public = requireLength(input.summary_public, "public summary", 10, 2000);
+  const details_restricted = cleanText(input.details_restricted);
+  if (details_restricted.length > 12000) throw new TypeError("restricted details is invalid");
   rejectProhibitedContent(title + "\n" + summary_public + "\n" + details_restricted);
 
   let reward_intent_lamports = null;
