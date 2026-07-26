@@ -187,29 +187,14 @@ button {
 }
 
 .osi-brand-mark {
-  width: 40px;
-  height: 44px;
-  display: grid;
-  place-items: center;
+  width: 54px;
+  height: 36px;
+  display: block;
   flex: 0 0 auto;
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: .04em;
-  clip-path: polygon(50% 0, 94% 21%, 94% 76%, 50% 100%, 6% 76%, 6% 21%);
-  background: var(--brand-spectrum);
+  overflow: visible;
   position: relative;
   filter: drop-shadow(0 0 14px rgba(255, 77, 95, .18));
   transition: filter 160ms ease, transform 160ms var(--ease-out);
-}
-
-.osi-brand-mark::after {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  z-index: -1;
-  clip-path: inherit;
-  background: #0c0e13;
 }
 
 .osi-brand:hover .osi-brand-mark {
@@ -2455,9 +2440,8 @@ footer > .wrap {
   }
 
   .osi-brand-mark {
-    width: 36px;
-    height: 40px;
-    font-size: 11px;
+    width: 46px;
+    height: 31px;
   }
 
   .osi-brand-copy {

@@ -1,13 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="OSI">
   <defs>
-    <linearGradient id="signal" x1="8" y1="56" x2="56" y2="8" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#d92f49"/>
-      <stop offset=".56" stop-color="#ff4d5f"/>
-      <stop offset="1" stop-color="#f5f0e8"/>
+    <linearGradient id="metal" x1="10" y1="14" x2="54" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffdf8"/>
+      <stop offset=".5" stop-color="#f5f0e8"/>
+      <stop offset="1" stop-color="#b9c0ca"/>
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="15" fill="#08090d"/>
-  <path d="M32 8 53 20v24L32 56 11 44V20L32 8Z" fill="#10141b" stroke="url(#signal)" stroke-width="3"/>
-  <path d="m20 37 8-10 7 7 9-11" fill="none" stroke="url(#signal)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="44" cy="23" r="3" fill="#ff4d5f"/>
+  <g fill="none" stroke="url(#metal)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 21c9-8 21-8 31-3 4 2 7 3 10 2" stroke-width="4"/>
+    <path d="M10 36c8-8 19-9 28-3 5 3 9 4 15 3-4 4-8 6-13 6-7 0-11 4-19 2-5-1-8-4-11-8Z" stroke-width="3.4"/>
+    <path d="M26 42c0 5 1 9 3 12" stroke-width="3.4"/>
+    <path d="M31 43c4 8 11 11 17 7" stroke-width="3.4"/>
+  </g>
+  <path d="M13 24c9-6 20-5 30 0" fill="none" stroke="#ff4d5f" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="26" cy="35" r="6.5" fill="none" stroke="url(#metal)" stroke-width="3.4"/>
+  <circle cx="26" cy="35" r="3.4" fill="#ff4d5f"/>
 </svg>
