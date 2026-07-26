@@ -192,7 +192,7 @@ const wirePayload = {
     "Public transactions show a repeated transfer pattern. This production smoke prepares a nonce only and does not commit a Wire version.",
   evidence: [{ kind: "url", ref: SEC_URL }],
 };
-requireSuccess(
+const preparedWire = requireSuccess(
   await post("osi-v2-wire", {
     op: "prepare_wire",
     wallet,
@@ -200,6 +200,12 @@ requireSuccess(
     idempotency_key: randomId("prod-wire"),
   }),
   "Wire SEC URL preparation",
+);
+assert(
+  preparedWire.expires_at - preparedWire.issued_at === 300,
+  `Wire proof approval window is ${
+    preparedWire.expires_at - preparedWire.issued_at
+  } seconds, expected 300`,
 );
 const refusedWire = await post("osi-v2-wire", {
   op: "prepare_wire",

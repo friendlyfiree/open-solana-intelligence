@@ -3,6 +3,7 @@
   'use strict';
 
   var WIRE_URL=SUPABASE_URL+'/functions/v1/osi-v2-wire';
+  var PROOF_REFRESH_MARGIN_SECONDS=30;
   var state={
     reportRef:null,isRevision:false,idempotency:'',pending:null,returnFocus:null,
     cacheWallet:'',reports:[],busy:false,queue:[],current:null,tab:'overview',
@@ -32,7 +33,7 @@
       wire_writes_disabled:'Wire submission is safely disabled while rollout checks are incomplete.',
       wire_writes_disabled_or_unavailable:'Wire submission is safely disabled or temporarily unavailable.',
       wire_report_not_available:'This Wire Report is not available to this wallet.',
-      proof_binding_rejected:'The proof expired or no longer matches this exact Wire version. Prepare again.',
+      proof_binding_rejected:'The proof expired or no longer matches this exact Wire version. Your draft is safe. Submit again to prepare a fresh proof.',
       lineage_changed_retry:'Another version advanced this Wire Report. Reload and prepare a fresh revision.',
       transaction_not_confirmed:'The Memo transaction is not confirmed yet. Retry safely with the same proof.',
       rpc_unavailable:'Solana confirmation is temporarily unavailable. Retry safely with the same transaction.',
@@ -84,6 +85,15 @@
       revision_reason_code:state.isRevision?document.getElementById('osi-wire-revision-reason').value:null,
       evidence:lines('osi-wire-wallets','wallet').concat(lines('osi-wire-transactions','onchain_tx'),lines('osi-wire-urls','url'))
     };
+  }
+  function proofWindowSeconds(prepared){
+    var issued=Number(prepared&&prepared.issued_at),expires=Number(prepared&&prepared.expires_at);
+    return Number.isFinite(issued)&&Number.isFinite(expires)&&expires>issued?expires-issued:0;
+  }
+  function pendingProofUsable(pending,nowMs){
+    var preparedAt=Number(pending&&pending.preparedAt),windowSeconds=proofWindowSeconds(pending&&pending.prepared);
+    if(!Number.isFinite(preparedAt)||preparedAt<=0||windowSeconds<=PROOF_REFRESH_MARGIN_SECONDS)return false;
+    return Number(nowMs)-preparedAt<(windowSeconds-PROOF_REFRESH_MARGIN_SECONDS)*1000;
   }
   function draftKey(wallet,reportRef){return'wire:'+String(wallet||'')+':'+String(reportRef||'new');}
   function saveDraft(){
@@ -161,14 +171,18 @@
     state.busy=true;var button=document.getElementById('osi-wire-submit');button.disabled=true;button.setAttribute('aria-busy','true');
     try{
       var wallet=await ensureWallet(),key=JSON.stringify(wire);
-      if(state.pending&&state.pending.payloadKey!==key){state.pending=null;state.idempotency=randomKey();}
+      if(state.pending&&(state.pending.wallet!==wallet||state.pending.payloadKey!==key)){state.pending=null;state.idempotency=randomKey();}
+      if(state.pending&&!pendingProofUsable(state.pending,Date.now())){
+        state.pending=null;state.idempotency=randomKey();
+        status('The previous proof window closed. Your draft is safe; preparing a fresh proof...');
+      }
       if(!state.pending){
         status('Preparing the exact private version, evidence manifest, nonce, and payload hash...');
         var prepared=await api({op:'prepare_wire',wallet:wallet,wire_report_public_ref:state.reportRef,wire:wire,idempotency_key:state.idempotency});
         if(prepared.already_committed){status('This exact version was already committed. Opening My Wire Reports.','success');setTimeout(function(){closeWireForm();openWorkspace();},450);return;}
-        state.pending={wallet:wallet,payloadKey:key,prepared:prepared,txSig:''};
+        state.pending={wallet:wallet,payloadKey:key,prepared:prepared,preparedAt:Date.now(),txSig:''};
       }
-      if(!state.pending.txSig){status('Approve the exact WIRE_REPORT_VERSION_SUBMITTED Memo in Phantom. OSI receives no funds.');state.pending.txSig=await castOnchainVote(state.pending.prepared.memo);}
+      if(!state.pending.txSig){status('Approve the exact WIRE_REPORT_VERSION_SUBMITTED Memo in Phantom before the short proof window closes. OSI receives no funds.');state.pending.txSig=await castOnchainVote(state.pending.prepared.memo);}
       status('Confirming mainnet, signer, exact Memo, freshness, nonce, and payload hash...');
       var committed=await commitWithConfirmation({op:'commit_wire',wallet:wallet,wire:wire,nonce:state.pending.prepared.nonce,memo:state.pending.prepared.memo,tx_sig:state.pending.txSig});
       status('Version '+committed.version_no+' is submitted with a server-verified Solana Memo receipt.','success');
@@ -329,7 +343,7 @@
   document.addEventListener('keydown',function(event){var modal=document.getElementById('osi-wire-modal'),drawer=document.getElementById('osi-wire-drawer');if(modal&&modal.classList.contains('open')){if(event.key==='Escape'){event.preventDefault();closeWireForm();return;}trapFocus(event,modal);return;}if(!drawer||drawer.hidden)return;if(event.key==='Escape'){event.preventDefault();closePublicWireReport();return;}var tab=event.target&&event.target.closest?event.target.closest('[data-wire-tab]'):null;if(tab&&(event.key==='ArrowRight'||event.key==='ArrowLeft')){event.preventDefault();var nodes=Array.prototype.slice.call(document.querySelectorAll('#osi-wire-detail-tabs [data-wire-tab]')),index=nodes.indexOf(tab),next=(index+(event.key==='ArrowRight'?1:-1)+nodes.length)%nodes.length,key=nodes[next].dataset.wireTab;state.tab=key;renderDetail();var fresh=document.querySelector('#osi-wire-detail-tabs [data-wire-tab="'+key+'"]');if(fresh)fresh.focus();return;}trapFocus(event,drawer);});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',refreshCapability);else setTimeout(refreshCapability,0);
 
-  window.OSIWireUI={escapeHtml:esc,reportCard:reportCard,workspaceMarkup:workspaceMarkup,safeHttpsUrl:safeHttpsUrl,validTransactionSignature:validTx,publicEvidenceItem:publicEvidenceItem,verifiedPaymentProof:verifiedPaymentProof,proofHtml:publicProof};
+  window.OSIWireUI={escapeHtml:esc,reportCard:reportCard,workspaceMarkup:workspaceMarkup,safeHttpsUrl:safeHttpsUrl,validTransactionSignature:validTx,publicEvidenceItem:publicEvidenceItem,verifiedPaymentProof:verifiedPaymentProof,proofHtml:publicProof,pendingProofUsable:pendingProofUsable};
   window.osiV2OpenWireForm=openWireForm;
   window.osiV2CloseWireForm=closeWireForm;
   window.osiV2SubmitWire=submitWire;
