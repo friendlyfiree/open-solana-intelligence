@@ -172,17 +172,23 @@ function closeTip(){
   var target=tipReturnFocus; tipReturnFocus=null;
   if(target && target.isConnected && typeof target.focus==='function') window.setTimeout(function(){ target.focus(); },0);
 }
+// The Solana Pay QR encodes the amount, so any amount change has to redraw it.
+// Without this the panel can keep showing a code for a figure the user has
+// already moved away from, which on a payment surface is the worst kind of stale.
+function refreshSolanaPay(){
+  if(typeof renderSolanaPay === 'function') renderSolanaPay();
+}
 function setTipAmt(a, btn){
   tipCtx.amount = a;
   document.querySelectorAll('.tip-amt').forEach(function(b){ b.classList.remove('active'); });
   if(btn) btn.classList.add('active');
   var cu=document.getElementById('tip-custom'); if(cu) cu.value='';
-  updateTipUsd(); refreshTipSendState();
+  updateTipUsd(); refreshTipSendState(); refreshSolanaPay();
 }
 function setTipCustom(v){
   var a = parseFloat(v);
   if(!isNaN(a) && a > 0){ tipCtx.amount = a; document.querySelectorAll('.tip-amt').forEach(function(b){ b.classList.remove('active'); }); }
-  updateTipUsd(); refreshTipSendState();
+  updateTipUsd(); refreshTipSendState(); refreshSolanaPay();
 }
 function updateTipUsd(){
   var el=document.getElementById('tip-usd');

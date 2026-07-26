@@ -154,7 +154,9 @@ async function submitIntel(){
 }
 
 // ===== Solana Pay: turn any tip/reward/support into a scannable payment request =====
-const SOLANA_PAY_QR_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+// Served from our own origin, never a third-party CDN: this renders a payment
+// QR, so its integrity and availability must not depend on someone else.
+const SOLANA_PAY_QR_LIB = './assets/js/vendor/qrcode-generator-1.4.4.min.js';
 let _qrLibLoading = null, _payOpen = false, _qrTimer = null;
 
 function loadQrLib(){
@@ -162,7 +164,7 @@ function loadQrLib(){
   if(_qrLibLoading) return _qrLibLoading;
   _qrLibLoading = new Promise(function(resolve, reject){
     const s = document.createElement('script');
-    s.src = SOLANA_PAY_QR_CDN; s.async = true;
+    s.src = SOLANA_PAY_QR_LIB; s.async = true;
     s.onload = function(){ resolve(); };
     s.onerror = function(){ _qrLibLoading = null; reject(new Error('qr lib failed')); };
     document.head.appendChild(s);
@@ -179,22 +181,34 @@ function buildSolanaPayUrl(){
   p.set('memo', 'OSI1|SUPPORT_SENT');
   return 'solana:' + tipCtx.wallet + '?' + p.toString();
 }
+function _payToggleLabel(open){
+  return '\u229e&nbsp; Or pay with any wallet (Solana Pay) ' + (open ? '\u25b4' : '\u25be');
+}
 function resetSolanaPay(){
   _payOpen = false;
   const box = document.getElementById('tip-pay'); if(box) box.hidden = true;
-  const tg = document.getElementById('tip-pay-toggle'); if(tg) tg.innerHTML = '\u229e&nbsp; Or pay with any wallet (Solana Pay) \u25be';
+  const tg = document.getElementById('tip-pay-toggle');
+  if(tg){ tg.innerHTML = _payToggleLabel(false); tg.setAttribute('aria-expanded','false'); }
   const qr = document.getElementById('tip-qr'); if(qr) qr.innerHTML = '';
 }
 function toggleSolanaPay(){
   _payOpen = !_payOpen;
   const box = document.getElementById('tip-pay'); if(box) box.hidden = !_payOpen;
-  const tg = document.getElementById('tip-pay-toggle'); if(tg) tg.innerHTML = _payOpen ? '\u229e&nbsp; Or pay with any wallet (Solana Pay) \u25b4' : '\u229e&nbsp; Or pay with any wallet (Solana Pay) \u25be';
+  const tg = document.getElementById('tip-pay-toggle');
+  if(tg){ tg.innerHTML = _payToggleLabel(_payOpen); tg.setAttribute('aria-expanded', _payOpen ? 'true' : 'false'); }
   if(_payOpen) renderSolanaPay();
 }
 function renderSolanaPay(){
   if(!_payOpen) return;
   const url = buildSolanaPayUrl();
   const link = document.getElementById('tip-pay-link'); if(link) link.href = url || '#';
+  // Show the recipient in full, not truncated: on a payment surface the person
+  // approving must be able to check the whole address, and the amount they are
+  // about to send, against what they expect.
+  const addr = document.getElementById('tip-pay-addr');
+  if(addr) addr.textContent = (tipCtx && tipCtx.wallet && isSolAddr(tipCtx.wallet)) ? tipCtx.wallet : '';
+  const amt = document.getElementById('tip-pay-amount');
+  if(amt) amt.textContent = (tipCtx && tipCtx.amount > 0) ? (tipCtx.amount + ' SOL') : '';
   clearTimeout(_qrTimer);
   _qrTimer = setTimeout(function(){
     const host = document.getElementById('tip-qr'); if(!host) return;
