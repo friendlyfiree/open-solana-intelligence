@@ -102,6 +102,11 @@ assert.match(verificationWorkflow, /CORE-FLOW-VERIFY-afibxpniwfnavdobecrn/);
 assert.match(verificationWorkflow, /osi-core-flow-production-smoke\.mjs --wait-seconds=310/);
 assert.match(verificationWorkflow, /diff -u \/tmp\/config-before\.txt \/tmp\/config-after\.txt/);
 assert.match(verificationWorkflow, /smoke_domain_records_committed=0/);
+assert.match(
+  verificationWorkflow,
+  /psql -v ON_ERROR_STOP=1 -v wallet="\$wallet" -Atq -f - <<'SQL'/,
+);
+assert.match(verificationWorkflow, /uses: actions\/upload-artifact@[^\n]+\n\s+if: always\(\)/);
 assert.doesNotMatch(
   verificationWorkflow,
   /supabase db push|supabase functions deploy|supabase secrets set|update public\.osi_config/i,

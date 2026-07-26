@@ -138,13 +138,14 @@ jobs:
           wallet="$(tail -n 1 /tmp/osi-core-flow-production-smoke.txt | jq -r '.wallet')"
           [ -n "$wallet" ]
           [ "$wallet" != "null" ]
-          committed="$(psql -v wallet="$wallet" -Atqc "
+          committed="$(psql -v ON_ERROR_STOP=1 -v wallet="$wallet" -Atq -f - <<'SQL'
             select
               (select count(*) from public.cases where submitted_by_wallet = :'wallet') +
               (select count(*) from public.case_reports where author_wallet = :'wallet') +
               (select count(*) from public.wire_reports where author_wallet = :'wallet') +
               (select count(*) from public.analyst_applications where applicant_wallet = :'wallet')
-          ")"
+          SQL
+          )"
           [ "$committed" = "0" ]
 
           psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
@@ -188,6 +189,7 @@ jobs:
           } > /tmp/osi-core-flow-production-verification-receipt.txt
 
       - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
+        if: always()
         with:
           name: osi-core-flow-production-verification-receipt
           path: |
