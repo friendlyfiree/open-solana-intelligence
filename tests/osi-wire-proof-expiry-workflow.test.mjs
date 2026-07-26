@@ -25,13 +25,23 @@ ok(
 ok(
   workflow.includes("supabase db push --linked --dry-run")
     && workflow.includes('[ "$got" = "$NEW_VERSION" ]')
+    && workflow.includes("if: env.MIGRATION_PENDING == 'true'")
     && workflow.includes("supabase db push --linked --yes"),
-  "rollout dry-runs and applies only the exact pending migration",
+  "rollout dry-runs and conditionally applies only the exact pending migration",
+);
+ok(
+  workflow.includes('case "$initial_ttl" in 120|300)')
+    && workflow.includes('if [ "$got" = "$before" ] && [ "$INITIAL_TTL" = "120" ]')
+    && workflow.includes('elif [ "$got" = "$after" ] && [ "$INITIAL_TTL" = "300" ]')
+    && workflow.includes('grep -Fq \'Remote database is up to date.\''),
+  "rollout resumes only from the exact already-applied migration and TTL state",
 );
 ok(
   workflow.includes("functions deploy osi-v2-wire")
+    && workflow.includes('[[ "$functions" == *"osi-v2-wire"* ]]')
+    && !/functions list[^\n]*\|\s*grep -q/.test(workflow)
     && !/functions deploy (?!osi-v2-wire)/.test(workflow),
-  "rollout deploys only the touched Wire Edge Function",
+  "rollout deploys only the touched Wire Edge Function without a pipefail false negative",
 );
 ok(
   workflow.includes("where key <> 'OSI_V2_NONCE_TTL_SECONDS'")
@@ -52,8 +62,10 @@ ok(
 );
 ok(
   workflow.includes("smoke_domain_records_committed=0")
+    && workflow.includes("migration_was_pending=${MIGRATION_PENDING}")
+    && workflow.includes("nonce_ttl_before_seconds=${INITIAL_TTL}")
     && workflow.includes("diff -u /tmp/v1-before.txt /tmp/v1-after.txt"),
-  "rollout proves prepare-only smoke and protected row isolation",
+  "rollout proves prepare-only smoke and protected row isolation with an honest resume receipt",
 );
 
 console.log(`\n${assertions} Wire proof expiry workflow checks passed.`);

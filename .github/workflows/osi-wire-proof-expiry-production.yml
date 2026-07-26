@@ -147,7 +147,9 @@ jobs:
       - name: Snapshot protected rows and configuration except the intended TTL
         run: |
           set -euo pipefail
-          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_NONCE_TTL_SECONDS'")" = "120" ]
+          initial_ttl="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_NONCE_TTL_SECONDS'")"
+          case "$initial_ttl" in 120|300) : ;; *) exit 1 ;; esac
+          echo "INITIAL_TTL=$initial_ttl" >> "$GITHUB_ENV"
           [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED'")" = "true" ]
           psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
           begin read only;
@@ -170,23 +172,38 @@ jobs:
             -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config where key <> 'OSI_V2_NONCE_TTL_SECONDS' order by key" \
             > /tmp/config-before.txt
 
-      - name: Link and require exact pre-migration history
+      - name: Link and require exact resumable history
         run: |
           set -euo pipefail
           supabase link --project-ref "$EXPECTED_PROJECT_REF"
           [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
           got="$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
-          expected="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
-          [ "$got" = "$expected" ]
+          before="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          after="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$before" ] && [ "$INITIAL_TTL" = "120" ]; then
+            echo "MIGRATION_PENDING=true" >> "$GITHUB_ENV"
+          elif [ "$got" = "$after" ] && [ "$INITIAL_TTL" = "300" ]; then
+            echo "MIGRATION_PENDING=false" >> "$GITHUB_ENV"
+          else
+            echo "::error::Production is neither the exact pre-migration nor exact resumed state."
+            exit 1
+          fi
 
-      - name: Dry-run exactly the Wire proof recovery migration
+      - name: Dry-run the exact pending or completed migration state
         run: |
           set -euo pipefail
           supabase db push --linked --dry-run 2>&1 | tee /tmp/wire-proof-dry-run.txt
-          got="$(grep -oE '20[0-9]{12}' /tmp/wire-proof-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
-          [ "$got" = "$NEW_VERSION" ]
+          versions="$(grep -oE '20[0-9]{12}' /tmp/wire-proof-dry-run.txt || true)"
+          got="$(printf '%s\n' "$versions" | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          if [ "$MIGRATION_PENDING" = "true" ]; then
+            [ "$got" = "$NEW_VERSION" ]
+          else
+            [ -z "$got" ]
+            grep -Fq 'Remote database is up to date.' /tmp/wire-proof-dry-run.txt
+          fi
 
       - name: Apply exactly the approved migration
+        if: env.MIGRATION_PENDING == 'true'
         run: supabase db push --linked --yes
 
       - name: Verify exact history, intended TTL, and configuration isolation
@@ -206,7 +223,8 @@ jobs:
         run: |
           set -euo pipefail
           supabase functions deploy osi-v2-wire --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
-          supabase functions list --project-ref "$EXPECTED_PROJECT_REF" | grep -q 'osi-v2-wire'
+          functions="$(supabase functions list --project-ref "$EXPECTED_PROJECT_REF")"
+          [[ "$functions" == *"osi-v2-wire"* ]]
 
       - name: Wait for the exact production frontend
         run: |
@@ -272,7 +290,8 @@ jobs:
             echo "project_ref=${EXPECTED_PROJECT_REF}"
             echo "commit=${GITHUB_SHA}"
             echo "migration=${NEW_VERSION}"
-            echo "nonce_ttl_before_seconds=120"
+            echo "migration_was_pending=${MIGRATION_PENDING}"
+            echo "nonce_ttl_before_seconds=${INITIAL_TTL}"
             echo "nonce_ttl_after_seconds=300"
             echo "edge_function=osi-v2-wire"
             echo "feature_flags=unchanged"
