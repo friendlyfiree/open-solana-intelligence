@@ -45,6 +45,12 @@ ok(
   "production smoke proves the gateway issues the exact five-minute proof window",
 );
 ok(
+  workflow.includes('if frontend="$(')
+    && workflow.includes('[[ "$frontend" == *"Your draft is safe; preparing a fresh proof"* ]]')
+    && !/curl[\s\S]{0,240}\|\s*grep -q 'Your draft is safe; preparing a fresh proof'/.test(workflow),
+  "frontend readiness does not turn grep's successful early exit into a pipefail false negative",
+);
+ok(
   workflow.includes("smoke_domain_records_committed=0")
     && workflow.includes("diff -u /tmp/v1-before.txt /tmp/v1-after.txt"),
   "rollout proves prepare-only smoke and protected row isolation",
