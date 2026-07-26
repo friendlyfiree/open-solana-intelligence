@@ -75,6 +75,10 @@ await rejects("Wire rejects secret material server-side", () => core.normalizeWi
   ...validPayload,
   body_private: "This detailed analysis is long enough but asks for a seed phrase and private key, which must never enter the Wire intake path.",
 }), /prohibited_secret_material/);
+await rejects("Wire rejects illegal-access material server-side", () => core.normalizeWirePayload({
+  ...validPayload,
+  body_private: "This detailed analysis is long enough but includes stolen credentials for unauthorized access, which must never enter the Wire intake path.",
+}), /prohibited_illegal_access_material/);
 await rejects("Wire rejects doxxing material server-side", () => core.normalizeWirePayload({
   ...validPayload,
   body_private: "This detailed analysis is long enough but includes a private home address for doxxing, which must never enter the Wire intake path.",
