@@ -190,7 +190,7 @@ const wirePayload = {
   content_public_safe: "Public transactions show a repeated transfer pattern.",
   body_private:
     "Public transactions show a repeated transfer pattern. This production smoke prepares a nonce only and does not commit a Wire version.",
-  evidence: [{ kind: "url", ref: SEC_URL }],
+  evidence: [],
 };
 const preparedWire = requireSuccess(
   await post("osi-v2-wire", {
@@ -199,7 +199,7 @@ const preparedWire = requireSuccess(
     wire: wirePayload,
     idempotency_key: randomId("prod-wire"),
   }),
-  "Wire SEC URL preparation",
+  "Wire empty-evidence preparation",
 );
 assert(
   preparedWire.expires_at - preparedWire.issued_at === 300,

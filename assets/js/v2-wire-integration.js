@@ -33,6 +33,7 @@
       wire_writes_disabled:'Wire submission is safely disabled while rollout checks are incomplete.',
       wire_writes_disabled_or_unavailable:'Wire submission is safely disabled or temporarily unavailable.',
       wire_report_not_available:'This Wire Report is not available to this wallet.',
+      wire_payload_rejected:'The Wire content or evidence did not pass server validation. Your draft is safe. Check the fields and evidence formats, then submit again.',
       proof_binding_rejected:'The proof expired or no longer matches this exact Wire version. Your draft is safe. Submit again to prepare a fresh proof.',
       lineage_changed_retry:'Another version advanced this Wire Report. Reload and prepare a fresh revision.',
       transaction_not_confirmed:'The Memo transaction is not confirmed yet. Retry safely with the same proof.',
@@ -190,7 +191,7 @@
       state.pending=null;state.idempotency='';form.reset();state.cacheWallet='';state.reports=[];
       if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(draftKey(wallet,state.reportRef));
       setTimeout(function(){closeWireForm();openWorkspace();},650);
-    }catch(error){status(userError(error),'error');if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0){state.pending=null;state.idempotency=randomKey();}}
+    }catch(error){status(userError(error),'error');if(['wire_payload_rejected','proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0){state.pending=null;state.idempotency=randomKey();}}
     finally{state.busy=false;button.disabled=false;button.removeAttribute('aria-busy');}
   }
   function evidenceHtml(items){if(!items||!items.length)return'';return'<div class="osi-report-evidence-list">'+items.map(function(item){return'<div class="osi-report-evidence-item"><span>#'+esc(item.ordinal)+'</span><span>'+esc(label(item.kind))+'</span><span>'+esc(item.ref)+'</span></div>';}).join('')+'</div>';}
