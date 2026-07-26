@@ -1,0 +1,196 @@
+name: OSI Core Flow Production Verification
+
+# Read-only verification plus nonce preparation. This workflow never deploys,
+# migrates, changes a feature flag, or commits a contributor record.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type CORE-FLOW-VERIFY-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-core-flow-production-verification
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  EXPECTED_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000
+
+jobs:
+  verify:
+    name: Long-session and production isolation proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "CORE-FLOW-VERIFY-${EXPECTED_PROJECT_REF}" ]
+          [ "${GITHUB_REF}" = "refs/heads/main" ]
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+
+      - name: Verify credentials, project, and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ]
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Verify migration history and aligned database validators
+        run: |
+          set -euo pipefail
+          got="$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$EXPECTED_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ]
+          validators="$(psql -Atqc "
+            select
+              osi_private.osi_v2_validate_wire_content(
+                'OSI', 'Public-safe summary.', 'Detailed public-source analysis.',
+                null, null, false
+              )::text || '|' ||
+              osi_private.osi_v2_valid_profile_expertise('[]'::jsonb)::text
+          ")"
+          [ "$validators" = "true|true" ]
+
+      - name: Snapshot protected V1 rows and every configuration value
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' \
+            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config order by key" \
+            > /tmp/config-before.txt
+
+      - name: Real production intake safety and long-session smoke
+        run: |
+          set -euo pipefail
+          deno run --allow-net tests/osi-core-flow-production-smoke.mjs --wait-seconds=310 \
+            | tee /tmp/osi-core-flow-production-smoke.txt
+          tail -n 1 /tmp/osi-core-flow-production-smoke.txt | jq -e '
+            .ok == true
+            and .signatures == 1
+            and .crossed_old_boundary_seconds == 310
+            and .committed_domain_records == 0
+            and (.wire_safety_checks | length) == 5
+          ' > /dev/null
+
+      - name: Prove smoke isolation and unchanged protected state
+        run: |
+          set -euo pipefail
+          wallet="$(tail -n 1 /tmp/osi-core-flow-production-smoke.txt | jq -r '.wallet')"
+          [ -n "$wallet" ]
+          [ "$wallet" != "null" ]
+          committed="$(psql -v wallet="$wallet" -Atqc "
+            select
+              (select count(*) from public.cases where submitted_by_wallet = :'wallet') +
+              (select count(*) from public.case_reports where author_wallet = :'wallet') +
+              (select count(*) from public.wire_reports where author_wallet = :'wallet') +
+              (select count(*) from public.analyst_applications where applicant_wallet = :'wallet')
+          ")"
+          [ "$committed" = "0" ]
+
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' \
+            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config order by key" \
+            > /tmp/config-after.txt
+          diff -u /tmp/v1-before.txt /tmp/v1-after.txt
+          diff -u /tmp/config-before.txt /tmp/config-after.txt
+
+      - name: Write verification receipt
+        run: |
+          {
+            echo "project_ref=${EXPECTED_PROJECT_REF}"
+            echo "commit=${GITHUB_SHA}"
+            echo "migration_history=verified_21"
+            echo "edge_functions=unchanged"
+            echo "feature_flags=unchanged"
+            echo "secrets=unchanged"
+            echo "config=unchanged"
+            echo "protected_v1_counts=unchanged"
+            echo "smoke_domain_records_committed=0"
+            echo "read_session_signatures=1"
+            echo "read_session_boundary_seconds=310"
+            echo "wire_safety_checks=payment_card,secret_material,illegal_access,doxxing,https_only"
+          } > /tmp/osi-core-flow-production-verification-receipt.txt
+
+      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
+        with:
+          name: osi-core-flow-production-verification-receipt
+          path: |
+            /tmp/osi-core-flow-production-verification-receipt.txt
+            /tmp/osi-core-flow-production-smoke.txt
+          retention-days: 30

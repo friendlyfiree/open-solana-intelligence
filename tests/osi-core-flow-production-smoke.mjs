@@ -211,16 +211,57 @@ assert(
   refusedWire.error === "prohibited_personal_data",
   `test card was not refused by Wire validation: ${JSON.stringify(refusedWire)}`,
 );
+for (const [name, bodyPrivate, expectedError] of [
+  [
+    "secret material",
+    "This detailed analysis is long enough but asks for a seed phrase and private key.",
+    "prohibited_secret_material",
+  ],
+  [
+    "illegal-access material",
+    "This detailed analysis includes stolen credentials for unauthorized access.",
+    "prohibited_illegal_access_material",
+  ],
+  [
+    "doxxing material",
+    "This detailed analysis includes a private home address for doxxing.",
+    "prohibited_personal_data",
+  ],
+]) {
+  const refused = await post("osi-v2-wire", {
+    op: "prepare_wire",
+    wallet,
+    wire: { ...wirePayload, body_private: bodyPrivate },
+    idempotency_key: randomId(`prod-wire-${name.replaceAll(" ", "-")}`),
+  }, 400);
+  assert(
+    refused.error === expectedError,
+    `${name} was not refused by Wire validation: ${JSON.stringify(refused)}`,
+  );
+}
+const refusedHttpWire = await post("osi-v2-wire", {
+  op: "prepare_wire",
+  wallet,
+  wire: { ...wirePayload, evidence: [{ kind: "url", ref: "http://example.com/evidence" }] },
+  idempotency_key: randomId("prod-wire-http"),
+}, 400);
+assert(
+  refusedHttpWire.error === "evidence URL is invalid",
+  `non-HTTPS evidence was not refused by Wire validation: ${JSON.stringify(refusedHttpWire)}`,
+);
 
 const xHandle = `osi_smoke_${randomId("").replaceAll("-", "").slice(0, 4)}`;
+assert(/^[a-z0-9_]{2,15}$/.test(xHandle), "smoke X handle does not match the application contract");
 requireSuccess(
   await post("osi-v2-analyst", {
     op: "prepare_application",
     wallet,
-    x_handle: xHandle,
-    display_name: "OSI smoke",
-    bio: "Independent public-source analyst.",
-    experience: "I trace public transactions and document reproducible findings.",
+    application: {
+      x_handle: xHandle,
+      display_name: "OSI smoke",
+      bio: "Independent public-source analyst.",
+      experience: "I trace public transactions and document reproducible findings.",
+    },
     idempotency_key: randomId("prod-analyst"),
   }),
   "minimal analyst application preparation",
@@ -248,11 +289,13 @@ await assertPrivateConsumers(wallet, renewed.read_session, "renewed session");
 console.log(JSON.stringify({
   ok: true,
   project_ref: PROJECT_REF,
+  wallet,
   eligible_case: eligibleCase.public_ref,
   idle_ttl_seconds: created.ttl_seconds,
   absolute_ttl_seconds: created.absolute_expires_at - created.issued_at,
   signatures: signatureCount,
   crossed_old_boundary_seconds: waitSeconds,
   prepared_only: ["case", "report", "wire", "analyst_application"],
+  wire_safety_checks: ["payment_card", "secret_material", "illegal_access", "doxxing", "https_only"],
   committed_domain_records: 0,
 }));
