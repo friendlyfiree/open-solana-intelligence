@@ -581,6 +581,7 @@ WIRE_MEMO="OSI2 test WIRE_REPORT_VERSION_SUBMITTED concurrency v1"
 WIRE_C1_OUT="$WORKDIR/wire-conn1.out"
 WIRE_C2_OUT="$WORKDIR/wire-conn2.out"
 WIRE_HOLD_MARKER="$WORKDIR/wire-conn1-holding.marker"
+WIRE_C2_STARTED="$WORKDIR/wire-conn2-started.marker"
 
 psql_run >/dev/null <<SQL
 update public.osi_config set value = 'true' where key = 'OSI_V2_WIRE_WRITES_ENABLED';
@@ -605,7 +606,7 @@ begin;
 $WIRE_COMMIT_SQL
 \g $WIRE_C1_OUT
 \! touch $WIRE_HOLD_MARKER
-select pg_sleep(3);
+select pg_sleep(6);
 commit;
 SQL
 WIRE_CONN1_PID=$!
@@ -625,18 +626,39 @@ psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q <<SQL >/dev/null 2>&1 &
 \pset tuples_only on
 \pset format unaligned
 begin;
+\! touch $WIRE_C2_STARTED
 $WIRE_COMMIT_SQL
 \g $WIRE_C2_OUT
 commit;
 SQL
 WIRE_CONN2_PID=$!
 
-sleep 1
-WIRE_RACE_WAITERS="$(psql_run -c "
-  select count(*) from pg_stat_activity
-   where wait_event_type = 'Lock'
-     and query ilike '%osi_v2_commit_wire_version%';")"
-if [ "${WIRE_RACE_WAITERS:-0}" -ge 1 ]; then
+waited=0
+while [ ! -f "$WIRE_C2_STARTED" ]; do
+  sleep 0.1
+  waited=$((waited + 1))
+  if [ "$waited" -gt 100 ]; then
+    fail "Wire connection 2 never reached the commit call"
+    break
+  fi
+done
+
+WIRE_BLOCKED=0
+for _ in $(seq 1 30); do
+  WIRE_RACE_WAITERS="$(psql_run -c "
+    select count(*) from pg_stat_activity
+     where wait_event_type = 'Lock'
+       and query ilike '%osi_v2_commit_wire_version%';")"
+  if [ "${WIRE_RACE_WAITERS:-0}" -ge 1 ]; then
+    WIRE_BLOCKED=1
+    break
+  fi
+  if ! kill -0 "$WIRE_CONN2_PID" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+if [ "$WIRE_BLOCKED" = "1" ]; then
   pass "second Wire commit genuinely blocked on the exact nonce or lineage lock"
 else
   fail "second Wire commit did not block on a lock"
