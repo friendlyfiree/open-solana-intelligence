@@ -32,6 +32,7 @@ const expectedFiles = [
   '20260725120000_osi_v2_sas_enforcement.sql',
   '20260725140000_osi_v2_service_role_execute_grants.sql',
   '20260726173000_osi_core_flow_validator_alignment.sql',
+  '20260726185457_wire_proof_expiry_recovery.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -56,6 +57,8 @@ const wirePhase2 = sqlByFile['20260718130000_osi_v2_wire_phase2.sql'] || '';
 const aiPackPhase1 = sqlByFile['20260718140000_osi_v2_ai_pack_phase1.sql'] || '';
 const coreFlowValidatorAlignment =
   sqlByFile['20260726173000_osi_core_flow_validator_alignment.sql'] || '';
+const wireProofExpiryRecovery =
+  sqlByFile['20260726185457_wire_proof_expiry_recovery.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -171,6 +174,13 @@ ok(
     && coreFlowValidatorAlignment.includes('p_revision_reason_code not in')
     && coreFlowValidatorAlignment.includes('revoke all privileges')
     && !/update\s+public\.osi_config|insert\s+into\s+public\.osi_config/i.test(coreFlowValidatorAlignment),
+);
+ok(
+  'Wire proof recovery uses the accepted five-minute Stage-5 upper bound without changing a feature gate',
+  wireProofExpiryRecovery.includes("where config.key = 'OSI_V2_NONCE_TTL_SECONDS'")
+    && wireProofExpiryRecovery.includes("set value = '300'")
+    && wireProofExpiryRecovery.includes('current_ttl::integer not between 30 and 300')
+    && !/OSI_V2_[A-Z_]*WRITES_ENABLED'\s*,?\s*'true/i.test(wireProofExpiryRecovery),
 );
 
 ok(

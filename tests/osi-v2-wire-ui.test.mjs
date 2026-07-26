@@ -150,6 +150,17 @@ ok("review, publication, and challenge controls honor the dedicated write capabi
   source.includes("caps.review_enabled===true")
     && source.includes("caps.publication_enabled===true")
     && source.includes("caps.challenge_enabled===true"));
+ok("Wire submission reuses only a proof with enough human approval time remaining",
+  context.OSIWireUI.pendingProofUsable({
+    preparedAt: 1_000_000,
+    prepared: { issued_at: 1_000, expires_at: 1_300 },
+  }, 1_269_000) === true
+    && context.OSIWireUI.pendingProofUsable({
+      preparedAt: 1_000_000,
+      prepared: { issued_at: 1_000, expires_at: 1_300 },
+    }, 1_270_000) === false
+    && source.includes("Your draft is safe; preparing a fresh proof")
+    && source.includes("state.pending.wallet!==wallet"));
 ok("Wire detail tabs expose keyboard tab semantics",
   source.includes("setAttribute('role','tablist')")
     && source.includes('role="tab"')

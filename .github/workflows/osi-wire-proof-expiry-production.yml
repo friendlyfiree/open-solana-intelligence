@@ -1,0 +1,285 @@
+name: OSI Wire Proof Expiry Recovery Production
+
+# One exact configuration migration, one task-scoped Edge Function, and the
+# matching static frontend. The five-minute Stage-5 window remains single-use,
+# actor/target/payload-bound, and within the accepted 30..300 second range.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type WIRE-PROOF-RECOVERY-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-wire-proof-expiry-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  NEW_VERSION: "20260726185457"
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean-room Wire proof recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "WIRE-PROOF-RECOVERY-${EXPECTED_PROJECT_REF}" ]
+          [ "${GITHUB_REF}" = "refs/heads/main" ]
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Full application and type battery
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          mapfile -t deno_sources < <(
+            find supabase/functions -type f \( -path '*/index.ts' -o -path '*/_shared/*.ts' -o -path '*/_shared/*.mjs' \) | sort
+          )
+          deno check "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
+
+      - name: Fresh PostgreSQL 17 migration lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ]
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard disposable local database
+        if: always()
+        run: supabase stop --no-backup
+
+  migrate-deploy-smoke:
+    name: Exact migration, Wire deploy, and production proof
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Verify credentials, project, and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ]
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot protected rows and configuration except the intended TTL
+        run: |
+          set -euo pipefail
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_NONCE_TTL_SECONDS'")" = "120" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED'")" = "true" ]
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' \
+            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config where key <> 'OSI_V2_NONCE_TTL_SECONDS' order by key" \
+            > /tmp/config-before.txt
+
+      - name: Link and require exact pre-migration history
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          got="$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ]
+
+      - name: Dry-run exactly the Wire proof recovery migration
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/wire-proof-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/wire-proof-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ]
+
+      - name: Apply exactly the approved migration
+        run: supabase db push --linked --yes
+
+      - name: Verify exact history, intended TTL, and configuration isolation
+        run: |
+          set -euo pipefail
+          got="$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_NONCE_TTL_SECONDS'")" = "300" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED'")" = "true" ]
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' \
+            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config where key <> 'OSI_V2_NONCE_TTL_SECONDS' order by key" \
+            > /tmp/config-after.txt
+          diff -u /tmp/config-before.txt /tmp/config-after.txt
+
+      - name: Deploy only the touched Wire Edge Function
+        run: |
+          set -euo pipefail
+          supabase functions deploy osi-v2-wire --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions list --project-ref "$EXPECTED_PROJECT_REF" | grep -q 'osi-v2-wire'
+
+      - name: Wait for the exact production frontend
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl -sS --fail --max-time 30 \
+              "${PRODUCTION_WEB_URL}/assets/js/v2-wire-integration.js?commit=${GITHUB_SHA}" \
+              | grep -q 'Your draft is safe; preparing a fresh proof'; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Production frontend did not reach the exact merged Wire recovery."
+          exit 1
+
+      - name: Real production prepare-only proof
+        run: deno run --allow-net tests/osi-core-flow-production-smoke.mjs
+
+      - name: Prove protected rows remain unchanged
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          diff -u /tmp/v1-before.txt /tmp/v1-after.txt
+
+      - name: Fail closed after a rollout or smoke failure
+        if: ${{ failure() }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PGHOST:-}" ] || [ -z "${PGUSER:-}" ]; then
+            echo "No production database session was established."
+            exit 0
+          fi
+          psql -v ON_ERROR_STOP=1 -Atq -c "
+            update public.osi_config
+               set value='false', updated_at=statement_timestamp()
+             where key='OSI_V2_WIRE_WRITES_ENABLED' and value='true';"
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED'")" = "false" ]
+          echo "Wire writes were disabled; immutable rows were retained for a forward fix."
+
+      - name: Write deployment receipt
+        run: |
+          mkdir -p deployment-receipt
+          {
+            echo "project_ref=${EXPECTED_PROJECT_REF}"
+            echo "commit=${GITHUB_SHA}"
+            echo "migration=${NEW_VERSION}"
+            echo "nonce_ttl_before_seconds=120"
+            echo "nonce_ttl_after_seconds=300"
+            echo "edge_function=osi-v2-wire"
+            echo "feature_flags=unchanged"
+            echo "existing_domain_rows=unchanged"
+            echo "smoke_domain_records_committed=0"
+            echo "rollback=disable_wire_flag_and_forward-fix_ttl"
+          } > deployment-receipt/osi-wire-proof-expiry-production.txt
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: osi-wire-proof-expiry-production-${{ github.sha }}
+          path: deployment-receipt/osi-wire-proof-expiry-production.txt
+          retention-days: 30

@@ -335,6 +335,7 @@ async function prepareWire(req: Request, body: Row): Promise<Response> {
     nonce: issued.issued_nonce,
     payload_hash: issued.payload_hash,
     memo: canonicalWireMemo(binding),
+    issued_at: binding.issued_at,
     expires_at: binding.expires_at,
     idempotent_replay: issued.idempotent_replay === true,
   });
