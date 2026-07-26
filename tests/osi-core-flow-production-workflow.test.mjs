@@ -19,6 +19,17 @@ const alignmentMigration = fs.readFileSync(
   ),
   "utf8",
 );
+const verificationWorkflow = fs.readFileSync(
+  new URL(
+    "../.github/workflows/osi-core-flow-production-verification.yml",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const productionSmoke = fs.readFileSync(
+  new URL("./osi-core-flow-production-smoke.mjs", import.meta.url),
+  "utf8",
+);
 
 assert.match(workflow, /^name: OSI Core Flow Repair Production/m);
 assert.match(workflow, /^\s{2}workflow_dispatch:/m);
@@ -83,5 +94,23 @@ assert.match(
 assert.match(alignmentMigration, /char_length\(p_body_private\) not between 20 and 100000/);
 assert.match(alignmentMigration, /jsonb_array_length\(value\) between 0 and 6/);
 assert.doesNotMatch(alignmentMigration, /update public\.osi_config/i);
+
+assert.match(verificationWorkflow, /^name: OSI Core Flow Production Verification/m);
+assert.match(verificationWorkflow, /^\s{2}workflow_dispatch:/m);
+assert.doesNotMatch(verificationWorkflow, /^\s{2}(push|pull_request|schedule):/m);
+assert.match(verificationWorkflow, /CORE-FLOW-VERIFY-afibxpniwfnavdobecrn/);
+assert.match(verificationWorkflow, /osi-core-flow-production-smoke\.mjs --wait-seconds=310/);
+assert.match(verificationWorkflow, /diff -u \/tmp\/config-before\.txt \/tmp\/config-after\.txt/);
+assert.match(verificationWorkflow, /smoke_domain_records_committed=0/);
+assert.doesNotMatch(
+  verificationWorkflow,
+  /supabase db push|supabase functions deploy|supabase secrets set|update public\.osi_config/i,
+);
+
+assert.match(productionSmoke, /op: "prepare_application",\s+wallet,\s+application: \{/);
+assert.match(
+  productionSmoke,
+  /wire_safety_checks: \["payment_card", "secret_material", "illegal_access", "doxxing", "https_only"\]/,
+);
 
 console.log("OSI core-flow production workflow contract passed.");
