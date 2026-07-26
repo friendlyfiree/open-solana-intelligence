@@ -5,7 +5,7 @@
   var WRITE_URL=SUPABASE_URL+'/functions/v1/osi-v2-report-write';
   var READ_URL=SUPABASE_URL+'/functions/v1/osi-v2-report-read';
   var state={
-    caseRef:'',isRevision:false,idempotency:'',pending:null,returnFocus:null,
+    caseRef:'',isRevision:false,idempotency:'',pending:null,returnFocus:null,drawerWasOpen:false,
     cacheWallet:'',myReports:[],sectionContext:null,busy:false,
     reviewPending:{},publicationPending:{},queueMode:''
   };
@@ -18,16 +18,50 @@
     return' <span class="osi-chip warning" data-sas-authority="excluded">'+
       (pending?'Not counted: SAS credential not confirmed':'Not counted: no valid SAS credential')+'</span>';
   }
-  function clearSessionState(){
-    state.cacheWallet='';state.myReports=[];state.pending=null;state.idempotency='';
+  function draftKey(wallet,caseRef){return'report:'+String(wallet||'')+':'+String(caseRef||'');}
+  function saveDraft(){
+    if(!state.caseRef||!walletPubkey||typeof window.osiV2SaveDraft!=='function')return;
+    window.osiV2SaveDraft(draftKey(walletPubkey,state.caseRef),{
+      report:payload(),safety:!!document.getElementById('osi-report-safety').checked
+    });
+  }
+  function restoreDraft(wallet,caseRef){
+    if(typeof window.osiV2LoadDraft!=='function')return false;
+    var saved=window.osiV2LoadDraft(draftKey(wallet,caseRef));if(!saved||!saved.report)return false;
+    document.getElementById('osi-report-narrative').value=saved.report.body_private||'';
+    document.getElementById('osi-report-summary').value=saved.report.content_public_safe||'';
+    var by={wallet:[],onchain_tx:[],url:[]};(saved.report.evidence||[]).forEach(function(item){if(by[item.kind])by[item.kind].push(item.ref);});
+    document.getElementById('osi-report-wallets').value=by.wallet.join('\n');
+    document.getElementById('osi-report-transactions').value=by.onchain_tx.join('\n');
+    document.getElementById('osi-report-urls').value=by.url.join('\n');
+    document.getElementById('osi-report-revision-reason').value=saved.report.revision_reason_code||'';
+    document.getElementById('osi-report-safety').checked=saved.safety===true;return true;
+  }
+  function workspaceDraftKey(wallet){return'report-review:'+String(wallet||'');}
+  function saveWorkspaceDraft(){
+    if(state.queueMode!=='queue'||!walletPubkey||typeof window.osiV2SaveDraft!=='function')return;
+    var values={};document.querySelectorAll('#field-cases input[id^="osi-review-"],#field-cases select[id^="osi-review-"],#field-cases textarea[id^="osi-review-"]').forEach(function(node){values[node.id]=node.value;});
+    if(Object.keys(values).length)window.osiV2SaveDraft(workspaceDraftKey(walletPubkey),values);
+  }
+  function restoreWorkspaceDraft(){
+    if(state.queueMode!=='queue'||typeof window.osiV2LoadDraft!=='function')return;
+    var values=window.osiV2LoadDraft(workspaceDraftKey(walletPubkey))||{};
+    Object.keys(values).forEach(function(id){var node=document.getElementById(id);if(node)node.value=values[id];});
+  }
+  function clearSessionState(reason){
+    var preserve=reason==='expiry'||reason==='explicit_refresh';
+    var privateWorkspace=!!state.queueMode;
+    if(preserve&&privateWorkspace)saveWorkspaceDraft();
+    state.cacheWallet='';state.myReports=[];
     state.reviewPending={};state.publicationPending={};state.queueMode='';
-    state.returnFocus=null;
-    var form=document.getElementById('osi-report-form');if(form)form.reset();
-    var modal=document.getElementById('osi-report-modal');if(modal)modal.classList.remove('open');
-    syncBodyLock();status('');
+    if(!preserve){
+      state.pending=null;state.idempotency='';state.returnFocus=null;
+      var form=document.getElementById('osi-report-form');if(form)form.reset();
+      closeReportForm();status('');
+    }
     if(document.body&&document.body.dataset.view==='field'){
       var host=document.getElementById('field-cases');
-      if(host)host.innerHTML='<div class="osi-v2-empty"><b>Report workspace locked</b><span>Unlock the shared five-minute private read session to continue.</span></div>';
+      if(host&&privateWorkspace)host.innerHTML='<div class="osi-v2-empty"><b>Report workspace locked</b><span>Unlock the bounded private working session to continue. Active sessions renew silently.</span></div>';
     }
   }
 
@@ -78,7 +112,7 @@
       ,bad_signature:'The wallet signature did not verify for this exact Report review.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
-      ,read_session_expired:'Your five-minute private read session expired. Refresh it explicitly to continue.'
+      ,read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; your draft is preserved.'
       ,read_session_wrong_origin:'This private session belongs to a different site origin.'
       ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
       ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
@@ -148,16 +182,20 @@
       var revision=document.getElementById('osi-report-revision-wrap');
       var reason=document.getElementById('osi-report-revision-reason');
       revision.hidden=!state.isRevision;reason.required=state.isRevision;
+      restoreDraft(wallet,caseRef);
       var context=document.getElementById('osi-report-context');
       context.textContent=state.isRevision
         ? caseRef+' · Revision of '+existing.report_public_ref+' · Next version '+(Number(existing.current_version_no)+1)
         : caseRef+' · Initial immutable version 1';
+      var drawer=document.getElementById('osi-case-drawer');state.drawerWasOpen=!!(drawer&&!drawer.hidden);
+      if(state.drawerWasOpen)drawer.hidden=true;
       var modal=document.getElementById('osi-report-modal');modal.classList.add('open');syncBodyLock();status('');
       setTimeout(function(){document.getElementById('osi-report-narrative').focus();},40);
     }catch(error){status('');if(typeof showToast==='function')showToast(userError(error));if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;}
   }
   function closeReportForm(){
     var modal=document.getElementById('osi-report-modal');if(modal)modal.classList.remove('open');syncBodyLock();
+    var drawer=document.getElementById('osi-case-drawer');if(state.drawerWasOpen&&drawer)drawer.hidden=false;state.drawerWasOpen=false;syncBodyLock();
     if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;
   }
 
@@ -210,10 +248,13 @@
       status('Version '+committed.version_no+' is submitted with a server-verified Solana Memo receipt.','success');
       if(typeof showToast==='function')showToast(committed.report_public_ref+' version '+committed.version_no+' is Memo-anchored on Solana.');
       state.pending=null;state.idempotency='';form.reset();state.cacheWallet='';state.myReports=[];
+      if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(draftKey(wallet,state.caseRef));
+      if(state.drawerWasOpen&&typeof window.osiV2CloseCase==='function')window.osiV2CloseCase();
+      state.drawerWasOpen=false;state.returnFocus=null;syncBodyLock();
       setTimeout(function(){closeReportForm();openReportWorkspace('mine');},650);
     }catch(error){
       status(userError(error),'error');
-      if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0){state.pending=null;state.idempotency=randomKey();}
+      if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0){state.pending=null;state.idempotency=randomKey();}
     }finally{state.busy=false;button.disabled=false;button.removeAttribute('aria-busy');}
   }
 
@@ -331,6 +372,7 @@
       queueStatus(versionRef,'Verifying signer, eligibility, immutable target, weight snapshot and replay binding...');
       var committed=await api(WRITE_URL,{op:'commit_review',wallet:wallet,review:review,nonce:pending.prepared.nonce,message:pending.prepared.message,signature:pending.signature});
       delete state.reviewPending[versionRef];queueStatus(versionRef,'Review recorded at '+Number(committed.weight).toFixed(2)+' weight.','success');
+      if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(workspaceDraftKey(wallet));
       if(typeof showToast==='function')showToast(committed.decision+' review is wallet-signed and server-verified.');
       setTimeout(function(){openReportWorkspace('queue');},500);
     }catch(error){queueStatus(versionRef,userError(error),'error');if(['proof_binding_rejected','bad_signature','lineage_changed_retry'].indexOf(String(error.message))>=0)delete state.reviewPending[versionRef];}
@@ -384,6 +426,7 @@
       var result=mode==='mine'?await sessionRead('report:mine','list_my_reports'):await sessionRead('report:review','list_review_queue');
       if(mode==='mine'){state.cacheWallet=String(walletPubkey||'');state.myReports=result.reports||[];}
       drawWorkspace(result.reports||[],mode,result.next_prerequisite||'');
+      restoreWorkspaceDraft();
     }catch(error){
       setWorkspaceCopy(mode,0);
       if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Report workspace locked</b><span>'+esc(userError(error))+'</span><button class="osi-report-action" type="button" onclick="'+(refresh?('osiV2RefreshReportWorkspace(\''+esc(mode)+'\')'):(mode==='mine'?'osiV2OpenMyReports()':'osiV2OpenReportQueue()'))+'">'+(refresh?'Refresh private access':'Try again')+'</button></div>';}
@@ -414,5 +457,9 @@
   window.osiV2OpenMyReports=function(){openReportWorkspace('mine');};
   window.osiV2OpenReportQueue=function(){openReportWorkspace('queue');};
   window.osiV2RefreshReportWorkspace=function(mode){var scope=mode==='queue'?'report:review':'report:mine';return window.osiV2RefreshReadSession([scope]).then(function(){return openReportWorkspace(mode==='queue'?'queue':'mine');});};
+  var reportDraftForm=document.getElementById('osi-report-form');
+  if(reportDraftForm){reportDraftForm.addEventListener('input',saveDraft);reportDraftForm.addEventListener('change',saveDraft);}
+  var reportWorkspace=document.getElementById('field-cases');
+  if(reportWorkspace){reportWorkspace.addEventListener('input',saveWorkspaceDraft);reportWorkspace.addEventListener('change',saveWorkspaceDraft);}
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('reports',clearSessionState);
 })();

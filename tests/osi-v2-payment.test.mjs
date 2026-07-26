@@ -82,7 +82,8 @@ ok("exact 9-decimal SOL converts without float math", () => {
   assert.equal(formatLamportsAsSol("1000000001"), "1.000000001");
 });
 ok("only the canonical Solana mainnet genesis is accepted", () => {
-  assert.equal(isSolanaMainnetGenesis("5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"), true);
+  assert.equal(isSolanaMainnetGenesis("5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"), true);
+  assert.equal(isSolanaMainnetGenesis("5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"), false);
   assert.equal(isSolanaMainnetGenesis("EtWTRABZaYq6iMfeYKouRu166VU2xqa1"), false);
 });
 ok("payment target normalization accepts OSI refs and analyst wallets", () => {

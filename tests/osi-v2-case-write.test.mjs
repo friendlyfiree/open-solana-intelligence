@@ -82,6 +82,14 @@ const validPayload = {
 const normalized = core.normalizeCasePayload(validPayload);
 ok("valid Case payload is normalized", normalized.title === validPayload.title
   && normalized.evidence.length === 3);
+const minimalCase = core.normalizeCasePayload({
+  title: "DEX", summary_public: "Public flow", evidence: [],
+});
+ok("Case intake requires only title and public-safe summary",
+  minimalCase.category === "other"
+    && minimalCase.details_restricted === ""
+    && minimalCase.reward_intent_lamports === null
+    && minimalCase.evidence.length === 0);
 throws("secret material language is blocked server-side", () => core.normalizeCasePayload({
   ...validPayload,
   details_restricted: "Here is my seed phrase and recovery phrase for the wallet incident.",

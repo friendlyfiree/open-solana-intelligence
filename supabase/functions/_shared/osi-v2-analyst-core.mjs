@@ -56,22 +56,28 @@ export function normalizeApplicationPayload(value, avatar = null) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("application is invalid");
   }
-  const handle = text(value.handle, "handle", 2, 32).toLowerCase();
-  if (!/^[a-z0-9_]{2,32}$/.test(handle)) throw new TypeError("handle is invalid");
-  const displayName = text(value.display_name, "display_name", 2, 80);
-  const bio = text(value.bio, "bio", 20, 600);
-  const expertise = [...new Set(cleanArray(value.expertise, "expertise", 6).map((item) => text(item, "expertise", 2, 32)))].sort();
-  if (!expertise.length || expertise.some((item) => !EXPERTISE.has(item))) {
+  const xHandle = text(value.x_handle, "x_handle", 2, 16).replace(/^@/, "").toLowerCase();
+  if (!/^[a-z0-9_]{2,15}$/.test(xHandle)) throw new TypeError("x_handle is invalid");
+  const handle = xHandle;
+  const displayName = text(value.display_name || "@" + xHandle, "display_name", 2, 80);
+  const bio = text(value.bio, "bio", 10, 600);
+  const expertise = [...new Set(cleanArray(value.expertise ?? [], "expertise", 6).map((item) => text(item, "expertise", 2, 32)))].sort();
+  if (expertise.some((item) => !EXPERTISE.has(item))) {
     throw new TypeError("expertise is invalid");
   }
-  const links = cleanArray(value.links ?? [], "links", 5).map((item) => {
+  const suppliedLinks = cleanArray(value.links ?? [], "links", 4).map((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) throw new TypeError("link is invalid");
     const label = text(item.label, "link label", 1, 40);
     if (!/^[A-Za-z0-9 ._/-]+$/.test(label)) throw new TypeError("link label is invalid");
     return { label, url: safeHttpsUrl(item.url) };
   });
-  const motivation = text(value.motivation, "motivation", 80, 3000);
-  const experience = text(value.experience, "experience", 40, 3000);
+  const links = [
+    { label: "X / Twitter", url: "https://x.com/" + xHandle },
+    ...suppliedLinks.filter((item) => item.url !== "https://x.com/" + xHandle),
+  ];
+  const motivation = typeof value.motivation === "string" ? value.motivation.trim() : "";
+  if (motivation.length > 3000) throw new TypeError("motivation is invalid");
+  const experience = text(value.experience, "experience", 10, 3000);
   const proofUrls = cleanArray(value.proof_urls ?? [], "proof_urls", 5).map(safeHttpsUrl);
   if (secretMaterial([bio, motivation, experience, ...proofUrls].join("\n"))) {
     throw new TypeError("prohibited_secret_material");
@@ -91,7 +97,8 @@ export function normalizeApplicationPayload(value, avatar = null) {
       avatar: avatarBinding,
     },
     application: {
-      motivation,
+      x_handle: xHandle,
+      motivation: motivation || null,
       experience,
       proof_urls: proofUrls,
     },

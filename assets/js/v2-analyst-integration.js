@@ -45,7 +45,7 @@
       concurrent_retry:'Another operation changed this record. Refresh and try again.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
-      ,read_session_expired:'Your five-minute private read session expired. Refresh it explicitly to continue.'
+      ,read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; your draft is preserved.'
       ,read_session_wrong_origin:'This private session belongs to a different site origin.'
       ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
       ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
@@ -195,7 +195,7 @@
   }
   function renderWorkspace(){
     var host=document.getElementById('identity-body');if(!host)return;
-    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>Private application history uses the shared five-minute wallet-authenticated read session.</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Refresh data</button></header>'+workspaceNav()+'<main><section id="osi-workspace-panel-profile" role="tabpanel" aria-labelledby="osi-workspace-tab-profile" data-workspace-panel="profile"'+(state.workspaceTab==='profile'?'':' hidden')+'>'+profilePane()+'</section><section id="osi-workspace-panel-applications" role="tabpanel" aria-labelledby="osi-workspace-tab-applications" data-workspace-panel="applications"'+(state.workspaceTab==='applications'?'':' hidden')+'>'+applicationPane()+'</section></main></div>';
+    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>One wallet signature starts a bounded private working session that renews silently while you are active.</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Refresh data</button></header>'+workspaceNav()+'<main><section id="osi-workspace-panel-profile" role="tabpanel" aria-labelledby="osi-workspace-tab-profile" data-workspace-panel="profile"'+(state.workspaceTab==='profile'?'':' hidden')+'>'+profilePane()+'</section><section id="osi-workspace-panel-applications" role="tabpanel" aria-labelledby="osi-workspace-tab-applications" data-workspace-panel="applications"'+(state.workspaceTab==='applications'?'':' hidden')+'>'+applicationPane()+'</section></main></div>';
     host.querySelectorAll('[data-workspace-tab]').forEach(function(button){button.addEventListener('click',function(){setWorkspaceTab(button.dataset.workspaceTab,false);});button.addEventListener('keydown',workspaceTabKeydown);});
   }
   function showNativeWorkspaceView(){
@@ -210,11 +210,25 @@
   }
 
   function setApplicationStatus(text,kind){var node=document.getElementById('an-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
+  function applicationDraftKey(wallet){return'analyst-application:'+String(wallet||'');}
+  function applicationDraft(){
+    var checked=Array.prototype.map.call(document.querySelectorAll('input[name="an-expertise"]:checked'),function(box){return box.value;});
+    return{x_handle:(document.getElementById('an-x-handle')||{}).value||'',display_name:(document.getElementById('an-name')||{}).value||'',bio:(document.getElementById('an-bio')||{}).value||'',motivation:(document.getElementById('an-motivation')||{}).value||'',experience:(document.getElementById('an-experience')||{}).value||'',proof:(document.getElementById('an-proof')||{}).value||'',link_label:(document.getElementById('an-link-label')||{}).value||'',link_url:(document.getElementById('an-link-url')||{}).value||'',expertise:checked};
+  }
+  function saveApplicationDraft(){if(walletPubkey&&typeof window.osiV2SaveDraft==='function')window.osiV2SaveDraft(applicationDraftKey(walletPubkey),applicationDraft());}
+  function restoreApplicationDraft(wallet){
+    if(typeof window.osiV2LoadDraft!=='function')return false;var draft=window.osiV2LoadDraft(applicationDraftKey(wallet));if(!draft)return false;
+    var values={'an-x-handle':draft.x_handle,'an-name':draft.display_name,'an-bio':draft.bio,'an-motivation':draft.motivation,'an-experience':draft.experience,'an-proof':draft.proof,'an-link-label':draft.link_label,'an-link-url':draft.link_url};
+    Object.keys(values).forEach(function(id){var node=document.getElementById(id);if(node&&values[id]!=null)node.value=values[id];});
+    document.querySelectorAll('input[name="an-expertise"]').forEach(function(box){box.checked=(draft.expertise||[]).indexOf(box.value)!==-1;});return true;
+  }
   function prefillApplication(){
     var profile=state.workspace&&state.workspace.profile,application=latestApplication(),version=latestVersion(application),details=version&&version.details_restricted||{};
-    var values={'an-handle':profile&&profile.handle,'an-name':profile&&profile.display_name,'an-bio':profile&&profile.bio,'an-motivation':details.motivation,'an-experience':details.experience,'an-proof':(details.proof_urls||[]).join('\n')};
+    var xLink=(profile&&profile.links_public||[]).find(function(item){return item&&item.label==='X / Twitter';});
+    var xHandle=details.x_handle||(xLink&&String(xLink.url||'').split('/').filter(Boolean).pop())||profile&&profile.handle||'';
+    var values={'an-x-handle':xHandle?'@'+String(xHandle).replace(/^@/,''):'','an-handle':profile&&profile.handle,'an-name':profile&&profile.display_name,'an-bio':profile&&profile.bio,'an-motivation':details.motivation,'an-experience':details.experience,'an-proof':(details.proof_urls||[]).join('\n')};
     Object.keys(values).forEach(function(id){var node=document.getElementById(id);if(node)node.value=values[id]||'';});
-    var link=profile&&profile.links_public&&profile.links_public[0];var ll=document.getElementById('an-link-label'),lu=document.getElementById('an-link-url');if(ll)ll.value=link&&link.label||'';if(lu)lu.value=link&&link.url||'';
+    var link=(profile&&profile.links_public||[]).find(function(item){return item&&item.label!=='X / Twitter';});var ll=document.getElementById('an-link-label'),lu=document.getElementById('an-link-url');if(ll)ll.value=link&&link.label||'';if(lu)lu.value=link&&link.url||'';
     var expertise=profile&&profile.expertise_public||version&&version.expertise_public||[];document.querySelectorAll('input[name="an-expertise"]').forEach(function(box){box.checked=expertise.indexOf(box.value)!==-1;});
     var title=document.getElementById('osi-application-title');if(title)title.textContent=application?'Submit immutable application version '+(Number(version&&version.version_no||0)+1):'Create your analyst profile';
   }
@@ -222,8 +236,8 @@
     try{
       var wallet=await ensureWallet();
       if(!state.workspace||state.workspaceWallet!==wallet){state.workspace=await sessionRead('analyst:workspace','my_workspace');state.workspaceWallet=wallet;}
-      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();setApplicationStatus('');
-      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');document.body.style.overflow='hidden';setTimeout(function(){var target=document.getElementById('an-handle');if(target)target.focus();},50);
+      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();restoreApplicationDraft(wallet);setApplicationStatus('');
+      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');document.body.style.overflow='hidden';setTimeout(function(){var target=document.getElementById('an-x-handle');if(target)target.focus();},50);
     }catch(error){if(typeof showToast==='function')showToast(userError(error));}
   }
   function closeApplication(){var modal=document.getElementById('apx-modal');if(modal)modal.classList.remove('open');document.body.style.overflow='';if(state.returnFocus&&typeof state.returnFocus.focus==='function')state.returnFocus.focus();state.returnFocus=null;}
@@ -238,10 +252,10 @@
     if(event)event.preventDefault();var form=document.getElementById('analyst-form');if(!form||!form.reportValidity()||state.busy)return;
     state.busy=true;var button=document.getElementById('an-submit');if(button)button.disabled=true;
     try{
-      var wallet=await ensureWallet();var expertise=Array.prototype.map.call(document.querySelectorAll('input[name="an-expertise"]:checked'),function(box){return box.value;});if(!expertise.length)throw new Error('Choose at least one expertise category.');
+      var wallet=await ensureWallet();var expertise=Array.prototype.map.call(document.querySelectorAll('input[name="an-expertise"]:checked'),function(box){return box.value;});
       var linkLabel=String(document.getElementById('an-link-label').value||'').trim(),linkUrl=String(document.getElementById('an-link-url').value||'').trim();if((linkLabel&&!linkUrl)||(!linkLabel&&linkUrl))throw new Error('Provide both the public link label and HTTPS URL.');
       var proofUrls=inputLines('an-proof');if(proofUrls.length>5)throw new Error('Use at most five public proof links.');
-      var application={handle:document.getElementById('an-handle').value,display_name:document.getElementById('an-name').value,bio:document.getElementById('an-bio').value,expertise:expertise,links:linkUrl?[{label:linkLabel,url:linkUrl}]:[],motivation:document.getElementById('an-motivation').value,experience:document.getElementById('an-experience').value,proof_urls:proofUrls};
+      var xHandle=document.getElementById('an-x-handle').value;var application={x_handle:xHandle,handle:String(xHandle||'').replace(/^@/,'').toLowerCase(),display_name:document.getElementById('an-name').value,bio:document.getElementById('an-bio').value,expertise:expertise,links:linkUrl?[{label:linkLabel,url:linkUrl}]:[],motivation:document.getElementById('an-motivation').value,experience:document.getElementById('an-experience').value,proof_urls:proofUrls};
       var image=await avatarPayload();if(image)application.avatar=image;
       setApplicationStatus('Preparing an exact single-use application message...');
       var prepared=await api({op:'prepare_application',wallet:wallet,application:application,idempotency_key:randomKey('application')});
@@ -249,6 +263,7 @@
       var signature=await signMessage(prepared.message);
       var committed=await api({op:'commit_application',wallet:wallet,application:application,nonce:prepared.nonce,message:prepared.message,signature:signature});
       setApplicationStatus('Version '+committed.application.version_no+' recorded as wallet-signed and server-verified.','success');
+      if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(applicationDraftKey(wallet));
       state.workspace=null;state.workspaceWallet='';if(typeof showToast==='function')showToast('Immutable analyst application version submitted.');
       setTimeout(function(){closeApplication();openWorkspace('applications');},700);
     }catch(error){setApplicationStatus(userError(error),'error');}
@@ -325,8 +340,10 @@
   window.osiAnalystDecision=reviewApplication;
   window.osiAnalystActivate=activateProbation;
 
-  function clearPrivateAnalystCache(){state.workspace=null;state.workspaceWallet='';state.queue=[];state.busy=false;}
+  function clearPrivateAnalystCache(){state.workspace=null;state.workspaceWallet='';state.queue=[];state.busy=false;var host=document.getElementById('identity-body');if(host&&document.body&&document.body.dataset.view==='identity')host.innerHTML=empty('Analyst workspace locked','Sign once to unlock a bounded private working session. Any application draft in this tab is preserved.');var queueHost=document.getElementById('osi-analyst-ops');if(queueHost)queueHost.innerHTML=empty('Application queue locked','Restore the bounded double-gated private session to continue.');}
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('analyst',clearPrivateAnalystCache);
+  var analystDraftForm=document.getElementById('analyst-form');
+  if(analystDraftForm){analystDraftForm.addEventListener('input',saveApplicationDraft);analystDraftForm.addEventListener('change',saveApplicationDraft);}
 
   document.addEventListener('keydown',function(event){if(event.key==='Escape'&&document.getElementById('apx-modal')&&document.getElementById('apx-modal').classList.contains('open'))closeApplication();});
 })();

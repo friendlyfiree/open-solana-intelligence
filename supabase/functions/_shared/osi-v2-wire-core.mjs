@@ -90,15 +90,13 @@ export async function normalizeWirePayload(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new TypeError("wire payload is invalid");
   }
-  const title_public_safe = requireLength(input.title_public_safe, "Wire title", 8, 160);
-  const content_public_safe = requireLength(input.content_public_safe, "Wire summary", 40, 4000);
-  const body_private = requireLength(input.body_private, "Wire analysis", 80, 100000);
-  const uncertainties_private = requireLength(
-    input.uncertainties_private,
-    "Wire uncertainties",
-    20,
-    4000,
-  );
+  const title_public_safe = requireLength(input.title_public_safe, "Wire title", 3, 160);
+  const content_public_safe = requireLength(input.content_public_safe, "Wire summary", 10, 4000);
+  const body_private = requireLength(input.body_private, "Wire analysis", 20, 100000);
+  const uncertainties_private = cleanText(input.uncertainties_private);
+  if (uncertainties_private.length > 4000) {
+    throw new TypeError("Wire uncertainties is invalid");
+  }
   const revisionReason = cleanText(input.revision_reason_code);
   if (revisionReason && !WIRE_REVISION_REASONS.has(revisionReason)) {
     throw new TypeError("revision reason is invalid");
@@ -115,7 +113,7 @@ export async function normalizeWirePayload(input) {
     body_private,
     uncertainties_private,
     revision_reason_code: revisionReason || null,
-    evidence: await normalizeReportEvidence(input.evidence),
+    evidence: await normalizeReportEvidence(input.evidence ?? [], { allowEmpty: true }),
   };
 }
 

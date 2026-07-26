@@ -371,9 +371,11 @@ const candidateApplication = {
 
 function token(origin, wallet = WALLET) {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const issuedAt = Math.floor(Date.now() / 1000) - 360;
   return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
     v: 1, iss: 'osi-v2-case-read', aud: origin, sub: wallet,
-    iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300,
+    iat: issuedAt, exp: Math.floor(Date.now() / 1000) + 1440,
+    sid_iat: issuedAt, abs_exp: issuedAt + 28800,
     jti: 'fixture-session-jti-00000000000000000001',
     scp: ['case:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'wire:mine', 'wire:queue', 'analyst:workspace', 'analyst:maintainer', 'aipack:detail'],
     auth_sub: null,
@@ -522,7 +524,7 @@ async function installFixtureNetwork(page, options = {}) {
           : { ok: true, cases: [reviewedFixture] };
       }
       else if (body.op === 'issue_read_session_challenge') response.challenge = 'OSI private read fixture challenge';
-      else if (body.op === 'create_read_session') response.read_session = token(new URL(page.url()).origin, wallet);
+      else if (body.op === 'create_read_session' || body.op === 'renew_read_session') response.read_session = token(new URL(page.url()).origin, wallet);
       else if (body.op === 'maintainer_case_overview') response = {
         ok: true,
         overview: {
@@ -576,6 +578,23 @@ async function installFixtureNetwork(page, options = {}) {
           purpose: body.action,
         };
       } else if (body.op === 'commit') response = { ok: true, action: body.action };
+    } else if (endpoint === 'osi-v2-report-write') {
+      if (body.op === 'capabilities') response = {
+        ok: true,
+        report_writes_enabled: writesEnabled,
+        case_eligible: true,
+        prerequisite: writesEnabled ? null : 'Connect a wallet to continue.',
+      };
+      else if (body.op === 'prepare_report') response = {
+        ok: true,
+        nonce: 'report-submit-nonce',
+        memo: 'OSI CASE_REPORT_VERSION_SUBMITTED fixture memo',
+      };
+      else if (body.op === 'commit_report') response = {
+        ok: true,
+        report_public_ref: REPORT_REF,
+        version_no: 1,
+      };
     } else if (endpoint === 'osi-v2-report-read') {
       if (body.op === 'list_public_reports' && publicFailure) { responseStatus = 503; response = { ok: false, error: 'read_failed' }; }
       else if (body.op === 'list_public_reports' && empty) response.reports = [];
@@ -931,6 +950,26 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
       await expect(page.locator('#identity-body')).toContainText('Current version 1');
     }
 
+    if (role === 'ordinary_wallet') {
+      await page.evaluate(() => window.apxOpen());
+      await expect(page.locator('#apx-modal')).toHaveClass(/\bopen\b/);
+      await expect(page.locator('#an-x-handle')).toBeFocused();
+      await page.locator('#an-x-handle').fill('@flow_repair');
+      await page.locator('#an-bio').fill('I investigate public Solana activity with reproducible evidence.');
+      await page.locator('#an-experience').fill('I publish attributable wallet-flow research with explicit limits.');
+      await page.locator('#an-x-handle').scrollIntoViewIfNeeded();
+      await captureRepairEvidence(page, '06-minimal-analyst-application');
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expectNoPageOverflow(page);
+      await captureRepairEvidence(page, '06-mobile-minimal-analyst-application');
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.locator('#an-submit').click();
+      await expectFixtureOperation(page, 'osi-v2-analyst', 'commit_application');
+      await expect(page.locator('#an-status')).toContainText('wallet-signed and server-verified');
+      await captureRepairEvidence(page, '06b-analyst-application-submitted');
+      await page.waitForTimeout(750);
+    }
+
     if (canMaintain) {
       await page.locator('#walletBtn').click();
       const operations = page.locator('#maintainerAccessMenu');
@@ -1038,6 +1077,13 @@ async function expectNewFixtureOperation(page, endpoint, op, action, phase, prev
   await expect.poll(() => fixtureOperationCount(page, endpoint, op, action, phase)).toBeGreaterThan(previousCount);
 }
 
+async function captureRepairEvidence(page, name) {
+  if (!process.env.OSI_CORE_FLOW_SCREENSHOT_DIR) return;
+  const directory = path.resolve(process.env.OSI_CORE_FLOW_SCREENSHOT_DIR);
+  fs.mkdirSync(directory, { recursive: true });
+  await page.screenshot({ path: path.join(directory, `${name}.png`), fullPage: false });
+}
+
 test('launch readiness: verified analyst controls traverse Case, Wire, governance, challenge, and AI Pack writes', async ({ page }) => {
   test.setTimeout(180_000);
   page.on('dialog', (dialog) => dialog.accept(dialog.type() === 'prompt'
@@ -1074,14 +1120,47 @@ test('launch readiness: verified analyst controls traverse Case, Wire, governanc
   await page.evaluate(() => window.osiV2CloseCase());
   await expect(page.locator('#osi-case-drawer')).toBeHidden();
 
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), PRIVATE_REF);
+  const reportAction = page.locator('#osi-case-drawer').getByRole('button', { name: 'Submit Report', exact: true });
+  await expect(reportAction).toBeVisible();
+  await captureRepairEvidence(page, '01-real-case-submit-report-action');
+  await reportAction.click();
+  await expect(page.locator('#osi-report-narrative')).toBeFocused();
+  await expect(page.locator('#osi-case-drawer')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#osi-report-modal')).not.toHaveClass(/\bopen\b/);
+  await expect(page.locator('#osi-case-drawer')).toBeVisible();
+  await expect(reportAction).toBeFocused();
+  await reportAction.click();
+  await expect(page.locator('#osi-report-narrative')).toBeFocused();
+  await page.locator('#osi-report-narrative').fill('This exact Report follows the public filing, transaction order, competing explanations, and material limits without asserting guilt or legal certainty.');
+  await page.locator('#osi-report-summary').fill('A public-safe summary of the exact immutable Report version.');
+  await page.locator('#osi-report-urls').fill('https://ir.hyperiondefi.com/static-files/0001104659-26-036286/hypd-20251231x10k.htm');
+  await page.locator('#osi-report-safety').check();
+  await captureRepairEvidence(page, '02-report-form-sec-evidence');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoPageOverflow(page);
+  await captureRepairEvidence(page, '02b-report-form-mobile');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.locator('#osi-report-submit').click();
+  await expectFixtureOperation(page, 'osi-v2-report-write', 'commit_report');
+  await expect(page.locator('#osi-report-form-status')).toContainText('Memo receipt');
+  await captureRepairEvidence(page, '03-report-submitted');
+  await page.waitForTimeout(750);
+  await expect(page.locator('#osi-report-modal')).not.toHaveClass(/\bopen\b/);
+  await expect(page.locator('body')).not.toHaveClass(/\bosi-case-open\b/);
+
   await page.evaluate(() => window.osiV2OpenWireForm());
   await expect(page.locator('#osi-wire-title')).toBeFocused();
   await page.locator('#osi-wire-title').fill('Lifecycle Wire fixture');
   await page.locator('#osi-wire-summary').fill('A public-safe standalone finding prepared for independent review and exact publication.');
   await page.locator('#osi-wire-analysis').fill('The detailed fixture analysis follows transaction order, competing explanations, and reproducible evidence limitations.');
-  await page.locator('#osi-wire-uncertainties').fill('Wallet control and attribution remain uncertain after the observed transfers.');
-  await page.locator('#osi-wire-transactions').fill(TX);
   await page.locator('#osi-wire-safety').check();
+  await captureRepairEvidence(page, '04-wire-minimal-form');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoPageOverflow(page);
+  await captureRepairEvidence(page, '04b-wire-minimal-form-mobile');
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.locator('#osi-wire-submit').click();
   await expectFixtureOperation(page, 'osi-v2-wire', 'commit_wire');
   await expect(page.locator('#osi-wire-modal')).not.toHaveClass(/\bopen\b/);
@@ -1090,11 +1169,17 @@ test('launch readiness: verified analyst controls traverse Case, Wire, governanc
   await page.evaluate(() => window.osiV2OpenWireQueue());
   await expect(page.locator('[data-wire-queue-card]')).toBeVisible();
   await page.locator('[data-wire-review-rationale]').fill('The exact evidence supports publication with the stated limits.');
+  await page.locator('[data-wire-review-note]').fill('Restricted draft note preserved across a genuine private-session boundary.');
+  await page.evaluate(() => window.osiV2ClearReadSession('expiry'));
+  await page.evaluate(() => window.osiV2OpenWireQueue());
+  await expect(page.locator('[data-wire-review-rationale]')).toHaveValue('The exact evidence supports publication with the stated limits.');
+  await expect(page.locator('[data-wire-review-note]')).toHaveValue('Restricted draft note preserved across a genuine private-session boundary.');
   await page.locator('[data-wire-review]').click();
   await expectFixtureOperation(page, 'osi-v2-wire', 'commit_wire_review');
   await expect(page.locator('[data-wire-publish]')).toBeVisible();
   await page.locator('[data-wire-publish]').dispatchEvent('click');
   await expectFixtureOperation(page, 'osi-v2-wire', 'commit_wire_publication');
+  await captureRepairEvidence(page, '05-wire-published');
 
   await page.evaluate((versionRef) => window.osiV2OpenWireReport(versionRef), WIRE_VERSION_REF);
   await page.locator('[data-wire-tab="challenges"]').click();
@@ -1163,6 +1248,7 @@ test('launch readiness: full maintainer controls review candidacy and finalize o
   await application.getByRole('button', { name: 'Approve' }).click();
   await expectFixtureOperation(page, 'osi-v2-analyst', 'commit_review');
   await expectFixtureOperation(page, 'osi-v2-analyst', 'commit_activation');
+  await captureRepairEvidence(page, '07-maintainer-application-activated');
 
   await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), resolutionSelectionCase.public_ref);
   await page.locator('[data-tab="resolution"]').click();
@@ -1396,6 +1482,12 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   for (const decision of ['Approve', 'Reject', 'Request Revision', 'Abstain']) {
     await expect(page.locator('#field-cases')).toContainText(decision);
   }
+  await page.locator(`[id^="osi-review-rationale-"]`).first().fill('Draft rationale survives a private-session boundary.');
+  await page.locator(`[id^="osi-review-note-"]`).first().fill('Restricted draft note also survives.');
+  await page.evaluate(() => window.osiV2ReportClearSession('expiry'));
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  await expect(page.locator(`[id^="osi-review-rationale-"]`).first()).toHaveValue('Draft rationale survives a private-session boundary.');
+  await expect(page.locator(`[id^="osi-review-note-"]`).first()).toHaveValue('Restricted draft note also survives.');
   await page.evaluate(() => window.osiAnalystOpenWorkspace('profile'));
   expect(await page.evaluate(() => window.location.hash)).toBe('#identity');
   await expect(page.locator('#identity-body')).toContainText('Server-derived weight');
@@ -1414,6 +1506,9 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await analystProfileTab.press('End');
   await expect(analystApplicationsTab).toBeFocused();
   expect((await page.evaluate(() => window.__fixtureProviderCounts())).signMessage).toBe(1);
+  await analystProfileTab.click();
+  await expect(page.locator('#identity-body')).toContainText('Server-derived weight');
+  await captureRepairEvidence(page, '08-working-session-over-old-window');
 
   await page.reload();
   await page.waitForFunction(() => typeof window.osiV2OpenMyCases === 'function');

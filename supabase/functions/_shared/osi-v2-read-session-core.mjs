@@ -3,7 +3,11 @@
 // creates a receipt, or replaces a Stage-5 nonce, signature, or Memo proof.
 
 export const READ_SESSION_VERSION = 1;
-export const READ_SESSION_TTL_SECONDS = 300;
+// A signed session may roll forward for up to one working day, but only in
+// bounded 30-minute bearer-token windows. Renewal never extends abs_exp.
+export const READ_SESSION_IDLE_TTL_SECONDS = 30 * 60;
+export const READ_SESSION_ABSOLUTE_TTL_SECONDS = 8 * 60 * 60;
+export const READ_SESSION_TTL_SECONDS = READ_SESSION_IDLE_TTL_SECONDS;
 export const READ_SESSION_CLOCK_SKEW_SECONDS = 15;
 
 export const READ_SESSION_SCOPES = Object.freeze({
@@ -37,7 +41,9 @@ function fromBase64Url(value) {
   const base64 = value.replaceAll("-", "+").replaceAll("_", "/")
     + "=".repeat((4 - value.length % 4) % 4);
   const binary = atob(base64);
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  if (toBase64Url(bytes) !== value) throw new TypeError("bad_token_encoding");
+  return bytes;
 }
 
 export function normalizeReadSessionOrigin(value) {
@@ -111,6 +117,15 @@ export async function issueReadSessionToken(input) {
   if (!WALLET_PATTERN.test(wallet)) throw new TypeError("bad_wallet");
   if (!JTI_PATTERN.test(jti)) throw new TypeError("bad_jti");
   const scopes = normalizedScopes(input.scopes);
+  const sessionStartedAt = Number.isSafeInteger(input.sessionStartedAt)
+    ? input.sessionStartedAt : now;
+  const absoluteExpiresAt = Number.isSafeInteger(input.absoluteExpiresAt)
+    ? input.absoluteExpiresAt : sessionStartedAt + READ_SESSION_ABSOLUTE_TTL_SECONDS;
+  if (sessionStartedAt > now + READ_SESSION_CLOCK_SKEW_SECONDS
+      || absoluteExpiresAt <= now
+      || absoluteExpiresAt - sessionStartedAt > READ_SESSION_ABSOLUTE_TTL_SECONDS) {
+    throw new TypeError("bad_session_lifetime");
+  }
   const authSubject = input.authSubject == null ? null : String(input.authSubject);
   if (authSubject !== null && !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(authSubject)) {
     throw new TypeError("bad_auth_subject");
@@ -121,7 +136,9 @@ export async function issueReadSessionToken(input) {
     aud: audience,
     sub: wallet,
     iat: now,
-    exp: now + READ_SESSION_TTL_SECONDS,
+    exp: Math.min(now + READ_SESSION_IDLE_TTL_SECONDS, absoluteExpiresAt),
+    sid_iat: sessionStartedAt,
+    abs_exp: absoluteExpiresAt,
     jti,
     scp: scopes,
     auth_sub: authSubject,
@@ -164,12 +181,23 @@ export async function verifyReadSessionToken(input) {
   if (!WALLET_PATTERN.test(expectedWallet) || payload.sub !== expectedWallet) {
     return { ok: false, status: 403, reason: "read_session_wrong_wallet" };
   }
+  const sessionStartedAt = Number.isSafeInteger(payload.sid_iat) ? payload.sid_iat : payload.iat;
+  const absoluteExpiresAt = Number.isSafeInteger(payload.abs_exp)
+    ? payload.abs_exp : sessionStartedAt + READ_SESSION_ABSOLUTE_TTL_SECONDS;
   if (!Number.isSafeInteger(payload.iat) || !Number.isSafeInteger(payload.exp)
-      || payload.exp <= payload.iat || payload.exp - payload.iat > READ_SESSION_TTL_SECONDS
+      || !Number.isSafeInteger(sessionStartedAt) || !Number.isSafeInteger(absoluteExpiresAt)
+      || sessionStartedAt > payload.iat
+      || absoluteExpiresAt <= sessionStartedAt
+      || absoluteExpiresAt - sessionStartedAt > READ_SESSION_ABSOLUTE_TTL_SECONDS
+      || payload.exp <= payload.iat
+      || payload.exp - payload.iat > READ_SESSION_IDLE_TTL_SECONDS
+      || payload.exp > absoluteExpiresAt
       || payload.iat > now + READ_SESSION_CLOCK_SKEW_SECONDS) {
     return { ok: false, status: 403, reason: "read_session_tampered" };
   }
-  if (payload.exp <= now) return { ok: false, status: 401, reason: "read_session_expired" };
+  if (payload.exp <= now || absoluteExpiresAt <= now) {
+    return { ok: false, status: 401, reason: "read_session_expired" };
+  }
   if (!JTI_PATTERN.test(String(payload.jti || ""))) {
     return { ok: false, status: 403, reason: "read_session_tampered" };
   }
@@ -183,5 +211,9 @@ export async function verifyReadSessionToken(input) {
       && !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(payload.auth_sub || ""))) {
     return { ok: false, status: 403, reason: "read_session_tampered" };
   }
-  return { ok: true, wallet: expectedWallet, scopes, payload };
+  return { ok: true, wallet: expectedWallet, scopes, payload: {
+    ...payload,
+    sid_iat: sessionStartedAt,
+    abs_exp: absoluteExpiresAt,
+  } };
 }

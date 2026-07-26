@@ -21,7 +21,7 @@ export const PAYMENT_EVENT = Object.freeze({
 export const PAYMENT_MAX_RECIPIENTS = 4;
 export const PAYMENT_MAX_LAMPORTS = 100_000_000_000n; // 100 SOL per intent.
 export const SOLANA_TRANSACTION_MAX_BYTES = 1232;
-export const SOLANA_MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
+export const SOLANA_MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
 export function isSolanaMainnetGenesis(value) {
   return value === SOLANA_MAINNET_GENESIS_HASH;
