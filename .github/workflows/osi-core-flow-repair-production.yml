@@ -1,0 +1,293 @@
+name: OSI Core Flow Repair Production
+
+# One exact, main-only deployment of the contributor-flow repair. This
+# workflow changes no migration, feature flag, secret, or production domain
+# record. Smoke writes are limited to short-lived Stage-5 nonces; no signed
+# commit or transaction is submitted.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type CORE-FLOW-DEPLOY-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-core-flow-repair-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  FUNCTION_SLUGS: >-
+    osi-analyst-intake
+    osi-ai-pack
+    osi-v2-ai-pack
+    osi-v2-analyst
+    osi-v2-case-read
+    osi-v2-case-write
+    osi-v2-governance-write
+    osi-v2-payment
+    osi-v2-report-read
+    osi-v2-report-write
+    osi-v2-wire
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Full clean-room validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "CORE-FLOW-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out exact dispatched commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Verify deploy sources and exact migration repository
+        run: |
+          set -euo pipefail
+          for slug in $FUNCTION_SLUGS; do
+            test -f "supabase/functions/${slug}/index.ts" || {
+              echo "::error::Function source missing: ${slug}."; exit 1;
+            }
+          done
+          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > /tmp/local-migrations.txt
+          [ "$(wc -l < /tmp/local-migrations.txt)" = "20" ] || {
+            echo "::error::Expected the reviewed twenty-migration repository."; exit 1;
+          }
+
+      - name: Full Node and Deno battery
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          mapfile -t deno_sources < <(
+            find supabase/functions -type f \( -path '*/index.ts' -o -path '*/_shared/*.ts' -o -path '*/_shared/*.mjs' \) | sort
+          )
+          deno check "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
+
+      - name: Chromium UI contracts
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @playwright/test@1.55.0 http-server@14.1.1
+          npx playwright install --with-deps chromium
+          npx playwright test --config tests/browser/playwright.config.js
+
+      - name: Fresh PostgreSQL 17 migration lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard disposable local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact functions, long-session smoke, and isolation proof
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Verify credentials, project, secrets, and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Validated commit is no longer current main."; exit 1;
+          }
+          secrets="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF")"
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY OSI_V2_ALLOWED_ORIGIN OSI_MAINTAINER_AUTH_UUID; do
+            echo "$secrets" | grep -q "$name" || { echo "::error::Required function secret absent: ${name}."; exit 1; }
+          done
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot protected data and all configuration values
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' \
+            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config order by key" \
+            > /tmp/config-before.txt
+
+      - name: Link, compare histories, and dry-run zero migrations
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
+          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' |
+            sort | sed -E 's/^([0-9]{14}).*/\1/' > /tmp/local-versions.txt
+          psql -Atqc "select version from supabase_migrations.schema_migrations order by version" > /tmp/remote-versions.txt
+          diff -u /tmp/local-versions.txt /tmp/remote-versions.txt
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/core-flow-dry-run.txt
+          if grep -qE '20[0-9]{12}' /tmp/core-flow-dry-run.txt; then
+            echo "::error::Dry-run unexpectedly contains a migration version."; exit 1;
+          fi
+
+      - name: Record production effect and forward-fix plan
+        run: |
+          echo "Production effect: deploy exactly eleven versioned Edge Functions from current main."
+          echo "No migration, config, secret, feature flag, Vercel deployment, or domain-data mutation is authorized."
+          echo "Rollback: stop on failure and ship one focused forward fix; do not drop data or toggle unrelated live flags."
+
+      - name: Deploy exactly the contributor-flow functions
+        run: |
+          set -euo pipefail
+          for slug in $FUNCTION_SLUGS; do
+            echo "== deploying ${slug} =="
+            supabase functions deploy "$slug" \
+              --project-ref "$EXPECTED_PROJECT_REF" \
+              --no-verify-jwt \
+              --use-api
+          done
+
+      - name: Verify deployed inventory and production web assets
+        run: |
+          set -euo pipefail
+          inventory="$(supabase functions list --project-ref "$EXPECTED_PROJECT_REF")"
+          for slug in $FUNCTION_SLUGS; do
+            echo "$inventory" | grep -q "$slug" || { echo "::error::Deployed function absent: ${slug}."; exit 1; }
+          done
+          html="$(curl -sS --fail --max-time 30 "$PRODUCTION_WEB_URL/")"
+          for marker in 'osi-wire-intake-action' 'v2-wire-integration.js' 'v2-report-integration.js' '52-read-session.js'; do
+            echo "$html" | grep -q "$marker" || { echo "::error::Production web marker absent: ${marker}."; exit 1; }
+          done
+
+      - name: Real production contributor and long-session smoke
+        run: deno run --allow-net tests/osi-core-flow-production-smoke.mjs --wait-seconds=310
+
+      - name: Prove config and protected V1 isolation
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-after.txt <<'SQL'
+          begin read only;
+          select table_name || '|' || row_count from (
+            select 'reports' table_name, (select count(*) from public.reports) row_count
+            union all select 'bounties', (select count(*) from public.bounties)
+            union all select 'challenges', (select count(*) from public.challenges)
+            union all select 'vouches', (select count(*) from public.vouches)
+            union all select 'escalation_packs', (select count(*) from public.escalation_packs)
+            union all select 'onchain_events', (select count(*) from public.onchain_events)
+            union all select 'analysts', (select count(*) from public.analysts)
+            union all select 'profiles', (select count(*) from public.profiles)
+            union all select 'requests', (select count(*) from public.requests)
+            union all select 'request_votes', (select count(*) from public.request_votes)
+            union all select 'bounty_boosts', (select count(*) from public.bounty_boosts)
+          ) counts order by table_name;
+          commit;
+          SQL
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' \
+            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config order by key" \
+            > /tmp/config-after.txt
+          diff -u /tmp/v1-before.txt /tmp/v1-after.txt
+          diff -u /tmp/config-before.txt /tmp/config-after.txt
+
+      - name: Write auditable deployment receipt
+        if: success()
+        run: |
+          {
+            echo "project_ref=${EXPECTED_PROJECT_REF}"
+            echo "commit=${GITHUB_SHA}"
+            echo "functions=${FUNCTION_SLUGS}"
+            echo "migrations=none"
+            echo "feature_flags=unchanged"
+            echo "secrets=unchanged"
+            echo "domain_records_committed_by_smoke=0"
+            echo "session_idle_ttl_seconds=1800"
+            echo "session_absolute_ttl_seconds=28800"
+            echo "old_session_boundary_crossed_seconds=310"
+          } > /tmp/osi-core-flow-deployment-receipt.txt
+
+      - name: Upload deployment receipt
+        if: success()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
+        with:
+          name: osi-core-flow-production-receipt
+          path: /tmp/osi-core-flow-deployment-receipt.txt
+          retention-days: 30
