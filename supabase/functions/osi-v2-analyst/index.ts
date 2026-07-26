@@ -696,13 +696,13 @@ async function verifyReadSession(req: Request, body: Row, requiredScope: string)
     wallet: safeText(body.wallet),
     requiredScope,
   });
-  if (verified.ok === true && typeof verified.wallet === "string") {
+  if (verified.ok) {
     return { ok: true, wallet: verified.wallet };
   }
   return {
     ok: false,
-    status: typeof verified.status === "number" ? verified.status : 403,
-    reason: typeof verified.reason === "string" ? verified.reason : "read_session_tampered",
+    status: verified.status,
+    reason: verified.reason,
   };
 }
 

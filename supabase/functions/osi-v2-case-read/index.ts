@@ -653,13 +653,13 @@ async function verifyReadSession(
     wallet: safeText(body.wallet),
     requiredScope,
   });
-  if (verified.ok === true && typeof verified.wallet === "string") {
-    return { ok: true, actor: { wallet: verified.wallet }, payload: verified.payload as Row };
+  if (verified.ok) {
+    return { ok: true, actor: { wallet: verified.wallet }, payload: verified.payload };
   }
   return {
     ok: false,
-    status: typeof verified.status === "number" ? verified.status : 403,
-    reason: typeof verified.reason === "string" ? verified.reason : "read_session_tampered",
+    status: verified.status,
+    reason: verified.reason,
   };
 }
 

@@ -49,6 +49,8 @@ const valid = await verifyReadSessionToken({
   requiredScope: READ_SESSION_SCOPES.CASE_MINE, nowSeconds: now + 1,
 });
 ok("valid exact-origin, exact-wallet, scoped token is accepted", valid.ok && valid.wallet === wallet);
+ok("verification result exposes scopes only on success",
+  valid.ok && Array.isArray(valid.scopes) && valid.scopes.includes(READ_SESSION_SCOPES.CASE_MINE));
 const aiPackScoped = await verifyReadSessionToken({
   token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet,
   requiredScope: READ_SESSION_SCOPES.AIPACK_DETAIL, nowSeconds: now + 1,
@@ -72,6 +74,8 @@ const wrongOrigin = await verifyReadSessionToken({
   wallet, requiredScope: READ_SESSION_SCOPES.CASE_MINE, nowSeconds: now + 1,
 });
 ok("wrong origin is denied", !wrongOrigin.ok && wrongOrigin.reason === "read_session_wrong_origin");
+ok("verification failure always carries an HTTP status",
+  !wrongOrigin.ok && Number.isInteger(wrongOrigin.status));
 
 const wrongWallet = await verifyReadSessionToken({
   token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet: otherWallet,

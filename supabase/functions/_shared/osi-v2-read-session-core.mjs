@@ -30,6 +30,33 @@ const JTI_PATTERN = /^[A-Za-z0-9_-]{24,128}$/;
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
+/**
+ * @typedef {Record<string, unknown> & {
+ *   v: number,
+ *   iss: string,
+ *   aud: string,
+ *   sub: string,
+ *   iat: number,
+ *   exp: number,
+ *   sid_iat: number,
+ *   abs_exp: number,
+ *   jti: string,
+ *   scp: string[],
+ *   auth_sub: string | null,
+ * }} VerifiedReadSessionPayload
+ *
+ * @typedef {{
+ *   ok: true,
+ *   wallet: string,
+ *   scopes: string[],
+ *   payload: VerifiedReadSessionPayload,
+ * } | {
+ *   ok: false,
+ *   status: number,
+ *   reason: string,
+ * }} ReadSessionVerificationResult
+ */
+
 function toBase64Url(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -149,6 +176,9 @@ export async function issueReadSessionToken(input) {
   return { token: signingInput + "." + signature, payload };
 }
 
+/**
+ * @returns {Promise<ReadSessionVerificationResult>}
+ */
 export async function verifyReadSessionToken(input) {
   const token = String(input.token || "");
   const parts = token.split(".");
