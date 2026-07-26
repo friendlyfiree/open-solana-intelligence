@@ -239,6 +239,35 @@ body[data-view="methodology"] footer .foot .links a{font-size:11px;color:var(--i
 .tip-qr{width:188px;height:188px;margin:0 auto 14px;background:#fff;border-radius:4px;padding:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
 .tip-qr img{width:100%;height:100%;image-rendering:pixelated;display:block}
 .tip-qr-load,.tip-qr-fallback{font-size:10px;color:#64748b}
+/* Amount picker for server-prepared V2 transfers. Same visual language as the
+   support dialog, but its own class names: the tip flow queries `.tip-amt`
+   globally, so sharing those would make one dialog silently drive the other. */
+.sol-ask{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(3,4,7,.72);backdrop-filter:blur(3px)}
+.sol-ask.open{display:flex}
+.sol-ask-card{position:relative;width:100%;max-width:396px;max-height:calc(100vh - 40px);overflow-y:auto;background:var(--surface,#0f1218);border:1px solid var(--line);border-radius:6px;padding:26px 24px 22px;box-shadow:0 26px 60px rgba(3,4,7,.6)}
+.sol-ask-card:focus{outline:none}
+.sol-ask-x{position:absolute;top:10px;right:12px;background:transparent;border:0;color:var(--ink-faint);font-size:21px;line-height:1;cursor:pointer;padding:4px 6px;border-radius:2px}
+.sol-ask-x:hover{color:var(--ink)}
+.sol-ask-h{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.04em;color:var(--ink);margin-bottom:6px}
+.sol-ask-to{font-size:12px;color:var(--ink-faint);margin-bottom:17px;line-height:1.6}
+.sol-ask-to b{color:var(--ink-dim)}
+.sol-ask-to .mono{display:block;font-size:10.5px;margin-top:2px}
+.sol-ask-amts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;align-items:center}
+.sol-ask-amt{background:transparent;border:1px solid var(--line-bright);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 6px;border-radius:2px;cursor:pointer;transition:background-color .13s,border-color .13s,color .13s}
+.sol-ask-amt:hover{border-color:var(--sol);color:var(--sol)}
+.sol-ask-amt.active{background:rgba(20,241,149,.12);border-color:var(--sol);color:var(--sol)}
+.sol-ask-custom{grid-column:1/4;min-width:0;background:transparent;border:1px solid var(--line-bright);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 10px;border-radius:2px}
+.sol-ask-custom:focus{outline:none;border-color:var(--sol)}
+.sol-ask-unit{grid-column:4;justify-self:center;font-size:11px;color:var(--ink-faint)}
+.sol-ask-usd{min-height:15px;margin-top:9px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint)}
+.sol-ask-go{width:100%;margin-top:15px;background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:13px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;letter-spacing:.04em;cursor:pointer}
+.sol-ask-go:hover{background:var(--sol-deep)}
+.sol-ask-err{min-height:0;font-size:10.5px;line-height:1.6;color:#ff8f9c}
+.sol-ask-err.show{min-height:16px;margin-top:9px}
+.sol-ask-note{font-size:9.5px;color:var(--ink-faint);line-height:1.65;margin-top:13px}
+.tip-pay-verify{font-size:10px;color:var(--ink-faint);line-height:1.7;margin:0 0 12px}
+.tip-pay-verify b{color:var(--ink-dim)}
+.tip-pay-addr{display:inline-block;max-width:100%;margin-top:3px;padding:5px 8px;border:1px solid var(--line);border-radius:2px;background:rgba(255,255,255,.02);color:var(--ink-dim);font-size:10.5px;line-height:1.5;overflow-wrap:anywhere;user-select:all;-webkit-user-select:all}
 .tip-pay-link{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);text-decoration:none;border:1px solid rgba(34,211,238,.4);border-radius:2px;padding:9px 14px;margin-bottom:9px}
 .tip-pay-link:hover{background:rgba(34,211,238,.1)}
 .tip-pay-copy{display:block;width:100%;background:transparent;border:0;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:10.5px;cursor:pointer;text-decoration:underline;margin-top:4px}

@@ -845,15 +845,41 @@
     var recipients=[];for(var index=0;index<checks.length;index++){var node=checks[index],amountNode=document.querySelector('[data-support-amount="'+node.dataset.supportCheck+'"]'),value=String(amountNode&&amountNode.value||'').trim();if(!validSolInput(value)){paymentStatus('Every selected recipient needs a positive SOL amount with at most 9 decimals.','error');return;}var recipient={target_type:node.dataset.targetType,target_ref:node.dataset.targetRef,amount_sol:value};if(recipient.target_type==='counted_reviewer')recipient.reviewer_wallet=node.dataset.wallet;recipients.push(recipient);}
     prepareAndSendPayment('support',versionRef,recipients);
   }
-  function supportExternal(targetType,targetRef,reviewerWallet){
-    var amount=window.prompt('Exact native SOL amount (maximum 9 decimals). This voluntary direct transfer has no governance effect.','0.1');if(amount===null)return;amount=String(amount).trim();if(!validSolInput(amount)){showToast('Enter a positive SOL amount with at most 9 decimals.');return;}
+  // Ask for an amount through the styled picker, falling back to the browser
+  // prompt if that module is absent so a missing script never removes the
+  // ability to support someone.
+  function askSolAmount(options){
+    if(typeof window.osiAskSolAmount==='function')return window.osiAskSolAmount(options);
+    var typed=window.prompt('Exact native SOL amount (maximum 9 decimals). This voluntary direct transfer has no governance effect.','0.1');
+    return Promise.resolve(typed===null?null:String(typed).trim());
+  }
+  function supportLabel(targetType){
+    if(targetType==='analyst')return 'this analyst';
+    if(targetType==='counted_reviewer')return 'this counted reviewer';
+    return 'this recipient';
+  }
+  async function supportExternal(targetType,targetRef,reviewerWallet){
+    var address=targetType==='counted_reviewer'?reviewerWallet:targetRef;
+    var amount=await askSolAmount({
+      title:'◎ Voluntary support',
+      label:supportLabel(targetType),
+      address:address,
+      action:'Review transfer →'
+    });
+    if(amount===null)return;
+    if(!validSolInput(amount)){showToast('Enter a positive SOL amount with at most 9 decimals.');return;}
     var recipient={target_type:targetType,target_ref:targetRef,amount_sol:amount};if(targetType==='counted_reviewer')recipient.reviewer_wallet=reviewerWallet;
     prepareAndSendPayment('support',targetRef,[recipient]);
   }
   async function supportWireAuthor(versionRef,authorWallet){
     if(!/^OSI-WV-[0-9A-F]{16}$/.test(String(versionRef||''))||state.paymentBusy)return;
-    var amount=window.prompt('Exact native SOL amount (maximum 9 decimals). This voluntary direct transfer has no governance or ranking effect.','0.1');
-    if(amount===null)return;amount=String(amount).trim();
+    var amount=await askSolAmount({
+      title:'◎ Support the Wire author',
+      label:'this Wire Report author',
+      address:authorWallet,
+      action:'Review transfer →'
+    });
+    if(amount===null)return;
     if(!validSolInput(amount)){showToast('Enter a positive SOL amount with at most 9 decimals.');return;}
     state.paymentBusy=true;
     try{
