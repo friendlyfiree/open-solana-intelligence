@@ -38,7 +38,8 @@ const CHALLENGE_REF = /^OSI-CHL-[0-9A-F]{16}$/;
 const PROHIBITED_SECRET = /\b(seed phrase|recovery phrase|mnemonic|private key|secret key|keypair bytes?|access token|api key)\b/i;
 const ILLEGAL_ACCESS = /\b(stolen credentials?|credential dump|malware payload|exploit kit|unauthorized access)\b/i;
 const DOXXING = /\b(doxx(?:ing|ed)?|home address|private phone number|private messages?)\b/i;
-const PROHIBITED_PERSONAL_DATA = /\b(?:\d{3}-\d{2}-\d{4}|\d{3}\s\d{3}\s\d{2}\s\d{2}|(?:\d[ -]*?){13,19})\b/;
+const GOVERNMENT_ID = /\b(?:\d{3}-\d{2}-\d{4}|\d{3}\s\d{3}\s\d{2}\s\d{2})\b/;
+const PAYMENT_CARD_CANDIDATE = /(?:^|[^\d])((?:\d[ -]?){13,19})(?!\d)/g;
 
 function cleanText(value) {
   return typeof value === "string" ? value.trim().replace(/\r\n?/g, "\n") : "";
@@ -50,11 +51,39 @@ function requireLength(value, name, min, max) {
   return text;
 }
 
+function passesLuhn(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length < 13 || digits.length > 19 || /^(\d)\1+$/.test(digits)) return false;
+  let sum = 0;
+  let shouldDouble = false;
+  for (let index = digits.length - 1; index >= 0; index -= 1) {
+    let digit = Number(digits[index]);
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+  return sum % 10 === 0;
+}
+
+function containsPaymentCard(value) {
+  PAYMENT_CARD_CANDIDATE.lastIndex = 0;
+  let match;
+  while ((match = PAYMENT_CARD_CANDIDATE.exec(value)) !== null) {
+    if (passesLuhn(match[1])) return true;
+  }
+  return false;
+}
+
 function rejectUnsafeContent(value) {
   if (PROHIBITED_SECRET.test(value)) throw new TypeError("prohibited_secret_material");
   if (ILLEGAL_ACCESS.test(value)) throw new TypeError("prohibited_illegal_access_material");
   if (DOXXING.test(value)) throw new TypeError("prohibited_personal_data");
-  if (PROHIBITED_PERSONAL_DATA.test(value)) throw new TypeError("prohibited_personal_data");
+  if (GOVERNMENT_ID.test(value) || containsPaymentCard(value)) {
+    throw new TypeError("prohibited_personal_data");
+  }
 }
 
 export async function normalizeWirePayload(input) {
