@@ -1308,6 +1308,7 @@ test('Platform menu exercises hover intent, keyboard, click and touch behavior',
   await trigger.click();
   await expect(menu).toBeHidden();
 
+  await page.evaluate(() => document.dispatchEvent(new Event('keydown')));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('#mobile-nav-toggle').click();
   await expect(page.locator('#global-nav')).toBeVisible();

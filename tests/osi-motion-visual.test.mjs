@@ -78,7 +78,7 @@ ok("About is responsive inside the same luminous interface", html.includes('clas
 const cssWithoutCompatibilityAliases = css.replace(/--[\w-]*orange[\w-]*:\s*var\([^;]+;/gi, "");
 ok("final design layer contains no orange identity or transition-all debt", !/(#f97316|#ff6b|#ea58|orange|transition\s*:\s*all)/i.test(cssWithoutCompatibilityAliases));
 ok("final design layer avoids unreadable 9px microcopy", !/font-size:\s*(?:8|9)(?:\.\d+)?px/i.test(css));
-ok("keyboard focus, click, Escape, outside click and focus return remain wired", shell.includes("osi-keyboard-input") && shell.includes("ArrowDown") && shell.includes("event.key === 'Escape'") && shell.includes("platformTrigger.focus()") && shell.includes("pointerdown"));
+ok("keyboard focus, click, Escape, outside click and focus return remain wired", shell.includes("osi-keyboard-input") && shell.includes("ArrowDown") && shell.includes("typeof event.key === 'string'") && shell.includes("key === 'Escape'") && shell.includes("platformTrigger.focus()") && shell.includes("pointerdown"));
 ok("touch and mobile focus trap remain part of the same navigation", shell.includes("trapMobileFocus") && shell.includes("nav-open") && html.includes('aria-controls="global-nav"'));
 ok("workspace routes mark Platform as the current navigation group", shell.includes("platformViews") && shell.includes("platformTrigger.setAttribute('aria-current', 'page')"));
 ok("pointer illumination is motion-safe and frame-throttled", signal.includes("prefers-reduced-motion: reduce") && signal.includes("(pointer: fine)") && signal.includes("requestAnimationFrame"));
