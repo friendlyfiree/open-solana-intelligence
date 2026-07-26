@@ -31,6 +31,7 @@ const expectedFiles = [
   '20260718140000_osi_v2_ai_pack_phase1.sql',
   '20260725120000_osi_v2_sas_enforcement.sql',
   '20260725140000_osi_v2_service_role_execute_grants.sql',
+  '20260726173000_osi_core_flow_validator_alignment.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -53,6 +54,8 @@ const sasCredential = sqlByFile['20260716120000_osi_v2_sas_credential.sql'] || '
 const wirePhase1 = sqlByFile['20260718120000_osi_v2_wire_phase1.sql'] || '';
 const wirePhase2 = sqlByFile['20260718130000_osi_v2_wire_phase2.sql'] || '';
 const aiPackPhase1 = sqlByFile['20260718140000_osi_v2_ai_pack_phase1.sql'] || '';
+const coreFlowValidatorAlignment =
+  sqlByFile['20260726173000_osi_core_flow_validator_alignment.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -157,6 +160,17 @@ ok(
   'exact ordered migration set',
   JSON.stringify(migrationFiles) === JSON.stringify(expectedFiles),
   migrationFiles.join(', '),
+);
+ok(
+  'core-flow alignment relaxes only approved Wire shape and optional analyst expertise',
+  coreFlowValidatorAlignment.includes('char_length(p_title_public_safe) not between 3 and 160')
+    && coreFlowValidatorAlignment.includes('char_length(p_content_public_safe) not between 10 and 4000')
+    && coreFlowValidatorAlignment.includes('char_length(p_body_private) not between 20 and 100000')
+    && coreFlowValidatorAlignment.includes('p_uncertainties_private is not null')
+    && coreFlowValidatorAlignment.includes('jsonb_array_length(value) between 0 and 6')
+    && coreFlowValidatorAlignment.includes('p_revision_reason_code not in')
+    && coreFlowValidatorAlignment.includes('revoke all privileges')
+    && !/update\s+public\.osi_config|insert\s+into\s+public\.osi_config/i.test(coreFlowValidatorAlignment),
 );
 
 ok(

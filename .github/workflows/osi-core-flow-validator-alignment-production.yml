@@ -1,15 +1,14 @@
-name: OSI Core Flow Repair Production
+name: OSI Core Flow Validator Alignment Production
 
-# One exact, main-only deployment of the contributor-flow repair. This
-# workflow changes no migration, feature flag, secret, or production domain
-# record. Smoke writes are limited to short-lived Stage-5 nonces; no signed
-# commit or transaction is submitted.
+# One exact, additive migration rollout for the database validator mismatch
+# found by the post-deploy production smoke. It changes no feature flag,
+# secret, Edge Function, Vercel asset, or existing domain row.
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type CORE-FLOW-DEPLOY-afibxpniwfnavdobecrn to authorize"
+        description: "Type CORE-FLOW-VALIDATORS-afibxpniwfnavdobecrn to authorize"
         required: true
         default: ""
 
@@ -17,44 +16,41 @@ permissions:
   contents: read
 
 concurrency:
-  group: osi-core-flow-repair-production
+  group: osi-core-flow-validator-alignment-production
   cancel-in-progress: false
 
 env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
   PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
-  FUNCTION_SLUGS: >-
-    osi-analyst-intake
-    osi-ai-pack
-    osi-v2-ai-pack
-    osi-v2-analyst
-    osi-v2-case-read
-    osi-v2-case-write
-    osi-v2-governance-write
-    osi-v2-payment
-    osi-v2-report-read
-    osi-v2-report-write
-    osi-v2-wire
+  NEW_VERSION: "20260726173000"
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000
   OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
   validate:
-    name: Full clean-room validation
+    name: Clean-room validator alignment
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Require exact confirmation and current main
         run: |
           set -euo pipefail
-          [ "${{ github.event.inputs.confirm }}" = "CORE-FLOW-DEPLOY-${EXPECTED_PROJECT_REF}" ] || {
-            echo "::error::Confirmation phrase mismatch."; exit 1;
-          }
-          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
-            echo "::error::Production rollout must be dispatched from main."; exit 1;
-          }
+          [ "${{ github.event.inputs.confirm }}" = "CORE-FLOW-VALIDATORS-${EXPECTED_PROJECT_REF}" ]
+          [ "${GITHUB_REF}" = "refs/heads/main" ]
 
-      - name: Check out exact dispatched commit
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -62,9 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main --quiet
-          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
-            echo "::error::Dispatched commit is not current origin/main."; exit 1;
-          }
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -76,20 +70,7 @@ jobs:
         with:
           version: 2.109.1
 
-      - name: Verify deploy sources and exact migration repository
-        run: |
-          set -euo pipefail
-          for slug in $FUNCTION_SLUGS; do
-            test -f "supabase/functions/${slug}/index.ts" || {
-              echo "::error::Function source missing: ${slug}."; exit 1;
-            }
-          done
-          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort > /tmp/local-migrations.txt
-          [ "$(wc -l < /tmp/local-migrations.txt)" = "21" ] || {
-            echo "::error::Expected the reviewed twenty-one-migration repository."; exit 1;
-          }
-
-      - name: Full Node and Deno battery
+      - name: Full application and type battery
         run: |
           set -euo pipefail
           for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
@@ -98,18 +79,14 @@ jobs:
           )
           deno check "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
 
-      - name: Chromium UI contracts
-        run: |
-          set -euo pipefail
-          npm install --no-save --no-package-lock @playwright/test@1.55.0 http-server@14.1.1
-          npx playwright install --with-deps chromium
-          npx playwright test --config tests/browser/playwright.config.js
-
       - name: Fresh PostgreSQL 17 migration lint pgTAP and races
         run: |
           set -euo pipefail
           supabase db start
           supabase db reset --local --no-seed
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ]
           supabase db lint --local --level error
           supabase test db
           bash tests/osi-v2-concurrency.test.sh
@@ -118,11 +95,11 @@ jobs:
         if: always()
         run: supabase stop --no-backup
 
-  deploy:
-    name: Exact functions, long-session smoke, and isolation proof
+  migrate-and-smoke:
+    name: Exact migration and production proof
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -140,20 +117,14 @@ jobs:
         with:
           version: 2.109.1
 
-      - name: Verify credentials, project, secrets, and unchanged main
+      - name: Verify credentials, project, and unchanged main
         run: |
           set -euo pipefail
-          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
-          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
-          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ]
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
           git fetch origin main --quiet
-          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
-            echo "::error::Validated commit is no longer current main."; exit 1;
-          }
-          secrets="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF")"
-          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY OSI_V2_ALLOWED_ORIGIN OSI_MAINTAINER_AUTH_UUID; do
-            echo "$secrets" | grep -q "$name" || { echo "::error::Required function secret absent: ${name}."; exit 1; }
-          done
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
 
       - name: Resolve pinned session-pooler coordinates
         run: |
@@ -168,11 +139,11 @@ jobs:
           print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
           ')"
           read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
-          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
-          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
           { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
 
-      - name: Snapshot protected data and all configuration values
+      - name: Snapshot protected rows and every configuration value
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/v1-before.txt <<'SQL'
@@ -196,50 +167,37 @@ jobs:
             -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config order by key" \
             > /tmp/config-before.txt
 
-      - name: Link, compare histories, and dry-run zero migrations
+      - name: Link and require exact pre-migration history
         run: |
           set -euo pipefail
           supabase link --project-ref "$EXPECTED_PROJECT_REF"
-          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Linked project mismatch."; exit 1; }
-          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' |
-            sort | sed -E 's/^([0-9]{14}).*/\1/' > /tmp/local-versions.txt
-          psql -Atqc "select version from supabase_migrations.schema_migrations order by version" > /tmp/remote-versions.txt
-          diff -u /tmp/local-versions.txt /tmp/remote-versions.txt
-          supabase db push --linked --dry-run 2>&1 | tee /tmp/core-flow-dry-run.txt
-          if grep -qE '20[0-9]{12}' /tmp/core-flow-dry-run.txt; then
-            echo "::error::Dry-run unexpectedly contains a migration version."; exit 1;
-          fi
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          got="$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ]
 
-      - name: Record production effect and forward-fix plan
-        run: |
-          echo "Production effect: deploy exactly eleven versioned Edge Functions from current main."
-          echo "No migration, config, secret, feature flag, Vercel deployment, or domain-data mutation is authorized."
-          echo "Rollback: stop on failure and ship one focused forward fix; do not drop data or toggle unrelated live flags."
-
-      - name: Deploy exactly the contributor-flow functions
+      - name: Dry-run exactly the validator alignment migration
         run: |
           set -euo pipefail
-          for slug in $FUNCTION_SLUGS; do
-            echo "== deploying ${slug} =="
-            supabase functions deploy "$slug" \
-              --project-ref "$EXPECTED_PROJECT_REF" \
-              --no-verify-jwt \
-              --use-api
-          done
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/validator-alignment-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/validator-alignment-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ]
 
-      - name: Verify deployed inventory and production web assets
+      - name: Apply exactly the additive validator alignment migration
+        run: supabase db push --linked --yes
+
+      - name: Verify exact post-migration history and unchanged web assets
         run: |
           set -euo pipefail
-          inventory="$(supabase functions list --project-ref "$EXPECTED_PROJECT_REF")"
-          for slug in $FUNCTION_SLUGS; do
-            echo "$inventory" | grep -q "$slug" || { echo "::error::Deployed function absent: ${slug}."; exit 1; }
-          done
+          got="$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ]
           html="$(curl -sS --fail --max-time 30 "$PRODUCTION_WEB_URL/")"
           for marker in 'osi-wire-intake-action' 'v2-wire-integration.js' 'v2-report-integration.js' '52-read-session.js'; do
-            grep -q "$marker" <<< "$html" || { echo "::error::Production web marker absent: ${marker}."; exit 1; }
+            grep -q "$marker" <<< "$html"
           done
 
-      - name: Real production contributor and long-session smoke
+      - name: Real production intake and long-session smoke
         run: deno run --allow-net tests/osi-core-flow-production-smoke.mjs --wait-seconds=310
 
       - name: Prove config and protected V1 isolation
@@ -268,26 +226,21 @@ jobs:
           diff -u /tmp/v1-before.txt /tmp/v1-after.txt
           diff -u /tmp/config-before.txt /tmp/config-after.txt
 
-      - name: Write auditable deployment receipt
-        if: success()
+      - name: Write deployment receipt
         run: |
           {
             echo "project_ref=${EXPECTED_PROJECT_REF}"
             echo "commit=${GITHUB_SHA}"
-            echo "functions=${FUNCTION_SLUGS}"
-            echo "migrations=none"
+            echo "migration=${NEW_VERSION}"
+            echo "edge_functions=unchanged"
             echo "feature_flags=unchanged"
             echo "secrets=unchanged"
-            echo "domain_records_committed_by_smoke=0"
-            echo "session_idle_ttl_seconds=1800"
-            echo "session_absolute_ttl_seconds=28800"
-            echo "old_session_boundary_crossed_seconds=310"
-          } > /tmp/osi-core-flow-deployment-receipt.txt
+            echo "existing_domain_rows=unchanged"
+            echo "smoke_domain_records_committed=0"
+          } > /tmp/osi-core-flow-validator-alignment-receipt.txt
 
-      - name: Upload deployment receipt
-        if: success()
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
+      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4
         with:
-          name: osi-core-flow-production-receipt
-          path: /tmp/osi-core-flow-deployment-receipt.txt
+          name: osi-core-flow-validator-alignment-receipt
+          path: /tmp/osi-core-flow-validator-alignment-receipt.txt
           retention-days: 30
