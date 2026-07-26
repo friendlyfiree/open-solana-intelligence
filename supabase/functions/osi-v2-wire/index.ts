@@ -112,14 +112,21 @@ function isoSeconds(value: unknown): number {
   return Math.floor(milliseconds / 1000);
 }
 
-function rpcFailure(error: Row | null, governance = false): Response {
+function rpcFailure(
+  error: Row | null,
+  governance = false,
+  validationError = "proof_binding_rejected",
+): Response {
   const code = safeText(error?.code);
   if (code === "42501") return governance
     ? jsonResponse(403, { ok: false, error: "not_authorized_or_conflicted" })
     : jsonResponse(404, { ok: false, error: "wire_report_not_available" });
   if (code === "23505") return jsonResponse(409, { ok: false, error: "active_challenge_exists" });
   if (code === "23514" || code === "22023") {
-    return jsonResponse(409, { ok: false, error: "proof_binding_rejected" });
+    return jsonResponse(
+      validationError === "proof_binding_rejected" ? 409 : 400,
+      { ok: false, error: validationError },
+    );
   }
   if (code === "40001") return jsonResponse(409, { ok: false, error: "lineage_changed_retry" });
   if (code === "P0001") return jsonResponse(429, { ok: false, error: "rate_limited" });
@@ -302,7 +309,7 @@ async function prepareWire(req: Request, body: Row): Promise<Response> {
     p_idempotency_key: idempotencyKey,
     p_request_fingerprint_hash: await fingerprint(req),
   });
-  if (error || !data?.[0]) return rpcFailure(error);
+  if (error || !data?.[0]) return rpcFailure(error, false, "wire_payload_rejected");
   const issued = data[0];
   if (issued.consumed_receipt_id) {
     return jsonResponse(200, {
