@@ -52,7 +52,7 @@ async function refreshMaintainerGate(){
 }
 
 function resolveMaintainerAccess(){
-  var wallet = walletPubkey || null;
+  var wallet = (typeof walletPubkey === 'undefined' ? null : walletPubkey) || null;
   var walletConnected = !!wallet;
   var adminWallet = (typeof OSI_ADMIN_WALLET !== 'undefined' && OSI_ADMIN_WALLET) ? String(OSI_ADMIN_WALLET).trim() : '';
   var isMaintainerWallet = !!(walletConnected && adminWallet && String(wallet) === adminWallet);
