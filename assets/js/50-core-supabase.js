@@ -74,6 +74,13 @@ function notifySupaAuthChanged(eventName){
   try{ activeWallet = walletPubkey || ''; }catch(_){ }
   if(typeof window.osiV2ReadSessionHandleAuth==='function')window.osiV2ReadSessionHandleAuth(SUPA_AUTH_USER&&SUPA_AUTH_USER.id?SUPA_AUTH_USER.id:null);
   if(typeof refreshMaintainerGate === 'function' && activeWallet) refreshMaintainerGate();
+  // Signing in is the second maintainer gate, and the Wire review queue is the
+  // only route to publishing a submitted version. Its control was refreshed
+  // solely by the public Wire render, so opening the gate left the button
+  // showing the answer from before sign-in: locked, with no way to correct it
+  // short of a reload. Re-ask the server here, on the same event that already
+  // refreshes every other gated surface.
+  if(typeof window.osiV2RefreshWireCapability === 'function') window.osiV2RefreshWireCapability();
   if(!SUPA_AUTH_TOKEN && document.body && document.body.dataset.view === 'admin' && typeof renderAdminAccess === 'function'){
     renderAdminAccess({clear:true});
   }
