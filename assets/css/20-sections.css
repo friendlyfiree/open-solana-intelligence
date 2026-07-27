@@ -157,9 +157,14 @@ body[data-view="records"] #records-hero::before{content:"";position:absolute;ins
 #records-hero .cr-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
 #records-hero .cr-chips span{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink);border:1px solid rgba(34,211,238,.2);background:rgba(34,211,238,.055);border-radius:7px;padding:8px 11px}
 #records-hero .cr-chips span:first-child{border-color:rgba(20,241,149,.24);background:rgba(20,241,149,.055)}
-#records-hero .cr-hero-card{min-height:152px;border:1px solid rgba(34,211,238,.16);border-radius:8px;background:rgba(3,7,14,.28);display:flex;align-items:center;justify-content:center;overflow:hidden}
+#records-hero .cr-hero-card{min-height:152px;border:1px solid rgba(34,211,238,.16);border-radius:8px;background:radial-gradient(ellipse 58% 62% at 50% 50%,rgba(20,241,149,.11),rgba(34,211,238,.045) 56%,transparent 74%),rgba(3,7,14,.28);display:flex;align-items:center;justify-content:center;overflow:hidden}
 #records-hero .cr-hero-lines{position:absolute;inset:18px;background:linear-gradient(90deg,transparent 0 12%,rgba(34,211,238,.12) 12% 12.5%,transparent 12.5% 100%),linear-gradient(180deg,transparent 0 42%,rgba(20,241,149,.13) 42% 42.5%,transparent 42.5% 100%);opacity:.75}
 #records-hero .cr-hero-shield{width:76px;height:88px;clip-path:polygon(50% 0,88% 15%,82% 68%,50% 100%,18% 68%,12% 15%);border:1px solid rgba(20,241,149,.34);background:linear-gradient(145deg,rgba(20,241,149,.2),rgba(34,211,238,.08));display:flex;align-items:center;justify-content:center;color:var(--ink-bright);font-family:'JetBrains Mono',monospace;font-weight:800;box-shadow:0 0 32px rgba(20,241,149,.13)}
+/* The hero emblem is the OSI mark itself, not a stand-in monogram. It keeps the
+   brand's platinum-and-crimson palette rather than being recoloured into the
+   section's cyan; the section speaks through the halo behind it instead. */
+.osi-hero-eye{position:relative;z-index:1;display:block;flex:0 0 auto;overflow:visible;filter:drop-shadow(0 1px 2px rgba(3,7,14,.85)) drop-shadow(0 0 15px rgba(255,77,95,.17))}
+#records-hero .osi-hero-eye{width:132px;height:88px}
 #records-hero .cr-console{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:24px;align-items:start;margin-top:18px}
 #records-hero .cr-aside{display:flex;flex-direction:column;gap:12px;position:sticky;top:96px}
 #records-hero .cr-aside>.lb-card{display:none}
@@ -552,8 +557,9 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 #prooflog .pl-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
 #prooflog .pl-chips span{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink);border:1px solid rgba(34,211,238,.2);background:rgba(34,211,238,.055);border-radius:7px;padding:8px 11px}
 #prooflog .pl-chips span:nth-child(2){border-color:rgba(20,241,149,.24);background:rgba(20,241,149,.055)}
-#prooflog .pl-hero-mark{height:178px;display:flex;align-items:center;justify-content:center}
-#prooflog .pl-orbit{position:absolute;width:180px;height:110px;border:1px solid rgba(34,211,238,.18);border-radius:50%;transform:rotate(-17deg);box-shadow:0 0 0 25px rgba(34,211,238,.018),inset 0 0 28px rgba(34,211,238,.06)}
+#prooflog .pl-hero-mark{height:178px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle closest-side at 50% 50%,rgba(20,241,149,.10),rgba(34,211,238,.04) 58%,transparent 76%)}
+#prooflog .osi-hero-eye{width:116px;height:78px}
+#prooflog .pl-orbit{position:absolute;width:200px;height:120px;border:1px solid rgba(34,211,238,.18);border-radius:50%;transform:rotate(-17deg);box-shadow:0 0 0 25px rgba(34,211,238,.018),inset 0 0 28px rgba(34,211,238,.06)}
 #prooflog .pl-shield{width:78px;height:90px;clip-path:polygon(50% 0,88% 15%,82% 68%,50% 100%,18% 68%,12% 15%);border:1px solid rgba(20,241,149,.35);background:linear-gradient(145deg,rgba(20,241,149,.2),rgba(34,211,238,.08));display:flex;align-items:center;justify-content:center;color:var(--ink-bright);font-family:'JetBrains Mono',monospace;font-weight:800;box-shadow:0 0 34px rgba(20,241,149,.14)}
 #prooflog .pl-dash{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin:16px 0 18px}
 #prooflog .pl-stat{min-height:104px;border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(7,12,22,.94));padding:15px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
