@@ -369,6 +369,62 @@ button {
   gap: 10px;
 }
 
+.osi-language-control {
+  min-width: 62px;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--line-bright);
+  border-radius: 5px;
+  background: rgba(245, 240, 232, .035);
+  color: var(--ink-dim);
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.osi-language-control:hover,
+.osi-language-control:focus-within {
+  border-color: var(--platinum-cool);
+  background: rgba(245, 240, 232, .08);
+  color: var(--ink);
+}
+
+.osi-language-control svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.osi-language-control select {
+  min-width: 28px;
+  min-height: 40px;
+  padding: 0 13px 0 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.osi-language-control select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.osi-language-control option {
+  background: var(--bg-raised);
+  color: var(--ink);
+}
+
 .osi-header-case,
 .wallet-btn {
   min-height: 42px !important;
@@ -2454,6 +2510,23 @@ footer > .wrap {
     padding-inline: 11px !important;
   }
 
+  .osi-language-control {
+    min-width: 48px;
+    gap: 4px;
+    padding-inline: 6px;
+  }
+
+  .osi-language-control svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .osi-language-control select {
+    min-width: 24px;
+    padding-right: 8px;
+    font-size: 11px;
+  }
+
   .osi-global-header #wbText {
     max-width: 96px;
     overflow: hidden;
@@ -3122,7 +3195,7 @@ footer > .wrap {
   }
 
   .osi-global-header #walletBtn:not(.connected) #wbText::after {
-    content: "Connect";
+    content: var(--osi-connect-compact-label, "Connect");
     font-size: 13px;
   }
 
