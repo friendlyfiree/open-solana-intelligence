@@ -333,7 +333,7 @@
     queue.textContent=allowed?'Wire review queue':'Wire review queue (locked)';
     queue.title=allowed
       ? 'Review submitted Wire versions, and publish one that passes its gates'
-      : (unavailableReason||'Connect an eligible analyst wallet, or unlock both maintainer gates, to open this queue');
+      : (unavailableReason||'Connect an eligible analyst wallet, or open both maintainer gates (the configured maintainer wallet, plus a sign-in from Operations Center in the wallet menu), to open this queue');
   }
 
   async function refreshCapability(){

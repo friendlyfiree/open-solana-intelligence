@@ -166,6 +166,21 @@ ok("Wire detail tabs expose keyboard tab semantics",
     && source.includes('role="tab"')
     && source.includes("event.key==='ArrowRight'")
     && source.includes("fresh.focus()"));
+// The Wire review queue is the only route to publishing a submitted version,
+// and opening the second maintainer gate is a sign-in, not a page load. The
+// button was refreshed solely by the public Wire render, so a maintainer who
+// signed in kept looking at the pre-sign-in answer: locked, with no way to
+// correct it short of a reload. Both refresh points are asserted here because
+// losing either one reproduces that dead end silently.
+const coreSupabase = readFileSync(new URL("../assets/js/50-core-supabase.js", import.meta.url), "utf8");
+ok("a maintainer sign-in re-asks the server for Wire queue authority",
+  /notifySupaAuthChanged[\s\S]*?osiV2RefreshWireCapability[\s\S]*?\n}/.test(coreSupabase));
+ok("the Wire capability refresh runs before the private-mode render guard",
+  legacyWire.indexOf("osiV2RefreshWireCapability")
+    < legacyWire.indexOf("wireState.mode==='private'&&!activatePublic")
+    && legacyWire.includes("osiV2RefreshWireCapability"));
+ok("the locked Wire queue names where both maintainer gates are opened",
+  source.includes("Operations Center in the wallet menu"));
 ok("bootstrap publication and accepted-challenge states are labeled honestly",
   source.includes("Maintainer bootstrap publication")
     && source.includes("Challenge upheld, under re-review")

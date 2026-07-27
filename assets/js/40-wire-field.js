@@ -6,10 +6,14 @@ let wireState = { sort:'newest', data:[], phase:'idle', sourceError:null, mode:'
 async function renderWire(options){
   if(!document.getElementById('wire-cases')) return;
   const activatePublic=!!(options&&options.activatePublic);
+  // The hero's Wire controls belong to the section, not to the public feed, so
+  // refresh them before the private-mode guard returns. Leaving this below the
+  // guard meant a maintainer working in the private queue never re-asked the
+  // server, and kept whatever answer the page happened to load with.
+  if(typeof window.osiV2RefreshWireCapability==='function')window.osiV2RefreshWireCapability();
   if(wireState.mode==='private'&&!activatePublic)return;
   wireState.mode='public';
   const renderToken=++wireState.renderToken;
-  if(typeof window.osiV2RefreshWireCapability==='function')window.osiV2RefreshWireCapability();
   wireState.phase = 'loading';
   wireState.sourceError = null;
   drawWire();
