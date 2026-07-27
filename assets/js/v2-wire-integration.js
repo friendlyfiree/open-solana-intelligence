@@ -319,12 +319,29 @@
   async function openWireQueue(){
     if(typeof showView==='function')showView('wire');if(typeof wireEnterPrivateMode==='function')wireEnterPrivateMode();var wallet=await ensureWallet(),session=await window.osiV2ReadSession(['wire:queue'],{allowUnlock:true}),results=await Promise.all([api({op:'list_wire_review_queue',wallet:wallet,read_session:session.token}),api({op:'capabilities',wallet:wallet})]),result=results[0];state.capabilities=results[1];state.queue=result.reports||[];var host=document.getElementById('wire-cases');if(host)host.innerHTML='<div class="osi-case-note"><button class="osi-report-action" type="button" onclick="wireOpenPublic()">Back to public Wire</button><span>Restricted analyst queue. Author self-review is rejected by the database.</span></div><div class="osi-report-workspace">'+(state.queue.map(queueCard).join('')||'<div class="osi-report-empty"><b>No Wire versions await review</b></div>')+'</div>';restoreQueueDraft();return result;
   }
+  // The Wire review queue is the only route to publishing a submitted version,
+  // for an analyst casting a weighted review and for a full maintainer using the
+  // D17 bootstrap tier. It used to be hidden outright whenever the capability was
+  // absent, which left a maintainer holding an unpublished version with no route
+  // to it and nothing explaining why. Keep the authority check exactly as strict,
+  // but show the control and say what unlocks it.
+  function setWireQueueAction(allowed,unavailableReason){
+    var queue=document.getElementById('osi-wire-queue-action');
+    if(!queue)return;
+    queue.hidden=false;
+    queue.disabled=!allowed;
+    queue.textContent=allowed?'Wire review queue':'Wire review queue (locked)';
+    queue.title=allowed
+      ? 'Review submitted Wire versions, and publish one that passes its gates'
+      : (unavailableReason||'Connect an eligible analyst wallet, or unlock both maintainer gates, to open this queue');
+  }
+
   async function refreshCapability(){
     var button=document.getElementById('osi-wire-intake-action');if(!button)return;
-    try{var result=await api({op:'capabilities',wallet:String(walletPubkey||'')});state.capabilities=result;button.disabled=result.wire_writes_enabled!==true;button.textContent=result.wire_writes_enabled===true?'Submit a Wire Report':'Wire intake unavailable';button.title=result.prerequisite||'Create an exact private Wire Report version';var queue=document.getElementById('osi-wire-queue-action');if(queue)queue.hidden=!(result.analyst_eligible||result.maintainer_access);}
-    catch(_){button.disabled=true;button.textContent='Wire intake unavailable';button.title='Wire capability is temporarily unavailable';var queue=document.getElementById('osi-wire-queue-action');if(queue)queue.hidden=true;}
+    try{var result=await api({op:'capabilities',wallet:String(walletPubkey||'')});state.capabilities=result;button.disabled=result.wire_writes_enabled!==true;button.textContent=result.wire_writes_enabled===true?'Submit a Wire Report':'Wire intake unavailable';button.title=result.prerequisite||'Create an exact private Wire Report version';setWireQueueAction(result.analyst_eligible===true||result.maintainer_access===true,null);}
+    catch(_){button.disabled=true;button.textContent='Wire intake unavailable';button.title='Wire capability is temporarily unavailable';setWireQueueAction(false,'Wire capability is temporarily unavailable. Retry in a moment.');}
   }
-  function clearSessionState(reason){var preserve=reason==='expiry'||reason==='explicit_refresh';if(preserve)saveQueueDraft();state.cacheWallet='';state.reports=[];state.queue=[];state.current=null;state.capabilities=null;if(!preserve){state.pending=null;state.idempotency='';var form=document.getElementById('osi-wire-form');if(form)form.reset();var modal=document.getElementById('osi-wire-modal');if(modal)modal.classList.remove('open');status('');}var drawer=document.getElementById('osi-wire-drawer');if(drawer){drawer.classList.remove('open');drawer.hidden=true;}var queue=document.getElementById('osi-wire-queue-action');if(queue)queue.hidden=true;document.body.classList.remove('cr-drawer-lock');syncBodyLock();if(typeof wireClearPrivateMode==='function')wireClearPrivateMode();}
+  function clearSessionState(reason){var preserve=reason==='expiry'||reason==='explicit_refresh';if(preserve)saveQueueDraft();state.cacheWallet='';state.reports=[];state.queue=[];state.current=null;state.capabilities=null;if(!preserve){state.pending=null;state.idempotency='';var form=document.getElementById('osi-wire-form');if(form)form.reset();var modal=document.getElementById('osi-wire-modal');if(modal)modal.classList.remove('open');status('');}var drawer=document.getElementById('osi-wire-drawer');if(drawer){drawer.classList.remove('open');drawer.hidden=true;}setWireQueueAction(false,'Connect an eligible analyst wallet, or unlock both maintainer gates, to open this queue');document.body.classList.remove('cr-drawer-lock');syncBodyLock();if(typeof wireClearPrivateMode==='function')wireClearPrivateMode();}
   function trapFocus(event,root){if(event.key!=='Tab'||!root)return;var nodes=Array.prototype.filter.call(root.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])'),function(node){return node.offsetParent!==null;});if(!nodes.length)return;var first=nodes[0],last=nodes[nodes.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
   document.addEventListener('click',function(event){
     var target=event.target&&event.target.closest?event.target.closest('[data-wire-tab],[data-wire-review],[data-wire-publish],[data-wire-governance],[data-wire-support],[data-wire-promote]'):null;if(!target)return;
