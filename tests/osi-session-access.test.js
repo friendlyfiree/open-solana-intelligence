@@ -2,6 +2,7 @@
 // Run: node tests/osi-session-access.test.js
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -75,6 +76,18 @@ ok(maintainer.includes("data.maintainer_access===true"), 'server capabilities de
 ok(maintainer.includes('isMaintainerWallet && passwordAuthenticated && OSI_MAINTAINER_SERVER_GATE'), 'wallet, auth session, and server verification are all required');
 ok(maintainer.includes("setMaintainerServerGate(false,'signed_out')"), 'sign-out clears maintainer state');
 ok(!maintainer.includes('MAINTAINER_AUTH_UUID'), 'maintainer auth UUID is not exposed to the frontend');
+const maintainerRaceContext = {
+  OSI_ADMIN_WALLET: 'maintainer-wallet',
+  SUPA_AUTH_TOKEN: 'authenticated',
+  SUPA_AUTH_USER: { id: 'maintainer-auth' },
+};
+vm.runInNewContext(
+  maintainer.slice(maintainer.indexOf('var OSI_MAINTAINER_SERVER_GATE'), maintainer.indexOf('function maintainerAccessMessage')),
+  maintainerRaceContext
+);
+const earlyMaintainerAccess = maintainerRaceContext.resolveMaintainerAccess();
+ok(earlyMaintainerAccess.state === 'no_wallet' && earlyMaintainerAccess.allowed === false,
+  'early Supabase auth notification fails closed before the wallet module declares its state');
 
 ok(html.includes('id="maintainerAccessMenu"'), 'Maintainer Access is present in the wallet menu');
 ok(html.includes('id="admGateStatus"'), 'Operations Center shows both gate states');
