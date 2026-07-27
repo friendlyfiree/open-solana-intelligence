@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="./assets/css/v2-activation.css" media="print" fetchpriority="low" data-osi-route-style>
 <link rel="stylesheet" href="./assets/css/70-intelligence-redesign.css">
 <script src="./assets/js/02-route-styles.js"></script>
+<script defer src="./assets/js/03-i18n.js"></script>
 <noscript>
   <link rel="stylesheet" href="./assets/css/v2-case-integration.css">
   <link rel="stylesheet" href="./assets/css/v2-report-integration.css">
@@ -79,6 +80,14 @@
     <button class="osi-nav-link" type="button" data-global-view="methodology" onclick="osiNavigate('methodology')">About</button>
   </nav>
   <div class="osi-header-actions">
+    <label class="osi-language-control" for="osi-language-select">
+      <span class="sr-only">Select language</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.4 2.5 3.6 5.5 3.6 9S14.4 18.5 12 21M12 3C9.6 5.5 8.4 8.5 8.4 12s1.2 6.5 3.6 9"></path></svg>
+      <select id="osi-language-select" aria-label="Select language" title="Language" onchange="osiSetLanguage(this.value)">
+        <option value="en">EN</option>
+        <option value="tr">TR</option>
+      </select>
+    </label>
     <button class="osi-header-case" type="button" onclick="osiOpenCase()">Open a Case</button>
     <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">M</button>
     <div class="wb-wrap">

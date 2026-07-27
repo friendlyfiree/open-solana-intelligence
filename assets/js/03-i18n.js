@@ -1,0 +1,733 @@
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'osi_language';
+  var DEFAULT_LOCALE = 'en';
+  var SUPPORTED_LOCALES = ['en', 'tr'];
+  var ATTRIBUTE_NAMES = ['aria-label', 'title', 'placeholder'];
+  var originalText = new WeakMap();
+  var originalAttributes = new WeakMap();
+  var observer = null;
+  var currentLocale = readStoredLocale();
+
+  var turkish = {
+    'Open Solana Intelligence | Public incident intelligence': 'Open Solana Intelligence | Kamusal olay istihbaratı',
+    'Skip to main content': 'Ana içeriğe geç',
+    'Public incident intelligence': 'Kamusal olay istihbaratı',
+    'OSI Open Solana Intelligence, public incident intelligence, home': 'OSI Open Solana Intelligence, kamusal olay istihbaratı, ana sayfa',
+    'Open navigation': 'Menüyü aç',
+    'Close navigation': 'Menüyü kapat',
+    'Global navigation': 'Ana menü',
+    'Home': 'Ana Sayfa',
+    'Platform': 'Platform',
+    'Investigations': 'İncelemeler',
+    'Open a Case': 'Vaka Aç',
+    'Start private, wallet-signed intake': 'Gizli ve cüzdan imzalı başvuru başlat',
+    'Field Office': 'Saha Ofisi',
+    'Open and follow Cases': 'Vakaları aç ve takip et',
+    'The Wire': 'The Wire',
+    'Read standalone intelligence': 'Bağımsız istihbarat kayıtlarını incele',
+    'Public record': 'Kamusal kayıt',
+    'Public Records': 'Kamusal Kayıtlar',
+    'Reviewed and sealed outcomes': 'İncelenmiş ve mühürlenmiş sonuçlar',
+    'Proof Log': 'Kanıt Günlüğü',
+    'Verify signatures, Memos and transfers': 'İmzaları, Memo kayıtlarını ve transferleri doğrula',
+    'Governance': 'Yönetişim',
+    'Review Queue': 'İnceleme Kuyruğu',
+    'Open authorized review tasks': 'Yetkili inceleme görevlerini aç',
+    'Resolution lifecycle': 'Çözüm yaşam döngüsü',
+    'Resolve, challenge and seal': 'Çözümle, itiraz et ve mühürle',
+    'Reward & support': 'Ödül ve destek',
+    'Eligible sealed Case actions': 'Uygun mühürlü Vaka işlemleri',
+    'Workspaces': 'Çalışma Alanları',
+    'My OSI': 'OSI Alanım',
+    'Open wallet-linked work': 'Cüzdana bağlı çalışmaları aç',
+    'Analyst Network': 'Analist Ağı',
+    'Inspect attributable public work': 'Kaynağı belirli kamusal çalışmaları incele',
+    'About': 'Hakkında',
+    'Maintainer access': 'Sürdürücü erişimi',
+    'Connect Wallet': 'Cüzdanı Bağla',
+    'Connect, profile, or disconnect': 'Bağlan, profili aç veya bağlantıyı kes',
+    'Wallet and workspace': 'Cüzdan ve çalışma alanı',
+    'My work': 'Çalışmalarım',
+    'My Cases': 'Vakalarım',
+    'My Reports': 'Raporlarım',
+    'My Wire Reports': 'Wire Raporlarım',
+    'My Reviews': 'İncelemelerim',
+    'Analyst': 'Analist',
+    'My Analyst Profile': 'Analist Profilim',
+    'Applications': 'Başvurular',
+    'Maintainer Sign In': 'Sürdürücü Girişi',
+    '2 gates': '2 doğrulama',
+    'Disconnect': 'Bağlantıyı Kes',
+    'Public Solana intelligence': 'Kamusal Solana istihbaratı',
+    'Investigate Solana incidents. Prove every step.': 'Solana olaylarını inceleyin. Her adımı kanıtlayın.',
+    'Open a private Case, attach public evidence, and follow independent review to a challengeable public record.': 'Gizli bir Vaka açın, kamusal kanıt ekleyin ve bağımsız incelemeyi itiraza açık bir kamusal kayda kadar takip edin.',
+    'Browse Public Records': 'Kamusal Kayıtlara Göz At',
+    'Product boundaries': 'Ürün sınırları',
+    'Private by default': 'Varsayılan olarak gizli',
+    'Wallet-signed': 'Cüzdan imzalı',
+    'No custody': 'Varlık saklama yok',
+    'Explanatory OSI Case lifecycle': 'Açıklayıcı OSI Vaka yaşam döngüsü',
+    'Case lifecycle': 'Vaka yaşam döngüsü',
+    'Evidence becomes a public record': 'Kanıt kamusal kayda dönüşür',
+    'Explanatory route': 'Açıklayıcı akış',
+    'Case': 'Vaka',
+    'Private intake': 'Gizli başvuru',
+    'Report': 'Rapor',
+    'Exact evidence': 'Kesin kanıt kapsamı',
+    'Review': 'İnceleme',
+    'Independent gates': 'Bağımsız eşikler',
+    'Challengeable proof': 'İtiraza açık kanıt',
+    'Signal state': 'Sinyal durumu',
+    'The explanatory sequence also includes REVIEW_QUORUM, CHALLENGE_WINDOW, MEMO_ANCHORED, and SOL_TRANSFER_VERIFIED.': 'Açıklayıcı sıra ayrıca REVIEW_QUORUM, CHALLENGE_WINDOW, MEMO_ANCHORED ve SOL_TRANSFER_VERIFIED durumlarını içerir.',
+    'Memo and verified SOL labels appear only after their Solana transactions are confirmed.': 'Memo ve doğrulanmış SOL etiketleri yalnızca ilgili Solana işlemleri onaylandıktan sonra görünür.',
+    'How OSI works': 'OSI nasıl çalışır',
+    'Four actions. One public trail.': 'Dört işlem. Tek bir kamusal iz.',
+    'Start private. Publish only after independent review and a challengeable outcome.': 'Gizli başlayın. Yalnızca bağımsız inceleme ve itiraza açık bir sonuçtan sonra yayımlayın.',
+    'Private-by-default intake for public evidence.': 'Kamusal kanıtlar için varsayılan olarak gizli başvuru.',
+    'Build a Versioned Report': 'Sürümlü Bir Rapor Oluşturun',
+    'Each immutable version binds to one exact evidence manifest.': 'Her değişmez sürüm tek bir kesin kanıt manifestosuna bağlanır.',
+    'Review and Challenge': 'İncele ve İtiraz Et',
+    'Independent gates with a contestable outcome.': 'İtiraza açık sonuç için bağımsız eşikler.',
+    'Verify the Record': 'Kaydı Doğrulayın',
+    'Inspect signatures, Memos, and real transfer proof.': 'İmzaları, Memo kayıtlarını ve gerçek transfer kanıtlarını inceleyin.',
+    'Public index': 'Kamusal dizin',
+    'Only real public activity appears.': 'Yalnızca gerçek kamusal etkinlik görünür.',
+    'Empty means empty. OSI never invents a Case, analyst, payment, or proof.': 'Boş, gerçekten boş demektir. OSI hiçbir Vaka, analist, ödeme veya kanıt uydurmaz.',
+    'Checking the public Case index': 'Kamusal Vaka dizini kontrol ediliyor',
+    'Only server-approved public fields are requested.': 'Yalnızca sunucunun onayladığı kamusal alanlar istenir.',
+    'Reviewed outcomes': 'İncelenmiş sonuçlar',
+    'Open registry': 'Kayıt dizinini aç',
+    'Loading public records': 'Kamusal kayıtlar yükleniyor',
+    'Private Cases and unpublished Reports stay excluded.': 'Gizli Vakalar ve yayımlanmamış Raporlar kapsam dışında kalır.',
+    'Attributable work': 'Kaynağı belirli çalışmalar',
+    'Open network': 'Ağı aç',
+    'Loading public profiles': 'Kamusal profiller yükleniyor',
+    'No wallet identity is invented for this surface.': 'Bu alanda hiçbir cüzdan kimliği uydurulmaz.',
+    'Proof labels': 'Kanıt etiketleri',
+    'Different proof. Different claim.': 'Farklı kanıt. Farklı iddia.',
+    'Open Proof Log': 'Kanıt Günlüğünü Aç',
+    'Wallet': 'Cüzdan',
+    'Server-verified signature': 'Sunucu tarafından doğrulanmış imza',
+    'Never labeled on-chain.': 'Asla zincir üstü olarak etiketlenmez.',
+    'Memo': 'Memo',
+    'After confirmation': 'Onaydan sonra',
+    'Anchored only after the Memo transaction confirms.': 'Yalnızca Memo işlemi onaylandıktan sonra zincire sabitlenmiş sayılır.',
+    'Only when verified': 'Yalnızca doğrulandığında',
+    'Only when an eligible transfer confirms. Solscan opens only with a real transaction reference.': 'Yalnızca uygun bir transfer onaylandığında. Solscan sadece gerçek bir işlem referansıyla açılır.',
+    'No custody.': 'Varlık saklama yok.',
+    'Every write keeps its wallet approval. Support never changes review, ranking, or governance.': 'Her yazma işlemi cüzdan onayını korur. Destek; incelemeyi, sıralamayı veya yönetişimi asla değiştirmez.',
+    'OSI Public Records': 'OSI Kamusal Kayıtları',
+    'Reviewed Case outcomes and published Wire findings with public evidence, attributable review, and proof-log verification.': 'Kamusal kanıt, kaynağı belirli inceleme ve Kanıt Günlüğü doğrulaması içeren incelenmiş Vaka sonuçları ile yayımlanmış Wire bulguları.',
+    'Public Records trust console': 'Kamusal Kayıtlar güven özeti',
+    'Reviewed records': 'İncelenmiş kayıtlar',
+    'Public evidence': 'Kamusal kanıt',
+    'Challengeable': 'İtiraza açık',
+    'Memo-verifiable': 'Memo ile doğrulanabilir',
+    'All': 'Tümü',
+    'Reviewed': 'İncelendi',
+    'Memo-linked': 'Memo bağlantılı',
+    'Challenged': 'İtiraz edildi',
+    'Sealed': 'Mühürlendi',
+    'Sort': 'Sırala',
+    'Latest': 'En yeni',
+    'Most reviewed': 'En çok incelenen',
+    'Most challenged': 'En çok itiraz edilen',
+    'OSI records are informational only.': 'OSI kayıtları yalnızca bilgilendirme amaçlıdır.',
+    'No legal certainty.': 'Hukuki kesinlik sunmaz.',
+    'No recovery promise.': 'Kurtarma taahhüdü yoktur.',
+    'No custody of funds or private keys.': 'Fon veya özel anahtar saklanmaz.',
+    'Public evidence and analyst conclusions may still be challenged.': 'Kamusal kanıtlara ve analist sonuçlarına itiraz edilebilir.',
+    'How a record becomes public': 'Bir kayıt nasıl kamusal olur',
+    'Evidence submitted': 'Kanıt gönderildi',
+    'Public case material is filed for review.': 'Kamusal Vaka materyali incelemeye sunulur.',
+    'Weighted analyst quorum': 'Ağırlıklı analist yeter sayısı',
+    'Eligible analysts select one exact Report version.': 'Uygun analistler tek bir kesin Rapor sürümü seçer.',
+    'Challenge window': 'İtiraz süresi',
+    'New material can challenge the selected version for seven days.': 'Yeni materyaller yedi gün boyunca seçilen sürüme itiraz edebilir.',
+    'Process seal': 'Süreç mührü',
+    'Analyst seal quorum and both maintainer gates finalize the process record.': 'Analist mühür yeter sayısı ve iki sürdürücü doğrulaması süreç kaydını sonuçlandırır.',
+    'Public archive': 'Kamusal arşiv',
+    'The result remains attributable and challenge history stays visible.': 'Sonucun kaynağı belirli kalır ve itiraz geçmişi görünür olur.',
+    'Record Integrity': 'Kayıt Bütünlüğü',
+    'Public evidence only': 'Yalnızca kamusal kanıt',
+    'Independent analyst review': 'Bağımsız analist incelemesi',
+    'Challengeable by the community': 'Topluluk itirazına açık',
+    'Memo-linked when available': 'Varsa Memo bağlantılı',
+    'Version history where applicable': 'Uygun olduğunda sürüm geçmişi',
+    'Safety Boundaries': 'Güvenlik Sınırları',
+    'Informational only': 'Yalnızca bilgilendirme amaçlı',
+    'Not legal advice': 'Hukuki tavsiye değildir',
+    'No custody of funds or keys': 'Fon veya anahtar saklama yok',
+    'Need something?': 'Bir işlem mi yapmak istiyorsunuz?',
+    'Report a new incident': 'Yeni bir olay bildirin',
+    'Join as Analyst': 'Analist Olarak Katıl',
+    'Open the signed application flow': 'İmzalı başvuru akışını aç',
+    'View Proof Log': 'Kanıt Günlüğünü Görüntüle',
+    'Explore signed activity': 'İmzalı etkinlikleri incele',
+    'VERIFIED PUBLIC IDENTITIES': 'DOĞRULANMIŞ KAMUSAL KİMLİKLER',
+    'Wallet-linked analysts with server-derived status, attributable contributions, and inspectable proof history. Support never changes ordering, status, or review weight.': 'Sunucu tarafından belirlenen durum, kaynağı belirli katkılar ve incelenebilir kanıt geçmişiyle cüzdana bağlı analistler. Destek; sıralamayı, durumu veya inceleme ağırlığını asla değiştirmez.',
+    'Reputation system': 'İtibar sistemi',
+    'Wallet-linked work': 'Cüzdana bağlı çalışmalar',
+    'Reputation by contribution': 'Katkıya dayalı itibar',
+    'Challengeable reviews': 'İtiraza açık incelemeler',
+    'No pay-to-rank': 'Ödeme ile sıralama yok',
+    'Status': 'Durum',
+    'Expertise': 'Uzmanlık',
+    'Contributions': 'Katkılar',
+    'Weight': 'Ağırlık',
+    'Proof': 'Kanıt',
+    'Initial review authority': 'İlk inceleme yetkisi',
+    'Probationary analyst': 'Deneme sürecindeki analist',
+    'Initial-open analyst gate': 'İlk açılış analist eşiği',
+    '1 analyst and 0.50': '1 analist ve 0,50',
+    'Full maintainer route': 'Tam sürdürücü yolu',
+    'independent double gate': 'bağımsız çift doğrulama',
+    'Support payments': 'Destek ödemeleri',
+    'never affect governance': 'yönetişimi asla etkilemez',
+    'Opening starts a public investigation only. It is not a finding of truth, guilt, legal certainty, recovery, or payment.': 'Açılış yalnızca kamusal bir inceleme başlatır. Gerçeklik, suç, hukuki kesinlik, kurtarma veya ödeme kararı değildir.',
+    'Every public opening still requires the exact confirmed CASE_OPENED Memo.': 'Her kamusal açılış yine de onaylanmış kesin CASE_OPENED Memo kaydını gerektirir.',
+    'About the protocol': 'Protokol hakkında',
+    'Tier and weight are server-derived. A maintainer cannot type, select, or override either value.': 'Kademe ve ağırlık sunucu tarafından belirlenir. Bir sürdürücü bu değerleri giremez, seçemez veya geçersiz kılamaz.',
+    'How to earn a seat': 'Analist koltuğu nasıl kazanılır',
+    'Create a wallet profile': 'Cüzdan profili oluşturun',
+    'Choose a unique handle and public expertise.': 'Benzersiz bir kullanıcı adı ve kamusal uzmanlık alanı seçin.',
+    'Submit work evidence': 'Çalışma kanıtı gönderin',
+    'Each application version is signed and immutable.': 'Her başvuru sürümü imzalı ve değişmezdir.',
+    'Respond to revision requests': 'Düzeltme taleplerini yanıtlayın',
+    'A revision preserves every prior version and decision.': 'Bir düzeltme, önceki tüm sürüm ve kararları korur.',
+    'Activate probation': 'Deneme sürecini etkinleştirin',
+    'Approval plus ANALYST_PROBATION Memo derives weight 0.50.': 'Onay ve ANALYST_PROBATION Memo kaydı 0,50 ağırlığını belirler.',
+    'Start analyst application': 'Analist başvurusunu başlat',
+    'Open My Applications': 'Başvurularımı Aç',
+    'Memo-anchored on Solana': 'Solana üzerinde Memo ile sabitlenmiş',
+    'Wallet-signed and server-verified': 'Cüzdan imzalı ve sunucu doğrulamalı',
+    'Legacy, not server-verified': 'Eski kayıt, sunucu tarafından doğrulanmamış',
+    'Review guidelines': 'İnceleme ilkeleri',
+    'Read the evidence': 'Kanıtı okuyun',
+    'Check public links, wallets, logs, and submitted context.': 'Kamusal bağlantıları, cüzdanları, günlükleri ve gönderilen bağlamı kontrol edin.',
+    'Vote with conviction': 'Kanıta dayanarak oy verin',
+    'One vote per item; only sign what the evidence supports.': 'Her öğe için tek oy verin; yalnızca kanıtın desteklediği içeriği imzalayın.',
+    'Challenge weak claims': 'Zayıf iddialara itiraz edin',
+    'If attribution is thin, challenge it before publication.': 'Kaynaklandırma zayıfsa yayımdan önce itiraz edin.',
+    'Protect the record': 'Kaydı koruyun',
+    'Quality reviews keep public records useful and challengeable.': 'Nitelikli incelemeler kamusal kayıtları yararlı ve itiraza açık tutar.',
+    'OSI Proof Log': 'OSI Kanıt Günlüğü',
+    'Public provenance timeline with explicit labels for wallet signatures, confirmed Memos, verified SOL transfers, system events, and legacy references.': 'Cüzdan imzaları, onaylanmış Memo kayıtları, doğrulanmış SOL transferleri, sistem olayları ve eski referanslar için açık etiketler içeren kamusal kaynak geçmişi.',
+    'Proof log reference': 'Kanıt Günlüğü referansı',
+    'Proof Log summary': 'Kanıt Günlüğü özeti',
+    'Wallet verified': 'Cüzdan doğrulandı',
+    'Confirmed Memo': 'Onaylanmış Memo',
+    'Verified SOL': 'Doğrulanmış SOL',
+    'Legacy labeled': 'Eski kayıt olarak etiketli',
+    'Cases': 'Vakalar',
+    'Reports': 'Raporlar',
+    'Reviews': 'İncelemeler',
+    'Challenges': 'İtirazlar',
+    'Support': 'Destek',
+    'Seals': 'Mühürler',
+    'OSI is informational only.': 'OSI yalnızca bilgilendirme amaçlıdır.',
+    'No legal advice.': 'Hukuki tavsiye değildir.',
+    'No custody of funds.': 'Fon saklama hizmeti yoktur.',
+    'Public evidence and analyst reviews can still be challenged.': 'Kamusal kanıtlara ve analist incelemelerine itiraz edilebilir.',
+    'How proof labels work': 'Kanıt etiketleri nasıl çalışır',
+    'Server verification proves the wallet approved one exact OSI action. It is not on-chain.': 'Sunucu doğrulaması, cüzdanın tek bir kesin OSI işlemini onayladığını kanıtlar. Zincir üstü değildir.',
+    'Memo-anchored': 'Memo ile sabitlenmiş',
+    'Shown only when the exact Solana Memo transaction is confirmed.': 'Yalnızca kesin Solana Memo işlemi onaylandığında gösterilir.',
+    'SOL transfer verified': 'SOL transferi doğrulandı',
+    'Shown only after sender, recipient, amount, cluster, and confirmation are checked.': 'Yalnızca gönderen, alıcı, tutar, küme ve onay kontrol edildikten sonra gösterilir.',
+    'System or legacy': 'Sistem veya eski kayıt',
+    'Server events and imported references remain visibly distinct from native wallet proof.': 'Sunucu olayları ve içe aktarılan referanslar, yerel cüzdan kanıtından görünür biçimde ayrı kalır.',
+    'Event Types': 'Olay Türleri',
+    'Case opened': 'Vaka açıldı',
+    'Report submitted': 'Rapor gönderildi',
+    'Analyst review': 'Analist incelemesi',
+    'Challenge filed': 'İtiraz gönderildi',
+    'Record sealed': 'Kayıt mühürlendi',
+    'Support signal': 'Destek sinyali',
+    'Integrity Status': 'Bütünlük Durumu',
+    'Memo Schema Examples': 'Memo Şema Örnekleri',
+    'Documentation examples only. These are not event rows.': 'Yalnızca dokümantasyon örnekleridir. Olay kaydı değildir.',
+    'Resolutions': 'Çözümler',
+    'Public lists never reveal unpublished Report existence or private Case details.': 'Kamusal listeler, yayımlanmamış Raporların varlığını veya gizli Vaka ayrıntılarını asla açığa çıkarmaz.',
+    'Command Center': 'Komuta Merkezi',
+    'The Field Office': 'Saha Ofisi',
+    'Open cases, trace fund flows, and publish reviewed Solana incident records.': 'Vakaları açın, fon akışlarını izleyin ve incelenmiş Solana olay kayıtlarını yayımlayın.',
+    '+ Open a case': '+ Vaka aç',
+    'Initial review': 'İlk inceleme',
+    'Public investigation': 'Kamusal inceleme',
+    'Reports under review': 'İncelemedeki Raporlar',
+    'Resolution selection': 'Çözüm seçimi',
+    'Challenge active': 'İtiraz etkin',
+    'Seal ready': 'Mühürlemeye hazır',
+    'Newest': 'En yeni',
+    'Oldest': 'En eski',
+    'Case ID': 'Vaka Kimliği',
+    'Title': 'Başlık',
+    'Stage': 'Aşama',
+    'Category': 'Kategori',
+    'Select a case from the queue to preview it here.': 'Burada önizlemek için kuyruktan bir Vaka seçin.',
+    'Latest activity': 'Son etkinlik',
+    'Loading case activity…': 'Vaka etkinliği yükleniyor…',
+    'View public records ›': 'Kamusal kayıtları görüntüle ›',
+    'Proof log · recent': 'Kanıt Günlüğü · son kayıtlar',
+    'Loading signed actions…': 'İmzalı işlemler yükleniyor…',
+    'View full proof log ›': 'Tüm Kanıt Günlüğünü görüntüle ›',
+    'Analyst desk': 'Analist masası',
+    'Loading roster…': 'Analist listesi yükleniyor…',
+    'View all analysts ›': 'Tüm analistleri görüntüle ›',
+    'File a private Case': 'Gizli bir Vaka gönder',
+    'Your wallet anchors the submission with a Solana Memo. The Case remains private until an eligible analyst reviews it and anchors the public-open outcome. OSI provides process provenance, not a verdict or recovery promise.': 'Cüzdanınız gönderimi bir Solana Memo kaydıyla sabitler. Vaka, uygun bir analist inceleyip kamusal açılış sonucunu sabitleyene kadar gizli kalır. OSI süreç kaynağı sunar; hüküm veya kurtarma taahhüdü sunmaz.',
+    '(optional)': '(isteğe bağlı)',
+    'Not specified': 'Belirtilmedi',
+    'Wallet drain': 'Cüzdan boşaltma',
+    'Token risk': 'Token riski',
+    'Protocol incident': 'Protokol olayı',
+    'Social engineering': 'Sosyal mühendislik',
+    'Market manipulation': 'Piyasa manipülasyonu',
+    'Other': 'Diğer',
+    'Neutral title': 'Tarafsız başlık',
+    'Public summary': 'Kamusal özet',
+    'Visible only after analyst approval and the confirmed CASE_OPENED Memo.': 'Yalnızca analist onayı ve onaylanmış CASE_OPENED Memo kaydından sonra görünür.',
+    'Restricted details': 'Kısıtlı ayrıntılar',
+    'Private by default. Never returned by the anonymous API.': 'Varsayılan olarak gizlidir. Anonim API tarafından asla döndürülmez.',
+    'Structured evidence references': 'Yapılandırılmış kanıt referansları',
+    'Wallet addresses': 'Cüzdan adresleri',
+    'Transaction signatures': 'İşlem imzaları',
+    'HTTPS evidence links': 'HTTPS kanıt bağlantıları',
+    'Optional reward intent in SOL': 'SOL cinsinden isteğe bağlı ödül niyeti',
+    'This records non-binding intent only. It is not a pledge, transfer, escrow, or payment.': 'Bu yalnızca bağlayıcı olmayan bir niyeti kaydeder. Taahhüt, transfer, emanet veya ödeme değildir.',
+    'I confirm this submission contains no seed phrase, private key, illegal-access material, doxxing, or unsupported guilt claim.': 'Bu gönderimin kurtarma ifadesi, özel anahtar, yasa dışı erişim materyali, kişisel bilgi ifşası veya dayanaksız suç iddiası içermediğini onaylıyorum.',
+    'Network fee only. OSI receives no funds and never takes custody.': 'Yalnızca ağ ücreti alınır. OSI fon almaz ve hiçbir zaman varlık saklamaz.',
+    'Cancel': 'İptal',
+    'Review and sign': 'İncele ve imzala',
+    'Wallet-authored Case Report': 'Cüzdan sahibi tarafından yazılan Vaka Raporu',
+    'Submit an exact Report version': 'Kesin bir Rapor sürümü gönder',
+    'The restricted narrative and evidence stay private until a future reviewed publication transition. This action anchors only the exact version hash and safe reference on Solana.': 'Kısıtlı anlatım ve kanıtlar, gelecekteki incelenmiş yayımlama geçişine kadar gizli kalır. Bu işlem yalnızca kesin sürüm özetini ve güvenli referansı Solana üzerinde sabitler.',
+    'Restricted Report narrative': 'Kısıtlı Rapor anlatımı',
+    '80 to 100,000 characters. Explain the trace, limits, and uncertainty. This is not public before reviewed publication.': '80 ila 100.000 karakter. İzlemeyi, sınırları ve belirsizliği açıklayın. İncelenmiş yayımdan önce kamusal değildir.',
+    'Public-safe summary': 'Kamusal kullanıma uygun özet',
+    'Optional. It is still private in this intake slice.': 'İsteğe bağlıdır. Bu başvuru aşamasında yine gizlidir.',
+    'Solana transaction signatures': 'Solana işlem imzaları',
+    'HTTPS source URLs': 'HTTPS kaynak adresleri',
+    'Add at least one and no more than 12 total references. File upload is unavailable because no approved private storage path exists yet.': 'En az bir, toplamda en fazla 12 referans ekleyin. Henüz onaylanmış bir gizli depolama yolu bulunmadığından dosya yükleme kullanılamaz.',
+    'Revision reason': 'Düzeltme nedeni',
+    'Choose a reason': 'Bir neden seçin',
+    'Author correction': 'Yazar düzeltmesi',
+    'New evidence': 'Yeni kanıt',
+    'Clarification': 'Açıklama',
+    'Review response': 'İnceleme yanıtı',
+    'I confirm that this Report contains no seed phrase, private key, access token, stolen credential, illegal-access material, payment-card number, or government identity number.': 'Bu Raporun kurtarma ifadesi, özel anahtar, erişim belirteci, çalınmış kimlik bilgisi, yasa dışı erişim materyali, ödeme kartı numarası veya resmi kimlik numarası içermediğini onaylıyorum.',
+    'Prepare exact Memo': 'Kesin Memo kaydını hazırla',
+    'Wallet-authored standalone finding': 'Cüzdan sahibi tarafından yazılan bağımsız bulgu',
+    'Submit an exact Wire Report version': 'Kesin bir Wire Raporu sürümü gönder',
+    'This version and its evidence remain private until an authorized publication transition. This action anchors only the exact version hash and safe reference on Solana.': 'Bu sürüm ve kanıtları, yetkili bir yayımlama geçişine kadar gizli kalır. Bu işlem yalnızca kesin sürüm özetini ve güvenli referansı Solana üzerinde sabitler.',
+    'Public-safe title': 'Kamusal kullanıma uygun başlık',
+    'The title and summary are still private until publication.': 'Başlık ve özet yayıma kadar gizli kalır.',
+    'Detailed analysis': 'Ayrıntılı analiz',
+    'Uncertainties and limits (optional)': 'Belirsizlikler ve sınırlar (isteğe bağlı)',
+    'Structured evidence references (optional)': 'Yapılandırılmış kanıt referansları (isteğe bağlı)',
+    'Add up to 12 references when useful. File upload is unavailable because no approved private storage path exists.': 'Yararlı olduğunda en fazla 12 referans ekleyin. Onaylanmış bir gizli depolama yolu bulunmadığından dosya yükleme kullanılamaz.',
+    'I confirm that this Wire Report contains no seed phrase, private key, access token, stolen credential, illegal-access material, doxxing, payment-card number, or government identity number.': 'Bu Wire Raporunun kurtarma ifadesi, özel anahtar, erişim belirteci, çalınmış kimlik bilgisi, yasa dışı erişim materyali, kişisel bilgi ifşası, ödeme kartı numarası veya resmi kimlik numarası içermediğini onaylıyorum.',
+    'Wire Report': 'Wire Raporu',
+    'Case Queue': 'Vaka Kuyruğu',
+    'Open intelligence': 'Açık istihbarat',
+    'Reviewed standalone findings and community-filed intelligence signals.': 'İncelenmiş bağımsız bulgular ve topluluk tarafından gönderilen istihbarat sinyalleri.',
+    'Checking Wire intake': 'Wire başvurusu kontrol ediliyor',
+    'Wire review queue': 'Wire inceleme kuyruğu',
+    'Intelligence feed': 'İstihbarat akışı',
+    'sort': 'sırala',
+    'Wire Guide': 'Wire Rehberi',
+    'Wire guide': 'Wire rehberi',
+    'Wallets and tx links preferred': 'Cüzdan ve işlem bağlantıları tercih edilir',
+    'Community interest signals are neutral information': 'Topluluk ilgi sinyalleri tarafsız bilgidir',
+    'Strong signals may become formal cases': 'Güçlü sinyaller resmi Vakalara dönüşebilir',
+    'No private accusations or recovery promises': 'Özel suçlama veya kurtarma vaadi yok',
+    'Signal Types': 'Sinyal Türleri',
+    'Wallet activity': 'Cüzdan etkinliği',
+    'Public filing': 'Kamusal bildirim',
+    'Exploit trace': 'İstismar izi',
+    'Exchange outflow': 'Borsa çıkışı',
+    'Scam cluster': 'Şüpheli etkinlik kümesi',
+    'OPERATIONS CENTER //': 'OPERASYON MERKEZİ //',
+    'MAINTAINER ONLY': 'YALNIZCA SÜRDÜRÜCÜ',
+    'Maintainer sign in': 'Sürdürücü girişi',
+    'The admin wallet is connected. Complete the independent Supabase authority gate. The server verifies both gates again for every protected operation.': 'Yönetici cüzdanı bağlı. Bağımsız Supabase yetki doğrulamasını tamamlayın. Sunucu, korunan her işlem için iki doğrulamayı da yeniden yapar.',
+    'EMAIL': 'E-POSTA',
+    'PASSWORD': 'PAROLA',
+    'SIGN IN': 'GİRİŞ YAP',
+    'RETRY': 'YENİDEN DENE',
+    'NATIVE V2': 'YEREL V2',
+    'Analyst application queue': 'Analist başvuru kuyruğu',
+    'Refresh queue': 'Kuyruğu yenile',
+    'Unlock both maintainer gates to load exact application versions.': 'Kesin başvuru sürümlerini yüklemek için iki sürdürücü doğrulamasını da açın.',
+    'SERVER-DERIVED': 'SUNUCU TARAFINDAN BELİRLENİR',
+    'Case operations overview': 'Vaka operasyonları özeti',
+    'Refresh overview': 'Özeti yenile',
+    'Unlock both maintainer gates to load the native Case overview.': 'Yerel Vaka özetini yüklemek için iki sürdürücü doğrulamasını da açın.',
+    'OSI Identity': 'OSI Kimliği',
+    'Your Intelligence Passport': 'İstihbarat Pasaportunuz',
+    'Loading wallet-linked identity, role status, and proof-of-work across OSI.': 'OSI genelinde cüzdana bağlı kimlik, rol durumu ve çalışma kanıtı yükleniyor.',
+    'About OSI': 'OSI Hakkında',
+    'Public intelligence with an auditable boundary.': 'Denetlenebilir sınırlara sahip kamusal istihbarat.',
+    'OSI organizes public Solana incident evidence into attributable, independently reviewed, and challengeable records. It proves who acted, what version they acted on, and which proof was verified. It does not decide automatic truth, guilt, or legal certainty.': 'OSI, kamusal Solana olay kanıtlarını kaynağı belirli, bağımsız incelenmiş ve itiraza açık kayıtlara dönüştürür. Kimin işlem yaptığını, hangi sürüm üzerinde işlem yaptığını ve hangi kanıtın doğrulandığını gösterir. Otomatik gerçeklik, suç veya hukuki kesinlik kararı vermez.',
+    'Inspect Proof Standards': 'Kanıt Standartlarını İncele',
+    'OSI eye emblem': 'OSI göz amblemi',
+    'A platinum intelligence eye crossed by a crimson signal line.': 'Kızıl bir sinyal çizgisinin kestiği platin renkli istihbarat gözü.',
+    'OSI intelligence signal mark. Never used as a proof or verification seal.': 'OSI istihbarat sinyali işareti. Asla kanıt veya doğrulama mührü olarak kullanılmaz.',
+    'Product boundary': 'Ürün sınırı',
+    'Process integrity, without false authority.': 'Yanıltıcı otorite oluşturmadan süreç bütünlüğü.',
+    'OSI is': 'OSI şunları sunar',
+    'A public evidence and provenance workspace': 'Kamusal kanıt ve kaynak çalışma alanı',
+    'A review protocol with attributable decisions': 'Kaynağı belirli kararlar içeren inceleme protokolü',
+    'A challengeable record with immutable versions': 'Değişmez sürümler içeren itiraza açık kayıt',
+    'A non-custodial interface for direct wallet actions': 'Doğrudan cüzdan işlemleri için varlık saklamayan arayüz',
+    'OSI is not': 'OSI şunları sunmaz',
+    'A recovery service or private investigator': 'Kurtarma hizmeti veya özel soruşturma',
+    'A legal verdict, guilt engine, or enforcement authority': 'Hukuki hüküm, suç kararı veya yaptırım yetkisi',
+    'A custodian, escrow, or platform balance': 'Varlık saklama, emanet veya platform bakiyesi',
+    'A guarantee of publication, payment, or fund return': 'Yayım, ödeme veya fon iadesi garantisi',
+    'Proof vocabulary': 'Kanıt sözlüğü',
+    'One label for each claim.': 'Her iddia için tek bir etiket.',
+    'OSI keeps wallet approval, confirmed Solana proof, transfer verification, and process status visibly separate.': 'OSI; cüzdan onayını, onaylanmış Solana kanıtını, transfer doğrulamasını ve süreç durumunu görünür biçimde ayrı tutar.',
+    'Wallet signature': 'Cüzdan imzası',
+    'Wallet-signed and server-verified. Never labeled on-chain.': 'Cüzdan imzalı ve sunucu doğrulamalı. Asla zincir üstü olarak etiketlenmez.',
+    'Memo-anchored on Solana only after the exact transaction confirms.': 'Yalnızca kesin işlem onaylandıktan sonra Solana üzerinde Memo ile sabitlenmiş sayılır.',
+    'Shown only after the intended System Program transfer is confirmed.': 'Yalnızca amaçlanan System Program transferi onaylandıktan sonra gösterilir.',
+    'Process state': 'Süreç durumu',
+    'Provenance records an action. It is not a truth or legal verdict.': 'Kaynak geçmişi bir işlemi kaydeder. Gerçeklik veya hukuki hüküm değildir.',
+    'Analyst authority': 'Analist yetkisi',
+    'Verify an OSI analyst credential on Solana.': 'Solana üzerinde bir OSI analist yetkisini doğrulayın.',
+    'The Solana Attestation Service credential confirms that one wallet currently has OSI review authority under the exact OSI_VERIFIED_ANALYST credential, schema, and issuer. It is not KYC, proof of a person\'s identity, an endorsement, or proof that a review is correct.': 'Solana Attestation Service yetkisi, bir cüzdanın kesin OSI_VERIFIED_ANALYST yetkisi, şeması ve sağlayıcısı kapsamında şu anda OSI inceleme yetkisine sahip olduğunu doğrular. KYC, kişi kimliği kanıtı, destek beyanı veya incelemenin doğru olduğuna dair kanıt değildir.',
+    'What the badge means': 'Rozet ne anlama gelir',
+    'The public verifier returned': 'Kamusal doğrulayıcı şu sonucu döndürdü',
+    'with the exact verified state.': 'kesin doğrulanmış durumuyla.',
+    'The answer is tied to the pasted wallet and OSI\'s on-chain SAS configuration.': 'Yanıt, girilen cüzdana ve OSI\'nin zincir üstü SAS yapılandırmasına bağlıdır.',
+    'A missing, expired, invalid, or unavailable credential never earns a badge.': 'Eksik, süresi dolmuş, geçersiz veya erişilemeyen bir yetki asla rozet kazandırmaz.',
+    'Review authority is separate from truth, correctness, identity, or legal certainty.': 'İnceleme yetkisi; gerçeklik, doğruluk, kimlik veya hukuki kesinlikten ayrıdır.',
+    'Public wallet verifier': 'Kamusal cüzdan doğrulayıcı',
+    'Solana wallet address': 'Solana cüzdan adresi',
+    'No wallet connection is needed. OSI displays only the answer returned by the existing public sas_verify endpoint.': 'Cüzdan bağlantısı gerekmez. OSI yalnızca mevcut kamusal sas_verify uç noktasının döndürdüğü yanıtı gösterir.',
+    'Verify wallet': 'Cüzdanı doğrula',
+    'Protocol principles': 'Protokol ilkeleri',
+    'Built to preserve disagreement and history.': 'Görüş ayrılığını ve geçmişi korumak için tasarlandı.',
+    'New Cases and pending evidence stay outside public projections until an authorized transition opens them.': 'Yeni Vakalar ve bekleyen kanıtlar, yetkili bir geçiş onları açana kadar kamusal görünümlerin dışında kalır.',
+    'Exact versions': 'Kesin sürümler',
+    'Reports and reviews bind to immutable content versions. Revision adds history instead of erasing it.': 'Raporlar ve incelemeler değişmez içerik sürümlerine bağlanır. Düzeltme, geçmişi silmek yerine yeni geçmiş ekler.',
+    'Independent authority': 'Bağımsız yetki',
+    'Ownership, analyst eligibility, and maintainer authority remain separate. One role cannot silently replace another.': 'Sahiplik, analist uygunluğu ve sürdürücü yetkisi ayrı kalır. Bir rol diğerinin yerini sessizce alamaz.',
+    'Challengeable outcomes': 'İtiraza açık sonuçlar',
+    'Published process records retain review, challenge, correction, and proof history for public inspection.': 'Yayımlanmış süreç kayıtları, kamusal inceleme için inceleme, itiraz, düzeltme ve kanıt geçmişini korur.',
+    'Enter the platform': 'Platforma girin',
+    'Inspect the evidence, then choose an action.': 'Kanıtı inceleyin, ardından bir işlem seçin.',
+    'View Analyst Network': 'Analist Ağını Görüntüle',
+    'Information only.': 'Yalnızca bilgilendirme amaçlıdır.',
+    'OSI never requests private keys, takes custody, promises recovery, or converts provenance into a legal conclusion.': 'OSI hiçbir zaman özel anahtar istemez, varlık saklamaz, kurtarma sözü vermez veya kaynak geçmişini hukuki bir sonuca dönüştürmez.',
+    'SIGNED ANALYST APPLICATION': 'İMZALI ANALİST BAŞVURUSU',
+    'Create your analyst profile': 'Analist profilinizi oluşturun',
+    'Your wallet is the applicant identity. Submission signs one exact immutable version. Public profile fields become visible only after probation activation.': 'Cüzdanınız başvuru kimliğinizdir. Gönderim, kesin ve değişmez tek bir sürümü imzalar. Kamusal profil alanları yalnızca deneme süreci etkinleştirildikten sonra görünür.',
+    'X / Twitter handle': 'X / Twitter kullanıcı adı',
+    'Display name (optional)': 'Görünen ad (isteğe bağlı)',
+    'Introduce yourself': 'Kendinizi tanıtın',
+    'Expertise categories (optional)': 'Uzmanlık kategorileri (isteğe bağlı)',
+    'Blockchain forensics': 'Blokzincir adli analizi',
+    'Scam analysis': 'Dolandırıcılık analizi',
+    'Exploit research': 'İstismar araştırması',
+    'Data analysis': 'Veri analizi',
+    'OSINT': 'OSINT',
+    'Protocol research': 'Protokol araştırması',
+    'Other public link label (optional)': 'Diğer kamusal bağlantı etiketi (isteğe bağlı)',
+    'Other public HTTPS link (optional)': 'Diğer kamusal HTTPS bağlantısı (isteğe bağlı)',
+    'Safe profile image': 'Güvenli profil görseli',
+    'PNG or JPEG only, 64 to 1024 px, maximum 512 KB. SVG and remote image URLs are rejected.': 'Yalnızca PNG veya JPEG, 64 ila 1024 piksel, en fazla 512 KB. SVG ve uzak görsel adresleri reddedilir.',
+    'Why you want to review (optional)': 'Neden inceleme yapmak istiyorsunuz (isteğe bağlı)',
+    'Describe your work': 'Çalışmanızı açıklayın',
+    'Public proof-of-work links (optional)': 'Kamusal çalışma kanıtı bağlantıları (isteğe bağlı)',
+    'Never include a seed phrase, private key, private messages, prohibited personal data, or confidential access material.': 'Asla kurtarma ifadesi, özel anahtar, özel mesaj, yasaklanmış kişisel veri veya gizli erişim materyali eklemeyin.',
+    'SIGN AND SUBMIT VERSION': 'SÜRÜMÜ İMZALA VE GÖNDER',
+    'NATIVE CASE CHALLENGE': 'YEREL VAKA İTİRAZI',
+    'Open the exact Case record': 'Kesin Vaka kaydını aç',
+    'Challenges are filed against the selected, immutable Report version inside a public Case. Open the Case, choose': 'İtirazlar, kamusal bir Vaka içindeki seçilmiş ve değişmez Rapor sürümüne karşı gönderilir. Vakayı açın ve şunu seçin:',
+    'and bind the challenge to an existing evidence item. The outcome records process review, not truth, guilt, legal certainty, recovery, or payment.': 've itirazı mevcut bir kanıt öğesine bağlayın. Sonuç; gerçeklik, suç, hukuki kesinlik, kurtarma veya ödeme değil, süreç incelemesini kaydeder.',
+    'Exact version · signed · replay-protected': 'Kesin sürüm · imzalı · yeniden kullanıma karşı korumalı',
+    'Close': 'Kapat',
+    'OPEN SOLANA INTELLIGENCE': 'OPEN SOLANA INTELLIGENCE',
+    'A public-good intelligence platform for attributable, wallet-signed, community-reviewed and challengeable records.': 'Kaynağı belirli, cüzdan imzalı, topluluk tarafından incelenmiş ve itiraza açık kayıtlar için kamu yararına çalışan bir istihbarat platformu.',
+    'Process, not automatic truth.': 'Otomatik gerçeklik kararı değil, süreç.',
+    'OSI does not promise guilt, legal certainty, recovery, custody or guaranteed payment. Verify the evidence and proof boundary before acting.': 'OSI suç, hukuki kesinlik, kurtarma, varlık saklama veya garantili ödeme vaat etmez. İşlem yapmadan önce kanıtı ve kanıt sınırını doğrulayın.',
+    'Feedback': 'Geri Bildirim',
+    'Copy contact email': 'İletişim e-postasını kopyala',
+    'Submit an exact Case Report': 'Kesin bir Vaka Raporu gönder',
+    'Case Reports use native exact-version intake.': 'Vaka Raporları yerel kesin sürüm başvurusunu kullanır.',
+    'Open the public Case in Field Office and use its Reports tab. Each immutable version is wallet-signed, server-verified, and independently reviewed by eligible analysts. A maintainer cannot replace Report quorum.': 'Kamusal Vakayı Saha Ofisinde açın ve Raporlar sekmesini kullanın. Her değişmez sürüm cüzdan imzalıdır, sunucu tarafından doğrulanır ve uygun analistlerce bağımsız olarak incelenir. Bir sürdürücü Rapor yeter sayısının yerini alamaz.',
+    'Voluntary support': 'Gönüllü destek',
+    'to': 'alıcı',
+    'analyst': 'analist',
+    'Choose an amount in SOL': 'SOL cinsinden tutar seçin',
+    'Custom amount in SOL': 'SOL cinsinden özel tutar',
+    'custom': 'özel',
+    'Continue': 'Devam Et',
+    'Cancel transfer': 'Transferi iptal et',
+    'Direct wallet-to-wallet in native SOL. No custody: OSI never holds, escrows, or routes the funds. Support never changes review, ranking, weight, eligibility, or publication. The server derives the exact recipient and Memo, and you approve one transaction in your wallet.': 'Doğrudan cüzdandan cüzdana yerel SOL transferi. Varlık saklama yoktur: OSI fonları asla tutmaz, emanet almaz veya yönlendirmez. Destek; incelemeyi, sıralamayı, ağırlığı, uygunluğu veya yayımı asla değiştirmez. Sunucu kesin alıcıyı ve Memo kaydını belirler; siz de cüzdanınızda tek bir işlemi onaylarsınız.',
+    'OSI project': 'OSI projesi',
+    'Review & send →': 'İncele ve gönder →',
+    'Close support dialog': 'Destek penceresini kapat',
+    'Voluntary support · Direct wallet-to-wallet · No custody: OSI never holds, escrows, or routes the funds. Support does not influence review, ranking, consensus, or publication. You pay the amount plus the ~0.000005 SOL network fee.': 'Gönüllü destek · Doğrudan cüzdandan cüzdana · Varlık saklama yoktur: OSI fonları asla tutmaz, emanet almaz veya yönlendirmez. Destek; incelemeyi, sıralamayı, uzlaşıyı veya yayımı etkilemez. Tutarla birlikte yaklaşık 0,000005 SOL ağ ücreti ödersiniz.',
+    'Before you sign': 'İmzalamadan önce',
+    'Read this first': 'Önce bunu okuyun',
+    'Submission blocked': 'Gönderim engellendi',
+    'OSI only accepts public on-chain evidence. Remove private information, seed phrases, personal data, accusations, threats, spam, or private messages before continuing.': 'OSI yalnızca kamusal zincir üstü kanıtları kabul eder. Devam etmeden önce özel bilgileri, kurtarma ifadelerini, kişisel verileri, suçlamaları, tehditleri, istenmeyen içeriği veya özel mesajları kaldırın.',
+    'OSI holds nothing and guarantees nothing.': 'OSI hiçbir varlık saklamaz ve hiçbir sonuç garanti etmez.',
+    'This is an open, public platform. OSI is not an escrow, never holds or moves your funds, and cannot promise any payment or outcome. A signed memo is a public audit trail, not a verdict or legal proof.': 'Bu açık ve kamusal bir platformdur. OSI emanet hizmeti değildir, fonlarınızı asla tutmaz veya taşımaz ve herhangi bir ödeme ya da sonuç vaat edemez. İmzalı Memo kamusal bir denetim izidir; hüküm veya hukuki kanıt değildir.',
+    'Never share your seed phrase or private key, with anyone.': 'Kurtarma ifadenizi veya özel anahtarınızı hiç kimseyle paylaşmayın.',
+    'No one from OSI will ever DM you, ask for your seed phrase, or ask you to send funds to recover anything. Anyone who does is a scammer.': 'OSI adına hiç kimse size özel mesaj göndermez, kurtarma ifadenizi istemez veya herhangi bir şeyi kurtarmak için fon göndermenizi talep etmez. Bunu yapan kişi dolandırıcıdır.',
+    'Facts, not people.': 'Kişilere değil, olgulara odaklanın.',
+    'Keep your writeup to on-chain evidence and transaction hashes. No private keys, no personal identities, no accusations, no doxxing. Follow the money, not the person.': 'Yazınızı zincir üstü kanıtlar ve işlem özetleriyle sınırlayın. Özel anahtar, kişisel kimlik, suçlama veya kişisel bilgi ifşası eklemeyin. Kişiyi değil, fon akışını izleyin.',
+    'This is public and permanent.': 'Bu içerik kamusal ve kalıcıdır.',
+    'Once reviewed, your submission joins the open record for anyone to read and verify. Do not include anything you would not want public.': 'İncelendikten sonra gönderiminiz herkesin okuyup doğrulayabileceği açık kayda katılır. Kamusal olmasını istemediğiniz hiçbir şeyi eklemeyin.',
+    'I understand, and I am not sharing any seed phrase or private key.': 'Anladım; hiçbir kurtarma ifadesi veya özel anahtar paylaşmıyorum.',
+    'Public on-chain evidence only': 'Yalnızca kamusal zincir üstü kanıt',
+    'Submission blocked. OSI only accepts public on-chain evidence. Remove private information, seed phrases, personal data, accusations, threats, spam, or private messages before continuing.': 'Gönderim engellendi. OSI yalnızca kamusal zincir üstü kanıtları kabul eder. Devam etmeden önce özel bilgileri, kurtarma ifadelerini, kişisel verileri, suçlamaları, tehditleri, istenmeyen içeriği veya özel mesajları kaldırın.',
+    'OK, I will fix it': 'Tamam, düzelteceğim',
+    'Language': 'Dil',
+    'Select language': 'Dil seçin',
+    'English': 'İngilizce',
+    'Turkish': 'Türkçe',
+    'Connect': 'Bağlan'
+  };
+
+  var translations = { en: {}, tr: turkish };
+  var shortUiOnly = {
+    'Home': true,
+    'About': true,
+    'Case': true,
+    'Report': true,
+    'Review': true,
+    'Wallet': true,
+    'Memo': true,
+    'Status': true,
+    'Title': true,
+    'Stage': true,
+    'Category': true,
+    'Analyst': true,
+    'Support': true,
+    'Applications': true,
+    'Feedback': true,
+    'Close': true,
+    'Cancel': true,
+    'Continue': true,
+    'All': true,
+    'Reviewed': true,
+    'Sealed': true,
+    'Newest': true,
+    'Oldest': true,
+    'Latest': true,
+    'to': true,
+    'analyst': true,
+    'custom': true,
+    'Sort': true,
+    'sort': true
+  };
+
+  function normalizeLocale(value) {
+    var candidate = String(value || '').toLowerCase().split('-')[0];
+    return SUPPORTED_LOCALES.indexOf(candidate) !== -1 ? candidate : DEFAULT_LOCALE;
+  }
+
+  function readStoredLocale() {
+    try {
+      return normalizeLocale(window.localStorage.getItem(STORAGE_KEY));
+    } catch (_) {
+      return DEFAULT_LOCALE;
+    }
+  }
+
+  function writeStoredLocale(locale) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, locale);
+    } catch (_) {
+      // The language still changes for this page when storage is unavailable.
+    }
+  }
+
+  function isIgnored(node) {
+    var element = node && (node.nodeType === 1 ? node : node.parentElement);
+    return Boolean(element && element.closest && element.closest(
+      '[data-osi-i18n-ignore], [data-osi-user-content], script, style, code, pre, textarea, [contenteditable="true"]'
+    ));
+  }
+
+  function isUiContext(node) {
+    var element = node && (node.nodeType === 1 ? node : node.parentElement);
+    if (!element || !element.closest) return false;
+    return Boolean(element.closest(
+      'button, a, label, option, legend, th, nav, header, footer, [role="button"], [role="menuitem"], [role="tab"], [role="dialog"], [data-osi-i18n-ui]'
+    ));
+  }
+
+  function preserveWhitespace(source, replacement) {
+    var leading = (source.match(/^\s*/) || [''])[0];
+    var trailing = (source.match(/\s*$/) || [''])[0];
+    return leading + replacement + trailing;
+  }
+
+  function translatedValue(value, locale, node) {
+    var trimmed = String(value || '').trim();
+    if (!trimmed || locale === DEFAULT_LOCALE) return null;
+    if (shortUiOnly[trimmed] && !isUiContext(node)) return null;
+    return translations[locale] && translations[locale][trimmed] || null;
+  }
+
+  function translateTextNode(node) {
+    if (!node || node.nodeType !== 3 || isIgnored(node)) return;
+    if (currentLocale === DEFAULT_LOCALE) {
+      if (originalText.has(node)) {
+        var english = originalText.get(node);
+        if (node.nodeValue !== english) node.nodeValue = english;
+        originalText.delete(node);
+      }
+      return;
+    }
+    var replacement = translatedValue(node.nodeValue, currentLocale, node);
+    if (!replacement) return;
+    if (!originalText.has(node)) originalText.set(node, node.nodeValue);
+    var next = preserveWhitespace(node.nodeValue, replacement);
+    if (node.nodeValue !== next) node.nodeValue = next;
+  }
+
+  function attributeStore(element) {
+    var stored = originalAttributes.get(element);
+    if (!stored) {
+      stored = {};
+      originalAttributes.set(element, stored);
+    }
+    return stored;
+  }
+
+  function translateAttribute(element, name) {
+    if (!element || !element.hasAttribute || !element.hasAttribute(name) || isIgnored(element)) return;
+    var stored = attributeStore(element);
+    if (currentLocale === DEFAULT_LOCALE) {
+      if (Object.prototype.hasOwnProperty.call(stored, name)) {
+        if (element.getAttribute(name) !== stored[name]) element.setAttribute(name, stored[name]);
+        delete stored[name];
+      }
+      return;
+    }
+    var value = element.getAttribute(name);
+    var replacement = translatedValue(value, currentLocale, element);
+    if (!replacement) return;
+    if (!Object.prototype.hasOwnProperty.call(stored, name)) stored[name] = value;
+    if (value !== replacement) element.setAttribute(name, replacement);
+  }
+
+  function translateElement(element) {
+    if (!element || element.nodeType !== 1 || isIgnored(element)) return;
+    for (var i = 0; i < ATTRIBUTE_NAMES.length; i += 1) {
+      translateAttribute(element, ATTRIBUTE_NAMES[i]);
+    }
+    var walker = document.createTreeWalker(element, window.NodeFilter.SHOW_TEXT);
+    var textNode;
+    while ((textNode = walker.nextNode())) translateTextNode(textNode);
+    var descendants = element.querySelectorAll('[aria-label], [title], [placeholder]');
+    for (var j = 0; j < descendants.length; j += 1) {
+      for (var k = 0; k < ATTRIBUTE_NAMES.length; k += 1) {
+        translateAttribute(descendants[j], ATTRIBUTE_NAMES[k]);
+      }
+    }
+  }
+
+  function translateDocument() {
+    translateElement(document.body);
+    document.documentElement.lang = currentLocale;
+    document.documentElement.dir = 'ltr';
+    document.documentElement.dataset.locale = currentLocale;
+
+    var titleKey = 'Open Solana Intelligence | Public incident intelligence';
+    document.title = currentLocale === 'tr' ? turkish[titleKey] : titleKey;
+    var description = document.querySelector('meta[name="description"]');
+    if (description) {
+      var englishDescription = description.getAttribute('data-osi-en-content') || description.getAttribute('content');
+      if (!description.hasAttribute('data-osi-en-content')) description.setAttribute('data-osi-en-content', englishDescription);
+      if (currentLocale === 'tr') {
+        description.setAttribute('content', 'OSI, kamusal Solana olay kanıtlarını dürüst cüzdan ve Memo kanıtlarıyla kaynağı belirli, topluluk tarafından incelenmiş ve itiraza açık Vaka kayıtlarına dönüştürür. Yalnızca bilgilendirme amaçlıdır.');
+      } else {
+        description.setAttribute('content', englishDescription);
+      }
+    }
+
+    var select = document.getElementById('osi-language-select');
+    if (select && select.value !== currentLocale) select.value = currentLocale;
+    document.documentElement.style.setProperty(
+      '--osi-connect-compact-label',
+      currentLocale === 'tr' ? '"Bağlan"' : '"Connect"'
+    );
+  }
+
+  function setLocale(locale, options) {
+    var next = normalizeLocale(locale);
+    var changed = next !== currentLocale;
+    currentLocale = next;
+    if (!options || options.persist !== false) writeStoredLocale(currentLocale);
+    translateDocument();
+    if (changed) {
+      window.dispatchEvent(new CustomEvent('osi:localechange', {
+        detail: { locale: currentLocale }
+      }));
+    }
+    return currentLocale;
+  }
+
+  function t(key, variables) {
+    var source = String(key || '');
+    var value = currentLocale === 'tr' && turkish[source] || source;
+    if (!variables) return value;
+    return value.replace(/\{([a-zA-Z0-9_]+)\}/g, function (_, name) {
+      return Object.prototype.hasOwnProperty.call(variables, name) ? String(variables[name]) : '{' + name + '}';
+    });
+  }
+
+  function observeChanges() {
+    if (!window.MutationObserver || observer || !document.body) return;
+    observer = new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i += 1) {
+        var record = records[i];
+        if (record.type === 'characterData') {
+          translateTextNode(record.target);
+        } else if (record.type === 'attributes') {
+          translateAttribute(record.target, record.attributeName);
+        } else {
+          for (var j = 0; j < record.addedNodes.length; j += 1) {
+            var added = record.addedNodes[j];
+            if (added.nodeType === 3) translateTextNode(added);
+            else if (added.nodeType === 1) translateElement(added);
+          }
+        }
+      }
+    });
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ATTRIBUTE_NAMES
+    });
+  }
+
+  window.OSI_I18N = {
+    defaultLocale: DEFAULT_LOCALE,
+    locales: SUPPORTED_LOCALES.slice(),
+    getLocale: function () { return currentLocale; },
+    setLocale: setLocale,
+    t: t,
+    translate: translateElement
+  };
+  window.osiSetLanguage = function (locale) { return setLocale(locale); };
+  window.osiT = t;
+
+  document.documentElement.lang = currentLocale;
+  document.documentElement.dataset.locale = currentLocale;
+  translateDocument();
+  observeChanges();
+}());
