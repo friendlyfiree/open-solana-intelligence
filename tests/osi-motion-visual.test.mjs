@@ -83,6 +83,7 @@ ok("touch and mobile focus trap remain part of the same navigation", shell.inclu
 ok("workspace routes mark Platform as the current navigation group", shell.includes("platformViews") && shell.includes("platformTrigger.setAttribute('aria-current', 'page')"));
 ok("pointer illumination is motion-safe and frame-throttled", signal.includes("prefers-reduced-motion: reduce") && signal.includes("(pointer: fine)") && signal.includes("requestAnimationFrame"));
 ok("signal sequence uses named timing and pauses for reduced motion or a hidden document", signal.includes("var SIGNAL_TIMING = { step: 2200 }") && signal.includes("reduceMotion.matches || document.hidden") && signal.includes("visibilitychange"));
+ok("normal-motion signal restarts after page-cache restore or window focus", signal.includes("window.addEventListener('pageshow', syncSignalSequence)") && signal.includes("window.addEventListener('focus', syncSignalSequence)"));
 const readyAfterObserve = signal.indexOf("document.documentElement.classList.add('osi-signal-ready')", signal.indexOf("sections.forEach(function (section) { observer.observe(section); })"));
 ok("section observer opts in only after setup and fails open on errors", signal.includes("IntersectionObserver") && readyAfterObserve > -1 && signal.includes("sections.forEach(function (section) { section.classList.add('is-visible'); })") && signal.includes("classList.remove('osi-signal-ready')"));
 

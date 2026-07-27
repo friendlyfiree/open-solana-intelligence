@@ -1,4 +1,4 @@
-// Focused static contract tests for trusted wallet restore and maintainer auth.
+// Focused static contract tests for explicit wallet connection and maintainer auth.
 // Run: node tests/osi-session-access.test.js
 const fs = require('fs');
 const path = require('path');
@@ -22,11 +22,13 @@ function ok(value, message) {
   console.log('ok ' + assertions + ' - ' + message);
 }
 
-ok(boot.includes('connect({ onlyIfTrusted:true })'), 'page load uses Phantom trusted connect');
-ok(!boot.includes('new browser session = manual connect'), 'restore is not limited to one session');
-ok(wallet.includes("localStorage.getItem('osi_phantom_restore') !== '0'"), 'only a safe restore preference is persisted');
+ok(boot.includes('connect({ onlyIfTrusted:true })'), 'remembered page load uses Phantom trusted reconnect without a prompt');
+ok(wallet.includes('var resp = await prov.connect()'), 'only an explicit wallet action asks Phantom to connect');
+ok(wallet.includes("localStorage.getItem('osi_phantom_restore') === '1'"), 'first visit stays disconnected until OSI records an explicit connection preference');
 ok(wallet.includes("localStorage.setItem('osi_phantom_restore','1')"), 'explicit connection enables later trusted restore');
-ok(read('assets/js/64-profile-xp.js').includes("localStorage.setItem('osi_phantom_restore','0')"), 'explicit disconnect disables automatic restore');
+ok(read('assets/js/64-profile-xp.js').includes("localStorage.setItem('osi_phantom_restore','0')"), 'explicit disconnect disables later trusted restore');
+ok(boot.includes('if(pk && !walletPubkey) return;'), 'a retained provider account cannot opt a fresh page into connected UI');
+ok(wallet.includes('Wallet connected. Each protected action still requires your approval.'), 'connected UI distinguishes wallet linkage from per-action approval');
 ok(wallet.includes('clearWalletAuthorization()'), 'wallet changes clear derived authorization');
 ok(wallet.includes('osiV2ReportClearSession'), 'wallet change clears cached private Report DTOs');
 ok(report.includes('state.reviewPending={};state.publicationPending={}'), 'wallet/session reset discards pending Report proofs');

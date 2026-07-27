@@ -17,7 +17,6 @@ function getProvider(){
 function clearWalletCache(){
   try{ localStorage.removeItem('stw_profile_name'); }catch(e){}
   try{ localStorage.removeItem('stw_wallet_off'); }catch(e){}
-  try{ sessionStorage.removeItem('osi_wallet_session'); }catch(e){}
 }
 function clearWalletAuthorization(options){
   options=options||{};
@@ -29,9 +28,9 @@ function clearWalletAuthorization(options){
   if(options.preserveReadSession!==true&&typeof window.osiV2ReportClearSession === 'function') window.osiV2ReportClearSession();
   if(typeof setMaintainerServerGate === 'function') setMaintainerServerGate(false,'wallet_changed');
 }
-// onlyIfTrusted never opens an approval prompt. An explicit OSI disconnect
-// disables automatic restore until the user connects again.
-function sessionRestoreWanted(){ try{ return localStorage.getItem('osi_phantom_restore') !== '0'; }catch(e){ return true; } }
+// Restore only after this browser has completed an explicit OSI connection.
+// The wallet address and signing authority are never persisted by OSI.
+function sessionRestoreWanted(){ try{ return localStorage.getItem('osi_phantom_restore') === '1'; }catch(e){ return false; } }
 // True only when Phantom is present AND reports a connected publicKey AND we hold the address.
 function getConnectedProvider(){
   var prov = getProvider();
@@ -71,7 +70,6 @@ async function toggleWalletOnce(){
     var resp = await prov.connect();
     if(!resp || !resp.publicKey){ if(typeof showToast==='function') showToast("Connect Phantom first."); return false; }
     walletPubkey = resp.publicKey.toString();
-    try{ sessionStorage.setItem('osi_wallet_session','1'); }catch(e){}
     try{ localStorage.setItem('osi_phantom_restore','1'); }catch(e){}
     clearWalletAuthorization();
     if(typeof window.osiV2ReadSessionHandleWallet==='function')window.osiV2ReadSessionHandleWallet(walletPubkey);
@@ -97,7 +95,8 @@ function updateWalletUI(){
   if(!btn || !txt) return;
   if(walletPubkey){
     btn.classList.add('connected');
-    btn.setAttribute('aria-label','Open wallet menu for '+walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
+    btn.setAttribute('aria-label','Wallet connected: '+walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4)+'. Protected actions still require wallet approval.');
+    btn.setAttribute('title','Wallet connected. Each protected action still requires your approval.');
     const nm = lsGet('stw_profile_name','');
     txt.textContent = nm ? nm : (walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
     let av = document.getElementById('wbAva');
@@ -107,6 +106,7 @@ function updateWalletUI(){
   } else {
     btn.classList.remove('connected');
     btn.setAttribute('aria-label','Connect Wallet');
+    btn.setAttribute('title','Connect Wallet');
     if(typeof closeWalletMenu==='function') closeWalletMenu();
     txt.textContent = "Connect Wallet";
     const av = document.getElementById('wbAva'); if(av) av.remove();

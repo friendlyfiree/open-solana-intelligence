@@ -167,24 +167,24 @@ await Promise.all([context.toggleWallet(), context.toggleWallet(), context.toggl
 ok("explicit concurrent connect calls open Phantom once", connectCalls === 1);
 
 const bootSource = readFileSync(new URL("../assets/js/99-app.js", import.meta.url), "utf8");
-let trustedConnectCalls = 0;
-let trustedSignCalls = 0;
+let bootConnectCalls = 0;
+let bootSignCalls = 0;
+let lastBootConnectOptions = null;
 const loadHandlers = [];
-const trustedProvider = {
-  isPhantom: true, isConnected: false, publicKey: null,
+const retainedProvider = {
+  isPhantom: true, isConnected: true, publicKey: { toString: () => wallet },
   on: () => {},
   async connect(options) {
-    trustedConnectCalls += 1;
-    ok("trusted reload uses onlyIfTrusted", options && options.onlyIfTrusted === true);
-    this.isConnected = true;this.publicKey = { toString: () => wallet };
+    bootConnectCalls += 1;
+    lastBootConnectOptions = options;
     return { publicKey: this.publicKey };
   },
-  async signMessage() { trustedSignCalls += 1; return { signature: new Uint8Array(64) }; },
+  async signMessage() { bootSignCalls += 1; return { signature: new Uint8Array(64) }; },
 };
-const trustedStorage = new MemoryStorage();trustedStorage.setItem("osi_phantom_restore", "1");
+const bootStorage = new MemoryStorage();
 const bootContext = {
   window: null, document: { getElementById: () => null, querySelectorAll: () => [], body: { dataset: {} }, addEventListener: () => {} },
-  localStorage: trustedStorage, sessionStorage: trustedStorage, console, Promise, Map, Set,
+  localStorage: bootStorage, sessionStorage: bootStorage, console, Promise, Map, Set,
   TextEncoder, TextDecoder, Uint8Array, setTimeout, clearTimeout,
   lsGet: () => "", pfIdenticon: () => "", showToast: () => {},
   renderCaseStudies: () => {}, renderCaseRecords: () => {}, syncTabCounts: () => {},
@@ -194,11 +194,20 @@ const bootContext = {
   updateAdminButton: () => {}, renderTicker: () => {}, renderActivity: () => {}, loadPrice: () => {},
   wireContactLinks: () => {}, location: { hash: "", pathname: "/" },
 };
-bootContext.window = bootContext;bootContext.solana = trustedProvider;
+bootContext.window = bootContext;bootContext.solana = retainedProvider;
 bootContext.addEventListener = (name, handler) => { if (name === "load") loadHandlers.push(handler); };
 vm.createContext(bootContext);vm.runInContext(walletSource, bootContext);vm.runInContext(bootSource, bootContext);
 for (const handler of loadHandlers) handler();
 await new Promise((resolve) => setTimeout(resolve, 0));
-ok("trusted reload performs one silent connect and zero signature prompts", trustedConnectCalls === 1 && trustedSignCalls === 0);
+ok("fresh page ignores Phantom retained permission and stays disconnected", bootConnectCalls === 0
+  && bootSignCalls === 0
+  && vm.runInContext("walletPubkey", bootContext) === null);
+bootStorage.setItem("osi_phantom_restore", "1");
+for (const handler of loadHandlers) handler();
+await new Promise((resolve) => setTimeout(resolve, 0));
+ok("remembered reload performs one prompt-free trusted connect", bootConnectCalls === 1
+  && lastBootConnectOptions && lastBootConnectOptions.onlyIfTrusted === true
+  && bootSignCalls === 0
+  && vm.runInContext("walletPubkey", bootContext) === wallet);
 
 console.log(`\n${passed} provider call-count and invalidation checks passed.`);
