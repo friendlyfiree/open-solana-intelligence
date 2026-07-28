@@ -16,6 +16,12 @@ select isnt(has_function_privilege('anon',
 select isnt(has_function_privilege('authenticated',
   'public.osi_v2_record_payment_failure(text,text,text)','EXECUTE'),true,
   'authenticated browser cannot claim a server-derived payment failure directly');
+select isnt(has_function_privilege('anon',
+  'public.osi_v2_recover_payment(text,text,bigint,timestamptz,text,jsonb)','EXECUTE'),true,
+  'anonymous browser cannot invoke historical payment recovery directly');
+select isnt(has_function_privilege('authenticated',
+  'public.osi_v2_recover_payment(text,text,bigint,timestamptz,text,jsonb)','EXECUTE'),true,
+  'authenticated browser cannot invoke historical payment recovery directly');
 select ok((select relrowsecurity and relforcerowsecurity from pg_class where oid='public.reward_pledges'::regclass),
   'reward pledges remain FORCE RLS');
 select ok((select relrowsecurity and relforcerowsecurity from pg_class where oid='public.reward_payments'::regclass),
@@ -252,9 +258,16 @@ select * from public.osi_v2_prepare_payment(repeat('h',43),'reward','11111111111
  'OSI-PAYSEALED0001','{"amount_lamports":"600000000"}'::jsonb,
  'payment-reward-part-two-0001',repeat('d',64));
 select lives_ok($test$
- select * from public.osi_v2_commit_payment(repeat('h',43),repeat('C',88),500002,
-  statement_timestamp(),'finalized','{"fixture":"trusted_rpc"}'::jsonb)
-$test$,'second finalized partial reward fulfills the exact sealed amount');
+ select * from public.osi_v2_record_payment_failure(
+  repeat('h',43),repeat('C',88),'unexpected_instruction')
+$test$,'the former parser failure is preserved on the second reward payment');
+select lives_ok($test$
+ select * from public.osi_v2_recover_payment(
+  repeat('h',43),repeat('C',88),500002,
+  (select issued_at+interval '10 seconds' from public.osi_nonces where nonce=repeat('h',43)),
+  'finalized',
+  '{"historical_reverification":true,"server_rpc_verified":true,"balance_deltas_verified":true,"writable_accounts_verified":true,"no_token_or_inner_transfers":true}'::jsonb)
+$test$,'same-signature reward recovery within the original transaction window fulfills the sealed amount');
 select ok((select pledge.state='paid' and sum(payment.amount_lamports)=pledge.amount_lamports
  from public.reward_pledges pledge join public.reward_payments payment on payment.pledge_id=pledge.id
  where pledge.id='42500000-0000-4000-8000-000000000001' and payment.state='confirmed'
@@ -318,6 +331,55 @@ select ok((select event.state='failed' and event.verification_error='memo_mismat
  and event.confirmed_at is null and event.event_receipt_id is null
  from public.support_events event where event.intent_nonce=repeat('p',43)),
  'definitively invalid support remains unpaid and has no Class A receipt');
+select throws_ok($test$
+ select * from public.osi_v2_recover_payment(
+  repeat('p',43),repeat('E',88),500004,statement_timestamp(),'finalized',
+  '{"historical_reverification":true,"server_rpc_verified":true,"balance_deltas_verified":true,"writable_accounts_verified":true,"no_token_or_inner_transfers":true}'::jsonb)
+$test$,'23514','Support recovery is not bound to the known parser failure',
+ 'a semantic Memo mismatch cannot be relabeled as a parser false-negative');
+
+create temporary table recoverable_support on commit drop as
+select * from public.osi_v2_prepare_payment(repeat('r',43),'support',
+ '11111111111111111111111111111117','22222222222222222222222222222222',
+ jsonb_build_object('recipients',jsonb_build_array(jsonb_build_object(
+  'target_type','analyst','target_ref','22222222222222222222222222222222',
+  'amount_lamports','3'))),
+ 'payment-recover-support-0001',repeat('5',64));
+select lives_ok($test$
+ select * from public.osi_v2_record_payment_failure(
+  repeat('r',43),repeat('F',88),'unexpected_instruction')
+$test$,'the former strict parser failure is preserved as unpaid before recovery');
+select lives_ok($test$
+ select * from public.osi_v2_recover_payment(
+  repeat('r',43),repeat('F',88),500005,
+  (select issued_at+interval '10 seconds' from public.osi_nonces where nonce=repeat('r',43)),
+  'finalized',
+  '{"historical_reverification":true,"server_rpc_verified":true,"balance_deltas_verified":true,"writable_accounts_verified":true,"no_token_or_inner_transfers":true,"validator_version":"OSI2-payment-v2"}'::jsonb)
+$test$,'same-signature recovery confirms a historical payment in its original transaction window');
+select ok((select event.state='confirmed' and event.tx_sig=repeat('F',88)
+ and event.amount_lamports=3 and event.verification_error is null
+ and nonce.consumed_at is not null and nonce.consumed_by_receipt_id=event.event_receipt_id
+ and receipt.verification_metadata->>'historical_reverification'='true'
+ and receipt.verification_metadata->>'previous_verification_error'='unexpected_instruction'
+ from public.support_events event
+ join public.osi_nonces nonce on nonce.nonce=event.intent_nonce
+ join public.event_receipts receipt on receipt.id=event.event_receipt_id
+ where event.intent_nonce=repeat('r',43)),
+ 'recovery consumes only the original nonce and records the original parser error');
+select ok((select idempotent_replay from public.osi_v2_recover_payment(
+ repeat('r',43),repeat('F',88),500005,
+ (select block_time from public.support_events where intent_nonce=repeat('r',43)),
+ 'finalized',
+ '{"historical_reverification":true,"server_rpc_verified":true,"balance_deltas_verified":true,"writable_accounts_verified":true,"no_token_or_inner_transfers":true}'::jsonb)),
+ 'recovery replay returns the original receipt without a duplicate effect');
+select throws_ok($test$
+ select * from public.osi_v2_recover_payment(
+  repeat('r',43),repeat('G',88),500005,
+  (select block_time from public.support_events where intent_nonce=repeat('r',43)),
+  'finalized',
+  '{"historical_reverification":true,"server_rpc_verified":true,"balance_deltas_verified":true,"writable_accounts_verified":true,"no_token_or_inner_transfers":true}'::jsonb)
+$test$,'23514','Consumed payment nonce is bound to another transaction',
+ 'recovery replay with a different signature is rejected');
 
 create temporary table second_target_support on commit drop as
 select * from public.osi_v2_prepare_payment(repeat('q',43),'support','11111111111111111111111111111117',
@@ -348,8 +410,8 @@ $test$,'23514','Idempotency key is bound to another exact payment intent',
 
 select is((select count(*)::integer from public.reward_payments where state='confirmed'),2,
  'only the two exact reward transfers are confirmed');
-select is((select count(*)::integer from public.support_events where state='confirmed'),1,
- 'only the exact verified analyst support is confirmed');
+select is((select count(*)::integer from public.support_events where state='confirmed'),2,
+ 'only the normal and exact recovered analyst support transfers are confirmed');
 do $test$
 declare
   snapshot record;

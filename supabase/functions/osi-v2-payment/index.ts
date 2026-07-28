@@ -359,7 +359,7 @@ async function rpcTransaction(txSig: string): Promise<Row> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify([
         { jsonrpc: "2.0", id: 1, method: "getTransaction", params: [txSig, {
-          commitment: "confirmed", encoding: "jsonParsed", maxSupportedTransactionVersion: 0,
+          commitment: "finalized", encoding: "jsonParsed", maxSupportedTransactionVersion: 0,
         }] },
         { jsonrpc: "2.0", id: 2, method: "getSignatureStatuses", params: [[txSig], {
           searchTransactionHistory: true,
@@ -387,7 +387,7 @@ async function recordPaymentSubmission(bound: Row, nonce: string, txSig: string)
   return await admin.rpc(rpc, { p_nonce: nonce, p_tx_sig: txSig });
 }
 
-async function commitPayment(body: Row): Promise<Response> {
+async function commitPayment(body: Row, recoveryRequested = false): Promise<Response> {
   if (!await writesEnabled()) return jsonResponse(503, { ok: false, error: "payment_writes_disabled" });
   const wallet = safeText(body.wallet);
   const nonce = safeText(body.nonce);
@@ -425,6 +425,18 @@ async function commitPayment(body: Row): Promise<Response> {
     },
     txSig,
   );
+  const recoveryEligible = bound.binding_context?.payment_kind !== "wire_support";
+  if (recoveryRequested && !recoveryEligible) {
+    return jsonResponse(409, {
+      ok: false,
+      error: "wire_payment_recovery_not_supported",
+      paid: false,
+    });
+  }
+  const recovery = recoveryEligible && (
+    recoveryRequested
+    || Date.now() > Date.parse(String(bound.expires_at)) + 120_000
+  );
   if (!verified.ok && verified.state === "awaiting_finality") {
     if (rpc.transaction) {
       const { error } = await recordPaymentSubmission(bound, nonce, txSig);
@@ -441,7 +453,7 @@ async function commitPayment(body: Row): Promise<Response> {
     });
   }
   if (!verified.ok) {
-    if (rpc.transaction) {
+    if (rpc.transaction && !recovery) {
       if (bound.binding_context?.payment_kind === "wire_support") {
         const recorded = await recordPaymentSubmission(bound, nonce, txSig);
         if (recorded.error) return rpcFailure(recorded.error);
@@ -462,7 +474,8 @@ async function commitPayment(body: Row): Promise<Response> {
     const recorded = await recordPaymentSubmission(bound, nonce, txSig);
     if (recorded.error) return rpcFailure(recorded.error);
   }
-  const { data, error } = await admin.rpc("osi_v2_commit_payment", {
+  const commitRpc = recovery ? "osi_v2_recover_payment" : "osi_v2_commit_payment";
+  const { data, error } = await admin.rpc(commitRpc, {
     p_nonce: nonce,
     p_tx_sig: txSig,
     p_slot: verified.slot,
@@ -471,6 +484,12 @@ async function commitPayment(body: Row): Promise<Response> {
     p_rpc_metadata: {
       fee_lamports: verified.fee_lamports,
       transaction_signature: txSig,
+      validator_version: "OSI2-payment-v2",
+      server_rpc_verified: true,
+      balance_deltas_verified: true,
+      writable_accounts_verified: true,
+      no_token_or_inner_transfers: true,
+      historical_reverification: recovery,
     },
   });
   if (error || !data?.[0]) return rpcFailure(error);
@@ -502,6 +521,7 @@ async function commitPayment(body: Row): Promise<Response> {
     confirmed_total_lamports: String(committed.confirmed_total_lamports ?? "0"),
     outstanding_lamports: String(committed.outstanding_lamports ?? "0"),
     idempotent_replay: committed.idempotent_replay === true,
+    historical_reverification: recovery,
   });
 }
 
@@ -529,6 +549,7 @@ serve(async (req: Request): Promise<Response> => {
     case "prepare_payment": return await preparePayment(req, body);
     case "prepare_wire_support": return await prepareWireSupport(req, body);
     case "commit_payment": return await commitPayment(body);
+    case "recover_payment": return await commitPayment(body, true);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });
   }
 });

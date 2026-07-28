@@ -1,5 +1,33 @@
 # OSI V2 — Memo & Event Specification
 
+## 0. Executable source of truth
+
+The executable registry is
+`supabase/functions/_shared/osi-v2-event-registry.mjs`, version
+`2026-07-28.1`. It is the single source for the 70 event names, their one proof
+class, allowed target types, allowed actor roles, field ordering, canonical
+assembly, and historical parsing. Case, Report, Wire, payment, Analyst,
+generic proof, and AI Pack emitters call its canonical assembler. Database
+governance prepare/commit bindings that predate this registry remain isolated
+in the explicitly named `historical_governance_v0` compatibility profile so
+in-flight nonces and historical Solana bytes are never rewritten; no other
+emitter accepts that shape.
+
+Shipped envelopes are named profiles rather than undocumented variants:
+
+| Profile | Version | Exact ordered fields | Use |
+|---|---:|---|---|
+| `v1_expiring` | 1 | `t,id,a,r,d,n,h,ts,exp` | Case, Report, Wire, and AI Pack exact actions |
+| `v1_issued` | 1 | `t,id,a,r,d,n,h,ts` | Analyst lifecycle and native payment Memos; includes immutable historical mainnet payment Memos |
+| `v2_expiring_minimal` | 2 | `t,id,a,n,h,ts,exp` | Generic Class-B `signMessage` proof |
+| `historical_governance_v0` | unversioned | `t,id,ref,a,h,n,ts,exp` | Existing governance SQL compatibility plus historical reads; isolated from every other emitter |
+
+Within a profile, missing, additional, duplicated, or reordered fields are
+invalid. `exp`, when present, must be after `ts` and no more than 300 seconds
+later. The executable allowed target set also includes the shipped `support`
+target, and the role set includes `wallet`; these were formerly missing from
+the prose even though production emitted them.
+
 **Status:** Blueprint / design-only. **No existing memo formats are changed by this document.** Defines the target `OSI2` grammar and the **hybrid signature model** (locked decision D15): individual analyst decisions use `signMessage` + server-verified receipts; final public governance outcomes are Solana-Memo-anchored.
 
 ---
@@ -23,24 +51,30 @@ Optional future **batch/Merkle-root anchoring** of server-verified receipts is d
 
 ## 2. Canonical grammar (`OSI2`)
 
-For **Memo-anchored** outcomes (transport class A), the on-chain memo:
+For the `v1_expiring` profile, the byte-exact envelope is:
 ```
-OSI2|<ver>|<event_type>|t=<target_type>|id=<target_ref>|a=<actor_wallet>|r=<actor_role>|d=<decision>|n=<nonce>|h=<payload_hash>|ts=<unix>
+OSI2|1|<event_type>|t=<target_type>|id=<target_ref>|a=<actor_wallet>|r=<actor_role>|d=<decision>|n=<nonce>|h=<payload_hash>|ts=<unix>|exp=<unix>
 ```
-For **signMessage** decisions (class B) the *signed message* uses the same field set (purpose = `event_type`), verified server-side; no memo tx is created — a server-verified receipt is written instead.
+`v1_issued` omits only the final `exp` field. `v2_expiring_minimal`
+uses `OSI2|2|event_type|t|id|a|n|h|ts|exp` and deliberately has no `r`
+or `d` segment. The profile is selected by the executable event path; callers
+cannot add, remove, or reorder fields. For **signMessage** decisions (class B),
+the exact selected profile is verified server-side; no Memo transaction is
+created and a server-verified receipt is written instead.
 
 | Field | Meaning | Rules |
 |---|---|---|
 | `ver` | grammar version | integer, starts `1` |
 | `event_type` | see registry §4 | canonical UPPER_SNAKE |
-| `t` target_type | `case`/`report_version`/`wire_version`/`resolution`/`challenge`/`pack_version`/`pack_owner_feedback`/`analyst`/`application_version`/`reward`/`config` | enum |
-| `id` target_ref | **short public ref** (e.g. `OSI-7F3A2C`) or version ref, never private uuid, never narrative | ≤ 24 chars |
+| `t` target_type | `case`/`report_version`/`wire_version`/`resolution`/`challenge`/`pack_version`/`pack_owner_feedback`/`analyst`/`application_version`/`reward`/`support`/`config` | enum |
+| `id` target_ref | Public Memo profiles use a short public ref/version ref and never narrative. The private Class-B v2 profile may bind an internal typed id. | profile-bound, ≤ 256 chars |
 | `a` actor_wallet | signer base58 | – |
-| `r` actor_role | `owner`/`analyst`/`senior`/`maintainer`/`service` | enum |
+| `r` actor_role | `owner`/`analyst`/`senior`/`maintainer`/`service`/`wallet` | enum |
 | `d` decision | e.g. `approve`/`reject`/`open`/`resolve`/`seal`/`paid` or empty | enum/empty |
 | `n` nonce | **server-issued single-use** (Stage-5 enforced) | consumed once |
 | `h` payload_hash | sha256 of the off-chain payload (reason codes, ids, exact version) | hex |
 | `ts` | unix seconds | – |
+| `exp` | unix seconds, when present in the selected profile | `ts < exp ≤ ts + 300` |
 
 ### Privacy rules (hard)
 Memos and any public field **never** contain: incident narrative, allegations, personal data, private evidence, private messages, seed phrases, private keys, analyst notes, or `subject_refs` framed as guilt. `id` is a public ref only; content is referenced by `h`.

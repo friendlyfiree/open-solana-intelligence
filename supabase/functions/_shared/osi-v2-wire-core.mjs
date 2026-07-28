@@ -8,6 +8,7 @@ import {
 } from "./osi-v2-report-core.mjs";
 import { validateWallet } from "./osi-v2-proof-core.mjs";
 import { validateConfirmedMemoTransaction } from "./osi-v2-case-write-core.mjs";
+import { canonicalOsi2Envelope } from "./osi-v2-event-registry.mjs";
 
 export const WIRE_EVENT_TYPE = "WIRE_REPORT_VERSION_SUBMITTED";
 export const WIRE_PUBLICATION_EVENT_TYPE = "WIRE_REPORT_PUBLISHED";
@@ -182,11 +183,11 @@ export function canonicalWireGovernanceMessage(binding) {
       || expiresAt <= issuedAt || expiresAt - issuedAt > 300) {
     throw new TypeError("Wire governance binding is invalid");
   }
-  return [
-    "OSI2", "1", purpose, "t=wire_version", "id=" + publicRef,
-    "a=" + binding.actor_wallet, "r=" + role, "d=" + decision,
-    "n=" + nonce, "h=" + hash, "ts=" + issuedAt, "exp=" + expiresAt,
-  ].join("|");
+  return canonicalOsi2Envelope({
+    purpose, target_type: "wire_version", target_ref: publicRef,
+    actor_wallet: binding.actor_wallet, actor_role: role, decision,
+    nonce, payload_hash: hash, issued_at: issuedAt, expires_at: expiresAt,
+  });
 }
 
 export function parseWireGovernanceMessage(message) {
@@ -309,11 +310,11 @@ export function canonicalWireMemo(binding) {
       || expiresAt <= issuedAt || expiresAt - issuedAt > 300) {
     throw new TypeError("Wire event timestamps are invalid");
   }
-  return [
-    "OSI2", "1", purpose, "t=wire_version", "id=" + publicRef,
-    "a=" + binding.actor_wallet, "r=" + role, "d=" + decision,
-    "n=" + nonce, "h=" + hash, "ts=" + issuedAt, "exp=" + expiresAt,
-  ].join("|");
+  return canonicalOsi2Envelope({
+    purpose, target_type: "wire_version", target_ref: publicRef,
+    actor_wallet: binding.actor_wallet, actor_role: role, decision,
+    nonce, payload_hash: hash, issued_at: issuedAt, expires_at: expiresAt,
+  });
 }
 
 export function parseWireMemo(message) {

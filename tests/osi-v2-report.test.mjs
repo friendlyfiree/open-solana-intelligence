@@ -339,6 +339,11 @@ ok("eligible analyst review and exact publication controls are wired",
   uiSource.includes("prepare_review") && uiSource.includes("commit_review")
     && uiSource.includes("prepare_publication") && uiSource.includes("commit_publication")
     && uiSource.includes("Only analysts count toward publication quorum"));
+ok("Report reviews require rationale only for negative or revision decisions",
+  uiSource.includes("Required for reject or request revision; optional otherwise")
+    && uiSource.includes("decision.value==='reject'||decision.value==='request_revision'")
+    && uiSource.includes("The exact report version and its evidence were reviewed.")
+    && uiSource.includes("rationale.reportValidity()"));
 ok("public Case Report status uses a public allowlist endpoint",
   readSource.includes("listPublicReports")
     && readSource.includes("publicReportGovernanceDto")

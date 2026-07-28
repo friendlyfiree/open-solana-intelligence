@@ -34,6 +34,7 @@ const application = core.normalizeApplicationPayload({
   motivation: "I want to review public incident evidence with careful attribution and a challengeable record.",
   experience: "I have traced Solana transaction flows and published reproducible research with cited transaction references.",
   proof_urls: ["https://example.com/proof"],
+  safety_acknowledged: true,
 }, { sha256: "a".repeat(64), mime: "image/png" });
 
 ok(application.profile.handle === "chain_sleuth", "handle is normalized for case-insensitive uniqueness");
@@ -42,12 +43,18 @@ ok(application.profile.links[0].url === "https://x.com/chain_sleuth"
   && application.profile.links[1].url === "https://example.com/work", "X is the required public identity and optional link fragments are removed");
 const minimalApplication = core.normalizeApplicationPayload({
   x_handle: "@signal_reader", bio: "Solana public-evidence researcher.",
-  experience: "I trace public transactions.", expertise: [], links: [],
+  experience: "", expertise: [], links: [], safety_acknowledged: true,
 });
 ok(minimalApplication.profile.handle === "signal_reader"
   && minimalApplication.profile.expertise.length === 0
-  && minimalApplication.application.motivation === null,
-"minimal application accepts X identity, introduction and work description without website, expertise or motivation");
+  && minimalApplication.application.motivation === null
+  && minimalApplication.application.experience === null
+  && minimalApplication.application.safety_acknowledged === true,
+"minimal application accepts X identity, introduction and signed safety acknowledgement without optional experience");
+rejects(() => core.normalizeApplicationPayload({
+  x_handle: "@signal_reader", bio: "Solana public-evidence researcher.",
+  experience: "", expertise: [], links: [],
+}), "application rejects a missing signed safety acknowledgement");
 rejects(() => core.normalizeApplicationPayload({
   x_handle: "x", handle: "x", display_name: "X", bio: "short", expertise: [], links: [],
   motivation: "short", experience: "short", proof_urls: [],
@@ -57,14 +64,14 @@ rejects(() => core.normalizeApplicationPayload({
   handle: "valid_handle", display_name: "Valid Name", bio: "A sufficiently long public biography.",
   expertise: ["osint"], links: [{ label: "local", url: "https://127.0.0.1/a" }],
   motivation: "A sufficiently long motivation that explains a responsible public evidence review practice in detail.",
-  experience: "A sufficiently long experience statement for this focused security test.", proof_urls: [],
+  experience: "A sufficiently long experience statement for this focused security test.", proof_urls: [], safety_acknowledged: true,
 }), "private and local tracking link targets are rejected");
 rejects(() => core.normalizeApplicationPayload({
   x_handle: "valid_handle",
   handle: "valid_handle", display_name: "Valid Name", bio: "A sufficiently long public biography.",
   expertise: ["osint"], links: [],
   motivation: "This text is long enough but includes a seed phrase which must never be accepted by this application flow.",
-  experience: "A sufficiently long experience statement for this focused security test.", proof_urls: [],
+  experience: "A sufficiently long experience statement for this focused security test.", proof_urls: [], safety_acknowledged: true,
 }), "secret material is rejected");
 
 const binding = {

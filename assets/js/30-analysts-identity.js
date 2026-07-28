@@ -243,10 +243,41 @@ async function pfAvatarChange(inp){
 // Reputation reflects reviewed work only. Peer support and identity signals never affect vote weight.
 var CV_CTX = null;
 function cvSolscanAcct(w){ return 'https://solscan.io/account/'+encodeURIComponent(String(w)); }
+function osiCopyText(text){
+  var value=String(text==null?'':text);
+  function fallback(){
+    var ta=null;
+    try{
+      ta=document.createElement('textarea');
+      ta.value=value;
+      ta.setAttribute('readonly','');
+      ta.style.position='fixed';
+      ta.style.left='-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0,ta.value.length);
+      if(!document.execCommand('copy')) throw new Error('copy_command_rejected');
+      return true;
+    }catch(_error){
+      return false;
+    }finally{
+      if(ta&&ta.parentNode) ta.parentNode.removeChild(ta);
+    }
+  }
+  try{
+    if(navigator.clipboard&&typeof navigator.clipboard.writeText==='function'){
+      return Promise.resolve(navigator.clipboard.writeText(value))
+        .then(function(){return true;})
+        .catch(function(){return fallback();});
+    }
+  }catch(_error){}
+  return Promise.resolve(fallback());
+}
 function cvCopy(txt, btn){
-  function done(){ if(btn){ var o=btn.textContent; btn.textContent='\u2713'; setTimeout(function(){ btn.textContent=o==='\u2713'?'\u29c9':o; }, 900); } }
-  try{ navigator.clipboard.writeText(String(txt)).then(done, function(){ if(typeof showToast==='function') showToast('Copy failed.'); }); }
-  catch(e){ if(typeof showToast==='function') showToast('Copy not available in this browser.'); }
+  osiCopyText(txt).then(function(copied){
+    if(!copied){ if(typeof showToast==='function') showToast('Copy failed. Select the value and copy it manually.'); return; }
+    if(btn){ var o=btn.textContent; btn.textContent='\u2713'; setTimeout(function(){ btn.textContent=o==='\u2713'?'\u29c9':o; }, 900); }
+  });
 }
 function cvTab(btn, id){
   document.querySelectorAll('#ap-modal .cv-tab').forEach(function(b){ b.classList.toggle('active', b===btn); });

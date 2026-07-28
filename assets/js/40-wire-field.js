@@ -228,9 +228,9 @@ function renderSolanaPay(){
 }
 function copySolanaPay(){
   const url = buildSolanaPayUrl(); if(!url) return;
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(function(){ showToast('Solana Pay link copied \u2713'); }, function(){ showToast('Copy failed, long-press the link to copy it.'); });
-  } else { showToast('Copy not supported here, long-press the link.'); }
+  osiCopyText(url).then(function(copied){
+    showToast(copied ? 'Solana Pay link copied \u2713' : 'Copy failed, long-press the link to copy it.');
+  });
 }
 
 // ===== File + image attachments via Supabase Storage =====

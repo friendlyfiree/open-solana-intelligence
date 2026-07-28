@@ -267,6 +267,7 @@ requireSuccess(
       display_name: "OSI smoke",
       bio: "Independent public-source analyst.",
       experience: "I trace public transactions and document reproducible findings.",
+      safety_acknowledged: true,
     },
     idempotency_key: randomId("prod-analyst"),
   }),

@@ -8,6 +8,7 @@
   var PAYMENT_URL = SUPABASE_URL + '/functions/v1/osi-v2-payment';
   var AI_PACK_URL = SUPABASE_URL + '/functions/v1/osi-v2-ai-pack';
   var PAGE_SIZE = 12;
+  var PAYMENT_RECOVERY_KEY = 'osi:v2:payment-recovery:1';
   var state = {
     cases: [], mode: 'public', actorRole: 'public', query: '', stage: 'open_public',
     sort: 'newest', page: 1, loadToken: 0, current: null, tab: 'overview',
@@ -15,6 +16,7 @@
     modalReturnFocus: null, drawerReturnFocus: null, governanceBusy: false,
     paymentBusy: false, paymentPending: null, paymentWallet: ''
   };
+  restorePaymentPending();
 
   function esc(value){
     return String(value == null ? '' : value).replace(/[&<>"']/g,function(char){
@@ -361,6 +363,10 @@
 
   async function fieldOpenFormV2(){
     state.modalReturnFocus=document.activeElement;
+    if(!walletPubkey&&typeof window.osiConnectForIntent==='function'){
+      await window.osiConnectForIntent('open-case','Open a Case',fieldOpenFormV2);
+      return;
+    }
     try{
       await ensureWallet();
       var capabilities=await refreshCapabilities();
@@ -597,15 +603,16 @@
     var canPledge=owner&&caps.payment_writes_enabled===true&&(!pledge||pledge.state==='pledged')&&['draft','submitted','initial_review','open_public','in_review','ready_for_finalization','resolution_proposed','in_challenge_window','resolved','reopened'].indexOf(item.stage)>=0;
     var pledgeAction=pledge?'revise':'create';
     var pledgeControls=canPledge?'<div class="osi-payment-compose"><h4>'+(pledge?'Revise reward pledge':'Create reward pledge')+'</h4><label>Exact SOL amount<input id="osi-pledge-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="1.25" value="'+esc(pledge?solFromLamports(pledge.amount_lamports):'')+'"></label><div class="osi-payment-actions"><button class="osi-action primary" type="button" onclick="osiV2Pledge(\''+pledgeAction+'\')">Sign '+pledgeAction+'</button>'+(pledge&&item.visibility==='private'?'<button class="osi-action" type="button" onclick="osiV2Pledge(\'withdraw\')">Withdraw pledge</button>':'')+'</div><div id="osi-payment-status" class="osi-form-status mono" role="status"></div></div>':'';
-    var payReady=owner&&caps.payment_writes_enabled===true&&pledge&&['payment_ready','partially_fulfilled','verification_failed'].indexOf(pledge.status)>=0&&String(pledge.outstanding_lamports)!=='0';
+    var pendingRecovery=state.paymentPending&&state.paymentPending.caseRef===item.public_ref;
+    var payReady=owner&&!pendingRecovery&&caps.payment_writes_enabled===true&&pledge&&['payment_ready','partially_fulfilled','verification_failed'].indexOf(pledge.status)>=0&&String(pledge.outstanding_lamports)!=='0';
     var unpaidPledge=owner&&pledge&&String(pledge.outstanding_lamports)!=='0';
-    var payReason=item.stage==='in_challenge_window'?'Challenge window must end and the Case must be sealed before the winner can be paid.':caps.payment_writes_enabled!==true?'Native SOL payments remain disabled until rollout checks pass.':'The exact winning Report version and sealed recipient are not final yet.';
+    var payReason=pendingRecovery?'Re-verify the already submitted signature before preparing another payment.':item.stage==='in_challenge_window'?'Challenge window must end and the Case must be sealed before the winner can be paid.':caps.payment_writes_enabled!==true?'Native SOL payments remain disabled until rollout checks pass.':'The exact winning Report version and sealed recipient are not final yet.';
     var payControl=payReady?'<div class="osi-payment-compose"><h4>Pay sealed winner</h4><p>Server-derived recipient <span class="mono">'+esc(short(pledge.winning_report_author_wallet))+'</span> for exact winning version <span class="mono">'+esc(pledge.winning_report_version_ref)+'</span>.</p><label>Partial or full SOL amount<input id="osi-reward-pay-amount" type="text" inputmode="decimal" autocomplete="off" value="'+esc(solFromLamports(pledge.outstanding_lamports))+'"></label><button class="osi-action primary" type="button" onclick="osiV2PayReward()">Review direct transfer</button></div>':unpaidPledge?'<div class="osi-payment-compose"><h4>Pay sealed winner</h4><p>'+esc(payReason)+'</p><button class="osi-action" type="button" disabled title="'+esc(payReason)+'">Payment unavailable</button></div>':'';
     var supportOptions=(money.support_options||[]).filter(function(option){return option.wallet!==String(walletPubkey||'');});var supportGroups={};supportOptions.forEach(function(option){(supportGroups[option.target_ref]||(supportGroups[option.target_ref]=[])).push(option);});
-    var support=Object.keys(supportGroups).length&&caps.payment_writes_enabled===true?'<div class="osi-payment-compose"><h4>Support contributors</h4><p>Select up to four recipients for one atomic System Program transaction. Each amount is exact native SOL.</p>'+Object.keys(supportGroups).map(function(versionRef,groupIndex){return'<fieldset class="osi-support-group"><legend>'+esc(versionRef)+'</legend>'+supportGroups[versionRef].map(function(option,index){var key=groupIndex+'-'+index;return'<label class="osi-support-recipient"><input type="checkbox" data-support-check="'+key+'" data-target-type="'+esc(option.target_type)+'" data-target-ref="'+esc(option.target_ref)+'" data-wallet="'+esc(option.wallet)+'"><span>'+esc(option.label)+' / '+esc(short(option.wallet))+'</span><input type="text" inputmode="decimal" autocomplete="off" data-support-amount="'+key+'" placeholder="0.1 SOL" aria-label="SOL amount for '+esc(option.label)+'"></label>';}).join('')+'<button class="osi-action primary" type="button" onclick="osiV2SupportContributors(\''+esc(versionRef)+'\')">Review atomic support</button></fieldset>';}).join('')+'</div>':'';
+    var support=!pendingRecovery&&Object.keys(supportGroups).length&&caps.payment_writes_enabled===true?'<div class="osi-payment-compose"><h4>Support contributors</h4><p>Select up to four recipients for one atomic System Program transaction. Each amount is exact native SOL.</p>'+Object.keys(supportGroups).map(function(versionRef,groupIndex){return'<fieldset class="osi-support-group"><legend>'+esc(versionRef)+'</legend>'+supportGroups[versionRef].map(function(option,index){var key=groupIndex+'-'+index;return'<label class="osi-support-recipient"><input type="checkbox" data-support-check="'+key+'" data-target-type="'+esc(option.target_type)+'" data-target-ref="'+esc(option.target_ref)+'" data-wallet="'+esc(option.wallet)+'"><span>'+esc(option.label)+' / '+esc(short(option.wallet))+'</span><input type="text" inputmode="decimal" autocomplete="off" data-support-amount="'+key+'" placeholder="0.1 SOL" aria-label="SOL amount for '+esc(option.label)+'"></label>';}).join('')+'<button class="osi-action primary" type="button" onclick="osiV2SupportContributors(\''+esc(versionRef)+'\')">Review atomic support</button></fieldset>';}).join('')+'</div>':'';
     var summary=pledge?'<div class="osi-case-meta"><div><span>Pledge</span><b>'+esc(solFromLamports(pledge.amount_lamports))+' SOL</b></div><div><span>Server-derived status</span><b>'+esc(label(pledge.status))+'</b></div><div><span>Confirmed</span><b>'+esc(solFromLamports(pledge.confirmed_lamports))+' SOL</b></div><div><span>Outstanding</span><b>'+esc(solFromLamports(pledge.outstanding_lamports))+' SOL</b></div></div>':'<div class="osi-state-message"><b>No reward pledge</b><span>A Case intake reward intent is not a pledge and cannot be paid.</span></div>';
     var rows=(pledge&&pledge.payments||[]).concat(money.confirmed_support||[]);var history=rows.length?'<div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(row.support_type?'Voluntary support':'Reward payment')+' / '+esc(solFromLamports(row.amount_lamports))+' SOL</b><span class="osi-proof-label">'+esc(label(row.state))+'</span></div><p>'+esc(dateText(row.confirmed_at))+'</p>'+paymentProofLink(row)+'</div>';}).join('')+'</div>':'';
-    var retry=state.paymentPending&&state.paymentPending.caseRef===item.public_ref?'<div class="osi-state-message warning"><b>Awaiting finality</b><span>The signed transaction is not marked paid. Retry trusted server verification with the same signature.</span><button class="osi-action" type="button" onclick="osiV2RetryPayment()">Retry verification</button></div>':'';
+    var retry=pendingRecovery?'<div class="osi-state-message warning" role="status" aria-live="polite"><b>Do not pay again</b><span>SOL was already submitted with signature <span class="mono">'+esc(short(state.paymentPending.txSig))+'</span>, but OSI has not confirmed its receipt. Re-run trusted verification of this same signature before preparing any replacement payment.</span><button class="osi-action primary" type="button" onclick="osiV2RetryPayment()">Re-verify existing signature</button></div>':'';
     return '<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Native SOL / mainnet</span><h3>Rewards & Support</h3></div><span class="osi-chip">Pledged, not escrowed</span></div>'+summary+retry+pledgeControls+payControl+support+history+'<div class="osi-case-note">A pledge records intent only and never moves SOL. All transfers are voluntary, direct wallet-to-wallet native SOL. OSI never holds funds, provides escrow, or takes commission. A payment or support receipt does not affect ranking, review weight, governance, truth, guilt, legal certainty, or recovery.</div></section>';
   }
   function renderTab(){
@@ -757,7 +764,24 @@
 
   function clearPaymentState(){
     state.paymentPending=null;state.paymentBusy=false;state.paymentWallet='';
+    try{localStorage.removeItem(PAYMENT_RECOVERY_KEY);}catch(error){}
     var modal=document.getElementById('osi-payment-review');if(modal)modal.remove();
+  }
+  function restorePaymentPending(){
+    try{
+      var pending=JSON.parse(localStorage.getItem(PAYMENT_RECOVERY_KEY)||'null');
+      if(!pending||typeof pending!=='object'||!pending.prepared
+        ||!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(pending.wallet||''))
+        ||!/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(pending.txSig||''))
+        ||!/^[A-Za-z0-9_-]{32,128}$/.test(String(pending.prepared.nonce||''))){
+        localStorage.removeItem(PAYMENT_RECOVERY_KEY);return;
+      }
+      state.paymentPending=pending;
+    }catch(error){}
+  }
+  function persistPaymentPending(pending){
+    state.paymentPending=pending;
+    try{localStorage.setItem(PAYMENT_RECOVERY_KEY,JSON.stringify(pending));}catch(error){}
   }
   function paymentStatus(text,kind){var node=document.getElementById('osi-payment-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
   function paymentReview(prepared){
@@ -800,13 +824,13 @@
     modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">SOL transfer verified on Solana</span><h3>Finalized payment receipt</h3><dl><div><dt>Transaction</dt><dd class="mono">'+esc(short(receipt.tx_sig))+'</dd></div><div><dt>Finality</dt><dd>'+esc(receipt.finality)+'</dd></div><div><dt>Total</dt><dd>'+esc(receipt.total_sol)+' SOL / '+esc(receipt.total_lamports)+' lamports</dd></div><div><dt>Slot</dt><dd>'+esc(receipt.slot)+'</dd></div><div><dt>Block time</dt><dd>'+esc(dateText(receipt.block_time))+'</dd></div><div><dt>Server verification</dt><dd>Signer, transfers, Memo and mainnet verified</dd></div></dl><div class="osi-payment-actions"><a class="osi-action" href="'+esc(receipt.solscan_url)+'" target="_blank" rel="noopener">Open Solscan</a><button class="osi-action primary" type="button" data-receipt-close>Done</button></div><div class="osi-case-note">This receipt records a direct wallet-to-wallet transfer. It is not an endorsement, truth vote, guilt decision, legal finding, custody service, or governance weight.</div></div>';
     document.body.appendChild(modal);modal.querySelector('[data-receipt-close]').addEventListener('click',function(){modal.remove();});modal.querySelector('[data-receipt-close]').focus();
   }
-  async function verifyPreparedPayment(pending){
-    var result=await api(PAYMENT_URL,{op:'commit_payment',wallet:pending.wallet,nonce:pending.prepared.nonce,tx_sig:pending.txSig});
+  async function verifyPreparedPayment(pending,recovery){
+    var result=await api(PAYMENT_URL,{op:recovery?'recover_payment':'commit_payment',wallet:pending.wallet,nonce:pending.prepared.nonce,tx_sig:pending.txSig});
     if(result.state==='awaiting_finality'){
-      state.paymentPending=pending;paymentStatus('Transaction submitted. Awaiting finalized trusted RPC verification; not marked paid.','warning');
+      persistPaymentPending(pending);paymentStatus('Transaction submitted. Awaiting finalized trusted RPC verification; not marked paid. Do not send another payment.','warning');
       if(state.current){state.tab='reward';renderTab();}return result;
     }
-    state.paymentPending=null;showToast('Finalized direct SOL transfer verified. Receipt '+result.receipt.id+' is available in the Proof Log.');showPaymentReceipt(result.receipt);
+    clearPaymentState();showToast((result.historical_reverification?'Existing signature re-verified. ':'')+'Finalized direct SOL transfer verified. Receipt '+result.receipt.id+' is available in the Proof Log.');showPaymentReceipt(result.receipt);
     if(pending.caseRef)await reloadPaymentCase(pending.caseRef);
     else if(pending.wireVersionRef&&typeof window.osiV2OpenWireReport==='function')await window.osiV2OpenWireReport(pending.wireVersionRef);
     return result;
@@ -821,9 +845,9 @@
       paymentStatus('Deriving exact recipients and canonical Memo on the server...');
       var prepared=await api(PAYMENT_URL,body);if(!await paymentReview(prepared)){paymentStatus('Transfer cancelled before Phantom opened.');return;}
       var txSig=await sendPreparedPayment(prepared);var pending={wallet:wallet,caseRef:state.current&&state.current.public_ref||'',prepared:prepared,txSig:txSig};
-      state.paymentPending=pending;paymentStatus('Transaction submitted. Verifying mainnet finality, signer, transfers, Memo, freshness, and replay binding...');
+      persistPaymentPending(pending);paymentStatus('Transaction submitted. Verifying mainnet finality, signer, transfers, Memo, freshness, and replay binding...');
       await verifyPreparedPayment(pending);
-    }catch(error){paymentStatus(userError(error),'error');showToast(userError(error));}
+    }catch(error){paymentStatus(userError(error)+(state.paymentPending?' Do not pay again; use Re-verify existing signature.':''),'error');showToast(userError(error));if(state.current&&state.paymentPending){state.tab='reward';renderTab();}}
     finally{state.paymentBusy=false;}
   }
   async function pledge(action){
@@ -890,12 +914,12 @@
       if(!await paymentReview(prepared))return;
       var txSig=await sendPreparedPayment(prepared);
       var pending={wallet:wallet,caseRef:'',wireVersionRef:versionRef,prepared:prepared,txSig:txSig};
-      state.paymentPending=pending;
+      persistPaymentPending(pending);
       await verifyPreparedPayment(pending);
     }catch(error){showToast(userError(error));}
     finally{state.paymentBusy=false;}
   }
-  function retryPayment(){if(state.paymentPending)verifyPreparedPayment(state.paymentPending).catch(function(error){paymentStatus(userError(error),'error');});}
+  function retryPayment(){if(state.paymentPending)verifyPreparedPayment(state.paymentPending,true).catch(function(error){paymentStatus(userError(error)+' The existing signature remains available for another verification attempt; do not send a replacement payment.','error');});}
 
   var legacyAdminUpdate=window.updateAdminButton;
   window.updateAdminButton=function(){

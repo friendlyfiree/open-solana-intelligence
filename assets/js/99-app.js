@@ -15,12 +15,13 @@ window.addEventListener('load', function(){
       if(pk){ walletPubkey = pk.toString(); } else { walletPubkey = null; clearWalletCache(); }
       if(typeof window.osiV2ReadSessionHandleWallet==='function')window.osiV2ReadSessionHandleWallet(walletPubkey||'');
       updateWalletUI();
+      if(walletPubkey&&typeof window.osiResumeWalletIntent==='function')window.osiResumeWalletIntent();
     });
   }
   // A rejected/revoked trust check leaves the UI honestly disconnected.
   if(prov && sessionRestoreWanted()){
     prov.connect({ onlyIfTrusted:true }).then(function(resp){
-      if(resp && resp.publicKey){ walletPubkey = resp.publicKey.toString(); try{ localStorage.setItem('osi_phantom_restore','1'); }catch(e){} if(typeof window.osiV2ReadSessionHandleWallet==='function')window.osiV2ReadSessionHandleWallet(walletPubkey); clearWalletAuthorization({preserveReadSession:true,reason:'trusted_restore'}); updateWalletUI(); }
+      if(resp && resp.publicKey){ walletPubkey = resp.publicKey.toString(); try{ localStorage.setItem('osi_phantom_restore','1'); }catch(e){} if(typeof window.osiV2ReadSessionHandleWallet==='function')window.osiV2ReadSessionHandleWallet(walletPubkey); clearWalletAuthorization({preserveReadSession:true,reason:'trusted_restore'}); updateWalletUI(); if(typeof window.osiResumeWalletIntent==='function')window.osiResumeWalletIntent(); }
     }).catch(function(){ /* not trusted or revoked: stay disconnected, user connects manually */ }).finally(function(){if(typeof markWalletReady==='function')markWalletReady();});
   }else if(typeof markWalletReady==='function')markWalletReady();
   document.addEventListener('click', function(e){

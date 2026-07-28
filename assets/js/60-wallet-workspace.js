@@ -59,6 +59,33 @@ function closeWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.cla
 function openWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.add('open'); }
 function toggleWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.toggle('open'); }
 
+var _osiWalletIntent=null,_osiWalletIntentRunning=false;
+async function osiResumeWalletIntent(){
+  if(_osiWalletIntentRunning||!_osiWalletIntent||!walletPubkey)return false;
+  var intent=_osiWalletIntent;
+  _osiWalletIntent=null;
+  _osiWalletIntentRunning=true;
+  try{
+    await intent.action();
+    return true;
+  }catch(error){
+    if(typeof showToast==='function')showToast(walletErrorMessage(error,intent.label||'Requested action'));
+    return false;
+  }finally{
+    _osiWalletIntentRunning=false;
+  }
+}
+async function osiConnectForIntent(name,label,action){
+  _osiWalletIntent={name:String(name||'wallet-action'),label:String(label||'Requested action'),action:action};
+  if(typeof showToast==='function')showToast('Connect Wallet to continue. This action will resume once after connection.');
+  var connected=await toggleWallet();
+  if(connected)await osiResumeWalletIntent();
+  else if(typeof showToast==='function')showToast('Wallet not connected. The '+String(label||'requested')+' action is saved; use Connect Wallet to resume it once.');
+  return connected;
+}
+window.osiConnectForIntent=osiConnectForIntent;
+window.osiResumeWalletIntent=osiResumeWalletIntent;
+
 async function toggleWalletOnce(){
   var prov = getProvider();
   if(!prov){
@@ -78,6 +105,7 @@ async function toggleWalletOnce(){
     updateWalletUI();
     markWalletReady();
     if(typeof showToast==='function') showToast('Connected \u2713  Use the wallet button to open your profile or disconnect.');
+    await osiResumeWalletIntent();
     return true;
   }catch(e){
     if(typeof showToast==='function') showToast(walletErrorMessage(e, "Connection"));

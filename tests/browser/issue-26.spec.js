@@ -445,7 +445,9 @@ async function installFixtureNetwork(page, options = {}) {
   const publicFailure = options.publicFailure === true;
   const analystEligible = role === 'verified_analyst';
   const maintainerAccess = role === 'maintainer';
-  const writesEnabled = connected;
+  const writesEnabled = Object.prototype.hasOwnProperty.call(options, 'writesEnabled')
+    ? options.writesEnabled === true
+    : connected;
   let submittedCase = false;
   let caseReviewed = false;
   let openedCase = false;
@@ -767,6 +769,30 @@ async function installFixtureNetwork(page, options = {}) {
         applicationActivated = true;
         response = { ok: true, analyst: { wallet: ROLE_WALLETS.analyst_candidate, tier: 'probationary', weight: .5 } };
       }
+    } else if (endpoint === 'osi-v2-payment') {
+      if (body.op === 'capabilities') response = {
+        ok: true,
+        payment_writes_enabled: true,
+        wire_writes_enabled: true,
+      };
+      else if (body.op === 'recover_payment') response = {
+        ok: true,
+        payment_id: '77777777-7777-4777-8777-777777777777',
+        payment_kind: 'reward',
+        state: 'confirmed',
+        paid: true,
+        historical_reverification: true,
+        receipt: {
+          id: '88888888-8888-4888-8888-888888888888',
+          tx_sig: TX,
+          finality: 'finalized',
+          total_sol: '2',
+          total_lamports: '2000000000',
+          slot: 123456,
+          block_time: iso(-1),
+          solscan_url: `https://solscan.io/tx/${TX}`,
+        },
+      };
     } else if (body.op === 'actor_capabilities' || body.op === 'capabilities') {
       response = roleAudit ? {
         ok: true,
@@ -919,7 +945,9 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
     await openPlatformItem(page, 'Open a Case');
     if (role === 'anonymous') {
       await expect(page.locator('#fo-modal')).not.toHaveClass(/open/);
-      await expect(page.locator('#stw-toast')).toContainText(/Connect (Phantom first|a Solana wallet to continue)/);
+      await expect(page.locator('#stw-toast')).toContainText(/Connect (Wallet|Phantom first|a Solana wallet to continue)|Wallet not connected/);
+      await expect(page.locator('#stw-toast')).toHaveAttribute('role', 'status');
+      await expect(page.locator('#stw-toast')).toHaveAttribute('aria-live', 'polite');
     } else {
       await expect(page.locator('#fo-modal')).toHaveClass(/open/);
       await page.locator('#fo-modal .fo-x').click();
@@ -957,6 +985,7 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
       await page.locator('#an-x-handle').fill('@flow_repair');
       await page.locator('#an-bio').fill('I investigate public Solana activity with reproducible evidence.');
       await page.locator('#an-experience').fill('I publish attributable wallet-flow research with explicit limits.');
+      await page.locator('#an-safety').check();
       await page.locator('#an-x-handle').scrollIntoViewIfNeeded();
       await captureRepairEvidence(page, '06-minimal-analyst-application');
       await page.setViewportSize({ width: 390, height: 844 });
@@ -994,6 +1023,39 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
     expectCleanRuntime(page);
   });
 }
+
+test('wallet-required Case and Analyst intents resume exactly once after a later connection', async ({ page }) => {
+  await ready(page, { role: 'anonymous', writesEnabled: true });
+  await page.evaluate(() => window.osiNavigate('field'));
+  await page.locator('#field-view .fo-cta').click();
+  await expect(page.locator('#fo-modal')).not.toHaveClass(/open/);
+  await expect(page.locator('#stw-toast')).toContainText('action is saved; use Connect Wallet to resume it once.');
+
+  await page.evaluate(() => { window.__fixtureAllowExplicitConnect = true; });
+  await page.locator('#walletBtn').click();
+  await expect(page.locator('#fo-modal')).toHaveClass(/open/);
+  await expect(page.locator('#v2-case-title')).toBeFocused();
+  await page.locator('#fo-modal .fo-x').click();
+
+  await page.evaluate(async () => {
+    window.__fixtureAllowExplicitConnect = false;
+    await window.__fixtureProvider.disconnect();
+    window.osiNavigate('analysts');
+  });
+  await page.getByRole('button', { name: 'Start analyst application' }).click();
+  await expect(page.locator('#apx-modal')).not.toHaveClass(/open/);
+  await expect(page.locator('#stw-toast')).toContainText('action is saved; use Connect Wallet to resume it once.');
+
+  await page.evaluate(() => { window.__fixtureAllowExplicitConnect = true; });
+  await page.locator('#walletBtn').click();
+  await expect(page.locator('#apx-modal')).toHaveClass(/open/);
+  await expect(page.locator('#an-x-handle')).toBeFocused();
+  await expect(page.locator('#stw-toast')).toContainText('No transaction will be sent.');
+  const provider = await page.evaluate(() => window.__fixtureProviderCounts());
+  expect(provider.connect).toBe(4);
+  expect(provider.signMessage).toBe(1);
+  expectCleanRuntime(page);
+});
 
 test('legacy-import private drafts stay out of maintainer DOM counts and rows', async ({ page }) => {
   await ready(page, { role: 'maintainer' });
@@ -1538,6 +1600,53 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   expectCleanRuntime(page);
 });
 
+test('submitted payment survives reload and re-verifies the same signature before another payment', async ({ page }) => {
+  await page.addInitScript(({ key, wallet, caseRef, signature }) => {
+    localStorage.setItem(key, JSON.stringify({
+      wallet,
+      caseRef,
+      wireVersionRef: '',
+      txSig: signature,
+      prepared: {
+        nonce: 'payment-recovery-nonce-1234567890',
+        payment_kind: 'reward',
+        target_public_ref: caseRef,
+        total_lamports: '2000000000',
+        total_sol: '2',
+        recipient_manifest: [],
+      },
+    }));
+  }, {
+    key: 'osi:v2:payment-recovery:1',
+    wallet: WALLET,
+    caseRef: CASE_REF,
+    signature: TX,
+  });
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('field'));
+  await page.getByLabel('Filter by status').selectOption('all');
+  await page.locator(`[data-case-ref="${CASE_REF}"]`).click();
+  await page.locator('[data-tab="reward"]').click();
+  const reward = page.locator('#osi-case-content');
+  await expect(reward).toContainText('Do not pay again');
+  await expect(reward).toContainText('Re-verify existing signature');
+  await expect(reward.getByRole('button', { name: 'Review direct transfer' })).toHaveCount(0);
+  await expect(reward.getByText('Support contributors')).toHaveCount(0);
+
+  await page.reload();
+  await page.waitForFunction(() => typeof window.osiNavigate === 'function');
+  await page.evaluate(() => window.osiNavigate('field'));
+  await page.getByLabel('Filter by status').selectOption('all');
+  await page.locator(`[data-case-ref="${CASE_REF}"]`).click();
+  await page.locator('[data-tab="reward"]').click();
+  await page.getByRole('button', { name: 'Re-verify existing signature' }).click();
+  await expect(page.locator('#osi-payment-receipt')).toBeVisible();
+  await expect(page.locator('#osi-payment-receipt')).toContainText('Finalized payment receipt');
+  await expect.poll(() => page.evaluate((key) => localStorage.getItem(key),
+    'osi:v2:payment-recovery:1')).toBeNull();
+  expectCleanRuntime(page);
+});
+
 test('AI Pack drawer preserves capability, keyboard, reduced-motion, and 390px contracts', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page);
@@ -1712,7 +1821,7 @@ test('user identity, analyst workspace and Operations gate use one accessible pr
 
 test('mobile, reduced motion and 200 percent reflow preserve access without overflow', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await ready(page);
+  await ready(page, { writesEnabled: false });
   const duration = await page.locator('#osi-hero-signal-text').evaluate((node) => getComputedStyle(node, '::after').animationDuration);
   expect(parseFloat(duration)).toBeLessThanOrEqual(.02);
 
