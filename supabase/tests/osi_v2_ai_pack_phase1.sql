@@ -1650,6 +1650,12 @@ select ok(
 -- Layer-aware drift is derived on reads and persisted only by a gated write.
 -- ---------------------------------------------------------------------------
 
+-- Staleness refresh is an artifact-maintenance write and therefore uses the
+-- private generation/artifact gate in the launched maintainer-only mode.
+update public.osi_config
+   set value = 'maintainer_only'
+ where key = 'OSI_V2_AI_PACK_ACCESS_MODE';
+
 insert into public.evidence_items (
   id, kind, ref, is_public, moderation_state, sha256, added_by_wallet
 ) values (
