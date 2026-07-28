@@ -369,6 +369,7 @@ ok("Wire support uses the server-derived specialized intent before shared finali
   assert.ok(edge.includes('admin.rpc("osi_v2_prepare_wire_support"'));
   assert.ok(edge.includes('"osi_v2_record_wire_support_submission"'));
   assert.ok(edge.includes('const commitRpc = recovery ? "osi_v2_recover_payment" : "osi_v2_commit_payment"'));
+  assert.ok(edge.includes('Date.now() > Date.parse(String(bound.expires_at)) + 120_000'));
 });
 ok("confirmed support rows require exact server-verified finalized mainnet receipts", () => {
   assert.ok(phase2.includes("receipt.event_version is distinct from 'OSI2'"));

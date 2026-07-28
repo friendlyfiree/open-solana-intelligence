@@ -261,18 +261,13 @@ select lives_ok($test$
  select * from public.osi_v2_record_payment_failure(
   repeat('h',43),repeat('C',88),'unexpected_instruction')
 $test$,'the former parser failure is preserved on the second reward payment');
-set local session_replication_role=replica;
-update public.osi_nonces
-   set issued_at=issued_at-interval '1 day',expires_at=expires_at-interval '1 day'
- where nonce=repeat('h',43);
-set local session_replication_role=origin;
 select lives_ok($test$
  select * from public.osi_v2_recover_payment(
   repeat('h',43),repeat('C',88),500002,
   (select issued_at+interval '10 seconds' from public.osi_nonces where nonce=repeat('h',43)),
   'finalized',
   '{"historical_reverification":true,"server_rpc_verified":true,"balance_deltas_verified":true,"writable_accounts_verified":true,"no_token_or_inner_transfers":true}'::jsonb)
-$test$,'same-signature reward recovery fulfills the exact sealed amount');
+$test$,'same-signature reward recovery within the original transaction window fulfills the sealed amount');
 select ok((select pledge.state='paid' and sum(payment.amount_lamports)=pledge.amount_lamports
  from public.reward_pledges pledge join public.reward_payments payment on payment.pledge_id=pledge.id
  where pledge.id='42500000-0000-4000-8000-000000000001' and payment.state='confirmed'
@@ -354,20 +349,13 @@ select lives_ok($test$
  select * from public.osi_v2_record_payment_failure(
   repeat('r',43),repeat('F',88),'unexpected_instruction')
 $test$,'the former strict parser failure is preserved as unpaid before recovery');
--- Arrange an expired historical intent without weakening the production
--- immutable-nonce guard; this disposable fixture transaction is rolled back.
-set local session_replication_role=replica;
-update public.osi_nonces
-   set issued_at=issued_at-interval '1 day',expires_at=expires_at-interval '1 day'
- where nonce=repeat('r',43);
-set local session_replication_role=origin;
 select lives_ok($test$
  select * from public.osi_v2_recover_payment(
   repeat('r',43),repeat('F',88),500005,
   (select issued_at+interval '10 seconds' from public.osi_nonces where nonce=repeat('r',43)),
   'finalized',
   '{"historical_reverification":true,"server_rpc_verified":true,"balance_deltas_verified":true,"writable_accounts_verified":true,"no_token_or_inner_transfers":true,"validator_version":"OSI2-payment-v2"}'::jsonb)
-$test$,'same-signature recovery confirms an expired intent after trusted re-verification');
+$test$,'same-signature recovery confirms a historical payment in its original transaction window');
 select ok((select event.state='confirmed' and event.tx_sig=repeat('F',88)
  and event.amount_lamports=3 and event.verification_error is null
  and nonce.consumed_at is not null and nonce.consumed_by_receipt_id=event.event_receipt_id

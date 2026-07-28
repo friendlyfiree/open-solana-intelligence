@@ -401,8 +401,7 @@ begin
     end if;
     return;
   end if;
-  if p_block_time < bound.issued_at-interval '5 seconds'
-     or p_block_time > bound.expires_at+interval '120 seconds' then
+  if p_block_time < bound.issued_at or p_block_time > bound.expires_at then
     raise exception 'Recovered transaction time is outside the original intent window' using errcode='23514';
   end if;
 
@@ -548,8 +547,8 @@ begin
   end if;
 
   update public.osi_nonces as nonce
-     set consumed_at=statement_timestamp(),consumed_by_receipt_id=new_receipt_id,
-         updated_at=statement_timestamp()
+     set consumed_at=p_block_time,consumed_by_receipt_id=new_receipt_id,
+          updated_at=statement_timestamp()
    where nonce.nonce=bound.nonce and nonce.consumed_at is null;
   if not found then
     raise exception 'Payment recovery replayed concurrently' using errcode='40001';
