@@ -37,6 +37,7 @@ const expectedFiles = [
   '20260727170000_osi_v1_legacy_policy_hardening.sql',
   '20260727173000_osi_v1_legacy_counter_readonly.sql',
   '20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql',
+  '20260728153100_osi_v1_requests_exact_policy_boundary.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -65,6 +66,8 @@ const wireProofExpiryRecovery =
   sqlByFile['20260726185457_wire_proof_expiry_recovery.sql'] || '';
 const paymentRecoveryLegacyBoundary =
   sqlByFile['20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql'] || '';
+const exactRequestPolicyBoundary =
+  sqlByFile['20260728153100_osi_v1_requests_exact_policy_boundary.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -324,7 +327,10 @@ ok(
 // destructive data operations, so keep the broad historical scan and test the
 // scoped exception separately.
 const destructiveScanSql = migrationFiles
-  .filter((name) => name !== '20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql')
+  .filter((name) => ![
+    '20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql',
+    '20260728153100_osi_v1_requests_exact_policy_boundary.sql',
+  ].includes(name))
   .map((name) => sqlByFile[name])
   .join('\n');
 const withoutLineComments = destructiveScanSql.replace(/--[^\n]*/g, '');
@@ -351,6 +357,18 @@ ok(
     && paymentRecoveryLegacyBoundary.includes('osi_v2_recover_payment')
     && paymentRecoveryLegacyBoundary.includes('historical_reverification')
     && paymentRecoveryLegacyBoundary.includes('to service_role'),
+);
+ok(
+  'forward fix removes exact production request policy names without touching data',
+  [
+    'drop policy if exists "requests admin delete"',
+    'drop policy if exists "requests admin read"',
+    'drop policy if exists "requests admin update"',
+  ].every((needle) => exactRequestPolicyBoundary.includes(needle))
+    && exactRequestPolicyBoundary.includes('using (approved is true)')
+    && exactRequestPolicyBoundary.includes('to service_role')
+    && !/\btruncate\s+(table|only)\b|\bdelete\s+from\b|\bdrop\s+(table|schema|column|type)\b/i
+      .test(exactRequestPolicyBoundary.replace(/--[^\n]*/g, '')),
 );
 
 for (const table of expectedPhysicalTables.filter((name) => name !== 'osi_config')) {
