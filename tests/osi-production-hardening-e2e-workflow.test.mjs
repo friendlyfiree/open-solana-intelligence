@@ -46,7 +46,10 @@ ok("semantic authorization proof covers policies, grants, storage, and SECURITY 
 ok("live negative smoke attempts no valid domain write or transaction",
   workflow.includes("/rest/v1/requests")
   && workflow.includes("/rest/v1/onchain_events")
+  && workflow.includes('\'{"event_type":"FAKE","tx_sig":"')
+  && !workflow.includes('"id":9223372036854770003')
   && workflow.includes("/storage/v1/object/osi-uploads/negative-smoke.txt")
+  && workflow.includes('storage-list.json)" = "[]"')
   && workflow.includes('"op":"recover_payment"')
   && workflow.includes('"tx_sig":"bad"'));
 ok("only the task-scoped payment function is deployed",
