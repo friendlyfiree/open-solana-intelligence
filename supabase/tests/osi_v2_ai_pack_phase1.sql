@@ -1304,6 +1304,14 @@ select independent_count, total_weight, quorum_hash
   from osi_private.osi_v2_ai_pack_quorum(
     (select version_id from pg_temp.ai_pack_main_prepare)
   );
+-- The legacy service-only owner-feedback RPC shares the artifact-write gate.
+-- Production Edge code additionally requires the governed review gate before
+-- it can call this RPC. Toggle only inside this rollback-only database fixture
+-- to preserve direct coverage of the advisory, zero-weight receipt invariant.
+update public.osi_config
+   set value = 'maintainer_only'
+ where key = 'OSI_V2_AI_PACK_ACCESS_MODE';
+
 select lives_ok(
   $test$
     create temporary table ai_pack_feedback_prepare on commit drop as
@@ -1367,6 +1375,10 @@ select is(
   '0',
   'owner feedback and review do not rewrite the stored generated profile'
 );
+
+update public.osi_config
+   set value = 'governed'
+ where key = 'OSI_V2_AI_PACK_ACCESS_MODE';
 
 -- ---------------------------------------------------------------------------
 -- Viewer isolation before approval, then standard-channel finalization.
