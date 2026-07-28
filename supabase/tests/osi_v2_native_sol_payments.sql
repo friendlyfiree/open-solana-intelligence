@@ -410,8 +410,8 @@ $test$,'23514','Idempotency key is bound to another exact payment intent',
 
 select is((select count(*)::integer from public.reward_payments where state='confirmed'),2,
  'only the two exact reward transfers are confirmed');
-select is((select count(*)::integer from public.support_events where state='confirmed'),1,
- 'only the exact verified analyst support is confirmed');
+select is((select count(*)::integer from public.support_events where state='confirmed'),2,
+ 'only the normal and exact recovered analyst support transfers are confirmed');
 do $test$
 declare
   snapshot record;
