@@ -34,6 +34,8 @@ const expectedFiles = [
   '20260726173000_osi_core_flow_validator_alignment.sql',
   '20260726185457_wire_proof_expiry_recovery.sql',
   '20260726200249_wire_empty_evidence_prepare_fix.sql',
+  '20260727170000_osi_v1_legacy_policy_hardening.sql',
+  '20260727173000_osi_v1_legacy_counter_readonly.sql',
 ];
 
 const sqlByFile = Object.fromEntries(

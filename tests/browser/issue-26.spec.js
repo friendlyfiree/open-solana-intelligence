@@ -1672,7 +1672,13 @@ test('published, challenged, supported, and promoted Wire states fit desktop and
   await page.evaluate(() => window.osiV2OpenWireQueue());
   await expect(page.locator('#wire-cases')).toContainText('Wire queue fixture');
   await expect(page.locator('#wire-cases')).toContainText('Approve quorum 1 / 2 analysts');
-  await expect(page.locator('#wire-cases')).toContainText('Author self-review is rejected by the database');
+  // The queue has to name both restrictions, not just the review one. Saying
+  // only that self-review is rejected leaves an author hunting for a version
+  // that is filtered out of this list entirely, which is exactly how a
+  // maintainer ends up believing the publication route is broken.
+  await expect(page.locator('#wire-cases')).toContainText('rejects reviewing your own Wire');
+  await expect(page.locator('#wire-cases')).toContainText('rejects publishing it too');
+  await expect(page.locator('#wire-cases')).toContainText('your own submissions never appear here');
   expectCleanRuntime(page);
 });
 
