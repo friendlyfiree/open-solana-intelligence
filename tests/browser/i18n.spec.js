@@ -49,12 +49,24 @@ test('translates dynamic interface labels and leaves opted-out user content unto
     payment.setAttribute('role', 'dialog');
     payment.innerHTML = '<h3>Review exact mainnet transfer</h3><button>Show Solana Pay</button>';
     document.body.appendChild(payment);
+
+    const analyst = document.createElement('section');
+    analyst.id = 'dynamic-analyst-profile-copy';
+    analyst.setAttribute('role', 'dialog');
+    analyst.setAttribute('aria-label', 'Analyst profile');
+    analyst.innerHTML = '<span>Server-derived weight</span><h4>Public contributions</h4><b>No public contributions recorded</b><button>Support analyst with SOL</button>';
+    document.body.appendChild(analyst);
   });
 
   await expect(page.locator('#dynamic-ui-copy')).toHaveText('Cüzdanı Bağla');
   await expect(page.locator('#dynamic-user-copy')).toHaveText('Home');
   await expect(page.locator('#dynamic-payment-copy h3')).toHaveText('Kesin mainnet transferini inceleyin');
   await expect(page.locator('#dynamic-payment-copy button')).toHaveText('Solana Pay’i göster');
+  await expect(page.locator('#dynamic-analyst-profile-copy')).toHaveAttribute('aria-label', 'Analist profili');
+  await expect(page.locator('#dynamic-analyst-profile-copy span')).toHaveText('Sunucunun belirlediği ağırlık');
+  await expect(page.locator('#dynamic-analyst-profile-copy h4')).toHaveText('Kamusal katkılar');
+  await expect(page.locator('#dynamic-analyst-profile-copy b')).toHaveText('Kaydedilmiş kamusal katkı yok');
+  await expect(page.locator('#dynamic-analyst-profile-copy button')).toHaveText('Analisti SOL ile destekle');
 });
 
 test('keeps the language control visible at supported viewport widths', async ({ page }) => {

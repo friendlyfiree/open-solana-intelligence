@@ -48,7 +48,7 @@ function textTree(node) {
   return [node.textContent, ...node.children.flatMap((child) => textTree(child))].join(' ');
 }
 
-function load(provider) {
+function load(provider, translate) {
   const elements = new Map();
   const document = {
     readyState: 'loading',
@@ -72,6 +72,7 @@ function load(provider) {
     clearTimeout,
     console,
     osiPublicApi: provider,
+    osiT: translate,
   };
   context.window = context;
   vm.createContext(context);
@@ -117,6 +118,25 @@ ok('positive badge uses the existing proof-label class and links to the explanat
   && positiveSlot.children[0].getAttribute('data-sas-badge') === 'verified'
   && positiveSlot.children[0].textContent.includes('SAS verified')
   && positiveSlot.children[0].textContent.includes('2026'));
+
+const turkish = load(async () => ({
+  ok: true, wallet: WALLET, valid: true, state: 'verified', reason: 'valid',
+  credential: CREDENTIAL, schema: SCHEMA, source: 'live', checked_at: '2026-07-28T10:00:00Z',
+}), (key, variables) => {
+  const values = {
+    'SAS verified': 'SAS doğrulandı',
+    'SAS analyst review authority verified. Last checked {checked}. Read the Solana Attestation Service explanation.':
+      'SAS analist inceleme yetkisi doğrulandı. Son kontrol: {checked}. Solana Attestation Service açıklamasını okuyun.',
+  };
+  return String(values[key] || key).replace(/\{([a-zA-Z0-9_]+)\}/g, (_, name) => String(variables?.[name] ?? `{${name}}`));
+});
+const turkishSlot = new FakeElement('span', turkish.document);
+turkishSlot.setAttribute('data-sas-wallet', WALLET);
+await turkish.api.decorateSlot(turkishSlot);
+ok('timestamped SAS badge and accessible name follow the active locale',
+  turkishSlot.children[0].textContent.includes('SAS doğrulandı')
+  && turkishSlot.children[0].getAttribute('aria-label').includes('Son kontrol:')
+  && !turkishSlot.children[0].getAttribute('aria-label').includes('Last checked'));
 
 for (const state of ['expired', 'revoked']) {
   const visible = load(async () => ({
