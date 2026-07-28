@@ -45,8 +45,7 @@ end
 $migration$;
 
 select osi_private.osi_v2_apply_legacy_boundary();
-revoke all privileges on function osi_private.osi_v2_apply_legacy_boundary()
-  from public,anon,authenticated;
+drop function osi_private.osi_v2_apply_legacy_boundary();
 
 create or replace function osi_private.osi_v2_record_payment_failure(
   p_nonce text,p_tx_sig text,p_error text

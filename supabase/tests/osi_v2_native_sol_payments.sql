@@ -342,9 +342,13 @@ select lives_ok($test$
  select * from public.osi_v2_record_payment_failure(
   repeat('r',43),repeat('F',88),'unexpected_instruction')
 $test$,'the former strict parser failure is preserved as unpaid before recovery');
+-- Arrange an expired historical intent without weakening the production
+-- immutable-nonce guard; this disposable fixture transaction is rolled back.
+set local session_replication_role=replica;
 update public.osi_nonces
    set issued_at=issued_at-interval '1 day',expires_at=expires_at-interval '1 day'
  where nonce=repeat('r',43);
+set local session_replication_role=origin;
 select lives_ok($test$
  select * from public.osi_v2_recover_payment(
   repeat('r',43),repeat('F',88),500005,
