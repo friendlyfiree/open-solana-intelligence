@@ -613,26 +613,28 @@ async function installFixtureNetwork(page, options = {}) {
         const owner = body.case_ref === CASE_REF || body.case_ref === PRIVATE_REF;
         response = roleAudit ? {
           ok: true,
+          ai_pack_access_mode: 'maintainer_only',
           ai_pack_writes_enabled: writesEnabled,
-          ai_pack_review_writes_enabled: writesEnabled && (analystEligible || maintainerAccess),
+          ai_pack_review_writes_enabled: false,
           wallet_connected: connected,
           viewer_role: maintainerAccess ? 'maintainer' : (analystEligible ? 'analyst' : (connected ? 'owner' : 'public')),
           analyst_eligible: analystEligible,
           maintainer_access: maintainerAccess,
-          can_generate: analystEligible,
-          generation_prerequisite: analystEligible ? null : 'Generation requires an eligible analyst and the dedicated write gate.',
+          can_generate: maintainerAccess && writesEnabled,
+          generation_prerequisite: maintainerAccess
+            ? null
+            : 'AI Pack is private and requires both maintainer gates.',
         } : {
           ok: true,
+          ai_pack_access_mode: 'maintainer_only',
           ai_pack_writes_enabled: true,
           ai_pack_review_writes_enabled: false,
           wallet_connected: true,
           viewer_role: owner ? 'owner' : 'analyst',
           analyst_eligible: !owner,
           maintainer_access: false,
-          can_generate: !owner,
-          generation_prerequisite: owner
-            ? 'Case-owner generation is deferred until a separate budget and quota release.'
-            : null,
+          can_generate: false,
+          generation_prerequisite: 'AI Pack is private and requires both maintainer gates.',
         };
       } else if (body.op === 'get_case_packs') {
         const roleVersion = {
@@ -774,6 +776,54 @@ async function installFixtureNetwork(page, options = {}) {
         ok: true,
         payment_writes_enabled: true,
         wire_writes_enabled: true,
+        solana_pay_enabled: true,
+        solana_pay_single_recipient_only: true,
+        solana_pay_reference_bound: true,
+        solana_pay_finality: 'finalized',
+      };
+      else if (body.op === 'prepare_payment') response = {
+        ok: true,
+        payment_id: '77777777-7777-4777-8777-777777777777',
+        payment_kind: 'support',
+        purpose: 'SUPPORT_PAYMENT_CONFIRMED',
+        network: 'mainnet-beta',
+        payer_wallet: body.wallet,
+        actor_role: 'wallet',
+        target_public_ref: 'OSI-AN-A1B2C3D4E5F60718',
+        recipient_manifest: [{
+          ordinal: 0,
+          wallet: body.recipients[0].target_ref,
+          recipient_type: 'analyst',
+          target_ref: 'OSI-AN-A1B2C3D4E5F60718',
+          amount_lamports: '100000000',
+          amount_sol: '0.1',
+        }],
+        recipient_count: 1,
+        manifest_hash: 'a'.repeat(64),
+        total_lamports: '100000000',
+        total_sol: '0.1',
+        nonce: 'solana-pay-browser-fixture-nonce-20260728',
+        payload_hash: 'b'.repeat(64),
+        memo: `OSI2|1|SUPPORT_PAYMENT_CONFIRMED|t=support|id=OSI-AN-A1B2C3D4E5F60718|a=${body.wallet}|r=wallet|d=sent|n=solana-pay-browser-fixture-nonce-20260728|h=${'b'.repeat(64)}|ts=1785268800`,
+        issued_at: iso(0),
+        expires_at: iso(1),
+        direct_wallet_to_wallet: true,
+        osi_custody: false,
+        irreversible: true,
+        solana_pay: {
+          enabled: true,
+          reference: '11111111111111111111111111111113',
+          expires_at: iso(1),
+          idempotent_replay: false,
+        },
+      };
+      else if (body.op === 'poll_solana_pay') response = {
+        ok: true,
+        state: 'awaiting_payment',
+        paid: false,
+        retryable: true,
+        reference: body.reference,
+        expires_at: iso(1),
       };
       else if (body.op === 'recover_payment') response = {
         ok: true,
@@ -1146,7 +1196,7 @@ async function captureRepairEvidence(page, name) {
   await page.screenshot({ path: path.join(directory, `${name}.png`), fullPage: false });
 }
 
-test('launch readiness: verified analyst controls traverse Case, Wire, governance, challenge, and AI Pack writes', async ({ page }) => {
+test('launch readiness: verified analyst controls traverse Case, Wire, governance, and challenge while AI Pack stays private', async ({ page }) => {
   test.setTimeout(180_000);
   page.on('dialog', (dialog) => dialog.accept(dialog.type() === 'prompt'
     ? 'The exact evidence and process prerequisites were independently reviewed.'
@@ -1286,13 +1336,9 @@ test('launch readiness: verified analyst controls traverse Case, Wire, governanc
   await page.waitForTimeout(200);
 
   await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), AI_CASE_REF);
-  await page.locator('[data-tab="ai_pack"]').click();
-  await page.locator('#osi-ai-pack-generate').click();
-  await expectFixtureOperation(page, 'osi-v2-ai-pack', 'commit_generation');
-  await page.waitForTimeout(200);
-  await page.locator('#osi-ai-review-rationale').fill('The immutable artifact remains evidence-bound and appropriately qualified.');
-  await page.locator('#osi-ai-review-submit').click();
-  await expectFixtureOperation(page, 'osi-v2-ai-pack', 'commit_review');
+  await expect(page.locator('[data-tab="ai_pack"]')).toHaveCount(0);
+  expect(await fixtureOperationCount(page, 'osi-v2-ai-pack', 'get_case_packs')).toBe(0);
+  expect(await fixtureOperationCount(page, 'osi-v2-ai-pack', 'commit_generation')).toBe(0);
   expectCleanRuntime(page);
 });
 
@@ -1324,8 +1370,11 @@ test('launch readiness: full maintainer controls review candidacy and finalize o
 
   await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), AI_CASE_REF);
   await page.locator('[data-tab="ai_pack"]').click();
-  await page.locator('#osi-ai-approve').click();
-  await expectFixtureOperation(page, 'osi-v2-ai-pack', 'commit_approval');
+  await expect(page.locator('#osi-ai-pack-root')).toContainText('Private draft only');
+  await expect(page.locator('#osi-ai-review-submit')).toHaveCount(0);
+  await expect(page.locator('#osi-ai-approve')).toHaveCount(0);
+  await page.locator('#osi-ai-pack-generate').click();
+  await expectFixtureOperation(page, 'osi-v2-ai-pack', 'commit_generation');
   expectCleanRuntime(page);
 });
 
@@ -1445,18 +1494,102 @@ test('canonical workspace navigation and support dialog preserve keyboard access
   const opener = page.locator('.osi-hero-actions .osi-button-primary');
   await expect(opener).toBeVisible();
   await opener.focus();
-  await page.evaluate((wallet) => window.openTip(wallet, 'OSI project support', 0.1, 'Voluntary support'), OTHER);
+  await page.evaluate((wallet) => {
+    window.__fixtureAmountPromise = window.osiAskSolAmount({
+      address: wallet,
+      label: 'published analyst',
+      amount: 0.1,
+      title: 'Voluntary support',
+    });
+  }, OTHER);
   const dialog = page.getByRole('dialog', { name: 'Voluntary support' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveAttribute('aria-hidden', 'false');
-  await expect(page.locator('.tip-card')).toBeFocused();
-  await page.keyboard.press('Shift+Tab');
-  await expect(page.locator('.tip-send')).toBeFocused();
+  await expect(page.locator('.sol-ask-card')).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.locator('.tip-x')).toBeFocused();
+  await expect(page.locator('.sol-ask-x')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(opener).toBeFocused();
+  expectCleanRuntime(page);
+});
+
+test('single-recipient analyst support renders exact Solana Pay QR and explicit desktop/mobile controls', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  const analystRow = page.locator(`[data-analyst-wallet="${OTHER}"]`);
+  await expect(analystRow).toBeVisible();
+  await analystRow.click();
+  const supportButton = page.getByRole('button', { name: 'Support analyst with SOL' });
+  await expect(supportButton).toBeVisible();
+
+  async function openSolanaPay() {
+    await supportButton.click();
+    await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+    await page.locator('#sol-ask-go').click();
+    const review = page.locator('#osi-payment-review');
+    await expect(review).toBeVisible();
+    await expect(review).toContainText('Solana mainnet-beta');
+    await expect(review).toContainText('0.1 SOL / 100000000 lamports');
+    await expect(review).toContainText('no custody or escrow');
+    await expect(review.getByRole('button', { name: 'Open Phantom' })).toBeVisible();
+    await review.getByRole('button', { name: 'Show Solana Pay' }).click();
+    await expect(page.locator('#osi-solana-pay')).toBeVisible();
+  }
+
+  await openSolanaPay();
+  const desktopPay = page.locator('#osi-solana-pay');
+  const desktopLink = desktopPay.locator('[data-solana-pay-open]');
+  await expect(desktopLink).toHaveText('Open wallet on this device');
+  await expect(desktopLink).toHaveAttribute('href', new RegExp(`^solana:${OTHER}\\?`));
+  await expect(desktopLink).toHaveAttribute('href', /reference=11111111111111111111111111111113/);
+  const desktopQr = desktopPay.locator('[data-solana-pay-qr] svg');
+  await expect(desktopQr).toHaveCount(1);
+  const desktopQrBox = await desktopQr.boundingBox();
+  expect(desktopQrBox.width).toBeGreaterThanOrEqual(220);
+  expect(desktopQrBox.height).toBeGreaterThanOrEqual(220);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (value) => { window.__copiedSolanaPay = value; } },
+    });
+  });
+  await desktopPay.getByRole('button', { name: 'Copy link' }).click();
+  await expect(desktopPay.locator('[data-solana-pay-state]')).toContainText('Link copied');
+  expect(await page.evaluate(() => window.__copiedSolanaPay)).toMatch(new RegExp(`^solana:${OTHER}\\?`));
+  await desktopPay.getByRole('button', { name: 'Check payment' }).click();
+  await expect(desktopPay.locator('[data-solana-pay-state]')).toContainText('Awaiting payment');
+  await page.keyboard.press('Escape');
+  await expect(desktopPay).toBeHidden();
+  await expect(supportButton).toBeFocused();
+  await page.evaluate(() => window.osiV2ClearPaymentState());
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => Object.defineProperty(navigator, 'userAgent', {
+    configurable: true,
+    get: () => 'Mozilla/5.0 Mobile OSI fixture',
+  }));
+  await openSolanaPay();
+  const mobilePay = page.locator('#osi-solana-pay');
+  await expect(mobilePay.locator('[data-solana-pay-open]')).toHaveText('Open compatible wallet');
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    const fit = await mobilePay.evaluate((modal) => {
+      const card = modal.querySelector('.osi-payment-review-card');
+      const qr = modal.querySelector('[data-solana-pay-qr] svg');
+      const actions = modal.querySelector('.osi-payment-actions');
+      return {
+        document: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+        card: card.scrollWidth <= card.clientWidth + 1,
+        qr: qr.getBoundingClientRect().right <= document.documentElement.clientWidth + 1,
+        actions: actions.scrollWidth <= actions.clientWidth + 1,
+      };
+    });
+    expect(fit).toEqual({ document: true, card: true, qr: true, actions: true });
+  }
+  await page.keyboard.press('Escape');
+  await expect(mobilePay).toBeHidden();
+  await expect(supportButton).toBeFocused();
   expectCleanRuntime(page);
 });
 
@@ -1628,7 +1761,7 @@ test('submitted payment survives reload and re-verifies the same signature befor
   await page.locator(`[data-case-ref="${CASE_REF}"]`).click();
   await page.locator('[data-tab="reward"]').click();
   const reward = page.locator('#osi-case-content');
-  await expect(reward).toContainText('Do not pay again');
+  await expect(reward).toContainText('Do not start a second payment');
   await expect(reward).toContainText('Re-verify existing signature');
   await expect(reward.getByRole('button', { name: 'Review direct transfer' })).toHaveCount(0);
   await expect(reward.getByText('Support contributors')).toHaveCount(0);
@@ -1649,7 +1782,7 @@ test('submitted payment survives reload and re-verifies the same signature befor
 
 test('AI Pack drawer preserves capability, keyboard, reduced-motion, and 390px contracts', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await ready(page);
+  await ready(page, { role: 'maintainer' });
   await page.evaluate(() => window.osiNavigate('field'));
   await page.getByLabel('Filter by status').selectOption('all');
   const opener = page.locator(`[data-case-ref="${AI_CASE_REF}"]`);
@@ -1663,8 +1796,10 @@ test('AI Pack drawer preserves capability, keyboard, reduced-motion, and 390px c
   await expect(page.locator('#osi-ai-pack-root')).toContainText('Evidence Confidence Profile');
   await expect(page.locator('#osi-ai-pack-root')).toContainText('current at last server check');
   await expect(page.locator('#osi-ai-pack-generate')).toBeEnabled();
-  await expect(page.locator('#osi-ai-review-submit')).toBeDisabled();
-  await expect(page.locator('#osi-ai-review-help')).toContainText('production-disabled');
+  await expect(page.locator('#osi-ai-pack-root')).toContainText('Private draft only');
+  await expect(page.locator('#osi-ai-review-submit')).toHaveCount(0);
+  await expect(page.locator('#osi-ai-feedback-submit')).toHaveCount(0);
+  await expect(page.locator('#osi-ai-approve')).toHaveCount(0);
   await expect(page.locator('#osi-ai-layer option')).toHaveCount(3);
   await page.locator('#osi-ai-pack-generate').click();
   await expect(page.locator('#osi-ai-pack-generate')).toBeDisabled();

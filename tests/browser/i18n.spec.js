@@ -43,10 +43,18 @@ test('translates dynamic interface labels and leaves opted-out user content unto
     userContent.dataset.osiUserContent = '';
     userContent.textContent = 'Home';
     document.body.appendChild(userContent);
+
+    const payment = document.createElement('section');
+    payment.id = 'dynamic-payment-copy';
+    payment.setAttribute('role', 'dialog');
+    payment.innerHTML = '<h3>Review exact mainnet transfer</h3><button>Show Solana Pay</button>';
+    document.body.appendChild(payment);
   });
 
   await expect(page.locator('#dynamic-ui-copy')).toHaveText('Cüzdanı Bağla');
   await expect(page.locator('#dynamic-user-copy')).toHaveText('Home');
+  await expect(page.locator('#dynamic-payment-copy h3')).toHaveText('Kesin mainnet transferini inceleyin');
+  await expect(page.locator('#dynamic-payment-copy button')).toHaveText('Solana Pay’i göster');
 });
 
 test('keeps the language control visible at supported viewport widths', async ({ page }) => {

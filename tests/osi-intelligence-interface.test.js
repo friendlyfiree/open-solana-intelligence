@@ -13,6 +13,7 @@ const signal = read('assets/js/95-signal-interactions.js');
 const routeStyles = read('assets/js/02-route-styles.js');
 const walletWorkspace = read('assets/js/60-wallet-workspace.js');
 const supportTransfer = read('assets/js/70-support-transfer.js');
+const amountDialog = read('assets/js/72-amount-dialog.js');
 const favicon = read('assets/favicon.svg');
 const records = read('assets/js/84-public-records.js');
 const cases = read('assets/js/v2-case-integration.js');
@@ -35,8 +36,12 @@ ok((index.match(/data-osi-route-style/g) || []).length === 9 && index.includes('
 ok(routeStyles.includes("window.addEventListener('pointerdown'") && routeStyles.includes("window.addEventListener('keydown'") && routeStyles.includes("window.addEventListener('hashchange'") && routeStyles.includes("link.setAttribute('media', 'all')") && shell.includes('window.osiActivateRouteStyles()'), 'route CSS activates for direct, programmatic, pointer and keyboard navigation');
 ok(walletWorkspace.includes("if(v!=='registry' && typeof window.osiActivateRouteStyles==='function')") && walletWorkspace.includes('function openWalletMenu()'), 'canonical view and wallet-menu paths expose their shared activation controls');
 ok(shell.includes("identity: 'identity'") && shell.includes("workspace: 'workspace'") && walletWorkspace.includes("osiNavigate('identity')") && !walletWorkspace.includes("showView('identity')"), 'user and role workspaces participate in canonical history-aware navigation');
-ok(index.includes('id="tip-modal" role="dialog" aria-modal="true" aria-labelledby="tip-h" aria-describedby="tip-note" aria-hidden="true"') && index.includes('aria-label="Close support dialog"'), 'SOL support uses a named modal dialog with an accessible close control');
-ok(supportTransfer.includes("event.key === 'Escape'") && supportTransfer.includes("event.key !== 'Tab'") && supportTransfer.includes('tipReturnFocus') && supportTransfer.includes("m.setAttribute('aria-hidden','false')"), 'SOL support traps focus, closes on Escape, and restores focus');
+ok(!index.includes('id="tip-modal"') && index.includes('assets/js/70-support-transfer.js')
+  && supportTransfer.includes("endsWith('/legacy.html')"),
+  'primary app excludes the legacy OSI1 direct-tip modal while shared community helpers keep direct tips fail-closed');
+ok(index.includes('id="sol-ask" role="dialog" aria-modal="true" aria-labelledby="sol-ask-h" aria-describedby="sol-ask-note" aria-hidden="true"') && index.includes('aria-label="Cancel transfer"'), 'V2 SOL support uses a named amount dialog with an accessible close control');
+ok(amountDialog.includes("event.key === 'Escape'") && amountDialog.includes("event.key !== 'Tab'") && amountDialog.includes('returnFocus') && amountDialog.includes("m.setAttribute('aria-hidden', 'false')"), 'V2 amount dialog traps focus, closes on Escape, and restores focus');
+ok(supportTransfer.includes("endsWith('/legacy.html')"), 'legacy OSI1 direct-tip runtime remains fail-closed outside legacy.html');
 ok(index.indexOf('70-intelligence-redesign.css') > index.indexOf('v2-activation.css'), 'redesign CSS is the final cascade layer');
 ok(index.indexOf('94-navigation-shell.js') > index.indexOf('99-app.js'), 'navigation enhancement loads after the existing application');
 ok(index.indexOf('95-signal-interactions.js') > index.indexOf('94-navigation-shell.js'), 'signal enhancement loads after navigation without replacing product behavior');

@@ -134,6 +134,39 @@ ok("issuance encodes tier code",
   core.reconcileIssuance({ settings: goodSettings, status: "senior_analyst" }).tierCode === 3);
 ok("issuance revokes for non-analyst tier",
   core.reconcileIssuance({ settings: goodSettings, status: "contributor" }).action === "revoke");
+ok("issuance retry is satisfied by an exact live credential without a duplicate write",
+  core.reconcileLiveAction({
+    desired: { action: "issue" },
+    live: { rpcFailed: false, status: { state: "verified", valid: true, reason: "valid" } },
+  }).action === "satisfied");
+ok("issuance submits only when the exact attestation is absent",
+  core.reconcileLiveAction({
+    desired: { action: "issue" },
+    live: { rpcFailed: false, status: { state: "invalid", valid: false, reason: "absent" } },
+  }).action === "submit_issue");
+ok("issuance refuses to overwrite wrong or expired on-chain state",
+  ["issuer_mismatch", "schema_mismatch", "credential_mismatch", "wrong_program", "expired"].every((reason) =>
+    core.reconcileLiveAction({
+      desired: { action: "issue" },
+      live: {
+        rpcFailed: false,
+        status: { state: reason === "expired" ? "expired" : "invalid", valid: false, reason },
+      },
+    }).action === "repair_required"));
+ok("revocation closes present authority and is idempotent when already absent",
+  core.reconcileLiveAction({
+    desired: { action: "revoke" },
+    live: { rpcFailed: false, status: { state: "verified", valid: true, reason: "valid" } },
+  }).action === "submit_revoke"
+  && core.reconcileLiveAction({
+    desired: { action: "revoke" },
+    live: { rpcFailed: false, status: { state: "invalid", valid: false, reason: "absent" } },
+  }).action === "satisfied");
+ok("RPC failure defers every SAS write and grants no authority",
+  core.reconcileLiveAction({
+    desired: { action: "issue" },
+    live: { rpcFailed: true, status: { state: "pending_verification", valid: false, reason: "rpc_unavailable" } },
+  }).action === "defer");
 
 // ---- tierStatusCode ----
 ok("tier codes", core.tierStatusCode("probationary_analyst") === 1
@@ -234,6 +267,16 @@ ok("issuer imports the SDK from the static shim (not a dynamic import)",
   /from "\.\/osi-v2-sas-sdk\.ts"/.test(issuer) && !/computedImport|import\(/.test(issuer));
 ok("analyst imports issuance from the issuer module",
   /maybeReconcileSasCredential.*from "\.\.\/_shared\/osi-v2-sas-issuer\.ts"/.test(analyst));
+ok("issuer live-checks before every idempotent SAS write",
+  /verifyWalletLive/.test(issuer)
+    && /reconcileLiveAction/.test(issuer)
+    && issuer.indexOf("verifyWalletLive") < issuer.indexOf("performOnChainReconcile"));
+ok("maintainer SAS reconciliation derives status from the database behind both gates",
+  /async function reconcileSas/.test(analyst)
+    && /const gate = await fullMaintainer\(req, wallet\)/.test(analyst)
+    && /\.from\("analyst_profiles"\)/.test(analyst)
+    && /status: profile\.status/.test(analyst)
+    && !/status: body\.(?:status|analyst_status)/.test(analyst));
 
 console.log(`osi-v2-sas-core: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

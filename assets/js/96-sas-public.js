@@ -57,22 +57,39 @@
       if(wallet)verifyPublicWallet(wallet);
     },40);
   }
-  function badgeFor(slot,result){
+  function checkedText(result){
+    var value=result&&result.checked_at?new Date(result.checked_at):null;
+    return value&&!isNaN(value.getTime())?value.toLocaleString():'time unavailable';
+  }
+  function badgeFor(slot,result,overrideState){
     clearNode(slot);
     if(slot&&typeof slot.removeAttribute==='function')slot.removeAttribute('aria-busy');
-    if(!isPositive(result))return null;
     var doc=slot.ownerDocument||document;
-    var badge=doc.createElement('a');
-    badge.className='osi-proof-label';
-    badge.href='#sas-verifier';
-    badge.textContent='\u00a0Verified \u00b7 Solana Attestation Service';
-    badge.setAttribute('data-sas-badge','verified');
-    badge.setAttribute('aria-label','Verified analyst authority. Read the Solana Attestation Service explanation.');
-    badge.addEventListener('click',function(event){
-      event.preventDefault();
-      event.stopPropagation();
-      openExplanation(slot.getAttribute('data-sas-wallet'));
-    });
+    var state=overrideState||String(result&&result.state||'unavailable');
+    var badge;
+    if(isPositive(result)&&!overrideState){
+      badge=doc.createElement('a');
+      badge.className='osi-proof-label';
+      badge.href='#sas-verifier';
+      badge.textContent='\u00a0SAS verified \u00b7 '+checkedText(result);
+      badge.setAttribute('data-sas-badge','verified');
+      badge.setAttribute('aria-label','SAS analyst review authority verified. Last checked '+checkedText(result)+'. Read the Solana Attestation Service explanation.');
+      badge.addEventListener('click',function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        openExplanation(slot.getAttribute('data-sas-wallet'));
+      });
+    }else{
+      badge=doc.createElement('span');
+      badge.className='osi-chip warning';
+      badge.setAttribute('data-sas-badge',state);
+      if(state==='pending_verification')badge.textContent='SAS verification pending';
+      else if(state==='expired')badge.textContent='SAS expired \u00b7 '+checkedText(result);
+      else if(state==='revoked')badge.textContent='SAS revoked \u00b7 '+checkedText(result);
+      else if(state==='invalid')badge.textContent='SAS invalid / not verified \u00b7 '+checkedText(result);
+      else badge.textContent='SAS unavailable \u00b7 no authority counted';
+      badge.setAttribute('aria-label',badge.textContent);
+    }
     slot.appendChild(badge);
     return badge;
   }
@@ -80,7 +97,9 @@
     var wallet=walletValue(slot&&slot.getAttribute('data-sas-wallet'));
     if(!slot||!wallet){clearNode(slot);return Promise.resolve(null);}
     slot.setAttribute('aria-busy','true');
-    return verifyWallet(wallet).then(function(result){return badgeFor(slot,result);},function(){return badgeFor(slot,null);});
+    badgeFor(slot,null,'pending_verification');
+    slot.setAttribute('aria-busy','true');
+    return verifyWallet(wallet).then(function(result){return badgeFor(slot,result);},function(){return badgeFor(slot,null,'unavailable');});
   }
   function decorateAll(root){
     root=root||document;

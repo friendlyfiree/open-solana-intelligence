@@ -219,6 +219,20 @@ async function admSafeGet(path){
   try{ return { ok:true, rows:(await supaGet(path)) || [] }; }
   catch(e){ return { ok:false, rows:[], error:e }; }
 }
+async function admFunctionPost(functionName,body){
+  if(!requireMaintainerAccess('Load operations status')) return {ok:false,error:'maintainer_access_required'};
+  try{
+    var response=await fetch(SUPABASE_URL+'/functions/v1/'+encodeURIComponent(functionName),{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPA_AUTH_TOKEN},
+      body:JSON.stringify(body||{})
+    });
+    var data={}; try{data=await response.json();}catch(_){ }
+    if(!response.ok || data.ok!==true) return {ok:false,error:data.error||('http_'+response.status)};
+    data.ok=true;
+    return data;
+  }catch(e){ return {ok:false,error:(e&&e.message)||'operations_status_unavailable'}; }
+}
 function admShortWallet(w){ return w ? (typeof short === 'function' ? short(w) : maintainerShortWallet(w)) : 'Unknown'; }
 function admTime(v){ return v ? ((typeof fdAgo === 'function') ? fdAgo(v) : new Date(v).toLocaleDateString()) : 'Unknown'; }
 function admClip(s,n){ s=String(s==null?'':s).trim(); return s.length>n ? s.slice(0,n-1)+'...' : s; }
@@ -295,15 +309,15 @@ function admMakeItem(kind,row,ctx){
   return it;
 }
 function admConsoleModel(src){
-  var reports=src.reports.rows||[], bounties=src.bounties.rows||[], analysts=src.analysts.rows||[], challenges=src.challenges.rows||[], packs=src.packs.rows||[], events=src.events.rows||[], vouches=src.vouches.rows||[];
+  var reports=src.reports.rows||[], bounties=src.bounties.rows||[], analysts=src.analysts.rows||[], challenges=src.challenges.rows||[], events=src.events.rows||[], vouches=src.vouches.rows||[];
   var ctx = { challenges:challenges, events:events, vouches:vouches };
   var items=[];
   reports.filter(function(r){ return !r.approved || r.sealed || admChallengeList('report',r.id,challenges).length; }).forEach(function(r){ items.push(admMakeItem('report',r,ctx)); });
   bounties.filter(function(b){ return !b.approved || admChallengeList('bounty',b.id,challenges).length; }).forEach(function(b){ items.push(admMakeItem('case',b,ctx)); });
   analysts.filter(function(a){ return !(a.approved && a.verified); }).forEach(function(a){ items.push(admMakeItem('analyst',a,ctx)); });
   challenges.filter(function(c){ return !c.status || c.status==='open'; }).forEach(function(c){ items.push(admMakeItem('challenge',c,ctx)); });
-  packs.filter(function(p){ return p.status !== 'approved'; }).forEach(function(p){ items.push(admMakeItem('pack',p,ctx)); });
   items.sort(function(a,b){ return new Date(b.updated||b.created||0) - new Date(a.updated||a.created||0); });
+  var sasCredentials=src.sas&&src.sas.ok&&Array.isArray(src.sas.credentials)?src.sas.credentials:[];
   return {
     sources:src,
     items:items,
@@ -313,9 +327,9 @@ function admConsoleModel(src){
       reports:src.reports.ok ? reports.filter(function(r){ return !r.approved; }).length : null,
       cases:src.bounties.ok ? bounties.filter(function(b){ return !b.approved; }).length : null,
       analysts:src.analysts.ok ? analysts.filter(function(a){ return !(a.approved && a.verified); }).length : null,
-      ready:src.packs.ok ? packs.filter(function(p){ return p.status !== 'approved'; }).length : null,
       challenges:src.challenges.ok ? challenges.filter(function(c){ return !c.status || c.status==='open'; }).length : null,
-      safety:null
+      aiPrivateDrafts:src.ai&&src.ai.ok ? Number(src.ai.private_draft_count||0) : null,
+      sasVerified:src.sas&&src.sas.ok ? sasCredentials.filter(function(row){return row.verification_state==='verified';}).length : null
     }
   };
 }
@@ -327,14 +341,12 @@ function admFilterMatches(item,filter){
   if(filter==='cases') return item.kind==='case';
   if(filter==='reports') return item.kind==='report';
   if(filter==='analysts') return item.kind==='analyst';
-  if(filter==='ready') return item.kind==='pack';
   if(filter==='challenges') return item.kind==='challenge';
-  if(filter==='safety') return item.risk.cls==='challenge';
   if(filter==='proof') return item.proofEvents && item.proofEvents.length;
   return false;
 }
 function admConsoleNav(active){
-  var nav=[['overview','Overview'],['queue','Review Queue'],['cases','Pending Cases'],['reports','Pending Reports'],['analysts','Analyst Applications'],['ready','Ready to Publish'],['challenges','Challenges'],['safety','Safety Flags'],['proof','Proof Log Review'],['settings','Settings'],['audit','Audit Trail']];
+  var nav=[['overview','Overview'],['queue','Review Queue'],['cases','Pending Cases'],['reports','Pending Reports'],['analysts','Analyst Applications'],['ai','Private AI Packs'],['sas','SAS Authority'],['challenges','Challenges'],['proof','Proof Log Review'],['settings','Settings'],['audit','Audit Trail']];
   return '<aside class="moc-nav"><div class="moc-nav-k">Command Center</div>'+nav.map(function(n){
     return '<button class="moc-nav-btn '+(active===n[0]?'active':'')+'" type="button" onclick="admConsoleFilter(\''+n[0]+'\')"><i></i><span>'+admEsc(n[1])+'</span></button>';
   }).join('')+'</aside>';
@@ -391,8 +403,48 @@ function admBottomHtml(model){
   var alerts = model.alerts.length ? '<div class="moc-feed">'+model.alerts.map(function(a){
     return '<div class="moc-feed-row"><i class="moc-dot" style="background:var(--amber);box-shadow:0 0 12px rgba(255,176,32,.5)"></i><div><b>'+admEsc(admClip(a.title,64))+'</b><span>'+admEsc(a.kind)+' / '+admEsc(a.risk.label)+'</span></div><span>'+admEsc(admTime(a.updated||a.created))+'</span></div>';
   }).join('')+'</div>' : '<div class="moc-empty">No open alerts from available real sources.</div>';
-  var health = '<div class="moc-empty">System health telemetry is not connected yet.</div>';
+  var ai=model.sources.ai||{}, sas=model.sources.sas||{};
+  var health='<div class="moc-feed">'
+    +'<div class="moc-feed-row"><i class="moc-dot"></i><div><b>AI Pack boundary</b><span>'+(ai.ok?admEsc(ai.access_mode||'unconfigured')+' / writes '+(ai.writes_enabled?'enabled':'disabled'):'Status unavailable; generation remains fail-closed')+'</span></div></div>'
+    +'<div class="moc-feed-row"><i class="moc-dot"></i><div><b>SAS authority</b><span>'+(sas.ok?('issuance '+(sas.settings&&sas.settings.issuance_enabled?'enabled':'disabled')+' / enforcement '+(sas.settings&&sas.settings.enforcement_enabled?'enabled':'disabled')):'Status unavailable; SAS changes remain fail-closed')+'</span></div></div>'
+    +'</div>';
   return '<div class="moc-bottom"><div class="moc-bottom-card"><div class="moc-bottom-h">Activity Feed</div>'+activity+'</div><div class="moc-bottom-card"><div class="moc-bottom-h">Recent Alerts</div>'+alerts+'</div><div class="moc-bottom-card"><div class="moc-bottom-h">Network Integrity</div>'+health+'</div></div>';
+}
+function admAiPackHtml(model){
+  var data=model.sources.ai;
+  if(!data||!data.ok) return '<section class="moc-sec"><div class="moc-bottom-h">Private AI Pack Operations</div><div class="moc-empty">The protected AI Pack status endpoint is unavailable. Generation and reads remain fail-closed.</div></section>';
+  var cases=Array.isArray(data.eligible_cases)?data.eligible_cases:[];
+  return '<section class="moc-sec"><div class="moc-bottom-h">Private AI Pack Operations</div>'
+    +'<div class="moc-note"><b>Access boundary</b> '+admEsc(data.access_mode||'unconfigured')+'. Drafts are private to the fully authenticated maintainer. Analyst review, owner feedback, approval, and public discovery are '+(data.review_writes_enabled?'enabled by governed mode':'disabled')+'.</div>'
+    +'<div class="moc-detail">'
+    +'<div class="moc-detail-row"><span>Generation writes</span><b>'+(data.writes_enabled?'Enabled':'Disabled')+'</b></div>'
+    +'<div class="moc-detail-row"><span>Provider secret</span><b>'+(data.provider_configured?'Configured':'Missing; provider calls blocked')+'</b></div>'
+    +'<div class="moc-detail-row"><span>Private drafts</span><b>'+admEsc(String(data.private_draft_count||0))+'</b></div>'
+    +'<div class="moc-detail-row"><span>Generation runs in progress</span><b>'+admEsc(String(data.in_progress_generation_count||0))+'</b></div>'
+    +'</div>'
+    +(cases.length?'<div class="moc-feed">'+cases.map(function(item){
+      return '<div class="moc-feed-row"><i class="moc-dot"></i><div><b>'+admEsc(item.public_ref)+' / '+admEsc(admClip(item.title||'Untitled Case',72))+'</b><span>'+admEsc(item.stage||'unknown')+' / private maintainer draft only</span></div><button class="moc-action" type="button" onclick="osiNavigate(\'field\');osiV2OpenAiPack(\''+admEsc(item.public_ref)+'\')">Open AI Pack</button></div>';
+    }).join('')+'</div>':'<div class="moc-empty">No public Case is currently eligible for a private maintainer draft.</div>')
+    +'</section>';
+}
+function admSasHtml(model){
+  var data=model.sources.sas;
+  if(!data||!data.ok) return '<section class="moc-sec"><div class="moc-bottom-h">SAS Authority Operations</div><div class="moc-empty">The protected SAS status endpoint is unavailable. Issuance and revocation remain fail-closed.</div></section>';
+  var settings=data.settings||{}, profiles=Array.isArray(data.profiles)?data.profiles:[], credentials=Array.isArray(data.credentials)?data.credentials:[];
+  function profileFor(wallet){return profiles.find(function(row){return row.wallet===wallet;})||{};}
+  return '<section class="moc-sec"><div class="moc-bottom-h">SAS Authority Operations</div>'
+    +'<div class="moc-note"><b>On-chain authority</b> The server derives the intended analyst status and reconciles against the live SAS account. It will not overwrite a mismatched credential, schema, issuer, or program.</div>'
+    +'<div class="moc-detail">'
+    +'<div class="moc-detail-row"><span>Issuance / enforcement</span><b>'+(settings.issuance_enabled?'enabled':'disabled')+' / '+(settings.enforcement_enabled?'enabled':'disabled')+'</b></div>'
+    +'<div class="moc-detail-row"><span>Program</span><b>'+admEsc(admClip(settings.program_id||'not configured',26))+'</b></div>'
+    +'<div class="moc-detail-row"><span>Credential / schema</span><b>'+admEsc(admClip(settings.credential||'not configured',18))+' / '+admEsc(admClip(settings.schema||'not configured',18))+'</b></div>'
+    +'<div class="moc-detail-row"><span>Issuer</span><b>'+admEsc(admClip(settings.issuer||'not configured',26))+'</b></div>'
+    +'</div>'
+    +(credentials.length?'<div class="moc-feed">'+credentials.map(function(row){
+      var profile=profileFor(row.wallet), state=row.verification_state||row.issuance_state||'unknown';
+      return '<div class="moc-feed-row"><i class="moc-dot"></i><div><b>'+admEsc(admShortWallet(row.wallet))+' / '+admEsc(state)+'</b><span>profile '+admEsc(profile.status||'missing')+' / checked '+admEsc(admTime(row.last_checked_at))+(row.last_error?' / '+admEsc(admClip(row.last_error,60)):'')+'</span></div><button class="moc-action" type="button" onclick="admReconcileSas(\''+admEsc(row.wallet)+'\')">Reconcile exact state</button></div>';
+    }).join('')+'</div>':'<div class="moc-empty">No SAS credential ledger rows exist.</div>')
+    +'</section>';
 }
 function admV2GovernanceHtml(model){
   var overview=model.v2&&model.v2.overview;
@@ -410,28 +462,44 @@ function admRenderConsole(model){
   var host=document.getElementById('admConsole'); if(!host) return;
   window.__admConsoleModel = model;
   var filter = window.__admConsoleFilter || 'overview';
+  var special=filter==='ai'||filter==='sas';
   var items = model.items.filter(function(it){ return admFilterMatches(it,filter); });
-  if(filter==='settings' || filter==='audit') items = [];
+  if(filter==='settings' || filter==='audit' || special) items = [];
   var selected = items.find(function(it){ return it.key===window.__admSelectedKey; }) || items[0] || null;
   window.__admSelectedKey = selected ? selected.key : null;
-  host.className = 'moc-shell';
+  host.className = 'moc-shell'+(special?' moc-wide':'');
   host.innerHTML = admConsoleNav(filter)
     + '<main class="moc-main"><div class="moc-head"><div class="moc-kicker">Authority Access</div><h2>Maintainer Operations Center</h2><p>Real-time oversight of OSI network integrity, verification, and public record lifecycle.</p></div>'
     + '<section class="moc-sec"><div class="moc-stats">'
     + admStatCard('Pending Reports',model.counts.reports,'pending','Pending review')
     + admStatCard('Pending Cases',model.counts.cases,'pending','Awaiting assessment')
     + admStatCard('Analyst Applications',model.counts.analysts,'analyst','Analyst onboarding')
-    + admStatCard('Ready to Publish',model.counts.ready,'ok','Escalation packs')
     + admStatCard('Open Challenges',model.counts.challenges,'danger','Open disputes')
-    + admStatCard('Safety Flags',model.counts.safety,'system','No dedicated source yet')
-    + '</div></section>'+admV2GovernanceHtml(model)+'<section class="moc-sec">'+admQueueHtml(items,window.__admSelectedKey)+admBottomHtml(model)+'</section></main>'
-    + admSelectedHtml(selected);
+    + admStatCard('Private AI Drafts',model.counts.aiPrivateDrafts,'ok','Maintainer-only, unpublished')
+    + admStatCard('SAS Verified',model.counts.sasVerified,'system','Live attestation ledger')
+    + '</div></section>'+admV2GovernanceHtml(model)+(filter==='ai'?admAiPackHtml(model):'')+(filter==='sas'?admSasHtml(model):'')+'<section class="moc-sec">'+(special?'':admQueueHtml(items,window.__admSelectedKey))+admBottomHtml(model)+'</section></main>'
+    + (special?'':admSelectedHtml(selected));
 }
 function admConsoleFilter(filter){ window.__admConsoleFilter = filter || 'overview'; window.__admSelectedKey = null; if(window.__admConsoleModel) admRenderConsole(window.__admConsoleModel); }
 function admSelectItem(key){ window.__admSelectedKey = key; if(window.__admConsoleModel) admRenderConsole(window.__admConsoleModel); }
 function admCurrentSelected(){ var m=window.__admConsoleModel; if(!m) return null; return (m.items||[]).find(function(it){ return it.key===window.__admSelectedKey; }) || null; }
 function admFocusEvidence(){ var el=document.getElementById('moc-evidence'); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('moc-evidence-flash'); setTimeout(function(){ el.classList.remove('moc-evidence-flash'); },1300); }
 function admOpenSelectedAnalyst(){ var it=admCurrentSelected(); if(it && it.kind==='analyst' && it.submitter && typeof openRosterProfile==='function') openRosterProfile(it.submitter); else if(typeof window.osiNavigate==='function') window.osiNavigate('analysts'); else showView('analysts'); }
+async function admReconcileSas(analystWallet){
+  if(!requireMaintainerAccess('Reconcile SAS credential')) return;
+  var maintainer=resolveMaintainerAccess();
+  if(typeof showToast==='function') showToast('Checking exact live SAS state...');
+  var result=await admFunctionPost('osi-v2-analyst',{op:'reconcile_sas',wallet:maintainer.wallet,analyst_wallet:analystWallet});
+  if(!result.ok){
+    if(typeof showToast==='function') showToast('SAS reconciliation failed closed: '+String(result.error||'unavailable'));
+    return;
+  }
+  var message=result.submitted_on_chain
+    ? 'SAS transaction submitted; wait for confirmation, then reconcile again.'
+    : 'SAS state: '+String(result.action||'checked')+'. '+String(result.next_step||'No write required.');
+  if(typeof showToast==='function') showToast(message);
+  await admRefresh();
+}
 async function admRefresh(){
   var access = renderAdminAccess({clear:true});
   if(!access.allowed) return;
@@ -443,14 +511,15 @@ async function admRefresh(){
       admSafeGet('bounties?select=id,target,title,detail,onchain,image,created_by,approved,review_status,winner_wallet,winner_label,reward_sol,created_at&order=created_at.desc&limit=200'),
       admSafeGet('analysts?select=wallet,handle,name,bio,avatar_url,tier_weight,verified,approved,created_at&order=created_at.desc&limit=300'),
       admSafeGet('challenges?select=id,item_type,item_id,item_label,challenger,reason,status,created_at&order=created_at.desc&limit=200'),
-      Promise.resolve({ok:false,rows:[],error:new Error('native_ai_pack_unavailable')}),
       admSafeGet('vouches?select=item_type,item_id,analyst,vote&limit=1000'),
       admSafeGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,label,tx_sig,created_at&order=created_at.desc&limit=80'),
-      typeof osiV2LoadMaintainerOverview==='function' ? osiV2LoadMaintainerOverview().then(function(value){return{ok:true,overview:value.overview};}).catch(function(error){return{ok:false,error:error};}) : Promise.resolve({ok:false})
+      typeof osiV2LoadMaintainerOverview==='function' ? osiV2LoadMaintainerOverview().then(function(value){return{ok:true,overview:value.overview};}).catch(function(error){return{ok:false,error:error};}) : Promise.resolve({ok:false}),
+      admFunctionPost('osi-v2-ai-pack',{op:'operations_status',wallet:access.wallet}),
+      admFunctionPost('osi-v2-analyst',{op:'sas_operations_status',wallet:access.wallet})
     ]);
     if(!resolveMaintainerAccess().allowed){ renderAdminAccess({clear:true}); return; }
-    const model = admConsoleModel({ reports:reads[0], bounties:reads[1], analysts:reads[2], challenges:reads[3], packs:reads[4], vouches:reads[5], events:reads[6] });
-    model.v2=reads[7];
+    const model = admConsoleModel({ reports:reads[0], bounties:reads[1], analysts:reads[2], challenges:reads[3], vouches:reads[4], events:reads[5], ai:reads[7], sas:reads[8] });
+    model.v2=reads[6];
     window.__admBounties = reads[1].rows || [];
     admRenderConsole(model);
   }catch(e){

@@ -4,6 +4,29 @@ This runbook records the operational boundary for the first native V2 AI Pack
 slice. The accepted product constitution and AI Pack trust model remain
 authoritative if this file is incomplete.
 
+## Current production launch mode
+
+Phase 1 shipped the complete immutable/versioned foundation with both write
+flags false. The launch-completion slice adds the explicit access mode
+`OSI_V2_AI_PACK_ACCESS_MODE=maintainer_only` and may enable only
+`OSI_V2_AI_PACK_WRITES_ENABLED`.
+
+In this mode:
+
+- only the configured admin wallet plus the exact authenticated Supabase
+  maintainer identity may generate or inspect a Pack;
+- Case owners, analysts, probationary analysts, public users, and both
+  half-maintainer cases are denied before quota reservation or provider use;
+- generated Packs remain private operational drafts;
+- `OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED` remains false;
+- review, owner feedback, approval, publication, and public discovery are
+  unavailable; and
+- broad `OSI_V2_WRITES_ENABLED` and `OSI_V2_PROOF_ENABLED` remain false.
+
+The governed authorization and approval material later in this runbook is the
+preserved future boundary. It is not a claim that those actions are currently
+visible or enabled.
+
 ## Delivery boundary
 
 The implementation uses the dedicated `osi-v2-ai-pack` Edge Function. Extending
@@ -12,7 +35,7 @@ the legacy `osi-ai-pack` function would mix V1 `reports` and
 layered-manifest, and governance model. A separate gateway is the smaller and
 safer compatibility boundary.
 
-The migration is additive. It reuses the five existing AI Pack domain tables
+The Phase 1 migration is additive. It reuses the five existing AI Pack domain tables
 and adds one service-only infrastructure table for provider reservations,
 usage, and estimated cost. It does not rename, drop, rewrite, or backfill V1
 data. The rollout deploys only:
@@ -20,19 +43,23 @@ data. The rollout deploys only:
 - `osi-v2-case-read`, because it issues the shared `aipack:detail` read scope;
 - `osi-v2-ai-pack`, the new dedicated gateway.
 
-No Vercel deployment is part of the database and function rollout workflow.
+The launch-completion rollout also deploys the static frontend through the
+merged main commit so only full maintainers receive the private Case and
+Operations Center surface.
 
 ## Fail-closed cutover and rollback
 
 `OSI_V2_AI_PACK_WRITES_ENABLED` and
 `OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED` are inserted as `false`. Missing,
-malformed, or unavailable values are treated as disabled. The Phase 1
-production workflow cannot enable either flag. Generation enablement is a
-separate, observed budget decision; review and approval enablement is a later
-governance decision.
+malformed, or unavailable values are treated as disabled. The launch-completion
+workflow may enable generation only when the exact access mode is
+`maintainer_only`, both Edge secrets are present, all tests pass, and public
+negative smokes prove non-maintainers remain denied. Review and approval
+enablement remains a later governed-mode decision.
 
-The exact rollout delta is one additive migration plus the two functions above.
-Rollback is to keep or set only the two dedicated flags to `false`, retain all
+The launch-completion delta is one additive reference/access-mode migration,
+the payment, analyst, and AI Pack functions, and the static client. Rollback is
+to keep or set the private generation flag to `false`, retain all
 immutable versions, manifests, receipts, reviews, feedback, and telemetry, and
 deliver a focused forward fix. Dropping a populated schema, repairing migration
 history, truncating data, or rewriting immutable records is not a rollback.
@@ -93,10 +120,10 @@ file. The model identifier comes from `osi_config`, never the browser.
 
 ## Authorization, proof, and privacy
 
-In Phase 1, generation is limited to a live eligible verified analyst or a full
+In production `maintainer_only` mode, generation is limited to a full
 maintainer with both the configured wallet and exact authenticated Supabase
-identity. A Case owner is denied even if that wallet otherwise has an analyst
-or maintainer role.
+identity. A Case owner or analyst is denied even if that wallet has some other
+eligible product role.
 
 Generation authorization uses an exact single-use wallet signature, while the
 resulting immutable `PACK_SUBMITTED` receipt remains honestly classified as a
@@ -124,11 +151,8 @@ available until the replacement is approved, at which point they become
 `superseded` and link to the new exact version. Supersession never fabricates
 approval metadata for a version that was not approved.
 
-Public reads are explicit allowlists and return only minimized metadata and an
-approved public brief. Draft, review-required, disputed, rejected, owner-safe,
-analyst-restricted, review-note, receipt-proof, provider, and telemetry fields
-are absent. With review writes disabled and no approved native versions, the
-production public projection must remain empty. A shared read session grants
-only a short-lived `aipack:detail` capability; the gateway still rechecks live
-Case ownership, analyst eligibility, or both maintainer gates before returning
-private layers.
+Public reads return an empty Pack list in `maintainer_only` mode, including if
+an older approved row exists. A shared `aipack:detail` read session is necessary
+but not sufficient: the gateway also requires both maintainer gates before
+returning any private layer. Draft, review, feedback, receipt-proof, provider,
+and telemetry fields never reach non-maintainers.

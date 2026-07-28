@@ -8,11 +8,9 @@
 // and returns a promise so the caller's prepare/approve/verify sequence is
 // otherwise untouched.
 //
-// It deliberately offers no Solana Pay route. A V2 payment only verifies when
-// it is the exact transaction the server prepared, carrying that server's
-// canonical Memo and nonce binding; a scanned wallet transfer would spend real
-// SOL and then fail verification. Solana Pay belongs to the direct tip lane,
-// where the transfer is the whole story.
+// It deliberately offers no payment method before preparation. Once the
+// trusted server returns the exact intent, the V2 review step offers Phantom
+// and, for one bound recipient, the exact Solana Pay transfer request.
 (function () {
   'use strict';
 

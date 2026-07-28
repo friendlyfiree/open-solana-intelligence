@@ -13,7 +13,7 @@
   var AI_CAPABILITY_KEYS=[
     'ai_pack_writes_enabled','ai_pack_review_writes_enabled','wallet_connected',
     'viewer_role','analyst_eligible','maintainer_access','can_generate',
-    'generation_prerequisite'
+    'generation_prerequisite','ai_pack_access_mode','provider_configured'
   ];
   var STATUS_IDS={
     generation:'osi-ai-pack-generation-status',
@@ -146,8 +146,8 @@
       ai_pack_writes_disabled_or_unavailable:'AI Pack writes are safely disabled or temporarily unavailable.',
       ai_pack_review_writes_disabled:'AI Pack review and approval are production-disabled in this release.',
       ai_pack_review_writes_disabled_or_unavailable:'AI Pack review and approval are safely disabled or temporarily unavailable.',
-      not_eligible_generator:'This release allows generation only for a verified analyst or full double-gated maintainer.',
-      case_owner_generation_deferred:'Case-owner generation is deferred until a separate budget and quota release.',
+      not_eligible_generator:'AI Pack generation requires both maintainer gates in this release.',
+      maintainer_only:'AI Pack is private and requires both the configured admin wallet and authorized Supabase maintainer session.',
       ai_pack_prepare_wallet_rate_limited:'Too many AI Pack signing challenges were requested for this wallet. No provider call was made.',
       ai_pack_prepare_fingerprint_rate_limited:'Too many AI Pack signing challenges were requested from this source. No provider call was made.',
       ai_pack_wallet_rate_limited:'The per-wallet generation limit is active. No provider call was made.',
@@ -313,13 +313,14 @@
 
   function generationReason(){
     var caps=state.capabilities||{};
-    var role=viewerRole();
+    if(caps.ai_pack_access_mode!=='maintainer_only'||caps.maintainer_access!==true){
+      return'AI Pack is private and requires both maintainer gates.';
+    }
     if(caps.ai_pack_writes_enabled!==true){
       return prerequisite(caps.generation_prerequisite,'AI Pack generation is safely disabled until rollout and budget monitoring are ready.');
     }
-    if(role==='owner')return'Case-owner generation is deferred until a separate quota and budget release.';
     if(caps.can_generate!==true){
-      return prerequisite(caps.generation_prerequisite,'Requires a verified analyst or full double-gated maintainer for this Case.');
+      return prerequisite(caps.generation_prerequisite,'Requires both maintainer gates, an eligible public Case, and the configured provider.');
     }
     return'';
   }
@@ -327,14 +328,14 @@
     var caps=state.capabilities||{};
     var reason=generationReason();
     var canGenerate=!reason&&caps.can_generate===true&&caps.ai_pack_writes_enabled===true;
-    return'<div class="osi-governance-compose" data-ai-action="generation"><h4>Generate an immutable draft</h4>'+
+    return'<div class="osi-governance-compose" data-ai-action="generation"><h4>Generate a maintainer-only immutable draft</h4>'+
       '<p>Generation summarizes only server-approved Case evidence into three isolated layers. It is an artifact-creation action, not a truth decision or publication.</p>'+
       '<label>Pack type<select id="osi-ai-pack-type" '+(canGenerate?'':'disabled')+'>'+
       '<option value="victim">Victim brief</option><option value="exchange">Exchange brief</option>'+
       '<option value="law_enforcement">Law-enforcement brief</option></select></label>'+
       '<button class="osi-action primary" id="osi-ai-pack-generate" type="button" aria-describedby="osi-ai-pack-generation-help" '+
       (canGenerate?'':'disabled')+'>Generate draft</button>'+
-      '<p class="osi-action-help" id="osi-ai-pack-generation-help">'+esc(reason||'Creates a private, immutable, review-required version.')+'</p>'+
+      '<p class="osi-action-help" id="osi-ai-pack-generation-help">'+esc(reason||'Creates a private, immutable artifact. Review and public publication remain disabled in this launch mode.')+'</p>'+
       statusMarkup('generation')+'</div>';
   }
   function historyPanel(rows){
@@ -379,6 +380,9 @@
   }
   function removeFormDraft(){if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(formDraftKey());}
   function reviewPanel(version){
+    if((state.capabilities||{}).ai_pack_access_mode==='maintainer_only'){
+      return'<div class="osi-state-message"><b>Private draft only</b><span>Analyst review, owner feedback, approval, and public publication are intentionally unavailable in maintainer-only mode.</span></div>';
+    }
     var caps=state.capabilities||{};
     var role=viewerRole();
     if(!restrictedViewer(role))return'';
@@ -433,6 +437,7 @@
       form+finalize;
   }
   function feedbackPanel(){
+    if((state.capabilities||{}).ai_pack_access_mode==='maintainer_only')return'';
     if(viewerRole()!=='owner')return'';
     var enabled=(state.capabilities||{}).ai_pack_writes_enabled===true;
     var reason=enabled?'':'AI Pack owner feedback is safely disabled until the dedicated rollout flag is enabled.';
@@ -503,10 +508,7 @@
   }
   function shouldUsePrivate(caps,ref){
     if(!wallet()||typeof window.osiV2ReadSession!=='function')return false;
-    var role=String(caps&&caps.viewer_role||'');
-    if(['owner','analyst','senior','maintainer'].indexOf(role)>=0)return true;
-    if(caps&&(caps.analyst_eligible===true||caps.maintainer_access===true))return true;
-    return String(state.caseItem&&state.caseItem.submitted_by_wallet||'')===wallet()&&ref===caseRef();
+    return caps&&caps.ai_pack_access_mode==='maintainer_only'&&caps.maintainer_access===true&&ref===caseRef();
   }
   async function performLoad(token,ref,options){
     var root=host();
@@ -531,22 +533,17 @@
       }
       if(!loadIsCurrent(token,ref))return;
       state.capabilities=caps;
+      if(caps.ai_pack_access_mode!=='maintainer_only'||caps.maintainer_access!==true){
+        throw new Error('maintainer_only');
+      }
       var result;
       if(shouldUsePrivate(caps,ref)){
         try{
           var session=await window.osiV2ReadSession(['aipack:detail'],{allowUnlock:true});
           result=await api({op:'get_case_packs',case_ref:ref,wallet:session.wallet,read_session:session.token});
-        }catch(privateError){
-          if(state.caseItem.visibility!=='public')throw privateError;
-          result=await api({op:'list_public_case_packs',case_ref:ref});
-          result=Object.assign({},result,{viewer_role:'public'});
-          if(!state.notices.generation){
-            state.notices.generation={message:errorText(privateError),kind:'warning'};
-          }
-        }
+        }catch(privateError){throw privateError;}
       }else{
-        result=await api({op:'list_public_case_packs',case_ref:ref});
-        result=Object.assign({},result,{viewer_role:'public'});
+        throw new Error('maintainer_only');
       }
       if(!loadIsCurrent(token,ref))return;
       state.result=result;
@@ -581,7 +578,7 @@
       setStatus('generation','Approve the wallet-signature request. This is not an on-chain transaction.');
       await exactWrite('prepare_generation','commit_generation',ref,{case_ref:ref,pack_type:packType});
       if(ref!==caseRef())return;
-      setStatus('generation','Immutable draft generated from approved evidence. It remains unpublished and review-required.','success');
+      setStatus('generation','Maintainer-only immutable draft generated from approved evidence. It remains private and cannot be published in this mode.','success');
       endAction();
       completed=true;
       await reload({focusId:''});
@@ -719,14 +716,17 @@
     state.busyAction='';
     state.notices=Object.create(null);
     if(previousRef!==nextRef)state.operationKeys=Object.create(null);
+    if(state.capabilities.ai_pack_access_mode!=='maintainer_only'||state.capabilities.maintainer_access!==true){
+      return'';
+    }
     setTimeout(function(){
       if(nextRef===caseRef())reload();
     },0);
     return'<section class="osi-case-section"><div class="osi-section-heading"><div>'+
-      '<span class="osi-eyebrow">Three evidence scopes</span><h3>AI Pack</h3></div>'+
-      '<span class="osi-chip">Artifact, not verdict</span></div>'+
+      '<span class="osi-eyebrow">Private Operations workspace</span><h3>Maintainer-only AI Pack</h3></div>'+
+      '<span class="osi-chip">Private artifact, not verdict</span></div>'+
       '<div id="osi-ai-pack-root" aria-busy="true">'+loadingMarkup()+'</div>'+
-      '<div class="osi-case-note">AI Pack content is model-generated and treated as untrusted text. It is never auto-published and never establishes truth, guilt, legal certainty, recovery, custody, or payment.</div></section>';
+      '<div class="osi-case-note">AI Pack content is model-generated and treated as untrusted text. This launch mode is visible only behind both maintainer gates, stores drafts privately, and provides no review or publication action. It never establishes truth, guilt, legal certainty, recovery, custody, or payment.</div></section>';
   }
   function clear(){
     saveFormDraft();

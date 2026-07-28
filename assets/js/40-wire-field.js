@@ -109,7 +109,7 @@ function wireCard(d){
   } else if(d.premium && d._case){
     actions += '<button class="wr-act primary" type="button" onclick="openReport(\'case\',\''+d._case+'\')">Read report \u2192</button>';
     // Voluntary support to the configured OSI wallet only (no per-dispatch wallet).
-    if(OSI_SUPPORT_WALLET){ actions += '<button class="wr-act ghost" type="button" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\'OSI project support\',0.5,\'\\u25ce Voluntary support\')">\u25ce Support</button>'; }
+    if(OSI_SUPPORT_WALLET && location.pathname.toLowerCase().endsWith('/legacy.html')){ actions += '<button class="wr-act ghost" type="button" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\'OSI project support\',0.5,\'\\u25ce Voluntary support\')">\u25ce Support</button>'; }
   } else {
     actions += '<button class="wr-act ghost" type="button" data-wire-interest onclick="stakeBoost(this)">Signal interest</button>';
     // Stage 4: removed "Support the analyst" to a dispatch's self-declared wallet
@@ -177,6 +177,7 @@ function loadQrLib(){
 }
 // Solana Pay transfer request spec: solana:<recipient>?amount=&label=&message=&memo=
 function buildSolanaPayUrl(){
+  if(!location.pathname.toLowerCase().endsWith('/legacy.html')) return '';
   if(!tipCtx || !tipCtx.wallet || !isSolAddr(tipCtx.wallet)) return '';
   const p = new URLSearchParams();
   if(tipCtx.amount && tipCtx.amount > 0) p.set('amount', String(tipCtx.amount));
@@ -196,6 +197,10 @@ function resetSolanaPay(){
   const qr = document.getElementById('tip-qr'); if(qr) qr.innerHTML = '';
 }
 function toggleSolanaPay(){
+  if(!location.pathname.toLowerCase().endsWith('/legacy.html')){
+    if(typeof showToast==='function') showToast('Use an eligible V2 reward or support action for server-bound Solana Pay.');
+    return;
+  }
   _payOpen = !_payOpen;
   const box = document.getElementById('tip-pay'); if(box) box.hidden = !_payOpen;
   const tg = document.getElementById('tip-pay-toggle');

@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import vm from "node:vm";
 import {
   PAYMENT_MAX_NETWORK_FEE_LAMPORTS,
   PAYMENT_MAX_RECIPIENTS,
   PAYMENT_KIND,
   SOLANA_TRANSACTION_MAX_BYTES,
   canonicalPaymentMemo,
+  decodeBase58,
+  encodeBase58,
   estimatePaymentTransactionBytes,
   formatLamportsAsSol,
   isSolanaMainnetGenesis,
@@ -14,14 +17,21 @@ import {
   parseSolToLamports,
   recipientManifestHash,
   validateFinalizedPaymentTransaction,
+  validateSolanaPayReference,
+  validateSolanaPayReferenceTransaction,
 } from "../supabase/functions/_shared/osi-v2-payment-core.mjs";
 
 const edge = fs.readFileSync(new URL("../supabase/functions/osi-v2-payment/index.ts", import.meta.url), "utf8");
 const phase2 = fs.readFileSync(new URL("../supabase/migrations/20260718130000_osi_v2_wire_phase2.sql", import.meta.url), "utf8");
+const launchMigration = fs.readFileSync(new URL("../supabase/migrations/20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql", import.meta.url), "utf8");
 const mainnetFixture = JSON.parse(fs.readFileSync(
   new URL("./fixtures/osi-v2-mainnet-support-payment.json", import.meta.url),
   "utf8",
 ));
+const solanaPayBrowserSource = fs.readFileSync(
+  new URL("../assets/js/73-solana-pay.js", import.meta.url),
+  "utf8",
+);
 
 let passed = 0;
 function ok(name, fn) {
@@ -49,6 +59,52 @@ const intent = {
   recipient_manifest: manifest,
 };
 const memo = canonicalPaymentMemo(intent);
+const solanaPayReference = encodeBase58(new Uint8Array(32).fill(7));
+
+function unsignedLe(value, length) {
+  let remaining = BigInt(value);
+  const bytes = new Uint8Array(length);
+  for (let index = 0; index < length; index++) {
+    bytes[index] = Number(remaining & 255n);
+    remaining >>= 8n;
+  }
+  return bytes;
+}
+
+const solanaPayIntent = {
+  ...intent,
+  recipient_manifest: [manifest[0]],
+  solana_pay_reference: solanaPayReference,
+};
+const solanaPayMemo = canonicalPaymentMemo(solanaPayIntent);
+
+function rawSolanaPayTransaction() {
+  const transferData = new Uint8Array(12);
+  transferData.set(unsignedLe(2, 4), 0);
+  transferData.set(unsignedLe(100000000, 8), 4);
+  return {
+    transaction: {
+      message: {
+        header: {
+          numRequiredSignatures: 1,
+          numReadonlySignedAccounts: 0,
+          numReadonlyUnsignedAccounts: 3,
+        },
+        accountKeys: [
+          payer,
+          author,
+          "11111111111111111111111111111111",
+          "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+          solanaPayReference,
+        ],
+        instructions: [
+          { programIdIndex: 3, accounts: [], data: encodeBase58(new TextEncoder().encode(solanaPayMemo)) },
+          { programIdIndex: 2, accounts: [0, 1, 4], data: encodeBase58(transferData) },
+        ],
+      },
+    },
+  };
+}
 
 function transaction(overrides = {}) {
   const instructions = [
@@ -101,6 +157,62 @@ ok("only the canonical Solana mainnet genesis is accepted", () => {
   assert.equal(isSolanaMainnetGenesis("5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"), true);
   assert.equal(isSolanaMainnetGenesis("5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"), false);
   assert.equal(isSolanaMainnetGenesis("EtWTRABZaYq6iMfeYKouRu166VU2xqa1"), false);
+});
+ok("Solana Pay references round-trip as exact random 32-byte values", () => {
+  assert.equal(validateSolanaPayReference(solanaPayReference), solanaPayReference);
+  assert.deepEqual(decodeBase58(solanaPayReference), new Uint8Array(32).fill(7));
+  assert.throws(() => validateSolanaPayReference("1".repeat(31)));
+});
+ok("official Solana Pay URL encodes and parses the exact server intent", () => {
+  const window = {};
+  vm.runInNewContext(solanaPayBrowserSource, {
+    window,
+    URLSearchParams,
+  });
+  const prepared = {
+    network: "mainnet-beta",
+    nonce: "n".repeat(32),
+    target_public_ref: "OSI-RV-1234567890ABCDEF",
+    memo: "OSI2|SUPPORT_PAYMENT_CONFIRMED|note=space & exact",
+    recipient_manifest: [{
+      wallet: author,
+      amount_sol: "0.100000000",
+    }],
+    solana_pay: {
+      enabled: true,
+      reference: solanaPayReference,
+      expires_at: "2030-01-01T00:00:00Z",
+    },
+  };
+  const url = window.osiSolanaPay.buildUrl(prepared);
+  const parsed = new URL(url.replace(/^solana:/, "https://solana.invalid/"));
+  assert.equal(parsed.pathname, `/${author}`);
+  assert.equal(parsed.searchParams.get("amount"), "0.100000000");
+  assert.equal(parsed.searchParams.get("reference"), solanaPayReference);
+  assert.equal(parsed.searchParams.get("memo"), prepared.memo);
+  assert.equal(parsed.searchParams.get("label"), "Open Solana Intelligence");
+  assert.match(parsed.searchParams.get("message"), /OSI-RV-1234567890ABCDEF/);
+});
+ok("Solana Pay URL builder rejects non-mainnet, multi-recipient and altered reference inputs", () => {
+  const window = {};
+  vm.runInNewContext(solanaPayBrowserSource, { window, URLSearchParams });
+  const prepared = {
+    network: "mainnet-beta",
+    nonce: "n".repeat(32),
+    target_public_ref: "OSI-RV-1234567890ABCDEF",
+    memo: solanaPayMemo,
+    recipient_manifest: [{ wallet: author, amount_sol: "0.1" }],
+    solana_pay: { enabled: true, reference: solanaPayReference },
+  };
+  assert.throws(() => window.osiSolanaPay.buildUrl({ ...prepared, network: "devnet" }));
+  assert.throws(() => window.osiSolanaPay.buildUrl({
+    ...prepared,
+    recipient_manifest: [...prepared.recipient_manifest, { wallet: reviewer, amount_sol: "0.1" }],
+  }));
+  assert.throws(() => window.osiSolanaPay.buildUrl({
+    ...prepared,
+    solana_pay: { enabled: true, reference: "1".repeat(31) },
+  }));
 });
 ok("payment target normalization accepts OSI refs and analyst wallets", () => {
   assert.equal(normalizePaymentTargetRef("OSI-CASE-123456"), "OSI-CASE-123456");
@@ -155,6 +267,62 @@ ok("canonical payment Memo binds purpose target actor nonce and payload", () => 
   assert.ok(memo.includes(`a=${payer}`));
   assert.ok(memo.includes(`n=${"n".repeat(32)}`));
   assert.ok(memo.includes(`h=${"a".repeat(64)}`));
+});
+ok("exact single-recipient Solana Pay reference, Memo, transfer and amount bind", () => {
+  const result = validateSolanaPayReferenceTransaction(
+    rawSolanaPayTransaction(), solanaPayIntent,
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.solana_pay_reference, solanaPayReference);
+  assert.equal(result.amount_lamports, "100000000");
+});
+ok("Solana Pay requires one exact recipient", () => {
+  assert.equal(validateSolanaPayReferenceTransaction(
+    rawSolanaPayTransaction(), { ...solanaPayIntent, recipient_manifest: manifest },
+  ).reason, "solana_pay_single_recipient_required");
+});
+ok("Solana Pay rejects a writable reference", () => {
+  const tx = rawSolanaPayTransaction();
+  tx.transaction.message.header.numReadonlyUnsignedAccounts = 0;
+  assert.equal(validateSolanaPayReferenceTransaction(
+    tx, solanaPayIntent,
+  ).reason, "solana_pay_reference_not_readonly");
+});
+ok("Solana Pay rejects wrong reference, amount and Memo order", () => {
+  const wrongReference = rawSolanaPayTransaction();
+  wrongReference.transaction.message.instructions[1].accounts[2] = 3;
+  assert.equal(validateSolanaPayReferenceTransaction(
+    wrongReference, solanaPayIntent,
+  ).reason, "solana_pay_transfer_binding_mismatch");
+
+  const wrongAmount = rawSolanaPayTransaction();
+  const bytes = decodeBase58(wrongAmount.transaction.message.instructions[1].data);
+  bytes[4]++;
+  wrongAmount.transaction.message.instructions[1].data = encodeBase58(bytes);
+  assert.equal(validateSolanaPayReferenceTransaction(
+    wrongAmount, solanaPayIntent,
+  ).reason, "solana_pay_transfer_binding_mismatch");
+
+  const wrongOrder = rawSolanaPayTransaction();
+  wrongOrder.transaction.message.instructions.reverse();
+  assert.equal(validateSolanaPayReferenceTransaction(
+    wrongOrder, solanaPayIntent,
+  ).reason, "solana_pay_memo_position_invalid");
+});
+ok("Solana Pay rejects extra instructions and reference reuse", () => {
+  const extra = rawSolanaPayTransaction();
+  extra.transaction.message.instructions.push({
+    programIdIndex: 2, accounts: [0, 1], data: extra.transaction.message.instructions[1].data,
+  });
+  assert.equal(validateSolanaPayReferenceTransaction(
+    extra, solanaPayIntent,
+  ).reason, "unsafe_lighthouse_instruction");
+
+  const reused = rawSolanaPayTransaction();
+  reused.transaction.message.instructions[0].accounts = [4];
+  assert.equal(validateSolanaPayReferenceTransaction(
+    reused, solanaPayIntent,
+  ).ok, false);
 });
 ok("finalized exact transfer manifest verifies", () => {
   const result = validateFinalizedPaymentTransaction(
@@ -346,6 +514,20 @@ ok("status slot must bind to the exact finalized transaction", () => {
 ok("Edge RPC path verifies the canonical mainnet genesis before any payment result", () => {
   assert.ok(edge.includes('method: "getGenesisHash"'));
   assert.ok(edge.includes("isSolanaMainnetGenesis"));
+});
+ok("Solana Pay polling uses one bound reference and the same finalized commit path", () => {
+  assert.ok(edge.includes('method: "getSignaturesForAddress"'));
+  assert.ok(edge.includes('validateSolanaPayReferenceTransaction'));
+  assert.ok(edge.includes('}, false, "solana_pay")'));
+  assert.ok(edge.includes('paymentMethod !== "solana_pay"'));
+  assert.ok(edge.includes('solana_pay_reference_verified: paymentMethod === "solana_pay"'));
+});
+ok("Solana Pay database binding is service-only, single-recipient and replay-safe", () => {
+  assert.ok(launchMigration.includes("osi_v2_bind_payment_reference"));
+  assert.ok(launchMigration.includes("jsonb_array_length(bound.binding_context->'recipient_manifest') <> 1"));
+  assert.ok(launchMigration.includes("osi_nonces_solana_pay_reference_unique"));
+  assert.ok(launchMigration.includes("from public, anon, authenticated"));
+  assert.ok(launchMigration.includes("to service_role"));
 });
 ok("definitive parser failures persist an unpaid server-derived failure state", () => {
   assert.ok(edge.includes('admin.rpc("osi_v2_record_payment_failure"'));

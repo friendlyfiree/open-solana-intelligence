@@ -1,8 +1,22 @@
 # OSI V2 — AI Pack Trust Model
 
-**Status:** Blueprint / design-only. Builds on the deployed `osi-ai-pack` Edge Function; no Edge Function behavior is changed. AI Pack generation is **never** a truth decision (Constitution P8, §14). Event names are canonical per `OSI_V2_MEMO_EVENT_SPEC.md`. The **authoritative table count is 32** (`OSI_V2_DOMAIN_MODEL.md §1`); the AI-Pack group is three real tables — `ai_packs`, `ai_pack_versions`, `ai_pack_owner_feedback` — plus the `ai_pack_version_evidence` manifest in the evidence group. None is deferred "to implementation."
+**Status:** Accepted trust model plus production launch overlay. AI Pack generation is **never** a truth decision (Constitution P8, §14). Event names are canonical per `OSI_V2_MEMO_EVENT_SPEC.md`. The **authoritative table count is 32** (`OSI_V2_DOMAIN_MODEL.md §1`); the AI-Pack group is three real tables — `ai_packs`, `ai_pack_versions`, `ai_pack_owner_feedback` — plus the `ai_pack_version_evidence` manifest in the evidence group. None is deferred "to implementation."
 
 ---
+
+## Production launch overlay: `maintainer_only`
+
+The accepted governed model below remains the requirement for any future public release. Production currently implements a more restrictive operational mode:
+
+- `OSI_V2_AI_PACK_ACCESS_MODE=maintainer_only`.
+- Generation and every restricted read require both the configured admin wallet and exact authenticated Supabase maintainer identity.
+- Case owners, probationary/verified analysts, public users, wallet-only maintainers, and auth-only maintainers are denied and receive no Pack discovery surface.
+- Generated versions are private immutable operational drafts. They are not publicly approved or available.
+- Analyst review, owner feedback, approval, rejection, attachment, publication, and public discovery remain disabled and absent from the current UI.
+- Enabling private generation does not enable the broad V2 write/proof flags and cannot enable `OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED`.
+- The provider secret remains server-only. A denied actor cannot reserve quota or cause a provider call.
+
+Sections 1 through 9 below define the future governed mode, not currently visible production actions. None of their creator, self-review, SAS-valid quorum, layer, or publication protections may be weakened when that mode is launched.
 
 ## 1. Creators & restrictions
 

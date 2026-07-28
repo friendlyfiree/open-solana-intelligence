@@ -439,6 +439,34 @@ export function reconcileIssuance({ settings, status }) {
   return { action: "revoke", tierCode: 0, statusCode: 0, reason: "not_analyst_tier" };
 }
 
+// Decide whether a requested issue/revoke transition actually needs an
+// on-chain write after an authoritative preflight read. This prevents duplicate
+// issuance, makes retries idempotent, and fails closed when RPC state is
+// unknown. An unexpected existing attestation is never overwritten blindly.
+export function reconcileLiveAction({ desired, live }) {
+  if (!desired || !["issue", "revoke"].includes(desired.action)) {
+    return { action: "noop", reason: "no_desired_transition" };
+  }
+  if (!live || live.rpcFailed === true) {
+    return { action: "defer", reason: "rpc_unavailable" };
+  }
+  const state = String(live.status?.state ?? "");
+  const reason = String(live.status?.reason ?? "");
+  if (desired.action === "issue") {
+    if (state === SAS_STATE.VERIFIED && live.status?.valid === true) {
+      return { action: "satisfied", reason: "already_verified" };
+    }
+    if (state === SAS_STATE.INVALID && reason === "absent") {
+      return { action: "submit_issue", reason: "attestation_absent" };
+    }
+    return { action: "repair_required", reason: reason || "unexpected_attestation_state" };
+  }
+  if (state === SAS_STATE.INVALID && reason === "absent") {
+    return { action: "satisfied", reason: "already_absent" };
+  }
+  return { action: "submit_revoke", reason: "attestation_present" };
+}
+
 // Map a governance action name / review path to the snapshot review_kind.
 export function reviewKindForGovernanceAction(action) {
   if (action === "resolution_review") return "resolution";

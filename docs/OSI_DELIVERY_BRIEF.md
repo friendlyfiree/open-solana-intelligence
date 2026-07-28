@@ -1,9 +1,11 @@
 # OSI Delivery Brief
 
-Revision: 2026-07-14
+Revision: 2026-07-28
 Purpose: short operational memory for every OSI engineering task.
 Authority: this brief summarizes accepted documents; it never overrides them.
 Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
+Operational flag and dormant-surface classification:
+`docs/OSI_PRODUCTION_FEATURE_STATUS.md`.
 
 ## 1. Product principles that do not change
 
@@ -63,27 +65,23 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - The frontend is static HTML, modular CSS, and classic JavaScript.
 - The repository has no package-manager manifest or frontend build step.
 - Supabase PostgreSQL and Edge Functions provide the backend.
-- Eight accepted additive V2 migrations precede the native Case Report intake slice.
-- Those migrations cover schema, guards, default deny, Stage-5, legacy materialization, and native Case lifecycle.
-- The production Case read and write functions are reachable and fail closed.
+- Production migration history is additive through `20260728153100`; the launch-completion migration `20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql` is the next reviewed delta.
+- The deployed V2 slices cover schema, integrity guards, default deny, Stage-5 proofs, legacy materialization, Case/Report/Wire lifecycles, governance, native SOL payments, read sessions, SAS issuance/enforcement, and AI Pack foundations.
+- Production Case, Report, Wire, analyst, governance, proof, payment, and read functions are reachable behind their dedicated gates.
 - The mature production shell responds successfully.
-- The native analyst activation migration and function are a merge/deploy candidate.
-- The native Case Report intake migration, read/write gateways, root UI integration, and main-only rollout workflow are a review candidate.
-- The native Wire Phase 1 migration, dedicated gateway, private author workspace, and main-only rollout workflow are a review candidate.
-- Production is unchanged until the reviewed PR is merged and rollout gates pass.
+- Solana Pay and maintainer-only AI Pack remain unchanged in production until the reviewed launch-completion PR is merged and its main-only rollout gates pass.
 - Broad `OSI_V2_WRITES_ENABLED` remains false.
 - Broad `OSI_V2_PROOF_ENABLED` remains false.
 - The Case slice uses exact `OSI_V2_CASE_WRITES_ENABLED` gating.
 - The analyst slice uses exact `OSI_V2_ANALYST_WRITES_ENABLED` gating.
-- The Report slice uses exact `OSI_V2_REPORT_WRITES_ENABLED` gating and is disabled by default until its reviewed rollout finishes.
-- Wire Phase 1 uses exact `OSI_V2_WIRE_WRITES_ENABLED` gating and is disabled by default until its reviewed rollout finishes.
+- The Report and Wire slices use their exact dedicated gates and are live.
 - Missing, malformed, or unavailable flags fail closed.
-- SAS review authority uses exact `OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED` gating.
-- That flag is false in code and false in production.
-- Only the manual `osi-v2-sas-enforcement-production.yml` dispatch can turn it on.
-- With it off, every quorum computation is identical to the pre-enforcement baseline.
-- With it on, an analyst review counts only when that caster's SAS credential verified live on chain.
+- SAS review authority uses exact `OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED` gating; issuance and enforcement are true in production.
+- An analyst review counts only when that caster's exact SAS credential verified live on chain or through a fresh trusted verification record.
 - A wallet with no verifiable credential contributes zero weight and is labeled, never silently dropped.
+- RPC failure yields pending/unavailable and zero count/weight; it never invents verification.
+- Solana Pay uses `OSI_V2_SOLANA_PAY_ENABLED` and is available only when payment writes, an explicit trusted RPC secret, the additive reference schema, and the deployed path are all ready.
+- AI Pack uses `OSI_V2_AI_PACK_ACCESS_MODE=maintainer_only` plus its dedicated generation flag. Review/publication stays false.
 
 ## 4. Global information architecture
 
@@ -116,7 +114,10 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Case detail sections include Resolution & Challenges.
 - Case detail sections include Proof Log and Reward & Support.
 - Reward pledges use wallet-signed server proof and are never labeled on-chain or escrowed. Reward payment activates only after seal for the exact winning version author; voluntary support may atomically include at most four server-derived recipients for one exact published Report version.
-- The primary payment surface is an in-app Phantom transaction. Solana Pay is not exposed in this slice because the legacy link flow cannot preserve the same exact server-issued multi-target intent and verification binding.
+- The payment review first shows exact mainnet, purpose, manifest, amounts, Memo, irreversibility, and no custody. Phantom handles every atomic manifest. Solana Pay is a secondary choice for exactly one server-derived recipient.
+- Each Solana Pay reference is a cryptographically random 32-byte public key atomically bound to the existing nonce, payer, purpose, target, recipient manifest/hash, lamports, Memo, payload hash, mainnet, expiry, and idempotency key.
+- QR scan or wallet open never marks payment. Reference discovery and signature submission converge on the same finalized parsed/raw transaction verification and existing payment/support/receipt commit.
+- Multi-recipient support stays Phantom-only and is never split.
 - Unimplemented sections explain the exact missing gate.
 - Dormant placeholder controls are not presented as working actions.
 
@@ -226,7 +227,7 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - The probation transition derives `probationary_analyst`, tier `probationary`, and weight exactly 0.50 on the server.
 - Support never changes status, tier, weight, ordering, review priority, or reputation.
 
-## 9. Native Case Report intake candidate
+## 9. Native Case Report intake milestone
 
 - A connected wallet may submit to a public Case only in `open_public`, `in_review`, or `reopened`.
 - One native Report header is permitted for an exact Case and author wallet.
@@ -242,9 +243,9 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 - Authors receive full private history through My Reports.
 - Eligible analysts and full maintainers receive a read-only awaiting-review projection.
 - Case ownership alone does not grant access to another author's unpublished Report.
-- Report rejection, reward, support, and AI Pack remain disabled. Report publication is live; exact primary Report selection, challenge, and Case sealing are implemented behind the atomic `OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED` rollout gate.
+- Report publication, resolution selection, challenge/seal lifecycle, reward, and support are live behind dedicated gates. AI Pack is separate and private to the full maintainer.
 
-## 10. Native Wire Phase 1 intake candidate
+## 10. Native Wire milestone
 
 - Any connected wallet may prepare a new standalone Wire finding or revise one of its own native Wire headers.
 - Each version binds a public-safe title and summary, restricted analysis and uncertainties, and an ordered evidence manifest before wallet approval.
@@ -258,22 +259,14 @@ Read order: AGENTS.md, this brief, then the relevant accepted V2 specifications.
 
 ## 11. Next roadmap gates
 
-- Merge and deploy the reviewed analyst activation slice only after clean CI and preview verification.
-- Run a soak period with broad V2 writes still disabled.
-- Merge and deploy the reviewed Case Report intake slice only after clean CI and manual main-only rollout verification.
-- Roll out exact-version Report review and publication behind their dedicated fail-closed flag only after the Report intake soak period and clean production smoke verification.
+- Soak the server-bound Solana Pay single-recipient path; retain Phantom for atomic multi-recipient support.
+- Keep broad V2 write/proof/schema flags false while dedicated production slices remain independently gated.
+- Keep AI Pack review, owner feedback, approval, publication, and public discovery false until a separately reviewed governed mode enforces independent SAS-valid analyst count and weight quorum plus creator exclusion.
 - Add complete initial rejection quorum and terminal transition before enabling rejection.
-- Add resolution proposal and nullable-state checks.
-- Production-activate exact primary Report selection, the seven-day challenge lifecycle, accepted-challenge reopen, and process sealing only after their dedicated rollout workflow passes.
-- Turn SAS credential enforcement on only through its dedicated manual workflow, after the Step 0 credential, schema, and issuer pubkeys are published and the public verifier answers live.
-- SAS enforcement rollback is exactly one statement: set `OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED` back to false.
-- Add reputation snapshot progression after real attributable contributions exist.
-- Merge and deploy native Wire Phase 1 only after clean CI and the manual main-only rollout verifies the private intake boundary.
-- Soak Wire intake before adding analyst review, publication, public projections, challenges, support, or Case promotion.
-- Add the remaining Wire lifecycle only after each role, evidence, quorum, and typed-target boundary is enforced and tested.
-- Add AI Pack after its evidence scopes are enforced.
-- Add reward, support, My OSI expansion, and Operations Center later.
+- Add reputation snapshot progression after sufficient real attributable contributions exist.
+- Improve My OSI and notification coverage only with real read/write contracts.
 - Retire legacy writes only after soak, reconciliation, and explicit cutover approval.
+- Permanent external storage remains an unfinished roadmap item, not a Live claim.
 
 ## 11. Production operation rules
 

@@ -241,34 +241,21 @@ async function fullMaintainer(req: Request, wallet: string) {
   return { ...gate, auth_id: gate.ok ? authId : "" };
 }
 
-async function analystStatus(wallet: string): Promise<string> {
-  const { data, error } = await admin.from("analyst_profiles")
-    .select("status,verified,approved,weight_cached")
-    .eq("wallet", wallet)
-    .limit(1);
-  const row = data?.[0];
-  if (error || !row || row.verified !== true || row.approved !== true) return "";
-  const weight = Number(row.weight_cached);
-  if (!Number.isFinite(weight) || weight < 0.5 || weight > 3) return "";
-  return new Set(["probationary_analyst", "verified_analyst", "senior_analyst"])
-      .has(String(row.status))
-    ? String(row.status)
-    : "";
-}
-
 async function flagsAvailable() {
   const values = await configRows([
-    "OSI_V2_WRITES_ENABLED",
-    "OSI_V2_PROOF_ENABLED",
     "OSI_V2_AI_PACK_WRITES_ENABLED",
     "OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED",
+    "OSI_V2_AI_PACK_ACCESS_MODE",
   ]);
-  const base = values?.OSI_V2_WRITES_ENABLED === "true"
-    && values?.OSI_V2_PROOF_ENABLED === "true";
-  const writes = base && values?.OSI_V2_AI_PACK_WRITES_ENABLED === "true";
+  const accessMode = values?.OSI_V2_AI_PACK_ACCESS_MODE ?? "";
+  const writes = accessMode === "maintainer_only"
+    && values?.OSI_V2_AI_PACK_WRITES_ENABLED === "true";
   return {
     writes,
-    review: writes && values?.OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED === "true",
+    review: accessMode === "governed"
+      && values?.OSI_V2_AI_PACK_WRITES_ENABLED === "true"
+      && values?.OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED === "true",
+    accessMode,
   };
 }
 
@@ -489,12 +476,11 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
   } catch {
     return jsonResponse(req, 400, { ok: false, error: "bad_capability_request" });
   }
-  const [caseResult, status, maintainer, flags] = await Promise.all([
+  const [caseResult, maintainer, flags] = await Promise.all([
     admin.from("cases")
       .select("id,public_ref,submitted_by_wallet,visibility,stage")
       .eq("public_ref", caseRef)
       .limit(1),
-    analystStatus(wallet),
     fullMaintainer(req, wallet),
     flagsAvailable(),
   ]);
@@ -502,7 +488,6 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
   // Capabilities are not a private read. Do not reveal a private Case through
   // this unsigned operation.
   const caseAvailable = !caseResult.error && caseRow?.visibility === "public";
-  const owner = caseAvailable && caseRow.submitted_by_wallet === wallet;
   const caseStageEligible = caseAvailable && new Set([
     "open_public",
     "in_review",
@@ -512,33 +497,22 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
     "resolved",
     "reopened",
   ]).has(String(caseRow.stage));
-  const analystEligible = Boolean(status);
-  const generationEligible = status === "verified_analyst" || status === "senior_analyst";
-  const role = owner
-    ? "owner"
-    : maintainer.ok
-    ? "maintainer"
-    : status === "senior_analyst"
-    ? "senior"
-    : analystEligible
-    ? "analyst"
-    : "public";
+  const role = maintainer.ok ? "maintainer" : "public";
   const canGenerate = Boolean(
-    caseAvailable && caseStageEligible && flags.writes && !owner
-      && (generationEligible || maintainer.ok)
+    caseAvailable && caseStageEligible && flags.writes
+      && flags.accessMode === "maintainer_only" && maintainer.ok
       && ANTHROPIC_API_KEY.trim().length >= 20,
   );
   let prerequisite: string | null = null;
   if (!caseAvailable) prerequisite = "AI Packs are available only for a public Case.";
   else if (!flags.writes) {
     prerequisite = "AI Pack generation is disabled until every required server rollout gate is enabled.";
+  } else if (flags.accessMode !== "maintainer_only") {
+    prerequisite = "AI Pack access mode is unavailable.";
   } else if (!caseStageEligible) {
     prerequisite = "This Case lifecycle stage is not eligible for AI Pack generation.";
-  } else if (owner) prerequisite = "Case owners cannot generate AI Packs in this release.";
-  else if (status === "probationary_analyst") {
-    prerequisite = "Generation requires verified or senior analyst standing.";
-  } else if (!generationEligible && !maintainer.ok) {
-    prerequisite = "Generation requires a verified analyst or full maintainer.";
+  } else if (!maintainer.ok) {
+    prerequisite = "Generation requires both the configured admin wallet and authorized Supabase maintainer session.";
   } else if (ANTHROPIC_API_KEY.trim().length < 20) {
     prerequisite = "AI Pack generation is temporarily unavailable.";
   }
@@ -547,9 +521,11 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
     case_ref: caseRef,
     ai_pack_writes_enabled: flags.writes,
     ai_pack_review_writes_enabled: flags.review,
+    ai_pack_access_mode: flags.accessMode,
+    provider_configured: ANTHROPIC_API_KEY.trim().length >= 20,
     case_stage_eligible: caseStageEligible,
     viewer_role: role,
-    analyst_eligible: analystEligible,
+    analyst_eligible: false,
     maintainer_access: maintainer.ok,
     can_generate: canGenerate,
     generation_prerequisite: canGenerate ? null : prerequisite,
@@ -562,6 +538,10 @@ async function listPublicPacks(req: Request, body: Row, global: boolean): Promis
     caseRef = global ? null : validateCaseRef(body.case_ref);
   } catch {
     return jsonResponse(req, 400, { ok: false, error: "bad_case_ref" });
+  }
+  const flags = await flagsAvailable();
+  if (flags.accessMode === "maintainer_only") {
+    return jsonResponse(req, 200, { ok: true, packs: [] });
   }
   const { data, error } = await admin.rpc("osi_v2_list_public_ai_packs", {
     p_case_public_ref: caseRef,
@@ -606,7 +586,11 @@ async function getCasePacks(req: Request, body: Row): Promise<Response> {
   }
   const proof = await verifyPrivateRead(req, body);
   if (!proof.ok) return jsonResponse(req, proof.status, { ok: false, error: proof.reason });
+  const flags = await flagsAvailable();
   const maintainer = await fullMaintainer(req, proof.wallet);
+  if (flags.accessMode === "maintainer_only" && !maintainer.ok) {
+    return jsonResponse(req, 403, { ok: false, error: maintainer.reason });
+  }
   const { data, error } = await admin.rpc("osi_v2_get_authorized_ai_packs", {
     p_case_public_ref: caseRef,
     p_actor_wallet: proof.wallet,
@@ -645,7 +629,12 @@ async function prepareGeneration(req: Request, body: Row): Promise<Response> {
   } catch {
     return jsonResponse(req, 400, { ok: false, error: "bad_generation_request" });
   }
+  const blocked = await requireWriteFlags(req);
+  if (blocked) return blocked;
   const maintainer = await fullMaintainer(req, wallet);
+  if (!maintainer.ok) {
+    return jsonResponse(req, 403, { ok: false, error: maintainer.reason });
+  }
   const { data, error } = await admin.rpc("osi_v2_prepare_ai_pack_generation", {
     p_nonce: randomNonce(),
     p_actor_wallet: wallet,
@@ -653,7 +642,7 @@ async function prepareGeneration(req: Request, body: Row): Promise<Response> {
     p_pack_type: packType,
     p_idempotency_key: idempotencyKey,
     p_request_fingerprint_hash: await fingerprint(req),
-    p_maintainer_auth_uuid: maintainer.ok ? maintainer.auth_id : null,
+    p_maintainer_auth_uuid: maintainer.auth_id,
   });
   if (error) return rpcFailure(req, error, "ai_pack_generation_prepare_failed");
   const row = firstRow(data);
@@ -678,7 +667,12 @@ async function prepareGeneration(req: Request, body: Row): Promise<Response> {
 
 async function commitGeneration(req: Request, body: Row): Promise<Response> {
   try {
+    const blocked = await requireWriteFlags(req);
+    if (blocked) return blocked;
     const verified = await verifySignedWrite(req, body, new Set([AI_PACK_GENERATION_EVENT]));
+    if (verified.binding.actor_role !== "maintainer" || !verified.authId) {
+      return jsonResponse(req, 403, { ok: false, error: "maintainer_only" });
+    }
     if (verified.row.consumed_at) {
       const replay = await committedGenerationReplay(verified);
       if (!replay) {
@@ -705,8 +699,6 @@ async function commitGeneration(req: Request, body: Row): Promise<Response> {
         },
       });
     }
-    const blocked = await requireWriteFlags(req);
-    if (blocked) return blocked;
     const { data, error } = await admin.rpc("osi_v2_reserve_ai_pack_generation", {
       p_nonce: verified.nonce,
       p_signature: verified.signature,
@@ -762,6 +754,8 @@ async function prepareReview(req: Request, body: Row): Promise<Response> {
   } catch {
     return jsonResponse(req, 400, { ok: false, error: "bad_review_request" });
   }
+  const blocked = await requireWriteFlags(req, true);
+  if (blocked) return blocked;
   const { data, error } = await admin.rpc("osi_v2_prepare_ai_pack_review", {
     p_nonce: randomNonce(),
     p_actor_wallet: wallet,
@@ -789,6 +783,8 @@ async function prepareReview(req: Request, body: Row): Promise<Response> {
 
 async function commitReview(req: Request, body: Row): Promise<Response> {
   try {
+    const blocked = await requireWriteFlags(req, true);
+    if (blocked) return blocked;
     const verified = await verifySignedWrite(req, body, AI_PACK_REVIEW_EVENTS);
     const context = verified.row.binding_context ?? {};
     const review = normalizeReview({
@@ -827,8 +823,6 @@ async function commitReview(req: Request, body: Row): Promise<Response> {
         },
       });
     }
-    const blocked = await requireWriteFlags(req, true);
-    if (blocked) return blocked;
     const { data, error } = await admin.rpc("osi_v2_commit_ai_pack_review", {
       p_nonce: verified.nonce,
       p_decision: review.decision,
@@ -881,6 +875,8 @@ async function prepareOwnerFeedback(req: Request, body: Row): Promise<Response> 
   } catch {
     return jsonResponse(req, 400, { ok: false, error: "bad_feedback_request" });
   }
+  const blocked = await requireWriteFlags(req, true);
+  if (blocked) return blocked;
   const { data, error } = await admin.rpc("osi_v2_prepare_ai_pack_owner_feedback", {
     p_nonce: randomNonce(),
     p_owner_wallet: wallet,
@@ -906,6 +902,8 @@ async function prepareOwnerFeedback(req: Request, body: Row): Promise<Response> 
 
 async function commitOwnerFeedback(req: Request, body: Row): Promise<Response> {
   try {
+    const blocked = await requireWriteFlags(req, true);
+    if (blocked) return blocked;
     const verified = await verifySignedWrite(
       req,
       body,
@@ -946,8 +944,6 @@ async function commitOwnerFeedback(req: Request, body: Row): Promise<Response> {
         },
       });
     }
-    const blocked = await requireWriteFlags(req);
-    if (blocked) return blocked;
     const { data, error } = await admin.rpc("osi_v2_commit_ai_pack_owner_feedback", {
       p_nonce: verified.nonce,
       p_feedback_type: feedback.feedback_type,
@@ -1009,6 +1005,8 @@ async function prepareApproval(req: Request, body: Row): Promise<Response> {
   } catch {
     return jsonResponse(req, 400, { ok: false, error: "bad_approval_request" });
   }
+  const blocked = await requireWriteFlags(req, true);
+  if (blocked) return blocked;
   const maintainer = await fullMaintainer(req, wallet);
   if (!maintainer.ok) return jsonResponse(req, 403, { ok: false, error: maintainer.reason });
   await settleSasForPackVersion(versionRef);
@@ -1137,6 +1135,8 @@ async function committedApprovalReplay(
 }
 
 async function commitApproval(req: Request, body: Row): Promise<Response> {
+  const blocked = await requireWriteFlags(req, true);
+  if (blocked) return blocked;
   let wallet: string;
   let versionRef: string;
   try {
@@ -1193,8 +1193,6 @@ async function commitApproval(req: Request, body: Row): Promise<Response> {
     });
   }
 
-  const blocked = await requireWriteFlags(req, true);
-  if (blocked) return blocked;
   const chain = await verifyMainnetMemo(
     txSig,
     wallet,
@@ -1225,6 +1223,60 @@ async function commitApproval(req: Request, body: Row): Promise<Response> {
       tx_sig: txSig,
       server_verified: true,
     },
+  });
+}
+
+async function operationsStatus(req: Request, body: Row): Promise<Response> {
+  let wallet: string;
+  try {
+    wallet = validateWallet(body.wallet);
+  } catch {
+    return jsonResponse(req, 400, { ok: false, error: "bad_wallet" });
+  }
+  const maintainer = await fullMaintainer(req, wallet);
+  if (!maintainer.ok) {
+    return jsonResponse(req, 403, { ok: false, error: maintainer.reason });
+  }
+  const [flags, casesResult, packsResult, versionsResult, runsResult] = await Promise.all([
+    flagsAvailable(),
+    admin.from("cases")
+      .select("public_ref,title,stage,updated_at")
+      .eq("visibility", "public")
+      .in("stage", [
+        "open_public",
+        "in_review",
+        "ready_for_finalization",
+        "resolution_proposed",
+        "in_challenge_window",
+        "resolved",
+        "reopened",
+      ])
+      .order("updated_at", { ascending: false })
+      .limit(100),
+    admin.from("ai_packs").select("id", { count: "exact", head: true }),
+    admin.from("ai_pack_versions")
+      .select("id", { count: "exact", head: true })
+      .eq("lifecycle_state", "draft"),
+    admin.from("osi_v2_ai_pack_generation_runs")
+      .select("id", { count: "exact", head: true })
+      .in("state", ["reserved", "provider_succeeded"]),
+  ]);
+  if (casesResult.error || packsResult.error || versionsResult.error || runsResult.error) {
+    return jsonResponse(req, 503, { ok: false, error: "ai_pack_operations_unavailable" });
+  }
+  return jsonResponse(req, 200, {
+    ok: true,
+    access_mode: flags.accessMode,
+    writes_enabled: flags.writes,
+    review_writes_enabled: flags.review,
+    provider_configured: ANTHROPIC_API_KEY.trim().length >= 20,
+    private_draft_count: Number(versionsResult.count ?? 0),
+    pack_count: Number(packsResult.count ?? 0),
+    in_progress_generation_count: Number(runsResult.count ?? 0),
+    eligible_cases: casesResult.data ?? [],
+    public_discovery_enabled: flags.accessMode !== "maintainer_only",
+    owner_feedback_enabled: flags.review,
+    analyst_review_enabled: flags.review,
   });
 }
 
@@ -1287,6 +1339,8 @@ serve(async (req: Request): Promise<Response> => {
         return await prepareApproval(req, body);
       case "commit_approval":
         return await commitApproval(req, body);
+      case "operations_status":
+        return await operationsStatus(req, body);
       default:
         return jsonResponse(req, 400, { ok: false, error: "bad_op" });
     }

@@ -569,6 +569,7 @@ body[data-view="admin"] section[data-view="admin"]{display:block}
 .adm-out:hover{color:var(--ink);border-color:var(--ink-faint)}
 .adm-err{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:8px;padding:14px;line-height:1.55;background:rgba(255,176,32,.05)}
 .moc-shell{position:relative;display:grid;grid-template-columns:250px minmax(740px,1fr) 380px;gap:16px;align-items:start;margin-top:4px;width:100%}
+.moc-shell.moc-wide{grid-template-columns:250px minmax(740px,1fr)}
 .moc-shell::before{content:"";position:absolute;inset:-22px -26px auto -26px;height:230px;pointer-events:none;background:radial-gradient(circle at 24% 0%,rgba(34,211,238,.11),transparent 34%),linear-gradient(90deg,rgba(20,241,149,.06),transparent 55%);opacity:.9}
 .moc-nav,.moc-main,.moc-panel,.moc-card,.moc-bottom-card{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(7,12,22,.94));border-radius:8px;box-shadow:0 18px 60px rgba(0,0,0,.18)}
 .moc-nav{padding:14px;position:sticky;top:84px;background:linear-gradient(180deg,rgba(9,16,30,.96),rgba(5,10,19,.98))}

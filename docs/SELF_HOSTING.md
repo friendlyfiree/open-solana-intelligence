@@ -78,11 +78,25 @@ update osi_config set value='true' where key='OSI_V2_CASE_WRITES_ENABLED';
 -- OSI_V2_ANALYST_WRITES_ENABLED, OSI_V2_REPORT_WRITES_ENABLED,
 -- OSI_V2_REPORT_REVIEW_WRITES_ENABLED, OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED,
 -- OSI_V2_PAYMENT_WRITES_ENABLED, OSI_V2_READ_SESSION_ENABLED,
--- OSI_V2_WIRE_WRITES_ENABLED, OSI_V2_AI_PACK_WRITES_ENABLED,
+-- OSI_V2_WIRE_WRITES_ENABLED, OSI_V2_SOLANA_PAY_ENABLED,
 -- OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED   (cold-start mode, see USER_GUIDE)
 ```
 
-Recommended order: case, analyst, report, review, resolution, payment, read session, wire, and only then AI Pack (it spends provider credits). Bootstrap mode is your choice: with it on, your maintainer can run the full lifecycle before you have 20 analysts, with every such decision honestly labeled.
+Recommended order: case, analyst, report, review, resolution, payment, read session, wire, and only then Solana Pay after its trusted RPC/reference migration is verified. Bootstrap mode is your choice: with it on, your maintainer can run the allowed cold-start lifecycle before you have 20 analysts, with every such decision honestly labeled.
+
+AI Pack needs an explicit access mode as well as its dedicated write flag:
+
+```sql
+update osi_config set value='maintainer_only'
+ where key='OSI_V2_AI_PACK_ACCESS_MODE';
+update osi_config set value='true'
+ where key='OSI_V2_AI_PACK_WRITES_ENABLED';
+```
+
+This enables only private full-maintainer generation. Keep
+`OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED=false`; public review and publication
+require a separate governed rollout. Never turn on broad
+`OSI_V2_WRITES_ENABLED` or `OSI_V2_PROOF_ENABLED` merely to enable AI Pack.
 
 Quorum thresholds, rate limits, and quotas are `osi_config` keys too; the shipped defaults match the documented governance model, and any tuning is visible in your database rather than hidden in code.
 

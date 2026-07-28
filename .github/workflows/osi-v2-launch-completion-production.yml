@@ -1,0 +1,370 @@
+name: OSI V2 Solana Pay SAS and Private AI Pack Production
+
+# Manual, current-main-only launch completion for:
+#   * 20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql
+#   * osi-v2-payment, osi-v2-analyst, and osi-v2-ai-pack
+#   * OSI_V2_SOLANA_PAY_ENABLED=true
+#   * OSI_V2_AI_PACK_WRITES_ENABLED=true in maintainer_only mode.
+#
+# No prepare/commit endpoint is called. The workflow creates no domain record,
+# sends no Solana transaction, and performs no provider generation. Failure
+# disables only the two dedicated write capabilities and preserves immutable
+# data for a focused forward fix.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type LAUNCH-COMPLETE-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-launch-completion-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  NEW_VERSION: "20260728170000"
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457 20260726200249 20260727170000
+    20260727173000 20260728132011 20260728153100
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457 20260726200249 20260727170000
+    20260727173000 20260728132011 20260728153100 20260728170000
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Zero-to-latest application database and browser proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "LAUNCH-COMPLETE-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main commit and migration set
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || { echo "::error::Repository migration set is not exact."; exit 1; }
+          test -f "supabase/migrations/${NEW_VERSION}_osi_v2_solana_pay_and_maintainer_ai_pack.sql"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.110.0
+
+      - name: All Node and Deno tests
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          mapfile -t deno_sources < <(
+            find supabase/functions -type f \( -path '*/index.ts' -o -path '*/_shared/*.ts' -o -path '*/_shared/*.mjs' \) | sort
+          )
+          deno check "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
+
+      - name: Chromium desktop mobile keyboard and accessibility contracts
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @playwright/test@1.55.0 http-server@14.1.1
+          npx playwright install --with-deps chromium
+          npx playwright test --config tests/browser/playwright.config.js
+
+      - name: Fresh PostgreSQL 17 migration lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ]
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard disposable local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact additive migration functions flags and read-only proof
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.110.0
+
+      - name: Verify credentials project required secrets and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          secret_names="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF" --output json | jq -r '.[].name')"
+          for required in SOLANA_RPC_URL ANTHROPIC_API_KEY OSI_V2_SAS_ISSUER_SECRET OSI_MAINTAINER_AUTH_UUID; do
+            grep -qx "$required" <<< "$secret_names" || { echo "::error::Required Edge secret ${required} is absent."; exit 1; }
+          done
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Snapshot all config protected rows and changed-function versions
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config where key not in ('OSI_V2_SOLANA_PAY_ENABLED','OSI_V2_AI_PACK_ACCESS_MODE','OSI_V2_AI_PACK_WRITES_ENABLED') order by key" \
+            > /tmp/config-unchanged-before.txt
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_AI_PACK_WRITES_ENABLED'")" = "false" ]
+          psql -v ON_ERROR_STOP=1 -Atq -f scripts/protected-row-counts.sql > /tmp/protected-rows-before.txt
+          curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+            jq '[.[] | select(.slug=="osi-v2-payment" or .slug=="osi-v2-analyst" or .slug=="osi-v2-ai-pack") | {slug,version,status,verify_jwt,updated_at,ezbr_sha256}] | sort_by(.slug)' \
+            > /tmp/functions-before.json
+          cat /tmp/functions-before.json
+
+      - name: Link project and verify exact remote history
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          got="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          before="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          after="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$before" ]; then echo "MIGRATION_MODE=deploy" >> "$GITHUB_ENV";
+          elif [ "$got" = "$after" ]; then echo "MIGRATION_MODE=resume" >> "$GITHUB_ENV";
+          else echo "::error::Remote migration history is not the exact before or after set."; exit 1; fi
+
+      - name: Record exact disable and forward-fix plan
+        run: |
+          echo "Disable only OSI_V2_SOLANA_PAY_ENABLED and OSI_V2_AI_PACK_WRITES_ENABLED."
+          echo "Keep the additive schema, references, receipts, and immutable AI artifacts for a forward fix."
+          echo "Do not drop, reset, repair, truncate, broadly update, or rewrite production data."
+
+      - name: Dry-run exactly the one additive migration
+        if: ${{ env.MIGRATION_MODE == 'deploy' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/launch-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}' /tmp/launch-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ] || { echo "::error::Dry-run is not exactly ${NEW_VERSION}: ${got}"; exit 1; }
+
+      - name: Apply exactly the dry-run-approved additive migration
+        if: ${{ env.MIGRATION_MODE == 'deploy' }}
+        run: supabase db push --linked --yes
+
+      - name: Verify migration constraints grants and fail-closed flags
+        run: |
+          set -euo pipefail
+          [ "$(psql -Atqc "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")" = "$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')" ]
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          begin
+            if (select value from public.osi_config where key='OSI_V2_SOLANA_PAY_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_AI_PACK_ACCESS_MODE') is distinct from 'maintainer_only'
+               or (select value from public.osi_config where key='OSI_V2_AI_PACK_WRITES_ENABLED') is distinct from 'false'
+               or (select value from public.osi_config where key='OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED') is distinct from 'false'
+              then raise exception 'launch flags are not in the exact fail-closed state'; end if;
+            if not exists (select 1 from pg_constraint where conname='osi_nonces_solana_pay_binding_check' and convalidated)
+               or to_regclass('public.osi_nonces_solana_pay_reference_unique') is null
+              then raise exception 'Solana Pay constraint or unique index is absent'; end if;
+            if has_function_privilege('anon','public.osi_v2_bind_payment_reference(text,text)','EXECUTE')
+               or has_function_privilege('authenticated','public.osi_v2_find_payment_by_reference(text)','EXECUTE')
+               or not has_function_privilege('service_role','public.osi_v2_bind_payment_reference(text,text)','EXECUTE')
+              then raise exception 'Solana Pay reference RPC privilege boundary is invalid'; end if;
+            if osi_private.osi_v2_ai_pack_writes_enabled()
+               or osi_private.osi_v2_ai_pack_review_writes_enabled()
+              then raise exception 'AI Pack gates did not remain closed after migration'; end if;
+          end $$;
+          SQL
+
+      - name: Independently verify SAS mainnet accounts and every active analyst
+        env:
+          SOLANA_RPC_URL: https://api.mainnet-beta.solana.com
+        run: |
+          set -euo pipefail
+          export SAS_PROGRAM_ID="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_PROGRAM_ID'")"
+          export SAS_CREDENTIAL="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_CREDENTIAL_PUBKEY'")"
+          export SAS_SCHEMA="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_SCHEMA_PUBKEY'")"
+          export SAS_ISSUER="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_ISSUER_PUBKEY'")"
+          export SAS_WALLETS="$(psql -Atqc "select coalesce(string_agg(wallet, ',' order by wallet), '') from public.analyst_profiles where approved is true and status in ('probationary_analyst','verified_analyst','senior_analyst')")"
+          [ "$SAS_PROGRAM_ID" = "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG" ]
+          [ "$SAS_CREDENTIAL" = "D2tsrEHEXYPL82chv5PuwsQtALv1i5hXrWZorqyefJgX" ]
+          [ "$SAS_SCHEMA" = "897TYTVN9aQfLWj2BJyhByQawsSuydLZcTpanZWCtxKz" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED'")" = "true" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED'")" = "true" ]
+          node scripts/verify-sas-mainnet.mjs | tee /tmp/sas-mainnet-proof.json
+
+      - name: Deploy exactly the three changed Edge Functions
+        run: |
+          set -euo pipefail
+          for fn in osi-v2-payment osi-v2-analyst osi-v2-ai-pack; do
+            supabase functions deploy "$fn" --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          done
+
+      - name: Negative production smokes before enabling
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          origin="Origin: ${PRODUCTION_WEB_URL}"
+          payment="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-payment" -H "$origin" -H 'Content-Type: application/json' -d '{"op":"capabilities"}')"
+          jq -e '.ok==true and .payment_writes_enabled==true and .solana_pay_enabled==false and .network=="mainnet-beta"' <<< "$payment"
+          packs="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-ai-pack" -H "$origin" -H 'Content-Type: application/json' -d '{"op":"list_public_packs"}')"
+          jq -e '.ok==true and .packs==[]' <<< "$packs"
+          case_ref="$(psql -Atqc "select coalesce((select public_ref from public.cases where visibility='public' order by created_at limit 1),'OSI-C-NOT-AVAILABLE')")"
+          cap="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-ai-pack" -H "$origin" -H 'Content-Type: application/json' \
+            -d "{\"op\":\"capabilities\",\"wallet\":\"11111111111111111111111111111112\",\"case_ref\":\"${case_ref}\"}")"
+          jq -e '.ok==true and .ai_pack_access_mode=="maintainer_only" and .ai_pack_writes_enabled==false and .ai_pack_review_writes_enabled==false and .maintainer_access==false and .can_generate==false and .provider_configured==true' <<< "$cap"
+          denied="$(curl -sS --max-time 30 -w '\n%{http_code}' -X POST "$base/osi-v2-analyst" -H "$origin" -H 'Content-Type: application/json' \
+            -d '{"op":"sas_operations_status","wallet":"11111111111111111111111111111112"}')"
+          [ "$(tail -n1 <<< "$denied")" = "403" ]
+
+      - name: Enable only Solana Pay and private AI Pack generation
+        id: enable
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          declare changed integer;
+          begin
+            update public.osi_config
+               set value='true', updated_at=statement_timestamp()
+             where key in ('OSI_V2_SOLANA_PAY_ENABLED','OSI_V2_AI_PACK_WRITES_ENABLED')
+               and value='false';
+            get diagnostics changed = row_count;
+            if changed <> 2 then raise exception 'expected exactly two dedicated flag flips, got %', changed; end if;
+          end $$;
+          SQL
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_SOLANA_PAY_ENABLED'")" = "true" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_AI_PACK_WRITES_ENABLED'")" = "true" ]
+          [ "$(psql -Atqc "select osi_private.osi_v2_ai_pack_writes_enabled()")" = "t" ]
+          [ "$(psql -Atqc "select osi_private.osi_v2_ai_pack_review_writes_enabled()")" = "f" ]
+
+      - name: Verify production capabilities isolation and unchanged protected rows
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          origin="Origin: ${PRODUCTION_WEB_URL}"
+          payment="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-payment" -H "$origin" -H 'Content-Type: application/json' -d '{"op":"capabilities"}')"
+          jq -e '.ok==true and .payment_writes_enabled==true and .solana_pay_enabled==true and .solana_pay_single_recipient_only==true and .solana_pay_reference_bound==true and .solana_pay_finality=="finalized"' <<< "$payment"
+          case_ref="$(psql -Atqc "select coalesce((select public_ref from public.cases where visibility='public' order by created_at limit 1),'OSI-C-NOT-AVAILABLE')")"
+          cap="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-ai-pack" -H "$origin" -H 'Content-Type: application/json' \
+            -d "{\"op\":\"capabilities\",\"wallet\":\"11111111111111111111111111111112\",\"case_ref\":\"${case_ref}\"}")"
+          jq -e '.ok==true and .ai_pack_access_mode=="maintainer_only" and .ai_pack_writes_enabled==true and .ai_pack_review_writes_enabled==false and .maintainer_access==false and .can_generate==false and .provider_configured==true' <<< "$cap"
+          packs="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-ai-pack" -H "$origin" -H 'Content-Type: application/json' -d '{"op":"list_public_packs"}')"
+          jq -e '.ok==true and .packs==[]' <<< "$packs"
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config where key not in ('OSI_V2_SOLANA_PAY_ENABLED','OSI_V2_AI_PACK_ACCESS_MODE','OSI_V2_AI_PACK_WRITES_ENABLED') order by key" \
+            > /tmp/config-unchanged-after.txt
+          diff -u /tmp/config-unchanged-before.txt /tmp/config-unchanged-after.txt
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_AI_PACK_ACCESS_MODE'")" = "maintainer_only" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'")" = "false" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_FALLBACK_GOVERNANCE'")" = "false" ]
+          psql -v ON_ERROR_STOP=1 -Atq -f scripts/protected-row-counts.sql > /tmp/protected-rows-after.txt
+          diff -u /tmp/protected-rows-before.txt /tmp/protected-rows-after.txt
+          printf '%s\n' "$payment" > /tmp/payment-capability.json
+          printf '%s\n' "$cap" > /tmp/ai-pack-nonmaintainer-capability.json
+
+      - name: Record changed function versions and rollout evidence
+        run: |
+          set -euo pipefail
+          curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+            jq '[.[] | select(.slug=="osi-v2-payment" or .slug=="osi-v2-analyst" or .slug=="osi-v2-ai-pack") | {slug,version,status,verify_jwt,updated_at,ezbr_sha256}] | sort_by(.slug)' \
+            > /tmp/functions-after.json
+          cat /tmp/functions-after.json
+          jq -e --slurp '
+            .[0] as $before | .[1] as $after |
+            ($before | length)==3 and ($after | length)==3 and
+            all(range(0;3); $after[.].version > $before[.].version and $after[.].status=="ACTIVE")
+          ' /tmp/functions-before.json /tmp/functions-after.json
+          {
+            echo "## OSI V2 launch completion production proof"
+            echo
+            echo "Commit: \`${GITHUB_SHA}\`"
+            echo "Migration: \`${NEW_VERSION}\`"
+            echo "Protected row-count diff: empty"
+            echo "Unrelated config diff: empty"
+            echo "No prepare/commit endpoint or Solana transaction was invoked."
+            echo
+            echo "### Function versions before"
+            echo '```json'; cat /tmp/functions-before.json; echo '```'
+            echo "### Function versions after"
+            echo '```json'; cat /tmp/functions-after.json; echo '```'
+            echo "### Payment capability"
+            echo '```json'; cat /tmp/payment-capability.json; echo '```'
+            echo "### Non-maintainer AI Pack capability"
+            echo '```json'; cat /tmp/ai-pack-nonmaintainer-capability.json; echo '```'
+            echo "### SAS mainnet proof"
+            echo '```json'; cat /tmp/sas-mainnet-proof.json; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail closed on any rollout error
+        if: ${{ failure() }}
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c \
+            "update public.osi_config set value='false', updated_at=statement_timestamp() where key in ('OSI_V2_SOLANA_PAY_ENABLED','OSI_V2_AI_PACK_WRITES_ENABLED') and value<>'false'"
+          echo "::error::Only Solana Pay and private AI Pack generation were disabled. Immutable data and the additive migration were preserved."
