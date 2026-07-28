@@ -45,7 +45,12 @@ end
 $migration$;
 
 select osi_private.osi_v2_apply_legacy_boundary();
-drop function osi_private.osi_v2_apply_legacy_boundary();
+revoke all privileges on function osi_private.osi_v2_apply_legacy_boundary()
+  from public,anon,authenticated;
+grant execute on function osi_private.osi_v2_apply_legacy_boundary()
+  to service_role;
+comment on function osi_private.osi_v2_apply_legacy_boundary()
+  is 'Idempotent service-role-only legacy policy boundary verifier. Browser roles cannot execute it.';
 
 create or replace function osi_private.osi_v2_record_payment_failure(
   p_nonce text,p_tx_sig text,p_error text
@@ -109,6 +114,207 @@ begin
     end if;
     return query select support.id,'support',support.state,support.verification_error;
   end if;
+end
+$$;
+
+-- The ordinary finalized path confirms from submitted. Historical recovery is
+-- the sole path that may repair the former parser false-negative from failed
+-- to confirmed, and only for the exact write-once transaction signature. The
+-- receipt checks below still require the same OSI2 finalized-transfer proof.
+create or replace function public.osi_v2_guard_reward_payment()
+returns trigger language plpgsql set search_path='' as $$
+declare
+  old_core jsonb;
+  new_core jsonb;
+  receipt public.event_receipts%rowtype;
+begin
+  old_core:=to_jsonb(old)-array[
+    'tx_sig','state','confirmed_at','event_receipt_id','submitted_at',
+    'slot','block_time','finality','verification_error','updated_at'
+  ];
+  new_core:=to_jsonb(new)-array[
+    'tx_sig','state','confirmed_at','event_receipt_id','submitted_at',
+    'slot','block_time','finality','verification_error','updated_at'
+  ];
+  if new_core is distinct from old_core then
+    raise exception 'Reward payment intent, wallets and amount are immutable'
+      using errcode='55000';
+  end if;
+  if old.tx_sig is not null and new.tx_sig is distinct from old.tx_sig then
+    raise exception 'Reward transaction signature is write-once'
+      using errcode='55000';
+  end if;
+  if old.event_receipt_id is not null
+     and new.event_receipt_id is distinct from old.event_receipt_id then
+    raise exception 'Reward payment receipt is write-once'
+      using errcode='55000';
+  end if;
+  if not (
+    new.state=old.state
+    or (old.state='initiated' and new.state in ('submitted','failed','timed_out'))
+    or (old.state='submitted' and new.state in ('confirmed','failed','timed_out'))
+    or (
+      old.state='failed'
+      and old.verification_error='unexpected_instruction'
+      and new.state='confirmed'
+      and new.verification_error is null
+    )
+  ) then
+    raise exception 'Invalid reward payment transition: % -> %',old.state,new.state
+      using errcode='23514';
+  end if;
+  if old.state<>'confirmed' and new.state='confirmed' then
+    select event.* into receipt
+      from public.event_receipts as event
+     where event.id=new.event_receipt_id;
+    if receipt.event_version is distinct from 'OSI2'
+       or receipt.event_type is distinct from 'REWARD_PAYMENT_CONFIRMED'
+       or receipt.target_type is distinct from 'reward'
+       or receipt.target_id is distinct from new.id::text
+       or receipt.actor_wallet is distinct from new.from_wallet
+       or receipt.tx_sig is distinct from new.tx_sig
+       or receipt.proof_type is distinct from 'solana_memo'
+       or receipt.server_verified is distinct from true
+       or receipt.verification_metadata->>'cluster' is distinct from 'mainnet-beta'
+       or receipt.verification_metadata->>'finality' is distinct from 'finalized'
+       or receipt.verification_metadata->'memo_verified' is distinct from 'true'::jsonb
+       or receipt.verification_metadata->'system_program_transfers_verified'
+          is distinct from 'true'::jsonb then
+      raise exception 'Confirmed reward requires exact verified transfer receipt'
+        using errcode='23514';
+    end if;
+  end if;
+  return new;
+end
+$$;
+
+create or replace function public.osi_v2_guard_support_event()
+returns trigger language plpgsql set search_path='' as $$
+declare
+  old_core jsonb;
+  new_core jsonb;
+  receipt public.event_receipts%rowtype;
+  bound public.osi_nonces%rowtype;
+begin
+  if new.wire_report_version_id is not null and (
+    osi_private.osi_v2_wire_writes_enabled() is distinct from true
+    or osi_private.osi_v2_payment_writes_enabled() is distinct from true
+  ) then
+    raise exception 'Wire and payment writes must both be enabled'
+      using errcode='55000';
+  end if;
+  old_core:=to_jsonb(old)-array[
+    'tx_sig','state','event_receipt_id','confirmed_at','slot','block_time',
+    'finality','verification_error','updated_at'
+  ];
+  new_core:=to_jsonb(new)-array[
+    'tx_sig','state','event_receipt_id','confirmed_at','slot','block_time',
+    'finality','verification_error','updated_at'
+  ];
+  if new_core is distinct from old_core then
+    raise exception 'Support sender, recipient manifest, type and amount are immutable'
+      using errcode='55000';
+  end if;
+  if old.tx_sig is not null and new.tx_sig is distinct from old.tx_sig then
+    raise exception 'Support transaction signature is write-once'
+      using errcode='55000';
+  end if;
+  if old.event_receipt_id is not null
+     and new.event_receipt_id is distinct from old.event_receipt_id then
+    raise exception 'Support receipt is write-once'
+      using errcode='55000';
+  end if;
+  if not (
+    new.state=old.state
+    or (old.state='submitted' and new.state in ('confirmed','failed'))
+    or (
+      old.state='failed'
+      and old.verification_error='unexpected_instruction'
+      and old.wire_report_version_id is null
+      and new.state='confirmed'
+      and new.verification_error is null
+    )
+  ) then
+    raise exception 'Invalid support transition: % -> %',old.state,new.state
+      using errcode='23514';
+  end if;
+  if old.state<>'confirmed' and new.state='confirmed' then
+    if new.wire_report_version_id is not null then
+      if not exists (
+        select 1
+          from public.wire_report_versions as version
+          join public.wire_reports as report
+            on report.id=version.wire_report_id
+           and report.current_published_version_id=version.id
+         where version.id=new.wire_report_version_id
+           and version.lifecycle_state='published'
+           and report.native_intake=true
+           and report.author_wallet=new.target_wallet
+           and new.from_wallet<>report.author_wallet
+      ) then
+        raise exception 'Wire support requires the exact current published author target'
+          using errcode='23514';
+      end if;
+      select nonce.* into bound
+        from public.osi_nonces as nonce
+       where nonce.nonce=new.intent_nonce;
+      if bound.nonce is null
+         or bound.purpose<>'SUPPORT_PAYMENT_CONFIRMED'
+         or bound.target_type<>'support'
+         or bound.target_id is distinct from new.id::text
+         or bound.actor_wallet is distinct from new.from_wallet
+         or bound.binding_context->>'payment_kind'<>'wire_support'
+         or (bound.binding_context->>'context_wire_version_id')::uuid
+            is distinct from new.wire_report_version_id
+         or bound.binding_context->'recipient_manifest'
+            is distinct from new.recipient_manifest
+         or bound.binding_context->>'manifest_hash' is distinct from new.manifest_hash
+         or (bound.binding_context->>'total_lamports')::bigint
+            is distinct from new.amount_lamports then
+        raise exception 'Wire support nonce lost its exact server-derived target binding'
+          using errcode='23514';
+      end if;
+    end if;
+    select event.* into receipt
+      from public.event_receipts as event
+     where event.id=new.event_receipt_id;
+    if receipt.event_version is distinct from 'OSI2'
+       or receipt.event_type is distinct from 'SUPPORT_PAYMENT_CONFIRMED'
+       or receipt.target_type is distinct from 'support'
+       or receipt.target_id is distinct from new.id::text
+       or receipt.actor_wallet is distinct from new.from_wallet
+       or receipt.tx_sig is distinct from new.tx_sig
+       or receipt.proof_type is distinct from 'solana_memo'
+       or receipt.server_verified is distinct from true
+       or receipt.verification_metadata->>'cluster' is distinct from 'mainnet-beta'
+       or receipt.verification_metadata->>'finality' is distinct from 'finalized'
+       or receipt.verification_metadata->'memo_verified' is distinct from 'true'::jsonb
+       or receipt.verification_metadata->'system_program_transfers_verified'
+          is distinct from 'true'::jsonb then
+      raise exception 'Confirmed support requires exact verified transfer receipt'
+        using errcode='23514';
+    end if;
+    if new.wire_report_version_id is not null and (
+      receipt.public_ref is distinct from bound.binding_context->>'target_public_ref'
+      or receipt.memo_ref is distinct from bound.binding_context->>'memo'
+      or receipt.anchor_wallet is distinct from new.from_wallet
+      or receipt.payload_hash is distinct from bound.payload_hash
+      or receipt.nonce is distinct from bound.nonce
+      or receipt.verification_metadata->>'payment_kind' is distinct from 'wire_support'
+      or receipt.verification_metadata->>'payer_wallet' is distinct from new.from_wallet
+      or receipt.verification_metadata->'recipient_manifest'
+         is distinct from new.recipient_manifest
+      or receipt.verification_metadata->>'manifest_hash' is distinct from new.manifest_hash
+      or receipt.verification_metadata->>'total_lamports'
+         is distinct from new.amount_lamports::text
+      or receipt.verification_metadata->>'target_public_ref'
+         is distinct from bound.binding_context->>'target_public_ref'
+    ) then
+      raise exception 'Confirmed Wire support receipt changed its exact payment binding'
+        using errcode='23514';
+    end if;
+  end if;
+  return new;
 end
 $$;
 

@@ -258,9 +258,21 @@ select * from public.osi_v2_prepare_payment(repeat('h',43),'reward','11111111111
  'OSI-PAYSEALED0001','{"amount_lamports":"600000000"}'::jsonb,
  'payment-reward-part-two-0001',repeat('d',64));
 select lives_ok($test$
- select * from public.osi_v2_commit_payment(repeat('h',43),repeat('C',88),500002,
-  statement_timestamp(),'finalized','{"fixture":"trusted_rpc"}'::jsonb)
-$test$,'second finalized partial reward fulfills the exact sealed amount');
+ select * from public.osi_v2_record_payment_failure(
+  repeat('h',43),repeat('C',88),'unexpected_instruction')
+$test$,'the former parser failure is preserved on the second reward payment');
+set local session_replication_role=replica;
+update public.osi_nonces
+   set issued_at=issued_at-interval '1 day',expires_at=expires_at-interval '1 day'
+ where nonce=repeat('h',43);
+set local session_replication_role=origin;
+select lives_ok($test$
+ select * from public.osi_v2_recover_payment(
+  repeat('h',43),repeat('C',88),500002,
+  (select issued_at+interval '10 seconds' from public.osi_nonces where nonce=repeat('h',43)),
+  'finalized',
+  '{"historical_reverification":true,"server_rpc_verified":true,"balance_deltas_verified":true,"writable_accounts_verified":true,"no_token_or_inner_transfers":true}'::jsonb)
+$test$,'same-signature reward recovery fulfills the exact sealed amount');
 select ok((select pledge.state='paid' and sum(payment.amount_lamports)=pledge.amount_lamports
  from public.reward_pledges pledge join public.reward_payments payment on payment.pledge_id=pledge.id
  where pledge.id='42500000-0000-4000-8000-000000000001' and payment.state='confirmed'
