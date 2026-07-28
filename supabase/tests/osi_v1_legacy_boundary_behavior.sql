@@ -38,13 +38,18 @@ drop policy if exists "read requests" on public.requests;
 drop policy if exists "admin delete" on public.requests;
 drop policy if exists "admin read" on public.requests;
 drop policy if exists "admin update" on public.requests;
+drop policy if exists "requests admin delete" on public.requests;
+drop policy if exists "requests admin read" on public.requests;
+drop policy if exists "requests admin update" on public.requests;
 drop policy if exists "requests_insert" on public.requests;
 drop policy if exists "requests_read" on public.requests;
 drop policy if exists "requests approved public read" on public.requests;
 create policy "read requests" on public.requests for select to public using (true);
-create policy "admin delete" on public.requests for delete to authenticated
+create policy "requests admin delete" on public.requests for delete to public
   using (auth.role()='authenticated');
-create policy "admin update" on public.requests for update to authenticated
+create policy "requests admin read" on public.requests for select to public
+  using (auth.role()='authenticated');
+create policy "requests admin update" on public.requests for update to public
   using (auth.role()='authenticated');
 create policy "requests_insert" on public.requests for insert to anon,authenticated
   with check (approved=false);

@@ -1,10 +1,11 @@
 name: OSI Production Hardening E2E
 
-# Manual, main-only rollout for the exact payment recovery and legacy boundary
-# migration. The local job is disposable. Production performs one dry-run-
-# approved additive migration, deploys only the payment gateway whose runtime
-# behavior changed, runs read-only/negative smokes, and creates no domain row or
-# Solana transaction.
+# Manual, main-only resumable rollout for the exact payment recovery and legacy
+# boundary migrations. The local job is disposable. Production performs one
+# dry-run-approved additive forward fix, deploys only the payment gateway whose
+# runtime behavior changed, runs read-only/negative smokes while payment remains
+# disabled, and enables only that dedicated flag after every preceding gate.
+# It creates no domain row or Solana transaction.
 
 on:
   workflow_dispatch:
@@ -24,7 +25,7 @@ concurrency:
 env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
   PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
-  NEW_VERSION: "20260728132011"
+  NEW_VERSION: "20260728153100"
   BEFORE_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949
     20260712002518 20260712121301 20260713045903 20260713184533
@@ -32,7 +33,7 @@ env:
     20260715112621 20260716063000 20260716120000 20260718120000
     20260718130000 20260718140000 20260725120000 20260725140000
     20260726173000 20260726185457 20260726200249 20260727170000
-    20260727173000
+    20260727173000 20260728132011
   AFTER_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949
     20260712002518 20260712121301 20260713045903 20260713184533
@@ -40,7 +41,7 @@ env:
     20260715112621 20260716063000 20260716120000 20260718120000
     20260718130000 20260718140000 20260725120000 20260725140000
     20260726173000 20260726185457 20260726200249 20260727170000
-    20260727173000 20260728132011
+    20260727173000 20260728132011 20260728153100
   OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
@@ -155,9 +156,9 @@ jobs:
       - name: Snapshot feature flags and protected row counts
         run: |
           set -euo pipefail
-          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PAYMENT_WRITES_ENABLED'")" = "true" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PAYMENT_WRITES_ENABLED'")" = "false" ]
           psql -v ON_ERROR_STOP=1 -Atq -F'|' \
-            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config order by key" \
+            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config where key<>'OSI_V2_PAYMENT_WRITES_ENABLED' order by key" \
             > /tmp/config-before.txt
           psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/rows-before.txt <<'SQL'
           begin read only;
@@ -284,7 +285,7 @@ jobs:
           functions="$(supabase functions list --project-ref "$EXPECTED_PROJECT_REF")"
           [[ "$functions" == *"osi-v2-payment"* ]]
 
-      - name: Production anon, storage, and payment negative smoke
+      - name: Production anon, storage, and disabled-payment negative smoke
         run: |
           set -euo pipefail
           key="$(sed -n 's/^window.OSI_SUPABASE_KEY = "\(.*\)";$/\1/p' assets/js/01-public-config.js)"
@@ -320,11 +321,7 @@ jobs:
           payment="${api}/functions/v1/osi-v2-payment"
           capability="$(curl -sS --fail --max-time 30 -X POST "$payment" "${headers[@]}" \
             -d '{"op":"capabilities","wallet":"11111111111111111111111111111112"}')"
-          grep -q '"payment_writes_enabled":true' <<<"$capability"
-          code="$(curl -sS --max-time 30 -o /tmp/payment-negative.json -w '%{http_code}' \
-            -X POST "$payment" "${headers[@]}" \
-            -d '{"op":"recover_payment","wallet":"11111111111111111111111111111112","nonce":"bad","tx_sig":"bad"}')"
-          [ "$code" = "400" ] || [ "$code" = "409" ]
+          grep -q '"payment_writes_enabled":false' <<<"$capability"
 
       - name: Verify exact Vercel frontend hardening
         run: |
@@ -342,11 +339,11 @@ jobs:
           echo "::error::Vercel production did not reach the exact merged hardening UI."
           exit 1
 
-      - name: Prove flags and every protected row count unchanged
+      - name: Prove non-payment flags and every protected row count unchanged
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -Atq -F'|' \
-            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config order by key" \
+            -c "select key, encode(convert_to(value, 'UTF8'), 'base64') from public.osi_config where key<>'OSI_V2_PAYMENT_WRITES_ENABLED' order by key" \
             > /tmp/config-after.txt
           diff -u /tmp/config-before.txt /tmp/config-after.txt
           psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/rows-after.txt <<'SQL'
@@ -374,6 +371,55 @@ jobs:
           SQL
           diff -u /tmp/rows-before.txt /tmp/rows-after.txt
 
+      - name: Enable only payment and run final negative smoke
+        run: |
+          set -euo pipefail
+          [ "$(psql -Atqc "
+            with changed as (
+              update public.osi_config
+                 set value='true',updated_at=statement_timestamp()
+               where key='OSI_V2_PAYMENT_WRITES_ENABLED' and value='false'
+               returning 1
+            ) select count(*) from changed;")" = "1" ]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_PAYMENT_WRITES_ENABLED'")" = "true" ]
+
+          key="$(sed -n 's/^window.OSI_SUPABASE_KEY = "\(.*\)";$/\1/p' assets/js/01-public-config.js)"
+          api="https://${EXPECTED_PROJECT_REF}.supabase.co"
+          headers=(-H "apikey: ${key}" -H "Authorization: Bearer ${key}" -H 'Content-Type: application/json')
+          payment="${api}/functions/v1/osi-v2-payment"
+          capability="$(curl -sS --fail --max-time 30 -X POST "$payment" "${headers[@]}" \
+            -d '{"op":"capabilities","wallet":"11111111111111111111111111111112"}')"
+          grep -q '"payment_writes_enabled":true' <<<"$capability"
+          code="$(curl -sS --max-time 30 -o /tmp/payment-negative.json -w '%{http_code}' \
+            -X POST "$payment" "${headers[@]}" \
+            -d '{"op":"recover_payment","wallet":"11111111111111111111111111111112","nonce":"bad","tx_sig":"bad"}')"
+          [ "$code" = "400" ] || [ "$code" = "409" ]
+
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -f - > /tmp/rows-after-enable.txt <<'SQL'
+          begin read only;
+          select relation_name || '|' || row_count from (
+            select 'analyst_applications' relation_name,count(*) row_count from public.analyst_applications
+            union all select 'analyst_profiles',count(*) from public.analyst_profiles
+            union all select 'case_report_reviews',count(*) from public.case_report_reviews
+            union all select 'case_reports',count(*) from public.case_reports
+            union all select 'case_resolutions',count(*) from public.case_resolutions
+            union all select 'cases',count(*) from public.cases
+            union all select 'challenges_v2',count(*) from public.challenges_v2
+            union all select 'event_receipts',count(*) from public.event_receipts
+            union all select 'osi_nonces',count(*) from public.osi_nonces
+            union all select 'reward_payments',count(*) from public.reward_payments
+            union all select 'reward_pledges',count(*) from public.reward_pledges
+            union all select 'support_events',count(*) from public.support_events
+            union all select 'wire_report_reviews',count(*) from public.wire_report_reviews
+            union all select 'wire_reports',count(*) from public.wire_reports
+            union all select 'legacy_onchain_events',count(*) from public.onchain_events
+            union all select 'legacy_requests',count(*) from public.requests
+            union all select 'storage_objects',count(*) from storage.objects
+          ) counts order by relation_name;
+          commit;
+          SQL
+          diff -u /tmp/rows-before.txt /tmp/rows-after-enable.txt
+
       - name: Fail payment closed after a rollout or smoke failure
         if: ${{ failure() }}
         run: |
@@ -398,7 +444,7 @@ jobs:
             echo "migration=${NEW_VERSION}"
             echo "migration_was_pending=${MIGRATION_PENDING}"
             echo "edge_function=osi-v2-payment"
-            echo "feature_flags=unchanged"
+            echo "feature_flags=payment_false_to_true_only"
             echo "production_domain_rows=unchanged"
             echo "solana_transactions_created=0"
             echo "vercel_recovery_ui_verified=true"

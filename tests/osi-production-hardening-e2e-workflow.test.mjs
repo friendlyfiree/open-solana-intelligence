@@ -17,9 +17,9 @@ ok("rollout is manual, main-only, project-pinned, and typed-confirmed",
   && workflow.includes("HARDEN-E2E-afibxpniwfnavdobecrn")
   && workflow.includes("EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn")
   && workflow.includes('refs/heads/main'));
-ok("exact additive migration is the 26th pinned version",
-  workflow.includes('NEW_VERSION: "20260728132011"')
-  && workflow.includes("20260727173000 20260728132011")
+ok("exact additive forward fix is the 27th pinned version",
+  workflow.includes('NEW_VERSION: "20260728153100"')
+  && workflow.includes("20260728132011 20260728153100")
   && workflow.includes('supabase db push --linked --dry-run')
   && workflow.includes('if: env.MIGRATION_PENDING == \'true\''));
 ok("clean-room gate runs all Node, Deno, browser, migration, lint, pgTAP, and race tests",
@@ -56,6 +56,14 @@ ok("Vercel proof waits for the exact recovery UI from the dispatched commit",
   workflow.includes("Re-verify existing signature")
   && workflow.includes("osi:v2:payment-recovery:1")
   && workflow.includes("?commit=${GITHUB_SHA}"));
+ok("resumed rollout stays disabled until every pre-enable gate passes",
+  workflow.includes('= "false" ]')
+  && workflow.includes('"payment_writes_enabled":false')
+  && workflow.indexOf("Deploy only the changed payment Edge Function")
+    < workflow.indexOf("Enable only payment and run final negative smoke")
+  && workflow.indexOf("Verify exact Vercel frontend hardening")
+    < workflow.indexOf("Enable only payment and run final negative smoke")
+  && workflow.includes("where key<>'OSI_V2_PAYMENT_WRITES_ENABLED'"));
 ok("failure disables only payment and preserves immutable data",
   workflow.includes("where key='OSI_V2_PAYMENT_WRITES_ENABLED' and value='true'")
   && !/\b(drop\s+table|supabase\s+migration\s+repair)\b/i.test(workflow)
@@ -63,6 +71,6 @@ ok("failure disables only payment and preserves immutable data",
 ok("deployment receipt states zero domain rows and zero Solana transactions",
   workflow.includes("production_domain_rows=unchanged")
   && workflow.includes("solana_transactions_created=0")
-  && workflow.includes("feature_flags=unchanged"));
+  && workflow.includes("feature_flags=payment_false_to_true_only"));
 
 console.log(`OK (${passed} assertions passed)`);
