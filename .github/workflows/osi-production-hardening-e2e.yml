@@ -299,7 +299,7 @@ jobs:
           [ "$code" = "401" ] || [ "$code" = "403" ]
           code="$(curl -sS --max-time 30 -o /tmp/onchain-insert.json -w '%{http_code}' \
             -X POST "${api}/rest/v1/onchain_events" "${headers[@]}" \
-            -d '{"id":9223372036854770003,"event_type":"FAKE","tx_sig":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}')"
+            -d '{"event_type":"FAKE","tx_sig":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}')"
           [ "$code" = "401" ] || [ "$code" = "403" ]
           code="$(curl -sS --max-time 30 -o /tmp/storage-upload.json -w '%{http_code}' \
             -X POST "${api}/storage/v1/object/osi-uploads/negative-smoke.txt" \
@@ -310,7 +310,8 @@ jobs:
             -X POST "${api}/storage/v1/object/list/osi-uploads" \
             -H "apikey: ${key}" -H "Authorization: Bearer ${key}" \
             -H 'Content-Type: application/json' -d '{"prefix":"","limit":1,"offset":0}')"
-          [ "$code" != "200" ]
+          [ "$code" = "200" ]
+          [ "$(tr -d '[:space:]' < /tmp/storage-list.json)" = "[]" ]
           curl -sS --fail --max-time 30 -o /tmp/requests-read.json \
             "${api}/rest/v1/requests?select=id,approved" "${headers[@]}"
           if grep -q '"approved":false' /tmp/requests-read.json; then
