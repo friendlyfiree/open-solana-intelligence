@@ -7,6 +7,14 @@
   var pending=Object.create(null);
   var scanQueued=false;
 
+  function tr(key,variables){
+    var source=String(key||'');
+    if(typeof window.osiT==='function')return window.osiT(source,variables);
+    if(!variables)return source;
+    return source.replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){
+      return Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';
+    });
+  }
   function walletValue(value){
     value=String(value||'').trim();
     return WALLET_RE.test(value)?value:'';
@@ -41,7 +49,7 @@
   }
   function setStatus(node,text,kind){
     if(!node)return;
-    node.textContent=text||'';
+    node.textContent=tr(text||'');
     node.className='osi-form-status mono '+(kind||'');
   }
   function openExplanation(value){
@@ -59,7 +67,7 @@
   }
   function checkedText(result){
     var value=result&&result.checked_at?new Date(result.checked_at):null;
-    return value&&!isNaN(value.getTime())?value.toLocaleString():'time unavailable';
+    return value&&!isNaN(value.getTime())?value.toLocaleString():tr('time unavailable');
   }
   function badgeFor(slot,result,overrideState){
     clearNode(slot);
@@ -71,9 +79,9 @@
       badge=doc.createElement('a');
       badge.className='osi-proof-label';
       badge.href='#sas-verifier';
-      badge.textContent='\u00a0SAS verified \u00b7 '+checkedText(result);
+      badge.textContent='\u00a0'+tr('SAS verified')+' \u00b7 '+checkedText(result);
       badge.setAttribute('data-sas-badge','verified');
-      badge.setAttribute('aria-label','SAS analyst review authority verified. Last checked '+checkedText(result)+'. Read the Solana Attestation Service explanation.');
+      badge.setAttribute('aria-label',tr('SAS analyst review authority verified. Last checked {checked}. Read the Solana Attestation Service explanation.',{checked:checkedText(result)}));
       badge.addEventListener('click',function(event){
         event.preventDefault();
         event.stopPropagation();
@@ -83,11 +91,11 @@
       badge=doc.createElement('span');
       badge.className='osi-chip warning';
       badge.setAttribute('data-sas-badge',state);
-      if(state==='pending_verification')badge.textContent='SAS verification pending';
-      else if(state==='expired')badge.textContent='SAS expired \u00b7 '+checkedText(result);
-      else if(state==='revoked')badge.textContent='SAS revoked \u00b7 '+checkedText(result);
-      else if(state==='invalid')badge.textContent='SAS invalid / not verified \u00b7 '+checkedText(result);
-      else badge.textContent='SAS unavailable \u00b7 no authority counted';
+      if(state==='pending_verification')badge.textContent=tr('SAS verification pending');
+      else if(state==='expired')badge.textContent=tr('SAS expired')+' \u00b7 '+checkedText(result);
+      else if(state==='revoked')badge.textContent=tr('SAS revoked')+' \u00b7 '+checkedText(result);
+      else if(state==='invalid')badge.textContent=tr('SAS invalid / not verified')+' \u00b7 '+checkedText(result);
+      else badge.textContent=tr('SAS unavailable \u00b7 no authority counted');
       badge.setAttribute('aria-label',badge.textContent);
     }
     slot.appendChild(badge);
@@ -119,12 +127,12 @@
     link.href='https://explorer.solana.com/address/'+encodeURIComponent(address);
     link.target='_blank';
     link.rel='noopener noreferrer';
-    link.textContent=label;
+    link.textContent=tr(label);
     return link;
   }
-  function paragraph(doc,text){
+  function paragraph(doc,text,variables){
     var node=doc.createElement('p');
-    node.textContent=text;
+    node.textContent=tr(text,variables);
     return node;
   }
   function presentResult(result,nodes){
@@ -137,7 +145,10 @@
       resultHost.appendChild(paragraph(doc,'This wallet has current OSI review authority under the configured SAS credential, schema, and issuer. This does not prove identity, endorsement, truth, or review correctness.'));
     }else{
       setStatus(status,'Not verified. No current OSI_VERIFIED_ANALYST credential was returned for this wallet.','');
-      resultHost.appendChild(paragraph(doc,'No badge is shown. State: '+String(result&&result.state||'unavailable')+'. Reason: '+String(result&&result.reason||'not returned')+'.'));
+      resultHost.appendChild(paragraph(doc,'No badge is shown. State: {state}. Reason: {reason}.',{
+        state:String(result&&result.state||'unavailable'),
+        reason:String(result&&result.reason||'not returned')
+      }));
     }
     var links=doc.createElement('div');
     links.className='osi-about-actions';
@@ -147,7 +158,10 @@
     if(schema)links.appendChild(schema);
     if(links.children&&links.children.length)resultHost.appendChild(links);
     var checked=result&&result.checked_at?String(result.checked_at):'not supplied';
-    resultHost.appendChild(paragraph(doc,'Verifier source: '+String(result&&result.source||'unavailable')+'. Checked: '+checked+'.'));
+    resultHost.appendChild(paragraph(doc,'Verifier source: {source}. Checked: {checked}.',{
+      source:String(result&&result.source||'unavailable'),
+      checked:checked
+    }));
     return isPositive(result);
   }
   function verifierNodes(nodes){
@@ -189,6 +203,10 @@
     var form=document.getElementById('sas-verifier-form');
     if(form)form.addEventListener('submit',function(event){event.preventDefault();verifyPublicWallet();});
     decorateAll(document);
+    if(typeof window.addEventListener==='function')window.addEventListener('osi:localechange',function(){
+      var slots=document.querySelectorAll?document.querySelectorAll('[data-sas-wallet]'):[];
+      Array.prototype.forEach.call(slots,function(slot){decorateSlot(slot);});
+    });
     if(typeof MutationObserver==='function')new MutationObserver(scheduleScan).observe(document.body,{childList:true,subtree:true});
   }
 

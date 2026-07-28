@@ -67,5 +67,11 @@ ok('Turkish covers the new payment, SAS and private AI operations controls',
     && i18n.includes("'Pay with Solana Pay': 'Solana Pay ile öde'")
     && i18n.includes("'SAS Authority': 'SAS Yetkisi'")
     && i18n.includes("'Maintainer-only AI Pack': 'Yalnızca sürdürücüye açık AI Pack'"));
+ok('Turkish covers dynamic Analyst profile and timestamped SAS authority copy',
+  i18n.includes("'Server-derived weight': 'Sunucunun belirlediği ağırlık'")
+    && i18n.includes("'Support analyst with SOL': 'Analisti SOL ile destekle'")
+    && i18n.includes("'No public contributions recorded': 'Kaydedilmiş kamusal katkı yok'")
+    && i18n.includes("'SAS verified': 'SAS doğrulandı'")
+    && i18n.includes("'SAS analyst review authority verified. Last checked {checked}. Read the Solana Attestation Service explanation.'"));
 
 console.log(`\n${passed} localization checks passed.`);
