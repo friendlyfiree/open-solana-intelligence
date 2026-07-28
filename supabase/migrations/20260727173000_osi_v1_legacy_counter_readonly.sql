@@ -22,20 +22,38 @@
 --
 -- Read access is deliberately kept, so anything that lists these tables keeps
 -- working and simply shows a count nobody can move.
+--
+-- Guarded on the relation existing, for the same reason as 20260727170000:
+-- these V1 tables live only in production and a database built from migrations
+-- alone does not have them.
 
 begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '120s';
 
--- Anonymous vote stuffing and anonymous vote deletion.
-drop policy if exists "add votes" on public.request_votes;
-drop policy if exists "remove votes" on public.request_votes;
-drop policy if exists votes_insert on public.request_votes;
-drop policy if exists votes_delete on public.request_votes;
-
--- Anonymous boost stuffing. The delete policy was already removed in
--- 20260727170000 because it had no writer at all.
-drop policy if exists "anon add boost" on public.bounty_boosts;
-drop policy if exists boosts_insert on public.bounty_boosts;
+do $$
+declare
+  target text[];
+  targets text[][] := array[
+    -- Anonymous vote stuffing and anonymous vote deletion.
+    array['request_votes', 'add votes'],
+    array['request_votes', 'remove votes'],
+    array['request_votes', 'votes_insert'],
+    array['request_votes', 'votes_delete'],
+    -- Anonymous boost stuffing. The delete policy was already removed in
+    -- 20260727170000 because it had no writer at all.
+    array['bounty_boosts', 'anon add boost'],
+    array['bounty_boosts', 'boosts_insert']
+  ];
+begin
+  foreach target slice 1 in array targets loop
+    if to_regclass('public.' || quote_ident(target[1])) is not null then
+      execute format(
+        'drop policy if exists %I on public.%I', target[2], target[1]
+      );
+    end if;
+  end loop;
+end;
+$$;
 
 commit;

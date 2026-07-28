@@ -1,12 +1,12 @@
 -- V1 legacy write-policy hardening.
 --
 -- The V1 surface left behind a set of row level security policies that grant
--- unrestricted writes to anon or to any signed-in user: USING (true) or
--- WITH CHECK (true) on INSERT, UPDATE, DELETE or ALL. On a platform whose
--- product is verifiable public record, an outsider able to insert rows that
--- later render in the Proof Log or the community surfaces is not a cosmetic
--- issue. The tables are empty today, which is exactly why this is cheap to
--- close now rather than after they carry data.
+-- unrestricted writes: USING (true) or WITH CHECK (true) on INSERT, UPDATE,
+-- DELETE or ALL. On a platform whose product is verifiable public record, an
+-- outsider able to insert rows that later render in the Proof Log or the
+-- community surfaces is not a cosmetic issue. The tables are empty today,
+-- which is exactly why this is cheap to close now rather than after they
+-- carry data.
 --
 -- Only policies with no writer anywhere in the shipped client are dropped.
 -- Each one below was checked against assets/js before removal:
@@ -15,51 +15,75 @@
 --   public.profiles          0 writers, 1 reader   (read policy kept)
 --   public.vouches           0 writers, 1 reader   (read policy kept)
 --   public.requests          0 writers, 2 readers  (read + guarded insert kept)
---   public.bounty_boosts     insert has 2 writers and is kept; delete has none
+--   public.bounty_boosts     insert has writers and is handled separately in
+--                            20260727173000; delete has none and goes here
 --   public.osi_consensus()   0 callers in the client and in the Edge functions
 --
--- Deliberately left alone, because they carry live writers and removing them
--- would break a working path rather than close a hole:
---   request_votes insert/delete, bounty_boosts insert, onchain_events insert,
---   challenges insert, and the guarded application-style inserts on
---   analysts, bounties and reports, which intentionally allow an unapproved
---   row and constrain it with a WITH CHECK predicate.
+-- Every statement is guarded on the object existing. These V1 tables were
+-- created outside the migration history and live only in production, so a
+-- database built from migrations alone does not have them. DROP POLICY IF
+-- EXISTS guards the policy, not the table, and still raises 42P01 on a missing
+-- relation, which would make this migration unreplayable on a clean database.
 --
 -- No V2 table, function, receipt, migration record or bootstrap state is
--- touched. Every statement is idempotent.
+-- touched.
 
 begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '120s';
 
--- Any signed-in user could rewrite the entire legacy config table. V2 reads
--- its configuration from public.osi_config, so this grant protects nothing
--- and hands over a table that is still publicly readable.
-drop policy if exists config_write on public.config;
-
--- profiles accepted an insert or an update from anonymous callers against any
--- row, with no ownership predicate at all.
-drop policy if exists profiles_insert on public.profiles;
-drop policy if exists profiles_update on public.profiles;
-
--- An unrestricted delete for every signed-in user, with nothing in the client
--- that deletes a vouch.
-drop policy if exists vouches_delete on public.vouches;
-
--- "add requests" allowed an unconstrained public insert. The guarded
--- requests_insert policy, which forces approved = false, stays in place and
--- remains the only insert route.
-drop policy if exists "add requests" on public.requests;
-
--- Boost inserts stay; the unrestricted delete has no writer.
-drop policy if exists boosts_delete on public.bounty_boosts;
+do $$
+declare
+  -- table name, policy name
+  target text[];
+  targets text[][] := array[
+    -- Any signed-in user could rewrite the entire legacy config table. V2 reads
+    -- its configuration from public.osi_config, so this grant protected nothing
+    -- while handing over a table that is still publicly readable.
+    array['config', 'config_write'],
+    -- profiles accepted an insert or an update from anonymous callers against
+    -- any row, with no ownership predicate at all.
+    array['profiles', 'profiles_insert'],
+    array['profiles', 'profiles_update'],
+    -- An unrestricted delete for every signed-in user, with nothing in the
+    -- client that deletes a vouch.
+    array['vouches', 'vouches_delete'],
+    -- "add requests" allowed an unconstrained public insert. The guarded
+    -- requests_insert policy, which forces approved = false, stays in place and
+    -- remains the only insert route.
+    array['requests', 'add requests'],
+    -- Boost inserts are handled in the follow-up migration; this delete has no
+    -- writer at all.
+    array['bounty_boosts', 'boosts_delete']
+  ];
+begin
+  foreach target slice 1 in array targets loop
+    if to_regclass('public.' || quote_ident(target[1])) is not null then
+      execute format(
+        'drop policy if exists %I on public.%I', target[2], target[1]
+      );
+    end if;
+  end loop;
+end;
+$$;
 
 -- A SECURITY DEFINER function reachable by anonymous callers over
 -- /rest/v1/rpc/osi_consensus, with no caller in the client or the Edge
 -- functions. Revoking execute leaves the function defined and callable by the
 -- service role, so nothing that does use it later has to be rewritten.
-revoke execute on function public.osi_consensus() from anon;
-revoke execute on function public.osi_consensus() from authenticated;
-revoke execute on function public.osi_consensus() from public;
+do $$
+begin
+  if exists (
+    select 1 from pg_proc as proc
+      join pg_namespace as ns on ns.oid = proc.pronamespace
+     where ns.nspname = 'public' and proc.proname = 'osi_consensus'
+       and proc.pronargs = 0
+  ) then
+    execute 'revoke execute on function public.osi_consensus() from anon';
+    execute 'revoke execute on function public.osi_consensus() from authenticated';
+    execute 'revoke execute on function public.osi_consensus() from public';
+  end if;
+end;
+$$;
 
 commit;
