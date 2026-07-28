@@ -1064,6 +1064,14 @@ select ok(
 -- Counted analyst review, append-only history, advisory owner feedback.
 -- ---------------------------------------------------------------------------
 
+-- The production launch uses maintainer_only for private generation, where all
+-- review/publication writes must stay closed. This disposable governance test
+-- intentionally enters the separately gated future governed mode only after
+-- all generation, quota, cooldown, and concurrency assertions have completed.
+update public.osi_config
+   set value = 'governed'
+ where key = 'OSI_V2_AI_PACK_ACCESS_MODE';
+
 select is(
   (select count(*)::integer from public.osi_v2_list_public_ai_packs()),
   0,
