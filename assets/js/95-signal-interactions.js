@@ -121,6 +121,8 @@
   watchPreference(reduceMotion, function () { resetPointer(); syncSignalSequence(); });
   watchPreference(finePointer, resetPointer);
   document.addEventListener('visibilitychange', syncSignalSequence);
+  window.addEventListener('pageshow', syncSignalSequence);
+  window.addEventListener('focus', syncSignalSequence);
   revealSections();
   syncSignalSequence();
 })();

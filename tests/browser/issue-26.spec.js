@@ -388,7 +388,7 @@ async function installFixtureNetwork(page, options = {}) {
   const wallet = ROLE_WALLETS[role] || WALLET;
   page.__fixtureRole = role;
   page.__fixtureOps = [];
-  await page.addInitScript(({ wallet: fixtureWallet, connected: initiallyConnected, maintainer }) => {
+  await page.addInitScript(({ wallet: fixtureWallet, connected: initiallyConnected, remembered, maintainer }) => {
     const count = (name) => Number(sessionStorage.getItem(`fixture_provider_${name}`) || 0);
     const bump = (name) => sessionStorage.setItem(`fixture_provider_${name}`, String(count(name) + 1));
     const listeners = {};
@@ -417,6 +417,7 @@ async function installFixtureNetwork(page, options = {}) {
     window.phantom = { solana: provider };
     window.solana = provider;
     window.__fixtureProvider = provider;
+    if (remembered) localStorage.setItem('osi_phantom_restore', '1');
     window.__fixtureProviderCounts = () => ({
       connect: count('connect'), trustedConnect: count('trustedConnect'),
       signMessage: count('signMessage'), transaction: count('transaction'),
@@ -437,7 +438,7 @@ async function installFixtureNetwork(page, options = {}) {
         }),
       };
     }
-  }, { wallet, connected, maintainer: role === 'maintainer' });
+  }, { wallet, connected, remembered: connected && options.remembered !== false, maintainer: role === 'maintainer' });
 
   const roleAudit = role !== 'legacy';
   const lifecycle = options.lifecycle === true;
@@ -820,6 +821,7 @@ async function ready(page, options = {}) {
   else await expect(page.locator('#osi-home-live-state')).toContainText('Reviewed transfer-path investigation');
   const role = options.role || 'legacy';
   const wallet = ROLE_WALLETS[role] || WALLET;
+  if (role !== 'anonymous' && options.remembered !== false) await expect(page.locator('#walletBtn')).toHaveClass(/\bconnected\b/);
   if (role === 'verified_analyst') {
     await page.evaluate(({ actor }) => {
       window.VERIFIED_ANALYSTS = window.VERIFIED_ANALYSTS || {};
@@ -881,6 +883,23 @@ const readinessRoles = [
   ['verified_analyst', 'Analyst Desk', true, false],
   ['maintainer', 'Maintainer Console', false, true],
 ];
+
+test('first visit connects explicitly and later reload restores without a prompt', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet', remembered: false });
+  await expect(page.locator('#walletBtn')).not.toHaveClass(/\bconnected\b/);
+  await expect(page.locator('#wbText')).toHaveText('Connect Wallet');
+  expect(await page.evaluate(() => window.__fixtureProviderCounts())).toMatchObject({ connect: 0, trustedConnect: 0, signMessage: 0 });
+
+  await page.locator('#walletBtn').click();
+  await expect(page.locator('#walletBtn')).toHaveClass(/\bconnected\b/);
+  expect(await page.evaluate(() => window.__fixtureProviderCounts())).toMatchObject({ connect: 1, trustedConnect: 0, signMessage: 0 });
+
+  await page.reload();
+  await page.waitForFunction(() => typeof window.osiNavigate === 'function');
+  await expect(page.locator('#walletBtn')).toHaveClass(/\bconnected\b/);
+  expect(await page.evaluate(() => window.__fixtureProviderCounts())).toMatchObject({ connect: 1, trustedConnect: 1, signMessage: 0 });
+  expectCleanRuntime(page);
+});
 
 for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
   test(`launch readiness: ${role} reaches every authorized top-level and role workspace surface`, async ({ page }) => {
