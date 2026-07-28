@@ -39,6 +39,10 @@
 .osi-report-evidence-item{display:grid;grid-template-columns:28px 90px minmax(0,1fr);gap:8px;color:var(--muted);font:500 12px/1.5 var(--mono)}
 .osi-report-evidence-item span:last-child{overflow-wrap:anywhere;color:var(--text)}
 .osi-report-empty{padding:32px 18px;text-align:center;color:var(--muted)}
+/* An empty queue often needs a reason, not just a count. Give the explanation
+   room to read as prose rather than running into the heading. */
+.osi-report-empty b{display:block}
+.osi-report-empty span{display:block;max-width:62ch;margin:8px auto 0;font-size:12.5px;line-height:1.6}
 .osi-report-public-list{display:grid;gap:12px}
 .osi-report-public-card{padding:18px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 .osi-report-public-card .osi-list-item-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
