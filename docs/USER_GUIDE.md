@@ -135,7 +135,7 @@ Every counted review is wallet-signed and server-verified, targets one exact imm
 
 **Becoming an analyst has two doors:**
 
-**Path A, application.** Submit a wallet-signed application with your handle, expertise, and optional restricted detail. Applications are immutable and versioned like everything else. Review happens in process; the applicant can never approve or activate themselves. Approval never grants a chosen tier: activation is anchored by an ANALYST_PROBATION Memo and always starts at probationary tier with weight exactly 0.50.
+**Path A, application.** Submit a wallet-signed application with a unique X-linked handle, a short public bio, and the signed safety declaration. Display name, avatar, expertise, public links, motivation, detailed experience, and proof-of-work URLs are optional; a reviewer can request a later immutable revision when more detail is needed. Applications are immutable and versioned like everything else. Review happens in process; the applicant can never approve or activate themselves. Approval never grants a chosen tier: activation is anchored by an ANALYST_PROBATION Memo and always starts at probationary tier with weight exactly 0.50.
 
 **Path B, contribution.** When your Report version is selected as a Case's winner through real quorum, your wallet is automatically promoted from contributor to analyst candidate. Candidacy is a door, not a badge: full activation still goes through the same reviewed application gate as Path A.
 

@@ -2,6 +2,8 @@
 // The database creates the canonical proof text; this module validates that
 // exact binding before the Edge gateway verifies Ed25519 or a mainnet Memo.
 
+import { parseHistoricalGovernanceV0 } from "./osi-v2-event-registry.mjs";
+
 const WALLET = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const NONCE = /^[A-Za-z0-9_-]{32,128}$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -134,15 +136,8 @@ export function normalizeGovernancePayload(action, input) {
 
 export function parseGovernanceProofText(value) {
   if (typeof value !== "string" || value.length < 150 || value.length > 512) return null;
-  const parts = value.split("|");
-  if (parts.length !== 10 || parts[0] !== "OSI2") return null;
-  const take = (part, prefix) => part.startsWith(prefix + "=") ? part.slice(prefix.length + 1) : null;
-  const parsed = {
-    purpose: parts[1], target_type: take(parts[2], "t"), target_id: take(parts[3], "id"),
-    target_public_ref: take(parts[4], "ref"), actor_wallet: take(parts[5], "a"),
-    payload_hash: take(parts[6], "h"), nonce: take(parts[7], "n"),
-    issued_at_ms: Number(take(parts[8], "ts")), expires_at_ms: Number(take(parts[9], "exp")),
-  };
+  const parsed = parseHistoricalGovernanceV0(value);
+  if (!parsed) return null;
   if (!new Set(["resolution", "challenge", "wire_version"]).has(parsed.target_type)
       || !TARGET_ID.test(parsed.target_id ?? "")
       || !(RESOLUTION_REF.test(parsed.target_public_ref ?? "")

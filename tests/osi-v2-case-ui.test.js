@@ -112,7 +112,7 @@ ok('closing or invalidating a Case wipes AI Pack state and rendered drawer conte
     && aiPackIntegration.includes('root.replaceChildren()'));
 ok('browser calls the dedicated server-only native SOL gateway',
   app.includes('/functions/v1/osi-v2-payment') && app.includes("op:'prepare_payment'")
-    && app.includes("op:'commit_payment'"));
+    && app.includes("op:recovery?'recover_payment':'commit_payment'"));
 ok('reward UI requires the server-derived sealed payment-ready state',
   app.includes('Pay sealed winner') && app.includes("'payment_ready','partially_fulfilled'")
     && app.includes('winning_report_author_wallet') && app.includes('Pledged, not escrowed'));
@@ -128,6 +128,12 @@ ok('Phantom pre-sign review states mainnet, exact recipients, irreversibility an
 ok('pending payment remains awaiting finality with exact retry',
   app.includes("result.state==='awaiting_finality'") && app.includes('not marked paid')
     && app.includes('osiV2RetryPayment'));
+ok('submitted signature survives reload and blocks an accidental second payment',
+  app.includes("PAYMENT_RECOVERY_KEY = 'osi:v2:payment-recovery:1'")
+    && app.includes('localStorage.setItem(PAYMENT_RECOVERY_KEY')
+    && app.includes('<b>Do not pay again</b>')
+    && app.includes('Re-verify existing signature')
+    && app.includes('!pendingRecovery&&Object.keys(supportGroups)'));
 ok('wallet account or disconnect clears the pending payment intent',
   app.includes("provider.on('disconnect',clearPaymentState)")
     && app.includes("provider.on('accountChanged'"));

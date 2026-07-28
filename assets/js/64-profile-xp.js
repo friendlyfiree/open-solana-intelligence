@@ -162,7 +162,11 @@ function pfShell(addr, name, email, joined, reports, bounties, boosted, pubIds){
   +'</div>';
 }
 function pfLiveName(v){ const el=document.querySelector('.pf-name'); if(el && el.firstChild){ el.firstChild.textContent=(v || (walletPubkey?short(walletPubkey):'')) + ' '; } }
-function pfCopy(a){ try{ navigator.clipboard.writeText(a); showToast('Address copied.'); }catch(e){} }
+function pfCopy(a){
+  osiCopyText(a).then(function(copied){
+    showToast(copied ? 'Address copied.' : 'Copy failed. Select the address and copy it manually.');
+  });
+}
 
 async function renderProfile(){
   const host=document.getElementById('profile-body'); if(!host) return;

@@ -3,6 +3,7 @@
 // Function. These pure helpers are shared with Node regression tests.
 
 import { base58Decode, validateWallet } from "./osi-v2-proof-core.mjs";
+import { canonicalOsi2Envelope } from "./osi-v2-event-registry.mjs";
 
 export const CASE_CATEGORIES = new Set([
   "wallet_drain",
@@ -162,11 +163,11 @@ export function canonicalCaseEventMessage(binding) {
       || expiresAt <= issuedAt || expiresAt - issuedAt > 300) {
     throw new TypeError("event timestamps are invalid");
   }
-  return [
-    "OSI2", "1", purpose, "t=case", "id=" + publicRef,
-    "a=" + binding.actor_wallet, "r=" + role, "d=" + decision,
-    "n=" + nonce, "h=" + hash, "ts=" + issuedAt, "exp=" + expiresAt,
-  ].join("|");
+  return canonicalOsi2Envelope({
+    purpose, target_type: "case", target_ref: publicRef,
+    actor_wallet: binding.actor_wallet, actor_role: role, decision,
+    nonce, payload_hash: hash, issued_at: issuedAt, expires_at: expiresAt,
+  });
 }
 
 export function parseCaseEventMessage(message) {

@@ -257,8 +257,11 @@ async function submitAnalystApplication(){
 // Copy the contact email to the clipboard (used by the Feedback links).
 function copyContact(e){
   if(e && e.preventDefault) e.preventDefault();
-  try{ navigator.clipboard.writeText(CONTACT_EMAIL); }catch(_){}
-  showToast("Contact email copied: " + CONTACT_EMAIL);
+  osiCopyText(CONTACT_EMAIL).then(function(copied){
+    showToast(copied
+      ? "Contact email copied: " + CONTACT_EMAIL
+      : "Copy failed. Contact email: " + CONTACT_EMAIL);
+  });
 }
 
 // Small transient toast notification.
@@ -267,6 +270,9 @@ function showToast(msg){
   if(!t){
     t = document.createElement('div');
     t.id = 'stw-toast';
+    t.setAttribute('role','status');
+    t.setAttribute('aria-live','polite');
+    t.setAttribute('aria-atomic','true');
     t.style.cssText = "position:fixed;left:50%;bottom:74px;transform:translateX(-50%);z-index:80;background:var(--bg-raised);border:1px solid var(--sol);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 16px;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center";
     document.body.appendChild(t);
   }

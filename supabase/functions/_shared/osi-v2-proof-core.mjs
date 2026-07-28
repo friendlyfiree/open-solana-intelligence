@@ -1,3 +1,8 @@
+import {
+  canonicalOsi2Envelope,
+  OSI2_EVENT_CLASSES,
+} from "./osi-v2-event-registry.mjs";
+
 const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const TARGET_TYPES = new Set([
   "case",
@@ -14,36 +19,9 @@ const TARGET_TYPES = new Set([
   "config",
 ]);
 
-export const CLASS_B_PURPOSES = new Set([
-  "CASE_INITIAL_REVIEW_CAST",
-  "CASE_INITIAL_REVIEW_REVISED",
-  "CASE_WITHDRAWN",
-  "CASE_APPEAL_SUBMITTED",
-  "CASE_REPORT_REVIEW_CAST",
-  "CASE_REPORT_REVIEW_REVISED",
-  "WIRE_REPORT_REVIEW_CAST",
-  "WIRE_REPORT_REVIEW_REVISED",
-  "RESOLUTION_REVIEW_CAST",
-  "RESOLUTION_REVIEW_REVISED",
-  "CHALLENGE_SUBMITTED",
-  "CHALLENGE_ADMISSIBILITY_ACCEPTED",
-  "CHALLENGE_ADMISSIBILITY_REJECTED",
-  "CHALLENGE_REVIEW_CAST",
-  "CHALLENGE_REVIEW_REVISED",
-  "CHALLENGE_WITHDRAWN",
-  "CHALLENGE_BAD_FAITH_REVIEW_CAST",
-  "CHALLENGE_BAD_FAITH_REVIEW_REVISED",
-  "AI_PACK_REVIEW_CAST",
-  "AI_PACK_REVIEW_REVISED",
-  "AI_PACK_OWNER_FEEDBACK_SUBMITTED",
-  "ANALYST_APPLICATION_VERSION_SUBMITTED",
-  "ANALYST_APPLICATION_REVIEW_CAST",
-  "ANALYST_APPLICATION_REVIEW_REVISED",
-  "OWNER_STATUS_PROOF",
-  "REWARD_PLEDGE_CREATED",
-  "REWARD_PLEDGE_REVISED",
-  "REWARD_PLEDGE_WITHDRAWN",
-]);
+export const CLASS_B_PURPOSES = new Set(
+  OSI2_EVENT_CLASSES.wallet_signed_server_verified,
+);
 
 function requireText(value, name, pattern, maxLength) {
   if (typeof value !== "string" || value.length < 1 || value.length > maxLength) {
@@ -118,18 +96,16 @@ export function validateProofBinding(binding) {
 
 export function canonicalProofMessage(binding) {
   const value = validateProofBinding(binding);
-  return [
-    "OSI2",
-    "2",
-    value.purpose,
-    "t=" + value.target_type,
-    "id=" + value.target_id,
-    "a=" + value.actor_wallet,
-    "n=" + value.nonce,
-    "h=" + value.payload_hash,
-    "ts=" + String(value.issued_at),
-    "exp=" + String(value.expires_at),
-  ].join("|");
+  return canonicalOsi2Envelope({
+    purpose: value.purpose,
+    target_type: value.target_type,
+    target_ref: value.target_id,
+    actor_wallet: value.actor_wallet,
+    nonce: value.nonce,
+    payload_hash: value.payload_hash,
+    issued_at: value.issued_at,
+    expires_at: value.expires_at,
+  }, "v2_expiring_minimal");
 }
 
 export function canonicalJson(value) {

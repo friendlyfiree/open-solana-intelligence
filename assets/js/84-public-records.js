@@ -519,7 +519,9 @@ function crDrawerHtml(r, packs){
 }
 function crCopySummary(id){
   var r = (window.__crRecords||{})[id]; if(!r) return; var t = r.summary || '';
-  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ if(typeof showToast==='function') showToast('Summary copied.'); }); }
+  osiCopyText(t).then(function(copied){
+    if(typeof showToast==='function') showToast(copied ? 'Summary copied.' : 'Copy failed. Select the summary and copy it manually.');
+  });
 }
 function crDownloadPack(caseRef, idx){
   var packs = (window.__crPacks||{})[caseRef] || []; var p = packs[idx]; if(!p) return;

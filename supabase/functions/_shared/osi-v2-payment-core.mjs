@@ -2,6 +2,8 @@
 // and Node regression tests. Amounts cross every trust boundary as decimal
 // strings and are converted to BigInt only after strict validation.
 
+import { canonicalOsi2Envelope } from "./osi-v2-event-registry.mjs";
+
 const WALLET = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const SIGNATURE = /^[1-9A-HJ-NP-Za-km-z]{64,96}$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -9,6 +11,10 @@ const NONCE = /^[A-Za-z0-9_-]{32,128}$/;
 const PUBLIC_REF = /^OSI-[A-Z0-9-]{6,56}$/;
 const SYSTEM_PROGRAM = "11111111111111111111111111111111";
 const MEMO_PROGRAM = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
+const COMPUTE_BUDGET_PROGRAM = "ComputeBudget111111111111111111111111111111";
+const LIGHTHOUSE_PROGRAM = "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95";
+const LIGHTHOUSE_SAFE_ACCOUNT_ASSERTIONS = "k5umSU2R1ddQfQujicJX9";
+const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 export const PAYMENT_KIND = Object.freeze({
   REWARD: "reward", SUPPORT: "support", WIRE_SUPPORT: "wire_support",
@@ -20,6 +26,7 @@ export const PAYMENT_EVENT = Object.freeze({
 });
 export const PAYMENT_MAX_RECIPIENTS = 4;
 export const PAYMENT_MAX_LAMPORTS = 100_000_000_000n; // 100 SOL per intent.
+export const PAYMENT_MAX_NETWORK_FEE_LAMPORTS = 10_000_000n; // 0.01 SOL.
 export const SOLANA_TRANSACTION_MAX_BYTES = 1232;
 export const SOLANA_MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
@@ -144,11 +151,11 @@ export function canonicalPaymentMemo(intent) {
   const hash = requireText(intent.payload_hash, "payload_hash", HASH, 64);
   const issuedAt = Number(intent.issued_at);
   if (!Number.isSafeInteger(issuedAt) || issuedAt <= 0) throw new TypeError("issued_at is invalid");
-  return [
-    "OSI2", "1", event, `t=${targetType}`, `id=${targetRef}`,
-    `a=${payer}`, `r=${role}`, `d=${decision}`, `n=${nonce}`,
-    `h=${hash}`, `ts=${issuedAt}`,
-  ].join("|");
+  return canonicalOsi2Envelope({
+    purpose: event, target_type: targetType, target_ref: targetRef,
+    actor_wallet: payer, actor_role: role, decision, nonce,
+    payload_hash: hash, issued_at: issuedAt,
+  }, "v1_issued");
 }
 
 // Exact byte count for the restricted legacy transaction shape used here:
@@ -180,6 +187,94 @@ function accountKeyValue(entry) {
   return String(entry?.pubkey ?? "");
 }
 
+function decodeBase58(value) {
+  if (typeof value !== "string" || value.length < 1 || value.length > 128) {
+    throw new TypeError("base58 value is invalid");
+  }
+  const bytes = [0];
+  for (const character of value) {
+    const digit = BASE58_ALPHABET.indexOf(character);
+    if (digit < 0) throw new TypeError("base58 value is invalid");
+    let carry = digit;
+    for (let index = 0; index < bytes.length; index++) {
+      carry += bytes[index] * 58;
+      bytes[index] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+  for (let index = 0; index < value.length - 1 && value[index] === "1"; index++) {
+    bytes.push(0);
+  }
+  return Uint8Array.from(bytes.reverse());
+}
+
+function readUnsignedLe(bytes, offset, length) {
+  if (offset < 0 || length < 1 || offset + length > bytes.length) {
+    throw new TypeError("instruction data is truncated");
+  }
+  let value = 0n;
+  for (let index = length - 1; index >= 0; index--) {
+    value = (value << 8n) | BigInt(bytes[offset + index]);
+  }
+  return value;
+}
+
+function topLevelInstruction(instruction) {
+  return instruction?.stackHeight == null || instruction.stackHeight === 1;
+}
+
+function validateComputeBudgetInstruction(instruction, seenDiscriminators) {
+  if (!topLevelInstruction(instruction)
+      || !Array.isArray(instruction?.accounts)
+      || instruction.accounts.length !== 0
+      || typeof instruction?.parsed !== "undefined") {
+    return false;
+  }
+  let bytes;
+  try {
+    bytes = decodeBase58(instruction.data);
+  } catch {
+    return false;
+  }
+  const discriminator = bytes[0];
+  if (seenDiscriminators.has(discriminator)) return false;
+  seenDiscriminators.add(discriminator);
+  if (discriminator === 1 && bytes.length === 5) {
+    const heapBytes = readUnsignedLe(bytes, 1, 4);
+    return heapBytes >= 32_768n && heapBytes <= 262_144n && heapBytes % 1_024n === 0n;
+  }
+  if (discriminator === 2 && bytes.length === 5) {
+    const unitLimit = readUnsignedLe(bytes, 1, 4);
+    return unitLimit >= 1n && unitLimit <= 1_400_000n;
+  }
+  if (discriminator === 3 && bytes.length === 9) {
+    readUnsignedLe(bytes, 1, 8);
+    return true;
+  }
+  if (discriminator === 4 && bytes.length === 5) {
+    const loadedDataLimit = readUnsignedLe(bytes, 1, 4);
+    return loadedDataLimit >= 1n && loadedDataLimit <= 67_108_864n;
+  }
+  return false;
+}
+
+// Phantom may append a Lighthouse assertion after the wallet has approved the
+// transaction. OSI accepts only the audited, read-only assertion used by the
+// production fixture: the payer must be a zero-data System-owned account.
+// Every other Lighthouse variant fails closed.
+function validateLighthouseInstruction(instruction, payer) {
+  return topLevelInstruction(instruction)
+    && Array.isArray(instruction?.accounts)
+    && instruction.accounts.length === 1
+    && String(instruction.accounts[0]) === payer
+    && instruction.data === LIGHTHOUSE_SAFE_ACCOUNT_ASSERTIONS
+    && typeof instruction?.parsed === "undefined";
+}
+
 function signerAccountKeys(message) {
   return (message?.accountKeys ?? []).filter((entry) => (
     typeof entry === "object" && entry?.signer === true
@@ -188,7 +283,9 @@ function signerAccountKeys(message) {
 
 function parsedTransfer(instruction) {
   const programId = String(instruction?.programId ?? "");
-  if (programId !== SYSTEM_PROGRAM || instruction?.parsed?.type !== "transfer") return null;
+  if (!topLevelInstruction(instruction)
+      || programId !== SYSTEM_PROGRAM
+      || instruction?.parsed?.type !== "transfer") return null;
   const info = instruction.parsed.info ?? {};
   const lamports = info.lamports ?? info.amount;
   return {
@@ -200,10 +297,9 @@ function parsedTransfer(instruction) {
 
 function parsedMemo(instruction) {
   const programId = String(instruction?.programId ?? "");
-  if (programId !== MEMO_PROGRAM) return null;
+  if (!topLevelInstruction(instruction) || programId !== MEMO_PROGRAM) return null;
   if (typeof instruction.parsed === "string") return instruction.parsed;
   if (typeof instruction.parsed?.info === "string") return instruction.parsed.info;
-  if (typeof instruction.parsed === "string") return instruction.parsed;
   return null;
 }
 
@@ -236,13 +332,49 @@ export function validateFinalizedPaymentTransaction(transaction, signatureStatus
   }
   const expectedMemo = canonicalPaymentMemo(intent);
   const normalized = normalizeRecipientManifest(intent?.recipient_manifest, payer);
+  if (!Array.isArray(keys) || keys.length < 3 || keys.some((entry) => (
+    !entry || typeof entry !== "object" || entry.source !== "transaction"
+    || typeof entry.signer !== "boolean" || typeof entry.writable !== "boolean"
+    || !WALLET.test(accountKeyValue(entry))
+  ))) {
+    return { ok: false, state: "verification_failed", reason: "account_metadata_invalid" };
+  }
+  const keyValues = keys.map(accountKeyValue);
+  if (new Set(keyValues).size !== keyValues.length) {
+    return { ok: false, state: "verification_failed", reason: "duplicate_account_key" };
+  }
+  const expectedWritable = new Set([
+    payer,
+    ...normalized.manifest.map((entry) => entry.wallet),
+  ]);
+  for (const key of keys) {
+    if (key.writable !== expectedWritable.has(accountKeyValue(key))) {
+      return { ok: false, state: "verification_failed", reason: "writable_account_mismatch" };
+    }
+  }
   const transfers = [];
   const memos = [];
+  const computeBudgetDiscriminators = new Set();
+  let lighthouseCount = 0;
   for (const instruction of message?.instructions ?? []) {
     const transfer = parsedTransfer(instruction);
     if (transfer) { transfers.push(transfer); continue; }
     const memo = parsedMemo(instruction);
     if (memo != null) { memos.push(memo); continue; }
+    const programId = String(instruction?.programId ?? "");
+    if (programId === COMPUTE_BUDGET_PROGRAM) {
+      if (!validateComputeBudgetInstruction(instruction, computeBudgetDiscriminators)) {
+        return { ok: false, state: "verification_failed", reason: "invalid_compute_budget_instruction" };
+      }
+      continue;
+    }
+    if (programId === LIGHTHOUSE_PROGRAM) {
+      lighthouseCount++;
+      if (lighthouseCount !== 1 || !validateLighthouseInstruction(instruction, payer)) {
+        return { ok: false, state: "verification_failed", reason: "unsafe_lighthouse_instruction" };
+      }
+      continue;
+    }
     return { ok: false, state: "verification_failed", reason: "unexpected_instruction" };
   }
   if (memos.length !== 1 || memos[0] !== expectedMemo) {
@@ -263,6 +395,55 @@ export function validateFinalizedPaymentTransaction(transaction, signatureStatus
   if (!Number.isSafeInteger(slot) || slot <= 0) {
     return { ok: false, state: "verification_failed", reason: "slot_invalid" };
   }
+  if (!Number.isSafeInteger(Number(signatureStatus?.slot)) || Number(signatureStatus.slot) !== slot) {
+    return { ok: false, state: "verification_failed", reason: "slot_mismatch" };
+  }
+  const meta = transaction?.meta;
+  if (!Array.isArray(meta?.innerInstructions) || meta.innerInstructions.length !== 0) {
+    return { ok: false, state: "verification_failed", reason: "inner_instruction_present" };
+  }
+  if (!Array.isArray(meta?.preTokenBalances) || meta.preTokenBalances.length !== 0
+      || !Array.isArray(meta?.postTokenBalances) || meta.postTokenBalances.length !== 0) {
+    return { ok: false, state: "verification_failed", reason: "token_balance_change" };
+  }
+  if (!Array.isArray(meta?.rewards) || meta.rewards.length !== 0) {
+    return { ok: false, state: "verification_failed", reason: "unexpected_reward_balance_change" };
+  }
+  if (Array.isArray(meta?.loadedAddresses?.writable) && meta.loadedAddresses.writable.length > 0
+      || Array.isArray(meta?.loadedAddresses?.readonly) && meta.loadedAddresses.readonly.length > 0) {
+    return { ok: false, state: "verification_failed", reason: "loaded_address_present" };
+  }
+  const preBalances = meta?.preBalances;
+  const postBalances = meta?.postBalances;
+  if (!Array.isArray(preBalances) || !Array.isArray(postBalances)
+      || preBalances.length !== keys.length || postBalances.length !== keys.length
+      || preBalances.some((value) => !Number.isSafeInteger(value) || value < 0)
+      || postBalances.some((value) => !Number.isSafeInteger(value) || value < 0)) {
+    return { ok: false, state: "verification_failed", reason: "balance_metadata_invalid" };
+  }
+  const fee = Number(meta?.fee);
+  if (!Number.isSafeInteger(fee) || fee < 0 || BigInt(fee) > PAYMENT_MAX_NETWORK_FEE_LAMPORTS) {
+    return { ok: false, state: "verification_failed", reason: "fee_out_of_range" };
+  }
+  const expectedRecipientAmount = new Map(normalized.manifest.map((entry) => (
+    [entry.wallet, BigInt(entry.amount_lamports)]
+  )));
+  for (let index = 0; index < keys.length; index++) {
+    const key = keyValues[index];
+    const before = BigInt(preBalances[index]);
+    const after = BigInt(postBalances[index]);
+    if (key === payer) {
+      if (before - after !== BigInt(normalized.total_lamports) + BigInt(fee)) {
+        return { ok: false, state: "verification_failed", reason: "payer_balance_mismatch" };
+      }
+    } else if (expectedRecipientAmount.has(key)) {
+      if (after - before !== expectedRecipientAmount.get(key)) {
+        return { ok: false, state: "verification_failed", reason: "recipient_balance_mismatch" };
+      }
+    } else if (before !== after) {
+      return { ok: false, state: "verification_failed", reason: "unexpected_balance_change" };
+    }
+  }
   if (signatureStatus.confirmationStatus !== "finalized") {
     return { ok: false, state: "awaiting_finality", reason: "transaction_not_finalized" };
   }
@@ -272,7 +453,7 @@ export function validateFinalizedPaymentTransaction(transaction, signatureStatus
     slot,
     block_time: new Date(blockTime * 1000).toISOString(),
     finality: "finalized",
-    fee_lamports: String(transaction?.meta?.fee ?? "0"),
+    fee_lamports: String(fee),
     memo: expectedMemo,
     recipient_manifest: normalized.manifest,
     total_lamports: normalized.total_lamports,
@@ -280,5 +461,10 @@ export function validateFinalizedPaymentTransaction(transaction, signatureStatus
 }
 
 export function paymentProgramIds() {
-  return { system: SYSTEM_PROGRAM, memo: MEMO_PROGRAM };
+  return {
+    system: SYSTEM_PROGRAM,
+    memo: MEMO_PROGRAM,
+    compute_budget: COMPUTE_BUDGET_PROGRAM,
+    lighthouse: LIGHTHOUSE_PROGRAM,
+  };
 }

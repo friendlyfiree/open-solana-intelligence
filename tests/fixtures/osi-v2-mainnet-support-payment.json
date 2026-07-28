@@ -1,0 +1,157 @@
+{
+  "fixture_version": 1,
+  "network": "solana-mainnet-beta",
+  "genesis_hash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+  "captured_at": "2026-07-28T00:00:00Z",
+  "tx_signature": "3Uo3dFFju5nYmNxvUVNTABqXFbSGgM3S6Bwu2ZbeBwy5T4T8V1nnfC1co1LuUEBwPXycci5FBcNuskWiLPHZCDtK",
+  "intent": {
+    "payment_kind": "support",
+    "target_public_ref": "OSI-AN-6A51BDF0420CE0A3",
+    "payer_wallet": "42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y",
+    "actor_role": "wallet",
+    "nonce": "5cmSYHt0y4jgZpzYkrGaMki4SsGbwNMDWkJRvNxGRtw",
+    "payload_hash": "c950a8976aa2500552ea9417b7b0f1648b1893b053166406c24f5fff2cd5d119",
+    "issued_at": 1784997508,
+    "expires_at": 1784997688,
+    "recipient_manifest": [
+      {
+        "ordinal": 1,
+        "wallet": "2awpjumkqhWywwbmDBixjo7cAnqD5fGfNGNv6MMTc4M7",
+        "amount_lamports": "1000000",
+        "recipient_type": "analyst",
+        "target_ref": "OSI-AN-6A51BDF0420CE0A3"
+      }
+    ]
+  },
+  "signature_status": {
+    "confirmationStatus": "finalized",
+    "confirmations": null,
+    "err": null,
+    "slot": 435162582,
+    "status": {
+      "Ok": null
+    }
+  },
+  "transaction": {
+    "blockTime": 1784997524,
+    "meta": {
+      "computeUnitsConsumed": 107835,
+      "costUnits": 109358,
+      "err": null,
+      "fee": 80000,
+      "innerInstructions": [],
+      "postBalances": [
+        4053390,
+        4000000,
+        1,
+        1,
+        2665446,
+        523015134
+      ],
+      "postTokenBalances": [],
+      "preBalances": [
+        5133390,
+        3000000,
+        1,
+        1,
+        2665446,
+        523015134
+      ],
+      "preTokenBalances": [],
+      "rewards": [],
+      "status": {
+        "Ok": null
+      }
+    },
+    "slot": 435162582,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y",
+            "signer": true,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "2awpjumkqhWywwbmDBixjo7cAnqD5fGfNGNv6MMTc4M7",
+            "signer": false,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "ComputeBudget111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          }
+        ],
+        "instructions": [
+          {
+            "accounts": [],
+            "data": "Fj2Eoy",
+            "programId": "ComputeBudget111111111111111111111111111111",
+            "stackHeight": 1
+          },
+          {
+            "accounts": [],
+            "data": "3qi1MbrtkR83",
+            "programId": "ComputeBudget111111111111111111111111111111",
+            "stackHeight": 1
+          },
+          {
+            "parsed": {
+              "info": {
+                "destination": "2awpjumkqhWywwbmDBixjo7cAnqD5fGfNGNv6MMTc4M7",
+                "lamports": 1000000,
+                "source": "42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y"
+              },
+              "type": "transfer"
+            },
+            "program": "system",
+            "programId": "11111111111111111111111111111111",
+            "stackHeight": 1
+          },
+          {
+            "parsed": "OSI2|1|SUPPORT_PAYMENT_CONFIRMED|t=support|id=OSI-AN-6A51BDF0420CE0A3|a=42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y|r=wallet|d=sent|n=5cmSYHt0y4jgZpzYkrGaMki4SsGbwNMDWkJRvNxGRtw|h=c950a8976aa2500552ea9417b7b0f1648b1893b053166406c24f5fff2cd5d119|ts=1784997508",
+            "program": "spl-memo",
+            "programId": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+            "stackHeight": 1
+          },
+          {
+            "accounts": [
+              "42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y"
+            ],
+            "data": "k5umSU2R1ddQfQujicJX9",
+            "programId": "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",
+            "stackHeight": 1
+          }
+        ],
+        "recentBlockhash": "5t6g2nmMMou1arQkMuHSASJBMn7BLmCn28C8KFQVVVjj"
+      },
+      "signatures": [
+        "3Uo3dFFju5nYmNxvUVNTABqXFbSGgM3S6Bwu2ZbeBwy5T4T8V1nnfC1co1LuUEBwPXycci5FBcNuskWiLPHZCDtK"
+      ]
+    },
+    "transactionIndex": 679,
+    "version": "legacy"
+  }
+}

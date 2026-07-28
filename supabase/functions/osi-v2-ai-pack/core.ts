@@ -9,6 +9,7 @@ import {
   sha256HexUtf8,
   validateWallet,
 } from "../_shared/osi-v2-proof-core.mjs";
+import { canonicalOsi2Envelope } from "../_shared/osi-v2-event-registry.mjs";
 
 export const AI_PACK_GENERATION_EVENT = "PACK_SUBMITTED";
 export const AI_PACK_REVIEW_EVENTS = new Set([
@@ -316,12 +317,12 @@ export function canonicalAiPackProof(binding: AiPackProofBinding): string {
       || input.expires_at <= input.issued_at || input.expires_at - input.issued_at > 300) {
     throw new TypeError("proof_expiry_invalid");
   }
-  return [
-    "OSI2", "1", purpose, "t=pack_version", "id=" + versionRef,
-    "a=" + wallet, "r=" + role, "d=" + decision,
-    "n=" + input.nonce, "h=" + input.payload_hash,
-    "ts=" + input.issued_at, "exp=" + input.expires_at,
-  ].join("|");
+  return canonicalOsi2Envelope({
+    purpose, target_type: "pack_version", target_ref: versionRef,
+    actor_wallet: wallet, actor_role: role, decision,
+    nonce: input.nonce, payload_hash: input.payload_hash,
+    issued_at: input.issued_at, expires_at: input.expires_at,
+  });
 }
 
 export function canonicalAiPackApprovalMemo(binding: AiPackProofBinding): string {

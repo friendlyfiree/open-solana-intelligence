@@ -24,6 +24,10 @@ ok(html.includes('assets/js/v2-analyst-integration.js'), 'mature app loads nativ
 ok(html.includes('assets/css/v2-activation.css'), 'mature app loads shared activation foundation');
 ok(html.includes('My Analyst Profile') && html.includes('Applications'), 'My OSI exposes profile and application workspaces');
 ok(html.includes('onsubmit="osiAnalystSubmit(event)"'), 'application form maps to the native submit operation');
+ok(html.includes('id="an-safety" type="checkbox" required')
+  && html.includes('Describe your work (optional)')
+  && analyst.includes('safety_acknowledged:document.getElementById(\'an-safety\').checked===true'),
+  'application keeps a signed safety acknowledgement while detailed experience is optional');
 ok(html.includes('accept="image/png,image/jpeg"'), 'profile image picker excludes SVG and arbitrary formats');
 ok(!html.includes('Most backed') && !html.includes('data-s="supported"'), 'The Wire has no support-based sort control');
 ok(!wire.includes("wireState.sort==='supported'"), 'The Wire cannot order by support signals');

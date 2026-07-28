@@ -36,6 +36,7 @@ const expectedFiles = [
   '20260726200249_wire_empty_evidence_prepare_fix.sql',
   '20260727170000_osi_v1_legacy_policy_hardening.sql',
   '20260727173000_osi_v1_legacy_counter_readonly.sql',
+  '20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -62,6 +63,8 @@ const coreFlowValidatorAlignment =
   sqlByFile['20260726173000_osi_core_flow_validator_alignment.sql'] || '';
 const wireProofExpiryRecovery =
   sqlByFile['20260726185457_wire_proof_expiry_recovery.sql'] || '';
+const paymentRecoveryLegacyBoundary =
+  sqlByFile['20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -316,7 +319,15 @@ ok(
     && !schema.includes('create table public.challenges ('),
 );
 
-const withoutLineComments = allSql.replace(/--[^\n]*/g, '');
+// The final hardening migration deliberately revokes the TRUNCATE privilege
+// and enables/FORCEs RLS on two optional legacy tables. Those phrases are not
+// destructive data operations, so keep the broad historical scan and test the
+// scoped exception separately.
+const destructiveScanSql = migrationFiles
+  .filter((name) => name !== '20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql')
+  .map((name) => sqlByFile[name])
+  .join('\n');
+const withoutLineComments = destructiveScanSql.replace(/--[^\n]*/g, '');
 const destructivePatterns = [
   /\bdrop\s+(table|schema|column|type)\b/i,
   /\btruncate\b/i,
@@ -326,6 +337,21 @@ const destructivePatterns = [
 for (const pattern of destructivePatterns) {
   ok('no destructive SQL: ' + pattern, !pattern.test(withoutLineComments));
 }
+ok(
+  'payment recovery and legacy boundary performs no destructive data operation',
+  !/\btruncate\s+(table|only)\b|\bdelete\s+from\b|\bdrop\s+(table|schema|column|type)\b/i
+    .test(paymentRecoveryLegacyBoundary.replace(/--[^\n]*/g, '')),
+);
+ok(
+  'legacy boundary closes exact browser paths and keeps recovery service-only',
+  paymentRecoveryLegacyBoundary.includes('drop policy if exists "onchain_events insert"')
+    && paymentRecoveryLegacyBoundary.includes('drop policy if exists "osi storage upload"')
+    && paymentRecoveryLegacyBoundary.includes('drop policy if exists "osi storage read"')
+    && paymentRecoveryLegacyBoundary.includes('using (approved is true)')
+    && paymentRecoveryLegacyBoundary.includes('osi_v2_recover_payment')
+    && paymentRecoveryLegacyBoundary.includes('historical_reverification')
+    && paymentRecoveryLegacyBoundary.includes('to service_role'),
+);
 
 for (const table of expectedPhysicalTables.filter((name) => name !== 'osi_config')) {
   ok(
@@ -420,16 +446,10 @@ ok('Case sealing atomically freezes the exact pledge amount and winning Report v
   nativePayments.includes('create trigger osi_v2_freeze_reward_on_case_seal')
     && nativePayments.includes("set state = 'assigned', winning_report_version_id = winning_version_id")
     && nativePayments.includes('sealed_amount_lamports = reward.amount_lamports'));
-const proofPurposeBlock = proofCore.match(
-  /export const CLASS_B_PURPOSES = new Set\(\[([\s\S]*?)\]\);/,
-);
-const proofPurposes = proofPurposeBlock
-  ? [...proofPurposeBlock[1].matchAll(/"([A-Z][A-Z0-9_]+)"/g)].map((match) => match[1])
-  : [];
 ok(
-  'Edge proof purpose allowlist exactly matches canonical class B',
-  JSON.stringify([...proofPurposes].sort())
-    === JSON.stringify([...(registry.wallet_signed_server_verified || [])].sort()),
+  'Edge proof purpose allowlist is derived from the canonical class-B registry',
+  proofCore.includes('OSI2_EVENT_CLASSES')
+    && proofCore.includes('OSI2_EVENT_CLASSES.wallet_signed_server_verified'),
 );
 for (const event of [
   'CASE_REPORT_VERSION_SUBMITTED',

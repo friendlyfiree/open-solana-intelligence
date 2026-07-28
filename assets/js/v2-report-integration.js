@@ -347,7 +347,13 @@
       : state.queueMode==='queue'&&report.access==='maintainer'
       ? 'Full maintainers may inspect restricted material, but cannot cast or replace analyst quorum.'
       : 'Review controls are unavailable for this wallet or version.';
-    return'<section class="osi-report-review-controls"><h4>Analyst review</h4>'+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision<select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code<input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale<textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000" required'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>optional, authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\')"'+(canPublish?'':' disabled')+'>Publish exact version</button></div><div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div></form>'+reviewHistoryHtml(version,true)+'</section>';
+    return'<section class="osi-report-review-controls"><h4>Analyst review</h4>'+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\')"'+(canPublish?'':' disabled')+'>Publish exact version</button></div><div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div></form>'+reviewHistoryHtml(version,true)+'</section>';
+  }
+  function reportReviewDefaults(decision){
+    if(decision==='approve')return{reason:'evidence_reviewed',rationale:'The exact report version and its evidence were reviewed.'};
+    if(decision==='abstain')return{reason:'analyst_abstained',rationale:'The analyst abstained from a weighted decision on this version.'};
+    if(decision==='reject')return{reason:'evidence_insufficient',rationale:''};
+    return{reason:'revision_requested',rationale:''};
   }
   async function submitReportReview(event,versionRef){
     if(event)event.preventDefault();if(state.busy)return;
@@ -355,8 +361,17 @@
     var reason=document.getElementById('osi-review-reason-'+versionRef);
     var rationale=document.getElementById('osi-review-rationale-'+versionRef);
     var note=document.getElementById('osi-review-note-'+versionRef);
-    if(!decision||!reason||!rationale||!rationale.value.trim())return;
-    var review={version_public_ref:versionRef,decision:decision.value,reason_code:reason.value.trim(),public_rationale:rationale.value.trim(),private_note:note.value.trim()||null};
+    if(!decision||!reason||!rationale||!note)return;
+    var defaults=reportReviewDefaults(decision.value),rationaleValue=rationale.value.trim();
+    rationale.setCustomValidity('');
+    if((decision.value==='reject'||decision.value==='request_revision')&&rationaleValue.length<10){
+      rationale.setCustomValidity('Add a public-safe rationale of at least 10 characters for this decision.');
+      rationale.reportValidity();
+      rationale.focus();
+      return;
+    }
+    if(!rationaleValue)rationaleValue=defaults.rationale;
+    var review={version_public_ref:versionRef,decision:decision.value,reason_code:reason.value.trim()||defaults.reason,public_rationale:rationaleValue,private_note:note.value.trim()||null};
     var key=JSON.stringify(review),pending=state.reviewPending[versionRef];
     if(pending&&pending.key!==key){delete state.reviewPending[versionRef];pending=null;}
     state.busy=true;

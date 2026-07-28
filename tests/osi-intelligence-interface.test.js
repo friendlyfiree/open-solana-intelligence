@@ -102,6 +102,13 @@ for (const state of ['WALLET_SIGNED', 'REVIEW_QUORUM', 'CHALLENGE_WINDOW', 'MEMO
 
 ok(css.includes('@media (prefers-reduced-motion: reduce)'), 'reduced-motion behavior is defined');
 ok(css.includes('@media (max-width: 390px)'), '390px mobile layout is explicitly covered');
+ok(/@media \(max-width: 980px\)[\s\S]*?\.fb-btn\s*\{\s*display:\s*none !important/.test(css), 'mobile and tablet content are not obscured by the duplicate floating Feedback control');
+ok(/\.osi-brand\s*\{[\s\S]*?min-height:\s*44px/.test(css)
+  && /\.osi-language-control\s*\{[\s\S]*?min-height:\s*44px/.test(css)
+  && /\.osi-language-control select\s*\{[\s\S]*?min-height:\s*44px/.test(css)
+  && /\.osi-header-case,[\s\S]*?\.wallet-btn\s*\{[\s\S]*?min-height:\s*44px !important/.test(css)
+  && /@media \(max-width: 980px\)[\s\S]*?\.osi-mobile-nav-toggle\s*\{[\s\S]*?width:\s*44px;[\s\S]*?height:\s*44px/.test(css),
+  'header controls preserve the 44px touch target floor');
 ok(!/transition\s*:\s*all/i.test(css), 'redesign avoids transition-all');
 ok(!/#ff7a3d|#ff5a1f|#f97316|#ea580c/i.test(css), 'redesign introduces no orange or red-orange primary color');
 ok(favicon.includes('#08090d') && favicon.includes('#ff4d5f') && favicon.includes('#f5f0e8'), 'favicon follows the red signal and platinum identity');

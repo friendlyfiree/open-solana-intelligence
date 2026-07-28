@@ -213,14 +213,14 @@
   function applicationDraftKey(wallet){return'analyst-application:'+String(wallet||'');}
   function applicationDraft(){
     var checked=Array.prototype.map.call(document.querySelectorAll('input[name="an-expertise"]:checked'),function(box){return box.value;});
-    return{x_handle:(document.getElementById('an-x-handle')||{}).value||'',display_name:(document.getElementById('an-name')||{}).value||'',bio:(document.getElementById('an-bio')||{}).value||'',motivation:(document.getElementById('an-motivation')||{}).value||'',experience:(document.getElementById('an-experience')||{}).value||'',proof:(document.getElementById('an-proof')||{}).value||'',link_label:(document.getElementById('an-link-label')||{}).value||'',link_url:(document.getElementById('an-link-url')||{}).value||'',expertise:checked};
+    return{x_handle:(document.getElementById('an-x-handle')||{}).value||'',display_name:(document.getElementById('an-name')||{}).value||'',bio:(document.getElementById('an-bio')||{}).value||'',motivation:(document.getElementById('an-motivation')||{}).value||'',experience:(document.getElementById('an-experience')||{}).value||'',proof:(document.getElementById('an-proof')||{}).value||'',link_label:(document.getElementById('an-link-label')||{}).value||'',link_url:(document.getElementById('an-link-url')||{}).value||'',expertise:checked,safety:!!(document.getElementById('an-safety')||{}).checked};
   }
   function saveApplicationDraft(){if(walletPubkey&&typeof window.osiV2SaveDraft==='function')window.osiV2SaveDraft(applicationDraftKey(walletPubkey),applicationDraft());}
   function restoreApplicationDraft(wallet){
     if(typeof window.osiV2LoadDraft!=='function')return false;var draft=window.osiV2LoadDraft(applicationDraftKey(wallet));if(!draft)return false;
     var values={'an-x-handle':draft.x_handle,'an-name':draft.display_name,'an-bio':draft.bio,'an-motivation':draft.motivation,'an-experience':draft.experience,'an-proof':draft.proof,'an-link-label':draft.link_label,'an-link-url':draft.link_url};
     Object.keys(values).forEach(function(id){var node=document.getElementById(id);if(node&&values[id]!=null)node.value=values[id];});
-    document.querySelectorAll('input[name="an-expertise"]').forEach(function(box){box.checked=(draft.expertise||[]).indexOf(box.value)!==-1;});return true;
+    document.querySelectorAll('input[name="an-expertise"]').forEach(function(box){box.checked=(draft.expertise||[]).indexOf(box.value)!==-1;});var safety=document.getElementById('an-safety');if(safety)safety.checked=draft.safety===true;return true;
   }
   function prefillApplication(){
     var profile=state.workspace&&state.workspace.profile,application=latestApplication(),version=latestVersion(application),details=version&&version.details_restricted||{};
@@ -233,7 +233,12 @@
     var title=document.getElementById('osi-application-title');if(title)title.textContent=application?'Submit immutable application version '+(Number(version&&version.version_no||0)+1):'Create your analyst profile';
   }
   async function openApplication(){
+    if(!walletPubkey&&typeof window.osiConnectForIntent==='function'){
+      await window.osiConnectForIntent('analyst-application','Analyst application',openApplication);
+      return;
+    }
     try{
+      if(typeof showToast==='function')showToast('Approve the wallet message to unlock the private application workspace. No transaction will be sent.');
       var wallet=await ensureWallet();
       if(!state.workspace||state.workspaceWallet!==wallet){state.workspace=await sessionRead('analyst:workspace','my_workspace');state.workspaceWallet=wallet;}
       var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();restoreApplicationDraft(wallet);setApplicationStatus('');
@@ -255,7 +260,7 @@
       var wallet=await ensureWallet();var expertise=Array.prototype.map.call(document.querySelectorAll('input[name="an-expertise"]:checked'),function(box){return box.value;});
       var linkLabel=String(document.getElementById('an-link-label').value||'').trim(),linkUrl=String(document.getElementById('an-link-url').value||'').trim();if((linkLabel&&!linkUrl)||(!linkLabel&&linkUrl))throw new Error('Provide both the public link label and HTTPS URL.');
       var proofUrls=inputLines('an-proof');if(proofUrls.length>5)throw new Error('Use at most five public proof links.');
-      var xHandle=document.getElementById('an-x-handle').value;var application={x_handle:xHandle,handle:String(xHandle||'').replace(/^@/,'').toLowerCase(),display_name:document.getElementById('an-name').value,bio:document.getElementById('an-bio').value,expertise:expertise,links:linkUrl?[{label:linkLabel,url:linkUrl}]:[],motivation:document.getElementById('an-motivation').value,experience:document.getElementById('an-experience').value,proof_urls:proofUrls};
+      var xHandle=document.getElementById('an-x-handle').value;var application={x_handle:xHandle,handle:String(xHandle||'').replace(/^@/,'').toLowerCase(),display_name:document.getElementById('an-name').value,bio:document.getElementById('an-bio').value,expertise:expertise,links:linkUrl?[{label:linkLabel,url:linkUrl}]:[],motivation:document.getElementById('an-motivation').value,experience:document.getElementById('an-experience').value,proof_urls:proofUrls,safety_acknowledged:document.getElementById('an-safety').checked===true};
       var image=await avatarPayload();if(image)application.avatar=image;
       setApplicationStatus('Preparing an exact single-use application message...');
       var prepared=await api({op:'prepare_application',wallet:wallet,application:application,idempotency_key:randomKey('application')});

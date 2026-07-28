@@ -100,6 +100,11 @@ ok("Wire modal and detail drawer reuse the fixed Case and Report component vocab
     && html.includes('id="osi-wire-safety"')
     && html.includes('id="osi-wire-drawer"')
     && html.includes('class="osi-case-drawer"'));
+ok("Wire summary is locally auto-drafted, editable, and still bound to the validated payload",
+  context.OSIWireUI.draftPublicSummary("  Public-safe   analysis with limits.  ") === "Public-safe analysis with limits."
+    && html.includes("Public-safe summary (auto-drafted, editable)")
+    && source.includes("state.summaryManual=true")
+    && source.includes("content_public_safe:document.getElementById('osi-wire-summary').value"));
 ok("Wire intake has keyboard focus trapping and reduced-motion support",
   source.includes("trapFocus(event,modal)")
     && reportCss.includes("@media(prefers-reduced-motion:reduce)"));
@@ -185,5 +190,10 @@ ok("bootstrap publication and accepted-challenge states are labeled honestly",
   source.includes("Maintainer bootstrap publication")
     && source.includes("Challenge upheld, under re-review")
     && source.includes("Maintainer bootstrap is unavailable"));
+ok("Wire reviews provide a safe approval default and inline negative-decision validation",
+  source.includes("Required for reject or request revision; optional otherwise")
+    && source.includes("requiresRationale=decision==='reject'||decision==='request_revision'")
+    && source.includes("The exact Wire version and its evidence were reviewed.")
+    && source.includes("rationaleField.reportValidity()"));
 
 console.log(`\n${passed} Wire Phase 1 and Phase 2 UI checks passed.`);

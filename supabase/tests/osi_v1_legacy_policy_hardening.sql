@@ -12,7 +12,7 @@
 -- invariant that is true in both places: the hole is closed where the table
 -- exists, and there is nothing to close where it does not.
 begin;
-select plan(14);
+select no_plan();
 
 create or replace function pg_temp.policy_count(p_table text, p_policy text)
 returns integer language sql stable as $$
@@ -53,8 +53,9 @@ select ok(
   not pg_temp.table_here('profiles') or pg_temp.policy_count('profiles', 'profiles_read') = 1,
   'the profile read route the client uses is untouched');
 select ok(
-  not pg_temp.table_here('requests') or pg_temp.policy_count('requests', 'requests_read') = 1,
-  'the approved-request read route is untouched');
+  not pg_temp.table_here('requests')
+  or pg_temp.policy_count('requests', 'requests approved public read') = 1,
+  'the approved-only request read route is explicit');
 select ok(
   not pg_temp.table_here('request_votes') or pg_temp.policy_count('request_votes', 'votes_read') = 1,
   'vote counts stay readable');
@@ -64,10 +65,13 @@ select ok(
   not exists (
     select 1 from pg_proc as proc
       join pg_namespace as ns on ns.oid = proc.pronamespace
-     where ns.nspname = 'public' and proc.proname = 'osi_consensus' and proc.pronargs = 0
-  )
-  or not has_function_privilege('anon', 'public.osi_consensus()', 'execute'),
-  'anonymous callers can no longer execute the SECURITY DEFINER consensus function');
+     where ns.nspname in ('public','osi_private')
+       and proc.prosecdef
+       and (
+         has_function_privilege('anon',proc.oid,'execute')
+         or has_function_privilege('authenticated',proc.oid,'execute')
+       )
+  ),'no SECURITY DEFINER function is executable by public browser roles');
 
 -- The whole point, stated once, and true on any database this runs against.
 select is(

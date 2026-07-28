@@ -405,7 +405,7 @@
         <div class="lb-card">
           <div class="fd-h mono">How to earn a seat</div>
           <div class="lb-steps">
-            <div class="lb-step"><span class="n">1</span><div><b>Create a wallet profile</b><span>Choose a unique handle and public expertise.</span></div></div>
+            <div class="lb-step"><span class="n">1</span><div><b>Create a wallet profile</b><span>Choose a unique handle and short public bio; expertise is optional.</span></div></div>
             <div class="lb-step"><span class="n">2</span><div><b>Submit work evidence</b><span>Each application version is signed and immutable.</span></div></div>
             <div class="lb-step"><span class="n">3</span><div><b>Respond to revision requests</b><span>A revision preserves every prior version and decision.</span></div></div>
             <div class="lb-step"><span class="n">4</span><div><b>Activate probation</b><span>Approval plus ANALYST_PROBATION Memo derives weight 0.50.</span></div></div>
@@ -716,9 +716,9 @@
     <div class="osi-report-context" id="osi-wire-context" aria-live="polite"></div>
     <label class="fo-label" for="osi-wire-title">Public-safe title <span aria-hidden="true">*</span></label>
     <input class="wire-in" id="osi-wire-title" type="text" minlength="3" maxlength="160" required placeholder="Treasury movement pattern for independent review">
-    <label class="fo-label" for="osi-wire-summary">Public-safe summary <span aria-hidden="true">*</span></label>
+    <label class="fo-label" for="osi-wire-summary">Public-safe summary (auto-drafted, editable) <span aria-hidden="true">*</span></label>
     <textarea id="osi-wire-summary" rows="3" minlength="10" maxlength="4000" required></textarea>
-    <span class="fo-hint">The title and summary are still private until publication.</span>
+    <span class="fo-hint">Drafted locally from the analysis until you edit it. The title and summary remain private until publication.</span>
     <label class="fo-label" for="osi-wire-analysis">Detailed analysis <span aria-hidden="true">*</span></label>
     <textarea id="osi-wire-analysis" rows="9" minlength="20" maxlength="100000" required></textarea>
     <label class="fo-label" for="osi-wire-uncertainties">Uncertainties and limits (optional)</label>
@@ -1039,16 +1039,17 @@
 <form class="osi-analyst-form" id="analyst-form" onsubmit="osiAnalystSubmit(event)">
   <h3 id="osi-application-title">Create your analyst profile</h3>
   <p class="lead">Your wallet is the applicant identity. Submission signs one exact immutable version. Public profile fields become visible only after probation activation.</p>
-  <div class="osi-form-grid"><label><span>X / Twitter handle</span><input id="an-x-handle" minlength="2" maxlength="16" pattern="@?[A-Za-z0-9_]{2,15}" required placeholder="@chain_sleuth"></label><label><span>Display name (optional)</span><input id="an-name" maxlength="80" placeholder="Chain Sleuth"></label></div>
+  <div class="osi-form-grid"><label><span>X / Twitter handle (required)</span><input id="an-x-handle" minlength="2" maxlength="16" pattern="@?[A-Za-z0-9_]{2,15}" required placeholder="@chain_sleuth"></label><label><span>Display name (optional)</span><input id="an-name" maxlength="80" placeholder="Chain Sleuth"></label></div>
   <input id="an-handle" type="hidden">
-  <label><span>Introduce yourself</span><textarea id="an-bio" minlength="10" maxlength="600" required placeholder="What you investigate and how you work with public evidence."></textarea></label>
+  <label><span>Short public bio (required)</span><textarea id="an-bio" minlength="10" maxlength="600" required placeholder="What you investigate and how you work with public evidence."></textarea></label>
   <fieldset class="osi-expertise"><legend>Expertise categories (optional)</legend><label><input type="checkbox" name="an-expertise" value="blockchain_forensics">Blockchain forensics</label><label><input type="checkbox" name="an-expertise" value="scam_analysis">Scam analysis</label><label><input type="checkbox" name="an-expertise" value="exploit_research">Exploit research</label><label><input type="checkbox" name="an-expertise" value="data_analysis">Data analysis</label><label><input type="checkbox" name="an-expertise" value="osint">OSINT</label><label><input type="checkbox" name="an-expertise" value="protocol_research">Protocol research</label></fieldset>
   <div class="osi-form-grid"><label><span>Other public link label (optional)</span><input id="an-link-label" maxlength="40" placeholder="Research archive"></label><label><span>Other public HTTPS link (optional)</span><input id="an-link-url" type="url" maxlength="300" placeholder="https://example.com/work"></label></div>
-  <label><span>Safe profile image</span><input id="an-avatar" type="file" accept="image/png,image/jpeg"><small>PNG or JPEG only, 64 to 1024 px, maximum 512 KB. SVG and remote image URLs are rejected.</small></label>
+  <label><span>Safe profile image (optional)</span><input id="an-avatar" type="file" accept="image/png,image/jpeg"><small>PNG or JPEG only, 64 to 1024 px, maximum 512 KB. SVG and remote image URLs are rejected.</small></label>
   <label><span>Why you want to review (optional)</span><textarea id="an-motivation" maxlength="3000" placeholder="Describe your review approach and why attributable, challengeable records matter."></textarea></label>
-  <label><span>Describe your work</span><textarea id="an-experience" minlength="10" maxlength="3000" required placeholder="Describe relevant investigation, protocol, data, or research work."></textarea></label>
+  <label><span>Describe your work (optional)</span><textarea id="an-experience" maxlength="3000" placeholder="Describe relevant investigation, protocol, data, or research work."></textarea></label>
   <label><span>Public proof-of-work links (optional)</span><textarea id="an-proof" placeholder="One HTTPS URL per line, maximum 5"></textarea></label>
   <div class="osi-form-warning">Never include a seed phrase, private key, private messages, prohibited personal data, or confidential access material.</div>
+  <label class="osi-report-safety" for="an-safety"><input id="an-safety" type="checkbox" required><span>Required: I confirm this application contains no seed phrase, private key, illegal-access material, doxxing, or confidential credential.</span></label>
   <button class="rec-go" id="an-submit" type="submit">SIGN AND SUBMIT VERSION</button>
   <div class="osi-form-status mono" id="an-status" role="status"></div>
 </form>

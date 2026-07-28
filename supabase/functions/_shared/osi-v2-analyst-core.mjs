@@ -1,3 +1,5 @@
+import { canonicalOsi2Envelope } from "./osi-v2-event-registry.mjs";
+
 const WALLET = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[0-9a-f]{64}$/;
@@ -77,7 +79,9 @@ export function normalizeApplicationPayload(value, avatar = null) {
   ];
   const motivation = typeof value.motivation === "string" ? value.motivation.trim() : "";
   if (motivation.length > 3000) throw new TypeError("motivation is invalid");
-  const experience = text(value.experience, "experience", 10, 3000);
+  const experience = typeof value.experience === "string" ? value.experience.trim() : "";
+  if (experience.length > 3000) throw new TypeError("experience is invalid");
+  if (value.safety_acknowledged !== true) throw new TypeError("safety acknowledgement is required");
   const proofUrls = cleanArray(value.proof_urls ?? [], "proof_urls", 5).map(safeHttpsUrl);
   if (secretMaterial([bio, motivation, experience, ...proofUrls].join("\n"))) {
     throw new TypeError("prohibited_secret_material");
@@ -99,8 +103,9 @@ export function normalizeApplicationPayload(value, avatar = null) {
     application: {
       x_handle: xHandle,
       motivation: motivation || null,
-      experience,
+      experience: experience || null,
       proof_urls: proofUrls,
+      safety_acknowledged: true,
     },
   };
 }
@@ -161,11 +166,11 @@ export function canonicalAnalystEventMessage(binding) {
       || !NONCE.test(nonce) || !HASH.test(hash) || !Number.isSafeInteger(issuedAt)) {
     throw new TypeError("binding is invalid");
   }
-  return [
-    "OSI2", "1", purpose, "t=" + targetType, "id=" + targetRef,
-    "a=" + actorWallet, "r=" + actorRole, "d=" + decision,
-    "n=" + nonce, "h=" + hash, "ts=" + String(issuedAt),
-  ].join("|");
+  return canonicalOsi2Envelope({
+    purpose, target_type: targetType, target_ref: targetRef,
+    actor_wallet: actorWallet, actor_role: actorRole, decision,
+    nonce, payload_hash: hash, issued_at: issuedAt,
+  }, "v1_issued");
 }
 
 export function exactAnalystEventMessage(message, expected, nowSeconds) {

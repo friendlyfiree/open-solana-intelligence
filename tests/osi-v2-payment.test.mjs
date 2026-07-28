@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
+  PAYMENT_MAX_NETWORK_FEE_LAMPORTS,
   PAYMENT_MAX_RECIPIENTS,
   PAYMENT_KIND,
   SOLANA_TRANSACTION_MAX_BYTES,
@@ -17,6 +18,10 @@ import {
 
 const edge = fs.readFileSync(new URL("../supabase/functions/osi-v2-payment/index.ts", import.meta.url), "utf8");
 const phase2 = fs.readFileSync(new URL("../supabase/migrations/20260718130000_osi_v2_wire_phase2.sql", import.meta.url), "utf8");
+const mainnetFixture = JSON.parse(fs.readFileSync(
+  new URL("./fixtures/osi-v2-mainnet-support-payment.json", import.meta.url),
+  "utf8",
+));
 
 let passed = 0;
 function ok(name, fn) {
@@ -60,14 +65,25 @@ function transaction(overrides = {}) {
   return {
     slot: 55,
     blockTime: 1_800_000_100,
-    meta: { err: null, fee: 5000 },
+    meta: {
+      err: null,
+      fee: 5000,
+      innerInstructions: [],
+      preBalances: [200000000, 0, 0, 1, 1],
+      postBalances: [49995000, 100000000, 50000000, 1, 1],
+      preTokenBalances: [],
+      postTokenBalances: [],
+      rewards: [],
+    },
     transaction: {
       signatures: [txSig],
       message: {
         accountKeys: [
-          { pubkey: payer, signer: true, writable: true },
-          { pubkey: author, signer: false, writable: true },
-          { pubkey: reviewer, signer: false, writable: true },
+          { pubkey: payer, signer: true, source: "transaction", writable: true },
+          { pubkey: author, signer: false, source: "transaction", writable: true },
+          { pubkey: reviewer, signer: false, source: "transaction", writable: true },
+          { pubkey: "11111111111111111111111111111111", signer: false, source: "transaction", writable: false },
+          { pubkey: "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr", signer: false, source: "transaction", writable: false },
         ],
         instructions,
       },
@@ -142,7 +158,7 @@ ok("canonical payment Memo binds purpose target actor nonce and payload", () => 
 });
 ok("finalized exact transfer manifest verifies", () => {
   const result = validateFinalizedPaymentTransaction(
-    transaction(), { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    transaction(), { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   );
   assert.equal(result.ok, true);
   assert.equal(result.total_lamports, "150000000");
@@ -150,7 +166,7 @@ ok("finalized exact transfer manifest verifies", () => {
 });
 ok("confirmed but not finalized is awaiting and not paid", () => {
   const result = validateFinalizedPaymentTransaction(
-    transaction(), { err: null, confirmationStatus: "confirmed" }, intent, txSig,
+    transaction(), { err: null, confirmationStatus: "confirmed", slot: 55 }, intent, txSig,
   );
   assert.deepEqual({ ok: result.ok, state: result.state }, { ok: false, state: "awaiting_finality" });
 });
@@ -163,37 +179,37 @@ ok("failed transaction is rejected", () => {
 ok("wrong fee payer is rejected", () => {
   const tx = transaction(); tx.transaction.message.accountKeys[0].pubkey = author;
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "wrong_fee_payer");
 });
 ok("extra signer is rejected", () => {
   const tx = transaction(); tx.transaction.message.accountKeys[1].signer = true;
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "unexpected_signer");
 });
 ok("wrong amount is rejected", () => {
   const tx = transaction(); tx.transaction.message.instructions[0].parsed.info.lamports = 100000001;
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "transfer_manifest_mismatch");
 });
 ok("wrong recipient is rejected", () => {
   const tx = transaction(); tx.transaction.message.instructions[0].parsed.info.destination = reviewer;
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "transfer_manifest_mismatch");
 });
 ok("missing Memo is rejected", () => {
   const tx = transaction(); tx.transaction.message.instructions.pop();
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "memo_mismatch");
 });
 ok("changed Memo payload is rejected", () => {
   const tx = transaction(); tx.transaction.message.instructions[2].parsed += "x";
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "memo_mismatch");
 });
 ok("extra SOL transfer instruction is rejected", () => {
@@ -202,13 +218,25 @@ ok("extra SOL transfer instruction is rejected", () => {
     parsed: { type: "transfer", info: { source: payer, destination: author, lamports: 1 } },
   });
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "transfer_count_mismatch");
+});
+ok("non-top-level transfer or Memo metadata is rejected", () => {
+  const transferTx = transaction();
+  transferTx.transaction.message.instructions[0].stackHeight = 2;
+  assert.equal(validateFinalizedPaymentTransaction(
+    transferTx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
+  ).reason, "unexpected_instruction");
+  const memoTx = transaction();
+  memoTx.transaction.message.instructions[2].stackHeight = 2;
+  assert.equal(validateFinalizedPaymentTransaction(
+    memoTx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
+  ).reason, "unexpected_instruction");
 });
 ok("unexpected program instruction is rejected", () => {
   const tx = transaction(); tx.transaction.message.instructions.unshift({ program: "stake", parsed: {} });
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "unexpected_instruction");
 });
 ok("spoofed System label with a different program id is rejected", () => {
@@ -217,7 +245,7 @@ ok("spoofed System label with a different program id is rejected", () => {
     ...tx.transaction.message.instructions[0], program: "system", programId: author,
   };
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "unexpected_instruction");
 });
 ok("spoofed Memo label with a different program id is rejected", () => {
@@ -226,19 +254,94 @@ ok("spoofed Memo label with a different program id is rejected", () => {
     ...tx.transaction.message.instructions[2], program: "spl-memo", programId: author,
   };
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "unexpected_instruction");
 });
 ok("stale block time is rejected", () => {
   const tx = transaction({ blockTime: intent.expires_at + 121 });
   assert.equal(validateFinalizedPaymentTransaction(
-    tx, { err: null, confirmationStatus: "finalized" }, intent, txSig,
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
   ).reason, "transaction_not_fresh");
 });
 ok("signature mismatch is rejected", () => {
   assert.equal(validateFinalizedPaymentTransaction(
-    transaction(), { err: null, confirmationStatus: "finalized" }, intent, "3".repeat(64),
+    transaction(), { err: null, confirmationStatus: "finalized", slot: 55 }, intent, "3".repeat(64),
   ).reason, "signature_mismatch");
+});
+ok("immutable mainnet support fixture verifies without sending a new transaction", () => {
+  assert.equal(mainnetFixture.fixture_version, 1);
+  assert.equal(mainnetFixture.network, "solana-mainnet-beta");
+  const result = validateFinalizedPaymentTransaction(
+    mainnetFixture.transaction,
+    mainnetFixture.signature_status,
+    mainnetFixture.intent,
+    mainnetFixture.tx_signature,
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.fee_lamports, "80000");
+  assert.equal(result.total_lamports, "1000000");
+});
+ok("network fee is bounded and included in the exact payer delta", () => {
+  const tx = transaction();
+  tx.meta.fee = Number(PAYMENT_MAX_NETWORK_FEE_LAMPORTS) + 1;
+  assert.equal(validateFinalizedPaymentTransaction(
+    tx, { err: null, confirmationStatus: "finalized", slot: 55 }, intent, txSig,
+  ).reason, "fee_out_of_range");
+});
+ok("unexpected writable account is rejected", () => {
+  const tx = structuredClone(mainnetFixture.transaction);
+  tx.transaction.message.accountKeys[2].writable = true;
+  assert.equal(validateFinalizedPaymentTransaction(
+    tx, mainnetFixture.signature_status, mainnetFixture.intent, mainnetFixture.tx_signature,
+  ).reason, "writable_account_mismatch");
+});
+ok("recipient balance deviation is rejected even when instruction parsing matches", () => {
+  const tx = structuredClone(mainnetFixture.transaction);
+  tx.meta.postBalances[1]++;
+  assert.equal(validateFinalizedPaymentTransaction(
+    tx, mainnetFixture.signature_status, mainnetFixture.intent, mainnetFixture.tx_signature,
+  ).reason, "recipient_balance_mismatch");
+});
+ok("payer balance deviation is rejected even when transfers match", () => {
+  const tx = structuredClone(mainnetFixture.transaction);
+  tx.meta.postBalances[0]++;
+  assert.equal(validateFinalizedPaymentTransaction(
+    tx, mainnetFixture.signature_status, mainnetFixture.intent, mainnetFixture.tx_signature,
+  ).reason, "payer_balance_mismatch");
+});
+ok("token balance changes and CPI are rejected", () => {
+  const tokenTx = structuredClone(mainnetFixture.transaction);
+  tokenTx.meta.postTokenBalances.push({ mint: author });
+  assert.equal(validateFinalizedPaymentTransaction(
+    tokenTx, mainnetFixture.signature_status, mainnetFixture.intent, mainnetFixture.tx_signature,
+  ).reason, "token_balance_change");
+  const cpiTx = structuredClone(mainnetFixture.transaction);
+  cpiTx.meta.innerInstructions.push({ index: 2, instructions: [] });
+  assert.equal(validateFinalizedPaymentTransaction(
+    cpiTx, mainnetFixture.signature_status, mainnetFixture.intent, mainnetFixture.tx_signature,
+  ).reason, "inner_instruction_present");
+});
+ok("only bounded Compute Budget encodings are allowed", () => {
+  const tx = structuredClone(mainnetFixture.transaction);
+  tx.transaction.message.instructions[0].data = "11111";
+  assert.equal(validateFinalizedPaymentTransaction(
+    tx, mainnetFixture.signature_status, mainnetFixture.intent, mainnetFixture.tx_signature,
+  ).reason, "invalid_compute_budget_instruction");
+});
+ok("only the exact read-only Lighthouse assertion is allowed", () => {
+  const tx = structuredClone(mainnetFixture.transaction);
+  tx.transaction.message.instructions.at(-1).data = "k5umSU2R1ddQfQujicJX8";
+  assert.equal(validateFinalizedPaymentTransaction(
+    tx, mainnetFixture.signature_status, mainnetFixture.intent, mainnetFixture.tx_signature,
+  ).reason, "unsafe_lighthouse_instruction");
+});
+ok("status slot must bind to the exact finalized transaction", () => {
+  assert.equal(validateFinalizedPaymentTransaction(
+    mainnetFixture.transaction,
+    { ...mainnetFixture.signature_status, slot: mainnetFixture.signature_status.slot + 1 },
+    mainnetFixture.intent,
+    mainnetFixture.tx_signature,
+  ).reason, "slot_mismatch");
 });
 ok("Edge RPC path verifies the canonical mainnet genesis before any payment result", () => {
   assert.ok(edge.includes('method: "getGenesisHash"'));
@@ -259,11 +362,13 @@ ok("Wire support prepare and commit both require the payment and Wire gates", ()
   assert.ok(edge.includes('error: "wire_and_payment_writes_required"'));
   assert.ok(edge.includes('binding_context?.payment_kind === "wire_support"'));
   assert.ok(edge.includes('error: "wire_writes_disabled"'));
+  assert.ok(edge.includes('const recoveryEligible = bound.binding_context?.payment_kind !== "wire_support"'));
+  assert.ok(edge.includes('error: "wire_payment_recovery_not_supported"'));
 });
 ok("Wire support uses the server-derived specialized intent before shared finality commit", () => {
   assert.ok(edge.includes('admin.rpc("osi_v2_prepare_wire_support"'));
   assert.ok(edge.includes('"osi_v2_record_wire_support_submission"'));
-  assert.ok(edge.includes('admin.rpc("osi_v2_commit_payment"'));
+  assert.ok(edge.includes('const commitRpc = recovery ? "osi_v2_recover_payment" : "osi_v2_commit_payment"'));
 });
 ok("confirmed support rows require exact server-verified finalized mainnet receipts", () => {
   assert.ok(phase2.includes("receipt.event_version is distinct from 'OSI2'"));
