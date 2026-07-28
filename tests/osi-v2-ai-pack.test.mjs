@@ -813,6 +813,7 @@ test("gateway statically preserves the service-only, fail-closed boundary", asyn
   assert.match(source, /gate\.reason \?\? "maintainer_denied"/);
   assert.match(source, /OSI_V2_AI_PACK_WRITES_ENABLED/);
   assert.match(source, /OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED/);
+  assert.match(source, /OSI_V2_AI_PACK_ACCESS_MODE/);
   assert.match(source, /osi_v2_reserve_ai_pack_generation/);
   assert.match(source, /executeReservedGeneration/);
   assert.match(source, /MAX_BODY_BYTES/);
@@ -822,9 +823,9 @@ test("gateway statically preserves the service-only, fail-closed boundary", asyn
     source.indexOf("serve(async"),
   );
   assert.ok(
-    approvalCommit.indexOf("if (bound.consumed_at)")
-      < approvalCommit.indexOf("requireWriteFlags(req, true)"),
-    "committed class-A replay must remain available after a flag disable",
+    approvalCommit.indexOf("requireWriteFlags(req, true)")
+      < approvalCommit.indexOf("loadBoundNonce"),
+    "review and approval must fail closed before nonce inspection in maintainer-only mode",
   );
   assert.doesNotMatch(source, /Access-Control-Allow-Origin["']?\s*:\s*["']\*/);
   assert.doesNotMatch(source, /console\.(?:log|info|warn|error|debug)/);

@@ -40,6 +40,7 @@ import {
   verifyReadSessionToken,
 } from "../_shared/osi-v2-read-session-core.mjs";
 import { maybeReconcileSasCredential } from "../_shared/osi-v2-sas-issuer.ts";
+import { fetchSasSettings } from "../_shared/osi-v2-sas-onchain.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -845,6 +846,86 @@ async function maintainerQueue(req: Request, body: Row): Promise<Response> {
   });
 }
 
+async function sasOperationsStatus(req: Request, body: Row): Promise<Response> {
+  const wallet = safeText(body.wallet);
+  try { validateWallet(wallet); } catch {
+    return jsonResponse(400, { ok: false, error: "bad_wallet" });
+  }
+  const gate = await fullMaintainer(req, wallet);
+  if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
+  const [settings, credentialsResult, profilesResult] = await Promise.all([
+    fetchSasSettings(admin),
+    admin.from("osi_v2_sas_wallet_credentials")
+      .select("wallet,verification_state,checked_credential,checked_schema,checked_issuer,attestation_pubkey,credential_expiry,issuance_state,issuance_tx_sig,issued_at,revoked_at,last_checked_at,last_result,last_error,updated_at")
+      .order("updated_at", { ascending: false }).limit(200),
+    admin.from("analyst_profiles")
+      .select("wallet,status,approved,verified,updated_at")
+      .order("updated_at", { ascending: false }).limit(200),
+  ]);
+  if (!settings || credentialsResult.error || profilesResult.error) {
+    return jsonResponse(503, { ok: false, error: "sas_status_unavailable" });
+  }
+  return jsonResponse(200, {
+    ok: true,
+    settings: {
+      configured: settings.configured,
+      issuance_enabled: settings.issuanceEnabled,
+      enforcement_enabled: settings.enforcementEnabled,
+      program_id: settings.programId,
+      credential: settings.credential,
+      schema: settings.schema,
+      issuer: settings.issuer,
+      stale_seconds: settings.staleSeconds,
+    },
+    credentials: credentialsResult.data ?? [],
+    profiles: profilesResult.data ?? [],
+    authority_source: "live_sas_attestation",
+    client_validity_accepted: false,
+  });
+}
+
+async function reconcileSas(req: Request, body: Row): Promise<Response> {
+  const wallet = safeText(body.wallet);
+  const analystWallet = safeText(body.analyst_wallet);
+  try {
+    validateWallet(wallet);
+    validateWallet(analystWallet);
+  } catch {
+    return jsonResponse(400, { ok: false, error: "bad_wallet" });
+  }
+  const gate = await fullMaintainer(req, wallet);
+  if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
+  const { data, error } = await admin.from("analyst_profiles")
+    .select("wallet,status,approved,verified")
+    .eq("wallet", analystWallet).limit(1);
+  const profile = data?.[0];
+  if (error || !profile) {
+    return jsonResponse(404, { ok: false, error: "analyst_profile_not_found" });
+  }
+  const result = await maybeReconcileSasCredential(admin, {
+    wallet: profile.wallet,
+    status: profile.status,
+  });
+  return jsonResponse(200, {
+    ok: true,
+    analyst_wallet: profile.wallet,
+    server_derived_status: profile.status,
+    action: result.action,
+    reason: result.reason,
+    verification_state: result.verificationState ?? null,
+    attestation: result.attestation ?? null,
+    tx_sig: result.txSig ?? null,
+    submitted_on_chain: !!result.txSig,
+    next_step: result.txSig
+      ? "Wait for confirmed on-chain state, then run this same idempotent reconciliation again."
+      : result.action === "repair_required"
+      ? "Inspect the exact attestation account and use a focused issuer-authority repair; do not overwrite it blindly."
+      : result.action === "defer"
+      ? "Restore the trusted RPC or issuer secret and retry the same server-derived transition."
+      : "No additional on-chain write is required.",
+  });
+}
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return jsonResponse(405, { ok: false, error: "method_not_allowed" });
@@ -871,6 +952,8 @@ serve(async (req: Request): Promise<Response> => {
     case "issue_read_challenge": return await issueReadChallenge(req, body);
     case "my_workspace": return await myWorkspace(req, body);
     case "maintainer_queue": return await maintainerQueue(req, body);
+    case "sas_operations_status": return await sasOperationsStatus(req, body);
+    case "reconcile_sas": return await reconcileSas(req, body);
     case "prepare_application": return await prepareApplication(req, body);
     case "commit_application": return await commitApplication(body);
     case "prepare_review": return await prepareReview(req, body);

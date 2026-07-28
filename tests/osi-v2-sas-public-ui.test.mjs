@@ -82,12 +82,16 @@ function load(provider) {
 let negativeCalls = 0;
 const negative = load(async () => {
   negativeCalls += 1;
-  return { ok: true, wallet: WALLET, valid: false, state: 'invalid', reason: 'absent', credential: CREDENTIAL, schema: SCHEMA, source: 'live' };
+  return { ok: true, wallet: WALLET, valid: false, state: 'invalid', reason: 'absent', credential: CREDENTIAL, schema: SCHEMA, source: 'live', checked_at: '2026-07-28T10:00:00Z' };
 });
 const negativeSlot = new FakeElement('span', negative.document);
 negativeSlot.setAttribute('data-sas-wallet', WALLET);
 await negative.api.decorateSlot(negativeSlot);
-ok('badge never renders for a non-verified wallet', negativeCalls === 1 && negativeSlot.children.length === 0);
+ok('non-verified analyst state stays visible without inventing authority',
+  negativeCalls === 1
+  && negativeSlot.children.length === 1
+  && negativeSlot.children[0].getAttribute('data-sas-badge') === 'invalid'
+  && negativeSlot.children[0].textContent.includes('not verified'));
 
 let positiveCalls = 0;
 let requestedPath = '';
@@ -96,7 +100,7 @@ const positive = load(async (path, body) => {
   positiveCalls += 1;
   requestedPath = path;
   requestedBody = body;
-  return { ok: true, wallet: WALLET, valid: true, state: 'verified', reason: 'valid', credential: CREDENTIAL, schema: SCHEMA, source: 'live' };
+  return { ok: true, wallet: WALLET, valid: true, state: 'verified', reason: 'valid', credential: CREDENTIAL, schema: SCHEMA, source: 'live', checked_at: '2026-07-28T10:00:00Z' };
 });
 const positiveSlot = new FakeElement('span', positive.document);
 positiveSlot.setAttribute('data-sas-wallet', WALLET);
@@ -110,7 +114,23 @@ ok('positive badge uses the existing proof-label class and links to the explanat
   positiveSlot.children.length === 1
   && positiveSlot.children[0].className === 'osi-proof-label'
   && positiveSlot.children[0].href === '#sas-verifier'
-  && positiveSlot.children[0].getAttribute('data-sas-badge') === 'verified');
+  && positiveSlot.children[0].getAttribute('data-sas-badge') === 'verified'
+  && positiveSlot.children[0].textContent.includes('SAS verified')
+  && positiveSlot.children[0].textContent.includes('2026'));
+
+for (const state of ['expired', 'revoked']) {
+  const visible = load(async () => ({
+    ok: true, wallet: WALLET, valid: false, state, reason: state,
+    checked_at: '2026-07-28T10:00:00Z',
+  }));
+  const slot = new FakeElement('span', visible.document);
+  slot.setAttribute('data-sas-wallet', WALLET);
+  await visible.api.decorateSlot(slot);
+  ok(`${state} SAS state is explicit and never styled as verified`,
+    slot.children[0].getAttribute('data-sas-badge') === state
+    && slot.children[0].className === 'osi-chip warning'
+    && slot.children[0].textContent.toLowerCase().includes(state));
+}
 
 let verifierCalls = 0;
 const verifier = load(async () => {
@@ -139,5 +159,10 @@ ok('SAS visibility introduces no stylesheet and reuses existing badge, form, and
   && index.includes('class="fo-in" id="sas-verifier-wallet"')
   && index.includes('class="osi-button osi-button-secondary" type="submit"')
   && !/createElement\(['"]style['"]\)|<style|rel=['"]stylesheet['"]/.test(source));
+ok('pending and unavailable states remain explicit and fail closed',
+  source.includes("badgeFor(slot,null,'pending_verification')")
+  && source.includes("badgeFor(slot,null,'unavailable')")
+  && source.includes('SAS verification pending')
+  && source.includes('SAS unavailable \\u00b7 no authority counted'));
 
 console.log(`\n${passed} SAS public UI assertions passed.`);

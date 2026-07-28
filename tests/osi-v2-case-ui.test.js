@@ -14,6 +14,7 @@ const analystIntegration = read('assets/js/v2-analyst-integration.js');
 const aiPackIntegration = read('assets/js/v2-ai-pack-integration.js');
 const functionalSurface = read('assets/js/88-functional-surface.js');
 const briefing = read('assets/js/12-demo-briefing.js');
+const solanaPay = read('assets/js/73-solana-pay.js');
 
 let pass = 0;
 let fail = 0;
@@ -85,15 +86,24 @@ ok('AI Pack generation is Case-specific and fails closed on the server capabilit
   aiPackIntegration.includes("op:'capabilities'")
     && aiPackIntegration.includes('case_ref:ref')
     && aiPackIntegration.includes('!reason&&caps.can_generate===true'));
-ok('AI Pack exact-version review and finalization use server-derived capability fields',
-  aiPackIntegration.includes('version.can_review_exact_version===true')
-    && aiPackIntegration.includes('version.review_prerequisite')
-    && aiPackIntegration.includes('version.can_finalize===true')
-    && aiPackIntegration.includes('version.finalize_prerequisite'));
-ok('AI Pack public and owner viewers cannot render a returned restricted layer',
-  aiPackIntegration.includes("role!=='public'&&Object.prototype.hasOwnProperty.call(version,'content_owner_safe')")
-    && aiPackIntegration.includes("restrictedViewer(role)&&Object.prototype.hasOwnProperty.call(version,'content_analyst_restricted')")
-    && aiPackIntegration.includes("role==='public'&&!publicLifecycle(version)"));
+ok('AI Pack tab appears only for the exact full-maintainer private mode',
+  app.includes("state.capabilities.maintainer_access===true")
+    && app.includes("state.capabilities.ai_pack_access_mode==='maintainer_only'")
+    && app.includes("tab[0]!=='ai_pack'||aiVisible"));
+ok('AI Pack browser render fails closed for anonymous, owner, analyst and half-maintainer states',
+  aiPackIntegration.includes("state.capabilities.ai_pack_access_mode!=='maintainer_only'||state.capabilities.maintainer_access!==true")
+    && aiPackIntegration.includes("if(!wallet()||typeof window.osiV2ReadSession!=='function')return false")
+    && aiPackIntegration.includes("window.osiV2ReadSession(['aipack:detail']"));
+ok('maintainer-only AI Pack reads never fall through to a public discovery endpoint',
+  aiPackIntegration.includes("op:'get_case_packs'")
+    && !aiPackIntegration.slice(
+      aiPackIntegration.indexOf('async function performLoad'),
+      aiPackIntegration.indexOf('function reload'),
+    ).includes('list_public'));
+ok('maintainer-only drafts expose no review, owner-feedback, approval, or publication controls',
+  aiPackIntegration.includes('<b>Private draft only</b>')
+    && aiPackIntegration.includes('Analyst review, owner feedback, approval, and public publication are intentionally unavailable')
+    && aiPackIntegration.includes("if((state.capabilities||{}).ai_pack_access_mode==='maintainer_only')return'';"));
 ok('AI Pack never invents staleness or receipt verification',
   aiPackIntegration.includes('staleness unavailable')
     && aiPackIntegration.includes('Proof unavailable')
@@ -131,7 +141,7 @@ ok('pending payment remains awaiting finality with exact retry',
 ok('submitted signature survives reload and blocks an accidental second payment',
   app.includes("PAYMENT_RECOVERY_KEY = 'osi:v2:payment-recovery:1'")
     && app.includes('localStorage.setItem(PAYMENT_RECOVERY_KEY')
-    && app.includes('<b>Do not pay again</b>')
+    && app.includes('<b>Do not start a second payment</b>')
     && app.includes('Re-verify existing signature')
     && app.includes('!pendingRecovery&&Object.keys(supportGroups)'));
 ok('wallet account or disconnect clears the pending payment intent',
@@ -143,9 +153,19 @@ ok('payment proof shows exact lamports, target, slot, finality and transfer veri
 ok('published Reports and verified analyst profiles expose real support actions',
   reportIntegration.includes('osiV2SupportReportAuthor')
     && analystIntegration.includes('osiV2SupportAnalyst'));
-ok('primary UI exposes no nonfunctional Solana Pay control',
-  !/Solana Pay/i.test(app + reportIntegration + analystIntegration + index + briefing)
+ok('primary UI exposes only the server-bound single-recipient Solana Pay route',
+  index.includes('assets/js/73-solana-pay.js')
+    && index.indexOf('qrcode-generator-1.4.4.min.js') < index.indexOf('assets/js/73-solana-pay.js')
+    && solanaPay.includes("params.set('reference',exact.reference)")
+    && solanaPay.includes("params.set('memo',exact.memo)")
+    && app.includes("op:'poll_solana_pay'")
+    && app.includes("method==='solana_pay'")
+    && app.includes('Atomic multi-recipient payment')
     && !index.includes('tip-pay-toggle'));
+ok('legacy direct payment entry points fail closed outside the archive',
+  read('assets/js/70-support-transfer.js').includes("endsWith('/legacy.html')")
+    && read('assets/js/40-wire-field.js').includes("endsWith('/legacy.html')")
+    && !/Support the OSI project/.test(read('assets/js/60-wallet-workspace.js').split("endsWith('/legacy.html')")[0]));
 ok('browser bundle contains no service-role credential name',
   !/service[_-]?role/i.test(app + aiPackIntegration));
 ok('browser bundle has no console logging', !/console\s*\./.test(app + aiPackIntegration));

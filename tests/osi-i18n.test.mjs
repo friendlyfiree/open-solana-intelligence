@@ -62,5 +62,10 @@ ok('Turkish safety copy preserves OSI process boundaries',
   i18n.includes('Otomatik gerçeklik kararı değil, süreç.')
     && i18n.includes('Hukuki tavsiye değildir.')
     && i18n.includes('Varlık saklama yok'));
+ok('Turkish covers the new payment, SAS and private AI operations controls',
+  i18n.includes("'Review exact mainnet transfer': 'Kesin mainnet transferini inceleyin'")
+    && i18n.includes("'Pay with Solana Pay': 'Solana Pay ile öde'")
+    && i18n.includes("'SAS Authority': 'SAS Yetkisi'")
+    && i18n.includes("'Maintainer-only AI Pack': 'Yalnızca sürdürücüye açık AI Pack'"));
 
 console.log(`\n${passed} localization checks passed.`);

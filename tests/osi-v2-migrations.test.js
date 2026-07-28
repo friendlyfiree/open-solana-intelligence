@@ -38,6 +38,7 @@ const expectedFiles = [
   '20260727173000_osi_v1_legacy_counter_readonly.sql',
   '20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql',
   '20260728153100_osi_v1_requests_exact_policy_boundary.sql',
+  '20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -68,6 +69,8 @@ const paymentRecoveryLegacyBoundary =
   sqlByFile['20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql'] || '';
 const exactRequestPolicyBoundary =
   sqlByFile['20260728153100_osi_v1_requests_exact_policy_boundary.sql'] || '';
+const launchCompletion =
+  sqlByFile['20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -172,6 +175,23 @@ ok(
   'exact ordered migration set',
   JSON.stringify(migrationFiles) === JSON.stringify(expectedFiles),
   migrationFiles.join(', '),
+);
+ok(
+  'launch completion binds a unique single-recipient Solana Pay reference through service_role only',
+  launchCompletion.includes('osi_nonces_solana_pay_binding_check')
+    && launchCompletion.includes('jsonb_array_length(bound.binding_context->\'recipient_manifest\') <> 1')
+    && launchCompletion.includes('create unique index osi_nonces_solana_pay_reference_unique')
+    && launchCompletion.includes('osi_v2_bind_payment_reference')
+    && launchCompletion.includes('osi_v2_find_payment_by_reference')
+    && /revoke all privileges on function public\.osi_v2_bind_payment_reference\(text, text\)[\s\S]*from public, anon, authenticated/i.test(launchCompletion)
+    && /grant execute on function public\.osi_v2_bind_payment_reference\(text, text\)[\s\S]*to service_role/i.test(launchCompletion),
+);
+ok(
+  'private AI Pack generation is independent of broad flags while review requires a future governed mode',
+  launchCompletion.includes("'OSI_V2_AI_PACK_ACCESS_MODE', 'maintainer_only'")
+    && /OSI_V2_AI_PACK_WRITES_ENABLED[\s\S]*OSI_V2_AI_PACK_ACCESS_MODE[\s\S]*having count\(\*\) = 2/i.test(launchCompletion)
+    && /OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED[\s\S]*OSI_V2_AI_PACK_ACCESS_MODE' then config\.value = 'governed'/i.test(launchCompletion)
+    && !/OSI_V2_(?:WRITES|PROOF)_ENABLED'\s*then/i.test(launchCompletion),
 );
 ok(
   'core-flow alignment relaxes only approved Wire shape and optional analyst expertise',

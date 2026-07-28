@@ -14,17 +14,21 @@ import {
 } from "../_shared/osi-v2-proof-core.mjs";
 import {
   PAYMENT_MAX_RECIPIENTS,
+  encodeBase58,
   isSolanaMainnetGenesis,
   formatLamportsAsSol,
   normalizePaymentTargetRef,
   parseSolToLamports,
   validateFinalizedPaymentTransaction,
+  validateSolanaPayReference,
+  validateSolanaPayReferenceTransaction,
 } from "../_shared/osi-v2-payment-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ALLOWED_ORIGIN = Deno.env.get("OSI_V2_ALLOWED_ORIGIN") ?? "*";
-const SOLANA_RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "https://api.mainnet-beta.solana.com";
+const CONFIGURED_SOLANA_RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "";
+const SOLANA_RPC_URL = CONFIGURED_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 const MAX_BODY_BYTES = 24_576;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -82,6 +86,13 @@ async function wireWritesEnabled(): Promise<boolean> {
   return !error && data?.[0]?.value === "true";
 }
 
+async function solanaPayEnabled(): Promise<boolean> {
+  if (!CONFIGURED_SOLANA_RPC_URL) return false;
+  const { data, error } = await admin.from("osi_config").select("value")
+    .eq("key", "OSI_V2_SOLANA_PAY_ENABLED").limit(1);
+  return !error && data?.[0]?.value === "true";
+}
+
 async function fingerprint(req: Request): Promise<string> {
   return await requestFingerprint(
     SERVICE_ROLE_KEY + "\u0000osi-v2-payment",
@@ -136,15 +147,76 @@ async function capabilities(body: Row): Promise<Response> {
   if (wallet) {
     try { validateWallet(wallet); } catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
   }
+  const [paymentWrites, solanaPay] = await Promise.all([
+    writesEnabled(), solanaPayEnabled(),
+  ]);
   return jsonResponse(200, {
     ok: true,
-    payment_writes_enabled: await writesEnabled(),
+    payment_writes_enabled: paymentWrites,
     network: "mainnet-beta",
     native_sol_only: true,
     non_custodial: true,
     atomic_support_max_recipients: PAYMENT_MAX_RECIPIENTS,
-    solana_pay_enabled: false,
+    solana_pay_enabled: paymentWrites && solanaPay,
+    solana_pay_single_recipient_only: true,
+    solana_pay_reference_bound: true,
+    solana_pay_finality: "finalized",
   });
+}
+
+function newSolanaPayReference(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return validateSolanaPayReference(encodeBase58(bytes));
+}
+
+async function bindSolanaPay(
+  issued: Row,
+  recipients: Row[],
+): Promise<Row> {
+  if (issued.consumed_receipt_id || recipients.length !== 1 || !await solanaPayEnabled()) {
+    return {
+      enabled: false,
+      reason: recipients.length === 1
+        ? "solana_pay_disabled_or_already_committed"
+        : "multiple_recipients_require_atomic_phantom_transaction",
+    };
+  }
+  const loaded = await loadNonce(safeText(issued.issued_nonce));
+  const existingReference = safeText(
+    loaded.row?.binding_context?.solana_pay?.reference,
+  );
+  if (existingReference) {
+    try {
+      return {
+        enabled: true,
+        reference: validateSolanaPayReference(existingReference),
+        expires_at: loaded.row?.expires_at,
+        idempotent_replay: true,
+      };
+    } catch {
+      return { enabled: false, reason: "solana_pay_binding_invalid" };
+    }
+  }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const reference = newSolanaPayReference();
+    const { data, error } = await admin.rpc("osi_v2_bind_payment_reference", {
+      p_nonce: issued.issued_nonce,
+      p_reference: reference,
+    });
+    if (!error && data?.[0]) {
+      return {
+        enabled: true,
+        reference: data[0].solana_pay_reference,
+        expires_at: data[0].expires_at,
+        idempotent_replay: data[0].idempotent_replay === true,
+      };
+    }
+    if (safeText(error?.code) !== "23505") {
+      return { enabled: false, reason: "solana_pay_binding_unavailable" };
+    }
+  }
+  return { enabled: false, reason: "solana_pay_reference_collision" };
 }
 
 async function preparePledge(req: Request, body: Row): Promise<Response> {
@@ -269,6 +341,7 @@ async function preparePayment(req: Request, body: Row): Promise<Response> {
     amount_lamports: String(entry.amount_lamports),
     amount_sol: formatLamportsAsSol(String(entry.amount_lamports)),
   }));
+  const solanaPay = await bindSolanaPay(issued, recipients);
   return jsonResponse(200, {
     ok: true,
     already_committed: !!issued.consumed_receipt_id,
@@ -294,6 +367,7 @@ async function preparePayment(req: Request, body: Row): Promise<Response> {
     osi_custody: false,
     irreversible: true,
     idempotent_replay: issued.idempotent_replay === true,
+    solana_pay: solanaPay,
   });
 }
 
@@ -333,6 +407,7 @@ async function prepareWireSupport(req: Request, body: Row): Promise<Response> {
     amount_lamports: String(entry.amount_lamports),
     amount_sol: formatLamportsAsSol(String(entry.amount_lamports)),
   }));
+  const solanaPay = await bindSolanaPay(issued, recipients);
   return jsonResponse(200, {
     ok: true, already_committed: !!issued.consumed_receipt_id,
     payment_id: issued.payment_id, payment_kind: "wire_support",
@@ -348,6 +423,7 @@ async function prepareWireSupport(req: Request, body: Row): Promise<Response> {
     direct_wallet_to_wallet: true, osi_custody: false,
     governance_influence: false, ranking_influence: false,
     irreversible: true, idempotent_replay: issued.idempotent_replay === true,
+    solana_pay: solanaPay,
   });
 }
 
@@ -365,6 +441,9 @@ async function rpcTransaction(txSig: string): Promise<Row> {
           searchTransactionHistory: true,
         }] },
         { jsonrpc: "2.0", id: 3, method: "getGenesisHash" },
+        { jsonrpc: "2.0", id: 4, method: "getTransaction", params: [txSig, {
+          commitment: "finalized", encoding: "json", maxSupportedTransactionVersion: 0,
+        }] },
       ]),
     });
   } catch { throw new Error("rpc_unavailable"); }
@@ -377,7 +456,113 @@ async function rpcTransaction(txSig: string): Promise<Row> {
   return {
     transaction: results.find((item) => item.id === 1)?.result ?? null,
     status: results.find((item) => item.id === 2)?.result?.value?.[0] ?? null,
+    raw_transaction: results.find((item) => item.id === 4)?.result ?? null,
   };
+}
+
+async function signaturesForReference(reference: string): Promise<Row[]> {
+  let response: Response;
+  try {
+    response = await fetch(SOLANA_RPC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getSignaturesForAddress",
+          params: [reference, { commitment: "finalized", limit: 100 }],
+        },
+        { jsonrpc: "2.0", id: 2, method: "getGenesisHash" },
+      ]),
+    });
+  } catch {
+    throw new Error("rpc_unavailable");
+  }
+  if (!response.ok) throw new Error("rpc_unavailable");
+  const results = await response.json().catch(() => null) as Row[] | null;
+  if (!Array.isArray(results)) throw new Error("rpc_invalid_response");
+  if (!isSolanaMainnetGenesis(results.find((item) => item.id === 2)?.result)) {
+    throw new Error("wrong_cluster");
+  }
+  const signatures = results.find((item) => item.id === 1)?.result;
+  return Array.isArray(signatures) ? signatures : [];
+}
+
+async function pollSolanaPay(body: Row): Promise<Response> {
+  const [paymentsEnabled, payEnabled] = await Promise.all([
+    writesEnabled(), solanaPayEnabled(),
+  ]);
+  if (!paymentsEnabled || !payEnabled) {
+    return jsonResponse(503, { ok: false, error: "solana_pay_disabled_or_unavailable" });
+  }
+  let wallet: string;
+  let reference: string;
+  try {
+    wallet = validateWallet(safeText(body.wallet));
+    reference = validateSolanaPayReference(safeText(body.reference));
+  } catch {
+    return jsonResponse(400, { ok: false, error: "bad_solana_pay_poll" });
+  }
+  const found = await admin.rpc("osi_v2_find_payment_by_reference", {
+    p_reference: reference,
+  });
+  if (found.error || !found.data?.[0]) {
+    return jsonResponse(404, { ok: false, error: "unknown_solana_pay_reference" });
+  }
+  const nonce = safeText(found.data[0].issued_nonce);
+  const loaded = await loadNonce(nonce);
+  const bound = loaded.row;
+  if (loaded.error || !bound || bound.actor_wallet !== wallet
+      || safeText(bound.binding_context?.solana_pay?.reference) !== reference) {
+    return jsonResponse(404, { ok: false, error: "unknown_solana_pay_reference" });
+  }
+  const expiresAt = Date.parse(String(bound.expires_at));
+  if (!Number.isFinite(expiresAt) || Date.now() > expiresAt + 120_000) {
+    return jsonResponse(410, {
+      ok: false,
+      error: "solana_pay_intent_expired",
+      state: "expired",
+      paid: false,
+    });
+  }
+  let candidates: Row[];
+  try {
+    candidates = await signaturesForReference(reference);
+  } catch (error) {
+    return jsonResponse(503, { ok: false, error: errorMessage(error) });
+  }
+  const issuedAt = Math.floor(Date.parse(String(bound.issued_at)) / 1000);
+  const expiresAtSeconds = Math.floor(expiresAt / 1000);
+  const exactMemo = safeText(bound.binding_context?.memo);
+  const possible = candidates.filter((candidate) => {
+    const blockTime = Number(candidate?.blockTime);
+    const memo = candidate?.memo;
+    return candidate?.err == null
+      && /^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(safeText(candidate?.signature))
+      && Number.isSafeInteger(blockTime)
+      && blockTime >= issuedAt - 5
+      && blockTime <= expiresAtSeconds + 120
+      && (memo == null || memo === exactMemo);
+  }).slice(0, 8);
+  for (const candidate of possible) {
+    const response = await commitPayment({
+      wallet,
+      nonce,
+      tx_sig: candidate.signature,
+    }, false, "solana_pay");
+    if (response.status === 200 || response.status === 202 || response.status >= 500) {
+      return response;
+    }
+  }
+  return jsonResponse(202, {
+    ok: true,
+    state: "awaiting_payment",
+    paid: false,
+    retryable: true,
+    reference,
+    expires_at: bound.expires_at,
+  });
 }
 
 async function recordPaymentSubmission(bound: Row, nonce: string, txSig: string) {
@@ -387,7 +572,11 @@ async function recordPaymentSubmission(bound: Row, nonce: string, txSig: string)
   return await admin.rpc(rpc, { p_nonce: nonce, p_tx_sig: txSig });
 }
 
-async function commitPayment(body: Row, recoveryRequested = false): Promise<Response> {
+async function commitPayment(
+  body: Row,
+  recoveryRequested = false,
+  paymentMethod = "phantom",
+): Promise<Response> {
   if (!await writesEnabled()) return jsonResponse(503, { ok: false, error: "payment_writes_disabled" });
   const wallet = safeText(body.wallet);
   const nonce = safeText(body.nonce);
@@ -409,22 +598,31 @@ async function commitPayment(body: Row, recoveryRequested = false): Promise<Resp
   let rpc: Row;
   try { rpc = await rpcTransaction(txSig); }
   catch (error) { return jsonResponse(503, { ok: false, error: errorMessage(error) }); }
-  const verified = validateFinalizedPaymentTransaction(
+  const exactIntent = {
+    payment_kind: bound.binding_context.payment_kind,
+    target_public_ref: bound.binding_context.target_public_ref,
+    payer_wallet: bound.actor_wallet,
+    actor_role: bound.binding_context.actor_role,
+    nonce: bound.nonce,
+    payload_hash: bound.payload_hash,
+    issued_at: Math.floor(Date.parse(String(bound.issued_at)) / 1000),
+    expires_at: Math.floor(Date.parse(String(bound.expires_at)) / 1000),
+    recipient_manifest: bound.binding_context.recipient_manifest,
+  };
+  let verified: Row = validateFinalizedPaymentTransaction(
     rpc.transaction,
     rpc.status,
-    {
-      payment_kind: bound.binding_context.payment_kind,
-      target_public_ref: bound.binding_context.target_public_ref,
-      payer_wallet: bound.actor_wallet,
-      actor_role: bound.binding_context.actor_role,
-      nonce: bound.nonce,
-      payload_hash: bound.payload_hash,
-      issued_at: Math.floor(Date.parse(String(bound.issued_at)) / 1000),
-      expires_at: Math.floor(Date.parse(String(bound.expires_at)) / 1000),
-      recipient_manifest: bound.binding_context.recipient_manifest,
-    },
+    exactIntent,
     txSig,
   );
+  if (verified.ok && paymentMethod === "solana_pay") {
+    const reference = safeText(bound.binding_context?.solana_pay?.reference);
+    const referenceVerified = validateSolanaPayReferenceTransaction(
+      rpc.raw_transaction,
+      { ...exactIntent, solana_pay_reference: reference },
+    );
+    if (!referenceVerified.ok) verified = referenceVerified;
+  }
   const recoveryEligible = bound.binding_context?.payment_kind !== "wire_support";
   if (recoveryRequested && !recoveryEligible) {
     return jsonResponse(409, {
@@ -453,7 +651,7 @@ async function commitPayment(body: Row, recoveryRequested = false): Promise<Resp
     });
   }
   if (!verified.ok) {
-    if (rpc.transaction && !recovery) {
+    if (rpc.transaction && !recovery && paymentMethod !== "solana_pay") {
       if (bound.binding_context?.payment_kind === "wire_support") {
         const recorded = await recordPaymentSubmission(bound, nonce, txSig);
         if (recorded.error) return rpcFailure(recorded.error);
@@ -489,6 +687,11 @@ async function commitPayment(body: Row, recoveryRequested = false): Promise<Resp
       balance_deltas_verified: true,
       writable_accounts_verified: true,
       no_token_or_inner_transfers: true,
+      payment_method: paymentMethod,
+      solana_pay_reference: paymentMethod === "solana_pay"
+        ? bound.binding_context?.solana_pay?.reference
+        : null,
+      solana_pay_reference_verified: paymentMethod === "solana_pay",
       historical_reverification: recovery,
     },
   });
@@ -522,6 +725,7 @@ async function commitPayment(body: Row, recoveryRequested = false): Promise<Resp
     outstanding_lamports: String(committed.outstanding_lamports ?? "0"),
     idempotent_replay: committed.idempotent_replay === true,
     historical_reverification: recovery,
+    payment_method: paymentMethod,
   });
 }
 
@@ -549,6 +753,7 @@ serve(async (req: Request): Promise<Response> => {
     case "prepare_payment": return await preparePayment(req, body);
     case "prepare_wire_support": return await prepareWireSupport(req, body);
     case "commit_payment": return await commitPayment(body);
+    case "poll_solana_pay": return await pollSolanaPay(body);
     case "recover_payment": return await commitPayment(body, true);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });
   }

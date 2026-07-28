@@ -71,7 +71,7 @@ PostgreSQL (osi_private schema functions)
 
 ## Governance enforcement
 
-Quorum functions compute count and weight over eligible, non-conflicted, active reviews only, with thresholds read from `osi_config` at decision time. Two-gate rule: both a minimum independent-analyst count and a minimum total weight, so no single actor can decide. Bootstrap mode, when enabled, relaxes only the analyst count/weight requirement for four outcome types (Report publication, Wire publication, winner selection, seal) on a live analyst-count tier ladder, never the maintainer double gate, and never for challenges or AI Pack approval. SAS shadow validation records each reviewing wallet's on-chain credential state per review, preparing for hard enforcement without changing today's outcomes.
+Quorum functions compute count and weight over eligible, non-conflicted, active reviews only, with thresholds read from `osi_config` at decision time. Two-gate rule: both a minimum independent-analyst count and a minimum total weight, so no single actor can decide. Bootstrap mode, when enabled, relaxes only the analyst count/weight requirement for four outcome types (Report publication, Wire publication, winner selection, seal) on a live analyst-count tier ladder, never the maintainer double gate, and never for challenges or AI Pack approval. SAS enforcement is active: each review is checked against the exact live attestation or a fresh trusted cache entry, and any invalid, expired, absent, revoked, mismatched, stale-unresolved, or RPC-unavailable credential contributes zero count and zero weight.
 
 ## SAS credential subsystem
 
@@ -81,9 +81,15 @@ On-chain: one OSI Credential account and one OSI_VERIFIED_ANALYST schema (tier u
 
 Server-side verification of finalized mainnet transactions: exact fee payer, exact System Program recipients and lamports from the server-issued intent manifest, canonical memo, freshness window, and replay binding to the intent nonce. Reward payments additionally bind to the sealed Case's frozen pledge and exact winning author; confirmed totals can never exceed the pledge. Support allows up to 4 server-derived recipients per transaction and rejects self-support. Nothing in the money path joins into any governance computation.
 
+Phantom and Solana Pay enter the same commit path. For a single-recipient intent, the server atomically binds a cryptographically random 32-byte reference to the existing payment nonce, payer, purpose, target, recipient manifest/hash, lamports, canonical Memo, mainnet-beta, expiry, payload hash, and idempotency key. The reference is a read-only non-signer account on the exact System transfer. Polling discovers candidates by that reference, but confirmation still requires the canonical raw instruction shape plus the existing parsed transaction, balance, cluster, signer, finality, freshness, and replay checks. Multi-recipient manifests stay Phantom-only to preserve one atomic transaction.
+
+## Private AI Pack launch mode
+
+`OSI_V2_AI_PACK_ACCESS_MODE=maintainer_only` separates private generation from the future governed review path. Generation requires both the configured admin wallet and the authenticated maintainer UUID/session, plus the dedicated write flag and configured provider. Public, owner, analyst, probationary-analyst, wallet-only, and auth-only requests cannot read restricted layers or reserve provider quota. Drafts are immutable, manifest-bound, three-layer artifacts under rate, quota, cooldown, size, timeout, cost, failure-telemetry, and idempotency controls. Review, owner feedback, approval, publication, and discovery remain false and unreachable in this mode.
+
 ## Feature flags
 
-Every capability has a dedicated `osi_config` key read server-side at action time, treating missing/malformed as false. Broad kill switches stay off (`OSI_V2_WRITES_ENABLED`, `OSI_V2_PROOF_ENABLED` are legacy-scoped and false); scoped flags gate each slice (case, analyst, report, review, resolution, payment, read session, wire, AI pack, bootstrap, SAS issuance/enforcement). Rollback is always "turn one flag off", never a schema rollback.
+Every capability has a dedicated `osi_config` key read server-side at action time, treating missing/malformed as false. Broad kill switches stay off (`OSI_V2_WRITES_ENABLED`, `OSI_V2_PROOF_ENABLED`, and `OSI_V2_SCHEMA_READY` are legacy/internal safety controls and false); scoped flags gate each slice (case, analyst, report, review, resolution, payment, Solana Pay, read session, wire, private AI Pack, bootstrap, SAS issuance/enforcement). AI Pack generation additionally requires the exact access mode. Rollback is always "turn the affected dedicated flag off", never a schema rollback.
 
 ## Delivery pipeline
 

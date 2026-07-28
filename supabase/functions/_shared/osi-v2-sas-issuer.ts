@@ -9,8 +9,15 @@
 // bundling rationale). Everything here is best-effort: issuance never blocks or
 // fails analyst activation, and a failure is recorded as telemetry only.
 
-import { reconcileIssuance, base58Decode } from "./osi-v2-sas-core.mjs";
-import { fetchSasSettings } from "./osi-v2-sas-onchain.ts";
+import {
+  reconcileIssuance,
+  reconcileLiveAction,
+  base58Decode,
+} from "./osi-v2-sas-core.mjs";
+import {
+  fetchSasSettings,
+  verifyWalletLive,
+} from "./osi-v2-sas-onchain.ts";
 import type { SasSettings } from "./osi-v2-sas-onchain.ts";
 import * as sdkModule from "./osi-v2-sas-sdk.ts";
 
@@ -36,7 +43,13 @@ const ISSUER_SECRET = Deno.env.get("OSI_V2_SAS_ISSUER_SECRET") ?? "";
 export async function maybeReconcileSasCredential(
   admin: Admin,
   input: { wallet: string; status: string },
-): Promise<{ action: string; reason: string; txSig?: string | null }> {
+): Promise<{
+  action: string;
+  reason: string;
+  txSig?: string | null;
+  verificationState?: string;
+  attestation?: string | null;
+}> {
   try {
     const settings = await fetchSasSettings(admin);
     const decision = reconcileIssuance({ settings: settings ?? undefined, status: input.status });
@@ -44,9 +57,79 @@ export async function maybeReconcileSasCredential(
       console.log("sas_issuance_noop", JSON.stringify({ wallet: input.wallet, reason: decision.reason }));
       return decision;
     }
+    const live = await verifyWalletLive(settings as SasSettings, input.wallet);
+    const liveState = live.rpcFailed ? "pending_verification" : live.status.state;
+    await admin.rpc("osi_v2_sas_record_wallet_state", {
+      p_wallet: input.wallet,
+      p_state: liveState,
+      p_credential: settings?.credential ?? null,
+      p_schema: settings?.schema ?? null,
+      p_issuer: settings?.issuer ?? null,
+      p_attestation: live.attestation,
+      p_expiry: live.status.expiry
+        ? new Date(live.status.expiry * 1000).toISOString()
+        : null,
+      p_latency_ms: live.latencyMs,
+      p_result: live.status.reason,
+      p_error: live.rawError,
+    });
+    const liveDecision = reconcileLiveAction({ desired: decision, live });
+    if (liveDecision.action === "defer") {
+      return {
+        action: "defer",
+        reason: liveDecision.reason,
+        verificationState: liveState,
+        attestation: live.attestation,
+      };
+    }
+    if (liveDecision.action === "satisfied") {
+      const issuanceState = decision.action === "issue" ? "issued" : "revoked";
+      await admin.rpc("osi_v2_sas_record_issuance", {
+        p_wallet: input.wallet,
+        p_issuance_state: issuanceState,
+        p_attestation: live.attestation,
+      });
+      if (decision.action === "revoke") {
+        await admin.rpc("osi_v2_sas_record_wallet_state", {
+          p_wallet: input.wallet,
+          p_state: "revoked",
+          p_credential: settings?.credential ?? null,
+          p_schema: settings?.schema ?? null,
+          p_issuer: settings?.issuer ?? null,
+          p_attestation: live.attestation,
+          p_latency_ms: live.latencyMs,
+          p_result: "already_absent",
+        });
+      }
+      return {
+        action: "satisfied",
+        reason: liveDecision.reason,
+        verificationState: decision.action === "issue" ? "verified" : "revoked",
+        attestation: live.attestation,
+      };
+    }
+    if (liveDecision.action === "repair_required") {
+      await admin.rpc("osi_v2_sas_record_issuance", {
+        p_wallet: input.wallet,
+        p_issuance_state: "failed",
+        p_attestation: live.attestation,
+        p_error: "repair_required:" + liveDecision.reason,
+      });
+      return {
+        action: "repair_required",
+        reason: liveDecision.reason,
+        verificationState: liveState,
+        attestation: live.attestation,
+      };
+    }
     if (!ISSUER_SECRET) {
       console.log("sas_issuance_noop", JSON.stringify({ wallet: input.wallet, reason: "issuer_secret_absent" }));
-      return { action: "noop_unconfigured", reason: "issuer_secret_absent" };
+      return {
+        action: "defer",
+        reason: "issuer_secret_absent",
+        verificationState: liveState,
+        attestation: live.attestation,
+      };
     }
     const result = await performOnChainReconcile(settings as SasSettings, input.wallet, decision);
     await admin.rpc("osi_v2_sas_record_issuance", {
@@ -70,7 +153,13 @@ export async function maybeReconcileSasCredential(
         p_result: decision.action + "_submitted",
       });
     }
-    return { action: decision.action, reason: decision.reason, txSig: result.txSig ?? null };
+    return {
+      action: decision.action,
+      reason: decision.reason,
+      txSig: result.txSig ?? null,
+      verificationState: result.ok ? "pending_verification" : liveState,
+      attestation: result.attestation ?? live.attestation,
+    };
   } catch (error) {
     console.log("sas_issuance_error", String((error as Error)?.message ?? error));
     try {

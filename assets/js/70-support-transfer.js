@@ -140,6 +140,10 @@ function refreshTipSendState(){
   else { setTipStatus(''); }
 }
 function openTip(wallet, label, amount, title, meta){
+  if(!location.pathname.toLowerCase().endsWith('/legacy.html')){
+    if(typeof showToast==='function') showToast('Legacy direct support is available only in the V1 archive. Use an eligible V2 support action.');
+    return;
+  }
   meta = meta || {};
   var preset = (amount && Number(amount) > 0) ? Number(amount) : 0.1;
   tipCtx = { wallet: wallet, amount: preset, label: label || 'OSI project support',
@@ -198,6 +202,10 @@ function updateTipUsd(){
 // Send button. First click validates and shows an explicit confirmation summary;
 // second click requests the wallet signature. Hard-guarded against double sends.
 function confirmTip(){
+  if(!location.pathname.toLowerCase().endsWith('/legacy.html')){
+    if(typeof showToast==='function') showToast('Legacy direct support is disabled on the V2 product.');
+    return;
+  }
   if(tipFlow.sending) return;
   if(!osiTipRecipientOk()){ refreshTipSendState(); return; }
   var lamports = osiSolToLamports(tipCtx.amount);
@@ -225,6 +233,7 @@ function cancelTipConfirm(){
 // Actually perform the transfer: request signature, wait for RPC confirmation,
 // and only then show success + record the event with the REAL signature.
 async function osiTipSend(lamports){
+  if(!location.pathname.toLowerCase().endsWith('/legacy.html')) throw new Error('LEGACY_ROUTE_REQUIRED');
   var btn = tipSendBtn();
   tipFlow.sending = true; tipFlow.stage = 'awaiting';
   if(btn){ btn.disabled = true; btn.textContent = 'Working…'; }

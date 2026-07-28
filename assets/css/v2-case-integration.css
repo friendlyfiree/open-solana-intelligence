@@ -175,6 +175,11 @@
 .osi-payment-review-card ul{display:grid;gap:7px;padding:0;margin:14px 0;list-style:none}
 .osi-payment-review-card li{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-left:2px solid var(--sol);background:rgba(20,241,149,.04);color:var(--ink-dim);font:11px 'JetBrains Mono',monospace}
 .osi-payment-review-card li b{color:var(--ink)}
+.osi-solana-pay-card{width:min(760px,100%)}
+.osi-solana-pay-grid{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:18px;align-items:start;margin-bottom:14px}
+.osi-solana-pay-qr{display:grid;place-items:center;min-height:220px;padding:14px;background:#fff;border:1px solid var(--line-bright)}
+.osi-solana-pay-qr svg{display:block;width:100%;height:auto;max-width:260px}
+.osi-solana-pay-timer{margin:10px 0 0;color:var(--cyan);font-size:11px}
 
 .osi-stat{min-width:120px;border-left:1px solid var(--line);padding-left:16px}
 .osi-stat span{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;color:var(--ink-faint)}
@@ -212,6 +217,8 @@ body.osi-case-open{overflow:hidden}
   .osi-payment-review-card{padding:18px;max-height:calc(100vh - 20px)}
   .osi-payment-review-card dl{grid-template-columns:1fr}
   .osi-payment-review-card li{align-items:flex-start;flex-direction:column;gap:4px}
+  .osi-solana-pay-grid{grid-template-columns:1fr}
+  .osi-solana-pay-qr{min-height:180px}
   .osi-support-recipient{grid-template-columns:auto minmax(0,1fr)}
   .osi-support-recipient>input[type="text"]{grid-column:1/3}
   .osi-payment-proof{grid-template-columns:1fr}

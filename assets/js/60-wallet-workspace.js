@@ -324,7 +324,7 @@ function renderCaseStudies(){
             </table></div>
           </div>
           <div class="warn"><b>${noteLead}.</b> ${noteRest}</div>
-          ${OSI_SUPPORT_WALLET ? `<div class="cs-support"><div class="cs-support-t">Support the OSI project</div><div class="cs-support-s">Voluntary, direct wallet-to-wallet support for OSI in SOL. Non-custodial, and it does not influence review, ranking, or publication.</div><button class="cs-support-btn" onclick="openTip('${OSI_SUPPORT_WALLET}','OSI project support',0.5,'\u25ce Voluntary support')">\u25ce Support the OSI project</button></div>` : ''}
+          ${OSI_SUPPORT_WALLET && location.pathname.toLowerCase().endsWith('/legacy.html') ? `<div class="cs-support"><div class="cs-support-t">Support the OSI project</div><div class="cs-support-s">Voluntary, direct wallet-to-wallet support for OSI in SOL. Non-custodial, and it does not influence review, ranking, or publication.</div><button class="cs-support-btn" onclick="openTip('${OSI_SUPPORT_WALLET}','OSI project support',0.5,'\u25ce Voluntary support')">\u25ce Support the OSI project</button></div>` : ''}
         </div>
       </div>
     </div>`;

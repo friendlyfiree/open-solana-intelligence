@@ -452,14 +452,16 @@ function cfDrawerHtml(b){
   var supVal = reward>0 ? (SOL_MARK+' '+reward+' SOL') : 'Community';
   var applied = !!lsGet('stw_applied',{})[b.id];
   var backed = !!lsGet('stw_boosted',{})[b.id];
+  var legacyRoute = location.pathname.toLowerCase().endsWith('/legacy.html');
   var actions;
   if(resolved){
     var wl = escapeHtml(b.winner_label || short(b.winner_wallet));
     actions = '<div class="cf-won">\uD83C\uDFC6 won by '+wl+'</div>'
-      + '<button class="cf-btn primary" type="button" onclick="caseFileReward()">\u25ce Support the winner</button>';
+      + (legacyRoute?'<button class="cf-btn primary" type="button" onclick="caseFileReward()">\u25ce Support the winner</button>':'');
   } else {
-    actions = '<button class="cf-btn primary" type="button" onclick="caseFileApply()">\u2726 Submit a report</button>'
-      + '<button class="cf-btn ghost'+(backed?' on':'')+'" type="button" onclick="caseFileBack()">\u2191 '+(backed?'Backed':'Support this case')+'</button>';
+    actions = legacyRoute?'<button class="cf-btn primary" type="button" onclick="caseFileApply()">\u2726 Submit a report</button>'
+      + '<button class="cf-btn ghost'+(backed?' on':'')+'" type="button" onclick="caseFileBack()">\u2191 '+(backed?'Backed':'Support this case')+'</button>'
+      :'<a class="cf-btn ghost" href="./legacy.html">View V1 archive</a>';
   }
   var foot = (filed ? 'Filed '+filed : '') + (backed ? (filed?' \u00b7 ':'')+'you backed this' : '') + (applied ? ((filed||backed)?' \u00b7 ':'')+'you submitted a report' : '');
   return ''
@@ -491,6 +493,7 @@ function caseFileApply(){
 }
 // support the case in the drawer, same signed memo + backend path as the board boost
 function caseFileBack(){
+  if(!location.pathname.toLowerCase().endsWith('/legacy.html')) return;
   var b = caseFileData; if(!b) return;
   if(lsGet('stw_boosted',{})[b.id]){ if(typeof showToast==='function') showToast('You already backed this case.'); return; }
   var bid = b.id, _bts = Math.floor(Date.now()/1000);
@@ -506,6 +509,7 @@ function caseFileBack(){
   });
 }
 function caseFileReward(){
+  if(!location.pathname.toLowerCase().endsWith('/legacy.html')) return;
   // winner_wallet is set by the maintainer via the signed "Set winner" action
   // (admResolveBounty), so it is an explicitly attested recipient \u2014 never a
   // reported/target wallet. Support is voluntary and non-custodial.

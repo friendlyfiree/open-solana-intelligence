@@ -56,9 +56,9 @@ ok(wire.includes("window.osiV2ReadSession(['wire:mine']") && !wire.includes("iss
 ok(wire.includes("window.osiV2ReadSession(['wire:queue']"), 'Wire analyst queue reuses the shared scoped read session');
 ok(wire.includes("state.queue=[];state.current=null") && wire.includes("osiV2RegisterPrivateCache('wire',clearSessionState)"), 'Wire queue and detail state clear with wallet or session invalidation');
 ok(aiPack.includes("window.osiV2ReadSession(['aipack:detail']"), 'AI Pack authorized layers reuse the exact shared read-session scope');
-ok(aiPack.includes('function shouldUsePrivate(')
-  && aiPack.includes("['owner','analyst','senior','maintainer'].indexOf(role)>=0")
-  && aiPack.includes("op:'list_public_case_packs'"), 'AI Pack avoids a private signature for an ordinary public viewer');
+ok(aiPack.includes("caps.ai_pack_access_mode!=='maintainer_only'||caps.maintainer_access!==true")
+  && !aiPack.includes("op:'list_public_case_packs'"),
+  'AI Pack exposes no public read or private signature path for an ordinary viewer in maintainer-only mode');
 ok(aiPack.includes("osiV2RegisterPrivateCache('ai-packs',clear)")
   && aiPack.includes('state.loadToken++')
   && aiPack.includes('root.replaceChildren()'), 'AI Pack invalidates stale reads and wipes rendered private content with the shared session');

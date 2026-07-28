@@ -187,8 +187,8 @@ function accountKeyValue(entry) {
   return String(entry?.pubkey ?? "");
 }
 
-function decodeBase58(value) {
-  if (typeof value !== "string" || value.length < 1 || value.length > 128) {
+export function decodeBase58(value) {
+  if (typeof value !== "string" || value.length < 1 || value.length > 1_400) {
     throw new TypeError("base58 value is invalid");
   }
   const bytes = [0];
@@ -210,6 +210,42 @@ function decodeBase58(value) {
     bytes.push(0);
   }
   return Uint8Array.from(bytes.reverse());
+}
+
+export function encodeBase58(input) {
+  const source = input instanceof Uint8Array ? input : new Uint8Array(input ?? []);
+  if (source.length < 1 || source.length > 1_024) {
+    throw new TypeError("base58 bytes are invalid");
+  }
+  const digits = [0];
+  for (const byte of source) {
+    let carry = byte;
+    for (let index = 0; index < digits.length; index++) {
+      carry += digits[index] << 8;
+      digits[index] = carry % 58;
+      carry = Math.floor(carry / 58);
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = Math.floor(carry / 58);
+    }
+  }
+  let result = "";
+  for (let index = 0; index < source.length - 1 && source[index] === 0; index++) {
+    result += "1";
+  }
+  for (let index = digits.length - 1; index >= 0; index--) {
+    result += BASE58_ALPHABET[digits[index]];
+  }
+  return result;
+}
+
+export function validateSolanaPayReference(value) {
+  const reference = requireText(value, "solana_pay_reference", WALLET, 44);
+  if (decodeBase58(reference).length !== 32) {
+    throw new TypeError("solana_pay_reference is invalid");
+  }
+  return reference;
 }
 
 function readUnsignedLe(bytes, offset, length) {
@@ -301,6 +337,150 @@ function parsedMemo(instruction) {
   if (typeof instruction.parsed === "string") return instruction.parsed;
   if (typeof instruction.parsed?.info === "string") return instruction.parsed.info;
   return null;
+}
+
+function compiledInstructionProgram(message, instruction) {
+  const index = Number(instruction?.programIdIndex);
+  if (!Number.isSafeInteger(index) || index < 0) return "";
+  return accountKeyValue(message?.accountKeys?.[index]);
+}
+
+function compiledInstructionAccounts(instruction) {
+  if (!Array.isArray(instruction?.accounts)
+      || instruction.accounts.some((value) => !Number.isSafeInteger(Number(value)))) {
+    return null;
+  }
+  return instruction.accounts.map(Number);
+}
+
+function failSolanaPayReference(reason) {
+  return { ok: false, state: "verification_failed", reason };
+}
+
+// Solana Pay transfer requests bind a reference account to the exact System
+// transfer instruction. Parsed RPC output does not retain enough account-order
+// detail to prove that binding, so this validator runs against a second raw
+// transaction response before the normal finalized-payment validator.
+export function validateSolanaPayReferenceTransaction(transaction, intent) {
+  let reference;
+  let payer;
+  let normalized;
+  let expectedMemo;
+  try {
+    reference = validateSolanaPayReference(intent?.solana_pay_reference);
+    payer = requireText(intent?.payer_wallet, "payer_wallet", WALLET, 44);
+    normalized = normalizeRecipientManifest(intent?.recipient_manifest, payer);
+    expectedMemo = canonicalPaymentMemo(intent);
+  } catch {
+    return failSolanaPayReference("solana_pay_binding_invalid");
+  }
+  if (normalized.manifest.length !== 1) {
+    return failSolanaPayReference("solana_pay_single_recipient_required");
+  }
+  const message = transaction?.transaction?.message;
+  const keys = message?.accountKeys;
+  const header = message?.header;
+  const instructions = message?.instructions;
+  if (!Array.isArray(keys) || !Array.isArray(instructions) || !header
+      || keys.some((key) => typeof key !== "string" || !WALLET.test(key))
+      || new Set(keys).size !== keys.length) {
+    return failSolanaPayReference("solana_pay_account_metadata_invalid");
+  }
+  const payerIndex = keys.indexOf(payer);
+  const recipientIndex = keys.indexOf(normalized.manifest[0].wallet);
+  const referenceIndex = keys.indexOf(reference);
+  const requiredSignatures = Number(header.numRequiredSignatures);
+  const readonlyUnsigned = Number(header.numReadonlyUnsignedAccounts);
+  if (payerIndex !== 0 || recipientIndex < 1 || referenceIndex < 1
+      || !Number.isSafeInteger(requiredSignatures) || requiredSignatures !== 1
+      || !Number.isSafeInteger(readonlyUnsigned) || readonlyUnsigned < 1
+      || referenceIndex < requiredSignatures
+      || referenceIndex < keys.length - readonlyUnsigned) {
+    return failSolanaPayReference("solana_pay_reference_not_readonly");
+  }
+
+  let cursor = 0;
+  const seenComputeDiscriminators = new Set();
+  while (cursor < instructions.length
+      && compiledInstructionProgram(message, instructions[cursor]) === COMPUTE_BUDGET_PROGRAM) {
+    const accounts = compiledInstructionAccounts(instructions[cursor]);
+    const normalizedInstruction = {
+      accounts,
+      data: instructions[cursor].data,
+      stackHeight: null,
+    };
+    if (!accounts || !validateComputeBudgetInstruction(normalizedInstruction, seenComputeDiscriminators)) {
+      return failSolanaPayReference("invalid_compute_budget_instruction");
+    }
+    cursor++;
+  }
+
+  const memoInstruction = instructions[cursor++];
+  const memoAccounts = compiledInstructionAccounts(memoInstruction);
+  if (compiledInstructionProgram(message, memoInstruction) !== MEMO_PROGRAM
+      || !memoAccounts
+      || !(memoAccounts.length === 0
+        || (memoAccounts.length === 1 && memoAccounts[0] === payerIndex))) {
+    return failSolanaPayReference("solana_pay_memo_position_invalid");
+  }
+  let memoText = "";
+  try {
+    memoText = new TextDecoder("utf-8", { fatal: true }).decode(decodeBase58(memoInstruction.data));
+  } catch {
+    return failSolanaPayReference("solana_pay_memo_invalid");
+  }
+  if (memoText !== expectedMemo) {
+    return failSolanaPayReference("memo_mismatch");
+  }
+
+  const transferInstruction = instructions[cursor++];
+  const transferAccounts = compiledInstructionAccounts(transferInstruction);
+  let transferData;
+  try {
+    transferData = decodeBase58(transferInstruction?.data);
+  } catch {
+    return failSolanaPayReference("solana_pay_transfer_invalid");
+  }
+  if (compiledInstructionProgram(message, transferInstruction) !== SYSTEM_PROGRAM
+      || !transferAccounts
+      || transferAccounts.length !== 3
+      || transferAccounts[0] !== payerIndex
+      || transferAccounts[1] !== recipientIndex
+      || transferAccounts[2] !== referenceIndex
+      || transferData.length !== 12
+      || readUnsignedLe(transferData, 0, 4) !== 2n
+      || readUnsignedLe(transferData, 4, 8) !== BigInt(normalized.manifest[0].amount_lamports)) {
+    return failSolanaPayReference("solana_pay_transfer_binding_mismatch");
+  }
+
+  if (cursor < instructions.length) {
+    const lighthouse = instructions[cursor++];
+    const lighthouseAccounts = compiledInstructionAccounts(lighthouse);
+    if (compiledInstructionProgram(message, lighthouse) !== LIGHTHOUSE_PROGRAM
+        || !lighthouseAccounts || lighthouseAccounts.length !== 1
+        || lighthouseAccounts[0] !== payerIndex
+        || lighthouse.data !== LIGHTHOUSE_SAFE_ACCOUNT_ASSERTIONS) {
+      return failSolanaPayReference("unsafe_lighthouse_instruction");
+    }
+  }
+  if (cursor !== instructions.length) {
+    return failSolanaPayReference("unexpected_instruction");
+  }
+  const referenceUses = instructions.reduce((count, instruction) => {
+    const accounts = compiledInstructionAccounts(instruction);
+    return count + (accounts ? accounts.filter((index) => index === referenceIndex).length : 0);
+  }, 0);
+  if (referenceUses !== 1) {
+    return failSolanaPayReference("solana_pay_reference_reused");
+  }
+  return {
+    ok: true,
+    state: "reference_bound",
+    solana_pay_reference: reference,
+    recipient_wallet: normalized.manifest[0].wallet,
+    amount_lamports: normalized.manifest[0].amount_lamports,
+    memo: expectedMemo,
+  };
 }
 
 export function validateFinalizedPaymentTransaction(transaction, signatureStatus, intent, txSignature) {
