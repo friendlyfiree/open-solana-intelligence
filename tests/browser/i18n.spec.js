@@ -54,7 +54,7 @@ test('translates dynamic interface labels and leaves opted-out user content unto
     analyst.id = 'dynamic-analyst-profile-copy';
     analyst.setAttribute('role', 'dialog');
     analyst.setAttribute('aria-label', 'Analyst profile');
-    analyst.innerHTML = '<span>Server-derived weight</span><h4>Public contributions</h4><b>No public contributions recorded</b><button>Support analyst with SOL</button>';
+    analyst.innerHTML = '<span>Server-derived weight</span><em>Probationary</em><h4>Public contributions</h4><b>No public contributions recorded</b><button>Support analyst with SOL</button>';
     document.body.appendChild(analyst);
   });
 
@@ -64,6 +64,7 @@ test('translates dynamic interface labels and leaves opted-out user content unto
   await expect(page.locator('#dynamic-payment-copy button')).toHaveText('Solana Pay’i göster');
   await expect(page.locator('#dynamic-analyst-profile-copy')).toHaveAttribute('aria-label', 'Analist profili');
   await expect(page.locator('#dynamic-analyst-profile-copy span')).toHaveText('Sunucunun belirlediği ağırlık');
+  await expect(page.locator('#dynamic-analyst-profile-copy em')).toHaveText('Deneme süreci');
   await expect(page.locator('#dynamic-analyst-profile-copy h4')).toHaveText('Kamusal katkılar');
   await expect(page.locator('#dynamic-analyst-profile-copy b')).toHaveText('Kaydedilmiş kamusal katkı yok');
   await expect(page.locator('#dynamic-analyst-profile-copy button')).toHaveText('Analisti SOL ile destekle');
