@@ -466,6 +466,7 @@
     'Profile status': 'Profil durumu',
     'Server-derived weight': 'Sunucunun belirlediği ağırlık',
     'Tier': 'Kademe',
+    'Probationary': 'Deneme süreci',
     'Probationary Analyst': 'Deneme sürecindeki analist',
     'Verified Analyst': 'Doğrulanmış analist',
     'Safe public links': 'Güvenli kamusal bağlantılar',
