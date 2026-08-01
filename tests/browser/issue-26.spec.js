@@ -1632,6 +1632,8 @@ test('launch readiness: full maintainer controls review candidacy and finalize o
   )).toBeGreaterThan(resolutionQueueReloads);
   await expect(page.locator('#osi-case-ref')).toHaveText(resolutionSelectionCase.public_ref);
 
+  await page.evaluate(() => window.osiV2CloseCase());
+  await expect(page.locator('#osi-case-drawer')).toBeHidden();
   await page.evaluate(() => window.osiV2OpenReviewQueue());
   await page.locator('[data-review-lane="seal_reviews"]').click();
   const sealQueueReloads = fixtureOperationCount(
