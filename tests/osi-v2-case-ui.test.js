@@ -26,9 +26,11 @@ function ok(name, condition) {
 ok('Case lifecycle is integrated into the primary app',
   index.includes('assets/js/v2-case-integration.js') &&
   index.includes('assets/css/v2-case-integration.css'));
-ok('Home exposes the primary Case and public-record actions',
+ok('Home exposes the primary Case intake and public Case registry actions',
   index.includes('onclick="osiOpenCase()">Open a Case</button>')
-    && index.includes('onclick="osiNavigate(\'records\')">Browse Public Records</button>'));
+    && index.includes('onclick="osiBrowsePublicCases()">Browse Public Cases</button>'));
+ok('sealed Public Records stay reachable under an unambiguous label',
+  index.includes('onclick="osiNavigate(\'records\')">Browse sealed Public Records</button>'));
 ok('Case integration overrides the legacy Field renderer before app boot',
   index.indexOf('assets/js/v2-case-integration.js') < index.indexOf('assets/js/99-app.js'));
 ok('AI Pack integration loads before the Case drawer that consumes it',

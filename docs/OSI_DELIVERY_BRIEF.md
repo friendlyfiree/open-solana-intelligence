@@ -110,6 +110,11 @@ Operational flag and dormant-surface classification:
 - My Cases uses a fresh signed, single-use private read.
 - My Reviews uses an eligible reviewer-only signed queue read.
 - Case detail uses one drawer rather than a separate product shell.
+- Case detail has one canonical shareable route, `#case/<public_ref>`, and every public entry point resolves to it.
+- The Case drawer opens before its network read completes and never leaves a click without visible feedback.
+- The Field Office author workspace is labeled My Reports, never Reports.
+- Published Reports are read from public Case detail with no login, wallet, signature or transaction.
+- Navigating to a personal or authorized surface never calls a wallet API; an inline locked panel offers one explicit connect control.
 - Case detail sections are Overview and Evidence.
 - Case detail sections include Reports and Reviews.
 - Case detail sections include Resolution & Challenges.

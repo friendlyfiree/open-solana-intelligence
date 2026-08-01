@@ -342,15 +342,20 @@
     copy.appendChild(make('strong', '', item.title || shortRef(item.public_ref)));
     copy.appendChild(make('small', '', shortRef(item.public_ref) + ' / ' + titleCase(item.stage)));
     host.appendChild(copy);
-    var open = make('button', '', 'Open');
+    var open = make('button', '', 'Open Case');
     open.type = 'button';
-    open.addEventListener('click', function () {
-      navigate('field', { focus: false });
-      window.setTimeout(function () {
-        if (typeof window.osiV2OpenCase === 'function') window.osiV2OpenCase(item.public_ref);
-      }, 0);
-    });
+    open.setAttribute('aria-label', 'Open Case detail for ' + item.public_ref + ', ' + (item.title || ''));
+    open.addEventListener('click', function () { openPublicCase(item.public_ref); });
     host.appendChild(open);
+  }
+
+  // Every public entry point routes through one canonical Case detail so the
+  // same reference always resolves to the same drawer and the same URL.
+  function openPublicCase(publicRef) {
+    navigate('field', { focus: false, preserveScroll: true });
+    window.setTimeout(function () {
+      if (typeof window.osiV2OpenCase === 'function') window.osiV2OpenCase(publicRef);
+    }, 0);
   }
 
   function renderHomeCasesError() {
@@ -442,9 +447,10 @@
       icon.setAttribute('aria-hidden', 'true');
       var copy = make('p');
       copy.appendChild(make('strong', '', 'No sealed public records are listed'));
-      copy.appendChild(make('small', '', 'OSI does not substitute example records for an empty public index.'));
+      copy.appendChild(make('small', '', 'Public Records holds sealed outcomes only. Open public Cases and their published Reports are in the Field Office. OSI does not substitute example records for an empty public index.'));
       empty.appendChild(icon);
       empty.appendChild(copy);
+      empty.appendChild(rowButton('Browse public Cases', function () { navigate('field', { focus: false }); }));
       host.appendChild(empty);
       return;
     }
@@ -455,12 +461,7 @@
       copy.appendChild(make('strong', '', item.title || 'Sealed public record'));
       copy.appendChild(make('small', '', titleCase(item.category) + ' / ' + (item.sealed_at ? new Date(item.sealed_at).toLocaleDateString() : 'Seal recorded')));
       row.appendChild(copy);
-      row.appendChild(rowButton('Inspect proof', function () {
-        navigate('field', { focus: false });
-        window.setTimeout(function () {
-          if (typeof window.osiV2OpenCase === 'function') window.osiV2OpenCase(item.public_ref);
-        }, 0);
-      }));
+      row.appendChild(rowButton('Inspect proof', function () { openPublicCase(item.public_ref); }));
       host.appendChild(row);
     });
   }
@@ -501,12 +502,34 @@
     return Promise.allSettled([caseRequest, analystRequest]);
   }
 
+  // #case/OSI-XXXXXXXXXXXX is the canonical, shareable public Case route. It
+  // carries only a public reference, never a token, nonce or wallet value.
+  function caseRouteRef(hash) {
+    var match = /^case\/(OSI-[0-9A-Z]{6,20})$/.exec(String(hash || ''));
+    return match ? match[1] : '';
+  }
+
+  function closeCaseRoute() {
+    if (typeof window.osiV2CloseCaseFromRoute === 'function') window.osiV2CloseCaseFromRoute();
+  }
+
   function routeFromLocation() {
     var hash = window.location.hash.replace(/^#/, '');
     if (hash === 'how-it-works') {
+      closeCaseRoute();
       navigateSection('registry', 'how-osi-works', 'how-it-works');
       return;
     }
+    var caseRef = caseRouteRef(hash);
+    if (caseRef) {
+      navigate('field', { history: true, focus: false, preserveScroll: true });
+      if (typeof window.osiV2ActiveCaseRef === 'function' && window.osiV2ActiveCaseRef() === caseRef) return;
+      window.setTimeout(function () {
+        if (typeof window.osiV2OpenCaseFromRoute === 'function') window.osiV2OpenCaseFromRoute(caseRef);
+      }, 0);
+      return;
+    }
+    closeCaseRoute();
     if (hashViews[hash]) navigate(hashViews[hash], { history: true, focus: false });
     else if (!hash) navigate('registry', { history: true, focus: false });
     else syncActiveNavigation(document.body.dataset.view || 'registry');
@@ -526,6 +549,8 @@
   window.osiNavigate = navigate;
   window.osiNavigateSection = navigateSection;
   window.osiOpenCase = openCase;
+  window.osiOpenPublicCase = openPublicCase;
+  window.osiBrowsePublicCases = function () { navigate('field', { focus: false }); };
   window.osiNavigateFieldStage = navigateFieldStage;
   window.osiPublicApi = publicApi;
   window.osiLoadHomeData = loadHomeData;

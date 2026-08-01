@@ -74,7 +74,7 @@ ok(homeSections.length === 3, 'Home is limited to three strong product sections'
 ok(homeWords.length <= Math.floor(866 * .45), 'Home copy remains at least 55 percent shorter than the 866-word baseline');
 ok(!/osi-home-(?:perspectives|workspaces|network|records|boundaries)/.test(home), 'retired newspaper-style Home sections are absent from markup');
 
-ok(home.includes('>Open a Case</button>') && home.includes('>Browse Public Records</button>'), 'hero exposes the primary Case and public-record routes');
+ok(home.includes('>Open a Case</button>') && home.includes('onclick="osiBrowsePublicCases()">Browse Public Cases</button>'), 'hero exposes the primary Case intake and public Case registry routes');
 ok(home.includes('onclick="osiV2OpenMyReports()"') && home.includes('onclick="osiNavigate(\'prooflog\')"'), 'workflow controls call real Report and Proof Log routes');
 ok(home.includes('class="art-manifest"') && home.includes('class="art-version art-version-current"') && home.includes('class="art-hash-ring"') && home.includes('Build a Versioned Report'), 'Report route visibly binds evidence manifest, immutable version and hash lock');
 ok(home.includes('<strong>Review</strong>') && home.includes('onclick="osiV2OpenReviewQueue()"'), 'Home review step opens the authorized Review Queue');
