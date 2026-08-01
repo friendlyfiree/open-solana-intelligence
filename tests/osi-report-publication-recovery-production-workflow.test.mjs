@@ -17,7 +17,7 @@ assert.match(workflow, /supabase db lint --local --level error/);
 assert.match(workflow, /supabase test db/);
 assert.match(workflow, /tests\/osi-v2-concurrency\.test\.sh/);
 assert.match(workflow, /npx playwright test --config tests\/browser\/playwright\.config\.js/);
-assert.match(workflow, /actionlint/);
+assert.match(workflow, /actionlint" \.github\/workflows\/osi-report-publication-recovery-production\.yml/);
 assert.match(workflow, /bash -n tests\/osi-v2-concurrency\.test\.sh/);
 assert.match(workflow, /deno_check_with_retry\(\)/);
 assert.match(workflow, /for attempt in 1 2 3/);
