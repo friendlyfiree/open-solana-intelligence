@@ -130,7 +130,7 @@
       <p class="osi-hero-lede">Open a private Case, attach public evidence, and follow independent review to a challengeable public record.</p>
       <div class="osi-hero-actions">
         <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a Case</button>
-        <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('records')">Browse Public Records</button>
+        <button class="osi-button osi-button-secondary" type="button" onclick="osiBrowsePublicCases()">Browse Public Cases</button>
       </div>
       <ul class="osi-trust-line" aria-label="Product boundaries">
         <li>Private by default</li>
@@ -238,9 +238,9 @@
     </div>
     <div class="osi-live-grid">
       <article class="osi-live-pane">
-        <header><div><span>Public Records</span><strong>Reviewed outcomes</strong></div><button type="button" onclick="osiNavigate('records')">Open registry <span aria-hidden="true">&#8599;</span></button></header>
+        <header><div><span>Public Records</span><strong>Sealed outcomes only</strong></div><button type="button" onclick="osiNavigate('records')">Open registry <span aria-hidden="true">&#8599;</span></button></header>
         <div class="osi-live-list osi-record-list" id="home-public-records" aria-live="polite" aria-busy="true">
-          <div class="osi-list-loading"><span aria-hidden="true"></span><p><strong>Loading public records</strong><small>Private Cases and unpublished Reports stay excluded.</small></p></div>
+          <div class="osi-list-loading"><span aria-hidden="true"></span><p><strong>Loading sealed public records</strong><small>Open public Cases and their published Reports live in the Field Office. Private Cases and unpublished Reports stay excluded.</small></p></div>
         </div>
       </article>
       <article class="osi-live-pane">
@@ -560,20 +560,20 @@
   <div class="wrap">
 <aside class="fo-rail" aria-label="Field Office navigation">
   <div class="fr-g mono">Field Office</div>
-  <button class="fr-i active" id="fr-fieldoffice" type="button" onclick="fieldMine(false)"><span class="fr-index" aria-hidden="true">01</span>Cases</button>
-  <button class="fr-i" type="button" onclick="osiV2OpenMyReports()"><span class="fr-index" aria-hidden="true">02</span>Reports</button>
+  <button class="fr-i active" id="fr-fieldoffice" type="button" data-fo-nav="cases" onclick="fieldMine(false)"><span class="fr-index" aria-hidden="true">01</span>Cases</button>
+  <button class="fr-i" type="button" data-fo-nav="reports" onclick="osiV2OpenMyReports()"><span class="fr-index" aria-hidden="true">02</span>My Reports</button>
   <button class="fr-i" type="button" onclick="osiNavigateFieldStage('resolution_selection')"><span class="fr-index" aria-hidden="true">03</span>Resolutions</button>
   <button class="fr-i" type="button" onclick="osiNavigateFieldStage('challenge_active')"><span class="fr-index" aria-hidden="true">04</span>Challenges</button>
-  <button class="fr-i field-review-nav" type="button" onclick="osiV2OpenReviewQueue()" hidden><span class="fr-index" aria-hidden="true">05</span>Review Queue</button>
-  <div class="fr-context-note">Public lists never reveal unpublished Report existence or private Case details.</div>
+  <button class="fr-i field-review-nav" type="button" data-fo-nav="review" onclick="osiV2OpenReviewQueue()" hidden><span class="fr-index" aria-hidden="true">05</span>Review Queue</button>
+  <div class="fr-context-note">Published Reports are inside their public Case detail. My Reports is your own private workspace. Public lists never reveal unpublished Report existence or private Case details.</div>
 </aside>
 <div class="fo-main">
     <div class="vsub" aria-label="Field Office sections">
-      <button class="vsub-b active" type="button" onclick="fieldMine(false)">Cases</button>
-      <button class="vsub-b" type="button" onclick="osiV2OpenMyReports()">Reports</button>
+      <button class="vsub-b active" type="button" data-fo-nav="cases" onclick="fieldMine(false)">Cases</button>
+      <button class="vsub-b" type="button" data-fo-nav="reports" onclick="osiV2OpenMyReports()">My Reports</button>
       <button class="vsub-b" type="button" onclick="osiNavigateFieldStage('resolution_selection')">Resolutions</button>
       <button class="vsub-b" type="button" onclick="osiNavigateFieldStage('challenge_active')">Challenges</button>
-      <button class="vsub-b field-review-nav" type="button" onclick="osiV2OpenReviewQueue()" hidden>Review Queue</button>
+      <button class="vsub-b field-review-nav" type="button" data-fo-nav="review" onclick="osiV2OpenReviewQueue()" hidden>Review Queue</button>
     </div>
         <div class="fo-hero">
       <div class="fo-hero-l">
@@ -1023,7 +1023,8 @@
       <div><p class="osi-kicker">Enter the platform</p><h2>Inspect the evidence, then choose an action.</h2></div>
       <div class="osi-about-actions">
         <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a Case</button>
-        <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('records')">Browse Public Records</button>
+        <button class="osi-button osi-button-secondary" type="button" onclick="osiBrowsePublicCases()">Browse Public Cases</button>
+        <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('records')">Browse sealed Public Records</button>
         <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('analysts')">View Analyst Network</button>
       </div>
     </section>

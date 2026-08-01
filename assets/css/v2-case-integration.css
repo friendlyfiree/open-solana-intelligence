@@ -255,3 +255,16 @@ body.osi-case-open{overflow:hidden}
   .osi-case-panel,.osi-v2-skeleton::after{animation:none}
   .osi-v2-row{transition:none}
 }
+
+/* Private workspace lock. A navigation click lands here instead of opening a
+   wallet, so the boundary and the exact next action stay visible. */
+.osi-workspace-lock{display:grid;justify-items:center;gap:12px;border:1px solid var(--line);background:rgba(12,17,29,.65);padding:42px 28px;text-align:center}
+.osi-workspace-lock b{color:var(--ink);font-size:17px}
+.osi-workspace-lock span{max-width:600px;color:var(--ink-dim);font-size:14px;line-height:1.65}
+.osi-workspace-lock small{max-width:600px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;opacity:.85}
+.osi-workspace-lock .osi-action,.osi-workspace-lock .osi-report-action{min-height:44px;padding:11px 18px}
+.osi-workspace-lock .osi-action:hover,.osi-workspace-lock .osi-action:focus-visible{border-color:var(--acc-line);color:var(--ink);outline:0}
+@media(max-width:640px){
+  .osi-workspace-lock{padding:30px 18px}
+  .osi-workspace-lock .osi-action,.osi-workspace-lock .osi-report-action{width:100%}
+}

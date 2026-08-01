@@ -8,6 +8,14 @@ Navigation: **Home · Field Office · The Wire · Public Records · Analysts · 
 
 Global states per surface: **empty** (neutral + primary CTA), **loading** (skeleton, no fake data), **error** (neutral, retry, never raw DB/SQL/token), **unauthorized** (explains how to gain access).
 
+### Public and personal surface boundary (current release)
+
+Public surfaces are anonymous-readable and never trigger a wallet call: Field Office / Cases, public Case detail, **Published Reports** inside a public Case, The Wire, Public Records (sealed outcomes only), Proof Log, Analyst Network. Personal and authorized surfaces are **My OSI, My Cases, My Reports, Review Queue** and the maintainer workspace. The Field Office rail item for the author workspace is labeled **My Reports**, never "Reports", because it lists only the connected wallet's own immutable versions.
+
+Navigating to a personal surface never calls `connect`, `signMessage` or `sendTransaction`. It renders an inline locked panel that names the boundary and offers one explicit control ("Connect wallet and authorize private read"), and that control states that it costs one message signature and no Solana transaction. A missing wallet extension is only reported after the user activates that control.
+
+Public Case detail has a canonical shareable route, `#case/<public_ref>`. Every entry point (Home, Field Office row, Proof Log, Operations) resolves the same reference to the same drawer and the same URL, so direct links, reload and browser back/forward all work. The route carries a public reference only, never a token, nonce or wallet value. The drawer opens immediately from the already-loaded public projection and refreshes in place, so a slow public read can never look like a dead button.
+
 ---
 
 ## 1. Home

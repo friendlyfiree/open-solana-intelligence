@@ -11,7 +11,7 @@
   var PAYMENT_RECOVERY_KEY = 'osi:v2:payment-recovery:1';
   var PAYMENT_RECOVERY_PREFIX = 'osi:v2:payment-recovery:2:';
   var state = {
-    cases: [], mode: 'public', actorRole: 'public', query: '', stage: 'open_public',
+    cases: [], mode: 'public', locked: null, actorRole: 'public', query: '', stage: 'open_public',
     sort: 'newest', page: 1, loadToken: 0, drawerLoadToken: 0, current: null, tab: 'overview',
     capabilities: null, caseIdempotency: '', reviewBusy: false, reviewTasks: {},
     reviewLanes: {}, reviewUpdatedAt: null, reviewLoadToken: 0, caseReceipt: null,
@@ -168,6 +168,10 @@
       prohibited_illegal_access_material:'Illegal-access material cannot be submitted.',
       rate_limited:'Too many proof requests. Wait a few minutes and try again.'
       ,read_failed:'The public Case registry could not be loaded. Retry when the service is available.'
+      // One message for both cases on purpose: an anonymous caller must not be
+      // able to tell a missing Case apart from a private one.
+      ,not_found_or_private:'This Case reference is not available in the public registry.'
+      ,bad_public_ref:'That Case reference is not a valid public reference.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
       ,read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; typed drafts stay in this browser tab.'
@@ -237,6 +241,15 @@
     var generation=privateGeneration();
     var result=await api(READ_URL,Object.assign({op:op,wallet:session.wallet,read_session:session.token},extra||{}));
     assertPrivateGeneration(generation);return result;
+  }
+  // One shared active marker for the Field Office rail and its mobile tab row,
+  // so the highlighted item always matches the surface actually rendered.
+  function setFieldRailActive(key){
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fo-nav]'),function(node){
+      var active=node.getAttribute('data-fo-nav')===String(key||'');
+      node.classList.toggle('active',active);
+      if(active)node.setAttribute('aria-current','true');else node.removeAttribute('aria-current');
+    });
   }
   function setLoading(){
     var host=document.getElementById('field-cases');
@@ -408,9 +421,40 @@
     }
     var deck=document.getElementById('fo-deck');if(deck)deck.hidden=true;
   }
+  // A navigation click into a private workspace never touches the wallet API.
+  // The user has to ask for it with an explicit, clearly labelled action.
+  var workspaceLockCopy={
+    mine:{
+      title:'My Cases is a private workspace',
+      body:'Your own Cases stay private. Public Cases and published Reports are readable here without a wallet.',
+      cta:'Connect wallet and authorize private read'
+    },
+    review:{
+      title:'My Reviews is an authorized workspace',
+      body:'Review tasks are limited to eligible analysts and full maintainers. Public Cases and published Reports are readable here without a wallet.',
+      cta:'Connect wallet and authorize review access'
+    }
+  };
+  function drawWorkspaceLock(host,mode){
+    var copy=workspaceLockCopy[mode]||workspaceLockCopy.mine;
+    // Public registry counters must not sit under a private workspace heading.
+    var stats=document.getElementById('field-stats');if(stats)stats.innerHTML='';
+    var count=document.getElementById('fo-count');if(count)count.textContent='';
+    var nav=document.getElementById('fo-pnav');if(nav)nav.innerHTML='';
+    var deck=document.getElementById('fo-deck');if(deck)deck.hidden=true;
+    host.innerHTML='<div class="osi-workspace-lock" data-workspace-lock="'+esc(mode)+'">'
+      +'<b>'+esc(t(copy.title))+'</b>'
+      +'<span>'+esc(t(copy.body))+'</span>'
+      +'<button class="osi-action" type="button" data-workspace-unlock="'+esc(mode)+'">'+esc(t(copy.cta))+'</button>'
+      +'<small>'+esc(t('One wallet message signature. No Solana transaction, no transfer, and no network fee.'))+'</small>'
+      +'</div>';
+    var button=host.querySelector('[data-workspace-unlock]');
+    if(button)button.addEventListener('click',function(){openSignedCollection(mode,{authorize:true});});
+  }
   function drawCases(){
     var host=document.getElementById('field-cases');
     if(!host) return;
+    if(state.locked){drawWorkspaceLock(host,state.locked);return;}
     if(state.mode==='review'){drawReviewTasks(host);return;}
     var rows=state.cases.slice();
     var query=state.query.toLowerCase();
@@ -440,7 +484,10 @@
       host.innerHTML=visible.map(function(item){
         var proof=hasOpenProof(item)?'Memo anchored':((item.proof_log||[]).length?'Proof recorded':'Awaiting proof');
         var rewardState=item.money&&item.money.reward&&item.money.reward.status;
-        return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'">'
+        var published=(item.reports||[]).filter(function(report){return report&&report.published===true;}).length;
+        var rowLabel=t('Open Case detail')+': '+String(item.public_ref)+', '+String(item.title||'')
+          +' ('+stageLabel(item.stage,item)+', '+(published?published+' '+t('published Reports'):t('no published Report'))+')';
+        return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'" aria-label="'+esc(rowLabel)+'">'
           +'<span class="osi-v2-id">'+esc(item.public_ref)+'</span>'
           +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
           +'<span class="osi-v2-stage '+stageClass(item)+'">'+esc(stageLabel(item.stage,item))+'</span>'
@@ -539,7 +586,7 @@
     var active=document.querySelector('#osi-case-tabs [data-tab="'+tab+'"]');if(active)active.focus();
   }
   async function loadUnifiedReviewQueue(){
-    var token=++state.reviewLoadToken;state.mode='review';state.page=1;state.stage='all';setFieldCopy('review');setReviewChrome(true);resetReviewLanes();
+    var token=++state.reviewLoadToken;state.locked=null;setFieldRailActive('review');state.mode='review';state.page=1;state.stage='all';setFieldCopy('review');setReviewChrome(true);resetReviewLanes();
     var host=document.getElementById('field-cases');if(host)drawReviewTasks(host);
     await Promise.allSettled([loadCaseReviewLanes(token),loadReportReviewLane(token),loadApplicationReviewLane(token),loadWireReviewLane(token)]);
     if(token!==state.reviewLoadToken)return;
@@ -548,6 +595,7 @@
   }
   async function loadPublicCases(){
     var token=++state.loadToken;
+    state.locked=null;setFieldRailActive('cases');
     state.mode='public';state.actorRole='public';state.page=1;setFieldCopy('public');setReviewChrome(false);setLoading();
     try{
       var result=await api(READ_URL,{op:'list_public_cases'});
@@ -559,13 +607,35 @@
       if(host) host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Public registry unavailable</b><span>'+esc(userError(error))+'</span></div>';
     }
   }
-  async function openSignedCollection(mode){
-    ++state.drawerLoadToken;
-    var drawer=document.getElementById('osi-case-drawer');
-    if(drawer&&!drawer.hidden)closeCase();
+  async function openSignedCollection(mode,options){
+    options=options||{};
+    // keepDrawer is used by post-mutation refreshes that intend to reopen the
+    // same Case. They must not consume the drawer token, so a user close during
+    // the refresh still wins.
+    if(options.keepDrawer!==true){
+      ++state.drawerLoadToken;
+      var drawer=document.getElementById('osi-case-drawer');
+      if(drawer&&!drawer.hidden)closeCase();
+    }
     showView('field');
+    if(!walletPubkey&&options.authorize!==true){
+      var lockToken=++state.loadToken;
+      state.locked=null;setFieldRailActive(mode==='review'?'review':'');setFieldCopy(mode);setReviewChrome(false);setLoading();
+      // A trusted Phantom reconnect never prompts, so waiting for it avoids
+      // showing the lock to a wallet that is about to restore itself.
+      try{if(window.OSI_WALLET_READY)await window.OSI_WALLET_READY;}catch(_){}
+      if(lockToken!==state.loadToken)return;
+      if(!walletPubkey){
+        state.locked=mode==='review'?'review':'mine';
+        var lockHost=document.getElementById('field-cases');
+        if(lockHost)drawWorkspaceLock(lockHost,state.locked);
+        return;
+      }
+    }
+    state.locked=null;
     if(mode==='review'){++state.loadToken;return loadUnifiedReviewQueue();}
     var token=++state.loadToken;
+    setFieldRailActive('');
     state.mode=mode;state.page=1;state.stage='all';setFieldCopy(mode);setReviewChrome(false);setLoading();
     try{
       var result=await sessionRead('case:mine','list_my_cases');
@@ -726,32 +796,106 @@
   var tabs=[['overview','Overview'],['evidence','Evidence'],['reports','Reports'],['ai_pack','AI Pack'],['resolution','Resolution'],['challenges','Challenges'],['reward','Rewards & Support'],['proof','Proof Log']];
   function visibleTabs(){
     var aiVisible=state.capabilities&&state.capabilities.maintainer_access===true&&state.capabilities.ai_pack_access_mode==='maintainer_only';
-    var rows=tabs.filter(function(tab){return tab[0]!=='ai_pack'||aiVisible;});
+    var authorized=!!(state.capabilities&&(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true));
+    var rows=tabs.filter(function(tab){return tab[0]!=='ai_pack'||aiVisible;})
+      // Anonymous and ordinary visitors only ever see published Reports here,
+      // so name the section for what it actually contains.
+      .map(function(tab){return tab[0]==='reports'&&!authorized?['reports','Published Reports']:tab;});
     if(state.mode==='review'&&state.current&&state.current.visibility==='private')return rows.slice(0,1).concat([['reviews','Initial Review']],rows.slice(1));
     return rows;
   }
-  async function openCase(publicRef,reviewTask){
+  // A public Case reference is the canonical, shareable route segment. It is
+  // never a token, nonce, wallet or any other private value.
+  var CASE_ROUTE_PREFIX='#case/';
+  function isCaseRef(value){return /^OSI-[0-9A-Z]{6,20}$/.test(String(value||''));}
+  function pushCaseRoute(publicRef){
+    if(!isCaseRef(publicRef))return;
+    var next=CASE_ROUTE_PREFIX+publicRef;
+    if(window.location.hash===next)return;
+    try{window.history.pushState({osiView:'field',osiCase:publicRef},'',next);}catch(_){}
+  }
+  function clearCaseRoute(){
+    if(String(window.location.hash||'').indexOf(CASE_ROUTE_PREFIX)!==0)return;
+    try{window.history.pushState({osiView:'field'},'','#field-office');}catch(_){}
+  }
+  function paintCaseHeader(publicRef,item){
+    var refNode=document.getElementById('osi-case-ref');
+    var titleNode=document.getElementById('osi-case-title');
+    var stateNode=document.getElementById('osi-case-state');
+    if(refNode)refNode.textContent=(item&&item.public_ref)||publicRef||'';
+    if(titleNode)titleNode.textContent=item&&item.title?item.title:t('Opening Case detail');
+    if(!stateNode)return;
+    stateNode.innerHTML=item
+      ?'<span class="osi-chip '+esc(item.visibility)+'">'+esc(label(item.visibility))+'</span><span class="osi-chip">'+esc(stageLabel(item.stage,item))+'</span><span class="osi-chip">'+esc(label(item.category))+'</span>'
+      :'<span class="osi-chip">'+esc(t('Loading'))+'</span>';
+  }
+  // The drawer is revealed before any network call so a Case row click always
+  // produces immediate, visible feedback instead of looking like a dead button.
+  function revealCaseDrawer(){
+    var drawer=document.getElementById('osi-case-drawer');
+    if(!drawer)return null;
+    if(drawer.hidden)state.drawerReturnFocus=document.activeElement;
+    drawer.hidden=false;document.body.classList.add('osi-case-open');syncBodyLock();
+    return drawer;
+  }
+  function caseDrawerLoading(){
+    var tabs=document.getElementById('osi-case-tabs');if(tabs)tabs.innerHTML='';
+    var actions=document.getElementById('osi-case-actions');if(actions)actions.innerHTML='';
+    var content=document.getElementById('osi-case-content');
+    if(content)content.innerHTML='<section class="osi-case-section" data-case-loading aria-busy="true"><h3>'+esc(t('Opening Case detail'))+'</h3><div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div></section>';
+  }
+  function caseDrawerError(publicRef,error){
+    var tabs=document.getElementById('osi-case-tabs');if(tabs)tabs.innerHTML='';
+    var actions=document.getElementById('osi-case-actions');if(actions)actions.innerHTML='';
+    var content=document.getElementById('osi-case-content');
+    if(!content)return;
+    content.innerHTML='<section class="osi-case-section"><div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Case detail unavailable'))+'</b><span>'+esc(userError(error))+'</span><button class="osi-action" type="button" data-case-retry="'+esc(publicRef)+'">'+esc(t('Try again'))+'</button></div></section>';
+    var retry=content.querySelector('[data-case-retry]');
+    if(retry)retry.addEventListener('click',function(){openCase(publicRef,null,{fromRoute:true});});
+  }
+  async function openCase(publicRef,reviewTask,options){
+    options=options||{};
+    var ref=String(publicRef||'');
     var drawerToken=++state.drawerLoadToken;
     state.activeReviewTask=reviewTask||null;
-    var item=state.cases.find(function(entry){return entry.public_ref===publicRef;});
+    // list_public_cases and get_public_case share one server projection, so a
+    // cached row renders the identical canonical detail with no extra wait.
+    var cached=state.cases.find(function(entry){return entry.public_ref===ref;})||null;
+    var drawer=revealCaseDrawer();
+    if(!drawer){state.activeReviewTask=null;return null;}
+    if(options.fromRoute!==true)pushCaseRoute(ref);
+    paintCaseHeader(ref,cached);
+    if(cached){state.current=cached;state.tab='overview';drawTabs();renderTab();renderActions();}
+    else caseDrawerLoading();
+    setTimeout(function(){
+      if(drawerToken!==state.drawerLoadToken)return;
+      var close=drawer.querySelector('.osi-case-close');if(close)close.focus();
+    },30);
+    var item=cached;
     try{
-      if(!item||state.mode==='public'){
-        var result=await api(READ_URL,{op:'get_public_case',public_ref:publicRef});item=result.case;
+      if(!cached||state.mode==='public'){
+        var result=await api(READ_URL,{op:'get_public_case',public_ref:ref});
+        if(drawerToken!==state.drawerLoadToken)return null;
+        item=result.case;
       }
+      state.current=item;
+      var capabilitiesRefreshed=false;
+      if(walletPubkey){await refreshCapabilities();capabilitiesRefreshed=true;}
       if(drawerToken!==state.drawerLoadToken)return null;
-      state.current=item;state.tab='overview';
-      if(walletPubkey)await refreshCapabilities();
-      if(drawerToken!==state.drawerLoadToken)return null;
-      var drawer=document.getElementById('osi-case-drawer');
-      if(drawer.hidden)state.drawerReturnFocus=document.activeElement;
-      drawer.hidden=false;document.body.classList.add('osi-case-open');syncBodyLock();
-      document.getElementById('osi-case-ref').textContent=item.public_ref;
-      document.getElementById('osi-case-title').textContent=item.title;
-      document.getElementById('osi-case-state').innerHTML='<span class="osi-chip '+esc(item.visibility)+'">'+esc(label(item.visibility))+'</span><span class="osi-chip">'+esc(stageLabel(item.stage,item))+'</span><span class="osi-chip">'+esc(label(item.category))+'</span>';
-      drawTabs();renderTab();renderActions();
-      setTimeout(function(){var close=drawer.querySelector('.osi-case-close');if(close)close.focus();},30);
+      paintCaseHeader(ref,item);
+      // Re-render only when the refreshed projection or the actor capabilities
+      // actually differ, so an unchanged refresh cannot reset the open tab.
+      var unchanged=!!cached&&!capabilitiesRefreshed&&JSON.stringify(item)===JSON.stringify(cached);
+      if(!unchanged){drawTabs();renderTab();renderActions();}
       return item;
-    }catch(error){state.activeReviewTask=null;showToast(userError(error));return null;}
+    }catch(error){
+      if(drawerToken!==state.drawerLoadToken)return null;
+      if(cached){showToast(userError(error));return cached;}
+      state.activeReviewTask=null;state.current=null;
+      paintCaseHeader(ref,null);
+      caseDrawerError(ref,error);
+      return null;
+    }
   }
   function wipeCaseDrawerContent(){
     if(typeof window.osiV2AiPackClear==='function')window.osiV2AiPackClear();
@@ -761,7 +905,8 @@
       else content.innerHTML='';
     }
   }
-  function closeCase(){
+  function closeCase(options){
+    options=options||{};
     ++state.drawerLoadToken;
     var drawer=document.getElementById('osi-case-drawer');
     if(drawer)drawer.hidden=true;
@@ -770,6 +915,7 @@
     wipeCaseDrawerContent();
     state.current=null;
     state.activeReviewTask=null;
+    if(options.fromRoute!==true)clearCaseRoute();
     restoreFocus(state.drawerReturnFocus);
     state.drawerReturnFocus=null;
   }
@@ -1014,10 +1160,13 @@
       assertPrivateGeneration(generation);
       reviewStatus('Review recorded as wallet-signed and server-verified.','success');
       showToast('Initial review recorded.');
-      await openSignedCollection('review');
+      var reviewDrawerToken=state.drawerLoadToken;
+      await openSignedCollection('review',{keepDrawer:true,authorize:true});
       assertPrivateGeneration(generation);
       var refreshed=state.cases.find(function(item){return item.public_ref===review.case_ref;});
-      if(refreshed)await openCase(refreshed.public_ref);
+      // Skip the reopen when a newer drawer intent (a close, or another Case)
+      // landed while the authorized queue reloaded.
+      if(refreshed&&reviewDrawerToken===state.drawerLoadToken)await openCase(refreshed.public_ref);
       assertPrivateGeneration(generation);
       anchorAfter=committed.actor_open_ready&&review.decision==='approve_open'&&confirm('This initial-open path is ready. Anchor CASE_OPENED on Solana now? This uses only the standard network fee.');
     }catch(error){if(generation===privateGeneration())reviewStatus(userError(error),'error');}
@@ -1041,14 +1190,22 @@
       var committed=await commitWithConfirmation({op:'commit_open',wallet:wallet,route:route,case_ref:ref,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},WRITE_URL,generation);
       assertPrivateGeneration(generation);
       showToast('Case '+committed.case.public_ref+' is now public with confirmed Memo proof.');
-      closeCase();await loadPublicCases();assertPrivateGeneration(generation);await openCase(ref);assertPrivateGeneration(generation);
+      closeCase();
+      var anchorDrawerToken=state.drawerLoadToken;
+      await loadPublicCases();assertPrivateGeneration(generation);
+      if(anchorDrawerToken===state.drawerLoadToken)await openCase(ref);
+      assertPrivateGeneration(generation);
     }catch(error){if(generation===privateGeneration())showToast(userError(error));}
     finally{if(generation===privateGeneration())state.reviewBusy=false;}
   }
 
   async function reloadGovernanceCase(caseRef){
     var activeTask=state.activeReviewTask;
-    if(state.mode==='public')await loadPublicCases();else await openSignedCollection(state.mode);
+    var drawerToken=state.drawerLoadToken;
+    if(state.mode==='public')await loadPublicCases();
+    else await openSignedCollection(state.mode,{keepDrawer:true,authorize:true});
+    // A close or another Case opened during the reload is a newer intent.
+    if(drawerToken!==state.drawerLoadToken)return;
     await openCase(caseRef,activeTask);
   }
   async function governanceMutation(action,targetRef,payload){
@@ -1348,8 +1505,11 @@
     timerId=setTimeout(poll,1500);
   }
   async function reloadPaymentCase(caseRef){
-    if(state.mode==='public'){await loadPublicCases();await openCase(caseRef);return;}
-    await openSignedCollection(state.mode);await openCase(caseRef);
+    var drawerToken=state.drawerLoadToken;
+    if(state.mode==='public')await loadPublicCases();
+    else await openSignedCollection(state.mode,{keepDrawer:true,authorize:true});
+    if(drawerToken!==state.drawerLoadToken)return;
+    await openCase(caseRef);
   }
   function showPaymentReceipt(receipt){
     var old=document.getElementById('osi-payment-receipt');if(old)old.remove();var modal=document.createElement('div');modal.id='osi-payment-receipt';modal.className='osi-payment-review';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');
@@ -1548,8 +1708,8 @@
   window.fieldSearch=function(value){state.query=String(value||'');state.page=1;drawCases();};
   window.fieldFilter=function(value){state.stage=String(value||'all');state.page=1;drawCases();};
   window.fieldSort=function(value){state.sort=String(value||'newest');drawCases();};
-  window.osiV2OpenMyCases=function(){return openSignedCollection('mine');};
-  window.osiV2OpenReviewQueue=function(){return openSignedCollection('review');};
+  window.osiV2OpenMyCases=function(options){return openSignedCollection('mine',options);};
+  window.osiV2OpenReviewQueue=function(options){return openSignedCollection('review',options);};
   window.osiV2RefreshUnifiedReviewQueue=loadUnifiedReviewQueue;
   window.osiV2CanOpenReviewQueue=function(){return !!(state.capabilities&&(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true));};
   window.osiV2SetFieldReviewChrome=setReviewChrome;
@@ -1571,7 +1731,25 @@
       state.tab='ai_pack';drawTabs();renderTab();
     }
   };
-  window.osiV2CloseCase=closeCase;
+  window.osiV2CloseCase=function(options){return closeCase(options);};
+  // The shared hash router owns URL state; these hooks let it open or close the
+  // canonical Case drawer without pushing a second history entry.
+  window.osiV2OpenCaseFromRoute=function(publicRef){return openCase(publicRef,null,{fromRoute:true});};
+  window.osiV2CloseCaseFromRoute=function(){
+    var drawer=document.getElementById('osi-case-drawer');
+    if(drawer&&!drawer.hidden)closeCase({fromRoute:true});
+  };
+  // Another module is taking over #field-cases. Invalidate any in-flight Case
+  // list render so a late public read cannot overwrite the new owner's content.
+  window.osiSetFieldOfficeNav=setFieldRailActive;
+  window.osiV2CancelFieldListRender=function(){
+    ++state.loadToken;++state.reviewLoadToken;state.locked=null;
+  };
+  window.osiV2ActiveCaseRef=function(){
+    var drawer=document.getElementById('osi-case-drawer');
+    if(!drawer||drawer.hidden)return '';
+    return String(state.current&&state.current.public_ref||document.getElementById('osi-case-ref').textContent||'');
+  };
   window.osiV2ShowTab=function(tab){state.tab=tab;drawTabs();renderTab();};
   window.osiV2ComposeReview=composeReview;
   window.osiV2AnchorOpen=anchorOpen;
@@ -1587,7 +1765,7 @@
 
   function clearPrivateCaseCache(reason){
     if(reason==='expiry'||reason==='explicit_refresh')saveCaseDraft();
-    state.loadToken+=1;state.reviewLoadToken+=1;state.drawerLoadToken+=1;
+    state.loadToken+=1;state.reviewLoadToken+=1;state.drawerLoadToken+=1;state.locked=null;
     if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.reviewLanes={};state.reviewUpdatedAt=null;state.current=null;state.activeReviewTask=null;state.actorRole='public';state.mode='public';}
     state.capabilities=null;state.reviewBusy=false;state.governanceBusy=false;state.paymentBusy=false;state.caseReceipt=null;state.caseIdempotency='';clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
     clearSubmissionReceipt('v2-case-receipt');
@@ -1599,6 +1777,9 @@
     wipeCaseDrawerContent();
     var drawer=document.getElementById('osi-case-drawer');if(drawer)drawer.hidden=true;
     document.body.classList.remove('osi-case-open');syncBodyLock();
+    // The drawer is gone, so the canonical Case route must not linger and
+    // reopen it on the next history event.
+    clearCaseRoute();
   }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('cases',clearPrivateCaseCache);
   var caseDraftForm=document.getElementById('field-form');
