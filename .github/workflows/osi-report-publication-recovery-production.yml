@@ -1,0 +1,376 @@
+name: OSI Report Publication Recovery Production
+
+# Current-main-only production delivery for the Report publication RPC-indexing
+# recovery slice. It applies one additive migration, deploys only report-write,
+# and never calls a prepare/commit endpoint or changes a domain row.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type REPORT-RECOVERY-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-report-publication-recovery-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  NEW_VERSION: "20260801092744"
+  EXPECTED_REPORT_WRITE_VERSION: "16"
+  EXPECTED_REPORT_WRITE_DIGEST: a7c9fc6959809aba5ba072348e0e7e278957ea93df2a52344a3c1f4550e6583d
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457 20260726200249 20260727170000
+    20260727173000 20260728132011 20260728153100 20260728170000
+    20260729134213
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457 20260726200249 20260727170000
+    20260727173000 20260728132011 20260728153100 20260728170000
+    20260729134213 20260801092744
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Full local proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "REPORT-RECOVERY-${EXPECTED_PROJECT_REF}" ]
+          [ "$GITHUB_REF" = "refs/heads/main" ]
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify clean current main and exact migration set
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          [ -z "$(git status --porcelain)" ]
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' |
+            sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          [ "$got" = "$expected" ]
+          test -s "supabase/migrations/${NEW_VERSION}_report_publication_rpc_recovery.sql"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.111.0
+
+      - name: Application, Deno and workflow syntax tests
+        run: |
+          set -euo pipefail
+          for test_file in tests/*.test.js tests/*.test.mjs; do node "$test_file"; done
+          mapfile -t deno_sources < <(find supabase/functions -type f \
+            \( -path '*/index.ts' -o -path '*/_shared/*.ts' -o -path '*/_shared/*.mjs' \) | sort)
+          deno check "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint"
+          bash -n tests/osi-v2-concurrency.test.sh
+
+      - name: Desktop mobile keyboard and refresh recovery
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @playwright/test@1.55.0 http-server@14.1.1
+          npx playwright install --with-deps chromium
+          npx playwright test --config tests/browser/playwright.config.js
+
+      - name: PostgreSQL 17 migration from zero lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc \
+            "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          [ "$got" = "$expected" ]
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop disposable database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: One migration, one Function, read-only proof
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: Production
+    env:
+      PGSSLMODE: require
+      PROOF_DIR: /tmp/osi-report-publication-recovery-proof
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.111.0
+
+      - name: Verify credentials project and unchanged main
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROOF_DIR"
+          [ "${{ github.event.inputs.confirm }}" = "REPORT-RECOVERY-${EXPECTED_PROJECT_REF}" ]
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          [ -z "$(git status --porcelain)" ]
+          git rev-parse HEAD > "$PROOF_DIR/main-commit.txt"
+          secret_names="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF" --output json | jq -r '.[].name')"
+          for required in SOLANA_RPC_URL OSI_V2_ALLOWED_ORIGIN OSI_MAINTAINER_AUTH_UUID; do
+            grep -qx "$required" <<< "$secret_names"
+          done
+
+      - name: Resolve pinned session pooler
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import json,sys
+          data=json.load(sys.stdin); rows=data if isinstance(data,list) else [data]
+          row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
+          print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) :;; *) exit 1;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
+          printf 'PGHOST=%s\nPGPORT=%s\nPGUSER=%s\nPGDATABASE=%s\n' \
+            "$PGHOST" "$PGPORT" "$PGUSER" "$PGDATABASE" >> "$GITHUB_ENV"
+
+      - name: Snapshot flags protected rows target and Function baseline
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TARGET_CASE_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_CASE_REF }}
+          TARGET_REPORT_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_REPORT_REF }}
+          TARGET_VERSION_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_VERSION_REF }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_CASE_REF" =~ ^OSI-[0-9A-F]{12}$ ]]
+          [[ "$TARGET_REPORT_REF" =~ ^OSI-RPT-[0-9A-F]{12}$ ]]
+          [[ "$TARGET_VERSION_REF" =~ ^OSI-RV-[0-9A-F]{16}$ ]]
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED'")" = true ]
+          psql -Atq -F'|' -c "select key,md5(value) from public.osi_config where key<>'OSI_V2_REPORT_REVIEW_WRITES_ENABLED' order by key" > "$RUNNER_TEMP/config-before.txt"
+          psql -Atq -f scripts/protected-row-counts.sql | sort > "$PROOF_DIR/protected-rows-before.txt"
+          psql -v ON_ERROR_STOP=1 -v case_ref="$TARGET_CASE_REF" -v report_ref="$TARGET_REPORT_REF" \
+            -v version_ref="$TARGET_VERSION_REF" -Atq > "$RUNNER_TEMP/target-before.txt" <<'SQL'
+          begin read only;
+          with target as (
+            select c.id case_id,r.id report_id,v.id version_id
+            from public.cases c join public.case_reports r on r.case_id=c.id
+            join public.case_report_versions v on v.report_id=r.id
+            where c.public_ref=:'case_ref' and r.public_ref=:'report_ref' and v.version_ref=:'version_ref'
+          )
+          select label||'|'||row_hash from (
+            select 'case' label,md5(to_jsonb(c)::text) row_hash from public.cases c,target where c.id=target.case_id
+            union all select 'report',md5(to_jsonb(r)::text) from public.case_reports r,target where r.id=target.report_id
+            union all select 'version',md5(to_jsonb(v)::text) from public.case_report_versions v,target where v.id=target.version_id
+            union all select 'reviews',md5(coalesce(jsonb_agg(to_jsonb(x) order by x.id),'[]'::jsonb)::text) from public.case_report_reviews x,target where x.report_version_id=target.version_id
+            union all select 'nonces',md5(coalesce(jsonb_agg(to_jsonb(n) order by n.issued_at,n.nonce),'[]'::jsonb)::text) from public.osi_nonces n,target where n.target_type='report_version' and n.target_id=target.version_id::text
+            union all select 'receipts',md5(coalesce(jsonb_agg(to_jsonb(e) order by e.occurred_at,e.id),'[]'::jsonb)::text) from public.event_receipts e,target where e.target_type='report_version' and e.target_id=target.version_id::text
+          ) snapshot order by label;
+          commit;
+          SQL
+          [ "$(wc -l < "$RUNNER_TEMP/target-before.txt")" = 6 ]
+          curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+            jq '[.[]|select(.slug=="osi-v2-report-write")|{slug,version,status,verify_jwt,updated_at,ezbr_sha256}]' > "$PROOF_DIR/function-before.json"
+          jq -e --argjson version "$EXPECTED_REPORT_WRITE_VERSION" --arg digest "$EXPECTED_REPORT_WRITE_DIGEST" \
+            'length==1 and .[0].version==$version and .[0].status=="ACTIVE" and .[0].verify_jwt==false and .[0].ezbr_sha256==$digest' "$PROOF_DIR/function-before.json"
+
+      - name: Link and dry-run exactly one additive migration
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          got="$(psql -Atqc "select string_agg(version,' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          [ "$got" = "$expected" ]
+          supabase migration list --linked > "$PROOF_DIR/migration-list-before.txt"
+          supabase db push --linked --dry-run 2>&1 | tee "$PROOF_DIR/migration-dry-run.txt"
+          versions="$(grep -oE '20[0-9]{12}' "$PROOF_DIR/migration-dry-run.txt" || true)"
+          got="$(printf '%s\n' "$versions" | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          [ "$got" = "$NEW_VERSION" ]
+
+      - name: Record forward-fix plan and contain Report publication
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            'The additive migration remains applied after failure.' \
+            'Only OSI_V2_REPORT_REVIEW_WRITES_ENABLED is held false during rollout.' \
+            'A failure stops for one focused forward-fix PR; no migration repair, drop, or retry.' \
+            > "$PROOF_DIR/forward-fix-plan.txt"
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          do $$ begin
+            update public.osi_config set value='false',updated_at=statement_timestamp()
+            where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED' and value='true';
+            if not found or (select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED')<>'false' then
+              raise exception 'Report review containment failed';
+            end if;
+          end $$;
+          commit;
+          SQL
+          touch "$RUNNER_TEMP/report-recovery-contained"
+
+      - name: Apply migration and verify exact block-time guard
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --yes
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          got="$(psql -Atqc "select string_agg(version,' ' order by version) from supabase_migrations.schema_migrations")"
+          [ "$got" = "$expected" ]
+          definition="$(psql -Atqc "select pg_get_functiondef('osi_private.osi_v2_commit_report_publication(text,text,text,timestamptz,text)'::regprocedure)")"
+          grep -Fq 'p_occurred_at < bound.issued_at' <<< "$definition"
+          grep -Fq 'p_occurred_at > bound.expires_at' <<< "$definition"
+          grep -Fq 'set consumed_at = p_occurred_at' <<< "$definition"
+          ! grep -Fq 'statement_timestamp() > bound.expires_at' <<< "$definition"
+          supabase migration list --linked > "$PROOF_DIR/migration-list-after.txt"
+
+      - name: Deploy and attest only osi-v2-report-write
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          started="$(date +%s)"
+          supabase functions deploy osi-v2-report-write --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt
+          curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+            jq '[.[]|select(.slug=="osi-v2-report-write")|{slug,version,status,verify_jwt,updated_at,ezbr_sha256}]' > "$PROOF_DIR/function-after.json"
+          jq -e --argjson version "$((EXPECTED_REPORT_WRITE_VERSION + 1))" --arg digest "$EXPECTED_REPORT_WRITE_DIGEST" \
+            'length==1 and .[0].version==$version and .[0].status=="ACTIVE" and .[0].verify_jwt==false and .[0].ezbr_sha256!=$digest' "$PROOF_DIR/function-after.json"
+          updated="$(jq -r '.[0].updated_at|if type=="number" then (if .>100000000000 then ./1000 else . end)|floor else fromdateiso8601 end' "$PROOF_DIR/function-after.json")"
+          [ "$updated" -ge "$started" ]
+
+      - name: Read-only contained smoke then restore exact flag
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TARGET_CASE_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_CASE_REF }}
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          capability="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-report-write" \
+            -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' \
+            -d "{\"op\":\"capabilities\",\"case_ref\":\"${TARGET_CASE_REF}\"}")"
+          jq -e '.ok==true and .report_review_writes_enabled==false and .case_eligible==true' <<< "$capability"
+          jq '{ok,report_review_writes_enabled,case_eligible,case_stage}' <<< "$capability" > "$PROOF_DIR/contained-smoke.json"
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          do $$ begin
+            update public.osi_config set value='true',updated_at=statement_timestamp()
+            where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED' and value='false';
+            if not found or (select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED')<>'true' then
+              raise exception 'Report review flag restore failed';
+            end if;
+          end $$;
+          commit;
+          SQL
+          rm "$RUNNER_TEMP/report-recovery-contained"
+          live="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-report-write" \
+            -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' \
+            -d "{\"op\":\"capabilities\",\"case_ref\":\"${TARGET_CASE_REF}\"}")"
+          jq -e '.ok==true and .report_review_writes_enabled==true and .case_eligible==true' <<< "$live"
+          jq '{ok,report_review_writes_enabled,case_eligible,case_stage}' <<< "$live" > "$PROOF_DIR/live-smoke.json"
+
+      - name: Verify no domain config or target mutation
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TARGET_CASE_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_CASE_REF }}
+          TARGET_REPORT_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_REPORT_REF }}
+          TARGET_VERSION_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_VERSION_REF }}
+        run: |
+          set -euo pipefail
+          psql -Atq -F'|' -c "select key,md5(value) from public.osi_config where key<>'OSI_V2_REPORT_REVIEW_WRITES_ENABLED' order by key" > "$RUNNER_TEMP/config-after.txt"
+          diff -u "$RUNNER_TEMP/config-before.txt" "$RUNNER_TEMP/config-after.txt"
+          psql -Atq -f scripts/protected-row-counts.sql | sort > "$PROOF_DIR/protected-rows-after.txt"
+          diff -u "$PROOF_DIR/protected-rows-before.txt" "$PROOF_DIR/protected-rows-after.txt"
+          psql -v ON_ERROR_STOP=1 -v case_ref="$TARGET_CASE_REF" -v report_ref="$TARGET_REPORT_REF" \
+            -v version_ref="$TARGET_VERSION_REF" -Atq > "$RUNNER_TEMP/target-after.txt" <<'SQL'
+          begin read only;
+          with target as (
+            select c.id case_id,r.id report_id,v.id version_id
+            from public.cases c join public.case_reports r on r.case_id=c.id
+            join public.case_report_versions v on v.report_id=r.id
+            where c.public_ref=:'case_ref' and r.public_ref=:'report_ref' and v.version_ref=:'version_ref'
+          )
+          select label||'|'||row_hash from (
+            select 'case' label,md5(to_jsonb(c)::text) row_hash from public.cases c,target where c.id=target.case_id
+            union all select 'report',md5(to_jsonb(r)::text) from public.case_reports r,target where r.id=target.report_id
+            union all select 'version',md5(to_jsonb(v)::text) from public.case_report_versions v,target where v.id=target.version_id
+            union all select 'reviews',md5(coalesce(jsonb_agg(to_jsonb(x) order by x.id),'[]'::jsonb)::text) from public.case_report_reviews x,target where x.report_version_id=target.version_id
+            union all select 'nonces',md5(coalesce(jsonb_agg(to_jsonb(n) order by n.issued_at,n.nonce),'[]'::jsonb)::text) from public.osi_nonces n,target where n.target_type='report_version' and n.target_id=target.version_id::text
+            union all select 'receipts',md5(coalesce(jsonb_agg(to_jsonb(e) order by e.occurred_at,e.id),'[]'::jsonb)::text) from public.event_receipts e,target where e.target_type='report_version' and e.target_id=target.version_id::text
+          ) snapshot order by label;
+          commit;
+          SQL
+          diff -u "$RUNNER_TEMP/target-before.txt" "$RUNNER_TEMP/target-after.txt"
+          web_code="$(curl -sS --fail --max-time 30 -o "$PROOF_DIR/web-root.html" -w '%{http_code}' "$PRODUCTION_WEB_URL")"
+          [ "$web_code" = 200 ]
+          grep -Fq 'Open Solana Intelligence' "$PROOF_DIR/web-root.html"
+          printf 'solana_transactions_created=0\ndomain_records_created=0\nprepare_or_commit_calls=0\n' > "$PROOF_DIR/non-mutation-attestation.txt"
+
+      - name: Fail closed on rollout error
+        if: ${{ failure() }}
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [ -f "$RUNNER_TEMP/report-recovery-contained" ] || exit 0
+          psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='false',updated_at=statement_timestamp() where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED' and value<>'false'"
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED'")" = false ]
+          echo 'Report publication remains fail-closed. Prepare one focused forward-fix PR; do not retry this workflow.'
+
+      - name: Upload sanitized production proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: osi-report-publication-recovery-production-proof
+          path: /tmp/osi-report-publication-recovery-proof
+          if-no-files-found: warn
+          retention-days: 30

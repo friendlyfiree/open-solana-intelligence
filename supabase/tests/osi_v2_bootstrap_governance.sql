@@ -3,7 +3,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(93);
+select plan(94);
 
 -- ---------------------------------------------------------------------------
 -- Shared fixture helpers (same shapes as the accepted governance suite).
@@ -599,12 +599,40 @@ select throws_ok($test$
   'OSI2 test REPORT_PUBLISHED bootstrap channel',statement_timestamp(),null)
 $test$,'23514','Report publication maintainer binding changed after prepare',
  'the bootstrap publication commit cannot drop the maintainer identity');
+insert into public.osi_nonces (
+ nonce,purpose,actor_wallet,target_type,target_id,payload_hash,idempotency_key,
+ issued_at,expires_at,created_at,updated_at,request_fingerprint_hash,binding_context
+)
+select repeat('w',32),purpose,actor_wallet,target_type,target_id,payload_hash,
+ 'boot-tier1-publication-late-recovery-0001',
+ statement_timestamp()-interval '10 minutes',
+ statement_timestamp()-interval '5 minutes',
+ statement_timestamp()-interval '10 minutes',
+ statement_timestamp()-interval '10 minutes',
+ request_fingerprint_hash,binding_context
+from public.osi_nonces
+where nonce=(select issued_nonce from pg_temp.boot_publication_prepare);
+update pg_temp.boot_publication_prepare
+set issued_nonce=repeat('w',32),
+    issued_at=statement_timestamp()-interval '10 minutes',
+    expires_at=statement_timestamp()-interval '5 minutes';
+select throws_ok($test$
+ select * from public.osi_v2_commit_report_publication(
+  (select issued_nonce from pg_temp.boot_publication_prepare),repeat('T',88),
+  'OSI2 test REPORT_PUBLISHED bootstrap channel',
+  (select expires_at+interval '1 second' from public.osi_nonces
+    where nonce=(select issued_nonce from pg_temp.boot_publication_prepare)),
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+$test$,'22023','Report publication transaction outside issuance window',
+ 'late recovery still rejects a transaction whose verified block time is outside the original nonce window');
 select lives_ok($test$
  select * from public.osi_v2_commit_report_publication(
   (select issued_nonce from pg_temp.boot_publication_prepare),repeat('T',88),
-  'OSI2 test REPORT_PUBLISHED bootstrap channel',statement_timestamp(),
+  'OSI2 test REPORT_PUBLISHED bootstrap channel',
+  (select issued_at+interval '5 seconds' from public.osi_nonces
+    where nonce=(select issued_nonce from pg_temp.boot_publication_prepare)),
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
-$test$,'tier below 20 full maintainer publishes through the bootstrap channel');
+$test$,'expired nonce commit recovers only because verified block time was inside the original issuance window');
 select ok((select version.lifecycle_state='published' and receipt.decision_channel='maintainer_bootstrap'
  and receipt.actor_role='maintainer' and receipt.event_type='REPORT_PUBLISHED'
  and receipt.proof_type='solana_memo' and receipt.server_verified

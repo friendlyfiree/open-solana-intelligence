@@ -359,6 +359,92 @@ export function validateConfirmedReportTransaction(transaction, status, expected
   return validateConfirmedMemoTransaction(transaction, status, expected);
 }
 
+const RETRYABLE_REPORT_RPC_REASONS = new Set([
+  "transaction_not_confirmed",
+  "transaction_not_indexed",
+  "rpc_unavailable",
+  "rpc_invalid_response",
+]);
+
+function reportRpcBatch(txSig) {
+  return [
+    { jsonrpc: "2.0", id: 1, method: "getTransaction", params: [txSig, {
+      commitment: "confirmed", encoding: "jsonParsed", maxSupportedTransactionVersion: 0,
+    }] },
+    { jsonrpc: "2.0", id: 2, method: "getSignatureStatuses", params: [[txSig], {
+      searchTransactionHistory: true,
+    }] },
+    { jsonrpc: "2.0", id: 3, method: "getGenesisHash" },
+  ];
+}
+
+export async function verifyReportMainnetMemoTransaction(input, dependencies = {}) {
+  const txSig = cleanText(input?.tx_sig);
+  if (!TX_SIG.test(txSig)) return { ok: false, reason: "bad_transaction_signature" };
+  const fetchImpl = dependencies.fetch ?? globalThis.fetch;
+  const sleep = dependencies.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const maxAttempts = Math.max(1, Math.min(6, Number(dependencies.maxAttempts) || 5));
+  const timeoutMs = Math.max(250, Math.min(10_000, Number(dependencies.timeoutMs) || 2_500));
+  let lastReason = "rpc_unavailable";
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    let response;
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      response = await fetchImpl(input.rpc_url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reportRpcBatch(txSig)),
+        ...(controller ? { signal: controller.signal } : {}),
+      });
+    } catch {
+      lastReason = "rpc_unavailable";
+    } finally {
+      if (timeout != null) clearTimeout(timeout);
+    }
+
+    if (response) {
+      if (!response.ok) {
+        lastReason = "rpc_unavailable";
+      } else {
+        let results;
+        try { results = await response.json(); } catch { results = null; }
+        if (!Array.isArray(results)) {
+          lastReason = "rpc_invalid_response";
+        } else {
+          const genesis = results.find((item) => item?.id === 3);
+          if (typeof genesis?.result === "string"
+              && genesis.result !== input.mainnet_genesis_hash) {
+            return { ok: false, reason: "wrong_cluster" };
+          }
+          if (genesis?.result !== input.mainnet_genesis_hash) {
+            lastReason = "rpc_invalid_response";
+          } else {
+            const transaction = results.find((item) => item?.id === 1)?.result ?? null;
+            const status = results.find((item) => item?.id === 2)?.result?.value?.[0] ?? null;
+            const checked = validateConfirmedReportTransaction(transaction, status, {
+              tx_sig: txSig,
+              wallet: input.wallet,
+              memo: input.memo,
+              issued_at: input.issued_at,
+              expires_at: input.expires_at,
+            });
+            if (checked.ok) return checked;
+            if (!RETRYABLE_REPORT_RPC_REASONS.has(checked.reason)) return checked;
+            lastReason = checked.reason;
+          }
+        }
+      }
+    }
+
+    if (attempt + 1 < maxAttempts) {
+      await sleep(Math.min(1_500, 250 * (2 ** attempt)));
+    }
+  }
+  return { ok: false, reason: lastReason };
+}
+
 // Honesty requirement (D17): a bootstrap-channel receipt is always rendered
 // as a maintainer cold-start decision and never as an analyst quorum outcome.
 export const BOOTSTRAP_CHANNEL_LABEL =

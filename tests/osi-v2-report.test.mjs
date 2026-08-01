@@ -10,6 +10,9 @@ const root = join(here, "..");
 const core = await import(
   new URL("../supabase/functions/_shared/osi-v2-report-core.mjs", import.meta.url)
 );
+const incidentFixture = JSON.parse(readFileSync(
+  join(here, "fixtures/osi-v2-report-publication-recovery.json"), "utf8",
+));
 
 let pass = 0;
 let fail = 0;
@@ -190,6 +193,124 @@ ok("changed Memo is denied",
   core.validateConfirmedReportTransaction(transaction, confirmed, {
     tx_sig: TX_SIG, wallet: WALLET, memo: memo + "x", issued_at: NOW, expires_at: NOW + 120,
   }).reason === "wrong_memo");
+ok("finalized signature status with temporarily absent transaction is retryable",
+  core.validateConfirmedReportTransaction(null, {
+    err: null, confirmationStatus: "finalized",
+  }, {
+    tx_sig: incidentFixture.transactions[1].tx_sig,
+    wallet: incidentFixture.wallet,
+    memo: incidentFixture.transactions[1].memo,
+    issued_at: incidentFixture.transactions[1].issued_at,
+    expires_at: incidentFixture.transactions[1].expires_at,
+  }).reason === "transaction_not_indexed");
+
+function incidentTransaction(fixture, overrides = {}) {
+  return {
+    blockTime: overrides.blockTime ?? fixture.block_time,
+    meta: { err: overrides.err ?? null },
+    transaction: {
+      signatures: [fixture.tx_sig],
+      message: {
+        accountKeys: [{
+          pubkey: overrides.wallet ?? incidentFixture.wallet,
+          signer: true,
+          writable: true,
+        }],
+        instructions: [{
+          program: "spl-memo",
+          programId: "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+          parsed: overrides.memo ?? fixture.memo,
+        }],
+      },
+    },
+  };
+}
+function rpcBatch(fixture, transaction = incidentTransaction(fixture), status = {
+  err: null, confirmationStatus: "finalized",
+}) {
+  return [
+    { jsonrpc: "2.0", id: 1, result: transaction },
+    { jsonrpc: "2.0", id: 2, result: { value: [status] } },
+    { jsonrpc: "2.0", id: 3, result: incidentFixture.mainnet_genesis_hash },
+  ];
+}
+function verifierInput(fixture) {
+  return {
+    tx_sig: fixture.tx_sig,
+    wallet: incidentFixture.wallet,
+    memo: fixture.memo,
+    issued_at: fixture.issued_at,
+    expires_at: fixture.expires_at,
+    rpc_url: "https://fixture.invalid",
+    mainnet_genesis_hash: incidentFixture.mainnet_genesis_hash,
+  };
+}
+function response(okValue, body) {
+  return { ok: okValue, json: async () => body };
+}
+
+const incident = incidentFixture.transactions[1];
+let lookup = 0;
+const indexingRecovery = await core.verifyReportMainnetMemoTransaction(
+  verifierInput(incident),
+  {
+    sleep: async () => {},
+    fetch: async () => response(true, rpcBatch(incident, lookup++ === 0 ? null : incidentTransaction(incident))),
+  },
+);
+ok("production incident fixture recovers when parsed transaction follows finalized status",
+  indexingRecovery.ok === true
+    && indexingRecovery.occurred_at === new Date(incident.block_time * 1000).toISOString()
+    && lookup === 2);
+
+let throttledLookup = 0;
+const throttledRecovery = await core.verifyReportMainnetMemoTransaction(
+  verifierInput(incidentFixture.transactions[0]),
+  {
+    sleep: async () => {},
+    fetch: async () => ++throttledLookup === 1
+      ? response(false, null)
+      : response(true, rpcBatch(incidentFixture.transactions[0])),
+  },
+);
+ok("temporary RPC 429 or 5xx is retried with the same transaction",
+  throttledRecovery.ok === true && throttledLookup === 2);
+
+let malformedLookup = 0;
+const malformedRecovery = await core.verifyReportMainnetMemoTransaction(
+  verifierInput(incident),
+  {
+    sleep: async () => {},
+    fetch: async () => ++malformedLookup === 1
+      ? response(true, { incomplete: true })
+      : response(true, rpcBatch(incident)),
+  },
+);
+ok("malformed RPC JSON shape is retried before accepting the exact transaction",
+  malformedRecovery.ok === true && malformedLookup === 2);
+
+const wrongIncidentSigner = await core.verifyReportMainnetMemoTransaction(
+  verifierInput(incident),
+  { fetch: async () => response(true, rpcBatch(incident, incidentTransaction(incident, { wallet: OTHER }))), sleep: async () => {} },
+);
+ok("incident recovery rejects the wrong signer without another lookup",
+  wrongIncidentSigner.reason === "wrong_signer");
+const wrongIncidentMemo = await core.verifyReportMainnetMemoTransaction(
+  verifierInput(incident),
+  { fetch: async () => response(true, rpcBatch(incident, incidentTransaction(incident, { memo: incident.memo + "x" }))), sleep: async () => {} },
+);
+ok("incident recovery rejects a changed exact Memo", wrongIncidentMemo.reason === "wrong_memo");
+const failedIncident = await core.verifyReportMainnetMemoTransaction(
+  verifierInput(incident),
+  { fetch: async () => response(true, rpcBatch(incident, incidentTransaction(incident, { err: { InstructionError: [0, "Custom"] } }), { err: { InstructionError: [0, "Custom"] }, confirmationStatus: "finalized" })), sleep: async () => {} },
+);
+ok("incident recovery rejects a failed transaction", failedIncident.reason === "transaction_failed");
+const outsideWindow = await core.verifyReportMainnetMemoTransaction(
+  verifierInput(incident),
+  { fetch: async () => response(true, rpcBatch(incident, incidentTransaction(incident, { blockTime: incident.expires_at + 1 }))), sleep: async () => {} },
+);
+ok("incident recovery rejects a transaction outside the issuance window",
+  outsideWindow.reason === "stale_transaction");
 
 const exactVersion = {
   id: "33333333-3333-3333-3333-333333333333",
@@ -312,8 +433,10 @@ ok("Report gateways never select broad star",
   !writeSource.includes('select("*")') && !readSource.includes('select("*")'));
 ok("write gateway verifies exact mainnet genesis, Memo, signer, and confirmation",
   writeSource.includes("MAINNET_GENESIS_HASH")
-    && writeSource.includes('method: "getGenesisHash"')
-    && writeSource.includes("validateConfirmedReportTransaction"));
+    && writeSource.includes("verifyReportMainnetMemoTransaction")
+    && readFileSync(
+      join(root, "supabase/functions/_shared/osi-v2-report-core.mjs"), "utf8",
+    ).includes('method: "getGenesisHash"'));
 ok("prepare and commit both fail closed on the dedicated flag",
   (writeSource.match(/reportWritesEnabled\(\)/g) ?? []).length >= 3
     && migration.includes("osi_v2_report_writes_enabled() is distinct from true"));
@@ -408,6 +531,24 @@ ok("unsigned write preflight cannot enumerate an unpublished exact Report versio
   !unsignedCapabilitiesSource.includes("exactVersion(")
     && !unsignedCapabilitiesSource.includes("osi_v2_report_publication_capabilities")
     && !unsignedCapabilitiesSource.includes("version_available"));
+const publicationCommitSource = writeSource.slice(
+  writeSource.indexOf("async function commitPublication("),
+  writeSource.indexOf("async function listPublicationRecovery("),
+);
+ok("bootstrap recovery revalidates the full maintainer before querying chain data",
+  publicationCommitSource.indexOf("await fullMaintainer(req, wallet)") >= 0
+    && publicationCommitSource.indexOf("await fullMaintainer(req, wallet)")
+      < publicationCommitSource.indexOf("verifyMainnetMemoTransaction("));
+const publicationRecoverySource = writeSource.slice(
+  writeSource.indexOf("async function listPublicationRecovery("),
+  writeSource.indexOf("async function capabilities("),
+);
+ok("historical recovery lists only exact unconsumed bootstrap proofs for the current full maintainer",
+  publicationRecoverySource.includes("await fullMaintainer(req, wallet)")
+    && publicationRecoverySource.includes('.eq("target_id", String(target.row.id))')
+    && publicationRecoverySource.includes('.is("consumed_at", null)')
+    && publicationRecoverySource.includes('decision_channel !== "maintainer_bootstrap"')
+    && publicationRecoverySource.includes("maintainer_auth_uuid !== gate.auth_id"));
 ok("read quorum fails closed unless SAS authority explicitly counts a review",
   readSource.includes("review.sas_authority?.counted === true")
     && !readSource.includes("review.sas_authority?.enforced !== true"));

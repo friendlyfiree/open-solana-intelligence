@@ -4,10 +4,11 @@
 
   var WRITE_URL=SUPABASE_URL+'/functions/v1/osi-v2-report-write';
   var READ_URL=SUPABASE_URL+'/functions/v1/osi-v2-report-read';
+  var PUBLICATION_PENDING_PREFIX='osi_report_publication_pending_v1:';
   var state={
     caseRef:'',isRevision:false,idempotency:'',pending:null,returnFocus:null,drawerWasOpen:false,
     cacheWallet:'',myReports:[],sectionContext:null,sectionMode:'public',busy:false,receipt:null,formCapability:null,
-    reviewPending:{},publicationPending:{},queueMode:'',sectionLoadToken:0
+    reviewPending:{},publicationPending:{},publicationWallet:'',recoveryCandidates:{},recoveryErrors:{},queueMode:'',sectionLoadToken:0
   };
 
   function sasAuthority(review){
@@ -51,9 +52,10 @@
   function clearSessionState(reason){
     var preserve=reason==='expiry'||reason==='explicit_refresh';
     var privateWorkspace=!!state.queueMode;
+    if(!preserve&&state.publicationWallet)clearPublicationPendingForWallet(state.publicationWallet);
     if(preserve&&privateWorkspace)saveWorkspaceDraft();
     state.cacheWallet='';state.myReports=[];state.busy=false;state.sectionLoadToken+=1;
-    state.reviewPending={};state.publicationPending={};state.queueMode='';
+    state.reviewPending={};state.publicationPending={};state.publicationWallet='';state.recoveryCandidates={};state.recoveryErrors={};state.queueMode='';
     state.pending=null;state.idempotency='';state.returnFocus=null;state.receipt=null;
     state.formCapability=null;state.caseRef='';state.isRevision=false;state.drawerWasOpen=false;
     state.sectionContext=null;state.sectionMode='public';
@@ -82,6 +84,39 @@
   function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
   function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});}
   function randomKey(){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return'report:'+id.replace(/[^A-Za-z0-9.-]/g,'');}
+  function publicationStorageKey(wallet,versionRef){return PUBLICATION_PENDING_PREFIX+String(wallet||'')+':'+String(versionRef||'');}
+  function normalizePublicationPending(raw,wallet,versionRef){
+    if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
+    var route=raw.route==='maintainer_bootstrap'?'maintainer_bootstrap':raw.route==='standard'?'standard':'';
+    var exactVersion=String(raw.versionRef||''),exactWallet=String(raw.wallet||'');
+    var nonce=String(raw.nonce||''),memo=String(raw.memo||''),txSig=String(raw.txSig||'');
+    var expiresAt=Number(raw.expiresAt),idempotencyKey=String(raw.idempotencyKey||'');
+    if(!route||exactWallet!==String(wallet||'')||exactVersion!==String(versionRef||'')
+      ||!/^OSI-RV-[0-9A-F]{16}$/.test(exactVersion)||!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(exactWallet)
+      ||!/^[A-Za-z0-9_-]{16,128}$/.test(nonce)||memo.length<140||memo.length>512
+      ||memo.indexOf('OSI2|1|REPORT_PUBLISHED|t=report_version|id='+exactVersion+'|a='+exactWallet+'|')!==0
+      ||!Number.isSafeInteger(expiresAt)||expiresAt<=0||!/^report-publish:[A-Za-z0-9.-]{8,128}$/.test(idempotencyKey)
+      ||(txSig&&!/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(txSig)))return null;
+    if(!txSig&&expiresAt<Math.floor(Date.now()/1000))return null;
+    return{route:route,versionRef:exactVersion,wallet:exactWallet,nonce:nonce,memo:memo,txSig:txSig,
+      expiresAt:expiresAt,idempotencyKey:idempotencyKey,lastError:String(raw.lastError||''),updatedAt:Number(raw.updatedAt)||Date.now()};
+  }
+  function savePublicationPending(pending){
+    if(!pending)return false;var normalized=normalizePublicationPending(pending,pending.wallet,pending.versionRef);if(!normalized)return false;
+    try{sessionStorage.setItem(publicationStorageKey(normalized.wallet,normalized.versionRef),JSON.stringify(normalized));return true;}catch(_){return false;}
+  }
+  function removePublicationPending(wallet,versionRef){try{sessionStorage.removeItem(publicationStorageKey(wallet,versionRef));}catch(_){};delete state.publicationPending[versionRef];}
+  function clearPublicationPendingForWallet(wallet){
+    try{for(var i=sessionStorage.length-1;i>=0;i--){var key=sessionStorage.key(i);if(key&&key.indexOf(PUBLICATION_PENDING_PREFIX+String(wallet||'')+':')===0)sessionStorage.removeItem(key);}}catch(_){}
+  }
+  function loadPublicationPending(wallet,versionRef){
+    var key=publicationStorageKey(wallet,versionRef),raw=null;try{raw=JSON.parse(sessionStorage.getItem(key)||'null');}catch(_){}
+    var normalized=normalizePublicationPending(raw,wallet,versionRef);if(!normalized){try{sessionStorage.removeItem(key);}catch(_){}return null;}return normalized;
+  }
+  function restorePublicationPending(reports,wallet){
+    state.publicationPending={};state.publicationWallet=String(wallet||'');
+    (reports||[]).forEach(function(report){(report.versions||[]).forEach(function(version){var pending=loadPublicationPending(wallet,version.version_ref);if(pending)state.publicationPending[version.version_ref]=pending;});});
+  }
   function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
   function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
   function headers(){
@@ -103,7 +138,9 @@
       proof_binding_rejected:'The proof expired or no longer matches this exact Report version. Prepare again.',
       lineage_changed_retry:'Another version advanced this Report. Reload My Reports and prepare a fresh revision.',
       transaction_not_confirmed:'The Memo transaction is not confirmed yet. Retry safely with the same proof.',
+      transaction_not_indexed:'Solana has the signature status, but the parsed transaction is not indexed yet. Retry with this same transaction.',
       rpc_unavailable:'Solana confirmation is temporarily unavailable. Retry safely with the same transaction.',
+      rpc_invalid_response:'Solana RPC returned an incomplete response. Retry safely with the same transaction.',
       wrong_cluster:'The RPC did not identify Solana mainnet. No Report was created.',
       wrong_signer:'The confirmed transaction signer is not the Report author wallet.',
       wrong_memo:'The confirmed transaction does not contain the exact prepared Memo.',
@@ -128,6 +165,11 @@
       ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
       ,read_session_tampered:'The private session token failed server verification.'
       ,private_session_changed:'Private access changed while this action was running. Reopen the exact task.'
+      ,publication_transaction_outside_window:'The transaction block time is outside the original proof window. A new prepared transaction is required.'
+      ,stale_transaction:'The confirmed transaction occurred outside the original proof window. A new prepared transaction is genuinely required.'
+      ,pending_publication_route_mismatch:'An exact publication transaction is already pending on another route. Recover or cancel it before preparing a new one.'
+      ,publication_recovery_storage_unavailable:'This browser could not preserve the bounded publication recovery record. No transaction was sent.'
+      ,publication_recovery_unavailable:'Existing publication proofs could not be loaded safely. Refresh the exact review task and try again.'
     };
     return messages[code]||code.replace(/_/g,' ');
   }
@@ -160,6 +202,17 @@
       if(report.can_publish_via_maintainer_bootstrap==null)report.can_publish_via_maintainer_bootstrap=result.can_publish_via_maintainer_bootstrap===true;
       return report;
     });
+    state.recoveryCandidates={};state.recoveryErrors={};
+    var recoveryTargets=[];(result.reports||[]).forEach(function(report){
+      if(report.access!=='maintainer'||report.can_publish_via_maintainer_bootstrap!==true)return;
+      (report.versions||[]).forEach(function(version){if(version.version_ref===report.current_version_ref&&['submitted','in_review'].indexOf(version.lifecycle_state)>=0)recoveryTargets.push(version.version_ref);});
+    });
+    await Promise.all(recoveryTargets.map(async function(versionRef){
+      try{
+        var recovery=await api(WRITE_URL,{op:'list_publication_recovery',wallet:String(walletPubkey||''),version_public_ref:versionRef});
+        state.recoveryCandidates[versionRef]=recovery.candidates||[];
+      }catch(error){state.recoveryErrors[versionRef]=userError(error);}
+    }));
     return result;
   }
   function syncBodyLock(){
@@ -227,15 +280,16 @@
     if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;
   }
 
-  async function commitWithConfirmation(body,generation){
+  async function commitWithConfirmation(body,generation,onRetry){
     var lastError;
     for(var attempt=0;attempt<5;attempt++){
       assertPrivateGeneration(generation);
       try{var result=await api(WRITE_URL,body);assertPrivateGeneration(generation);return result;}catch(error){
         lastError=error;
-        if(['transaction_not_confirmed','rpc_unavailable'].indexOf(String(error.message))<0)throw error;
+        if(['transaction_not_confirmed','transaction_not_indexed','rpc_unavailable','rpc_invalid_response'].indexOf(String(error.message))<0)throw error;
         assertPrivateGeneration(generation);
-        status('Waiting for Solana RPC confirmation. Retry '+(attempt+1)+' of 5...');
+        var retryText='Waiting for Solana RPC confirmation. Retry '+(attempt+1)+' of 5 with the same transaction...';
+        status(retryText);if(typeof onRetry==='function')onRetry(retryText,error);
         await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});
         assertPrivateGeneration(generation);
       }
@@ -428,6 +482,21 @@
     var node=document.getElementById('osi-review-status-'+versionRef);if(!node)return;
     node.textContent=text||'';node.className='osi-review-status '+(kind||'');
   }
+  function publicationRecoveryHtml(versionRef){
+    var pending=state.publicationPending[versionRef];
+    if(pending){
+      var hasTx=!!pending.txSig;
+      var failure=pending.lastError?'<p class="osi-report-recovery-error">Last confirmation result: '+esc(userError({message:pending.lastError}))+'</p>':'';
+      var explorer=hasTx?'<a href="https://solscan.io/tx/'+esc(pending.txSig)+'" target="_blank" rel="noopener">Open existing transaction on Solscan</a>':'';
+      return'<section class="osi-report-recovery" data-publication-recovery="'+esc(versionRef)+'"><h4>'+esc(hasTx?'Recoverable pending transaction':'Prepared publication pending')+'</h4><p>'+esc(hasTx?'Recovery uses the existing transaction signature. Phantom will not open again. The backend rechecks mainnet, signer, exact Memo, block time, nonce, lineage and maintainer authority.':'No transaction signature was submitted yet. Continuing will open Phantom for the prepared Memo.')+'</p>'+failure+explorer+'<div class="osi-report-recovery-actions"><button class="osi-report-publish" type="button" onclick="osiV2RecoverReportPublication(\''+esc(versionRef)+'\')">'+esc(hasTx?'Recover publication':'Continue publication')+'</button><button class="osi-report-action" type="button" onclick="osiV2CancelReportPublication(\''+esc(versionRef)+'\')">Cancel pending publication</button></div></section>';
+    }
+    var candidates=state.recoveryCandidates[versionRef]||[];
+    if(candidates.length){
+      return'<section class="osi-report-recovery" data-publication-recovery="'+esc(versionRef)+'"><h4>Recover an existing transaction</h4><p>Use one transaction already sent for this exact prepared proof. Recovery does not open Phantom or create another transaction.</p>'+candidates.map(function(candidate,index){return'<div class="osi-report-recovery-candidate"><div><b>Prepared proof '+esc(index+1)+'</b><span>Issued '+esc(new Date(Number(candidate.issued_at)*1000).toLocaleString())+'; original window ended '+esc(new Date(Number(candidate.expires_at)*1000).toLocaleString())+'</span></div><label for="osi-report-recovery-tx-'+esc(index)+'-'+esc(versionRef)+'">Existing Solana transaction signature</label><input id="osi-report-recovery-tx-'+esc(index)+'-'+esc(versionRef)+'" autocomplete="off" inputmode="text" maxlength="96" pattern="[1-9A-HJ-NP-Za-km-z]{64,96}" aria-describedby="osi-report-recovery-help-'+esc(index)+'-'+esc(versionRef)+'"><small id="osi-report-recovery-help-'+esc(index)+'-'+esc(versionRef)+'">The server accepts it only if signer, Memo, target, nonce, payload hash and block time match this prepared proof.</small><button class="osi-report-publish" type="button" onclick="osiV2RecoverExistingReportPublication(\''+esc(versionRef)+'\','+index+')">Recover with existing transaction</button></div>';}).join('')+'</section>';
+    }
+    if(state.recoveryErrors[versionRef])return'<div class="osi-report-recovery-error">Recoverable transaction lookup failed: '+esc(state.recoveryErrors[versionRef])+'</div>';
+    return'';
+  }
   function quorumHtml(version){
     var q=version.quorum||{};
     return'<div class="osi-report-quorum"><span><b>'+esc(q.approve_count||0)+'</b> / '+esc(q.required_count||0)+' approving analysts</span><span><b>'+esc(Number(q.approve_weight||0).toFixed(2))+'</b> / '+esc(Number(q.required_weight||0).toFixed(2))+' approve weight</span></div>';
@@ -467,7 +536,7 @@
     var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
     var prerequisite=capability.maintainer_bootstrap_reason_code||report.bootstrap_prerequisite||'The current server-computed bootstrap tier is not satisfied.';
     var bootstrap='<section class="osi-report-bootstrap"><h4>Maintainer bootstrap publication</h4><p>This is not independent analyst quorum. The receipt is permanently labeled <span class="mono">decision_channel=maintainer_bootstrap</span>.</p><div class="osi-report-card-meta">'+esc(bootstrapRequirement(capability))+'</div><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'maintainer_bootstrap\')"'+(canBootstrap?'':' disabled title="'+esc(prerequisite)+'"')+'>Publish via maintainer bootstrap</button>'+(canBootstrap?'':'<p>'+esc(prerequisite)+'</p>')+'</section>';
-    return analyst+(mode==='queue'&&(report.access==='maintainer'||canBootstrap||capability.decision_channel==='maintainer_bootstrap')?bootstrap:'')+'<div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div>'+reviewHistoryHtml(version,true);
+    return publicationRecoveryHtml(version.version_ref)+analyst+(mode==='queue'&&(report.access==='maintainer'||canBootstrap||capability.decision_channel==='maintainer_bootstrap')?bootstrap:'')+'<div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div>'+reviewHistoryHtml(version,true);
   }
   function reportReviewDefaults(decision){
     if(decision==='approve')return{reason:'evidence_reviewed',rationale:'The exact report version and its evidence were reviewed.'};
@@ -521,28 +590,56 @@
     route=route==='maintainer_bootstrap'?'maintainer_bootstrap':'standard';
     if(state.busy)return;var generation=privateGeneration();state.busy=true;
     try{
-      var wallet=await ensureWallet();var pending=state.publicationPending[versionRef];
-      assertPrivateGeneration(generation);
-      if(pending&&pending.route!==route){delete state.publicationPending[versionRef];pending=null;}
+      var wallet=await ensureWallet();var pending=state.publicationPending[versionRef]||loadPublicationPending(wallet,versionRef);
+      assertPrivateGeneration(generation);state.publicationWallet=wallet;
+      if(pending&&pending.route!==route){
+        if(pending.txSig)throw new Error('pending_publication_route_mismatch');
+        removePublicationPending(wallet,versionRef);pending=null;
+      }
       if(!pending){
         queueStatus(versionRef,route==='maintainer_bootstrap'?'Checking the server-computed D17 tier and preparing a maintainer-bootstrap REPORT_PUBLISHED receipt...':'Freezing the exact active analyst quorum snapshot and preparing REPORT_PUBLISHED...');
-        var prepareBody={op:'prepare_publication',wallet:wallet,version_public_ref:versionRef,idempotency_key:'report-publish:'+(crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2))};
+        var idempotencyKey='report-publish:'+(crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2));
+        var prepareBody={op:'prepare_publication',wallet:wallet,version_public_ref:versionRef,idempotency_key:idempotencyKey};
         if(route==='maintainer_bootstrap')prepareBody.route='maintainer_bootstrap';
         var prepared=await api(WRITE_URL,prepareBody);
         assertPrivateGeneration(generation);
-        if(prepared.already_committed){queueStatus(versionRef,'This exact version is already published. Inspect its retained publication receipt.','success');return;}
-        pending={prepared:prepared,txSig:'',route:route};state.publicationPending[versionRef]=pending;
+        if(prepared.already_committed){removePublicationPending(wallet,versionRef);queueStatus(versionRef,'This exact version is already published. Inspect its retained publication receipt.','success');return;}
+        pending={route:route,versionRef:versionRef,wallet:wallet,nonce:String(prepared.nonce||''),memo:String(prepared.memo||''),txSig:'',expiresAt:Number(prepared.expires_at),idempotencyKey:idempotencyKey,lastError:'',updatedAt:Date.now()};
+        if(!savePublicationPending(pending))throw new Error('publication_recovery_storage_unavailable');
+        state.publicationPending[versionRef]=pending;
       }
-      if(!pending.txSig){queueStatus(versionRef,'Approve the exact REPORT_PUBLISHED Memo in Phantom. OSI receives no funds.');pending.txSig=await castOnchainVote(pending.prepared.memo);assertPrivateGeneration(generation);}
+      if(!pending.txSig){
+        queueStatus(versionRef,'Approve the exact REPORT_PUBLISHED Memo in Phantom. OSI receives no funds.');
+        pending.txSig=await castOnchainVote(pending.memo);assertPrivateGeneration(generation);pending.updatedAt=Date.now();
+        if(!savePublicationPending(pending))throw new Error('publication_recovery_storage_unavailable');
+      }else queueStatus(versionRef,'Retrying confirmation with the existing transaction. Phantom will not open again.');
       queueStatus(versionRef,'Confirming mainnet, signer, exact version, quorum hash, nonce and Memo...');
-      var committed=await commitWithConfirmation({op:'commit_publication',wallet:wallet,version_public_ref:versionRef,nonce:pending.prepared.nonce,memo:pending.prepared.memo,tx_sig:pending.txSig},generation);
+      var committed=await commitWithConfirmation({op:'commit_publication',wallet:wallet,version_public_ref:versionRef,nonce:pending.nonce,memo:pending.memo,tx_sig:pending.txSig},generation,function(retryText){queueStatus(versionRef,retryText+' Phantom will not open again.');});
       assertPrivateGeneration(generation);
-      delete state.publicationPending[versionRef];
+      removePublicationPending(wallet,versionRef);
       var channel=committed.decision_channel||route;
       queueStatus(versionRef,(channel==='maintainer_bootstrap'?'Published via maintainer bootstrap; this is not independent analyst quorum. decision_channel=maintainer_bootstrap. ':'Published through the standard analyst-quorum route. ')+'The parent Case remains open and unchanged.','success');
       if(typeof showToast==='function')showToast(committed.version_public_ref+' is Memo-anchored and public.');
-    }catch(error){if(generation===privateGeneration()){queueStatus(versionRef,userError(error),'error');if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0)delete state.publicationPending[versionRef];}}
-    finally{if(generation===privateGeneration())state.busy=false;}
+    }catch(error){if(generation===privateGeneration()){
+      var code=String(error.message||'');pending=state.publicationPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef);
+      var terminal=['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo','stale_transaction','publication_transaction_outside_window'].indexOf(code)>=0;
+      if(terminal&&pending)removePublicationPending(pending.wallet,versionRef);else if(pending){pending.lastError=code;pending.updatedAt=Date.now();state.publicationPending[versionRef]=pending;savePublicationPending(pending);}
+      queueStatus(versionRef,userError(error),terminal?'error':'');
+    }}finally{if(generation===privateGeneration())state.busy=false;}
+  }
+  async function recoverExistingPublication(versionRef,index){
+    var candidate=(state.recoveryCandidates[versionRef]||[])[Number(index)];
+    var input=document.getElementById('osi-report-recovery-tx-'+Number(index)+'-'+versionRef);if(!candidate||!input)return;
+    var txSig=input.value.trim();input.setCustomValidity('');
+    if(!/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(txSig)){input.setCustomValidity('Enter the existing Solana transaction signature for this prepared proof.');input.reportValidity();input.focus();return;}
+    var wallet=await ensureWallet();var pending={route:'maintainer_bootstrap',versionRef:versionRef,wallet:wallet,nonce:String(candidate.nonce||''),memo:String(candidate.memo||''),txSig:txSig,expiresAt:Number(candidate.expires_at),idempotencyKey:String(candidate.idempotency_key||''),lastError:'',updatedAt:Date.now()};
+    if(!savePublicationPending(pending)){queueStatus(versionRef,'The bounded recovery record could not be saved in this browser.','error');return;}
+    state.publicationWallet=wallet;state.publicationPending[versionRef]=pending;await publishReport(versionRef,'maintainer_bootstrap');
+  }
+  function cancelPublication(versionRef){
+    var pending=state.publicationPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef);if(pending)removePublicationPending(pending.wallet,versionRef);
+    queueStatus(versionRef,'Pending browser recovery was canceled. Any existing Solana transaction remains immutable and can be re-entered while the server still proves every binding.');
+    openReportWorkspace('queue');
   }
   function reportLifecycleLabel(value,version){
     value=String(value||'');
@@ -606,6 +703,7 @@
     try{
       var result=mode==='mine'?await sessionRead('report:mine','list_my_reports'):await loadReviewQueueData();
       if(mode==='mine'){state.cacheWallet=String(walletPubkey||'');state.myReports=result.reports||[];}
+      if(mode==='queue')restorePublicationPending(result.reports||[],String(walletPubkey||''));
       drawWorkspace(result.reports||[],mode,result.next_prerequisite||'');
       restoreWorkspaceDraft();
     }catch(error){
@@ -639,6 +737,13 @@
   window.osiV2SubmitReport=submitReport;
   window.osiV2SubmitReportReview=submitReportReview;
   window.osiV2PublishReport=publishReport;
+  window.osiV2RecoverReportPublication=function(versionRef){
+    var pending=state.publicationPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef);
+    if(!pending){queueStatus(versionRef,'No bounded browser recovery record is available. Reopen the exact review task.','error');return;}
+    return publishReport(versionRef,pending.route);
+  };
+  window.osiV2RecoverExistingReportPublication=recoverExistingPublication;
+  window.osiV2CancelReportPublication=cancelPublication;
   window.osiV2ReportClearSession=clearSessionState;
   window.osiV2RefreshPublicReports=function(){if(state.sectionContext)reloadSection(state.sectionContext,'public');};
   window.osiV2RefreshCaseReports=function(){if(state.sectionContext)reloadSection(state.sectionContext,state.sectionMode);};

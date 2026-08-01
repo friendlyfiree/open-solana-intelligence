@@ -211,7 +211,14 @@ export function validateCaseEventBinding(message, expected, nowSeconds) {
 }
 
 export function validateConfirmedMemoTransaction(transaction, status, expected) {
-  if (!transaction || transaction.meta?.err != null) return { ok: false, reason: "transaction_failed" };
+  if (!transaction) {
+    if (status?.err != null) return { ok: false, reason: "transaction_failed" };
+    if (new Set(["confirmed", "finalized"]).has(status?.confirmationStatus)) {
+      return { ok: false, reason: "transaction_not_indexed" };
+    }
+    return { ok: false, reason: "transaction_not_confirmed" };
+  }
+  if (transaction.meta?.err != null) return { ok: false, reason: "transaction_failed" };
   if (!status || status.err != null
       || !new Set(["confirmed", "finalized"]).has(status.confirmationStatus)) {
     return { ok: false, reason: "transaction_not_confirmed" };
