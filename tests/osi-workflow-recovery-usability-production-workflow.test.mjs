@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const workflow = readFileSync(
@@ -264,6 +265,24 @@ assert.ok(capabilityStart >= 0 && capabilityEnd > capabilityStart,
   "actor capability proof block exists");
 passed += 1;
 const capabilityBlock = workflow.slice(capabilityStart, capabilityEnd);
+const capabilityRunMarker = "        run: |\n";
+const capabilityRunStart = capabilityBlock.indexOf(capabilityRunMarker);
+assert.ok(capabilityRunStart >= 0, "actor capability proof has a shell run block");
+passed += 1;
+const capabilityScript = capabilityBlock
+  .slice(capabilityRunStart + capabilityRunMarker.length)
+  .split(/\r?\n/)
+  .map((line) => line.startsWith("          ") ? line.slice(10) : line)
+  .join("\n");
+const bash = process.platform === "win32"
+  ? String.raw`C:\Program Files\Git\bin\bash.exe`
+  : "bash";
+const capabilitySyntax = spawnSync(bash, ["-n"], {
+  input: capabilityScript,
+  encoding: "utf8",
+});
+equal(capabilitySyntax.status, 0,
+  `actor capability proof is valid Bash: ${capabilitySyntax.stderr}`);
 equal((capabilityBlock.match(/begin read only;/g) ?? []).length, 4,
   "all four actor capability projections are transactionally read-only");
 matches(capabilityBlock, /can_cast_analyst_review==true/,

@@ -1075,7 +1075,7 @@ jobs:
               )
               order by (profile.wallet = target.author_wallet) desc, profile.wallet
               limit 1;
-            SQL
+          SQL
             )"
             [ -n "$conflicted_actor" ] || {
               echo "::error::No eligible analyst exists for the protected target capability proof."; exit 1;
