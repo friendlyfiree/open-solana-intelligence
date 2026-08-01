@@ -102,7 +102,7 @@ jobs:
             \( -path '*/index.ts' -o -path '*/_shared/*.ts' -o -path '*/_shared/*.mjs' \) | sort)
           deno_check_with_retry "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
-          "$(go env GOPATH)/bin/actionlint"
+          "$(go env GOPATH)/bin/actionlint" .github/workflows/osi-report-publication-recovery-production.yml
           bash -n tests/osi-v2-concurrency.test.sh
 
       - name: Desktop mobile keyboard and refresh recovery
