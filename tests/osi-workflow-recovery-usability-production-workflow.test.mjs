@@ -32,6 +32,10 @@ matches(workflow, /RECOVER-USABILITY-\$\{EXPECTED_PROJECT_REF\}/,
 matches(workflow, /EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn/,
   "production project ref is pinned");
 matches(workflow, /environment: Production/, "deployment is recorded in Production");
+matches(workflow, /PROOF_DIR: \/tmp\/osi-workflow-recovery-proof/,
+  "production proof uses a runner-local path valid in job-level env");
+excludes(workflow, /\$\{\{\s*runner\.temp\s*\}\}/,
+  "job-level env does not use the unavailable runner context");
 matches(workflow, /GITHUB_REF}" = "refs\/heads\/main"/,
   "both jobs require main");
 matches(workflow, /git rev-parse HEAD\)" = "\$\(git rev-parse origin\/main\)"/,
