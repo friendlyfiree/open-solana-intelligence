@@ -277,7 +277,8 @@ function quorumFor(
       && Number(receipt?.weight) === Number(review.weight)
       && (receipt?.reason_code ?? null) === (review.reason_code ?? null)
       && receipt?.server_verified === true
-      && receipt?.proof_type === "wallet_signed_server_verified";
+      && receipt?.proof_type === "wallet_signed_server_verified"
+      && review.sas_authority?.counted === true;
   });
   const selected = riskTier === "high" ? thresholds.high : thresholds.standard;
   const approve = counted.filter((review) => review.decision === "approve");
@@ -329,16 +330,23 @@ async function maintainerGate(req: Request, wallet: string) {
   const authGate = !auth.error
     && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(MAINTAINER_AUTH_UUID)
     && auth.data?.user?.id === MAINTAINER_AUTH_UUID;
-  if (walletGate && authGate) return { ok: true, reason: "full" };
-  if (walletGate) return { ok: false, reason: "half_maintainer_wallet_only" };
-  if (authGate) return { ok: false, reason: "half_maintainer_auth_only" };
-  return { ok: false, reason: "maintainer_denied" };
+  if (walletGate && authGate) {
+    return { ok: true, reason: "full", auth_id: MAINTAINER_AUTH_UUID };
+  }
+  if (walletGate) {
+    return { ok: false, reason: "half_maintainer_wallet_only", auth_id: "" };
+  }
+  if (authGate) {
+    return { ok: false, reason: "half_maintainer_auth_only", auth_id: "" };
+  }
+  return { ok: false, reason: "maintainer_denied", auth_id: "" };
 }
 
 async function loadReports(
   headers: Row[],
   access: "author" | "analyst" | "maintainer",
   viewerWallet = "",
+  maintainerAuthId = "",
 ) {
   if (!headers.length) return [];
   const reportIds = headers.map((row) => String(row.id));
@@ -365,7 +373,12 @@ async function loadReports(
     ...(reviews ?? []).map((row) => String(row.event_receipt_id)),
   ])];
   const reviewerWallets = [...new Set((reviews ?? []).map((row) => String(row.reviewer_wallet)))];
-  const [{ data: links, error: linkError }, { data: receipts, error: receiptError }, profileResult, thresholds] = await Promise.all([
+  const [
+    { data: links, error: linkError },
+    { data: receipts, error: receiptError },
+    profileResult,
+    capabilityResult,
+  ] = await Promise.all([
     versionIds.length
       ? admin.from("case_report_version_evidence")
         .select("report_version_id,evidence_item_id,ordinal")
@@ -379,9 +392,17 @@ async function loadReports(
         .select("wallet,handle,display_name,status,tier_code,verified,approved,weight_cached")
         .in("wallet", reviewerWallets).limit(1000)
       : Promise.resolve({ data: [], error: null }),
-    quorumThresholds(),
+    viewerWallet && versionIds.length
+      ? admin.rpc("osi_v2_report_publication_capabilities", {
+        p_actor_wallet: viewerWallet,
+        p_version_ids: versionIds,
+        p_maintainer_auth_uuid: maintainerAuthId || null,
+      })
+      : Promise.resolve({ data: [], error: null }),
   ]);
-  if (linkError || receiptError || profileResult.error) throw new Error("read_failed");
+  if (linkError || receiptError || profileResult.error || capabilityResult.error) {
+    throw new Error("read_failed");
+  }
   const evidenceIds = [...new Set((links ?? []).map((row) => String(row.evidence_item_id)))];
   const evidenceResult = evidenceIds.length
     ? await admin.from("evidence_items").select(EVIDENCE_COLS).in("id", evidenceIds).limit(5000)
@@ -403,6 +424,9 @@ async function loadReports(
   const receiptByVersion = new Map<string, Row>();
   const receiptById = new Map((receipts ?? []).map((row) => [String(row.id), row]));
   const profileByWallet = new Map((profileResult.data ?? []).map((row) => [String(row.wallet), row]));
+  const capabilityByVersion = new Map<string, Row>(
+    (capabilityResult.data ?? []).map((row: Row) => [String(row.version_id), row]),
+  );
   const reviewsByVersion = new Map<string, Row[]>();
   for (const review of reviews ?? []) {
     const key = String(review.report_version_id);
@@ -423,7 +447,7 @@ async function loadReports(
   const reviewEnabled = await reviewWritesEnabled();
   return headers.filter((header) => {
     const caseRow = caseById.get(String(header.case_id));
-    return !!caseRow && (access !== "analyst" || (
+    return !!caseRow && (access === "author" || (
       header.author_wallet !== viewerWallet
       && caseRow?.submitted_by_wallet !== viewerWallet
     ));
@@ -443,14 +467,24 @@ async function loadReports(
       : null;
     const quorumByVersion = new Map<string, Row>();
     for (const version of reportVersions) {
-      quorumByVersion.set(String(version.id), quorumFor(
-        String(caseRow?.risk_tier || "standard"),
-        reviewsByVersion.get(String(version.id)) ?? [],
-        profileByWallet,
-        receiptById,
-        thresholds,
-      ));
+      const capability: Row | undefined = capabilityByVersion.get(String(version.id));
+      if (!capability) continue;
+      quorumByVersion.set(String(version.id), {
+        risk_tier: capability.risk_tier,
+        approve_count: capability.approve_count,
+        approve_weight: capability.approve_weight,
+        reject_count: capability.reject_count,
+        reject_weight: capability.reject_weight,
+        required_count: capability.required_count,
+        required_weight: capability.required_weight,
+        approve_ready: capability.standard_quorum_ready === true,
+        reject_ready: Number(capability.reject_count) >= Number(capability.required_count)
+          && Number(capability.reject_weight) >= Number(capability.required_weight),
+      });
     }
+    const currentCapability: Row | null = current
+      ? capabilityByVersion.get(String(current.id)) ?? null
+      : null;
     return authorizedReportDto({
       case_public_ref: caseRow?.public_ref,
       report_public_ref: header.public_ref,
@@ -463,9 +497,10 @@ async function loadReports(
         && caseRow?.visibility === "public"
         && ["open_public", "in_review", "reopened"].includes(caseRow?.stage)
         && header.status === "active",
-      review_mutations_enabled: access === "analyst" && reviewEnabled,
+      review_mutations_enabled:
+        currentCapability?.can_cast_analyst_review === true && reviewEnabled,
     }, reportVersions, evidenceByVersion, receiptByVersion, access,
-    reviewsByVersion, quorumByVersion);
+    reviewsByVersion, quorumByVersion, capabilityByVersion);
   });
 }
 
@@ -482,7 +517,7 @@ async function listMyReports(req: Request, body: Row): Promise<Response> {
     return jsonResponse(200, {
       ok: true,
       actor_role: "author",
-      reports: await loadReports(data ?? [], "author"),
+      reports: await loadReports(data ?? [], "author", proof.wallet),
     });
   } catch {
     return jsonResponse(500, { ok: false, error: "read_failed" });
@@ -496,32 +531,80 @@ async function listReviewQueue(req: Request, body: Row): Promise<Response> {
     analystEligible(proof.wallet),
     maintainerGate(req, proof.wallet),
   ]);
-  const access = analyst ? "analyst" : maintainer.ok ? "maintainer" : null;
+  // Projection access and actor capabilities are deliberately separate.
+  // Maintainer projection wins for a dual-role actor so the full maintainer
+  // does not lose restricted queue visibility; the canonical capability RPC
+  // still reports both analyst review and bootstrap abilities independently.
+  const access = maintainer.ok ? "maintainer" : analyst ? "analyst" : null;
   if (!access) return jsonResponse(403, { ok: false, error: maintainer.reason });
-  const { data, error } = await admin.from("case_reports").select(REPORT_COLS)
+  const queueQuery = admin.from("case_reports").select(REPORT_COLS)
     .eq("native_intake", true)
     .eq("status", "active")
     .neq("author_wallet", proof.wallet)
     .not("current_version_id", "is", null)
     .order("created_at", { ascending: true }).limit(200);
+  const { data, error } = await queueQuery;
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
+  const candidateHeaders = data ?? [];
+  const candidateCaseIds = [
+    ...new Set(candidateHeaders.map((row) => String(row.case_id))),
+  ];
+  const ownerResult = candidateCaseIds.length
+    ? await admin.from("cases").select("id,submitted_by_wallet")
+      .in("id", candidateCaseIds).limit(500)
+    : { data: [], error: null };
+  if (ownerResult.error) {
+    return jsonResponse(500, { ok: false, error: "read_failed" });
+  }
+  const caseOwnerById = new Map<string, string>(
+    (ownerResult.data ?? []).map((row): [string, string] => [
+      String(row.id),
+      String(row.submitted_by_wallet),
+    ]),
+  );
+  // Restricted analyst notes never enter the review projection for a Report
+  // author or Case owner, even when that wallet also passes both maintainer
+  // gates. My Reports remains the author-safe history surface.
+  const eligibleHeaders = candidateHeaders.filter((row) =>
+    String(row.author_wallet) !== proof.wallet
+    && caseOwnerById.get(String(row.case_id)) !== proof.wallet
+  );
   try {
     const reviewEnabled = await reviewWritesEnabled();
-    const reports = (await loadReports(data ?? [], access, proof.wallet)).filter((report) => {
+    const reports = (await loadReports(
+      eligibleHeaders,
+      access,
+      proof.wallet,
+      maintainer.auth_id,
+    )).filter((report) => {
       const current = report.versions.find(
         (version: Row) => version.version_ref === report.current_version_ref,
       );
       return current && ["submitted", "in_review"].includes(current.lifecycle_state);
     });
+    const canReview = reports.some(
+      (report) => report.can_cast_analyst_review === true,
+    );
+    const canBootstrap = reports.some(
+      (report) => report.can_publish_via_maintainer_bootstrap === true,
+    );
+    const canPublishStandard = reports.some(
+      (report) => report.can_publish_via_standard_quorum === true,
+    );
     return jsonResponse(200, {
       ok: true,
       actor_role: access,
+      actor_roles: [
+        ...(analyst ? ["analyst"] : []),
+        ...(maintainer.ok ? ["maintainer"] : []),
+      ],
       queue_state: "awaiting_review",
-      review_mutations_enabled: access === "analyst" && reviewEnabled,
+      review_mutations_enabled: canReview,
+      can_cast_analyst_review: canReview,
+      can_publish_via_standard_quorum: canPublishStandard,
+      can_publish_via_maintainer_bootstrap: canBootstrap,
       next_prerequisite: !reviewEnabled
         ? "Counted Report review and publication are safely disabled during rollout."
-        : access === "maintainer"
-        ? "Maintainers may inspect restricted review material but cannot replace analyst quorum."
         : null,
       reports,
     });
@@ -546,12 +629,12 @@ async function listPublicReports(body: Row): Promise<Response> {
   const { data: headers, error: headerError } = await admin.from("case_reports")
     .select(REPORT_COLS).eq("case_id", caseRow.id).eq("native_intake", true)
     .eq("status", "active").not("public_ref", "is", null)
+    .not("current_published_version_id", "is", null)
     .order("created_at", { ascending: true }).limit(200);
   if (headerError) return jsonResponse(500, { ok: false, error: "read_failed" });
-  const versionIds = [...new Set((headers ?? []).flatMap((header) => [
-    String(header.current_version_id || ""),
-    String(header.current_published_version_id || ""),
-  ]).filter(Boolean))];
+  const versionIds = [...new Set((headers ?? [])
+    .map((header) => String(header.current_published_version_id || ""))
+    .filter(Boolean))];
   if (!versionIds.length) return jsonResponse(200, { ok: true, case_public_ref: caseRef, reports: [] });
   try {
     const [{ data: versions, error: versionError }, { data: reviews, error: reviewError }, thresholds] = await Promise.all([
@@ -592,17 +675,14 @@ async function listPublicReports(body: Row): Promise<Response> {
       });
       reviewsByVersion.set(key, rows);
     }
+    const headerById = new Map((headers ?? []).map((row) => [String(row.id), row]));
     const visibleVersions = (versions ?? []).filter((version) => {
-      if (version.lifecycle_state === "published") return true;
-      if (version.lifecycle_state !== "in_review") return false;
-      const rows = reviewsByVersion.get(String(version.id)) ?? [];
-      return quorumFor(
-        String(caseRow.risk_tier || "standard"), rows,
-        profileByWallet, receiptById, thresholds,
-      ).approve_count >= 1;
+      const header = headerById.get(String(version.report_id));
+      return version.lifecycle_state === "published"
+        && !!header
+        && String(header.current_published_version_id) === String(version.id);
     });
-    const publishedIds = visibleVersions.filter((row) => row.lifecycle_state === "published")
-      .map((row) => String(row.id));
+    const publishedIds = visibleVersions.map((row) => String(row.id));
     const { data: links, error: linkError } = publishedIds.length
       ? await admin.from("case_report_version_evidence")
         .select("report_version_id,evidence_item_id,ordinal")
@@ -624,7 +704,6 @@ async function listPublicReports(body: Row): Promise<Response> {
       rows.push({ ...item, ordinal: link.ordinal });
       evidenceByVersion.set(key, rows);
     }
-    const headerById = new Map((headers ?? []).map((row) => [String(row.id), row]));
     const reports = visibleVersions.map((version) => {
       const header = headerById.get(String(version.report_id));
       const reviewRows = reviewsByVersion.get(String(version.id)) ?? [];

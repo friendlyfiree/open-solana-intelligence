@@ -87,12 +87,23 @@ function rejectUnsafeContent(value) {
 
 export async function normalizeReportEvidence(input, options = {}) {
   const minimum = options.allowEmpty === true ? 0 : 1;
-  if (!Array.isArray(input) || input.length < minimum || input.length > 12) {
+  if (!Array.isArray(input)) {
+    throw new TypeError("evidence is invalid");
+  }
+  // Browser forms may retain one or more empty placeholder rows. They are not
+  // evidence and must not become fake URLs/items or make an otherwise valid
+  // zero-evidence Report fail. Any non-empty row still receives the exact
+  // wallet/transaction/HTTPS validation below.
+  const supplied = input.filter((item) => !(
+    item && typeof item === "object" && !Array.isArray(item)
+    && cleanText(item.ref) === ""
+  ));
+  if (supplied.length < minimum || supplied.length > 12) {
     throw new TypeError("evidence is invalid");
   }
   const seen = new Set();
   const result = [];
-  for (const item of input) {
+  for (const item of supplied) {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       throw new TypeError("evidence item is invalid");
     }
@@ -139,7 +150,7 @@ export async function normalizeReportPayload(input) {
     body_private,
     content_public_safe,
     revision_reason_code: revisionReason || null,
-    evidence: await normalizeReportEvidence(input.evidence),
+    evidence: await normalizeReportEvidence(input.evidence ?? [], { allowEmpty: true }),
   };
 }
 
@@ -369,7 +380,61 @@ function safeReceipt(receipt) {
   };
 }
 
-function exactVersionDto(version, evidence, receipt, reviews = [], quorum = null, access = "author") {
+function nullableNumber(value) {
+  return value === null || value === undefined ? null : Number(value);
+}
+
+export function reportPublicationCapabilityDto(capability) {
+  if (!capability || typeof capability !== "object") return null;
+  const channel = capability.decision_channel === "maintainer_bootstrap"
+    ? "maintainer_bootstrap"
+    : capability.decision_channel === "standard"
+    ? "standard"
+    : null;
+  return {
+    actor_is_eligible_analyst: capability.actor_is_eligible_analyst === true,
+    actor_is_full_maintainer: capability.actor_is_full_maintainer === true,
+    can_cast_analyst_review: capability.can_cast_analyst_review === true,
+    analyst_review_reason_code: capability.analyst_review_reason_code || null,
+    can_publish_via_standard_quorum:
+      capability.can_publish_via_standard_quorum === true,
+    standard_publication_reason_code:
+      capability.standard_publication_reason_code || null,
+    can_publish_via_maintainer_bootstrap:
+      capability.can_publish_via_maintainer_bootstrap === true,
+    maintainer_bootstrap_reason_code:
+      capability.maintainer_bootstrap_reason_code || null,
+    decision_channel: channel,
+    standard_quorum_ready: capability.standard_quorum_ready === true,
+    approve_count: Number(capability.approve_count || 0),
+    approve_weight: Number(capability.approve_weight || 0),
+    reject_count: Number(capability.reject_count || 0),
+    reject_weight: Number(capability.reject_weight || 0),
+    required_count: Number(capability.required_count || 0),
+    required_weight: Number(capability.required_weight || 0),
+    sas_enforcement_enabled: capability.sas_enforcement_enabled === true,
+    bootstrap: {
+      enabled: capability.bootstrap_enabled === true,
+      active: capability.bootstrap_active === true,
+      tier: capability.bootstrap_tier || null,
+      eligible_analyst_count: nullableNumber(capability.eligible_analyst_count),
+      required_analyst_count:
+        nullableNumber(capability.bootstrap_required_analyst_count),
+      required_analyst_weight:
+        nullableNumber(capability.bootstrap_required_analyst_weight),
+    },
+  };
+}
+
+function exactVersionDto(
+  version,
+  evidence,
+  receipt,
+  reviews = [],
+  quorum = null,
+  access = "author",
+  publicationCapability = null,
+) {
   return {
     version_ref: version.version_ref,
     version_no: version.version_no,
@@ -415,6 +480,8 @@ function exactVersionDto(version, evidence, receipt, reviews = [], quorum = null
       approve_ready: quorum.approve_ready === true,
       reject_ready: quorum.reject_ready === true,
     } : null,
+    publication_capability:
+      reportPublicationCapabilityDto(publicationCapability),
   };
 }
 
@@ -426,6 +493,7 @@ export function authorizedReportDto(
   access,
   reviewsByVersion = new Map(),
   quorumByVersion = new Map(),
+  capabilityByVersion = new Map(),
 ) {
   if (!report || !new Set(["author", "analyst", "maintainer"]).has(access)) {
     throw new TypeError("report access is invalid");
@@ -433,6 +501,12 @@ export function authorizedReportDto(
   if (!CASE_REF.test(report.case_public_ref) || !REPORT_REF.test(report.report_public_ref)) {
     throw new TypeError("report projection reference is invalid");
   }
+  const currentVersion = versions.find(
+    (version) => version.version_ref === report.current_version_ref,
+  );
+  const currentCapability = reportPublicationCapabilityDto(
+    currentVersion ? capabilityByVersion.get(currentVersion.id) : null,
+  );
   return {
     case_public_ref: report.case_public_ref,
     report_public_ref: report.report_public_ref,
@@ -443,7 +517,19 @@ export function authorizedReportDto(
     current_published_version_ref: report.current_published_version_ref || null,
     access,
     revision_eligible: access === "author" && report.revision_eligible === true,
-    review_mutations_enabled: access === "analyst" && report.review_mutations_enabled === true,
+    // Compatibility alias for older clients. Maintainer bootstrap is never an
+    // analyst review mutation; dual-role actors receive both independent
+    // capabilities below instead of being flattened to one role.
+    review_mutations_enabled: currentCapability
+      ? currentCapability.can_cast_analyst_review
+      : access === "analyst" && report.review_mutations_enabled === true,
+    can_cast_analyst_review:
+      currentCapability?.can_cast_analyst_review === true,
+    can_publish_via_standard_quorum:
+      currentCapability?.can_publish_via_standard_quorum === true,
+    can_publish_via_maintainer_bootstrap:
+      currentCapability?.can_publish_via_maintainer_bootstrap === true,
+    publication_capability: currentCapability,
     versions: versions.map((version) => exactVersionDto(
       version,
       evidenceByVersion.get(version.id) || [],
@@ -451,6 +537,7 @@ export function authorizedReportDto(
       reviewsByVersion.get(version.id) || [],
       quorumByVersion.get(version.id) || null,
       access,
+      capabilityByVersion.get(version.id) || null,
     )),
   };
 }
@@ -469,21 +556,21 @@ export function publicPublishedReports(reportRows) {
 
 export function publicReportGovernanceDto(report) {
   if (!report || !REPORT_REF.test(String(report.report_public_ref || ""))
-      || !VERSION_REF.test(String(report.version_public_ref || ""))) {
+      || !VERSION_REF.test(String(report.version_public_ref || ""))
+      || report.lifecycle_state !== "published") {
     throw new TypeError("public Report projection is invalid");
   }
-  const state = report.lifecycle_state === "published" ? "published" : "under_review";
   const timeline = Array.isArray(report.reviews) ? report.reviews : [];
   return {
     report_public_ref: String(report.report_public_ref),
     version_public_ref: String(report.version_public_ref),
     version_no: Number(report.version_no),
-    state,
-    content_public_safe: state !== "published" || report.content_public_safe == null
+    state: "published",
+    content_public_safe: report.content_public_safe == null
       ? null
       : String(report.content_public_safe),
-    body: state === "published" ? String(report.body_private || "") : null,
-    evidence: state === "published" && Array.isArray(report.evidence)
+    body: String(report.body_private || ""),
+    evidence: Array.isArray(report.evidence)
       ? report.evidence.filter((item) => item.is_public === true && item.moderation_state === "approved")
         .map((item) => ({
           ordinal: Number(item.ordinal),
@@ -515,8 +602,8 @@ export function publicReportGovernanceDto(report) {
       created_at: review.created_at || null,
       sas_authority: sasAuthorityDto(review),
     })),
-    publication_proof: state === "published" ? safeReceipt(report.publication_receipt) : null,
-    published_at: state === "published" ? report.published_at || null : null,
+    publication_proof: safeReceipt(report.publication_receipt),
+    published_at: report.published_at || null,
     process_notice: "Publication records a reviewed OSI process outcome. It is not proof of truth, guilt, legal certainty, recovery, custody, or guaranteed payment.",
   };
 }

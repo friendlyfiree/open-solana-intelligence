@@ -338,6 +338,11 @@ const onchain = read("supabase/functions/_shared/osi-v2-sas-onchain.ts");
 ok("the re-check consults the authoritative chain, never the wallet cache",
   /refreshReviewVerifications[\s\S]*?verifyWalletLive/.test(onchain)
     && !/refreshReviewVerifications[\s\S]{0,2000}?osi_v2_sas_wallet_credentials/.test(onchain));
+ok("authority projection chunks every review id and fails unresolved rows closed",
+  /for \(let offset = 0; offset < ids\.length; offset \+= 400\)/.test(onchain)
+    && /p_review_ids: ids\.slice\(offset, offset \+ 400\)/.test(onchain)
+    && /state: "authority_unavailable"/.test(onchain)
+    && !/filter\(\(id\).*slice\(0, 400\)/.test(onchain));
 ok("a verifier failure inside the re-check never propagates",
   /export async function refreshReviewVerifications[\s\S]*?catch \(error\)[\s\S]*?console\.log\("sas_recheck_noncritical_error"/
     .test(onchain));

@@ -78,6 +78,7 @@ jobs:
           node tests/osi-v2-payment.test.mjs
           node tests/osi-v2-event-registry.test.mjs
           node tests/osi-v2-sas-core.test.mjs
+          node tests/osi-workflow-recovery-usability-production-workflow.test.mjs
           deno check supabase/functions/_shared/osi-v2-sas-core.mjs
           deno check supabase/functions/_shared/osi-v2-sas-onchain.ts
           deno check supabase/functions/_shared/osi-v2-sas-sdk.ts

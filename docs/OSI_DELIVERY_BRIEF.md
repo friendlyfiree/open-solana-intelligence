@@ -65,11 +65,12 @@ Operational flag and dormant-surface classification:
 - The frontend is static HTML, modular CSS, and classic JavaScript.
 - The repository has no package-manager manifest or frontend build step.
 - Supabase PostgreSQL and Edge Functions provide the backend.
-- Production migration history is additive through `20260728153100`; the launch-completion migration `20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql` is the next reviewed delta.
+- Production migration history is additive through `20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql`. The repository's next task-scoped additive delta is `20260729134213_osi_v2_workflow_recovery_usability.sql`; production delivery must first re-read the live migration list and accept only the exact before or already-resumed history.
 - The deployed V2 slices cover schema, integrity guards, default deny, Stage-5 proofs, legacy materialization, Case/Report/Wire lifecycles, governance, native SOL payments, read sessions, SAS issuance/enforcement, and AI Pack foundations.
 - Production Case, Report, Wire, analyst, governance, proof, payment, and read functions are reachable behind their dedicated gates.
 - The mature production shell responds successfully.
-- Solana Pay and maintainer-only AI Pack remain unchanged in production until the reviewed launch-completion PR is merged and its main-only rollout gates pass.
+- Solana Pay and maintainer-only AI Pack generation are live behind their dedicated narrow flags; AI Pack review writes remain disabled.
+- The Supabase organization is currently on the Free plan, where leaked-password protection is unavailable. Treat that as a non-blocking platform limitation; do not weaken application authorization or claim the control is enabled.
 - Broad `OSI_V2_WRITES_ENABLED` remains false.
 - Broad `OSI_V2_PROOF_ENABLED` remains false.
 - The Case slice uses exact `OSI_V2_CASE_WRITES_ENABLED` gating.

@@ -107,9 +107,26 @@ const normalized = await core.normalizeReportPayload(validPayload);
 ok("Report payload normalizes exact structured evidence hashes",
   normalized.evidence.length === 3
     && normalized.evidence.every((item) => /^[0-9a-f]{64}$/.test(item.sha256)));
-await rejects("Report requires evidence", () => core.normalizeReportPayload({
+const emptyEvidence = await core.normalizeReportPayload({
   ...validPayload, evidence: [],
-}), /evidence/);
+});
+ok("Report accepts an exact zero-evidence payload",
+  Array.isArray(emptyEvidence.evidence) && emptyEvidence.evidence.length === 0);
+const omittedEvidence = await core.normalizeReportPayload({
+  ...validPayload, evidence: undefined,
+});
+ok("omitted optional Report evidence normalizes to the canonical empty array",
+  Array.isArray(omittedEvidence.evidence) && omittedEvidence.evidence.length === 0);
+const blankEvidence = await core.normalizeReportPayload({
+  ...validPayload,
+  evidence: [
+    { kind: "url", ref: "   " },
+    { kind: "", ref: "" },
+    { kind: "wallet", ref: WALLET },
+  ],
+});
+ok("blank evidence placeholders are omitted without weakening supplied evidence validation",
+  blankEvidence.evidence.length === 1 && blankEvidence.evidence[0].ref === WALLET);
 await rejects("non-HTTPS evidence is denied", () => core.normalizeReportPayload({
   ...validPayload, evidence: [{ kind: "url", ref: "http://example.com" }],
 }), /URL/);
@@ -212,39 +229,62 @@ ok("author DTO includes full exact immutable history and evidence",
     && authorDto.versions[0].proof.server_verified === true);
 ok("author DTO never invents review mutation controls",
   authorDto.review_mutations_enabled === false && authorDto.revision_eligible === true);
+const dualCapabilityMap = new Map([[exactVersion.id, {
+  actor_is_eligible_analyst: true,
+  actor_is_full_maintainer: true,
+  can_cast_analyst_review: true,
+  analyst_review_reason_code: null,
+  can_publish_via_standard_quorum: false,
+  standard_publication_reason_code: "analyst_quorum_not_ready",
+  can_publish_via_maintainer_bootstrap: true,
+  maintainer_bootstrap_reason_code: null,
+  decision_channel: "maintainer_bootstrap",
+  standard_quorum_ready: false,
+  approve_count: 0,
+  approve_weight: 0,
+  reject_count: 0,
+  reject_weight: 0,
+  required_count: 2,
+  required_weight: 2,
+  sas_enforcement_enabled: true,
+  bootstrap_enabled: true,
+  bootstrap_active: true,
+  bootstrap_tier: "maintainer_only",
+  eligible_analyst_count: 0,
+  bootstrap_required_analyst_count: 0,
+  bootstrap_required_analyst_weight: 0,
+}]]);
+const dualRoleDto = core.authorizedReportDto({
+  case_public_ref: "OSI-A1B2C3D4E5F6",
+  report_public_ref: "OSI-RPT-A1B2C3D4E5F6",
+  author_wallet: OTHER,
+  status: "active",
+  current_version_ref: binding.version_public_ref,
+  current_version_no: 1,
+  current_published_version_ref: null,
+}, [exactVersion], evidenceMap, receiptMap, "maintainer",
+new Map(), new Map(), dualCapabilityMap);
+ok("dual-role Report DTO preserves analyst review and maintainer bootstrap independently",
+  dualRoleDto.can_cast_analyst_review === true
+    && dualRoleDto.can_publish_via_maintainer_bootstrap === true
+    && dualRoleDto.review_mutations_enabled === true
+    && dualRoleDto.publication_capability.decision_channel === "maintainer_bootstrap"
+    && dualRoleDto.versions[0].publication_capability.bootstrap.tier === "maintainer_only");
 ok("public unpublished projection is empty",
   core.publicPublishedReports([{ current_published_version_id: null }]).length === 0);
-const publicUnderReview = core.publicReportGovernanceDto({
-  report_public_ref: "OSI-RPT-A1B2C3D4E5F6",
-  version_public_ref: binding.version_public_ref,
-  version_no: 1,
-  lifecycle_state: "in_review",
-  body_private: validPayload.body_private,
-  content_public_safe: validPayload.content_public_safe,
-  evidence: [{ ordinal: 1, kind: "wallet", ref: WALLET, sha256: "f".repeat(64) }],
-  quorum: { risk_tier: "standard", approve_count: 1, approve_weight: 1, required_count: 2, required_weight: 2 },
-  reviews: [{
-    public_ref: "OSI-RVW-A1B2C3D4E5F60718",
-    reviewer_wallet: OTHER,
-    reviewer_handle: "reviewer",
-    decision: "approve",
-    weight: 1,
-    tier_snapshot: "analyst_i",
-    public_rationale: "The cited transfers and stated uncertainty were independently checked.",
-    private_note: "must never leak",
-    is_active: true,
-    created_at: "2026-07-14T00:00:00Z",
-    receipt: { proof_type: "wallet_signed_server_verified", actor_role: "analyst", server_verified: true },
-  }],
-});
-const publicUnderReviewText = JSON.stringify(publicUnderReview);
-ok("under-review DTO exposes process metadata but no private Report data",
-  publicUnderReview.state === "under_review"
-    && publicUnderReview.review_timeline.length === 1
-    && publicUnderReview.body === null
-    && publicUnderReview.content_public_safe === null
-    && publicUnderReview.evidence.length === 0
-    && !/body_private|author_wallet|private_note|must never leak|nonce|signature|evidence_snapshot_hash/.test(publicUnderReviewText));
+let unpublishedProjectionRejected = false;
+try {
+  core.publicReportGovernanceDto({
+    report_public_ref: "OSI-RPT-A1B2C3D4E5F6",
+    version_public_ref: binding.version_public_ref,
+    version_no: 1,
+    lifecycle_state: "in_review",
+  });
+} catch (error) {
+  unpublishedProjectionRejected = error instanceof TypeError;
+}
+ok("public Report DTO rejects every unpublished lifecycle state",
+  unpublishedProjectionRejected);
 
 const writeSource = readFileSync(
   join(root, "supabase/functions/osi-v2-report-write/index.ts"), "utf8",
@@ -259,6 +299,9 @@ const migration = readFileSync(
 );
 const governanceMigration = readFileSync(
   join(root, "supabase/migrations/20260714064501_osi_v2_report_review_publication.sql"), "utf8",
+);
+const recoveryMigration = readFileSync(
+  join(root, "supabase/migrations/20260729134213_osi_v2_workflow_recovery_usability.sql"), "utf8",
 );
 const config = readFileSync(join(root, "supabase/config.toml"), "utf8");
 const productionWorkflow = readFileSync(
@@ -291,7 +334,9 @@ ok("author, review and public Report reads exclude archived and legacy-import pa
   readSource.includes('in("id", caseIds).is("archived_at", null)')
     && readSource.includes('eq("visibility", "public").is("archived_at", null)')
     && (readSource.match(/\.neq\("category", "legacy_import"\)/g) || []).length >= 2
-    && readSource.includes('return !!caseRow && (access !== "analyst"'));
+    && readSource.includes('return !!caseRow && (access === "author" || (')
+    && readSource.includes('header.author_wallet !== viewerWallet')
+    && readSource.includes('caseRow?.submitted_by_wallet !== viewerWallet'));
 ok("read gateway has durable issue and consume RPCs but no domain writes",
   readSource.includes('rpc("osi_v2_issue_read_nonce"')
     && readSource.includes('rpc("osi_v2_consume_read_nonce"')
@@ -329,12 +374,50 @@ ok("nonce binds server-generated version and non-secret reservation context",
       migration.indexOf("p_request_fingerprint_hash, binding_context"),
       migration.indexOf("issued_time + pg_catalog.make_interval", migration.indexOf("p_request_fingerprint_hash, binding_context")),
     ).includes("p_body_private"));
+ok("additive recovery migration canonicalizes zero evidence without a placeholder",
+  recoveryMigration.includes("between 0 and 12 references")
+    && recoveryMigration.includes("'[]'::jsonb")
+    && recoveryMigration.includes("coalesce(")
+    && !recoveryMigration.includes("placeholder.invalid"));
+ok("canonical Report capability RPC is service-only, side-effect-free and SAS-aware",
+  recoveryMigration.includes("osi_v2_report_publication_capabilities")
+    && recoveryMigration.includes("osi_private.osi_v2_report_quorum(target.version_id)")
+    && recoveryMigration.includes("osi_private.osi_v2_sas_enforcement_enabled()")
+    && recoveryMigration.includes("from public, anon, authenticated")
+    && recoveryMigration.includes("to service_role")
+    && !/osi_v2_report_publication_capabilities[\s\S]*insert into public\.osi_nonces/i.test(
+      recoveryMigration,
+    ));
+ok("signed Report queue consumes independent actor capabilities and submitted versions",
+  readSource.includes('rpc("osi_v2_report_publication_capabilities"')
+    && readSource.includes('maintainer.ok ? "maintainer" : analyst ? "analyst"')
+    && readSource.includes('["submitted", "in_review"].includes(current.lifecycle_state)')
+    && readSource.includes("can_publish_via_maintainer_bootstrap")
+    && !readSource.includes("Maintainers may inspect restricted review material but cannot replace analyst quorum."));
+ok("restricted Report queue excludes authors and Case owners before graph loading",
+  readSource.includes('.neq("author_wallet", proof.wallet)')
+    && readSource.includes('select("id,submitted_by_wallet")')
+    && readSource.includes("const eligibleHeaders = candidateHeaders.filter")
+    && readSource.indexOf("const eligibleHeaders = candidateHeaders.filter")
+      < readSource.indexOf("eligibleHeaders,", readSource.indexOf("const eligibleHeaders")));
+const unsignedCapabilitiesSource = writeSource.slice(
+  writeSource.indexOf("async function capabilities("),
+  writeSource.indexOf("serve(async", writeSource.indexOf("async function capabilities(")),
+);
+ok("unsigned write preflight cannot enumerate an unpublished exact Report version",
+  !unsignedCapabilitiesSource.includes("exactVersion(")
+    && !unsignedCapabilitiesSource.includes("osi_v2_report_publication_capabilities")
+    && !unsignedCapabilitiesSource.includes("version_available"));
+ok("read quorum fails closed unless SAS authority explicitly counts a review",
+  readSource.includes("review.sas_authority?.counted === true")
+    && !readSource.includes("review.sas_authority?.enforced !== true"));
 ok("Report functions use explicit custom authorization config",
   /\[functions\.osi-v2-report-write\][\s\S]*?verify_jwt\s*=\s*false/.test(config)
     && /\[functions\.osi-v2-report-read\][\s\S]*?verify_jwt\s*=\s*false/.test(config));
 ok("My Reports and Report Queue are wired to real signed endpoints",
-  html.includes("osiV2OpenMyReports()") && html.includes("osiV2OpenReportQueue()")
-    && uiSource.includes("list_my_reports") && uiSource.includes("list_review_queue"));
+  html.includes("osiV2OpenMyReports()") && html.includes("osiV2OpenReviewQueue()")
+    && uiSource.includes("list_my_reports") && uiSource.includes("list_review_queue")
+    && uiSource.includes("osiV2LoadReportReviewTasks"));
 ok("eligible analyst review and exact publication controls are wired",
   uiSource.includes("prepare_review") && uiSource.includes("commit_review")
     && uiSource.includes("prepare_publication") && uiSource.includes("commit_publication")
@@ -348,10 +431,19 @@ ok("public Case Report status uses a public allowlist endpoint",
   readSource.includes("listPublicReports")
     && readSource.includes("publicReportGovernanceDto")
     && uiSource.includes("list_public_reports"));
-ok("first-approve visibility reuses the exact counted quorum and receipt filters",
-  /quorumFor\([\s\S]*?\)\.approve_count >= 1/.test(readSource)
-    && readSource.includes("publicReviewHistory")
-    && governanceMigration.includes("Native Report review receipt binding is invalid"));
+ok("public Report visibility follows only the exact published pointer",
+  readSource.includes('.not("current_published_version_id", "is", null)')
+    && readSource.includes("String(header.current_published_version_id) === String(version.id)")
+    && !/quorumFor\([\s\S]*?\)\.approve_count >= 1/.test(readSource)
+    && uiSource.includes("Every Report and exact version stays private until publication is finalized.")
+    && !uiSource.includes("private until its first counted approval"));
+ok("Case Report drawer writes are bound to the exact Case load and DOM instance",
+  uiSource.includes("sectionLoadToken")
+    && uiSource.includes("token===state.sectionLoadToken")
+    && uiSource.includes("String(state.sectionContext.public_ref||'')===String(caseRef||'')")
+    && uiSource.includes("document.getElementById('osi-public-reports')===host")
+    && uiSource.includes("expectedRenderToken!==state.sectionLoadToken")
+    && uiSource.includes("!sectionIsCurrent(token,caseRef,host)"));
 ok("production rollout changes only the dedicated review flag and fails closed",
   productionWorkflow.includes("REPORT-REVIEW-DEPLOY-${EXPECTED_PROJECT_REF}")
     && productionWorkflow.includes("OSI_V2_REPORT_REVIEW_WRITES_ENABLED")
@@ -367,8 +459,14 @@ ok("Report form provides exact prerequisite and transaction states",
     && uiSource.includes("Approve the exact CASE_REPORT_VERSION_SUBMITTED Memo")
     && uiSource.includes("Confirming mainnet, signer, exact Memo"));
 ok("untrusted Report content is escaped before innerHTML rendering",
-  uiSource.includes("<p>'+esc(version.body_private)+'</p>")
+  uiSource.includes("<p data-osi-user-content>'+esc(version.body_private)+'</p>")
     && uiSource.includes("esc(item.ref)"));
+ok("bootstrap publication remains visibly distinct after public or authorized reload",
+  uiSource.includes("proof.decision_channel_label")
+    && uiSource.includes("decision_channel=")
+    && uiSource.includes("It is not independent analyst quorum.")
+    && uiSource.includes("publicationChannelHtml(row.publication_proof)")
+    && uiSource.includes("publicationChannelHtml(proof)"));
 ok("legacy and preview pages never load the Report bundle",
   !readFileSync(join(root, "legacy.html"), "utf8").includes("v2-report-integration")
     && !existsSync(join(root, "v2-preview.html"))

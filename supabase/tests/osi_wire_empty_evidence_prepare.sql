@@ -86,13 +86,10 @@ select ok(
   'the exact minimal Wire content is persisted without placeholder values'
 );
 
-select throws_ok(
-  $test$
-    select osi_private.osi_v2_report_evidence_manifest('[]'::jsonb)
-  $test$,
-  '23514',
-  'Report evidence must contain between 1 and 12 references',
-  'the Case Report evidence rule is unchanged'
+select is(
+  osi_private.osi_v2_report_evidence_manifest('[]'::jsonb),
+  '[]'::jsonb,
+  'Case Reports and Wire Reports share the canonical optional empty evidence manifest'
 );
 
 select throws_ok(

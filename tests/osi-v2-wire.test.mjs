@@ -12,6 +12,25 @@ async function rejects(name, runner, pattern) {
   catch (error) { ok(name, pattern.test(String(error?.message || error))); return; }
   throw new Error("FAIL: " + name);
 }
+function loadNamedFunction(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  if (start < 0) throw new Error(`Missing function ${name}`);
+  const bodyStart = source.indexOf("{", start);
+  let depth = 0;
+  let end = -1;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    else if (source[index] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        end = index + 1;
+        break;
+      }
+    }
+  }
+  if (end < 0) throw new Error(`Unclosed function ${name}`);
+  return Function(`"use strict";return (${source.slice(start, end)});`)();
+}
 
 const WALLET = "11111111111111111111111111111112";
 const OTHER = "11111111111111111111111111111113";
@@ -226,8 +245,46 @@ await rejects("Wire promotion accepts no client-derived Case payload", () => Pro
 ), /invalid|payload/i);
 
 const gateway = readFileSync(new URL("../supabase/functions/osi-v2-wire/index.ts", import.meta.url), "utf8");
+const wireUi = readFileSync(new URL("../assets/js/v2-wire-integration.js", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../supabase/migrations/20260718120000_osi_v2_wire_phase1.sql", import.meta.url), "utf8");
 const phase2 = readFileSync(new URL("../supabase/migrations/20260718130000_osi_v2_wire_phase2.sql", import.meta.url), "utf8");
+const queueCardUi = wireUi.slice(
+  wireUi.indexOf("function queueCard("),
+  wireUi.indexOf("async function loadWireQueueData("),
+);
+const publishWireUi = wireUi.slice(
+  wireUi.indexOf("async function publishWire("),
+  wireUi.indexOf("function queueCard("),
+);
+const bootstrapUnavailableReason = loadNamedFunction(
+  wireUi,
+  "wireBootstrapUnavailableReason",
+);
+ok("Wire maintainer bootstrap requires the exact item capability while standard analyst publication remains independent",
+  queueCardUi.includes(
+    "bootstrapReady=caps.maintainer_access===true&&item.can_publish_via_maintainer_bootstrap===true",
+  )
+    && queueCardUi.includes("standardReady=caps.analyst_eligible===true")
+    && queueCardUi.includes("(standardReady||bootstrapReady)")
+    && !queueCardUi.includes("bootstrapCheck=caps.maintainer_access===true"));
+ok("Wire publication action rechecks the exact queued item and fails closed before prepare",
+  publishWireUi.includes(
+    "state.queue.find(function(row){return row&&row.version_public_ref===versionRef;})",
+  )
+    && publishWireUi.includes(
+      "bootstrapReady=caps.maintainer_access===true&&item&&item.can_publish_via_maintainer_bootstrap===true",
+    )
+    && publishWireUi.includes("(!standardReady&&!bootstrapReady)")
+    && publishWireUi.indexOf("(!standardReady&&!bootstrapReady)")
+      < publishWireUi.indexOf("prepare_wire_publication"));
+ok("Wire bootstrap absence has an honest exact-item reason instead of implying authorization",
+  bootstrapUnavailableReason({}, true)
+    === "Maintainer bootstrap is unavailable for this exact Wire version because the server did not explicitly authorize it."
+    && bootstrapUnavailableReason({
+      maintainer_bootstrap_reason_code: "bootstrap_support_not_met",
+    }, true).includes("bootstrap support not met")
+    && bootstrapUnavailableReason({}, false) === ""
+    && queueCardUi.includes("esc(publicationUnavailable)"));
 ok("Wire gateway fails closed on its exact flag before every write family",
   (gateway.match(/if \(!await wireWritesEnabled\(\)\)/g) || []).length >= 6
     && gateway.includes('data?.[0]?.value === "true"'));

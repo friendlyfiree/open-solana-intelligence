@@ -9,15 +9,17 @@
   var AI_PACK_URL = SUPABASE_URL + '/functions/v1/osi-v2-ai-pack';
   var PAGE_SIZE = 12;
   var PAYMENT_RECOVERY_KEY = 'osi:v2:payment-recovery:1';
+  var PAYMENT_RECOVERY_PREFIX = 'osi:v2:payment-recovery:2:';
   var state = {
     cases: [], mode: 'public', actorRole: 'public', query: '', stage: 'open_public',
-    sort: 'newest', page: 1, loadToken: 0, current: null, tab: 'overview',
+    sort: 'newest', page: 1, loadToken: 0, drawerLoadToken: 0, current: null, tab: 'overview',
     capabilities: null, caseIdempotency: '', reviewBusy: false, reviewTasks: {},
+    reviewLanes: {}, reviewUpdatedAt: null, reviewLoadToken: 0, caseReceipt: null,
+    submissionReceipts: {},
+    activeReviewTask: null,
     modalReturnFocus: null, drawerReturnFocus: null, governanceBusy: false,
-    paymentBusy: false, paymentPending: null, paymentWallet: ''
+    paymentBusy: false, paymentPending: null, paymentWallet: '', paymentCleanup: null
   };
-  restorePaymentPending();
-
   function esc(value){
     return String(value == null ? '' : value).replace(/[&<>"']/g,function(char){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char];
@@ -29,6 +31,47 @@
   }
   function label(value){
     return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
+  }
+  function t(key,variables){
+    return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});
+  }
+  function fallbackCopyText(value){
+    return new Promise(function(resolve){
+      var field=document.createElement('textarea');field.value=String(value||'');field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';document.body.appendChild(field);field.select();
+      var copied=false;try{copied=document.execCommand('copy');}catch(_){}
+      field.remove();resolve(copied);
+    });
+  }
+  function copyText(value){
+    value=String(value||'');
+    if(typeof window.osiCopyText==='function')return Promise.resolve(window.osiCopyText(value)).then(function(result){return result===true;}).catch(function(){return fallbackCopyText(value);});
+    if(navigator.clipboard&&typeof navigator.clipboard.writeText==='function')return navigator.clipboard.writeText(value).then(function(){return true;}).catch(function(){return fallbackCopyText(value);});
+    return fallbackCopyText(value);
+  }
+  function clearSubmissionReceipt(hostId){
+    delete state.submissionReceipts[hostId];
+    var host=document.getElementById(hostId);if(!host)return;
+    host.hidden=true;host.innerHTML='';
+  }
+  function renderSubmissionReceipt(hostId,options,focusReceipt){
+    var host=document.getElementById(hostId);if(!host)return null;options=options||{};
+    state.submissionReceipts[hostId]=options;
+    var exact=[options.publicRef,options.versionRef].filter(Boolean).join(' / ');
+    host.innerHTML='<div class="osi-receipt-head"><div><span>'+esc(t('Saved successfully'))+'</span><h3>'+esc(t(options.title||'Submission saved'))+'</h3></div><div class="osi-receipt-ref">'+esc(exact)+'</div></div>'
+      +'<dl class="osi-receipt-grid"><div><dt>'+esc(t('Current stage'))+'</dt><dd>'+esc(t(options.stage||'Submitted'))+'</dd></div><div><dt>'+esc(t('Visibility'))+'</dt><dd>'+esc(t(options.visibility||'Private'))+'</dd></div>'
+      +'<div class="wide"><dt>'+esc(t('Where to find it'))+'</dt><dd>'+esc(t(options.where||''))+'</dd></div><div class="wide"><dt>'+esc(t('Who can review it'))+'</dt><dd>'+esc(t(options.reviewers||''))+'</dd></div><div class="wide"><dt>'+esc(t('What happens next'))+'</dt><dd>'+esc(t(options.next||''))+'</dd></div></dl>'
+      +'<div class="osi-receipt-copy-state" data-receipt-copy-state aria-live="polite"></div><div class="osi-receipt-actions"><button class="osi-action" type="button" data-receipt-copy>'+esc(t('Copy reference'))+'</button>'
+      +(typeof options.onOpen==='function'?'<button class="osi-action primary" type="button" data-receipt-open>'+esc(t(options.openLabel||'Open workspace'))+'</button>':'')
+      +(options.canOpenQueue&&typeof options.onQueue==='function'?'<button class="osi-action" type="button" data-receipt-queue>'+esc(t('Open review queue'))+'</button>':'')
+      +(typeof options.onDismiss==='function'?'<button class="osi-action" type="button" data-receipt-dismiss>'+esc(t('Done'))+'</button>':'')+'</div>';
+    host.hidden=false;
+    var copy=host.querySelector('[data-receipt-copy]');if(copy)copy.addEventListener('click',async function(){
+      var copied=await copyText(options.copyValue||options.publicRef||options.versionRef||'');var node=host.querySelector('[data-receipt-copy-state]');if(node)node.textContent=copied?t('Reference copied.'):t('Copy unavailable. Select the reference above.');
+    });
+    var open=host.querySelector('[data-receipt-open]');if(open)open.addEventListener('click',options.onOpen);
+    var queue=host.querySelector('[data-receipt-queue]');if(queue)queue.addEventListener('click',options.onQueue);
+    var dismiss=host.querySelector('[data-receipt-dismiss]');if(dismiss)dismiss.addEventListener('click',options.onDismiss);
+    if(focusReceipt!==false)setTimeout(function(){host.focus();},0);return host;
   }
   function sasSlot(wallet,role){
     role=String(role||'').toLowerCase();
@@ -90,6 +133,8 @@
     var id=crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random().toString(36).slice(2);
     return prefix+':'+id.replace(/[^A-Za-z0-9.-]/g,'');
   }
+  function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
+  function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
   function headers(){
     var token=(typeof SUPA_AUTH_TOKEN==='string'&&SUPA_AUTH_TOKEN)?SUPA_AUTH_TOKEN:SUPABASE_ANON_KEY;
     return {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
@@ -130,6 +175,7 @@
       ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
       ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
       ,read_session_tampered:'The private session token failed server verification.'
+      ,private_session_changed:'Private access changed while this action was running. Reopen the exact task.'
       ,resolution_lifecycle_writes_disabled:'Resolution and challenge writes are safely disabled while rollout checks are incomplete.'
       ,resolution_lifecycle_writes_disabled_or_unavailable:'Resolution and challenge writes are safely disabled or temporarily unavailable.'
       ,not_authorized_or_conflicted:'This wallet is not eligible for this exact action or has a Case, Report, or challenge conflict.'
@@ -160,6 +206,9 @@
       ,solana_pay_memo_position_invalid:'The canonical Memo was not immediately before the Solana Pay transfer.'
       ,solana_pay_transfer_binding_mismatch:'The finalized Solana Pay transfer does not match the exact payer, recipient, amount, and reference.'
       ,solana_pay_reference_reused:'The reference appeared outside the one exact transfer instruction.'
+      ,payment_wallet_changed:'The connected payer changed. No wallet was opened; review the transfer again from the intended wallet.'
+      ,payment_recovery_unavailable:'This browser cannot durably save the wallet-bound recovery record. No wallet was opened.'
+      ,payment_recovery_poll_only:'A restored payment record can only be checked against the server. It cannot reopen a wallet or construct a transfer.'
     };
     return messages[code]||code.replace(/_/g,' ');
   }
@@ -185,7 +234,9 @@
   async function sessionRead(scope,op,extra){
     if(typeof window.osiV2ReadSession!=='function')throw new Error('read_session_disabled_or_unavailable');
     var session=await window.osiV2ReadSession([scope],{allowUnlock:true});
-    return await api(READ_URL,Object.assign({op:op,wallet:session.wallet,read_session:session.token},extra||{}));
+    var generation=privateGeneration();
+    var result=await api(READ_URL,Object.assign({op:op,wallet:session.wallet,read_session:session.token},extra||{}));
+    assertPrivateGeneration(generation);return result;
   }
   function setLoading(){
     var host=document.getElementById('field-cases');
@@ -216,31 +267,146 @@
     return (item.proof_log||[]).some(function(row){return row.event_type==='CASE_OPENED'&&row.label==='Memo-anchored on Solana';});
   }
   function stageClass(item){return item.visibility==='private'?'private':'';}
-  function drawReviewTasks(host){
-    var groups=state.reviewTasks||{};
-    var initialOpen=(state.cases||[]).filter(function(item){
-      return item&&item.visibility==='private'&&['draft','submitted','initial_review'].indexOf(String(item.stage||''))>=0;
-    }).map(function(item){
-      var own=(item.reviews||[]).find(function(review){return review.is_active===true&&String(review.reviewer_wallet||'')===String(walletPubkey||'');});
-      return{
-        lane:'initial_open',case_ref:item.public_ref,exact_target:item.public_ref,deadline:null,conflict:false,
-        current_vote:own?own.decision:null,weight_snapshot:own?Number(own.weight||0):null,
-        next_action:state.actorRole==='maintainer'?'Review the independent maintainer initial-open path':'Review private Case for public opening'
-      };
+  var reviewLaneDefinitions=[
+    ['initial_open','Case initial reviews','case'],
+    ['report_publication','Report publication reviews','report'],
+    ['analyst_applications','Analyst applications','application'],
+    ['wire_reviews','Wire reviews','wire'],
+    ['resolution_selection','Resolution selection','case'],
+    ['challenge_admissibility','Challenge admissibility','case'],
+    ['challenge_adjudication','Challenge adjudication','case'],
+    ['seal_reviews','Seal reviews','case']
+  ];
+  function setReviewChrome(active){
+    var toolbar=document.querySelector('#field-view .fo-toolbar'),head=document.querySelector('#field-view .fq-head');
+    if(toolbar)toolbar.hidden=active;if(head)head.hidden=active;
+  }
+  function resetReviewLanes(){
+    state.reviewLanes={};
+    reviewLaneDefinitions.forEach(function(definition){state.reviewLanes[definition[0]]={status:'loading',tasks:[],error:'',updatedAt:null};});
+    state.reviewUpdatedAt=null;
+  }
+  function updateReviewLane(id,status,tasks,error,errorCode){
+    state.reviewLanes[id]={status:status,tasks:Array.isArray(tasks)?tasks:[],error:error||'',errorCode:errorCode||'',updatedAt:new Date().toISOString()};
+    var host=document.getElementById('field-cases');if(host&&state.mode==='review')drawReviewTasks(host);
+  }
+  function taskValue(task,names,fallback){
+    for(var index=0;index<names.length;index++){if(task&&task[names[index]]!=null&&task[names[index]]!=='')return task[names[index]];}
+    return fallback;
+  }
+  function normalizeReviewTask(lane,row,kind){
+    row=row||{};var exact=taskValue(row,['exact_target','version_public_ref','version_ref','current_version_ref','target_ref','public_ref','id'],'');
+    var publicRef=taskValue(row,['public_ref','report_public_ref','wire_report_public_ref','case_ref','case_public_ref','version_ref'],exact);
+    return{
+      lane:lane,targetKind:row.target_kind||kind,publicRef:String(publicRef||''),caseRef:String(taskValue(row,['case_ref','case_public_ref'],'')||''),
+      exactTarget:String(exact||''),stage:String(taskValue(row,['stage','lifecycle_state','status'],'submitted')||'submitted'),
+      routeTarget:String(taskValue(row,['route_target','application_id'],exact)||''),
+      conflict:taskValue(row,['submitter_conflict','conflict'],false)===true,
+      nextAction:String(taskValue(row,['next_action','prerequisite'],'Open the exact authorized task')||'Open the exact authorized task'),
+      deadline:taskValue(row,['deadline','deadline_at','review_deadline_at','admissibility_deadline_at'],null),
+      currentVote:taskValue(row,['current_vote','current_active_vote'],null),
+      weight:taskValue(row,['weight_snapshot','weight'],null)
+    };
+  }
+  function activeTaskConflict(lane,exactTarget){
+    var task=state.activeReviewTask;
+    if(!task||task.conflict!==true||!activeTaskMatches(lane,exactTarget))return false;
+    return true;
+  }
+  function activeTaskMatches(lane,exactTarget){
+    var task=state.activeReviewTask;
+    if(!task||String(task.lane||'')!==String(lane||''))return false;
+    if(!task.exactTarget)return false;
+    return !exactTarget||String(task.exactTarget)===String(exactTarget);
+  }
+  function conflictMessage(){
+    return t('This wallet is excluded from the exact task by a server-derived conflict rule.');
+  }
+  function reviewTaskRequiredMessage(){
+    return t('Open the exact server-authorized task from My Reviews to act. Direct Case views are read-only.');
+  }
+  function requireActiveReviewTask(lane,exactTarget){
+    if(activeTaskMatches(lane,exactTarget)&&!activeTaskConflict(lane,exactTarget))return true;
+    showToast(activeTaskConflict(lane,exactTarget)?conflictMessage():reviewTaskRequiredMessage());
+    return false;
+  }
+  function reportReviewTasks(result){
+    return (result&&result.reports||[]).map(function(report){
+      var versions=(report.versions||[]).slice().sort(function(a,b){return Number(b.version_no)-Number(a.version_no);});
+      var version=versions.find(function(row){return row.version_ref===report.current_version_ref;})||versions[0]||{};
+      var bootstrap=report.can_publish_via_maintainer_bootstrap===true||version.can_publish_via_maintainer_bootstrap===true;
+      var standard=report.can_publish_via_standard_quorum===true||version.can_publish_via_standard_quorum===true;
+      var analyst=report.can_cast_analyst_review===true||version.can_cast_analyst_review===true;
+      return normalizeReviewTask('report_publication',{
+        target_kind:'report',case_public_ref:report.case_public_ref,report_public_ref:report.report_public_ref,
+        version_ref:version.version_ref||report.current_version_ref,lifecycle_state:version.lifecycle_state,
+        submitter_conflict:report.submitter_conflict===true,
+        next_action:bootstrap?'Publish via maintainer bootstrap':standard?'Publish exact Report version from completed analyst quorum':analyst?'Review exact immutable Report version':'Inspect publication prerequisites',
+        deadline_at:version.review_deadline_at,current_active_vote:version.my_active_review&&version.my_active_review.decision,
+        weight_snapshot:version.my_active_review&&version.my_active_review.weight
+      },'report');
     });
-    groups=Object.assign({},groups,{initial_open:initialOpen});
-    var lanes=[['initial_open','Initial Case reviews'],['report_publication','Report publication reviews'],['resolution_selection','Resolution selection'],['challenge_admissibility','Challenge admissibility'],['challenge_adjudication','Challenge adjudication'],['seal_reviews','Seal reviews']];
-    var total=lanes.reduce(function(sum,lane){return sum+(groups[lane[0]]||[]).length;},0);
-    host.innerHTML='<div class="osi-review-lanes">'+lanes.map(function(lane){
-      var tasks=groups[lane[0]]||[];
-      return'<section class="osi-review-lane"><header><h3>'+esc(lane[1])+'</h3><span>'+tasks.length+'</span></header>'+(tasks.length?tasks.map(function(task){
-        return'<button class="osi-review-task" type="button" data-case-ref="'+esc(task.case_ref)+'"><div><span>'+esc(task.exact_target)+'</span><b>'+esc(task.next_action)+'</b></div><dl><div><dt>Deadline</dt><dd>'+esc(task.deadline?dateText(task.deadline):'No separate deadline')+'</dd></div><div><dt>Conflict</dt><dd class="'+(task.conflict?'warn':'ok')+'">'+(task.conflict?'Excluded':'Clear')+'</dd></div><div><dt>Current vote</dt><dd>'+esc(task.current_vote||'None')+'</dd></div><div><dt>Weight</dt><dd>'+esc(task.weight_snapshot==null?'Not counted':Number(task.weight_snapshot).toFixed(2))+'</dd></div></dl></button>';
-      }).join(''):'<div class="osi-review-lane-empty">No authorized tasks in this lane.</div>')+'</section>';
+  }
+  function applicationReviewTasks(result){
+    return (result&&result.applications||[]).map(function(application){
+      var version=application.version||(application.versions||[])[0]||{};
+      return normalizeReviewTask('analyst_applications',{
+        target_kind:'application',public_ref:version.version_ref||application.public_ref||application.id,
+        exact_target:version.version_ref,route_target:application.id,stage:application.status,submitter_conflict:application.submitter_conflict===true,
+        next_action:application.status==='revision_requested'?'Await applicant revision':'Review exact analyst application version',
+        deadline_at:application.review_deadline_at
+      },'application');
+    }).filter(function(task){return !!task.exactTarget&&!!task.routeTarget;});
+  }
+  function wireReviewTasks(result){
+    return (result&&result.reports||[]).map(function(report){
+      return normalizeReviewTask('wire_reviews',{
+        target_kind:'wire',public_ref:report.wire_report_public_ref,version_public_ref:report.version_public_ref,
+        lifecycle_state:report.lifecycle_state,submitter_conflict:report.submitter_conflict===true,
+        next_action:report.can_publish_via_maintainer_bootstrap===true?'Publish Wire via maintainer bootstrap':'Review exact Wire version',
+        deadline_at:report.review_deadline_at,current_active_vote:report.my_active_review&&report.my_active_review.decision,
+        weight_snapshot:report.my_active_review&&report.my_active_review.weight
+      },'wire');
+    });
+  }
+  function laneStateMarkup(lane){
+    if(lane.status==='loading')return'<div class="osi-review-lane-state" role="status"><span>'+esc(t('Loading authorized tasks...'))+'</span></div>';
+    if(lane.status==='unauthorized')return'<div class="osi-review-lane-state"><span>'+esc(lane.error||t('This lane is not available to the current role.'))+'</span></div>';
+    if(lane.status==='error'){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(lane.errorCode||''));return'<div class="osi-review-lane-state error" role="alert"><span>'+esc(lane.error||t('This lane could not be loaded.'))+'</span><button class="osi-action" type="button" data-review-lane-retry>'+esc(t(refresh?'Refresh private access':'Try again'))+'</button></div>';}
+    return'<div class="osi-review-lane-empty">'+esc(t('No authorized tasks in this lane.'))+'</div>';
+  }
+  function reviewLaneError(error){
+    var code=String(error&&error.message||'');
+    return code==='read_failed'||/^request_failed(?:_|$)/.test(code)?'':userError(error);
+  }
+  function reviewTaskMarkup(task){
+    return'<button class="osi-review-task" type="button" data-review-kind="'+esc(task.targetKind)+'" data-review-target="'+esc(task.exactTarget)+'" data-review-route="'+esc(task.routeTarget||task.exactTarget)+'" data-review-lane="'+esc(task.lane)+'" data-case-ref="'+esc(task.caseRef)+'"><div><span>'+esc(task.publicRef)+'</span>'+(task.exactTarget&&task.exactTarget!==task.publicRef?'<span>'+esc(task.exactTarget)+'</span>':'')+'<b>'+esc(t(task.nextAction))+'</b></div><dl>'
+      +'<div><dt>'+esc(t('Stage'))+'</dt><dd>'+esc(t(label(task.stage)))+'</dd></div><div><dt>'+esc(t('Deadline'))+'</dt><dd>'+esc(task.deadline?dateText(task.deadline):t('No separate deadline'))+'</dd></div><div><dt>'+esc(t('Conflict'))+'</dt><dd class="'+(task.conflict?'warn':'ok')+'">'+esc(task.conflict?t('Excluded'):t('Clear'))+'</dd></div>'
+      +'<div><dt>'+esc(t('Current vote'))+'</dt><dd>'+esc(task.currentVote?t(label(task.currentVote)):t('None'))+'</dd></div><div><dt>'+esc(t('Weight'))+'</dt><dd>'+esc(task.weight==null?t('Not counted'):Number(task.weight).toFixed(2))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(t(label(task.targetKind)))+'</dd></div></dl></button>';
+  }
+  function drawReviewTasks(host){
+    var total=reviewLaneDefinitions.reduce(function(sum,definition){var lane=state.reviewLanes[definition[0]]||{};return sum+(lane.status==='success'?(lane.tasks||[]).length:0);},0);
+    var updated=state.reviewUpdatedAt?dateText(state.reviewUpdatedAt):t('Refresh in progress');
+    host.innerHTML='<div class="osi-review-queue-tools"><div><p>'+esc(t('One queue, eight server-authorized lanes. Errors never become empty results.'))+'</p><time>'+esc(t('Last refreshed: {time}',{time:updated}))+'</time></div><button class="osi-action" type="button" data-review-refresh>'+esc(t('Refresh queue'))+'</button></div><div class="osi-review-lanes">'+reviewLaneDefinitions.map(function(definition){
+      var lane=state.reviewLanes[definition[0]]||{status:'loading',tasks:[]},tasks=lane.tasks||[];
+      var count=lane.status==='success'?String(tasks.length):lane.status==='loading'?'…':'-';
+      return'<section class="osi-review-lane" data-review-lane-section="'+esc(definition[0])+'"><header><h3>'+esc(t(definition[1]))+'</h3><span>'+esc(count)+'</span></header>'+(lane.status==='success'&&tasks.length?tasks.map(reviewTaskMarkup).join(''):laneStateMarkup(lane))+'</section>';
     }).join('')+'</div>';
-    Array.prototype.forEach.call(host.querySelectorAll('[data-case-ref]'),function(button){button.addEventListener('click',function(){osiV2OpenCase(button.getAttribute('data-case-ref'));});});
+    var refresh=host.querySelector('[data-review-refresh]');if(refresh)refresh.addEventListener('click',loadUnifiedReviewQueue);
+    Array.prototype.forEach.call(host.querySelectorAll('[data-review-lane-retry]'),function(button){button.addEventListener('click',function(){var section=button.closest('[data-review-lane-section]');if(section)retryReviewLane(section.getAttribute('data-review-lane-section'));});});
+    Array.prototype.forEach.call(host.querySelectorAll('[data-review-kind]'),function(button){button.addEventListener('click',function(){
+      var laneId=button.getAttribute('data-review-lane'),target=button.getAttribute('data-review-target');
+      var lane=state.reviewLanes[laneId]||{},task=(lane.tasks||[]).find(function(row){return String(row.exactTarget)===String(target);});
+      openReviewTask(task||{targetKind:button.getAttribute('data-review-kind'),exactTarget:target,routeTarget:button.getAttribute('data-review-route'),lane:laneId,caseRef:button.getAttribute('data-case-ref'),conflict:false});
+    });});
     var count=document.getElementById('fo-count');if(count)count.textContent=total+' real '+(total===1?'task':'tasks');
     var nav=document.getElementById('fo-pnav');if(nav)nav.innerHTML='';
-    drawStats(state.cases);
+    var stats=document.getElementById('field-stats');if(stats){
+      var loaded=reviewLaneDefinitions.filter(function(definition){return (state.reviewLanes[definition[0]]||{}).status==='success';}).length;
+      var errors=reviewLaneDefinitions.filter(function(definition){return (state.reviewLanes[definition[0]]||{}).status==='error';}).length;
+      stats.innerHTML='<div class="osi-stat"><span>'+esc(t('Authorized tasks'))+'</span><b>'+total+'</b></div><div class="osi-stat"><span>'+esc(t('Loaded lanes'))+'</span><b>'+loaded+' / '+reviewLaneDefinitions.length+'</b></div><div class="osi-stat"><span>'+esc(t('Lane errors'))+'</span><b>'+errors+'</b></div>';
+    }
+    var deck=document.getElementById('fo-deck');if(deck)deck.hidden=true;
   }
   function drawCases(){
     var host=document.getElementById('field-cases');
@@ -276,7 +442,7 @@
         var rewardState=item.money&&item.money.reward&&item.money.reward.status;
         return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'">'
           +'<span class="osi-v2-id">'+esc(item.public_ref)+'</span>'
-          +'<span class="osi-v2-title"><b>'+esc(item.title)+'</b><span>'+esc(item.summary)+'</span>'+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
+          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
           +'<span class="osi-v2-stage '+stageClass(item)+'">'+esc(stageLabel(item.stage,item))+'</span>'
           +'<span class="osi-v2-category">'+esc(label(item.category))+'</span>'
           +'<span class="osi-v2-reviews">'+countActiveReviews(item)+'</span>'
@@ -305,9 +471,84 @@
     var preview=document.getElementById('fo-preview');
     if(preview) preview.innerHTML='<div class="fo-prev-empty mono">Select a Case for evidence, reviews, Proof Log, and lifecycle prerequisites.</div>';
   }
+  async function loadCaseReviewLanes(token){
+    var laneIds=['initial_open','resolution_selection','challenge_admissibility','challenge_adjudication','seal_reviews'];
+    try{
+      var result=await sessionRead('case:review','list_reviewable_cases');if(token!==state.reviewLoadToken)return;
+      state.actorRole=result.actor_role||'analyst';state.cases=result.cases||[];state.reviewTasks=result.review_tasks||{};
+      laneIds.forEach(function(id){
+        var rows=state.reviewTasks[id];
+        if(id==='initial_open'&&!Array.isArray(rows)){
+          rows=(state.cases||[]).filter(function(item){return item&&item.visibility==='private'&&['draft','submitted','initial_review'].indexOf(String(item.stage||''))>=0;}).map(function(item){
+            return{target_kind:'case',case_ref:item.public_ref,exact_target:item.public_ref,stage:item.stage,submitter_conflict:item.submitter_conflict===true,next_action:item.next_action||'Review private Case for public opening',deadline_at:item.review_deadline_at};
+          });
+        }
+        if(!Array.isArray(rows)){updateReviewLane(id,'error',[],t('The server did not return this lane.'));return;}
+        updateReviewLane(id,'success',rows.map(function(row){return normalizeReviewTask(id,row,'case');}));
+      });
+    }catch(error){
+      if(token!==state.reviewLoadToken)return;var code=String(error&&error.message||'');laneIds.forEach(function(id){updateReviewLane(id,'error',[],reviewLaneError(error),code);});
+    }
+  }
+  async function loadReportReviewLane(token){
+    try{
+      if(typeof window.osiV2LoadReportReviewTasks!=='function')throw new Error('Report review module unavailable');
+      var result=await window.osiV2LoadReportReviewTasks();if(token!==state.reviewLoadToken)return;
+      if(result&&result.authorized===false){updateReviewLane('report_publication','unauthorized',[],result.reason||t('Eligible analyst or full maintainer access is required.'));return;}
+      updateReviewLane('report_publication','success',reportReviewTasks(result));
+    }catch(error){if(token===state.reviewLoadToken)updateReviewLane('report_publication','error',[],reviewLaneError(error),String(error&&error.message||''));}
+  }
+  async function loadApplicationReviewLane(token){
+    try{
+      if(typeof window.osiAnalystLoadReviewTasks!=='function')throw new Error('Analyst application module unavailable');
+      var result=await window.osiAnalystLoadReviewTasks();if(token!==state.reviewLoadToken)return;
+      if(result&&result.authorized===false){updateReviewLane('analyst_applications','unauthorized',[],result.reason||t('Full maintainer access is required for this lane.'));return;}
+      updateReviewLane('analyst_applications','success',applicationReviewTasks(result));
+    }catch(error){if(token===state.reviewLoadToken)updateReviewLane('analyst_applications','error',[],reviewLaneError(error),String(error&&error.message||''));}
+  }
+  async function loadWireReviewLane(token){
+    try{
+      if(typeof window.osiV2LoadWireReviewTasks!=='function')throw new Error('Wire review module unavailable');
+      var result=await window.osiV2LoadWireReviewTasks();if(token!==state.reviewLoadToken)return;
+      if(result&&result.authorized===false){updateReviewLane('wire_reviews','unauthorized',[],result.reason||t('Eligible analyst or full maintainer access is required.'));return;}
+      updateReviewLane('wire_reviews','success',wireReviewTasks(result));
+    }catch(error){if(token===state.reviewLoadToken)updateReviewLane('wire_reviews','error',[],reviewLaneError(error),String(error&&error.message||''));}
+  }
+  async function retryReviewLane(id){
+    var token=state.reviewLoadToken;if(!token)return loadUnifiedReviewQueue();
+    var lane=state.reviewLanes[id]||{},refresh=/^read_session_(expired|wrong_scope)$/.test(String(lane.errorCode||'')),scope=id==='report_publication'?'report:review':id==='analyst_applications'?'analyst:maintainer':id==='wire_reviews'?'wire:queue':'case:review';
+    updateReviewLane(id,'loading',[]);
+    try{
+      if(refresh&&typeof window.osiV2RefreshReadSession==='function'){
+        await window.osiV2RefreshReadSession([scope]);
+        return await loadUnifiedReviewQueue();
+      }
+      if(id==='report_publication')return await loadReportReviewLane(token);
+      if(id==='analyst_applications')return await loadApplicationReviewLane(token);
+      if(id==='wire_reviews')return await loadWireReviewLane(token);
+      return await loadCaseReviewLanes(token);
+    }catch(error){if(token===state.reviewLoadToken)updateReviewLane(id,'error',[],userError(error),String(error&&error.message||''));}
+  }
+  async function openReviewTask(task){
+    if(task.targetKind==='report'&&typeof window.osiV2OpenReportQueueTarget==='function'){await window.osiV2OpenReportQueueTarget(task.exactTarget);return;}
+    if(task.targetKind==='application'&&typeof window.osiAnalystOpenMaintainerApplication==='function'){await window.osiAnalystOpenMaintainerApplication(task.routeTarget,task.exactTarget);return;}
+    if(task.targetKind==='wire'&&typeof window.osiV2OpenWireQueueTarget==='function'){await window.osiV2OpenWireQueueTarget(task.exactTarget);return;}
+    var opened=await openCase(task.caseRef||task.exactTarget,task);if(!opened)return;
+    var tab=task.lane==='initial_open'?'reviews':task.lane==='resolution_selection'||task.lane==='seal_reviews'?'resolution':task.lane.indexOf('challenge_')===0?'challenges':'overview';
+    state.tab=tab;drawTabs();renderTab();
+    var active=document.querySelector('#osi-case-tabs [data-tab="'+tab+'"]');if(active)active.focus();
+  }
+  async function loadUnifiedReviewQueue(){
+    var token=++state.reviewLoadToken;state.mode='review';state.page=1;state.stage='all';setFieldCopy('review');setReviewChrome(true);resetReviewLanes();
+    var host=document.getElementById('field-cases');if(host)drawReviewTasks(host);
+    await Promise.allSettled([loadCaseReviewLanes(token),loadReportReviewLane(token),loadApplicationReviewLane(token),loadWireReviewLane(token)]);
+    if(token!==state.reviewLoadToken)return;
+    state.reviewUpdatedAt=new Date().toISOString();if(host)drawReviewTasks(host);
+    await refreshCapabilities();
+  }
   async function loadPublicCases(){
     var token=++state.loadToken;
-    state.mode='public';state.actorRole='public';state.page=1;setFieldCopy('public');setLoading();
+    state.mode='public';state.actorRole='public';state.page=1;setFieldCopy('public');setReviewChrome(false);setLoading();
     try{
       var result=await api(READ_URL,{op:'list_public_cases'});
       if(token!==state.loadToken) return;
@@ -319,13 +560,15 @@
     }
   }
   async function openSignedCollection(mode){
+    ++state.drawerLoadToken;
+    var drawer=document.getElementById('osi-case-drawer');
+    if(drawer&&!drawer.hidden)closeCase();
     showView('field');
+    if(mode==='review'){++state.loadToken;return loadUnifiedReviewQueue();}
     var token=++state.loadToken;
-    state.mode=mode;state.page=1;state.stage='all';setFieldCopy(mode);setLoading();
+    state.mode=mode;state.page=1;state.stage='all';setFieldCopy(mode);setReviewChrome(false);setLoading();
     try{
-      var result=mode==='mine'
-        ? await sessionRead('case:mine','list_my_cases')
-        : await sessionRead('case:review','list_reviewable_cases');
+      var result=await sessionRead('case:mine','list_my_cases');
       if(token!==state.loadToken) return;
       state.actorRole=result.actor_role||(mode==='mine'?'owner':'analyst');
       state.cases=result.cases||[];state.reviewTasks=result.review_tasks||{};drawCases();
@@ -342,24 +585,28 @@
 
   async function refreshCapabilities(){
     if(!walletPubkey){state.capabilities=null;setAdminVisibility(false);setReviewNavigationVisibility(false);return null;}
+    var generation=privateGeneration(),wallet=String(walletPubkey);
     try{
       var results=await Promise.all([
-        api(WRITE_URL,{op:'actor_capabilities',wallet:walletPubkey}),
-        api(GOVERNANCE_URL,{op:'actor_capabilities',wallet:walletPubkey}),
-        api(PAYMENT_URL,{op:'capabilities',wallet:walletPubkey})
+        api(WRITE_URL,{op:'actor_capabilities',wallet:wallet}),
+        api(GOVERNANCE_URL,{op:'actor_capabilities',wallet:wallet}),
+        api(PAYMENT_URL,{op:'capabilities',wallet:wallet})
       ]);
+      assertPrivateGeneration(generation);if(wallet!==String(walletPubkey||''))throw new Error('private_session_changed');
       var aiPackCapabilities={ai_pack_writes_enabled:false,ai_pack_review_writes_enabled:false,can_generate:false,generation_prerequisite:'AI Pack capabilities are safely unavailable.'};
       try{aiPackCapabilities=await api(AI_PACK_URL,{
         op:'capabilities',
-        wallet:walletPubkey,
+        wallet:wallet,
         case_ref:state.current&&state.current.public_ref||undefined
       });}catch(aiPackError){}
+      assertPrivateGeneration(generation);if(wallet!==String(walletPubkey||''))throw new Error('private_session_changed');
       state.capabilities=Object.assign({},results[0],results[1],results[2],aiPackCapabilities);
+      restorePaymentPending(wallet);
       if(typeof setMaintainerServerGate==='function') setMaintainerServerGate(state.capabilities.maintainer_access===true,state.capabilities.maintainer_gate||'denied');
       setAdminVisibility(state.capabilities.maintainer_access===true);
       setReviewNavigationVisibility(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true);
       return state.capabilities;
-    }catch(error){state.capabilities=null;if(typeof setMaintainerServerGate==='function')setMaintainerServerGate(false,'unavailable');setAdminVisibility(false);setReviewNavigationVisibility(false);return null;}
+    }catch(error){if(generation!==privateGeneration()||wallet!==String(walletPubkey||''))return null;state.capabilities=null;if(typeof setMaintainerServerGate==='function')setMaintainerServerGate(false,'unavailable');setAdminVisibility(false);setReviewNavigationVisibility(false);return null;}
   }
   function setAdminVisibility(allowed){
     var button=document.getElementById('admLockBtn')||document.getElementById('adminBtn')||document.getElementById('admin-btn');
@@ -370,19 +617,24 @@
   }
 
   async function fieldOpenFormV2(){
+    var generation;
     state.modalReturnFocus=document.activeElement;
     if(!walletPubkey&&typeof window.osiConnectForIntent==='function'){
       await window.osiConnectForIntent('open-case','Open a Case',fieldOpenFormV2);
       return;
     }
     try{
-      await ensureWallet();
+      var wallet=await ensureWallet();
+      generation=privateGeneration();
       var capabilities=await refreshCapabilities();
+      assertPrivateGeneration(generation);
       if(!capabilities||capabilities.case_writes_enabled!==true)throw new Error('case_writes_disabled');
+      if(state.caseReceipt){state.caseReceipt=null;clearSubmissionReceipt('v2-case-receipt');var staleForm=document.getElementById('field-form');if(staleForm)staleForm.reset();}
+      restoreCaseDraft(wallet);
       var modal=document.getElementById('fo-modal'); if(modal) modal.classList.add('open');
       syncBodyLock();
       setTimeout(function(){var title=document.getElementById('v2-case-title');if(title)title.focus();},80);
-    }catch(error){showToast(userError(error));restoreFocus(state.modalReturnFocus);state.modalReturnFocus=null;}
+    }catch(error){if(generation==null||generation===privateGeneration()){showToast(userError(error));restoreFocus(state.modalReturnFocus);state.modalReturnFocus=null;}}
   }
   function syncBodyLock(){
     var modal=document.getElementById('fo-modal');
@@ -392,11 +644,24 @@
   function restoreFocus(node){if(node&&document.contains(node)&&typeof node.focus==='function')setTimeout(function(){node.focus();},0);}
   function fieldCloseFormV2(){
     var modal=document.getElementById('fo-modal');if(modal)modal.classList.remove('open');
+    if(state.caseReceipt){var form=document.getElementById('field-form');if(form)form.reset();state.caseReceipt=null;clearSubmissionReceipt('v2-case-receipt');formStatus('');var submit=document.getElementById('v2-case-submit');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}}
     syncBodyLock();restoreFocus(state.modalReturnFocus);state.modalReturnFocus=null;
   }
   function lines(id,kind){
     var input=document.getElementById(id);if(!input)return[];
     return String(input.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});
+  }
+  var CASE_DRAFT_FIELDS=['v2-case-category','v2-case-title','v2-case-summary','v2-case-details','v2-case-wallets','v2-case-transactions','v2-case-urls','v2-case-reward'];
+  function caseDraftKey(wallet){return'case-intake:'+String(wallet||'');}
+  function saveCaseDraft(){
+    var wallet=String(walletPubkey||'');if(!wallet||typeof window.osiV2SaveDraft!=='function')return;
+    var values={};CASE_DRAFT_FIELDS.forEach(function(id){var field=document.getElementById(id);if(field)values[id]=field.value;});
+    window.osiV2SaveDraft(caseDraftKey(wallet),values);
+  }
+  function restoreCaseDraft(wallet){
+    if(typeof window.osiV2LoadDraft!=='function')return;
+    var values=window.osiV2LoadDraft(caseDraftKey(wallet))||{};
+    CASE_DRAFT_FIELDS.forEach(function(id){var field=document.getElementById(id);if(field&&Object.prototype.hasOwnProperty.call(values,id))field.value=String(values[id]||'');});
   }
   function casePayload(){
     var sol=Number(document.getElementById('v2-case-reward').value||0);
@@ -410,34 +675,52 @@
     };
   }
   function formStatus(text,kind){var node=document.getElementById('v2-case-form-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
-  async function commitWithConfirmation(body,url){
+  async function commitWithConfirmation(body,url,generation){
     var lastError;
     for(var attempt=0;attempt<5;attempt++){
-      try{return await api(url||WRITE_URL,body);}catch(error){lastError=error;if(String(error.message)!=='transaction_not_confirmed')throw error;await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});}
+      assertPrivateGeneration(generation);
+      try{var result=await api(url||WRITE_URL,body);assertPrivateGeneration(generation);return result;}catch(error){lastError=error;if(String(error.message)!=='transaction_not_confirmed')throw error;assertPrivateGeneration(generation);await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}
     }
     throw lastError;
   }
   async function submitCase(event){
     if(event)event.preventDefault();
     var form=document.getElementById('field-form');if(!form||!form.reportValidity())return;
-    var button=document.getElementById('v2-case-submit');button.disabled=true;
+    var generation=privateGeneration();
+    var button=document.getElementById('v2-case-submit');button.disabled=true;button.setAttribute('aria-busy','true');
     try{
       var wallet=await ensureWallet();
+      assertPrivateGeneration(generation);
       var payload=casePayload();
       if(payload.evidence.length>12) throw new Error('A Case can include at most 12 structured evidence references.');
       if(!state.caseIdempotency)state.caseIdempotency=randomKey('case');
       formStatus('Preparing an exact, single-use submission proof...');
       var prepared=await api(WRITE_URL,{op:'prepare_case',wallet:wallet,case:payload,idempotency_key:state.caseIdempotency});
+      assertPrivateGeneration(generation);
       formStatus('Approve the CASE_SUBMITTED Memo in your wallet. OSI receives no funds.');
       var txSig=await castOnchainVote(prepared.memo);
+      assertPrivateGeneration(generation);
       formStatus('Confirming the exact signer, Memo, target, payload hash, and mainnet transaction...');
-      var committed=await commitWithConfirmation({op:'commit_case',wallet:wallet,case:payload,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig});
+      var committed=await commitWithConfirmation({op:'commit_case',wallet:wallet,case:payload,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},WRITE_URL,generation);
+      assertPrivateGeneration(generation);
       formStatus('Private Case created with an immutable submission receipt.','success');
       showToast('Case '+committed.case.public_ref+' is private and awaiting eligible analyst or full maintainer review.');
-      state.caseIdempotency='';form.reset();
-      setTimeout(function(){fieldCloseFormV2();osiV2OpenMyCases();},650);
-    }catch(error){formStatus(userError(error),'error');}
-    finally{button.disabled=false;}
+      state.caseIdempotency='';state.caseReceipt=committed.case;
+      if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(caseDraftKey(wallet));
+      var canQueue=!!(state.capabilities&&(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true));
+      renderSubmissionReceipt('v2-case-receipt',{
+        title:'Private Case saved',publicRef:committed.case.public_ref,copyValue:committed.case.public_ref,
+        stage:stageLabel(committed.case.stage||'initial_review',committed.case),visibility:label(committed.case.visibility||'private'),
+        where:'My Cases, using a fresh wallet-authorized private read.',
+        reviewers:'Eligible independent analysts and full double-gated maintainers. The Case owner cannot self-review.',
+        next:'An authorized reviewer records an initial-open decision. A confirmed CASE_OPENED Memo is still required before the Case becomes public.',
+        openLabel:'Open My Cases',canOpenQueue:canQueue,
+        onOpen:function(){fieldCloseFormV2();window.osiV2OpenMyCases();},
+        onQueue:function(){fieldCloseFormV2();window.osiV2OpenReviewQueue();},
+        onDismiss:fieldCloseFormV2
+      });
+    }catch(error){if(generation===privateGeneration())formStatus(userError(error),'error');}
+    finally{if(generation===privateGeneration()){button.disabled=!!state.caseReceipt;button.removeAttribute('aria-busy');}}
   }
 
   var tabs=[['overview','Overview'],['evidence','Evidence'],['reports','Reports'],['ai_pack','AI Pack'],['resolution','Resolution'],['challenges','Challenges'],['reward','Rewards & Support'],['proof','Proof Log']];
@@ -447,14 +730,18 @@
     if(state.mode==='review'&&state.current&&state.current.visibility==='private')return rows.slice(0,1).concat([['reviews','Initial Review']],rows.slice(1));
     return rows;
   }
-  async function openCase(publicRef){
+  async function openCase(publicRef,reviewTask){
+    var drawerToken=++state.drawerLoadToken;
+    state.activeReviewTask=reviewTask||null;
     var item=state.cases.find(function(entry){return entry.public_ref===publicRef;});
     try{
       if(!item||state.mode==='public'){
         var result=await api(READ_URL,{op:'get_public_case',public_ref:publicRef});item=result.case;
       }
+      if(drawerToken!==state.drawerLoadToken)return null;
       state.current=item;state.tab='overview';
       if(walletPubkey)await refreshCapabilities();
+      if(drawerToken!==state.drawerLoadToken)return null;
       var drawer=document.getElementById('osi-case-drawer');
       if(drawer.hidden)state.drawerReturnFocus=document.activeElement;
       drawer.hidden=false;document.body.classList.add('osi-case-open');syncBodyLock();
@@ -463,7 +750,8 @@
       document.getElementById('osi-case-state').innerHTML='<span class="osi-chip '+esc(item.visibility)+'">'+esc(label(item.visibility))+'</span><span class="osi-chip">'+esc(stageLabel(item.stage,item))+'</span><span class="osi-chip">'+esc(label(item.category))+'</span>';
       drawTabs();renderTab();renderActions();
       setTimeout(function(){var close=drawer.querySelector('.osi-case-close');if(close)close.focus();},30);
-    }catch(error){showToast(userError(error));}
+      return item;
+    }catch(error){state.activeReviewTask=null;showToast(userError(error));return null;}
   }
   function wipeCaseDrawerContent(){
     if(typeof window.osiV2AiPackClear==='function')window.osiV2AiPackClear();
@@ -474,12 +762,14 @@
     }
   }
   function closeCase(){
+    ++state.drawerLoadToken;
     var drawer=document.getElementById('osi-case-drawer');
     if(drawer)drawer.hidden=true;
     document.body.classList.remove('osi-case-open');
     syncBodyLock();
     wipeCaseDrawerContent();
     state.current=null;
+    state.activeReviewTask=null;
     restoreFocus(state.drawerReturnFocus);
     state.drawerReturnFocus=null;
   }
@@ -507,17 +797,17 @@
   }
   function emptySection(title,text){return'<section class="osi-case-section"><h3>'+esc(title)+'</h3><div class="osi-v2-empty"><b>Nothing recorded</b><span>'+esc(text)+'</span></div></section>';}
   function overview(item){
-    var restricted=item.details_restricted?'<div class="osi-case-note"><b>Restricted intake detail</b><br>'+esc(item.details_restricted)+'</div>':'';
+    var restricted=item.details_restricted?'<div class="osi-case-note"><b>Restricted intake detail</b><br><span data-osi-user-content>'+esc(item.details_restricted)+'</span></div>':'';
     var active=(item.reviews||[]).filter(function(review){return review.is_active===true;});
     var initial=active.length?'<div class="osi-governance-mini"><b>Initial review</b><span>'+active.length+' active attributable '+(active.length===1?'review':'reviews')+'</span></div>':'';
-    return '<section class="osi-case-section"><h3>Case overview</h3><div class="osi-case-meta"><div><span>Reference</span><b>'+esc(item.public_ref)+'</b></div><div><span>Created</span><b>'+esc(dateText(item.created_at))+'</b></div><div><span>Stage</span><b>'+esc(stageLabel(item.stage,item))+'</b></div><div><span>Visibility</span><b>'+esc(label(item.visibility))+'</b></div></div><p>'+esc(item.summary)+'</p><div class="osi-governance-mini"><b>Exact next step</b><span>'+esc(nextStepText(item))+'</span></div>'+initial+restricted+'<div class="osi-case-note">OSI records attributable, human-reviewed and challengeable process. It does not determine guilt, legal certainty, truth, custody, recovery, or guaranteed payment.</div></section>';
+    return '<section class="osi-case-section"><h3>Case overview</h3><div class="osi-case-meta"><div><span>Reference</span><b>'+esc(item.public_ref)+'</b></div><div><span>Created</span><b>'+esc(dateText(item.created_at))+'</b></div><div><span>Stage</span><b>'+esc(stageLabel(item.stage,item))+'</b></div><div><span>Visibility</span><b>'+esc(label(item.visibility))+'</b></div></div><p data-osi-user-content>'+esc(item.summary)+'</p><div class="osi-governance-mini"><b>Exact next step</b><span>'+esc(nextStepText(item))+'</span></div>'+initial+restricted+'<div class="osi-case-note">OSI records attributable, human-reviewed and challengeable process. It does not determine guilt, legal certainty, truth, custody, recovery, or guaranteed payment.</div></section>';
   }
   function evidence(item){
     var rows=item.evidence||[];if(!rows.length)return emptySection('Evidence','No evidence reference is public in this projection. Private pending evidence never leaks through the anonymous API.');
-    return '<section class="osi-case-section"><h3>Evidence</h3><div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(label(row.kind))+'</b><span class="mono">sha256 '+esc(short(row.sha256))+'</span></div><div class="osi-evidence-ref">'+esc(row.ref)+'</div></div>';}).join('')+'</div><div class="osi-case-note">A reference is evidence material, not automatic proof of a claim. Public items require their own moderation state.</div></section>';
+    return '<section class="osi-case-section"><h3>Evidence</h3><div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(label(row.kind))+'</b><span class="mono">sha256 '+esc(short(row.sha256))+'</span></div><div class="osi-evidence-ref" data-osi-user-content>'+esc(row.ref)+'</div></div>';}).join('')+'</div><div class="osi-case-note">A reference is evidence material, not automatic proof of a claim. Public items require their own moderation state.</div></section>';
   }
   function reports(item){
-    if(typeof window.osiReportRenderSection==='function')return window.osiReportRenderSection(item);
+    if(typeof window.osiReportRenderSection==='function')return window.osiReportRenderSection(item,{mode:state.mode,actorRole:state.actorRole,capabilities:state.capabilities||{}});
     var rows=item.reports||[];if(!rows.length)return emptySection('Reports','Report data is temporarily unavailable.');
     return '<section class="osi-case-section"><h3>Reports</h3><div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><b>'+esc(label(row.status))+'</b><p>'+(row.published?'Published exact version':'No published version')+'</p></div>';}).join('')+'</div></section>';
   }
@@ -540,34 +830,43 @@
   }
   function governanceTimeline(rows){
     if(!rows||!rows.length)return'<div class="osi-v2-empty"><b>No reviews recorded</b><span>Only eligible, independent analyst reviews count.</span></div>';
-    return '<div class="osi-governance-timeline">'+rows.map(function(row){var role=row.reviewer_role||row.actor_role||'';return'<div class="osi-governance-event"><span class="osi-proof-label">'+esc(row.proof_label||'Wallet-signed & server-verified')+'</span><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,role)+' &middot; '+esc(label(row.decision))+'</b><p>'+esc(row.target_version_ref||label(row.phase))+' &middot; weight '+esc(Number(row.weight||0).toFixed(2))+sasAuthority(row)+' &middot; '+esc(dateText(row.created_at))+'</p><p>'+esc(row.public_rationale||'No public rationale recorded.')+'</p></div>';}).join('')+'</div>';
+    return '<div class="osi-governance-timeline">'+rows.map(function(row){var role=row.reviewer_role||row.actor_role||'';return'<div class="osi-governance-event"><span class="osi-proof-label">'+esc(row.proof_label||'Wallet-signed & server-verified')+'</span><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,role)+' &middot; '+esc(label(row.decision))+'</b><p>'+esc(row.target_version_ref||label(row.phase))+' &middot; weight '+esc(Number(row.weight||0).toFixed(2))+sasAuthority(row)+' &middot; '+esc(dateText(row.created_at))+'</p><p data-osi-user-content>'+esc(row.public_rationale||'No public rationale recorded.')+'</p></div>';}).join('')+'</div>';
   }
   function resolution(item){
     var governance=item.governance||{};var row=governance.resolution;var candidates=publishedCandidates(item);var caps=state.capabilities||{};
     if(!candidates.length&&!row)return emptySection('Resolution','A published exact Report version is required before resolution selection can begin.');
     var quorum=row&&row.selection_quorum||{leader_count:0,leader_weight:0,required_count:item.risk_tier==='high'?3:2,required_weight:item.risk_tier==='high'?4.5:2.5};
-    var candidateOptions=candidates.map(function(candidate){return'<option value="'+esc(candidate.version_ref)+'">'+esc(candidate.version_ref)+' &middot; '+esc(candidate.report_ref)+'</option>';}).join('');
-    var selectionForm=caps.resolution_lifecycle_writes_enabled===true&&caps.analyst_eligible===true&&(!row||row.state==='selection_open')
+    var selectionTask=activeTaskMatches('resolution_selection'),sealTask=activeTaskMatches('seal_reviews');
+    var exactSelection=selectionTask&&state.activeReviewTask&&String(state.activeReviewTask.exactTarget||'');
+    var actionableCandidates=exactSelection&&candidates.some(function(candidate){return String(candidate.version_ref)===exactSelection;})
+      ?candidates.filter(function(candidate){return String(candidate.version_ref)===exactSelection;}):candidates;
+    var candidateOptions=actionableCandidates.map(function(candidate){return'<option value="'+esc(candidate.version_ref)+'">'+esc(candidate.version_ref)+' &middot; '+esc(candidate.report_ref)+'</option>';}).join('');
+    var selectionConflict=activeTaskConflict('resolution_selection');
+    var sealConflict=activeTaskConflict('seal_reviews');
+    var selectionForm=caps.resolution_lifecycle_writes_enabled===true&&caps.analyst_eligible===true&&selectionTask&&!selectionConflict&&(!row||row.state==='selection_open')
       ? '<div class="osi-governance-compose"><h4>Resolution selection review</h4><label>Exact published version<select id="osi-resolution-version">'+candidateOptions+'</select></label><label>Decision<select id="osi-resolution-decision"><option value="select">Select as primary</option><option value="object">Object</option><option value="abstain">Abstain</option></select></label><label>Public rationale<textarea id="osi-resolution-rationale" maxlength="2000" placeholder="Explain the process-based selection in public-safe language."></textarea></label><label>Restricted analyst note<textarea id="osi-resolution-note" maxlength="4000" placeholder="Optional. Never returned in the public DTO."></textarea></label><button class="osi-action primary" type="button" onclick="osiV2GovernanceResolutionReview()">Sign and record review</button></div>'
       : '';
     var leader=quorum.leader_version_ref;
-    var finalize=row&&row.state==='selection_open'&&caps.maintainer_access===true&&leader&&!quorum.tie_unresolved
+    var finalize=row&&row.state==='selection_open'&&caps.maintainer_access===true&&leader&&!quorum.tie_unresolved&&selectionTask&&!selectionConflict
       ? '<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeResolution()">Finalize server-derived leader</button>'
-      : '<button class="osi-action" type="button" disabled title="Requires a unique analyst quorum leader and full maintainer double-gate">Finalize unavailable</button>';
+      : '<button class="osi-action" type="button" disabled title="'+esc(selectionConflict?conflictMessage():!selectionTask?reviewTaskRequiredMessage():'Requires a unique analyst quorum leader and full maintainer double-gate')+'">Finalize unavailable</button>';
     var seal='';
     if(row&&row.state==='in_challenge_window'){
       var ended=new Date(row.challenge_window_closes_at).getTime()<=Date.now();var blocking=(governance.challenges||[]).some(function(challenge){return challenge.blocking;});
       var sq=row.seal_quorum||{};
       seal='<div class="osi-governance-seal"><h4>Process seal</h4>'+progress(sq.approve_count||0,sq.approve_weight||0,sq.required_count||2,sq.required_weight||2.5)
-        +(ended&&!blocking&&caps.analyst_eligible===true?'<button class="osi-action" type="button" onclick="osiV2GovernanceSealReview()">Sign seal review</button>':'<button class="osi-action" disabled title="Requires an ended seven-day window, no active challenge and eligible analyst">Seal review unavailable</button>')
-        +(ended&&!blocking&&sq.ready&&caps.maintainer_access===true?'<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeSeal()">Memo-anchor process seal</button>':'')+'</div>';
+        +(ended&&!blocking&&caps.analyst_eligible===true&&sealTask&&!sealConflict?'<button class="osi-action" type="button" onclick="osiV2GovernanceSealReview()">Sign seal review</button>':'<button class="osi-action" disabled title="'+esc(sealConflict?conflictMessage():!sealTask?reviewTaskRequiredMessage():'Requires an ended seven-day window, no active challenge and eligible analyst')+'">Seal review unavailable</button>')
+        +(ended&&!blocking&&sq.ready&&caps.maintainer_access===true&&sealTask&&!sealConflict?'<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeSeal()">Memo-anchor process seal</button>':'')+'</div>';
     }
+    var conflictNotice=selectionConflict||sealConflict?'<div class="osi-state-message warning" role="status"><b>'+esc(t('Conflict: this exact governance action is unavailable to this wallet.'))+'</b><span>'+esc(conflictMessage())+'</span></div>':'';
+    var taskNotice=!conflictNotice&&(caps.analyst_eligible===true||caps.maintainer_access===true)&&(((!row||row.state==='selection_open')&&!selectionTask)||(row&&row.state==='in_challenge_window'&&!sealTask))
+      ?'<div class="osi-state-message" role="status"><b>'+esc(t('Review actions open from My Reviews'))+'</b><span>'+esc(reviewTaskRequiredMessage())+'</span></div>':'';
     return '<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact-version governance</span><h3>Resolution</h3></div><span class="osi-chip">'+esc(row?label(row.state):'Selection not started')+'</span></div>'
       +'<div class="osi-resolution-primary"><span>Primary Report version</span><b>'+esc(row&&row.winning_report_version_ref||leader||'Awaiting a unique quorum leader')+'</b></div>'
       +progress(quorum.leader_count||0,quorum.leader_weight||0,quorum.required_count||2,quorum.required_weight||2.5)
       +(quorum.tie_unresolved?'<div class="osi-state-message warning"><b>Tie unresolved</b><span>More independent review is required. A maintainer cannot choose between tied candidates.</span></div>':'')
       +governanceTimeline(row&&row.reviews?row.reviews.filter(function(review){return review.phase==='selection';}):[])
-      +selectionForm+'<div class="osi-governance-actions">'+finalize+'</div>'+seal
+      +conflictNotice+taskNotice+selectionForm+'<div class="osi-governance-actions">'+finalize+'</div>'+seal
       +'<div class="osi-case-note">Primary Report selected means the reviewed process chose one exact immutable version. It is not a truth, guilt, legal, recovery or payment decision.</div></section>';
   }
   function challengeOutcome(quorum){
@@ -587,11 +886,17 @@
       : '<div class="osi-state-message"><b>Challenge intake '+(active?'requires a connected wallet':'is closed')+'</b><span>Submission alone does not block sealing. Only admitted open or under-review challenges block.</span></div>';
     var list=rows.length?'<div class="osi-challenge-list">'+rows.map(function(row){
       var controls='';var route=caps.analyst_eligible?'analyst':'maintainer';var q=row.outcome_quorum||{};
-      if((row.state==='submitted'||row.state==='admissibility_review')&&(caps.analyst_eligible||caps.maintainer_access))controls='<button class="osi-action" onclick="osiV2GovernanceAdmitChallenge(\''+esc(row.public_ref)+'\',\'accept\',\''+route+'\')">Admit</button><button class="osi-action" onclick="osiV2GovernanceAdmitChallenge(\''+esc(row.public_ref)+'\',\'reject\',\''+route+'\')">Reject admission</button>';
-      if((row.state==='open'||row.state==='under_review')&&caps.analyst_eligible)controls+='<button class="osi-action" onclick="osiV2GovernanceReviewChallenge(\''+esc(row.public_ref)+'\',\'accept\')">Accept review</button><button class="osi-action" onclick="osiV2GovernanceReviewChallenge(\''+esc(row.public_ref)+'\',\'reject\')">Reject review</button>';
+      var admissibilityTask=activeTaskMatches('challenge_admissibility',row.public_ref);
+      var adjudicationTask=activeTaskMatches('challenge_adjudication',row.public_ref);
+      var conflicted=activeTaskConflict('challenge_admissibility',row.public_ref)||activeTaskConflict('challenge_adjudication',row.public_ref);
+      if(!conflicted&&admissibilityTask&&(row.state==='submitted'||row.state==='admissibility_review')&&(caps.analyst_eligible||caps.maintainer_access))controls='<button class="osi-action" onclick="osiV2GovernanceAdmitChallenge(\''+esc(row.public_ref)+'\',\'accept\',\''+route+'\')">Admit</button><button class="osi-action" onclick="osiV2GovernanceAdmitChallenge(\''+esc(row.public_ref)+'\',\'reject\',\''+route+'\')">Reject admission</button>';
+      if(!conflicted&&adjudicationTask&&(row.state==='open'||row.state==='under_review')&&caps.analyst_eligible)controls+='<button class="osi-action" onclick="osiV2GovernanceReviewChallenge(\''+esc(row.public_ref)+'\',\'accept\')">Accept review</button><button class="osi-action" onclick="osiV2GovernanceReviewChallenge(\''+esc(row.public_ref)+'\',\'reject\')">Reject review</button>';
       if(row.challenger_wallet===walletPubkey&&['submitted','admissibility_review','open','under_review'].indexOf(row.state)>=0)controls+='<button class="osi-action" onclick="osiV2GovernanceWithdrawChallenge(\''+esc(row.public_ref)+'\')">Withdraw</button>';
-      if(row.state==='under_review'&&caps.analyst_eligible&&challengeOutcome(row.outcome_quorum))controls+='<button class="osi-action primary" onclick="osiV2GovernanceFinalizeChallenge(\''+esc(row.public_ref)+'\')">Memo-anchor quorum outcome</button>';
-      return'<article class="osi-challenge-record"><div class="osi-list-item-head"><b>'+esc(row.public_ref)+'</b><span class="osi-chip '+(row.blocking?'warning':'')+'">'+esc(label(row.state))+' &middot; '+(row.blocking?'Blocking':'Non-blocking')+'</span></div><p>'+esc(row.public_safe_summary)+'</p><div class="osi-case-meta"><div><span>Admissibility deadline</span><b>'+esc(dateText(row.admissibility_deadline_at))+'</b></div><div><span>Review deadline</span><b>'+esc(dateText(row.review_deadline_at))+'</b></div></div>'+governanceTimeline(row.reviews)+progress(q.accept_count||0,q.accept_weight||0,q.required_count||2,q.required_weight||2.5)+'<div class="osi-governance-actions">'+controls+'</div></article>';
+      if(!conflicted&&adjudicationTask&&row.state==='under_review'&&caps.analyst_eligible&&challengeOutcome(row.outcome_quorum))controls+='<button class="osi-action primary" onclick="osiV2GovernanceFinalizeChallenge(\''+esc(row.public_ref)+'\')">Memo-anchor quorum outcome</button>';
+      var conflictNotice=conflicted?'<div class="osi-state-message warning" role="status"><b>'+esc(t('Conflict: this exact governance action is unavailable to this wallet.'))+'</b><span>'+esc(conflictMessage())+'</span></div>':'';
+      var taskNotice=!conflicted&&(caps.analyst_eligible||caps.maintainer_access)&&(((row.state==='submitted'||row.state==='admissibility_review')&&!admissibilityTask)||((row.state==='open'||row.state==='under_review')&&!adjudicationTask))
+        ?'<div class="osi-state-message" role="status"><b>'+esc(t('Review actions open from My Reviews'))+'</b><span>'+esc(reviewTaskRequiredMessage())+'</span></div>':'';
+      return'<article class="osi-challenge-record"><div class="osi-list-item-head"><b>'+esc(row.public_ref)+'</b><span class="osi-chip '+(row.blocking?'warning':'')+'">'+esc(label(row.state))+' &middot; '+(row.blocking?'Blocking':'Non-blocking')+'</span></div><p data-osi-user-content>'+esc(row.public_safe_summary)+'</p><div class="osi-case-meta"><div><span>Admissibility deadline</span><b>'+esc(dateText(row.admissibility_deadline_at))+'</b></div><div><span>Review deadline</span><b>'+esc(dateText(row.review_deadline_at))+'</b></div></div>'+governanceTimeline(row.reviews)+progress(q.accept_count||0,q.accept_weight||0,q.required_count||2,q.required_weight||2.5)+conflictNotice+taskNotice+'<div class="osi-governance-actions">'+controls+'</div></article>';
     }).join('')+'</div>':'<div class="osi-v2-empty"><b>No challenges recorded</b><span>The seven-day window remains independently verifiable.</span></div>';
     return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Seven-day window</span><h3>Challenges</h3></div><span class="osi-chip">'+esc(active?countdownText(resolution.challenge_window_closes_at)+' · closes '+dateText(resolution.challenge_window_closes_at):'Window closed')+'</span></div>'+submit+list+'<div class="osi-case-note">A normal rejection or expiry creates no automatic penalty. Bad faith requires its own separate reviewed outcome.</div></section>';
   }
@@ -659,7 +964,10 @@
     var host=document.getElementById('osi-case-actions');var item=state.current;if(!host||!item)return;
     if(state.mode==='review'&&item.visibility==='private'){
       var openingRoute=activeOpeningRoute(item);
-      host.innerHTML='<span class="osi-action-help">Reviews use signMessage. Public opening requires either the analyst threshold or a full double-gated maintainer approval, then a separate confirmed Solana Memo. It authorizes public investigation only; it does not determine truth or guilt.</span><button class="osi-action" type="button" onclick="osiV2ComposeReview()">Record review</button>'+(openingRoute?'<button class="osi-action primary" type="button" onclick="osiV2AnchorOpen()">Anchor public open</button>':'');
+      var conflicted=activeTaskConflict('initial_open');
+      host.innerHTML='<span class="osi-action-help">'+esc(conflicted?conflictMessage():'Reviews use signMessage. Public opening requires either the analyst threshold or a full double-gated maintainer approval, then a separate confirmed Solana Memo. It authorizes public investigation only; it does not determine truth or guilt.')+'</span>'
+        +(conflicted?'<button class="osi-action" type="button" disabled title="'+esc(conflictMessage())+'">'+esc(t('Review unavailable'))+'</button>':'<button class="osi-action" type="button" onclick="osiV2ComposeReview()">Record review</button>')
+        +(openingRoute&&!conflicted?'<button class="osi-action primary" type="button" onclick="osiV2AnchorOpen()">Anchor public open</button>':'');
     }else if(item.visibility==='private'){
       host.innerHTML='<span class="osi-action-help">Private and awaiting an eligible analyst or full maintainer review. Case owners cannot self-review.</span><button class="osi-action" disabled title="Requires an eligible analyst or full maintainer">Awaiting review</button>';
     }else{
@@ -668,9 +976,19 @@
     }
   }
   async function composeReview(){
+    var generation=privateGeneration();
     state.tab='reviews';drawTabs();renderTab();
     var caps=state.capabilities||await refreshCapabilities()||{};
+    assertPrivateGeneration(generation);
     var host=document.getElementById('osi-review-compose');if(!host)return;
+    if(activeTaskConflict('initial_open')){
+      host.innerHTML='<div class="osi-state-message warning" role="status"><b>'+esc(t('Conflict: this exact governance action is unavailable to this wallet.'))+'</b><span>'+esc(conflictMessage())+'</span></div>';
+      return;
+    }
+    if(caps.analyst_eligible!==true&&caps.maintainer_access!==true){
+      host.innerHTML='<div class="osi-state-message warning" role="status"><b>'+esc(t('Review unavailable'))+'</b><span>'+esc(t('Eligible analyst or full maintainer access is required.'))+'</span></div>';
+      return;
+    }
     var route=caps.analyst_eligible?'analyst':'maintainer';
     var routeChoices=caps.analyst_eligible&&caps.maintainer_access?'<label>Credential route<select id="osi-review-route"><option value="analyst">Counted analyst review</option><option value="maintainer">Full maintainer initial-open review</option></select></label>':'<input id="osi-review-route" type="hidden" value="'+route+'">';
     host.innerHTML='<div class="osi-review-form"><div class="osi-review-route">'+(route==='analyst'?'This decision uses the server-derived analyst weight.':'The full maintainer path has analyst weight 0 but independently authorizes initial open after both maintainer gates pass.')+' Opening starts a public investigation; it is not a truth or guilt decision.</div>'+routeChoices+'<label>Decision<select id="osi-review-decision"><option value="approve_open">Approve public open</option><option value="needs_more">Needs more evidence</option></select></label><label>Reason code<select id="osi-review-reason"><option value="public_scope_clear">Public scope clear</option><option value="needs_more_evidence">Needs more evidence</option><option value="unsafe_or_prohibited">Unsafe or prohibited</option><option value="duplicate_or_out_of_scope">Duplicate or out of scope</option></select></label><p class="osi-action-help">A rejection outcome is unavailable until its separate quorum transition is implemented.</p><button class="osi-action primary" id="osi-review-submit" type="button">Sign and record review</button><div class="osi-form-status mono" id="osi-review-status" role="status"></div></div>';
@@ -679,127 +997,185 @@
   function reviewStatus(text,kind){var node=document.getElementById('osi-review-status');if(node){node.textContent=text;node.className='osi-form-status mono '+(kind||'');}}
   async function submitReview(){
     if(state.reviewBusy||!state.current)return;
+    var generation=privateGeneration(),anchorAfter=false;
     state.reviewBusy=true;var button=document.getElementById('osi-review-submit');if(button)button.disabled=true;
     try{
       var wallet=await ensureWallet();var route=document.getElementById('osi-review-route').value;
+      assertPrivateGeneration(generation);
       var review={case_ref:state.current.public_ref,decision:document.getElementById('osi-review-decision').value,reason_code:document.getElementById('osi-review-reason').value};
       if(route==='maintainer'&&review.decision!=='approve_open')throw new Error('The full maintainer path can only record approve_open.');
       reviewStatus('Preparing an exact single-use review message...');
       var prepared=await api(WRITE_URL,{op:'prepare_review',wallet:wallet,route:route,review:review,idempotency_key:randomKey('review')});
+      assertPrivateGeneration(generation);
       reviewStatus('Sign the review message. This is not an on-chain transaction.');
       var signature=await signMessage(prepared.message);
+      assertPrivateGeneration(generation);
       var committed=await api(WRITE_URL,{op:'commit_review',wallet:wallet,route:route,review:review,nonce:prepared.nonce,message:prepared.message,signature:signature});
+      assertPrivateGeneration(generation);
       reviewStatus('Review recorded as wallet-signed and server-verified.','success');
       showToast('Initial review recorded.');
       await openSignedCollection('review');
+      assertPrivateGeneration(generation);
       var refreshed=state.cases.find(function(item){return item.public_ref===review.case_ref;});
       if(refreshed)await openCase(refreshed.public_ref);
-      if(committed.actor_open_ready&&review.decision==='approve_open'&&confirm('This initial-open path is ready. Anchor CASE_OPENED on Solana now? This uses only the standard network fee.')) await anchorOpen(route);
-    }catch(error){reviewStatus(userError(error),'error');}
-    finally{state.reviewBusy=false;if(button)button.disabled=false;}
+      assertPrivateGeneration(generation);
+      anchorAfter=committed.actor_open_ready&&review.decision==='approve_open'&&confirm('This initial-open path is ready. Anchor CASE_OPENED on Solana now? This uses only the standard network fee.');
+    }catch(error){if(generation===privateGeneration())reviewStatus(userError(error),'error');}
+    finally{if(generation===privateGeneration()){state.reviewBusy=false;if(button)button.disabled=false;}}
+    if(anchorAfter&&generation===privateGeneration())await anchorOpen(route);
   }
   async function anchorOpen(route){
     if(state.reviewBusy||!state.current)return;
+    var generation=privateGeneration();
     state.reviewBusy=true;
     try{
       var wallet=await ensureWallet();var ref=state.current.public_ref;
+      assertPrivateGeneration(generation);
       route=route||activeOpeningRoute(state.current);
       if(!route)throw new Error('not_eligible_reviewer');
       showToast('Preparing the canonical CASE_OPENED Memo...');
       var prepared=await api(WRITE_URL,{op:'prepare_open',wallet:wallet,route:route,case_ref:ref,idempotency_key:randomKey('open')});
+      assertPrivateGeneration(generation);
       var txSig=await castOnchainVote(prepared.memo);
-      var committed=await commitWithConfirmation({op:'commit_open',wallet:wallet,route:route,case_ref:ref,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig});
+      assertPrivateGeneration(generation);
+      var committed=await commitWithConfirmation({op:'commit_open',wallet:wallet,route:route,case_ref:ref,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},WRITE_URL,generation);
+      assertPrivateGeneration(generation);
       showToast('Case '+committed.case.public_ref+' is now public with confirmed Memo proof.');
-      closeCase();await loadPublicCases();await openCase(ref);
-    }catch(error){showToast(userError(error));}
-    finally{state.reviewBusy=false;}
+      closeCase();await loadPublicCases();assertPrivateGeneration(generation);await openCase(ref);assertPrivateGeneration(generation);
+    }catch(error){if(generation===privateGeneration())showToast(userError(error));}
+    finally{if(generation===privateGeneration())state.reviewBusy=false;}
   }
 
   async function reloadGovernanceCase(caseRef){
+    var activeTask=state.activeReviewTask;
     if(state.mode==='public')await loadPublicCases();else await openSignedCollection(state.mode);
-    await openCase(caseRef);
+    await openCase(caseRef,activeTask);
   }
   async function governanceMutation(action,targetRef,payload){
     if(state.governanceBusy||!state.current)return;
+    var generation=privateGeneration();
     state.governanceBusy=true;
     var caseRef=state.current.public_ref;
     try{
       var wallet=await ensureWallet();
+      assertPrivateGeneration(generation);
       var prepared=await api(GOVERNANCE_URL,{op:'prepare',action:action,wallet:wallet,target_ref:targetRef,payload:payload,idempotency_key:randomKey('governance')});
-      if(prepared.already_committed){showToast('This exact governance action was already committed.');await reloadGovernanceCase(caseRef);return;}
+      assertPrivateGeneration(generation);
+      if(prepared.already_committed){showToast('This exact governance action was already committed.');await reloadGovernanceCase(caseRef);assertPrivateGeneration(generation);return;}
       var body={op:'commit',action:action,wallet:wallet,nonce:prepared.nonce,payload:payload,proof_text:prepared.proof_text};
       if(prepared.proof_type==='solana_memo'){
         showToast('Approve the exact '+prepared.purpose+' Memo. Only the network fee is requested.');
         body.tx_sig=await castOnchainVote(prepared.proof_text);
-        await commitWithConfirmation(body,GOVERNANCE_URL);
+        assertPrivateGeneration(generation);
+        await commitWithConfirmation(body,GOVERNANCE_URL,generation);
       }else{
         showToast('Sign the exact '+prepared.purpose+' message. This is not an on-chain transaction.');
         body.signature=await signMessage(prepared.proof_text);
+        assertPrivateGeneration(generation);
         await api(GOVERNANCE_URL,body);
       }
+      assertPrivateGeneration(generation);
       showToast(label(prepared.purpose)+' recorded with '+(prepared.proof_type==='solana_memo'?'Memo proof.':'wallet-signed proof.'));
       await reloadGovernanceCase(caseRef);
-    }catch(error){showToast(userError(error));}
-    finally{state.governanceBusy=false;}
+      assertPrivateGeneration(generation);
+    }catch(error){if(generation===privateGeneration())showToast(userError(error));}
+    finally{if(generation===privateGeneration())state.governanceBusy=false;}
   }
   function resolutionRow(){return state.current&&state.current.governance&&state.current.governance.resolution;}
   function fieldValue(id){var node=document.getElementById(id);return node?String(node.value||'').trim():'';}
   function governanceResolutionReview(){
+    if(!requireActiveReviewTask('resolution_selection'))return;
     var version=fieldValue('osi-resolution-version'),decision=fieldValue('osi-resolution-decision');
     var rationale=fieldValue('osi-resolution-rationale');if(rationale.length<10){showToast('Add a public-safe rationale of at least 10 characters.');return;}
     governanceMutation('resolution_review',state.current.public_ref,{phase:'selection',report_version_ref:version,decision:decision,reason_code:'primary_report_assessment',public_rationale:rationale,private_note:fieldValue('osi-resolution-note')||null});
   }
-  function governanceFinalizeResolution(){var row=resolutionRow();if(row)governanceMutation('resolution_finalize',row.public_ref,{});}
+  function governanceFinalizeResolution(){if(!requireActiveReviewTask('resolution_selection'))return;var row=resolutionRow();if(row)governanceMutation('resolution_finalize',row.public_ref,{});}
   function governanceSealReview(){
+    if(!requireActiveReviewTask('seal_reviews'))return;
     var row=resolutionRow();if(!row)return;
     var rationale=window.prompt('Public-safe seal rationale. Explain why the exact process is complete; do not claim truth or guilt.','The exact resolution completed its challenge window with no active blocking challenge.');
     if(rationale===null)return;rationale=String(rationale).trim();if(rationale.length<10){showToast('The public-safe rationale must be at least 10 characters.');return;}
     governanceMutation('resolution_review',state.current.public_ref,{phase:'seal',report_version_ref:row.winning_report_version_ref,decision:'select',reason_code:'process_window_complete',public_rationale:rationale,private_note:null});
   }
-  function governanceFinalizeSeal(){var row=resolutionRow();if(row)governanceMutation('seal_finalize',row.public_ref,{});}
+  function governanceFinalizeSeal(){if(!requireActiveReviewTask('seal_reviews'))return;var row=resolutionRow();if(row)governanceMutation('seal_finalize',row.public_ref,{});}
   function governanceSubmitChallenge(){
     var row=resolutionRow();if(!row)return;
     var summary=fieldValue('osi-challenge-summary'),evidence=fieldValue('osi-challenge-evidence');
     if(summary.length<20){showToast('The public-safe challenge summary must be at least 20 characters.');return;}
     governanceMutation('challenge_submit',row.public_ref,{reason_code:'material_evidence_challenge',public_safe_summary:summary,restricted_detail:fieldValue('osi-challenge-detail')||null,evidence_item_id:evidence});
   }
-  function governanceAdmitChallenge(ref,decision,route){governanceMutation('challenge_admit',ref,{decision:decision,route:route});}
+  function governanceAdmitChallenge(ref,decision,route){if(!requireActiveReviewTask('challenge_admissibility',ref))return;governanceMutation('challenge_admit',ref,{decision:decision,route:route});}
   function governanceReviewChallenge(ref,decision){
+    if(!requireActiveReviewTask('challenge_adjudication',ref))return;
     var rationale=window.prompt('Public-safe challenge review rationale.','The submitted evidence was reviewed against the exact selected Report version.');
     if(rationale===null)return;rationale=String(rationale).trim();if(rationale.length<10){showToast('The public-safe rationale must be at least 10 characters.');return;}
     governanceMutation('challenge_review',ref,{decision:decision,reason_code:decision==='accept'?'material_issue_confirmed':'selected_report_preserved',public_rationale:rationale,private_note:null});
   }
   function governanceWithdrawChallenge(ref){governanceMutation('challenge_withdraw',ref,{});}
-  function governanceFinalizeChallenge(ref){governanceMutation('challenge_finalize',ref,{});}
+  function governanceFinalizeChallenge(ref){if(!requireActiveReviewTask('challenge_adjudication',ref))return;governanceMutation('challenge_finalize',ref,{});}
 
-  function clearPaymentState(){
+  function paymentRecoveryKey(wallet){return PAYMENT_RECOVERY_PREFIX+String(wallet||'');}
+  function forgetPaymentRecovery(wallet){
+    if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(wallet||'')))return;
+    try{localStorage.removeItem(paymentRecoveryKey(wallet));}catch(error){}
+  }
+  function clearPaymentState(settings){
+    settings=settings&&typeof settings==='object'?settings:{};
+    var pendingWallet=String(settings.wallet||state.paymentPending&&state.paymentPending.wallet||'');
+    var cleanup=state.paymentCleanup;state.paymentCleanup=null;if(typeof cleanup==='function'){try{cleanup(true);}catch(error){}}
     state.paymentPending=null;state.paymentBusy=false;state.paymentWallet='';
-    try{localStorage.removeItem(PAYMENT_RECOVERY_KEY);}catch(error){}
+    if(settings.forgetRecovery===true)forgetPaymentRecovery(pendingWallet);
     var modal=document.getElementById('osi-payment-review');if(modal)modal.remove();
     var payModal=document.getElementById('osi-solana-pay');if(payModal)payModal.remove();
+    var receiptModal=document.getElementById('osi-payment-receipt');if(receiptModal)receiptModal.remove();
   }
-  function restorePaymentPending(){
+  function restorePaymentPending(wallet){
+    wallet=String(wallet||'');state.paymentPending=null;state.paymentWallet='';
+    if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet))return null;
     try{
-      var pending=JSON.parse(localStorage.getItem(PAYMENT_RECOVERY_KEY)||'null');
+      var raw=localStorage.getItem(paymentRecoveryKey(wallet));
+      if(!raw){
+        var legacy=JSON.parse(localStorage.getItem(PAYMENT_RECOVERY_KEY)||'null');
+        if(legacy&&String(legacy.wallet||'')===wallet){
+          raw=JSON.stringify(legacy);
+          localStorage.setItem(paymentRecoveryKey(wallet),raw);
+          localStorage.removeItem(PAYMENT_RECOVERY_KEY);
+        }
+      }
+      var pending=JSON.parse(raw||'null');
       if(!pending||typeof pending!=='object'||!pending.prepared
-        ||!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(pending.wallet||''))
+        ||String(pending.wallet||'')!==wallet
+        ||String(pending.prepared.payer_wallet||'')!==wallet
         ||!/^[A-Za-z0-9_-]{32,128}$/.test(String(pending.prepared.nonce||''))
         ||!(pending.method==='solana_pay'
           ?/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(pending.prepared.solana_pay&&pending.prepared.solana_pay.reference||''))
-          :/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(pending.txSig||'')))){
-        localStorage.removeItem(PAYMENT_RECOVERY_KEY);return;
+          :(/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(pending.txSig||''))
+            ||(pending.recovery_state==='awaiting_wallet'&&!pending.txSig)))){
+        localStorage.removeItem(paymentRecoveryKey(wallet));return null;
       }
-      state.paymentPending=pending;
-    }catch(error){}
+      pending.restored_from_storage=true;
+      state.paymentPending=pending;state.paymentWallet=wallet;return pending;
+    }catch(error){return null;}
   }
-  function persistPaymentPending(pending){
-    state.paymentPending=pending;
-    try{localStorage.setItem(PAYMENT_RECOVERY_KEY,JSON.stringify(pending));}catch(error){}
+  function persistPaymentPending(pending,settings){
+    settings=settings||{};var wallet=String(pending&&pending.wallet||'');
+    if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)
+      ||String(pending&&pending.prepared&&pending.prepared.payer_wallet||'')!==wallet)throw new Error('payment_wallet_changed');
+    var serialized=JSON.stringify(pending);
+    try{
+      localStorage.setItem(paymentRecoveryKey(wallet),serialized);
+      if(localStorage.getItem(paymentRecoveryKey(wallet))!==serialized)throw new Error('payment_recovery_unavailable');
+    }catch(error){throw new Error('payment_recovery_unavailable');}
+    if(settings.expose!==false&&wallet===String(walletPubkey||'')){state.paymentPending=pending;state.paymentWallet=wallet;}
   }
   function paymentStatus(text,kind){var node=document.getElementById('osi-payment-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
   function trapModalKeys(modal,onClose){
     return function(event){
-      if(event.key==='Escape'){event.preventDefault();onClose();return;}
+      if(event.key==='Escape'){
+        event.preventDefault();event.stopPropagation();
+        if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+        onClose();return;
+      }
       if(event.key!=='Tab')return;
       var nodes=Array.prototype.filter.call(modal.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])'),function(node){return node.offsetParent!==null;});
       if(!nodes.length){event.preventDefault();return;}
@@ -816,23 +1192,41 @@
       var payReady=prepared.solana_pay&&prepared.solana_pay.enabled===true&&(prepared.recipient_manifest||[]).length===1;
       var alternative=payReady?'<button type="button" class="osi-action primary" data-payment-solana-pay>Show Solana Pay</button>':'';
       var routeNote=(prepared.recipient_manifest||[]).length>1?'<div class="osi-state-message warning"><b>Atomic multi-recipient payment</b><span>Solana Pay transfer requests support this launch only for one exact recipient. Keep all selected transfers atomic in one Phantom transaction.</span></div>':'';
-      modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">Before any wallet opens</span><h3 id="osi-payment-review-title">Review exact mainnet transfer</h3><dl><div><dt>Network</dt><dd>Solana mainnet-beta</dd></div><div><dt>Purpose</dt><dd>'+esc(label(prepared.payment_kind))+'</dd></div><div><dt>Total</dt><dd>'+esc(prepared.total_sol)+' SOL / '+esc(prepared.total_lamports)+' lamports</dd></div><div><dt>Target</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div></dl><ul>'+recipients+'</ul>'+routeNote+'<div class="osi-case-note">This transaction is irreversible. Native SOL goes directly from your wallet to the exact server-derived recipient'+((prepared.recipient_manifest||[]).length===1?'':'s')+'. OSI receives no funds, has no custody or escrow, takes no commission, and support never changes governance, ranking, or review priority.</div><div class="osi-payment-actions"><button type="button" class="osi-action" data-payment-cancel>Cancel</button><button type="button" class="osi-action" data-payment-phantom>Open Phantom</button>'+alternative+'</div></div>';
-      document.body.appendChild(modal);var prior=document.activeElement;
-      function finish(value){document.removeEventListener('keydown',keyHandler);modal.remove();if(prior&&document.contains(prior)&&prior.focus)prior.focus();resolve(value);}
+      modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">Before any wallet opens</span><h3 id="osi-payment-review-title">Review exact mainnet transfer</h3><dl><div><dt>Network</dt><dd>Solana mainnet-beta</dd></div><div><dt>Payer</dt><dd class="mono">'+esc(prepared.payer_wallet)+'</dd></div><div><dt>Purpose</dt><dd>'+esc(label(prepared.payment_kind))+'</dd></div><div><dt>Total</dt><dd>'+esc(prepared.total_sol)+' SOL / '+esc(prepared.total_lamports)+' lamports</dd></div><div><dt>Target</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div><div><dt>Canonical Memo</dt><dd class="mono" data-payment-memo>'+esc(prepared.memo)+'</dd></div></dl><ul>'+recipients+'</ul>'+routeNote+'<div class="osi-case-note">This transaction is irreversible. Native SOL goes directly from your wallet to the exact server-derived recipient'+((prepared.recipient_manifest||[]).length===1?'':'s')+'. OSI receives no funds, has no custody or escrow, takes no commission, and support never changes governance, ranking, or review priority.</div><div class="osi-payment-actions"><button type="button" class="osi-action" data-payment-cancel>Cancel</button><button type="button" class="osi-action" data-payment-copy-memo>Copy Memo</button><button type="button" class="osi-action" data-payment-phantom>Open Phantom</button>'+alternative+'</div></div>';
+      document.body.appendChild(modal);var prior=document.activeElement,settled=false;
+      function finish(value,fromClear){if(settled)return;settled=true;document.removeEventListener('keydown',keyHandler,true);modal.remove();if(state.paymentCleanup===cancelFromClear)state.paymentCleanup=null;if(fromClear!==true&&prior&&document.contains(prior)&&prior.focus)prior.focus();resolve(value);}
+      function cancelFromClear(){finish('',true);}
+      var previousCleanup=state.paymentCleanup;state.paymentCleanup=cancelFromClear;if(typeof previousCleanup==='function')previousCleanup(true);
       var keyHandler=trapModalKeys(modal,function(){finish('');});
-      document.addEventListener('keydown',keyHandler);
+      document.addEventListener('keydown',keyHandler,true);
       modal.querySelector('[data-payment-cancel]').addEventListener('click',function(){finish('');});
+      modal.querySelector('[data-payment-copy-memo]').addEventListener('click',async function(){
+        try{await navigator.clipboard.writeText(String(prepared.memo||''));}
+        catch(error){var memo=modal.querySelector('[data-payment-memo]');if(memo){var range=document.createRange();range.selectNodeContents(memo);var selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);}}
+      });
       modal.querySelector('[data-payment-phantom]').addEventListener('click',function(){finish('phantom');});
       var payButton=modal.querySelector('[data-payment-solana-pay]');if(payButton)payButton.addEventListener('click',function(){finish('solana_pay');});
       modal.addEventListener('click',function(event){if(event.target===modal)finish('');});
       (payButton||modal.querySelector('[data-payment-phantom]')).focus();
     });
   }
-  async function sendPreparedPayment(prepared){
+  function exactPaymentProvider(prepared,expectedWallet,generation){
+    assertPrivateGeneration(generation);
     var provider=typeof getProvider==='function'?getProvider():null;
-    if(!provider||!walletPubkey||!provider.publicKey||provider.isConnected===false)throw new Error('Connect Phantom to continue.');
+    var activeWallet=String(walletPubkey||'');
+    var providerWallet=provider&&provider.publicKey&&typeof provider.publicKey.toString==='function'
+      ?provider.publicKey.toString():'';
+    if(!provider||provider.isConnected===false||!expectedWallet
+      ||String(prepared&&prepared.payer_wallet||'')!==expectedWallet
+      ||activeWallet!==expectedWallet||providerWallet!==expectedWallet){
+      throw new Error('payment_wallet_changed');
+    }
+    return provider;
+  }
+  async function sendPreparedPayment(prepared,expectedWallet,generation,onBroadcast){
+    var provider=exactPaymentProvider(prepared,expectedWallet,generation);
     var web3=window.solanaWeb3;if(!web3)throw new Error('Solana transaction library is unavailable.');
-    var from=new web3.PublicKey(walletPubkey);var tx=new web3.Transaction();
+    var from=new web3.PublicKey(expectedWallet);var tx=new web3.Transaction();
     (prepared.recipient_manifest||[]).forEach(function(row){
       if(!/^\d+$/.test(String(row.amount_lamports||'')))throw new Error('wrong_amount');
       var amount=Number(row.amount_lamports);if(!Number.isSafeInteger(amount)||amount<=0)throw new Error('wrong_amount');
@@ -841,18 +1235,43 @@
     tx.add(new web3.TransactionInstruction({keys:[{pubkey:from,isSigner:true,isWritable:false}],programId:new web3.PublicKey(MEMO_PROGRAM_ID),data:new TextEncoder().encode(prepared.memo)}));
     tx.feePayer=from;var blockhash=await fetchRecentBlockhash();if(!blockhash)throw new Error('rpc_unavailable');tx.recentBlockhash=blockhash;
     var bytes=tx.serialize({requireAllSignatures:false,verifySignatures:false});if(bytes.length>1232)throw new Error('Transaction exceeds Solana packet size.');
-    var submit=function(){return provider.signAndSendTransaction(tx);};
+    var submit=function(){exactPaymentProvider(prepared,expectedWallet,generation);return provider.signAndSendTransaction(tx);};
     var result=typeof window.osiV2ApproveTransaction==='function'?await window.osiV2ApproveTransaction(prepared.memo,submit):await submit();
+    if(result&&result.signature&&typeof onBroadcast==='function')onBroadcast(result.signature);
+    exactPaymentProvider(prepared,expectedWallet,generation);
+    if(!result||!result.signature)throw new Error('Transaction submission was cancelled.');return result.signature;
+  }
+  async function sendPreparedSolanaPay(prepared,expectedWallet,generation,onBroadcast){
+    var provider=exactPaymentProvider(prepared,expectedWallet,generation);
+    var web3=window.solanaWeb3,recipient=prepared&&prepared.recipient_manifest&&prepared.recipient_manifest[0];
+    if(!web3||!recipient||!/^\d+$/.test(String(recipient.amount_lamports||'')))throw new Error('wrong_amount');
+    var amount=Number(recipient.amount_lamports);if(!Number.isSafeInteger(amount)||amount<=0)throw new Error('wrong_amount');
+    var from=new web3.PublicKey(expectedWallet),reference=new web3.PublicKey(prepared.solana_pay.reference),tx=new web3.Transaction();
+    tx.add(new web3.TransactionInstruction({keys:[],programId:new web3.PublicKey(MEMO_PROGRAM_ID),data:new TextEncoder().encode(prepared.memo)}));
+    var transfer=web3.SystemProgram.transfer({fromPubkey:from,toPubkey:new web3.PublicKey(recipient.wallet),lamports:amount});
+    transfer.keys.push({pubkey:reference,isSigner:false,isWritable:false});tx.add(transfer);
+    tx.feePayer=from;var blockhash=await fetchRecentBlockhash();if(!blockhash)throw new Error('rpc_unavailable');tx.recentBlockhash=blockhash;
+    var bytes=tx.serialize({requireAllSignatures:false,verifySignatures:false});if(bytes.length>1232)throw new Error('Transaction exceeds Solana packet size.');
+    var submit=function(){exactPaymentProvider(prepared,expectedWallet,generation);return provider.signAndSendTransaction(tx);};
+    var result=typeof window.osiV2ApproveTransaction==='function'?await window.osiV2ApproveTransaction(prepared.memo+':'+prepared.solana_pay.reference,submit):await submit();
+    if(result&&result.signature&&typeof onBroadcast==='function')onBroadcast(result.signature);
+    exactPaymentProvider(prepared,expectedWallet,generation);
     if(!result||!result.signature)throw new Error('Transaction submission was cancelled.');return result.signature;
   }
   function openSolanaPay(pending){
+    var generation=privateGeneration();
     var prepared=pending&&pending.prepared;
     if(!window.osiSolanaPay)throw new Error('Solana Pay is unavailable.');
+    if(pending&&pending.restored_from_storage===true)throw new Error('payment_recovery_poll_only');
+    if(!pending||String(prepared&&prepared.payer_wallet||'')!==String(pending.wallet||''))throw new Error('payment_wallet_changed');
+    exactPaymentProvider(prepared,pending.wallet,generation);
     var url=window.osiSolanaPay.buildUrl(prepared);
     var old=document.getElementById('osi-solana-pay');if(old)old.remove();
     var modal=document.createElement('div');modal.id='osi-solana-pay';modal.className='osi-payment-review';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-labelledby','osi-solana-pay-title');
     var recipient=prepared.recipient_manifest[0];var mobile=window.osiSolanaPay.isMobileDevice();
-    modal.innerHTML='<div class="osi-payment-review-card osi-solana-pay-card"><span class="osi-eyebrow">Single-use · mainnet-beta</span><h3 id="osi-solana-pay-title">Pay with Solana Pay</h3><div class="osi-solana-pay-grid"><div class="osi-solana-pay-qr" data-solana-pay-qr></div><div><dl><div><dt>Exact amount</dt><dd>'+esc(recipient.amount_sol)+' SOL / '+esc(recipient.amount_lamports)+' lamports</dd></div><div><dt>Recipient</dt><dd class="mono">'+esc(recipient.wallet)+'</dd></div><div><dt>Target</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div><div><dt>Reference</dt><dd class="mono">'+esc(prepared.solana_pay.reference)+'</dd></div></dl><p class="osi-solana-pay-timer mono" data-solana-pay-timer></p></div></div><div class="osi-state-message" data-solana-pay-state role="status" aria-live="polite"><b>Ready</b><span>Scan the QR code or explicitly open a compatible wallet. Verify the recipient, amount, network and Memo before approving.</span></div><div class="osi-payment-actions"><button class="osi-action" type="button" data-solana-pay-close>Close</button><button class="osi-action" type="button" data-solana-pay-copy>Copy link</button><button class="osi-action" type="button" data-solana-pay-retry>Check payment</button><a class="osi-action primary" data-solana-pay-open href="'+esc(url)+'">'+(mobile?'Open compatible wallet':'Open wallet on this device')+'</a></div><div class="osi-case-note">Opening a link does not mark anything paid. OSI records success only after a trusted server RPC proves one finalized mainnet System transfer, the exact canonical Memo, the single-use reference, signer, amount, and freshness. Closing this window does not create or cancel a transaction.</div></div>';
+    var provider=typeof getProvider==='function'?getProvider():null;var connected=!!(provider&&provider.publicKey&&provider.isConnected!==false&&walletPubkey);
+    var phantom=connected?'<button class="osi-action primary" type="button" data-solana-pay-phantom>'+esc(t('Use connected Phantom'))+'</button>':'';
+    modal.innerHTML='<div class="osi-payment-review-card osi-solana-pay-card"><span class="osi-eyebrow">'+esc(t('Single-use · mainnet-beta'))+'</span><h3 id="osi-solana-pay-title">'+esc(t('Pay with Solana Pay'))+'</h3><div class="osi-solana-pay-grid"><div class="osi-solana-pay-qr" data-solana-pay-qr></div><div><dl><div><dt>'+esc(t('Payer'))+'</dt><dd class="mono">'+esc(prepared.payer_wallet)+'</dd></div><div><dt>'+esc(t('Exact amount'))+'</dt><dd>'+esc(recipient.amount_sol)+' SOL / '+esc(recipient.amount_lamports)+' lamports</dd></div><div><dt>'+esc(t('Recipient'))+'</dt><dd class="mono">'+esc(recipient.wallet)+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div><div><dt>'+esc(t('Reference'))+'</dt><dd class="mono">'+esc(prepared.solana_pay.reference)+'</dd></div><div><dt>'+esc(t('Canonical Memo'))+'</dt><dd class="mono" data-solana-pay-memo>'+esc(prepared.memo)+'</dd></div></dl><p class="osi-solana-pay-timer mono" data-solana-pay-timer></p></div></div><div class="osi-state-message" data-solana-pay-state role="status" aria-live="polite"><b>'+esc(t('Ready'))+'</b><span>'+esc(t('Scan the QR code or explicitly open a compatible wallet. Verify the recipient, amount, network and Memo before approving.'))+'</span></div><div class="osi-payment-actions"><button class="osi-action" type="button" data-solana-pay-close>'+esc(t('Close'))+'</button>'+phantom+'<button class="osi-action" type="button" data-solana-pay-copy>'+esc(t('Copy link'))+'</button><button class="osi-action" type="button" data-solana-pay-copy-memo>'+esc(t('Copy Memo'))+'</button><button class="osi-action" type="button" data-solana-pay-retry>'+esc(t('Check payment'))+'</button><a class="osi-action" data-solana-pay-open href="'+esc(url)+'">'+esc(t(mobile?'Open compatible wallet':'Open compatible wallet app'))+'</a></div><div class="osi-case-note">'+esc(t('The connected Phantom button reuses this exact prepared intent. A QR, copied link, or deep link only offers it to a compatible wallet; OSI does not claim an app was detected. Nothing is marked paid until finalized server verification succeeds.'))+'</div></div>';
     document.body.appendChild(modal);
     window.osiSolanaPay.renderQr(modal.querySelector('[data-solana-pay-qr]'),url);
     var prior=document.activeElement;var stopped=false;var polling=false;var timerId=0;var countdownId=0;
@@ -860,50 +1279,72 @@
     function setPayState(title,message,kind){
       if(!stateNode)return;stateNode.className='osi-state-message '+(kind||'');stateNode.innerHTML='<b>'+esc(title)+'</b><span>'+esc(message)+'</span>';
     }
-    function close(){
-      stopped=true;clearTimeout(timerId);clearInterval(countdownId);document.removeEventListener('keydown',keyHandler);
-      modal.remove();if(prior&&document.contains(prior)&&prior.focus)prior.focus();
-      paymentStatus('Solana Pay request closed. Resume the same bound request before starting any replacement payment.','warning');
+    function close(fromClear){
+      stopped=true;clearTimeout(timerId);clearInterval(countdownId);document.removeEventListener('keydown',keyHandler,true);
+      modal.remove();if(state.paymentCleanup===close)state.paymentCleanup=null;if(!fromClear&&prior&&document.contains(prior)&&prior.focus)prior.focus();
+      if(!fromClear)paymentStatus(t('Solana Pay request closed. Resume the same bound request before starting any replacement payment.'),'warning');
     }
-    var keyHandler=trapModalKeys(modal,close);document.addEventListener('keydown',keyHandler);
-    modal.addEventListener('click',function(event){if(event.target===modal)close();});
-    modal.querySelector('[data-solana-pay-close]').addEventListener('click',close);
+    var previousCleanup=state.paymentCleanup;state.paymentCleanup=close;if(typeof previousCleanup==='function')previousCleanup(true);
+    var keyHandler=trapModalKeys(modal,close);document.addEventListener('keydown',keyHandler,true);
+    modal.addEventListener('click',function(event){if(event.target===modal)close(false);});
+    modal.querySelector('[data-solana-pay-close]').addEventListener('click',function(){close(false);});
     modal.querySelector('[data-solana-pay-copy]').addEventListener('click',async function(){
-      try{await navigator.clipboard.writeText(url);setPayState('Link copied','Paste it only into a compatible Solana wallet and verify every field.','success');}
-      catch(error){setPayState('Copy unavailable','Use the QR code or the explicit wallet link.','warning');}
+      if(generation!==privateGeneration())return;
+      try{await navigator.clipboard.writeText(url);setPayState(t('Link copied'),t('Paste it only into a compatible Solana wallet and verify every field.'),'success');}
+      catch(error){setPayState(t('Copy unavailable'),t('Use the QR code or the explicit wallet link.'),'warning');}
+    });
+    modal.querySelector('[data-solana-pay-copy-memo]').addEventListener('click',async function(){
+      if(generation!==privateGeneration())return;
+      try{await navigator.clipboard.writeText(String(prepared.memo||''));setPayState(t('Memo copied'),t('Verify this exact Memo in the wallet before approving.'),'success');}
+      catch(error){var memo=modal.querySelector('[data-solana-pay-memo]');if(memo){var range=document.createRange();range.selectNodeContents(memo);var selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);}setPayState(t('Copy unavailable'),t('The exact Memo is selected for manual copying.'),'warning');}
+    });
+    var phantomButton=modal.querySelector('[data-solana-pay-phantom]');if(phantomButton)phantomButton.addEventListener('click',async function(){
+      if(polling||stopped)return;phantomButton.disabled=true;phantomButton.setAttribute('aria-busy','true');
+      setPayState(t('Approve in connected Phantom'),t('The transaction contains the exact Memo, recipient, amount, and single-use Solana Pay reference.'),'');
+      try{
+        pending.txSig=await sendPreparedSolanaPay(prepared,pending.wallet,generation,function(signature){
+          pending.txSig=signature;
+          persistPaymentPending(pending,{expose:generation===privateGeneration()&&pending.wallet===String(walletPubkey||'')});
+        });assertPrivateGeneration(generation);persistPaymentPending(pending);
+        setPayState(t('Transaction submitted'),t('Waiting for finalized server verification of this same reference.'),'success');await poll();
+      }catch(error){if(generation===privateGeneration())setPayState(t('Phantom transfer not submitted'),userError(error),'warning');}
+      finally{if(generation===privateGeneration()){phantomButton.removeAttribute('aria-busy');if(!stopped)phantomButton.disabled=false;}}
     });
     function updateCountdown(){
       var expires=new Date(prepared.solana_pay.expires_at||prepared.expires_at).getTime();var left=expires-Date.now();
-      if(!Number.isFinite(expires)||left<=0){timerNode.textContent='Intent expired';return false;}
-      timerNode.textContent='Expires in '+Math.max(1,Math.ceil(left/1000))+' seconds';return true;
+      if(!Number.isFinite(expires)||left<=0){timerNode.textContent=t('Intent expired');return false;}
+      timerNode.textContent=t('Expires in {seconds} seconds',{seconds:Math.max(1,Math.ceil(left/1000))});return true;
     }
     async function poll(){
-      if(stopped||polling)return;polling=true;
-      if(!updateCountdown()){setPayState('Expired','This bound request can no longer be used. No payment was recorded.','warning');stopped=true;document.removeEventListener('keydown',keyHandler);clearPaymentState();return;}
-      setPayState('Verifying','Checking finalized mainnet history for the exact single-use reference.','');
+      if(stopped||polling)return;if(generation!==privateGeneration()){close(true);return;}polling=true;
+      if(!updateCountdown()){setPayState(t('Expired'),t('This bound request can no longer be used. No payment was recorded.'),'warning');stopped=true;document.removeEventListener('keydown',keyHandler,true);clearPaymentState({forgetRecovery:!pending.txSig,wallet:pending.wallet});return;}
+      setPayState(t('Verifying'),t('Checking finalized mainnet history for the exact single-use reference.'),'');
       try{
         var result=await api(PAYMENT_URL,{op:'poll_solana_pay',wallet:pending.wallet,reference:prepared.solana_pay.reference});
+        assertPrivateGeneration(generation);
         if(result.paid===true&&result.receipt){
-          stopped=true;clearTimeout(timerId);clearInterval(countdownId);document.removeEventListener('keydown',keyHandler);modal.remove();
-          clearPaymentState();showToast('Finalized Solana Pay transfer verified. Receipt '+result.receipt.id+' is available in the Proof Log.');showPaymentReceipt(result.receipt);
+          stopped=true;clearTimeout(timerId);clearInterval(countdownId);document.removeEventListener('keydown',keyHandler,true);modal.remove();
+          clearPaymentState({forgetRecovery:true,wallet:pending.wallet});showToast(t('Finalized Solana Pay transfer verified. Receipt {receipt} is available in the Proof Log.',{receipt:result.receipt.id}));showPaymentReceipt(result.receipt);
           if(pending.caseRef)await reloadPaymentCase(pending.caseRef);
           else if(pending.wireVersionRef&&typeof window.osiV2OpenWireReport==='function')await window.osiV2OpenWireReport(pending.wireVersionRef);
+          assertPrivateGeneration(generation);
           return;
         }
-        setPayState('Awaiting payment','No exact finalized transfer is recorded yet. Keep this single request; do not create a second payment.','warning');
+        setPayState(t('Awaiting payment'),t('No exact finalized transfer is recorded yet. Keep this single request; do not create a second payment.'),'warning');
       }catch(error){
+        if(generation!==privateGeneration()){close(true);return;}
         if(error.status===410||String(error.message)==='solana_pay_intent_expired'){
-          setPayState('Expired','The server-confirmed intent expired. No payment was recorded.','warning');stopped=true;document.removeEventListener('keydown',keyHandler);clearPaymentState();return;
+          setPayState(t('Expired'),t('The server-confirmed intent expired. No payment was recorded.'),'warning');stopped=true;document.removeEventListener('keydown',keyHandler,true);clearPaymentState({forgetRecovery:!pending.txSig,wallet:pending.wallet});return;
         }
-        setPayState('Verification unavailable',userError(error)+' The request remains unpaid; retry this same reference.','warning');
+        setPayState(t('Verification unavailable'),userError(error)+' '+t('The request remains unpaid; retry this same reference.'),'warning');
       }finally{
         polling=false;if(!stopped&&updateCountdown())timerId=setTimeout(poll,3500);
       }
     }
     modal.querySelector('[data-solana-pay-retry]').addEventListener('click',poll);
     countdownId=setInterval(updateCountdown,1000);updateCountdown();
-    modal.querySelector('[data-solana-pay-open]').focus();
-    setPayState('Ready','Use one compatible wallet. OSI will verify the exact finalized transfer automatically.','success');
+    (phantomButton||modal.querySelector('[data-solana-pay-open]')).focus();
+    setPayState(t('Ready'),t('Use one compatible wallet. OSI will verify the exact finalized transfer automatically.'),'success');
     timerId=setTimeout(poll,1500);
   }
   async function reloadPaymentCase(caseRef){
@@ -912,51 +1353,71 @@
   }
   function showPaymentReceipt(receipt){
     var old=document.getElementById('osi-payment-receipt');if(old)old.remove();var modal=document.createElement('div');modal.id='osi-payment-receipt';modal.className='osi-payment-review';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');
-    modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">SOL transfer verified on Solana</span><h3>Finalized payment receipt</h3><dl><div><dt>Transaction</dt><dd class="mono">'+esc(short(receipt.tx_sig))+'</dd></div><div><dt>Finality</dt><dd>'+esc(receipt.finality)+'</dd></div><div><dt>Total</dt><dd>'+esc(receipt.total_sol)+' SOL / '+esc(receipt.total_lamports)+' lamports</dd></div><div><dt>Slot</dt><dd>'+esc(receipt.slot)+'</dd></div><div><dt>Block time</dt><dd>'+esc(dateText(receipt.block_time))+'</dd></div><div><dt>Server verification</dt><dd>Signer, transfers, Memo and mainnet verified</dd></div></dl><div class="osi-payment-actions"><a class="osi-action" href="'+esc(receipt.solscan_url)+'" target="_blank" rel="noopener">Open Solscan</a><button class="osi-action primary" type="button" data-receipt-close>Done</button></div><div class="osi-case-note">This receipt records a direct wallet-to-wallet transfer. It is not an endorsement, truth vote, guilt decision, legal finding, custody service, or governance weight.</div></div>';
+    modal.setAttribute('aria-labelledby','osi-payment-receipt-title');
+    modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">'+esc(t('SOL transfer verified on Solana'))+'</span><h3 id="osi-payment-receipt-title">'+esc(t('Finalized payment receipt'))+'</h3><dl><div><dt>'+esc(t('Transaction'))+'</dt><dd class="mono">'+esc(short(receipt.tx_sig))+'</dd></div><div><dt>'+esc(t('Finality'))+'</dt><dd>'+esc(receipt.finality)+'</dd></div><div><dt>'+esc(t('Total'))+'</dt><dd>'+esc(receipt.total_sol)+' SOL / '+esc(receipt.total_lamports)+' lamports</dd></div><div><dt>'+esc(t('Slot'))+'</dt><dd>'+esc(receipt.slot)+'</dd></div><div><dt>'+esc(t('Block time'))+'</dt><dd>'+esc(dateText(receipt.block_time))+'</dd></div><div><dt>'+esc(t('Server verification'))+'</dt><dd>'+esc(t('Signer, transfers, Memo and mainnet verified'))+'</dd></div></dl><div class="osi-payment-actions"><a class="osi-action" href="'+esc(receipt.solscan_url)+'" target="_blank" rel="noopener">'+esc(t('Open Solscan'))+'</a><button class="osi-action primary" type="button" data-receipt-close>'+esc(t('Done'))+'</button></div><div class="osi-case-note">'+esc(t('This receipt records a direct wallet-to-wallet transfer. It is not an endorsement, truth vote, guilt decision, legal finding, custody service, or governance weight.'))+'</div></div>';
     document.body.appendChild(modal);modal.querySelector('[data-receipt-close]').addEventListener('click',function(){modal.remove();});modal.querySelector('[data-receipt-close]').focus();
   }
-  async function verifyPreparedPayment(pending,recovery){
+  async function verifyPreparedPayment(pending,recovery,generation){
+    assertPrivateGeneration(generation);
     var result=await api(PAYMENT_URL,{op:recovery?'recover_payment':'commit_payment',wallet:pending.wallet,nonce:pending.prepared.nonce,tx_sig:pending.txSig});
+    assertPrivateGeneration(generation);
     if(result.state==='awaiting_finality'){
       persistPaymentPending(pending);paymentStatus('Transaction submitted. Awaiting finalized trusted RPC verification; not marked paid. Do not send another payment.','warning');
       if(state.current){state.tab='reward';renderTab();}return result;
     }
-    clearPaymentState();showToast((result.historical_reverification?'Existing signature re-verified. ':'')+'Finalized direct SOL transfer verified. Receipt '+result.receipt.id+' is available in the Proof Log.');showPaymentReceipt(result.receipt);
-    if(pending.caseRef)await reloadPaymentCase(pending.caseRef);
-    else if(pending.wireVersionRef&&typeof window.osiV2OpenWireReport==='function')await window.osiV2OpenWireReport(pending.wireVersionRef);
+    clearPaymentState({forgetRecovery:true,wallet:pending.wallet});showToast((result.historical_reverification?t('Existing signature re-verified. ') : '')+t('Finalized direct SOL transfer verified. Receipt {receipt} is available in the Proof Log.',{receipt:result.receipt.id}));showPaymentReceipt(result.receipt);
+    if(pending.restored_from_storage!==true){
+      if(pending.caseRef)await reloadPaymentCase(pending.caseRef);
+      else if(pending.wireVersionRef&&typeof window.osiV2OpenWireReport==='function')await window.osiV2OpenWireReport(pending.wireVersionRef);
+    }
+    assertPrivateGeneration(generation);
     return result;
   }
   async function prepareAndSendPayment(kind,targetRef,recipients,amountSol){
-    if(state.paymentBusy)return;state.paymentBusy=true;
+    if(state.paymentBusy)return;
+    if(state.paymentPending){paymentStatus('Finish or re-verify the existing wallet-bound payment before preparing another transfer. Do not pay twice.','warning');return;}
+    var generation=privateGeneration();state.paymentBusy=true;
     try{
-      var wallet=await ensureWallet();var caps=state.capabilities||await refreshCapabilities()||{};
+      var wallet=await ensureWallet();restorePaymentPending(wallet);
+      if(state.paymentPending){paymentStatus('Finish or re-verify the existing wallet-bound payment before preparing another transfer. Do not pay twice.','warning');return;}
+      var caps=state.capabilities||await refreshCapabilities()||{};
+      assertPrivateGeneration(generation);
       if(caps.payment_writes_enabled!==true)throw new Error('payment_writes_disabled');
       var body={op:'prepare_payment',payment_kind:kind,wallet:wallet,target_ref:targetRef,idempotency_key:randomKey('payment')};
       if(kind==='reward')body.amount_sol=amountSol;else body.recipients=recipients;
       paymentStatus('Deriving exact recipients and canonical Memo on the server...');
-      var prepared=await api(PAYMENT_URL,body);var method=await paymentReview(prepared);if(!method){paymentStatus('Transfer cancelled before any wallet opened.');return;}
-      var pending={wallet:wallet,caseRef:state.current&&state.current.public_ref||'',prepared:prepared,method:method};
+      var prepared=await api(PAYMENT_URL,body);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);var method=await paymentReview(prepared);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);if(!method){paymentStatus('Transfer cancelled before any wallet opened.');return;}
+      var pending={wallet:wallet,caseRef:state.current&&state.current.public_ref||'',prepared:prepared,method:method,recovery_state:method==='solana_pay'?'prepared':'awaiting_wallet'};
       if(method==='solana_pay'){
         persistPaymentPending(pending);paymentStatus('Single-use Solana Pay request ready. It remains unpaid until exact finalized server verification.','warning');openSolanaPay(pending);return;
       }
-      var txSig=await sendPreparedPayment(prepared);pending.txSig=txSig;
+      persistPaymentPending(pending);
+      var txSig=await sendPreparedPayment(prepared,wallet,generation,function(signature){
+        pending.txSig=signature;pending.recovery_state='broadcast';
+        persistPaymentPending(pending,{expose:generation===privateGeneration()&&wallet===String(walletPubkey||'')});
+      });assertPrivateGeneration(generation);pending.txSig=txSig;pending.recovery_state='broadcast';
       persistPaymentPending(pending);paymentStatus('Transaction submitted. Verifying mainnet finality, signer, transfers, Memo, freshness, and replay binding...');
-      await verifyPreparedPayment(pending);
-    }catch(error){paymentStatus(userError(error)+(state.paymentPending?(state.paymentPending.method==='solana_pay'?' Resume the same Solana Pay request; do not start another.':' Do not pay again; use Re-verify existing signature.') :''),'error');showToast(userError(error));if(state.current&&state.paymentPending){state.tab='reward';renderTab();}}
-    finally{state.paymentBusy=false;}
+      await verifyPreparedPayment(pending,false,generation);
+    }catch(error){if(generation===privateGeneration()){paymentStatus(userError(error)+(state.paymentPending?(state.paymentPending.method==='solana_pay'?' Resume the same Solana Pay request; do not start another.':' Do not pay again; use Re-verify existing signature.') :''),'error');showToast(userError(error));if(state.current&&state.paymentPending){state.tab='reward';renderTab();}}}
+    finally{if(generation===privateGeneration())state.paymentBusy=false;}
   }
   async function pledge(action){
     if(state.paymentBusy||!state.current)return;var amountNode=document.getElementById('osi-pledge-amount');var amount=amountNode?String(amountNode.value||'').trim():'1';
     if(action!=='withdraw'&&!validSolInput(amount)){paymentStatus('Enter a positive SOL amount with at most 9 decimals.','error');return;}
-    state.paymentBusy=true;
+    var generation=privateGeneration();state.paymentBusy=true;
     try{
       var wallet=await ensureWallet();paymentStatus('Preparing an exact single-use pledge message...');
+      assertPrivateGeneration(generation);
       var prepared=await api(PAYMENT_URL,{op:'prepare_pledge',action:action,wallet:wallet,case_ref:state.current.public_ref,amount_sol:amount,idempotency_key:randomKey('pledge')});
+      assertPrivateGeneration(generation);
       paymentStatus('Sign the pledge message. This is not a transfer and is not on-chain.');var signature=await signMessage(prepared.proof_text);
+      assertPrivateGeneration(generation);
       await api(PAYMENT_URL,{op:'commit_pledge',action:action,wallet:wallet,nonce:prepared.nonce,proof_text:prepared.proof_text,signature:signature});
+      assertPrivateGeneration(generation);
       paymentStatus('Reward pledge '+(action==='withdraw'?'withdrawn':action+'d')+' with wallet-signed server proof.','success');showToast('Reward pledge updated. No SOL moved.');
       await reloadPaymentCase(state.current.public_ref);
-    }catch(error){paymentStatus(userError(error),'error');}finally{state.paymentBusy=false;}
+      assertPrivateGeneration(generation);
+    }catch(error){if(generation===privateGeneration())paymentStatus(userError(error),'error');}finally{if(generation===privateGeneration())state.paymentBusy=false;}
   }
   function payReward(){var value=fieldValue('osi-reward-pay-amount');if(!validSolInput(value)){paymentStatus('Enter a positive SOL amount with at most 9 decimals.','error');return;}prepareAndSendPayment('reward',state.current.public_ref,null,value);}
   function supportContributors(versionRef){
@@ -970,7 +1431,7 @@
   // ability to support someone.
   function askSolAmount(options){
     if(typeof window.osiAskSolAmount==='function')return window.osiAskSolAmount(options);
-    var typed=window.prompt('Exact native SOL amount (maximum 9 decimals). This voluntary direct transfer has no governance effect.','0.1');
+    var typed=window.prompt(t('Exact native SOL amount (maximum 9 decimals). This voluntary direct transfer has no governance effect.'),'0.1');
     return Promise.resolve(typed===null?null:String(typed).trim());
   }
   function supportLabel(targetType){
@@ -979,6 +1440,7 @@
     return 'this recipient';
   }
   async function supportExternal(targetType,targetRef,reviewerWallet){
+    var generation=privateGeneration();
     var address=targetType==='counted_reviewer'?reviewerWallet:targetRef;
     var amount=await askSolAmount({
       title:'◎ Voluntary support',
@@ -986,42 +1448,83 @@
       address:address,
       action:'Review transfer →'
     });
+    if(generation!==privateGeneration())return;
     if(amount===null)return;
-    if(!validSolInput(amount)){showToast('Enter a positive SOL amount with at most 9 decimals.');return;}
+    if(!validSolInput(amount)){showToast(t('Enter a positive SOL amount with at most 9 decimals.'));return;}
     var recipient={target_type:targetType,target_ref:targetRef,amount_sol:amount};if(targetType==='counted_reviewer')recipient.reviewer_wallet=reviewerWallet;
     prepareAndSendPayment('support',targetRef,[recipient]);
   }
   async function supportWireAuthor(versionRef,authorWallet){
     if(!/^OSI-WV-[0-9A-F]{16}$/.test(String(versionRef||''))||state.paymentBusy)return;
+    if(state.paymentPending){showToast('Finish or re-verify the existing wallet-bound payment before preparing another transfer. Do not pay twice.');return;}
+    var generation=privateGeneration();
     var amount=await askSolAmount({
       title:'◎ Support the Wire author',
       label:'this Wire Report author',
       address:authorWallet,
       action:'Review transfer →'
     });
+    if(generation!==privateGeneration())return;
     if(amount===null)return;
-    if(!validSolInput(amount)){showToast('Enter a positive SOL amount with at most 9 decimals.');return;}
+    if(!validSolInput(amount)){showToast(t('Enter a positive SOL amount with at most 9 decimals.'));return;}
     state.paymentBusy=true;
     try{
       var wallet=await ensureWallet();
+      restorePaymentPending(wallet);
+      if(state.paymentPending){showToast('Finish or re-verify the existing wallet-bound payment before preparing another transfer. Do not pay twice.');return;}
+      assertPrivateGeneration(generation);
       if(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(authorWallet||''))&&wallet===authorWallet){showToast('You cannot support your own Wire Report.');return;}
       var prepared=await api(PAYMENT_URL,{op:'prepare_wire_support',wallet:wallet,version_public_ref:versionRef,amount_sol:amount,idempotency_key:randomKey('wire-support')});
-      var method=await paymentReview(prepared);if(!method)return;
-      var pending={wallet:wallet,caseRef:'',wireVersionRef:versionRef,prepared:prepared,method:method};
+      assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);var method=await paymentReview(prepared);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);if(!method)return;
+      var pending={wallet:wallet,caseRef:'',wireVersionRef:versionRef,prepared:prepared,method:method,recovery_state:method==='solana_pay'?'prepared':'awaiting_wallet'};
       if(method==='solana_pay'){persistPaymentPending(pending);openSolanaPay(pending);return;}
-      var txSig=await sendPreparedPayment(prepared);pending.txSig=txSig;
       persistPaymentPending(pending);
-      await verifyPreparedPayment(pending);
-    }catch(error){showToast(userError(error));}
-    finally{state.paymentBusy=false;}
+      var txSig=await sendPreparedPayment(prepared,wallet,generation,function(signature){
+        pending.txSig=signature;pending.recovery_state='broadcast';
+        persistPaymentPending(pending,{expose:generation===privateGeneration()&&wallet===String(walletPubkey||'')});
+      });assertPrivateGeneration(generation);pending.txSig=txSig;pending.recovery_state='broadcast';
+      persistPaymentPending(pending);
+      await verifyPreparedPayment(pending,false,generation);
+    }catch(error){if(generation===privateGeneration())showToast(userError(error));}
+    finally{if(generation===privateGeneration())state.paymentBusy=false;}
+  }
+  async function pollRestoredSolanaPay(pending,generation){
+    assertPrivateGeneration(generation);
+    if(!pending||pending.restored_from_storage!==true
+      ||String(pending.wallet||'')!==String(walletPubkey||''))throw new Error('payment_wallet_changed');
+    paymentStatus('Checking the server for a finalized transfer bound to this restored reference. No wallet will open.');
+    try{
+      var result=await api(PAYMENT_URL,{op:'poll_solana_pay',wallet:pending.wallet,reference:String(pending.prepared&&pending.prepared.solana_pay&&pending.prepared.solana_pay.reference||'')});
+      assertPrivateGeneration(generation);
+      if(result.paid===true&&result.receipt){
+        clearPaymentState({forgetRecovery:true,wallet:pending.wallet});
+        showToast(t('Finalized Solana Pay transfer verified. Receipt {receipt} is available in the Proof Log.',{receipt:result.receipt.id}));
+        showPaymentReceipt(result.receipt);return;
+      }
+      paymentStatus('No exact finalized transfer is recorded yet. Keep this recovery record and do not prepare a replacement payment.','warning');
+    }catch(error){
+      if(generation!==privateGeneration())return;
+      if(error.status===410||['unknown_solana_pay_reference','solana_pay_intent_expired'].indexOf(String(error.message))>=0){
+        clearPaymentState({forgetRecovery:true,wallet:pending.wallet});
+        paymentStatus(userError(error)+' No wallet was opened from browser storage.','warning');return;
+      }
+      paymentStatus(userError(error)+' No wallet was opened; retry this same server check.','error');
+    }
   }
   function retryPayment(){
     if(!state.paymentPending)return;
+    var generation=privateGeneration();
+    if(state.paymentPending.method==='solana_pay'&&state.paymentPending.restored_from_storage===true){
+      pollRestoredSolanaPay(state.paymentPending,generation);return;
+    }
+    try{exactPaymentProvider(state.paymentPending.prepared,state.paymentPending.wallet,generation);}
+    catch(error){clearPaymentState();paymentStatus(userError(error),'error');return;}
     if(state.paymentPending.method==='solana_pay'){
       try{openSolanaPay(state.paymentPending);}catch(error){paymentStatus(userError(error)+' The bound reference remains available until its exact expiry.','error');}
       return;
     }
-    verifyPreparedPayment(state.paymentPending,true).catch(function(error){paymentStatus(userError(error)+' The existing signature remains available for another verification attempt; do not send a replacement payment.','error');});
+    if(!state.paymentPending.txSig){paymentStatus('The wallet did not return a transaction signature. Do not start a replacement payment until you have checked the intended payer wallet history.','warning');return;}
+    verifyPreparedPayment(state.paymentPending,true,generation).catch(function(error){if(generation===privateGeneration())paymentStatus(userError(error)+' The existing signature remains available for another verification attempt; do not send a replacement payment.','error');});
   }
 
   var legacyAdminUpdate=window.updateAdminButton;
@@ -1041,12 +1544,17 @@
   window.osiV2GovernanceWithdrawChallenge=governanceWithdrawChallenge;
   window.osiV2GovernanceFinalizeChallenge=governanceFinalizeChallenge;
   window.fieldCloseForm=fieldCloseFormV2;
-  window.fieldMine=function(mine){if(mine)openSignedCollection('mine');else loadPublicCases();};
+  window.fieldMine=function(mine){return mine?openSignedCollection('mine'):loadPublicCases();};
   window.fieldSearch=function(value){state.query=String(value||'');state.page=1;drawCases();};
   window.fieldFilter=function(value){state.stage=String(value||'all');state.page=1;drawCases();};
   window.fieldSort=function(value){state.sort=String(value||'newest');drawCases();};
-  window.osiV2OpenMyCases=function(){openSignedCollection('mine');};
-  window.osiV2OpenReviewQueue=function(){openSignedCollection('review');};
+  window.osiV2OpenMyCases=function(){return openSignedCollection('mine');};
+  window.osiV2OpenReviewQueue=function(){return openSignedCollection('review');};
+  window.osiV2RefreshUnifiedReviewQueue=loadUnifiedReviewQueue;
+  window.osiV2CanOpenReviewQueue=function(){return !!(state.capabilities&&(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true));};
+  window.osiV2SetFieldReviewChrome=setReviewChrome;
+  window.osiV2RenderSubmissionReceipt=renderSubmissionReceipt;
+  window.osiV2ClearSubmissionReceipt=clearSubmissionReceipt;
   window.osiV2LoadMaintainerOverview=function(){
     return sessionRead('case:maintainer','maintainer_case_overview');
   };
@@ -1077,14 +1585,24 @@
   window.osiV2RetryPayment=retryPayment;
   window.osiV2ClearPaymentState=clearPaymentState;
 
-  function clearPrivateCaseCache(){
-    if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.current=null;state.actorRole='public';state.mode='public';}
-    state.capabilities=null;state.governanceBusy=false;clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
+  function clearPrivateCaseCache(reason){
+    if(reason==='expiry'||reason==='explicit_refresh')saveCaseDraft();
+    state.loadToken+=1;state.reviewLoadToken+=1;state.drawerLoadToken+=1;
+    if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.reviewLanes={};state.reviewUpdatedAt=null;state.current=null;state.activeReviewTask=null;state.actorRole='public';state.mode='public';}
+    state.capabilities=null;state.reviewBusy=false;state.governanceBusy=false;state.paymentBusy=false;state.caseReceipt=null;state.caseIdempotency='';clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
+    clearSubmissionReceipt('v2-case-receipt');
+    var form=document.getElementById('field-form');if(form)form.reset();
+    var modal=document.getElementById('fo-modal');if(modal)modal.classList.remove('open');
+    formStatus('');
+    var submit=document.getElementById('v2-case-submit');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}
+    state.modalReturnFocus=null;
     wipeCaseDrawerContent();
     var drawer=document.getElementById('osi-case-drawer');if(drawer)drawer.hidden=true;
     document.body.classList.remove('osi-case-open');syncBodyLock();
   }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('cases',clearPrivateCaseCache);
+  var caseDraftForm=document.getElementById('field-form');
+  if(caseDraftForm){caseDraftForm.addEventListener('input',saveCaseDraft);caseDraftForm.addEventListener('change',saveCaseDraft);}
 
   function trapFocus(event,root){
     if(event.key!=='Tab'||!root)return;
@@ -1103,6 +1621,14 @@
     }
     if(modal&&modal.classList.contains('open'))trapFocus(event,modal);
     else if(drawer&&!drawer.hidden)trapFocus(event,drawer);
+  });
+  window.addEventListener('osi:localechange',function(){
+    Object.keys(state.submissionReceipts).forEach(function(hostId){
+      renderSubmissionReceipt(hostId,state.submissionReceipts[hostId],false);
+    });
+    var host=document.getElementById('field-cases');
+    if(host&&state.mode==='review')drawReviewTasks(host);
+    if(state.current){drawTabs();renderTab();renderActions();}
   });
   setAdminVisibility(false);
   setReviewNavigationVisibility(false);

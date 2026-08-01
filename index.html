@@ -100,7 +100,7 @@
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button>
         <div class="wb-menu-rule"></div>
         <div class="wb-menu-label">Analyst</div>
-        <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReportQueue();closeWalletMenu();">Review Queue</button>
+        <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">Unified Review Queue</button>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('profile');closeWalletMenu();">My Analyst Profile</button>
         <button class="wb-mi" type="button" role="menuitem" data-action-contract="analyst" data-endpoint="osi-v2-analyst:my_workspace" onclick="osiRunLiveAction('analyst');closeWalletMenu();">Applications</button>
         <div class="wb-menu-rule"></div>
@@ -433,7 +433,7 @@
 </section>
 <div class="ap-modal" id="ap-modal" aria-hidden="true">
   <div class="ap-modal-bg" onclick="closeAnalystProfile()"></div>
-  <div class="ap-modal-card" role="dialog" aria-label="Analyst profile">
+  <div class="ap-modal-card" role="dialog" aria-modal="true" aria-label="Analyst profile" tabindex="-1">
     <button class="ap-modal-x" type="button" onclick="closeAnalystProfile()" aria-label="Close">&times;</button>
     <div class="ap-modal-body" id="ap-modal-body"></div>
   </div>
@@ -647,6 +647,7 @@
       <fieldset class="osi-evidence-set"><legend>Structured evidence references</legend><div class="fo-grid2"><label class="osi-field"><span>Wallet addresses</span><textarea id="v2-case-wallets" class="fo-in" rows="3" placeholder="One Solana address per line"></textarea></label><label class="osi-field"><span>Transaction signatures</span><textarea id="v2-case-transactions" class="fo-in" rows="3" placeholder="One Solana signature per line"></textarea></label></div><label class="osi-field"><span>HTTPS evidence links</span><textarea id="v2-case-urls" class="fo-in" rows="2" placeholder="One public HTTPS URL per line"></textarea></label></fieldset>
       <label class="osi-field osi-reward-field"><span>Optional reward intent in SOL</span><input id="v2-case-reward" class="fo-in" type="number" step="0.000000001" min="0" max="1000000" placeholder="0"><small>This records non-binding intent only. It is not a pledge, transfer, escrow, or payment.</small></label>
       <label class="osi-case-confirm"><input id="v2-case-confirm" type="checkbox" required><span>I confirm this submission contains no seed phrase, private key, illegal-access material, doxxing, or unsupported guilt claim.</span></label>
+      <section class="osi-submission-receipt" id="v2-case-receipt" role="status" aria-live="polite" tabindex="-1" hidden></section>
       <div class="osi-form-status mono" id="v2-case-form-status" role="status" aria-live="polite"></div>
       <div class="fo-form-foot">
         <span class="fo-form-note">Network fee only. OSI receives no funds and never takes custody.</span>
@@ -674,14 +675,14 @@
     <textarea id="osi-report-summary" rows="3" maxlength="4000" aria-describedby="osi-report-summary-help"></textarea>
     <span class="fo-hint" id="osi-report-summary-help">Optional. It is still private in this intake slice.</span>
     <fieldset class="osi-report-evidence">
-      <legend>Structured evidence references <span aria-hidden="true">*</span></legend>
+      <legend>Structured evidence references (optional)</legend>
       <label class="fo-label" for="osi-report-wallets">Wallet addresses</label>
       <textarea id="osi-report-wallets" rows="2" spellcheck="false" placeholder="One address per line"></textarea>
       <label class="fo-label" for="osi-report-transactions">Solana transaction signatures</label>
       <textarea id="osi-report-transactions" rows="2" spellcheck="false" placeholder="One signature per line"></textarea>
       <label class="fo-label" for="osi-report-urls">HTTPS source URLs</label>
       <textarea id="osi-report-urls" rows="2" spellcheck="false" placeholder="https://example.org/source"></textarea>
-      <span class="fo-hint">Add at least one and no more than 12 total references. File upload is unavailable because no approved private storage path exists yet.</span>
+      <span class="fo-hint">Evidence references are recommended and can strengthen review. Add up to 12 total references when useful. Blank lines are ignored.</span>
     </fieldset>
     <div id="osi-report-revision-wrap" hidden>
       <label class="fo-label" for="osi-report-revision-reason">Revision reason <span aria-hidden="true">*</span></label>
@@ -697,6 +698,7 @@
       <input id="osi-report-safety" type="checkbox" required>
       <span>I confirm that this Report contains no seed phrase, private key, access token, stolen credential, illegal-access material, payment-card number, or government identity number.</span>
     </label>
+    <section class="osi-submission-receipt" id="osi-report-receipt" role="status" aria-live="polite" tabindex="-1" hidden></section>
     <div class="osi-form-status mono" id="osi-report-form-status" role="status" aria-live="polite"></div>
     <div class="fo-form-actions">
       <button class="btn-ghost" type="button" onclick="osiV2CloseReportForm()">Cancel</button>
@@ -747,6 +749,7 @@
       <input id="osi-wire-safety" type="checkbox" required>
       <span>I confirm that this Wire Report contains no seed phrase, private key, access token, stolen credential, illegal-access material, doxxing, payment-card number, or government identity number.</span>
     </label>
+    <section class="osi-submission-receipt" id="osi-wire-receipt" role="status" aria-live="polite" tabindex="-1" hidden></section>
     <div class="osi-form-status mono" id="osi-wire-form-status" role="status" aria-live="polite"></div>
     <div class="fo-form-actions">
       <button class="btn-ghost" type="button" onclick="osiV2CloseWireForm()">Cancel</button>
@@ -768,7 +771,7 @@
 <div class="osi-case-drawer" id="osi-case-drawer" role="dialog" aria-modal="true" aria-labelledby="osi-case-title" hidden>
   <button class="osi-case-scrim" type="button" tabindex="-1" onclick="osiV2CloseCase()" aria-label="Close Case detail"></button>
   <article class="osi-case-panel">
-    <header class="osi-case-panel-head"><div><div class="mono osi-case-ref" id="osi-case-ref"></div><h2 id="osi-case-title">Case</h2><div class="osi-case-state" id="osi-case-state"></div></div><button class="osi-case-close" type="button" onclick="osiV2CloseCase()" aria-label="Close">✕</button></header>
+    <header class="osi-case-panel-head"><div><div class="mono osi-case-ref" id="osi-case-ref"></div><h2 id="osi-case-title" data-osi-user-content>Case</h2><div class="osi-case-state" id="osi-case-state"></div></div><button class="osi-case-close" type="button" onclick="osiV2CloseCase()" aria-label="Close">✕</button></header>
     <nav class="osi-case-tabs" id="osi-case-tabs" aria-label="Case detail sections"></nav>
     <div class="osi-case-content" id="osi-case-content"></div>
     <footer class="osi-case-actions" id="osi-case-actions"></footer>
@@ -851,7 +854,7 @@
       <div id="osi-analyst-ops"><div class="moc-loading">Unlock both maintainer gates to load exact application versions.</div></div>
     </section>
     <section class="moc-shell osi-native-ops" aria-labelledby="osi-native-ops-title">
-      <div class="moc-section-head"><div><span class="mono">SERVER-DERIVED</span><h3 id="osi-native-ops-title">Case operations overview</h3></div><button class="moc-action" type="button" onclick="osiNativeOpsRefresh()">Refresh overview</button></div>
+      <div class="moc-section-head"><div><span class="mono">SERVER-DERIVED</span><h3 id="osi-native-ops-title">Operations and review overview</h3></div><div class="osi-ops-head-actions"><button class="moc-action" type="button" onclick="osiV2OpenReviewQueue()">Open unified queue</button><button class="moc-action" type="button" onclick="osiNativeOpsRefresh()">Refresh overview</button></div></div>
       <div id="osi-native-ops-overview" aria-live="polite"><div class="moc-loading">Unlock both maintainer gates to load the native Case overview.</div></div>
     </section>
     <div id="admConsole" hidden>
@@ -1039,8 +1042,8 @@
 <form class="osi-analyst-form" id="analyst-form" onsubmit="osiAnalystSubmit(event)">
   <h3 id="osi-application-title">Create your analyst profile</h3>
   <p class="lead">Your wallet is the applicant identity. Submission signs one exact immutable version. Public profile fields become visible only after probation activation.</p>
-  <div class="osi-form-grid"><label><span>X / Twitter handle (required)</span><input id="an-x-handle" minlength="2" maxlength="16" pattern="@?[A-Za-z0-9_]{2,15}" required placeholder="@chain_sleuth"></label><label><span>Display name (optional)</span><input id="an-name" maxlength="80" placeholder="Chain Sleuth"></label></div>
-  <input id="an-handle" type="hidden">
+  <div class="osi-form-grid"><label><span>Public OSI handle (optional)</span><input id="an-handle" minlength="2" maxlength="32" pattern="[A-Za-z0-9_]{2,32}" spellcheck="false" autocomplete="off" placeholder="chain_sleuth"></label><label><span>Display name (optional)</span><input id="an-name" maxlength="80" autocomplete="name" placeholder="Chain Sleuth"></label></div>
+  <label><span>X / Twitter handle (optional)</span><input id="an-x-handle" minlength="2" maxlength="16" pattern="@?[A-Za-z0-9_]{2,15}" spellcheck="false" autocomplete="off" placeholder="@chain_sleuth"><small>Your wallet remains the authoritative identity. Leave this blank if you do not want an X link on the public profile.</small></label>
   <label><span>Short public bio (required)</span><textarea id="an-bio" minlength="10" maxlength="600" required placeholder="What you investigate and how you work with public evidence."></textarea></label>
   <fieldset class="osi-expertise"><legend>Expertise categories (optional)</legend><label><input type="checkbox" name="an-expertise" value="blockchain_forensics">Blockchain forensics</label><label><input type="checkbox" name="an-expertise" value="scam_analysis">Scam analysis</label><label><input type="checkbox" name="an-expertise" value="exploit_research">Exploit research</label><label><input type="checkbox" name="an-expertise" value="data_analysis">Data analysis</label><label><input type="checkbox" name="an-expertise" value="osint">OSINT</label><label><input type="checkbox" name="an-expertise" value="protocol_research">Protocol research</label></fieldset>
   <div class="osi-form-grid"><label><span>Other public link label (optional)</span><input id="an-link-label" maxlength="40" placeholder="Research archive"></label><label><span>Other public HTTPS link (optional)</span><input id="an-link-url" type="url" maxlength="300" placeholder="https://example.com/work"></label></div>
@@ -1050,6 +1053,7 @@
   <label><span>Public proof-of-work links (optional)</span><textarea id="an-proof" placeholder="One HTTPS URL per line, maximum 5"></textarea></label>
   <div class="osi-form-warning">Never include a seed phrase, private key, private messages, prohibited personal data, or confidential access material.</div>
   <label class="osi-report-safety" for="an-safety"><input id="an-safety" type="checkbox" required><span>Required: I confirm this application contains no seed phrase, private key, illegal-access material, doxxing, or confidential credential.</span></label>
+  <section class="osi-submission-receipt" id="osi-analyst-receipt" role="status" aria-live="polite" tabindex="-1" hidden></section>
   <button class="rec-go" id="an-submit" type="submit">SIGN AND SUBMIT VERSION</button>
   <div class="osi-form-status mono" id="an-status" role="status"></div>
 </form>

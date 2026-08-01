@@ -44,6 +44,18 @@ test('translates dynamic interface labels and leaves opted-out user content unto
     userContent.textContent = 'Home';
     document.body.appendChild(userContent);
 
+    const userSupport = document.createElement('p');
+    userSupport.id = 'dynamic-user-support';
+    userSupport.dataset.osiUserContent = '';
+    userSupport.textContent = 'Support';
+    document.body.appendChild(userSupport);
+
+    const userSaved = document.createElement('p');
+    userSaved.id = 'dynamic-user-saved';
+    userSaved.dataset.osiUserContent = '';
+    userSaved.textContent = 'Saved successfully';
+    document.body.appendChild(userSaved);
+
     const payment = document.createElement('section');
     payment.id = 'dynamic-payment-copy';
     payment.setAttribute('role', 'dialog');
@@ -60,6 +72,8 @@ test('translates dynamic interface labels and leaves opted-out user content unto
 
   await expect(page.locator('#dynamic-ui-copy')).toHaveText('Cüzdanı Bağla');
   await expect(page.locator('#dynamic-user-copy')).toHaveText('Home');
+  await expect(page.locator('#dynamic-user-support')).toHaveText('Support');
+  await expect(page.locator('#dynamic-user-saved')).toHaveText('Saved successfully');
   await expect(page.locator('#dynamic-payment-copy h3')).toHaveText('Kesin mainnet transferini inceleyin');
   await expect(page.locator('#dynamic-payment-copy button')).toHaveText('Solana Pay’i göster');
   await expect(page.locator('#dynamic-analyst-profile-copy')).toHaveAttribute('aria-label', 'Analist profili');

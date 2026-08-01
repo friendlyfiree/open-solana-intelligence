@@ -480,6 +480,28 @@ ok("Edge derives exact Report-author Case access server-side",
   /actorKind: "owner" \| "report_author" \| "analyst" \| "maintainer"/.test(fnSource)
     && /from\("case_reports"\)\.select\("id"\)/.test(fnSource)
     && /\.eq\("case_id", caseRow\.id\)\.eq\("author_wallet", proof\.actor\.wallet\)/.test(fnSource));
+const authorizedCaseHandler = fnSource.slice(
+  fnSource.indexOf("async function getAuthorizedCase("),
+  fnSource.indexOf("// Maintainer double-gate.", fnSource.indexOf("async function getAuthorizedCase(")),
+);
+const ownerRoleIndex = authorizedCaseHandler.indexOf(
+  "caseRow.submitted_by_wallet === proof.actor.wallet",
+);
+const maintainerRoleIndex = authorizedCaseHandler.indexOf(
+  "await hasFullMaintainerAccess(req, proof.actor.wallet)",
+);
+const analystRoleIndex = authorizedCaseHandler.indexOf(
+  "await isVerifiedAnalyst(proof.actor.wallet)",
+);
+const reportAuthorRoleIndex = authorizedCaseHandler.indexOf(
+  'from("case_reports").select("id")',
+);
+ok("authorized Case role precedence is owner then full maintainer then analyst then Report author",
+  ownerRoleIndex >= 0
+    && ownerRoleIndex < maintainerRoleIndex
+    && maintainerRoleIndex < analystRoleIndex
+    && analystRoleIndex < reportAuthorRoleIndex
+    && (authorizedCaseHandler.match(/hasFullMaintainerAccess\(req, proof\.actor\.wallet\)/g) || []).length === 1);
 ok("all Case collection and detail reads exclude archived and legacy-import Cases",
   (fnSource.match(/\.is\("archived_at", null\)/g) || []).length >= 6
     && (fnSource.match(/\.neq\("category", "legacy_import"\)/g) || []).length >= 6
@@ -490,6 +512,24 @@ ok("finalized selection tally uses each reviewer's phase-specific latest history
   /latestSelectionByWallet = new Map/.test(fnSource)
     && /row\.phase === "selection"/.test(fnSource)
     && /latestSelectionByWallet\.values\(\)/.test(fnSource));
+ok("review queue derives exact Report capabilities through the service-only canonical RPC",
+  fnSource.includes('rpc("osi_v2_report_publication_capabilities"')
+    && fnSource.includes("reportPublicationCapabilityDto")
+    && fnSource.includes("review_capability_unavailable"));
+ok("submitted and in-review Report versions both become real publication tasks",
+  fnSource.includes('["submitted", "in_review"].includes')
+    && fnSource.includes('task("report_publication"')
+    && fnSource.includes("report_ref:")
+    && fnSource.includes("case_stage:")
+    && fnSource.includes("next_action_code:"));
+ok("dual-role queue actors keep independent analyst and maintainer capabilities",
+  fnSource.includes("actor_roles:")
+    && fnSource.includes("can_cast_analyst_review:")
+    && fnSource.includes("can_publish_via_maintainer_bootstrap:")
+    && fnSource.includes("Publish via maintainer bootstrap (not independent analyst quorum)"));
+ok("restricted Case review queue excludes Case owners for every reviewer role",
+  fnSource.includes('.neq("submitted_by_wallet", wallet)')
+    && !fnSource.includes("if (!maintainerAccess) casesQuery"));
 ok("service role key is never in a response",
   !fnSource.includes("SERVICE_ROLE_KEY") || !fnSource.match(/jsonResponse\([^)]*SERVICE_ROLE_KEY/));
 const configToml = readFileSync(join(root, "supabase/config.toml"), "utf8");

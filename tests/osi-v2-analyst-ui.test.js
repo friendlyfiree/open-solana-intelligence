@@ -47,12 +47,34 @@ ok(analyst.includes('signMessage(prepared.message)'), 'class-B application and r
 ok(analyst.includes('castOnchainVote(prepared.memo)'), 'probation activation uses an exact Solana Memo');
 ok(analyst.includes('transaction_not_confirmed') && analyst.includes('commitActivationWithConfirmation'), 'UI never treats an unconfirmed Memo as success');
 ok(analyst.includes("weight '+Number(committed.analyst.weight).toFixed(2)"), 'activated weight is displayed from the server result');
-ok(analyst.includes('Support analyst with SOL') && analyst.includes('osiV2SupportAnalyst'), 'public verified profile exposes the native SOL support action');
+ok(analyst.includes('Support with SOL via Phantom or Solana Pay') && analyst.includes('osiV2SupportAnalyst'), 'public verified profile exposes Phantom and Solana Pay support');
 ok(analyst.includes('SOL transfer verified on Solana') && analyst.includes('recipient_amount_lamports'), 'analyst proof history labels finalized support and shows the exact recipient lamports');
+ok(html.includes('id="an-handle"') && html.includes('id="an-x-handle"')
+  && analyst.includes('handle:handle') && analyst.includes('x_handle:xHandle'),
+  'OSI handle and X handle are separate optional application fields');
+ok(!analyst.includes("'@'+esc(profile.handle)") && analyst.includes("profile.handle?'@'+profile.handle:short(profile.wallet)"),
+  'blank handles fall back to the wallet without rendering @null');
+ok(analyst.includes("body.setAttribute('aria-busy','true')")
+  && analyst.includes('state.profilesPromise')
+  && analyst.includes('data-profile-retry'),
+  'cold profile opens expose a deduplicated loading state and retry action');
+ok(analyst.includes("osiV2RenderSubmissionReceipt('osi-analyst-receipt'")
+  && !analyst.includes("setTimeout(function(){closeApplication();openWorkspace('applications');},700)"),
+  'application success keeps a persistent exact-version receipt until navigation or dismissal');
+ok(analyst.includes('window.osiAnalystLoadReviewTasks=loadMaintainerQueueData')
+  && analyst.includes('window.osiAnalystOpenMaintainerApplication')
+  && analyst.includes('String(application.version.version_ref)!==String(expectedVersionRef')
+  && analyst.includes('This exact application task changed. Refresh My Reviews before acting.'),
+  'application review tasks compose into the unified queue with exact-target routing');
 
 ok(analyst.includes('trustedAvatar') && analyst.includes('osi-analyst-avatars'), 'public avatar rendering accepts only the owned storage prefix');
 ok(analyst.includes("['image/png','image/jpeg']") && analyst.includes('524288'), 'client mirrors strict avatar MIME and size gates');
 ok(analyst.includes('details_restricted') && analyst.includes("'analyst:workspace'"), 'restricted application details render only in scoped private workspaces');
+ok(html.includes('class="ap-modal-card" role="dialog" aria-modal="true"')
+  && analyst.includes('profileReturnFocus')
+  && analyst.includes('trapModalFocus(event,profileModal)')
+  && analyst.includes("event.key==='Escape'"),
+  'public Analyst profile modal traps keyboard focus, closes on Escape, and restores its opener');
 ok(analyst.includes('aria-label="Analyst workspace sections"')
   && analyst.includes('role="tab"')
   && analyst.includes('aria-controls="osi-workspace-panel-profile"')

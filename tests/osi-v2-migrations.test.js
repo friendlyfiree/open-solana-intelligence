@@ -39,6 +39,7 @@ const expectedFiles = [
   '20260728132011_osi_v2_payment_recovery_and_legacy_boundary.sql',
   '20260728153100_osi_v1_requests_exact_policy_boundary.sql',
   '20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql',
+  '20260729134213_osi_v2_workflow_recovery_usability.sql',
 ];
 
 const sqlByFile = Object.fromEntries(

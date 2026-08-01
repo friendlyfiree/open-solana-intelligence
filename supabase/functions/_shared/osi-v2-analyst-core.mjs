@@ -22,6 +22,12 @@ function text(value, name, min, max) {
   return result;
 }
 
+function optionalText(value, name) {
+  if (value == null) return "";
+  if (typeof value !== "string") throw new TypeError(name + " is invalid");
+  return value.trim();
+}
+
 function safeHttpsUrl(value) {
   const input = text(value, "url", 8, 300);
   let url;
@@ -58,32 +64,58 @@ export function normalizeApplicationPayload(value, avatar = null) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("application is invalid");
   }
-  const xHandle = text(value.x_handle, "x_handle", 2, 16).replace(/^@/, "").toLowerCase();
-  if (!/^[a-z0-9_]{2,15}$/.test(xHandle)) throw new TypeError("x_handle is invalid");
-  const handle = xHandle;
-  const displayName = text(value.display_name || "@" + xHandle, "display_name", 2, 80);
+  const suppliedHandle = optionalText(value.handle, "handle");
+  const handle = suppliedHandle ? suppliedHandle.toLowerCase() : null;
+  if (handle && !/^[a-z0-9_]{2,32}$/.test(handle)) {
+    throw new TypeError("handle is invalid");
+  }
+  const suppliedXHandle = optionalText(value.x_handle, "x_handle")
+    .replace(/^@/, "")
+    .toLowerCase();
+  const xHandle = suppliedXHandle || null;
+  if (xHandle && !/^[a-z0-9_]{2,15}$/.test(xHandle)) {
+    throw new TypeError("x_handle is invalid");
+  }
+  const suppliedDisplayName = optionalText(value.display_name, "display_name");
+  const displayName = suppliedDisplayName
+    ? text(suppliedDisplayName, "display_name", 2, 80)
+    : handle || (xHandle ? "@" + xHandle : null);
   const bio = text(value.bio, "bio", 10, 600);
   const expertise = [...new Set(cleanArray(value.expertise ?? [], "expertise", 6).map((item) => text(item, "expertise", 2, 32)))].sort();
   if (expertise.some((item) => !EXPERTISE.has(item))) {
     throw new TypeError("expertise is invalid");
   }
-  const suppliedLinks = cleanArray(value.links ?? [], "links", 4).map((item) => {
+  const rawLinks = cleanArray(value.links ?? [], "links", Number.MAX_SAFE_INTEGER)
+    .filter((item) => !(
+      item && typeof item === "object" && !Array.isArray(item)
+      && String(item.label ?? "").trim() === ""
+      && String(item.url ?? "").trim() === ""
+    ));
+  if (rawLinks.length > 4) throw new TypeError("links is invalid");
+  const suppliedLinks = rawLinks.map((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) throw new TypeError("link is invalid");
     const label = text(item.label, "link label", 1, 40);
     if (!/^[A-Za-z0-9 ._/-]+$/.test(label)) throw new TypeError("link label is invalid");
     return { label, url: safeHttpsUrl(item.url) };
   });
+  const xUrl = xHandle ? "https://x.com/" + xHandle : null;
   const links = [
-    { label: "X / Twitter", url: "https://x.com/" + xHandle },
-    ...suppliedLinks.filter((item) => item.url !== "https://x.com/" + xHandle),
+    ...(xUrl ? [{ label: "X / Twitter", url: xUrl }] : []),
+    ...suppliedLinks.filter((item) => !xUrl || item.url !== xUrl),
   ];
   const motivation = typeof value.motivation === "string" ? value.motivation.trim() : "";
   if (motivation.length > 3000) throw new TypeError("motivation is invalid");
   const experience = typeof value.experience === "string" ? value.experience.trim() : "";
   if (experience.length > 3000) throw new TypeError("experience is invalid");
   if (value.safety_acknowledged !== true) throw new TypeError("safety acknowledgement is required");
-  const proofUrls = cleanArray(value.proof_urls ?? [], "proof_urls", 5).map(safeHttpsUrl);
-  if (secretMaterial([bio, motivation, experience, ...proofUrls].join("\n"))) {
+  const proofUrls = cleanArray(
+    value.proof_urls ?? [],
+    "proof_urls",
+    Number.MAX_SAFE_INTEGER,
+  ).filter((url) => String(url ?? "").trim() !== "");
+  if (proofUrls.length > 5) throw new TypeError("proof_urls is invalid");
+  const normalizedProofUrls = proofUrls.map(safeHttpsUrl);
+  if (secretMaterial([bio, motivation, experience, ...normalizedProofUrls].join("\n"))) {
     throw new TypeError("prohibited_secret_material");
   }
   const avatarBinding = avatar ? { sha256: avatar.sha256, mime: avatar.mime } : null;
@@ -104,7 +136,7 @@ export function normalizeApplicationPayload(value, avatar = null) {
       x_handle: xHandle,
       motivation: motivation || null,
       experience: experience || null,
-      proof_urls: proofUrls,
+      proof_urls: normalizedProofUrls,
       safety_acknowledged: true,
     },
   };
