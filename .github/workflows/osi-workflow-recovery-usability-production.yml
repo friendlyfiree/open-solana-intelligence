@@ -624,9 +624,23 @@ jobs:
           set -euo pipefail
           touch "$RUNNER_TEMP/osi-rollout-containment-active"
           touch "$RUNNER_TEMP/osi-rollout-guard-active"
-          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          case "$ROLLOUT_START_MODE" in
+            live) expected_gate_value="true" ;;
+            contained_resume) expected_gate_value="false" ;;
+            *) echo "::error::Unexpected rollout start mode."; exit 1 ;;
+          esac
+          psql -v ON_ERROR_STOP=1 \
+            -v expected_gate_value="$expected_gate_value" -Atq <<'SQL'
           begin;
+          select set_config(
+            'osi.rollout.expected_gate_value',
+            :'expected_gate_value',
+            true
+          );
           do $$
+          declare
+            expected_gate_value text :=
+              current_setting('osi.rollout.expected_gate_value');
           begin
             if exists (
               select 1
@@ -640,9 +654,11 @@ jobs:
                 ('OSI_V2_READ_SESSION_ENABLED')
               ) as expected(key)
               left join public.osi_config as config using (key)
-              where config.value is distinct from 'true'
+              where config.value is distinct from expected_gate_value
             ) then
-              raise exception 'A task-scoped rollout gate is not in its approved live state';
+              raise exception
+                'A task-scoped rollout gate is not in the expected % state',
+                expected_gate_value;
             end if;
             if not exists (
               select 1 from public.osi_config
@@ -662,7 +678,7 @@ jobs:
             'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
             'OSI_V2_WIRE_WRITES_ENABLED',
             'OSI_V2_READ_SESSION_ENABLED'
-          );
+          ) and value is distinct from 'false';
           commit;
           SQL
           contained="$(psql -Atqc "

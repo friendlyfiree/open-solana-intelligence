@@ -309,6 +309,18 @@ const containmentBlock = workflow.slice(
 for (const gate of taskGates) {
   matches(containmentBlock, new RegExp(gate), `${gate} is included in rollout containment`);
 }
+matches(containmentBlock,
+  /case "\$ROLLOUT_START_MODE" in[\s\S]*live\) expected_gate_value="true"[\s\S]*contained_resume\) expected_gate_value="false"/,
+  "containment derives the exact expected gate state from the rollout start mode");
+matches(containmentBlock,
+  /set_config\([\s\S]*'osi\.rollout\.expected_gate_value'[\s\S]*:'expected_gate_value'[\s\S]*current_setting\('osi\.rollout\.expected_gate_value'\)/,
+  "containment binds its expected gate state inside the same database transaction");
+matches(containmentBlock, /config\.value is distinct from expected_gate_value/,
+  "containment validates live and contained-resume gate snapshots without weakening either");
+matches(containmentBlock, /and value is distinct from 'false'/,
+  "contained-resume containment does not rewrite already-false gate rows");
+excludes(containmentBlock, /where config\.value is distinct from 'true'/,
+  "containment does not unconditionally require live gates during a contained resume");
 matches(containmentBlock, /and value = 'false'[\s\S]*\[ "\$contained" = "7" \]/,
   "containment verifies all seven task-scoped gates are false");
 matches(containmentBlock, /OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED[\s\S]*= "true"/,
