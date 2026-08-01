@@ -85,10 +85,22 @@ jobs:
       - name: Application, Deno and workflow syntax tests
         run: |
           set -euo pipefail
+          deno_check_with_retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              if deno check "$@"; then return 0; fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "::error::Deno check failed after ${attempt} attempts."
+                return 1
+              fi
+              echo "::warning::Deno dependency fetch/check failed; retrying (${attempt}/3)."
+              sleep "$((attempt * 5))"
+            done
+          }
           for test_file in tests/*.test.js tests/*.test.mjs; do node "$test_file"; done
           mapfile -t deno_sources < <(find supabase/functions -type f \
             \( -path '*/index.ts' -o -path '*/_shared/*.ts' -o -path '*/_shared/*.mjs' \) | sort)
-          deno check "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
+          deno_check_with_retry "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           "$(go env GOPATH)/bin/actionlint"
           bash -n tests/osi-v2-concurrency.test.sh
