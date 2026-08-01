@@ -406,6 +406,53 @@ try {
 }
 ok("public Report DTO rejects every unpublished lifecycle state",
   unpublishedProjectionRejected);
+const restrictedPublicSentinel = "RESTRICTED BODY MUST NEVER ENTER A PUBLIC DTO";
+const nullablePublicDto = core.publicReportGovernanceDto({
+  report_public_ref: "OSI-RPT-A1B2C3D4E5F6",
+  version_public_ref: binding.version_public_ref,
+  version_no: 1,
+  lifecycle_state: "published",
+  body_private: restrictedPublicSentinel,
+  content_public_safe: null,
+  evidence: [],
+  reviews: [],
+});
+ok("published Report DTO preserves an absent public-safe summary as null",
+  nullablePublicDto.content_public_safe === null);
+ok("published Report DTO never falls back to the restricted body",
+  !Object.hasOwn(nullablePublicDto, "body")
+    && !Object.hasOwn(nullablePublicDto, "body_private")
+    && !JSON.stringify(nullablePublicDto).includes(restrictedPublicSentinel));
+const summarizedPublicDto = core.publicReportGovernanceDto({
+  report_public_ref: "OSI-RPT-A1B2C3D4E5F6",
+  version_public_ref: binding.version_public_ref,
+  version_no: 1,
+  lifecycle_state: "published",
+  content_public_safe: validPayload.content_public_safe,
+});
+ok("published Report DTO keeps a supplied public-safe summary unchanged",
+  summarizedPublicDto.content_public_safe === validPayload.content_public_safe);
+
+ok("publication-state constraint failures are not mislabeled as proof expiry",
+  JSON.stringify(core.classifyReportRpcFailure({
+    code: "23514",
+    message: "new row violates check constraint",
+    details: 'Failing row violates constraint "case_report_versions_publication_state_check"',
+  }, true)) === JSON.stringify({ status: 503, error: "publication_state_invalid" }));
+ok("an exact prepared-publication binding failure remains a proof failure",
+  core.classifyReportRpcFailure({
+    code: "23514", message: "Report publication payload changed after prepare",
+  }, true).error === "proof_binding_rejected");
+ok("unrelated check violations use a bounded lifecycle error",
+  core.classifyReportRpcFailure({ code: "23514", message: "another constraint" }, true).error
+    === "report_state_rejected");
+ok("unrelated invalid parameters use a bounded request error",
+  core.classifyReportRpcFailure({ code: "22023", message: "another parameter" }, true).error
+    === "report_request_invalid");
+ok("the exact publication issuance-window failure keeps its recovery guidance",
+  core.classifyReportRpcFailure({
+    code: "22023", message: "Report publication transaction outside issuance window",
+  }, true).error === "publication_transaction_outside_window");
 
 const writeSource = readFileSync(
   join(root, "supabase/functions/osi-v2-report-write/index.ts"), "utf8",
@@ -572,6 +619,13 @@ ok("public Case Report status uses a public allowlist endpoint",
   readSource.includes("listPublicReports")
     && readSource.includes("publicReportGovernanceDto")
     && uiSource.includes("list_public_reports"));
+const publicReadSlice = readSource.slice(
+  readSource.indexOf("async function listPublicReports("),
+  readSource.indexOf("serve(async", readSource.indexOf("async function listPublicReports(")),
+);
+ok("anonymous Report reads use a projection that excludes the restricted body column",
+  publicReadSlice.includes("PUBLIC_VERSION_COLS")
+    && !publicReadSlice.includes("body_private"));
 ok("public Report visibility follows only the exact published pointer",
   readSource.includes('.not("current_published_version_id", "is", null)')
     && readSource.includes("String(header.current_published_version_id) === String(version.id)")
@@ -602,6 +656,14 @@ ok("Report form provides exact prerequisite and transaction states",
 ok("untrusted Report content is escaped before innerHTML rendering",
   uiSource.includes("<p data-osi-user-content>'+esc(version.body_private)+'</p>")
     && uiSource.includes("esc(item.ref)"));
+const publicRowsSlice = uiSource.slice(
+  uiSource.indexOf("function publishedRows("),
+  uiSource.indexOf("async function publicReports", uiSource.indexOf("function publishedRows(")),
+);
+ok("public Report rendering explains a missing summary without reading a body fallback",
+  publicRowsSlice.includes("No public-safe summary was provided.")
+    && publicRowsSlice.includes("The restricted Report body is not public.")
+    && !publicRowsSlice.includes("row.body"));
 ok("bootstrap publication remains visibly distinct after public or authorized reload",
   uiSource.includes("proof.decision_channel_label")
     && uiSource.includes("decision_channel=")

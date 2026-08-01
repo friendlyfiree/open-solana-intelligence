@@ -136,6 +136,9 @@
       report_writes_disabled_or_unavailable:'Report submission is safely disabled or temporarily unavailable.',
       case_not_available:'This Case is not in an eligible public investigation stage.',
       proof_binding_rejected:'The proof expired or no longer matches this exact Report version. Prepare again.',
+      publication_state_invalid:'The database rejected the publication state. Keep the existing transaction for recovery and do not send another transaction.',
+      report_state_rejected:'The Report state failed a database lifecycle check. Reload the exact Report before retrying.',
+      report_request_invalid:'The Report request did not match an accepted database input. Review the exact action and try again.',
       lineage_changed_retry:'Another version advanced this Report. Reload My Reports and prepare a fresh revision.',
       transaction_not_confirmed:'The Memo transaction is not confirmed yet. Retry safely with the same proof.',
       transaction_not_indexed:'Solana has the signature status, but the parsed transaction is not indexed yet. Retry with this same transaction.',
@@ -386,7 +389,10 @@
     return'<div class="osi-report-public-list">'+rows.map(function(row){
       var q=row.quorum||{};
       var progress='<div class="osi-report-quorum" aria-label="Publication quorum"><span><b>'+esc(q.approve_count||0)+'</b> / '+esc(q.required_count||0)+' analysts</span><span><b>'+esc(Number(q.approve_weight||0).toFixed(2))+'</b> / '+esc(Number(q.required_weight||0).toFixed(2))+' weight</span></div>';
-      var content='<p class="osi-report-public-body" data-osi-user-content>'+esc(row.body||'')+'</p>'+(row.content_public_safe?'<p data-osi-user-content><b>Public-safe summary:</b> '+esc(row.content_public_safe)+'</p>':'')+publicEvidence(row.evidence);
+      var summary=row.content_public_safe
+        ? '<p class="osi-report-public-body" data-osi-user-content><b>Public-safe summary:</b> '+esc(row.content_public_safe)+'</p>'
+        : '<p class="osi-report-public-body" role="note"><b>No public-safe summary was provided.</b> Publication metadata, public evidence and proof remain available. The restricted Report body is not public.</p>';
+      var content=summary+publicEvidence(row.evidence);
       var proof=publicationChannelHtml(row.publication_proof)+(row.publication_proof&&row.publication_proof.tx_sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(row.publication_proof.tx_sig)+'" target="_blank" rel="noopener">Verify REPORT_PUBLISHED on Solscan ↗</a>':'');
       var support=row.state==='published'?'<button class="osi-report-action" type="button" onclick="osiV2SupportReportAuthor(\''+esc(row.version_public_ref)+'\')">Support author with SOL</button>':'';
       return'<article class="osi-report-public-card"><div class="osi-list-item-head"><div><b>'+esc(row.report_public_ref)+'</b><small>'+esc(row.version_public_ref)+' · version '+esc(row.version_no)+'</small></div><span class="osi-proof-label">'+esc(row.state==='published'?'Published':'Under review')+'</span></div>'+progress+content+publicReviewTimeline(row.review_timeline)+proof+support+'<p class="osi-report-process-note">'+esc(row.process_notice)+'</p></article>';

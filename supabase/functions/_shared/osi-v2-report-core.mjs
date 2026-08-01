@@ -45,6 +45,47 @@ function cleanText(value) {
   return typeof value === "string" ? value.trim().replace(/\r\n?/g, "\n") : "";
 }
 
+const PROOF_BINDING_DATABASE_MESSAGES = Object.freeze([
+  /^Report (?:review|publication) nonce binding is invalid$/,
+  /^Report (?:review|publication) payload changed after prepare$/,
+  /^Consumed Report (?:review|publication) nonce does not match exact retry$/,
+  /^Idempotency key is bound to another exact Report (?:review|publication)$/,
+  /^Report (?:review|publication) nonce expired$/,
+]);
+
+// Database SQLSTATE classes are deliberately broad. Classify only reviewed,
+// exact proof messages as proof failures; a schema or lifecycle constraint must
+// never be presented to the user as an expired signature or nonce.
+export function classifyReportRpcFailure(error, governance = false) {
+  const code = cleanText(error?.code);
+  const message = cleanText(error?.message);
+  const details = cleanText(error?.details);
+  if (message === "Report publication transaction outside issuance window") {
+    return { status: 409, error: "publication_transaction_outside_window" };
+  }
+  if (code === "42501") {
+    return governance
+      ? { status: 403, error: "not_eligible_or_self_review" }
+      : { status: 404, error: "case_not_available" };
+  }
+  if (code === "23514"
+      && `${message}\n${details}`.includes("case_report_versions_publication_state_check")) {
+    return { status: 503, error: "publication_state_invalid" };
+  }
+  if ((code === "23514" || code === "22023")
+      && PROOF_BINDING_DATABASE_MESSAGES.some((pattern) => pattern.test(message))) {
+    return { status: 409, error: "proof_binding_rejected" };
+  }
+  if (code === "23514") return { status: 409, error: "report_state_rejected" };
+  if (code === "22023") return { status: 400, error: "report_request_invalid" };
+  if (code === "40001") return { status: 409, error: "lineage_changed_retry" };
+  if (code === "P0001") return { status: 429, error: "rate_limited" };
+  if (code === "55000") {
+    return { status: 503, error: "report_writes_disabled_or_unavailable" };
+  }
+  return { status: 500, error: "report_write_failed" };
+}
+
 function requireLength(value, name, min, max) {
   const text = cleanText(value);
   if (text.length < min || text.length > max) throw new TypeError(name + " is invalid");
@@ -655,7 +696,6 @@ export function publicReportGovernanceDto(report) {
     content_public_safe: report.content_public_safe == null
       ? null
       : String(report.content_public_safe),
-    body: String(report.body_private || ""),
     evidence: Array.isArray(report.evidence)
       ? report.evidence.filter((item) => item.is_public === true && item.moderation_state === "approved")
         .map((item) => ({

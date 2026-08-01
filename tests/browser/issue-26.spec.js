@@ -717,7 +717,10 @@ async function installFixtureNetwork(page, options = {}) {
       else if (body.op === 'list_public_reports' && empty) response.reports = [];
       else if (body.op === 'list_public_reports') response.reports = [{
         report_public_ref: REPORT_REF, version_public_ref: VERSION_REF, version_no: 1, state: 'published',
-        body: `Published public Report content for ${body.case_ref}.`, content_public_safe: 'Public-safe Report summary.', evidence: [], review_timeline: [],
+        content_public_safe: options.nullableReportSummary
+          ? null
+          : `Public-safe Report summary for ${body.case_ref}.`,
+        evidence: [], review_timeline: [],
         quorum: { approve_count: 3, approve_weight: 4.75, required_count: 3, required_weight: 4.5 },
         publication_proof: {
           tx_sig: TX,
@@ -1826,13 +1829,26 @@ for (const role of ['ordinary_wallet', 'maintainer_wallet_only', 'maintainer_aut
     await page.evaluate(() => window.osiNavigate('field'));
     await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), CASE_REF);
     await page.locator('[data-tab="reports"]').click();
-    await expect(page.locator('#osi-public-reports')).toContainText('Published public Report content');
+    await expect(page.locator('#osi-public-reports')).toContainText('Public-safe Report summary');
     await expect(page.locator('#osi-public-reports')).not.toContainText('Authorized submitted Reports');
     await expect(page.locator('#osi-public-reports')).not.toContainText('Restricted version 3 narrative');
     await expect(page.locator('#osi-public-reports').getByRole('button', { name: 'Publish via maintainer bootstrap' })).toHaveCount(0);
     expectCleanRuntime(page);
   });
 }
+
+test('published Report with no public-safe summary stays honest and private', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet', nullableReportSummary: true });
+  await page.evaluate(() => window.osiNavigate('field'));
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), CASE_REF);
+  await page.locator('[data-tab="reports"]').click();
+  const reports = page.locator('#osi-public-reports');
+  await expect(reports).toContainText('No public-safe summary was provided.');
+  await expect(reports).toContainText('The restricted Report body is not public.');
+  await expect(reports).not.toContainText('Restricted version 3 narrative');
+  await expect(reports).not.toContainText(PRIVATE_SENTINEL);
+  expectCleanRuntime(page);
+});
 
 for (const role of ['maintainer_wallet_only', 'maintainer_auth_only']) {
   test(`${role} is denied restricted queues, bootstrap, and Operations`, async ({ page }) => {
@@ -1875,7 +1891,7 @@ test('eligible Report and Wire author is excluded from reviewing or publishing o
 
   await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), CASE_REF);
   await page.locator('[data-tab="reports"]').click();
-  await expect(page.locator('#osi-public-reports')).toContainText('Published public Report content');
+  await expect(page.locator('#osi-public-reports')).toContainText('Public-safe Report summary');
   await expect(page.locator('#osi-public-reports')).not.toContainText('Restricted version 3 narrative');
   await expect(page.locator('#osi-public-reports').getByRole('button', { name: /Review|Publish/ })).toHaveCount(0);
   await page.evaluate(() => window.osiV2CloseCase());
@@ -2230,7 +2246,7 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await expect(page.locator('#osi-case-drawer')).toBeVisible();
 
   await page.locator('[data-tab="reports"]').click();
-  await expect(page.locator('#osi-public-reports')).toContainText('Published public Report content');
+  await expect(page.locator('#osi-public-reports')).toContainText('Public-safe Report summary');
   await page.locator('[data-tab="resolution"]').click();
   await expect(page.locator('#osi-case-content')).toContainText(VERSION_REF);
   await page.locator('[data-tab="challenges"]').click();
@@ -2366,9 +2382,9 @@ test('a delayed Report response cannot overwrite the drawer after switching Case
   await page.locator(`[data-case-ref="${AI_CASE_REF}"]`).click();
   await page.locator('[data-tab="reports"]').click();
   const reports = page.locator('#osi-public-reports');
-  await expect(reports).toContainText(`Published public Report content for ${AI_CASE_REF}.`);
+  await expect(reports).toContainText(`Public-safe Report summary for ${AI_CASE_REF}.`);
   await page.waitForTimeout(400);
-  await expect(reports).not.toContainText(`Published public Report content for ${CASE_REF}.`);
+  await expect(reports).not.toContainText(`Public-safe Report summary for ${CASE_REF}.`);
   expectCleanRuntime(page);
 });
 
