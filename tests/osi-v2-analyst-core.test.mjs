@@ -8,6 +8,7 @@ import * as core from "../supabase/functions/_shared/osi-v2-analyst-core.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const edge = fs.readFileSync(path.join(root, "supabase/functions/osi-v2-analyst/index.ts"), "utf8");
 const sql = fs.readFileSync(path.join(root, "supabase/migrations/20260713184533_osi_v2_analyst_activation.sql"), "utf8");
+const schema = fs.readFileSync(path.join(root, "supabase/migrations/20260711092711_osi_v2_additive_schema.sql"), "utf8");
 const wallet = "11111111111111111111111111111111";
 const versionId = "018f0e80-0000-4000-8000-000000000001";
 const versionRef = "OSI-APP-018F0E800000";
@@ -40,17 +41,50 @@ const application = core.normalizeApplicationPayload({
 ok(application.profile.handle === "chain_sleuth", "handle is normalized for case-insensitive uniqueness");
 ok(application.profile.expertise.join(",") === "blockchain_forensics,osint", "expertise is canonical and deduplicated");
 ok(application.profile.links[0].url === "https://x.com/chain_sleuth"
-  && application.profile.links[1].url === "https://example.com/work", "X is the required public identity and optional link fragments are removed");
+  && application.profile.links[1].url === "https://example.com/work",
+"an optional X identity receives its canonical link and optional link fragments are removed");
 const minimalApplication = core.normalizeApplicationPayload({
   x_handle: "@signal_reader", bio: "Solana public-evidence researcher.",
   experience: "", expertise: [], links: [], safety_acknowledged: true,
 });
-ok(minimalApplication.profile.handle === "signal_reader"
+ok(minimalApplication.profile.handle === null
+  && minimalApplication.application.x_handle === "signal_reader"
+  && minimalApplication.profile.links[0].url === "https://x.com/signal_reader"
   && minimalApplication.profile.expertise.length === 0
   && minimalApplication.application.motivation === null
   && minimalApplication.application.experience === null
   && minimalApplication.application.safety_acknowledged === true,
-"minimal application accepts X identity, introduction and signed safety acknowledgement without optional experience");
+"minimal application keeps optional X separate from the OSI public handle");
+const walletIdentityApplication = core.normalizeApplicationPayload({
+  handle: "   ",
+  x_handle: " ",
+  display_name: "",
+  bio: "Wallet-authenticated public-evidence researcher.",
+  expertise: [],
+  links: [
+    { label: " ", url: " " },
+    { label: "", url: "" },
+  ],
+  proof_urls: ["", "   "],
+  safety_acknowledged: true,
+});
+ok(walletIdentityApplication.profile.handle === null
+  && walletIdentityApplication.profile.display_name === null
+  && walletIdentityApplication.profile.links.length === 0
+  && walletIdentityApplication.application.x_handle === null
+  && walletIdentityApplication.application.proof_urls.length === 0,
+"wallet identity remains canonical when optional handle, X and blank link rows are omitted");
+const handleOnlyApplication = core.normalizeApplicationPayload({
+  handle: "OSI_Researcher",
+  x_handle: "",
+  bio: "Wallet-authenticated public-evidence researcher.",
+  links: [],
+  safety_acknowledged: true,
+});
+ok(handleOnlyApplication.profile.handle === "osi_researcher"
+  && handleOnlyApplication.application.x_handle === null
+  && handleOnlyApplication.profile.links.length === 0,
+"an optional OSI handle is independent from optional X identity");
 rejects(() => core.normalizeApplicationPayload({
   x_handle: "@signal_reader", bio: "Solana public-evidence researcher.",
   experience: "", expertise: [], links: [],
@@ -59,6 +93,27 @@ rejects(() => core.normalizeApplicationPayload({
   x_handle: "x", handle: "x", display_name: "X", bio: "short", expertise: [], links: [],
   motivation: "short", experience: "short", proof_urls: [],
 }), "invalid public profile and application fields are rejected");
+rejects(() => core.normalizeApplicationPayload({
+  handle: "bad-handle",
+  x_handle: "",
+  bio: "A sufficiently long public biography.",
+  links: [],
+  safety_acknowledged: true,
+}), "a non-empty malformed optional OSI handle is rejected");
+rejects(() => core.normalizeApplicationPayload({
+  handle: "",
+  x_handle: "@x",
+  bio: "A sufficiently long public biography.",
+  links: [],
+  safety_acknowledged: true,
+}), "a non-empty malformed optional X identity is rejected");
+rejects(() => core.normalizeApplicationPayload({
+  handle: 123,
+  x_handle: null,
+  bio: "A sufficiently long public biography.",
+  links: [],
+  safety_acknowledged: true,
+}), "a supplied optional identity field must still be a string");
 rejects(() => core.normalizeApplicationPayload({
   x_handle: "valid_handle",
   handle: "valid_handle", display_name: "Valid Name", bio: "A sufficiently long public biography.",
@@ -143,5 +198,7 @@ ok(sql.includes("weight_cached = 0.50") && sql.includes("tier_code = 'probationa
 ok(sql.includes("force row level security") || fs.readFileSync(path.join(root, "supabase/migrations/20260711092856_osi_v2_default_deny.sql"), "utf8").includes("analyst_application_reviews"), "analyst tables remain under forced default-deny RLS");
 ok(!edge.includes("select(\"*\")"), "gateway avoids select-star projections");
 ok(edge.includes('SUPPORT_PAYMENT_CONFIRMED') && edge.includes('recipient_amount_lamports'), "public analyst graph maps finalized support manifests back to every exact recipient");
+ok(/create table public\.analyst_profiles[\s\S]*wallet text primary key[\s\S]*handle text[\s\S]*check \(handle is null/i.test(schema),
+"database keeps the wallet as canonical identity and permits an omitted public handle");
 
 console.log("1.." + count);

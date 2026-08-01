@@ -390,8 +390,9 @@ export async function refreshReviewVerifications(
 }
 
 // Per-review authority for the surfaces that show a decision weight. Returns a
-// map from review id to the public-safe answer. Never throws; on any failure
-// the caller simply renders no authority label rather than a wrong one.
+// map from review id to the public-safe answer. Calls are chunked to the exact
+// database limit; unresolved ids are made explicitly uncounted by
+// attachReviewAuthority so a partial RPC failure can never grant authority.
 export type SasReviewAuthority = {
   enforced: boolean;
   counted: boolean;
@@ -405,24 +406,27 @@ export async function reviewAuthorityById(
 ): Promise<Record<string, SasReviewAuthority>> {
   const out: Record<string, SasReviewAuthority> = {};
   try {
-    const ids = [...new Set(reviewIds.filter((id) => typeof id === "string" && id))].slice(0, 400);
+    const ids = [...new Set(reviewIds.filter((id) => typeof id === "string" && id))];
     if (ids.length === 0) return out;
-    const { data, error } = await admin.rpc("osi_v2_sas_review_authority", {
-      p_review_kind: reviewKind,
-      p_review_ids: ids,
-    });
-    if (error || !Array.isArray(data)) return out;
-    for (const row of data as Record<string, unknown>[]) {
-      const id = String(row.review_id ?? "");
-      if (!id) continue;
-      out[id] = {
-        enforced: row.enforcement_enabled === true,
-        counted: row.counted === true,
-        state: String(row.verification_state ?? "unchecked"),
-      };
+    for (let offset = 0; offset < ids.length; offset += 400) {
+      const { data, error } = await admin.rpc("osi_v2_sas_review_authority", {
+        p_review_kind: reviewKind,
+        p_review_ids: ids.slice(offset, offset + 400),
+      });
+      if (error || !Array.isArray(data)) continue;
+      for (const row of data as Record<string, unknown>[]) {
+        const id = String(row.review_id ?? "");
+        if (!id) continue;
+        out[id] = {
+          enforced: row.enforcement_enabled === true,
+          counted: row.counted === true,
+          state: String(row.verification_state ?? "unchecked"),
+        };
+      }
     }
   } catch {
-    // Absent authority data renders as no label at all.
+    // attachReviewAuthority converts every unresolved row to an explicit,
+    // fail-closed authority result.
   }
   return out;
 }
@@ -441,8 +445,13 @@ export async function attachReviewAuthority(
     rows.map((row) => String(row.id ?? "")),
   );
   for (const row of rows) {
-    const authority = byId[String(row.id ?? "")];
-    if (authority) row.sas_authority = authority;
+    const id = String(row.id ?? "");
+    if (!id) continue;
+    row.sas_authority = byId[id] ?? {
+      enforced: true,
+      counted: false,
+      state: "authority_unavailable",
+    };
   }
 }
 

@@ -7,6 +7,10 @@ const read = (file) => readFileSync(join(root, file), 'utf8');
 const index = read('index.html');
 const css = read('assets/css/70-intelligence-redesign.css');
 const i18n = read('assets/js/03-i18n.js');
+const caseUi = read('assets/js/v2-case-integration.js');
+const reportUi = read('assets/js/v2-report-integration.js');
+const analystUi = read('assets/js/v2-analyst-integration.js');
+const wireUi = read('assets/js/v2-wire-integration.js');
 
 let passed = 0;
 function ok(name, value) {
@@ -74,5 +78,22 @@ ok('Turkish covers dynamic Analyst profile and timestamped SAS authority copy',
     && i18n.includes("'No public contributions recorded': 'Kaydedilmiş kamusal katkı yok'")
     && i18n.includes("'SAS verified': 'SAS doğrulandı'")
     && i18n.includes("'SAS analyst review authority verified. Last checked {checked}. Read the Solana Attestation Service explanation.'"));
+
+ok('Turkish covers persistent receipts, unified queue recovery, and connected Phantom payment copy',
+  i18n.includes("'Saved successfully': 'Başarıyla kaydedildi'")
+    && i18n.includes("'Open review queue': 'İnceleme kuyruğunu aç'")
+    && i18n.includes("'Refresh private access': 'Özel erişimi yenile'")
+    && i18n.includes("'Use connected Phantom': 'Bağlı Phantom’u kullan'")
+    && i18n.includes("'Finalized payment receipt': 'Kesinleşmiş ödeme makbuzu'")
+    && i18n.includes("'Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.'")
+    && i18n.includes("'Conflict: this exact governance action is unavailable to this wallet.'"));
+ok('optional Report evidence copy is non-contradictory in both locales',
+  i18n.includes("'Evidence references are recommended and can strengthen review. Add up to 12 total references when useful. Blank lines are ignored.'")
+    && !i18n.includes('Add at least one and no more than 12 total references.'));
+ok('dynamic system copy uses the locale API while user-authored content opts out',
+  caseUi.includes("t('One queue, eight server-authorized lanes. Errors never become empty results.')")
+    && reportUi.includes('data-osi-user-content')
+    && analystUi.includes('data-osi-user-content')
+    && wireUi.includes('data-osi-user-content'));
 
 console.log(`\n${passed} localization checks passed.`);

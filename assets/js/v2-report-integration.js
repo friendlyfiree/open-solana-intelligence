@@ -6,8 +6,8 @@
   var READ_URL=SUPABASE_URL+'/functions/v1/osi-v2-report-read';
   var state={
     caseRef:'',isRevision:false,idempotency:'',pending:null,returnFocus:null,drawerWasOpen:false,
-    cacheWallet:'',myReports:[],sectionContext:null,busy:false,
-    reviewPending:{},publicationPending:{},queueMode:''
+    cacheWallet:'',myReports:[],sectionContext:null,sectionMode:'public',busy:false,receipt:null,formCapability:null,
+    reviewPending:{},publicationPending:{},queueMode:'',sectionLoadToken:0
   };
 
   function sasAuthority(review){
@@ -52,13 +52,20 @@
     var preserve=reason==='expiry'||reason==='explicit_refresh';
     var privateWorkspace=!!state.queueMode;
     if(preserve&&privateWorkspace)saveWorkspaceDraft();
-    state.cacheWallet='';state.myReports=[];
+    state.cacheWallet='';state.myReports=[];state.busy=false;state.sectionLoadToken+=1;
     state.reviewPending={};state.publicationPending={};state.queueMode='';
-    if(!preserve){
-      state.pending=null;state.idempotency='';state.returnFocus=null;
-      var form=document.getElementById('osi-report-form');if(form)form.reset();
-      closeReportForm();status('');
-    }
+    state.pending=null;state.idempotency='';state.returnFocus=null;state.receipt=null;
+    state.formCapability=null;state.caseRef='';state.isRevision=false;state.drawerWasOpen=false;
+    state.sectionContext=null;state.sectionMode='public';
+    var form=document.getElementById('osi-report-form');if(form)form.reset();
+    var modal=document.getElementById('osi-report-modal');if(modal)modal.classList.remove('open');
+    var context=document.getElementById('osi-report-context');if(context)context.textContent='';
+    var revision=document.getElementById('osi-report-revision-wrap');if(revision)revision.hidden=true;
+    var reasonField=document.getElementById('osi-report-revision-reason');if(reasonField)reasonField.required=false;
+    if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-report-receipt');
+    status('');
+    var submit=document.getElementById('osi-report-submit');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}
+    syncBodyLock();
     if(document.body&&document.body.dataset.view==='field'){
       var host=document.getElementById('field-cases');
       if(host&&privateWorkspace)host.innerHTML='<div class="osi-v2-empty"><b>Report workspace locked</b><span>Unlock the bounded private working session to continue. Active sessions renew silently.</span></div>';
@@ -72,8 +79,11 @@
   }
   function short(value){value=String(value||'');return value.length>18?value.slice(0,8)+'...'+value.slice(-6):value;}
   function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();});}
+  function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
   function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});}
   function randomKey(){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return'report:'+id.replace(/[^A-Za-z0-9.-]/g,'');}
+  function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
+  function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
   function headers(){
     var token=typeof SUPA_AUTH_TOKEN==='string'&&SUPA_AUTH_TOKEN?SUPA_AUTH_TOKEN:SUPABASE_ANON_KEY;
     return{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
@@ -117,6 +127,7 @@
       ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
       ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
       ,read_session_tampered:'The private session token failed server verification.'
+      ,private_session_changed:'Private access changed while this action was running. Reopen the exact task.'
     };
     return messages[code]||code.replace(/_/g,' ');
   }
@@ -138,7 +149,18 @@
   async function sessionRead(scope,op){
     if(typeof window.osiV2ReadSession!=='function')throw new Error('read_session_disabled_or_unavailable');
     var session=await window.osiV2ReadSession([scope],{allowUnlock:true});
-    return await api(READ_URL,{op:op,wallet:session.wallet,read_session:session.token});
+    var generation=privateGeneration();
+    var result=await api(READ_URL,{op:op,wallet:session.wallet,read_session:session.token});
+    assertPrivateGeneration(generation);return result;
+  }
+  async function loadReviewQueueData(){
+    var result=await sessionRead('report:review','list_review_queue');
+    result.reports=(result.reports||[]).map(function(report){
+      if(report.can_cast_analyst_review==null)report.can_cast_analyst_review=result.can_cast_analyst_review===true;
+      if(report.can_publish_via_maintainer_bootstrap==null)report.can_publish_via_maintainer_bootstrap=result.can_publish_via_maintainer_bootstrap===true;
+      return report;
+    });
+    return result;
   }
   function syncBodyLock(){
     var modal=document.getElementById('osi-report-modal');
@@ -168,14 +190,19 @@
   }
 
   async function openReportForm(caseRef){
+    var generation;
     state.returnFocus=document.activeElement;
     try{
       var wallet=await ensureWallet();
+      generation=privateGeneration();
       var capability=await api(WRITE_URL,{op:'capabilities',wallet:wallet,case_ref:caseRef});
+      assertPrivateGeneration(generation);
       if(capability.report_writes_enabled!==true)throw new Error('report_writes_disabled');
       if(capability.case_eligible!==true)throw new Error('case_not_available');
+      state.formCapability=capability;state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-report-receipt');
       status('Authorizing access to your private Report lineage...');
       var rows=state.cacheWallet===wallet?state.myReports:await loadMyReports();
+      assertPrivateGeneration(generation);
       var existing=rows.find(function(report){return report.case_public_ref===caseRef;});
       state.caseRef=caseRef;state.isRevision=!!existing;
       if(!state.pending||state.pending.caseRef!==caseRef||state.pending.wallet!==wallet){state.idempotency=randomKey();state.pending=null;}
@@ -191,25 +218,44 @@
       if(state.drawerWasOpen)drawer.hidden=true;
       var modal=document.getElementById('osi-report-modal');modal.classList.add('open');syncBodyLock();status('');
       setTimeout(function(){document.getElementById('osi-report-narrative').focus();},40);
-    }catch(error){status('');if(typeof showToast==='function')showToast(userError(error));if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;}
+    }catch(error){if(generation==null||generation===privateGeneration()){status('');if(typeof showToast==='function')showToast(userError(error));if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;}}
   }
   function closeReportForm(){
     var modal=document.getElementById('osi-report-modal');if(modal)modal.classList.remove('open');syncBodyLock();
+    if(state.receipt){var form=document.getElementById('osi-report-form');if(form)form.reset();state.receipt=null;state.formCapability=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-report-receipt');status('');var submit=document.getElementById('osi-report-submit');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}}
     var drawer=document.getElementById('osi-case-drawer');if(state.drawerWasOpen&&drawer)drawer.hidden=false;state.drawerWasOpen=false;syncBodyLock();
     if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;
   }
 
-  async function commitWithConfirmation(body){
+  async function commitWithConfirmation(body,generation){
     var lastError;
     for(var attempt=0;attempt<5;attempt++){
-      try{return await api(WRITE_URL,body);}catch(error){
+      assertPrivateGeneration(generation);
+      try{var result=await api(WRITE_URL,body);assertPrivateGeneration(generation);return result;}catch(error){
         lastError=error;
         if(['transaction_not_confirmed','rpc_unavailable'].indexOf(String(error.message))<0)throw error;
+        assertPrivateGeneration(generation);
         status('Waiting for Solana RPC confirmation. Retry '+(attempt+1)+' of 5...');
         await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});
+        assertPrivateGeneration(generation);
       }
     }
     throw lastError;
+  }
+  function showReportReceipt(committed){
+    state.receipt=committed;
+    var canQueue=typeof window.osiV2CanOpenReviewQueue==='function'&&window.osiV2CanOpenReviewQueue();
+    if(typeof window.osiV2RenderSubmissionReceipt==='function')window.osiV2RenderSubmissionReceipt('osi-report-receipt',{
+      title:'Report version saved',publicRef:committed.report_public_ref,versionRef:committed.version_public_ref,
+      copyValue:committed.report_public_ref,stage:reportLifecycleLabel(committed.lifecycle_state||'submitted',{}),visibility:'Private',
+      where:'My Reports, under the exact Case and immutable version history.',
+      reviewers:'Eligible independent analysts and full double-gated maintainers. The Report author is excluded.',
+      next:'The exact submitted version enters authorized review. It remains private until a standard quorum or the clearly labeled maintainer bootstrap path is finalized with a confirmed Memo.',
+      openLabel:'Open My Reports',canOpenQueue:canQueue,
+      onOpen:function(){closeReportForm();if(typeof window.osiV2CloseCase==='function')window.osiV2CloseCase();openReportWorkspace('mine');},
+      onQueue:function(){closeReportForm();if(typeof window.osiV2CloseCase==='function')window.osiV2CloseCase();window.osiV2OpenReviewQueue();},
+      onDismiss:closeReportForm
+    });
   }
 
   async function submitReport(event){
@@ -217,11 +263,12 @@
     var form=document.getElementById('osi-report-form');
     if(!form||!form.reportValidity()||state.busy)return;
     var report=payload();
-    if(report.evidence.length<1){status('Add at least one wallet, transaction, or HTTPS evidence reference.','error');return;}
     if(report.evidence.length>12){status('A Report version can include at most 12 evidence references.','error');return;}
+    var generation=privateGeneration();
     state.busy=true;var button=document.getElementById('osi-report-submit');button.disabled=true;button.setAttribute('aria-busy','true');
     try{
       var wallet=await ensureWallet();
+      assertPrivateGeneration(generation);
       var key=payloadKey(report);
       if(state.pending&&state.pending.payloadKey!==key){
         state.pending=null;state.idempotency=randomKey();
@@ -230,38 +277,41 @@
       if(!state.pending){
         status('Preparing the exact Case, version, evidence manifest, nonce, and payload hash...');
         var prepared=await api(WRITE_URL,{op:'prepare_report',wallet:wallet,case_ref:state.caseRef,report:report,idempotency_key:state.idempotency});
+        assertPrivateGeneration(generation);
         if(prepared.already_committed){
-          status('This exact version was already committed. Opening My Reports.','success');
-          await loadMyReports();setTimeout(function(){closeReportForm();openReportWorkspace('mine');},450);return;
+          status('This exact version was already committed. Its original receipt is shown below.','success');
+          showReportReceipt(Object.assign({lifecycle_state:'submitted'},prepared));return;
         }
         state.pending={caseRef:state.caseRef,wallet:wallet,payloadKey:key,prepared:prepared,txSig:''};
       }
       if(!state.pending.txSig){
         status('Approve the exact CASE_REPORT_VERSION_SUBMITTED Memo in Phantom. OSI receives no funds.');
         state.pending.txSig=await castOnchainVote(state.pending.prepared.memo);
+        assertPrivateGeneration(generation);
       }
       status('Confirming mainnet, signer, exact Memo, freshness, nonce, and payload hash...');
       var committed=await commitWithConfirmation({
         op:'commit_report',wallet:wallet,report:report,nonce:state.pending.prepared.nonce,
         memo:state.pending.prepared.memo,tx_sig:state.pending.txSig
-      });
+      },generation);
+      assertPrivateGeneration(generation);
       status('Version '+committed.version_no+' is submitted with a server-verified Solana Memo receipt.','success');
       if(typeof showToast==='function')showToast(committed.report_public_ref+' version '+committed.version_no+' is Memo-anchored on Solana.');
-      state.pending=null;state.idempotency='';form.reset();state.cacheWallet='';state.myReports=[];
+      state.pending=null;state.idempotency='';state.cacheWallet='';state.myReports=[];
       if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(draftKey(wallet,state.caseRef));
-      if(state.drawerWasOpen&&typeof window.osiV2CloseCase==='function')window.osiV2CloseCase();
-      state.drawerWasOpen=false;state.returnFocus=null;syncBodyLock();
-      setTimeout(function(){closeReportForm();openReportWorkspace('mine');},650);
+      showReportReceipt(committed);
     }catch(error){
-      status(userError(error),'error');
-      if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0){state.pending=null;state.idempotency=randomKey();}
-    }finally{state.busy=false;button.disabled=false;button.removeAttribute('aria-busy');}
+      if(generation===privateGeneration()){
+        status(userError(error),'error');
+        if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0){state.pending=null;state.idempotency=randomKey();}
+      }
+    }finally{if(generation===privateGeneration()){state.busy=false;button.disabled=!!state.receipt;button.removeAttribute('aria-busy');}}
   }
 
   function publicReviewTimeline(rows){
     if(!rows||!rows.length)return'';
     return'<div class="osi-report-timeline"><h4>Review timeline</h4>'+rows.map(function(review){
-      return'<div class="osi-report-timeline-item"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' weight · '+esc(label(review.tier_snapshot))+sasAuthority(review)+'</span></div><p>'+esc(review.public_rationale)+'</p><small>'+esc(review.actor_role)+' · '+esc(review.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof recorded')+' · '+esc(dateText(review.created_at))+(review.is_active?' · active':' · superseded')+'</small></div>';
+      return'<div class="osi-report-timeline-item"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' weight · '+esc(label(review.tier_snapshot))+sasAuthority(review)+'</span></div><p data-osi-user-content>'+esc(review.public_rationale)+'</p><small>'+esc(review.actor_role)+' · '+esc(review.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof recorded')+' · '+esc(dateText(review.created_at))+(review.is_active?' · active':' · superseded')+'</small></div>';
     }).join('')+'</div>';
   }
   function publicEvidence(rows){
@@ -271,44 +321,98 @@
       return'<div><b>#'+esc(item.ordinal)+' '+esc(label(item.kind))+'</b>'+value+'</div>';
     }).join('')+'</div>';
   }
+  function publicationChannelHtml(proof){
+    proof=proof||{};var channel=String(proof.decision_channel||'');if(!channel)return'';
+    var channelLabel=proof.decision_channel_label||label(channel),bootstrap=channel==='maintainer_bootstrap';
+    return'<div class="osi-report-publication-channel '+(bootstrap?'bootstrap':'standard')+'"><b>'+esc(t(channelLabel))+'</b><span class="mono">decision_channel='+esc(channel)+'</span>'+(bootstrap?'<p>'+esc(t('This publication used the maintainer bootstrap channel. It is not independent analyst quorum.'))+'</p>':'')+'</div>';
+  }
   function publishedRows(rows){
-    if(!rows.length)return'<div class="osi-v2-empty"><b>No public Report activity</b><span>A Report stays private until its first counted approval. Full content appears only after publication.</span></div>';
+    rows=(rows||[]).filter(function(row){return row&&row.state==='published';});
+    if(!rows.length)return'<div class="osi-v2-empty"><b>No published Reports</b><span>Every Report and exact version stays private until publication is finalized.</span></div>';
     return'<div class="osi-report-public-list">'+rows.map(function(row){
       var q=row.quorum||{};
       var progress='<div class="osi-report-quorum" aria-label="Publication quorum"><span><b>'+esc(q.approve_count||0)+'</b> / '+esc(q.required_count||0)+' analysts</span><span><b>'+esc(Number(q.approve_weight||0).toFixed(2))+'</b> / '+esc(Number(q.required_weight||0).toFixed(2))+' weight</span></div>';
-      var content=row.state==='published'
-        ? '<p class="osi-report-public-body">'+esc(row.body||'')+'</p>'+(row.content_public_safe?'<p><b>Public-safe summary:</b> '+esc(row.content_public_safe)+'</p>':'')+publicEvidence(row.evidence)
-        : '<p class="osi-report-under-review">The exact version is under independent review. Narrative, evidence, author identity, internal references and restricted notes remain private.</p>';
-      var proof=row.publication_proof&&row.publication_proof.tx_sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(row.publication_proof.tx_sig)+'" target="_blank" rel="noopener">Verify REPORT_PUBLISHED on Solscan ↗</a>':'';
+      var content='<p class="osi-report-public-body" data-osi-user-content>'+esc(row.body||'')+'</p>'+(row.content_public_safe?'<p data-osi-user-content><b>Public-safe summary:</b> '+esc(row.content_public_safe)+'</p>':'')+publicEvidence(row.evidence);
+      var proof=publicationChannelHtml(row.publication_proof)+(row.publication_proof&&row.publication_proof.tx_sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(row.publication_proof.tx_sig)+'" target="_blank" rel="noopener">Verify REPORT_PUBLISHED on Solscan ↗</a>':'');
       var support=row.state==='published'?'<button class="osi-report-action" type="button" onclick="osiV2SupportReportAuthor(\''+esc(row.version_public_ref)+'\')">Support author with SOL</button>':'';
       return'<article class="osi-report-public-card"><div class="osi-list-item-head"><div><b>'+esc(row.report_public_ref)+'</b><small>'+esc(row.version_public_ref)+' · version '+esc(row.version_no)+'</small></div><span class="osi-proof-label">'+esc(row.state==='published'?'Published':'Under review')+'</span></div>'+progress+content+publicReviewTimeline(row.review_timeline)+proof+support+'<p class="osi-report-process-note">'+esc(row.process_notice)+'</p></article>';
     }).join('')+'</div>';
   }
-  async function refreshPublicReports(item){
-    var host=document.getElementById('osi-public-reports');if(!host)return;
+  function sectionIsCurrent(token,caseRef,host){
+    return token===state.sectionLoadToken&&!!state.sectionContext
+      &&String(state.sectionContext.public_ref||'')===String(caseRef||'')
+      &&document.getElementById('osi-public-reports')===host;
+  }
+  async function refreshPublicReports(item,token,host){
+    var caseRef=String(item&&item.public_ref||'');
+    host=host||document.getElementById('osi-public-reports');
+    if(!host||!sectionIsCurrent(token,caseRef,host))return;
+    host.setAttribute('aria-busy','true');
     try{
-      var result=await api(READ_URL,{op:'list_public_reports',case_ref:item.public_ref});
+      var result=await api(READ_URL,{op:'list_public_reports',case_ref:caseRef});
+      if(!sectionIsCurrent(token,caseRef,host))return;
       host.innerHTML=publishedRows(result.reports||[]);
     }catch(error){
+      if(!sectionIsCurrent(token,caseRef,host))return;
       host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Public Report status unavailable</b><span>'+esc(userError(error))+'</span><button class="osi-report-action" type="button" onclick="osiV2RefreshPublicReports()">Try again</button></div>';
     }
+    if(sectionIsCurrent(token,caseRef,host))host.removeAttribute('aria-busy');
   }
-  async function refreshSectionAction(item){
+  async function refreshAuthorizedReports(item,token,host){
+    var generation=privateGeneration();
+    var caseRef=String(item&&item.public_ref||'');
+    host=host||document.getElementById('osi-public-reports');
+    if(!host||!sectionIsCurrent(token,caseRef,host))return;host.setAttribute('aria-busy','true');
+    var results=await Promise.allSettled([
+      api(READ_URL,{op:'list_public_reports',case_ref:caseRef}),
+      loadReviewQueueData()
+    ]);
+    if(generation!==privateGeneration()||!sectionIsCurrent(token,caseRef,host))return;
+    var publicHtml=results[0].status==='fulfilled'?publishedRows(results[0].value.reports||[]):'<div class="osi-v2-empty osi-v2-error"><b>Public Report status unavailable</b><span>'+esc(userError(results[0].reason))+'</span><button class="osi-report-action" type="button" onclick="osiV2RefreshCaseReports()">Try again</button></div>';
+    var authorizedHtml;
+    if(results[1].status==='fulfilled'){
+      var reports=(results[1].value.reports||[]).filter(function(report){return String(report.case_public_ref||'')===caseRef;});
+      authorizedHtml=reports.length?'<div class="osi-case-note">Restricted authorized view. Submitted content remains hidden from anonymous and conflicted actors.</div><div class="osi-report-workspace">'+reports.map(function(report){return reportCard(report,'queue');}).join('')+'</div>':'<div class="osi-v2-empty"><b>No authorized submitted Reports for this Case</b><span>The restricted Report endpoint returned an empty array for this exact Case.</span></div>';
+    }else{
+      authorizedHtml='<div class="osi-v2-empty osi-v2-error"><b>Authorized Report view unavailable</b><span>'+esc(userError(results[1].reason))+'</span><button class="osi-report-action" type="button" onclick="osiV2RefreshCaseReports()">Try again</button></div>';
+    }
+    host.innerHTML='<section class="osi-report-projection"><h4>Published Reports</h4>'+publicHtml+'</section><section class="osi-report-projection restricted"><h4>Authorized submitted Reports</h4>'+authorizedHtml+'</section>';
+    if(results[1].status==='fulfilled')restoreWorkspaceDraft();
+    host.removeAttribute('aria-busy');
+  }
+  async function refreshSectionAction(item,token,host){
+    var generation=privateGeneration(),requestedWallet=String(walletPubkey||'');
+    var caseRef=String(item&&item.public_ref||'');
+    host=host||document.getElementById('osi-public-reports');
+    if(!host||!sectionIsCurrent(token,caseRef,host))return;
     var button=document.getElementById('osi-report-submit-action');
     var copy=document.getElementById('osi-report-action-copy');
     if(!button||!copy)return;
     var wallet=String(walletPubkey||'');
     try{
-      var capability=await api(WRITE_URL,{op:'capabilities',wallet:wallet,case_ref:item.public_ref});
+      var capability=await api(WRITE_URL,{op:'capabilities',wallet:wallet,case_ref:caseRef});
+      if(generation!==privateGeneration()||requestedWallet!==String(walletPubkey||'')||!sectionIsCurrent(token,caseRef,host))return;
       button.disabled=capability.report_writes_enabled!==true||capability.case_eligible!==true||!wallet;
       copy.textContent=capability.prerequisite||'Submit an exact private Report version with a confirmed mainnet Memo. Review and publication are separate future transitions.';
       button.title=capability.prerequisite||'Submit Report';
-    }catch(error){button.disabled=true;copy.textContent='Report capability is temporarily unavailable.';button.title=copy.textContent;}
+    }catch(error){if(generation!==privateGeneration()||requestedWallet!==String(walletPubkey||'')||!sectionIsCurrent(token,caseRef,host))return;button.disabled=true;copy.textContent='Report capability is temporarily unavailable.';button.title=copy.textContent;}
   }
-  function renderSection(item){
-    state.sectionContext=item;
-    setTimeout(function(){refreshSectionAction(item);refreshPublicReports(item);},0);
-    return'<section class="osi-case-section"><div class="osi-report-action-row"><div><h3>Reports</h3><div class="osi-report-action-copy" id="osi-report-action-copy">Checking exact submission prerequisites...</div></div><button class="osi-report-action" id="osi-report-submit-action" type="button" disabled onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button></div><div id="osi-public-reports" aria-live="polite"><div class="osi-v2-skeleton"></div></div></section>';
+  function reloadSection(item,mode,expectedRenderToken){
+    var caseRef=String(item&&item.public_ref||'');
+    if(expectedRenderToken!=null&&expectedRenderToken!==state.sectionLoadToken)return;
+    if(!caseRef||!state.sectionContext||String(state.sectionContext.public_ref||'')!==caseRef)return;
+    var token=++state.sectionLoadToken,host=document.getElementById('osi-public-reports');
+    if(!host||!sectionIsCurrent(token,caseRef,host))return;
+    refreshSectionAction(item,token,host);
+    if(mode==='authorized')refreshAuthorizedReports(item,token,host);else refreshPublicReports(item,token,host);
+  }
+  function renderSection(item,context){
+    context=context||{};var capabilities=context.capabilities||{},authorized=capabilities.analyst_eligible===true||capabilities.maintainer_access===true;
+    var ownerConflict=!!walletPubkey&&String(item.submitted_by_wallet||'')===String(walletPubkey);
+    var mode=authorized&&!ownerConflict?'authorized':'public';
+    var renderToken=++state.sectionLoadToken;state.sectionContext=item;state.sectionMode=mode;
+    setTimeout(function(){reloadSection(item,mode,renderToken);},0);
+    return'<section class="osi-case-section"><div class="osi-report-action-row"><div><h3>Reports</h3><div class="osi-report-action-copy" id="osi-report-action-copy">'+esc(mode==='authorized'?'Loading public and restricted authorized Report projections...':'Checking exact submission prerequisites...')+'</div></div><button class="osi-report-action" id="osi-report-submit-action" type="button" disabled onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button></div><div id="osi-public-reports" aria-live="polite" aria-busy="true"><div class="osi-v2-skeleton"></div></div></section>';
   }
 
   function evidenceHtml(items){
@@ -318,7 +422,7 @@
   function proofHtml(proof){
     if(!proof)return'<span>Proof unavailable</span>';
     var link=/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(proof.tx_sig||''))?'<a href="https://solscan.io/tx/'+esc(proof.tx_sig)+'" target="_blank" rel="noopener">Verify on Solscan ↗</a>':'';
-    return'<div class="osi-report-proof"><b>'+esc(proof.proof_type==='solana_memo'?'Memo-anchored on Solana':'Proof recorded')+'</b><span>'+esc(dateText(proof.occurred_at))+'</span>'+link+'</div>';
+    return'<div class="osi-report-proof"><b>'+esc(proof.proof_type==='solana_memo'?'Memo-anchored on Solana':'Proof recorded')+'</b><span>'+esc(dateText(proof.occurred_at))+'</span>'+publicationChannelHtml(proof)+link+'</div>';
   }
   function queueStatus(versionRef,text,kind){
     var node=document.getElementById('osi-review-status-'+versionRef);if(!node)return;
@@ -332,22 +436,38 @@
     var reviews=(version.reviews||[]).slice().sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
     if(!reviews.length)return'<div class="osi-report-card-meta">No analyst reviews have been cast for this exact version.</div>';
     return'<div class="osi-report-review-history">'+reviews.map(function(review){
-      var note=privateAccess&&review.private_note?'<p class="osi-report-private-note"><b>Restricted analyst note:</b> '+esc(review.private_note)+'</p>':'';
-      return'<div class="osi-report-review-row"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' · '+esc(label(review.tier_snapshot))+(review.is_active?' · active':' · superseded')+sasAuthority(review)+'</span></div><p>'+esc(review.public_rationale||'No public-safe rationale recorded.')+'</p>'+note+'<small>'+esc(review.proof&&review.proof.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof unavailable')+' · '+esc(dateText(review.created_at))+'</small></div>';
+      var note=privateAccess&&review.private_note?'<p class="osi-report-private-note" data-osi-user-content><b>Restricted analyst note:</b> '+esc(review.private_note)+'</p>':'';
+      return'<div class="osi-report-review-row"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' · '+esc(label(review.tier_snapshot))+(review.is_active?' · active':' · superseded')+sasAuthority(review)+'</span></div><p data-osi-user-content>'+esc(review.public_rationale||'No public-safe rationale recorded.')+'</p>'+note+'<small>'+esc(review.proof&&review.proof.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof unavailable')+' · '+esc(dateText(review.created_at))+'</small></div>';
     }).join('')+'</div>';
   }
-  function reviewControls(report,version){
+  function publicationCapability(version){return version&&version.publication_capability||{};}
+  function bootstrapRequirement(capability){
+    var bootstrap=capability&&capability.bootstrap||{};
+    var tier=bootstrap.tier||'unavailable',eligible=bootstrap.eligible_analyst_count;
+    var required=bootstrap.required_analyst_count,weight=bootstrap.required_analyst_weight;
+    var parts=['Tier '+label(tier)];if(eligible!=null)parts.push(eligible+' live eligible analysts');if(required!=null)parts.push(required+' independent required');if(weight!=null)parts.push(Number(weight).toFixed(2)+' weight required');
+    return parts.join(' · ');
+  }
+  function reviewControls(report,version,mode){
     var current=version.version_ref===report.current_version_ref;
-    var mutations=state.queueMode==='queue'&&report.review_mutations_enabled===true&&current&&['submitted','in_review'].indexOf(version.lifecycle_state)>=0;
+    var actionable=mode==='queue'&&current&&['submitted','in_review'].indexOf(version.lifecycle_state)>=0;
+    var canAnalyst=actionable&&report.can_cast_analyst_review===true;
+    var canBootstrap=actionable&&report.can_publish_via_maintainer_bootstrap===true;
     var mine=(version.reviews||[]).find(function(review){return review.is_active&&review.reviewer_wallet===String(walletPubkey||'');});
-    var canPublish=mutations&&version.lifecycle_state==='in_review'&&version.quorum&&version.quorum.approve_ready&&mine&&mine.decision==='approve';
-    var disabled=mutations?'':' disabled';
-    var copy=mutations
+    var capability=publicationCapability(version);
+    var standardReady=capability.standard_quorum_ready===true||version.quorum&&version.quorum.approve_ready===true;
+    var canPublishStandard=canAnalyst&&version.lifecycle_state==='in_review'&&standardReady&&mine&&mine.decision==='approve';
+    var disabled=canAnalyst?'':' disabled';
+    var copy=canAnalyst
       ? 'Your decision is bound to this exact immutable version. A revision appends history and supersedes only your prior active review.'
-      : state.queueMode==='queue'&&report.access==='maintainer'
-      ? 'Full maintainers may inspect restricted material, but cannot cast or replace analyst quorum.'
+      : mode==='queue'&&report.access==='maintainer'
+      ? 'Full maintainers may inspect restricted material. They do not cast analyst weight; any cold-start publication uses the separate maintainer bootstrap channel below.'
       : 'Review controls are unavailable for this wallet or version.';
-    return'<section class="osi-report-review-controls"><h4>Analyst review</h4>'+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\')"'+(canPublish?'':' disabled')+'>Publish exact version</button></div><div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div></form>'+reviewHistoryHtml(version,true)+'</section>';
+    var standardReason=capability.standard_publication_reason_code||'Standard analyst quorum is not ready for publication.';
+    var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
+    var prerequisite=capability.maintainer_bootstrap_reason_code||report.bootstrap_prerequisite||'The current server-computed bootstrap tier is not satisfied.';
+    var bootstrap='<section class="osi-report-bootstrap"><h4>Maintainer bootstrap publication</h4><p>This is not independent analyst quorum. The receipt is permanently labeled <span class="mono">decision_channel=maintainer_bootstrap</span>.</p><div class="osi-report-card-meta">'+esc(bootstrapRequirement(capability))+'</div><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'maintainer_bootstrap\')"'+(canBootstrap?'':' disabled title="'+esc(prerequisite)+'"')+'>Publish via maintainer bootstrap</button>'+(canBootstrap?'':'<p>'+esc(prerequisite)+'</p>')+'</section>';
+    return analyst+(mode==='queue'&&(report.access==='maintainer'||canBootstrap||capability.decision_channel==='maintainer_bootstrap')?bootstrap:'')+'<div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div>'+reviewHistoryHtml(version,true);
   }
   function reportReviewDefaults(decision){
     if(decision==='approve')return{reason:'evidence_reviewed',rationale:'The exact report version and its evidence were reviewed.'};
@@ -357,6 +477,7 @@
   }
   async function submitReportReview(event,versionRef){
     if(event)event.preventDefault();if(state.busy)return;
+    var generation=privateGeneration();
     var decision=document.getElementById('osi-review-decision-'+versionRef);
     var reason=document.getElementById('osi-review-reason-'+versionRef);
     var rationale=document.getElementById('osi-review-rationale-'+versionRef);
@@ -377,45 +498,79 @@
     state.busy=true;
     try{
       var wallet=await ensureWallet();
+      assertPrivateGeneration(generation);
       if(!pending){
         queueStatus(versionRef,'Preparing exact version, analyst snapshot, nonce and payload hash...');
         var prepared=await api(WRITE_URL,{op:'prepare_review',wallet:wallet,review:review,idempotency_key:'report-review:'+(crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2))});
-        if(prepared.already_committed){queueStatus(versionRef,'This exact review was already committed. Reloading...','success');setTimeout(function(){openReportWorkspace('queue');},350);return;}
+        assertPrivateGeneration(generation);
+        if(prepared.already_committed){queueStatus(versionRef,'This exact review was already committed. Reloading...','success');setTimeout(function(){if(generation===privateGeneration())openReportWorkspace('queue');},350);return;}
         pending={key:key,prepared:prepared,signature:''};state.reviewPending[versionRef]=pending;
       }
-      if(!pending.signature){queueStatus(versionRef,'Approve the exact review message in Phantom. This is not an on-chain transaction.');pending.signature=await signMessage(pending.prepared.message);}
+      if(!pending.signature){queueStatus(versionRef,'Approve the exact review message in Phantom. This is not an on-chain transaction.');pending.signature=await signMessage(pending.prepared.message);assertPrivateGeneration(generation);}
       queueStatus(versionRef,'Verifying signer, eligibility, immutable target, weight snapshot and replay binding...');
       var committed=await api(WRITE_URL,{op:'commit_review',wallet:wallet,review:review,nonce:pending.prepared.nonce,message:pending.prepared.message,signature:pending.signature});
+      assertPrivateGeneration(generation);
       delete state.reviewPending[versionRef];queueStatus(versionRef,'Review recorded at '+Number(committed.weight).toFixed(2)+' weight.','success');
       if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(workspaceDraftKey(wallet));
       if(typeof showToast==='function')showToast(committed.decision+' review is wallet-signed and server-verified.');
-      setTimeout(function(){openReportWorkspace('queue');},500);
-    }catch(error){queueStatus(versionRef,userError(error),'error');if(['proof_binding_rejected','bad_signature','lineage_changed_retry'].indexOf(String(error.message))>=0)delete state.reviewPending[versionRef];}
-    finally{state.busy=false;}
+      setTimeout(function(){if(generation===privateGeneration())openReportWorkspace('queue');},500);
+    }catch(error){if(generation===privateGeneration()){queueStatus(versionRef,userError(error),'error');if(['proof_binding_rejected','bad_signature','lineage_changed_retry'].indexOf(String(error.message))>=0)delete state.reviewPending[versionRef];}}
+    finally{if(generation===privateGeneration())state.busy=false;}
   }
-  async function publishReport(versionRef){
-    if(state.busy)return;state.busy=true;
+  async function publishReport(versionRef,route){
+    route=route==='maintainer_bootstrap'?'maintainer_bootstrap':'standard';
+    if(state.busy)return;var generation=privateGeneration();state.busy=true;
     try{
       var wallet=await ensureWallet();var pending=state.publicationPending[versionRef];
+      assertPrivateGeneration(generation);
+      if(pending&&pending.route!==route){delete state.publicationPending[versionRef];pending=null;}
       if(!pending){
-        queueStatus(versionRef,'Freezing the exact active quorum snapshot and preparing REPORT_PUBLISHED...');
-        var prepared=await api(WRITE_URL,{op:'prepare_publication',wallet:wallet,version_public_ref:versionRef,idempotency_key:'report-publish:'+(crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2))});
-        if(prepared.already_committed){queueStatus(versionRef,'This exact version is already published.','success');setTimeout(function(){openReportWorkspace('queue');},350);return;}
-        pending={prepared:prepared,txSig:''};state.publicationPending[versionRef]=pending;
+        queueStatus(versionRef,route==='maintainer_bootstrap'?'Checking the server-computed D17 tier and preparing a maintainer-bootstrap REPORT_PUBLISHED receipt...':'Freezing the exact active analyst quorum snapshot and preparing REPORT_PUBLISHED...');
+        var prepareBody={op:'prepare_publication',wallet:wallet,version_public_ref:versionRef,idempotency_key:'report-publish:'+(crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2))};
+        if(route==='maintainer_bootstrap')prepareBody.route='maintainer_bootstrap';
+        var prepared=await api(WRITE_URL,prepareBody);
+        assertPrivateGeneration(generation);
+        if(prepared.already_committed){queueStatus(versionRef,'This exact version is already published. Inspect its retained publication receipt.','success');return;}
+        pending={prepared:prepared,txSig:'',route:route};state.publicationPending[versionRef]=pending;
       }
-      if(!pending.txSig){queueStatus(versionRef,'Approve the exact REPORT_PUBLISHED Memo in Phantom. OSI receives no funds.');pending.txSig=await castOnchainVote(pending.prepared.memo);}
+      if(!pending.txSig){queueStatus(versionRef,'Approve the exact REPORT_PUBLISHED Memo in Phantom. OSI receives no funds.');pending.txSig=await castOnchainVote(pending.prepared.memo);assertPrivateGeneration(generation);}
       queueStatus(versionRef,'Confirming mainnet, signer, exact version, quorum hash, nonce and Memo...');
-      var committed=await commitWithConfirmation({op:'commit_publication',wallet:wallet,version_public_ref:versionRef,nonce:pending.prepared.nonce,memo:pending.prepared.memo,tx_sig:pending.txSig});
-      delete state.publicationPending[versionRef];queueStatus(versionRef,'Exact version published. The parent Case remains open and unchanged.','success');
+      var committed=await commitWithConfirmation({op:'commit_publication',wallet:wallet,version_public_ref:versionRef,nonce:pending.prepared.nonce,memo:pending.prepared.memo,tx_sig:pending.txSig},generation);
+      assertPrivateGeneration(generation);
+      delete state.publicationPending[versionRef];
+      var channel=committed.decision_channel||route;
+      queueStatus(versionRef,(channel==='maintainer_bootstrap'?'Published via maintainer bootstrap; this is not independent analyst quorum. decision_channel=maintainer_bootstrap. ':'Published through the standard analyst-quorum route. ')+'The parent Case remains open and unchanged.','success');
       if(typeof showToast==='function')showToast(committed.version_public_ref+' is Memo-anchored and public.');
-      setTimeout(function(){openReportWorkspace('queue');},650);
-    }catch(error){queueStatus(versionRef,userError(error),'error');if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0)delete state.publicationPending[versionRef];}
-    finally{state.busy=false;}
+    }catch(error){if(generation===privateGeneration()){queueStatus(versionRef,userError(error),'error');if(['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0)delete state.publicationPending[versionRef];}}
+    finally{if(generation===privateGeneration())state.busy=false;}
+  }
+  function reportLifecycleLabel(value,version){
+    value=String(value||'');
+    if(value==='published')return'Published';
+    if(['rejected','closed','withdrawn'].indexOf(value)>=0)return'Rejected / closed';
+    if(value==='revision_requested')return'Revision requested';
+    if(['ready_for_publication','approved'].indexOf(value)>=0)return'Ready for publication';
+    if(value==='in_review'){
+      var capability=publicationCapability(version),quorum=version&&version.quorum||{};
+      return capability.standard_quorum_ready===true||quorum.approve_ready===true?'Ready for publication':'In review';
+    }
+    if(value==='submitted'||value==='active')return'Awaiting analyst / maintainer review';
+    return label(value||'submitted');
+  }
+  function reportNextStep(report,version){
+    var status=reportLifecycleLabel(version&&version.lifecycle_state,version);
+    if(status==='Revision requested')return'Create a new immutable revision that answers the recorded request.';
+    if(status==='Ready for publication')return'The authorized publication route must anchor this exact version with a confirmed Memo.';
+    if(status==='Published')return'This exact version is public. Later corrections create a new version and preserve this history.';
+    if(status==='Rejected / closed')return'Inspect the retained review history; no silent rewrite or deletion occurs.';
+    if(status==='In review')return'Independent count and weight gates continue on this exact version.';
+    return'An eligible analyst or full maintainer may inspect this exact version. The author cannot review or publish it.';
   }
   function reportCard(report,mode){
     var versions=(report.versions||[]).slice().sort(function(a,b){return Number(b.version_no)-Number(a.version_no);});
+    var current=versions.find(function(version){return version.version_ref===report.current_version_ref;})||versions[0]||{};
     var revision=mode==='mine'&&report.revision_eligible?'<button class="osi-report-action" type="button" onclick="osiV2OpenReportForm(\''+esc(report.case_public_ref)+'\')">Create revision</button>':'';
-    return'<article class="osi-report-card"><div class="osi-report-card-head"><div><div class="osi-report-card-kicker"><span>'+esc(report.case_public_ref)+'</span><span>'+esc(report.report_public_ref)+'</span></div><h3>Exact version '+esc(report.current_version_no)+'</h3><div class="osi-report-card-meta">'+(mode==='queue'?'Author '+esc(short(report.author_wallet))+' · ':'')+'Submitted '+esc(dateText(versions[0]&&versions[0].submitted_at))+' · '+esc(report.current_version_ref)+'</div></div><span class="osi-report-state">'+esc(mode==='queue'?'Awaiting review':label(versions[0]&&versions[0].lifecycle_state))+'</span></div><div class="osi-report-card-head"><div class="osi-report-card-meta">'+(mode==='queue'?'Count and weight gates apply independently. Publication does not resolve the Case or certify truth or guilt.':(report.revision_eligible?'This active Case accepts a new immutable revision.':'Revision is unavailable because the Case or Report is not eligible.'))+'</div>'+revision+'</div><details'+(mode==='queue'?' open':'')+'><summary>Version history ('+versions.length+')</summary>'+versions.map(function(version){return'<section class="osi-report-version"><div class="osi-report-version-head"><div><div class="osi-report-version-ref">'+esc(version.version_ref)+' · version '+esc(version.version_no)+'</div><small>'+esc(label(version.lifecycle_state))+' · '+esc(dateText(version.submitted_at))+'</small></div><span class="mono">sha256 '+esc(short(version.evidence_snapshot_hash))+'</span></div><p>'+esc(version.body_private)+'</p>'+(version.content_public_safe?'<p><b>Public-safe summary:</b> '+esc(version.content_public_safe)+'</p>':'')+evidenceHtml(version.evidence)+proofHtml(version.proof)+(mode==='queue'?reviewControls(report,version):reviewHistoryHtml(version,false))+'</section>';}).join('')+'</details></article>';
+    return'<article class="osi-report-card" data-report-ref="'+esc(report.report_public_ref)+'" tabindex="-1"><div class="osi-report-card-head"><div><div class="osi-report-card-kicker"><span>'+esc(report.case_public_ref)+'</span><span>'+esc(report.report_public_ref)+'</span></div><h3>Exact version '+esc(report.current_version_no)+'</h3><div class="osi-report-card-meta">'+(mode==='queue'?'Author '+esc(short(report.author_wallet))+' · ':'')+'Submitted '+esc(dateText(current.submitted_at))+' · '+esc(report.current_version_ref)+'</div></div><span class="osi-report-state" data-report-lifecycle="'+esc(current.lifecycle_state)+'">'+esc(reportLifecycleLabel(current.lifecycle_state,current))+'</span></div><div class="osi-report-card-head"><div class="osi-report-card-meta">'+esc(reportNextStep(report,current))+'</div>'+revision+'</div><details'+(mode==='queue'?' open':'')+'><summary>Version history ('+versions.length+')</summary>'+versions.map(function(version){return'<section class="osi-report-version" data-report-version-ref="'+esc(version.version_ref)+'" tabindex="-1"><div class="osi-report-version-head"><div><div class="osi-report-version-ref">'+esc(version.version_ref)+' · version '+esc(version.version_no)+'</div><small>'+esc(reportLifecycleLabel(version.lifecycle_state,version))+' · '+esc(dateText(version.submitted_at))+'</small></div><span class="mono">sha256 '+esc(short(version.evidence_snapshot_hash))+'</span></div><p data-osi-user-content>'+esc(version.body_private)+'</p>'+(version.content_public_safe?'<p data-osi-user-content><b>Public-safe summary:</b> '+esc(version.content_public_safe)+'</p>':'')+evidenceHtml(version.evidence)+proofHtml(version.proof)+(mode==='queue'?reviewControls(report,version,mode):reviewHistoryHtml(version,false))+'</section>';}).join('')+'</details></article>';
   }
   function setWorkspaceCopy(mode,count){
     var eyebrow=document.getElementById('fo-eyebrow'),title=document.getElementById('fo-title'),sub=document.getElementById('fo-sub'),counter=document.getElementById('fo-count');
@@ -428,17 +583,28 @@
     var host=document.getElementById('field-cases');if(!host)return;
     setWorkspaceCopy(mode,reports.length);
     host.innerHTML=(notice?'<div class="osi-case-note">'+esc(notice)+'</div>':'')+(reports.length?'<div class="osi-report-workspace">'+reports.map(function(report){return reportCard(report,mode);}).join('')+'</div>':'<div class="osi-report-empty"><b>'+esc(mode==='mine'?'No Reports for this wallet':'No Reports currently await this wallet')+'</b><p>'+esc(mode==='mine'?'Open an eligible public Case and use Submit Report.':'Only server-authorized, non-self Report versions appear here.')+'</p></div>');
-    var enabled=mode==='queue'&&reports.some(function(report){return report.review_mutations_enabled===true;});
-    var stats=document.getElementById('field-stats');if(stats)stats.innerHTML='<div class="osi-stat"><span>Visible</span><b>'+reports.length+'</b></div><div class="osi-stat"><span>Immutable versions</span><b>'+reports.reduce(function(sum,report){return sum+(report.versions||[]).length;},0)+'</b></div><div class="osi-stat"><span>Review controls</span><b>'+esc(mode==='queue'?(enabled?'Eligible':'Eligible analyst required'):'N/A')+'</b></div>';
+    if(mode==='queue')host.querySelectorAll('.osi-report-version').forEach(function(section){
+      var controls=section.querySelector('.osi-report-review-controls,.osi-report-bootstrap');if(!controls)return;
+      var jump=document.createElement('button');jump.type='button';jump.className='osi-report-action primary osi-report-review-jump';jump.textContent=t('Review this exact version');
+      jump.addEventListener('click',function(){
+        controls.scrollIntoView({block:'start',behavior:'smooth'});
+        var target=controls.querySelector('select:not([disabled]),button:not([disabled]),textarea:not([disabled]),input:not([disabled])');
+        if(target)setTimeout(function(){target.focus();},0);else{controls.setAttribute('tabindex','-1');setTimeout(function(){controls.focus();},0);}
+      });
+      var head=section.querySelector('.osi-report-version-head');if(head)head.insertAdjacentElement('afterend',jump);
+    });
+    var enabled=mode==='queue'&&reports.some(function(report){return report.can_cast_analyst_review===true||report.can_publish_via_maintainer_bootstrap===true;});
+    var stats=document.getElementById('field-stats');if(stats)stats.innerHTML='<div class="osi-stat"><span>Visible</span><b>'+reports.length+'</b></div><div class="osi-stat"><span>Immutable versions</span><b>'+reports.reduce(function(sum,report){return sum+(report.versions||[]).length;},0)+'</b></div><div class="osi-stat"><span>Review controls</span><b>'+esc(mode==='queue'?(enabled?'Authorized route available':'No current action'):'N/A')+'</b></div>';
     var deck=document.getElementById('fo-deck');if(deck)deck.hidden=true;
     var nav=document.getElementById('fo-pnav');if(nav)nav.innerHTML='';
   }
   async function openReportWorkspace(mode){
     state.queueMode=mode;
     if(typeof showView==='function')showView('field');
+    if(typeof window.osiV2SetFieldReviewChrome==='function')window.osiV2SetFieldReviewChrome(false);
     var host=document.getElementById('field-cases');if(host)host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';
     try{
-      var result=mode==='mine'?await sessionRead('report:mine','list_my_reports'):await sessionRead('report:review','list_review_queue');
+      var result=mode==='mine'?await sessionRead('report:mine','list_my_reports'):await loadReviewQueueData();
       if(mode==='mine'){state.cacheWallet=String(walletPubkey||'');state.myReports=result.reports||[];}
       drawWorkspace(result.reports||[],mode,result.next_prerequisite||'');
       restoreWorkspaceDraft();
@@ -446,6 +612,12 @@
       setWorkspaceCopy(mode,0);
       if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Report workspace locked</b><span>'+esc(userError(error))+'</span><button class="osi-report-action" type="button" onclick="'+(refresh?('osiV2RefreshReportWorkspace(\''+esc(mode)+'\')'):(mode==='mine'?'osiV2OpenMyReports()':'osiV2OpenReportQueue()'))+'">'+(refresh?'Refresh private access':'Try again')+'</button></div>';}
     }
+  }
+  async function openReportQueueTarget(versionRef){
+    await openReportWorkspace('queue');
+    var target=Array.prototype.find.call(document.querySelectorAll('[data-report-version-ref]'),function(node){return node.getAttribute('data-report-version-ref')===String(versionRef||'');});
+    if(!target){if(typeof showToast==='function')showToast('The exact Report task is no longer in this authorized queue. Refresh My Reviews.');return null;}
+    var details=target.closest('details');if(details)details.open=true;target.scrollIntoView({block:'center',behavior:'auto'});target.focus();return target;
   }
 
   function trapFocus(event,root){
@@ -468,9 +640,12 @@
   window.osiV2SubmitReportReview=submitReportReview;
   window.osiV2PublishReport=publishReport;
   window.osiV2ReportClearSession=clearSessionState;
-  window.osiV2RefreshPublicReports=function(){if(state.sectionContext)refreshPublicReports(state.sectionContext);};
+  window.osiV2RefreshPublicReports=function(){if(state.sectionContext)reloadSection(state.sectionContext,'public');};
+  window.osiV2RefreshCaseReports=function(){if(state.sectionContext)reloadSection(state.sectionContext,state.sectionMode);};
   window.osiV2OpenMyReports=function(){openReportWorkspace('mine');};
   window.osiV2OpenReportQueue=function(){openReportWorkspace('queue');};
+  window.osiV2OpenReportQueueTarget=openReportQueueTarget;
+  window.osiV2LoadReportReviewTasks=loadReviewQueueData;
   window.osiV2RefreshReportWorkspace=function(mode){var scope=mode==='queue'?'report:review':'report:mine';return window.osiV2RefreshReadSession([scope]).then(function(){return openReportWorkspace(mode==='queue'?'queue':'mine');});};
   var reportDraftForm=document.getElementById('osi-report-form');
   if(reportDraftForm){reportDraftForm.addEventListener('input',saveDraft);reportDraftForm.addEventListener('change',saveDraft);}

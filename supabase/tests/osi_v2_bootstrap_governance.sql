@@ -3,7 +3,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(86);
+select plan(93);
 
 -- ---------------------------------------------------------------------------
 -- Shared fixture helpers (same shapes as the accepted governance suite).
@@ -468,6 +468,110 @@ $test$,'42501','Case is not seal-ready',
 -- ---------------------------------------------------------------------------
 -- 4. Tier < 20 Report publication through the bootstrap channel.
 -- ---------------------------------------------------------------------------
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.osi_v2_report_publication_capabilities(text,uuid[],text)',
+    'EXECUTE'
+  ),
+  'service role can read the side-effect-free exact Report capability projection'
+);
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.osi_v2_report_publication_capabilities(text,uuid[],text)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'public.osi_v2_report_publication_capabilities(text,uuid[],text)',
+    'EXECUTE'
+  ),
+  'browser roles cannot call the restricted Report capability RPC directly'
+);
+create temporary table report_capability_nonce_count on commit drop as
+select count(*)::bigint as value from public.osi_nonces;
+select ok(
+  (
+    select can_publish_via_maintainer_bootstrap is false
+       and maintainer_bootstrap_reason_code = 'maintainer_double_gate_required'
+      from public.osi_v2_report_publication_capabilities(
+        '44444444444444444444444444444444',
+        array[(select version_id from pg_temp.cn1_prepare)],
+        null
+      )
+  ),
+  'admin wallet alone receives no maintainer bootstrap capability'
+);
+select ok(
+  (
+    select can_publish_via_maintainer_bootstrap is false
+       and maintainer_bootstrap_reason_code = 'maintainer_double_gate_required'
+      from public.osi_v2_report_publication_capabilities(
+        '55555555555555555555555555555555',
+        array[(select version_id from pg_temp.cn1_prepare)],
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      )
+  ),
+  'maintainer auth shape without the configured wallet receives no bootstrap capability'
+);
+select ok(
+  (
+    select actor_is_full_maintainer
+       and can_publish_via_maintainer_bootstrap
+       and decision_channel = 'maintainer_bootstrap'
+       and bootstrap_tier = 'maintainer_only'
+       and bootstrap_required_analyst_count = 0
+      from public.osi_v2_report_publication_capabilities(
+        '44444444444444444444444444444444',
+        array[(select version_id from pg_temp.cn1_prepare)],
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      )
+  ),
+  'full maintainer receives the honest exact tier-one bootstrap capability'
+);
+
+-- A dual-role actor keeps both independent abilities. Revoke the temporary
+-- fixture and restore the configured admin wallet immediately so later tier
+-- boundary fixtures remain unchanged.
+create temporary table dual_role_capability_actor on commit drop as
+select ('Du' || repeat('x', 30))::text as wallet;
+insert into public.analyst_profiles (
+  wallet, status, tier_code, verified, approved, weight_cached
+) values (
+  (select wallet from pg_temp.dual_role_capability_actor),
+  'probationary_analyst', 'probationary', true, true, 0.50
+);
+update public.osi_config
+   set value = (select wallet from pg_temp.dual_role_capability_actor)
+ where key = 'admin_wallet';
+select ok(
+  (
+    select actor_is_eligible_analyst
+       and actor_is_full_maintainer
+       and can_cast_analyst_review
+       and can_publish_via_maintainer_bootstrap
+      from public.osi_v2_report_publication_capabilities(
+        (select wallet from pg_temp.dual_role_capability_actor),
+        array[(select version_id from pg_temp.cn1_prepare)],
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      )
+  ),
+  'dual-role actor retains analyst review and maintainer bootstrap as independent capabilities'
+);
+update public.osi_config
+   set value = '44444444444444444444444444444444'
+ where key = 'admin_wallet';
+update public.analyst_profiles
+   set status = 'revoked', tier_code = 'none',
+       verified = false, approved = false, weight_cached = 0
+ where wallet = (select wallet from pg_temp.dual_role_capability_actor);
+select is(
+  (select count(*)::bigint from public.osi_nonces),
+  (select value from pg_temp.report_capability_nonce_count),
+  'capability projection creates no nonce or other Stage-5 side effect'
+);
+
 select throws_ok($test$
  select * from public.osi_v2_prepare_report_publication(
   repeat('s',32),'44444444444444444444444444444444',
@@ -928,8 +1032,8 @@ select is((
      and proc.proname <> 'osi_v2_bootstrap_tier'
      and proc.prosrc like '%osi_v2_bootstrap_tier%'
 ),
- 'osi_private.osi_v2_commit_governance_action,osi_private.osi_v2_commit_report_publication,osi_private.osi_v2_commit_wire_publication,osi_private.osi_v2_prepare_governance_action,osi_private.osi_v2_prepare_report_publication,osi_private.osi_v2_prepare_wire_publication',
- 'only accepted D17 outcome functions and its Wire-publication amendment can reach the bootstrap tier');
+ 'osi_private.osi_v2_commit_governance_action,osi_private.osi_v2_commit_report_publication,osi_private.osi_v2_commit_wire_publication,osi_private.osi_v2_prepare_governance_action,osi_private.osi_v2_prepare_report_publication,osi_private.osi_v2_prepare_wire_publication,osi_private.osi_v2_report_publication_capabilities',
+ 'only accepted D17 outcome functions and the side-effect-free Report capability projection can reach the bootstrap tier');
 select throws_ok($test$
  insert into public.event_receipts (
   event_version,event_type,target_type,target_id,actor_wallet,actor_role,

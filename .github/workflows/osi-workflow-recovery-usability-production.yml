@@ -1,0 +1,1371 @@
+name: OSI Workflow Recovery and Usability Production
+
+# Manual, current-main-only, resumable delivery for the workflow-recovery
+# usability slice. The production job may apply exactly one additive migration
+# and deploy exactly the five Edge Functions changed directly or through a
+# changed shared module. It temporarily contains exactly seven task-scoped live
+# gates during the sequential Edge rollout, restores them only after contained
+# smokes pass, and keeps SAS enforcement enabled throughout. It never calls a
+# prepare/commit endpoint, creates a domain row, sends a Solana transaction, or
+# invokes an AI provider.
+#
+# The additive migration is immutable after application. A failed rollout stops
+# for one focused forward-fix PR; it does not drop schema, repair migration
+# history, rewrite data, disable an unrelated live flag, or retry in a loop.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type RECOVER-USABILITY-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-workflow-recovery-usability-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  NEW_VERSION: "20260729134213"
+  EXPECTED_FUNCTION_VERSIONS: '{"osi-v2-analyst":17,"osi-v2-case-read":23,"osi-v2-report-read":18,"osi-v2-report-write":15,"osi-v2-wire":9}'
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457 20260726200249 20260727170000
+    20260727173000 20260728132011 20260728153100 20260728170000
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457 20260726200249 20260727170000
+    20260727173000 20260728132011 20260728153100 20260728170000
+    20260729134213
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Zero-to-latest application database and browser proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "RECOVER-USABILITY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact clean current-main source and migration set
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Checked-out commit is not current origin/main."; exit 1;
+          }
+          [ -z "$(git status --porcelain)" ] || {
+            echo "::error::Checkout is not clean."; exit 1;
+          }
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' |
+            sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || {
+            echo "::error::Repository migration set is not exact."; exit 1;
+          }
+          test -s "supabase/migrations/20260729134213_osi_v2_workflow_recovery_usability.sql"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: All dependency-free application and type tests
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          mapfile -t deno_sources < <(
+            find supabase/functions -type f \
+              \( -path '*/index.ts' -o -path '*/_shared/*.ts' -o -path '*/_shared/*.mjs' \) |
+              sort
+          )
+          deno check "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
+
+      - name: Chromium desktop mobile keyboard and recovery contracts
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @playwright/test@1.55.0 http-server@14.1.1
+          npx playwright install --with-deps chromium
+          npx playwright test --config tests/browser/playwright.config.js
+
+      - name: Fresh PostgreSQL 17 migration lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc \
+            "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          [ "$got" = "$expected" ] || {
+            echo "::error::Fresh database migration history is not exact."; exit 1;
+          }
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard disposable local database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Exact additive migration functions and read-only production proof
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: Production
+    env:
+      PGSSLMODE: require
+      PROOF_DIR: ${{ runner.temp }}/osi-workflow-recovery-proof
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Verify authorization credentials project secrets and unchanged main
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROOF_DIR"
+          [ "${{ github.event.inputs.confirm }}" = "RECOVER-USABILITY-${EXPECTED_PROJECT_REF}" ]
+          [ "${GITHUB_REF}" = "refs/heads/main" ]
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || {
+            echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1;
+          }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || {
+            echo "::error::Pinned Supabase project mismatch."; exit 1;
+          }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Checked-out commit is no longer current origin/main."; exit 1;
+          }
+          [ -z "$(git status --porcelain)" ] || {
+            echo "::error::Checkout is not clean."; exit 1;
+          }
+          git rev-parse HEAD > "$PROOF_DIR/main-commit.txt"
+          secret_names="$(supabase secrets list \
+            --project-ref "$EXPECTED_PROJECT_REF" --output json | jq -r '.[].name')"
+          for required in SOLANA_RPC_URL OSI_V2_ALLOWED_ORIGIN OSI_MAINTAINER_AUTH_UUID; do
+            grep -qx "$required" <<< "$secret_names" || {
+              echo "::error::Required Edge secret ${required} is absent."; exit 1;
+            }
+          done
+
+      - name: Resolve pinned session-pooler coordinates
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next(
+              (row for row in rows if str(row.get("database_type", "")).upper() == "PRIMARY"),
+              rows[0],
+          )
+          print(primary["db_host"], primary["db_port"], primary["db_user"],
+                primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in
+            *.pooler.supabase.com) : ;;
+            *) echo "::error::Unexpected database host."; exit 1 ;;
+          esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Unexpected database user."; exit 1;
+          }
+          {
+            echo "PGHOST=$PGHOST"
+            echo "PGPORT=$PGPORT"
+            echo "PGUSER=$PGUSER"
+            echo "PGDATABASE=$PGDATABASE"
+          } >> "$GITHUB_ENV"
+
+      - name: Snapshot config protected rows target record and function versions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TARGET_CASE_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_CASE_REF }}
+          TARGET_REPORT_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_REPORT_REF }}
+          TARGET_VERSION_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_VERSION_REF }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_CASE_REF" =~ ^OSI-[0-9A-F]{12}$ ]] || {
+            echo "::error::Protected Case selector secret is absent or invalid."; exit 1;
+          }
+          [[ "$TARGET_REPORT_REF" =~ ^OSI-RPT-[0-9A-F]{12}$ ]] || {
+            echo "::error::Protected Report selector secret is absent or invalid."; exit 1;
+          }
+          [[ "$TARGET_VERSION_REF" =~ ^OSI-RV-[0-9A-F]{16}$ ]] || {
+            echo "::error::Protected Report version selector secret is absent or invalid."; exit 1;
+          }
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key, md5(value) from public.osi_config order by key" \
+            > "$RUNNER_TEMP/osi-config-before.txt"
+          psql -v ON_ERROR_STOP=1 -Atq -f scripts/protected-row-counts.sql \
+            > "$PROOF_DIR/protected-rows-before.txt"
+          psql -v ON_ERROR_STOP=1 -Atq -c \
+            "select 'osi_read_nonces|' || count(*) from public.osi_read_nonces" \
+            >> "$PROOF_DIR/protected-rows-before.txt"
+          sort -o "$PROOF_DIR/protected-rows-before.txt" \
+            "$PROOF_DIR/protected-rows-before.txt"
+          psql -v ON_ERROR_STOP=1 \
+            -v case_ref="$TARGET_CASE_REF" \
+            -v report_ref="$TARGET_REPORT_REF" \
+            -v version_ref="$TARGET_VERSION_REF" \
+            -Atq -F'|' > "$RUNNER_TEMP/osi-target-record-before.txt" <<'SQL'
+          begin read only;
+          select
+            case_item.public_ref,
+            case_item.stage,
+            case_item.visibility,
+            report.public_ref,
+            report.status,
+            version.version_ref,
+            version.lifecycle_state,
+            (select count(*) from public.case_report_version_evidence as link
+              where link.report_version_id = version.id),
+            (select count(*) from public.case_report_reviews as review
+              where review.report_version_id = version.id and review.is_active),
+            case when report.current_published_version_id is null
+              then 'unpublished' else 'published' end,
+            case when report.current_version_id = version.id
+              then 'current' else 'not_current' end,
+            case when report.native_intake is true
+              then 'native' else 'legacy' end
+          from public.case_report_versions as version
+          join public.case_reports as report on report.id = version.report_id
+          join public.cases as case_item on case_item.id = report.case_id
+          where case_item.public_ref = :'case_ref'
+            and report.public_ref = :'report_ref'
+            and version.version_ref = :'version_ref';
+          commit;
+          SQL
+          target_record_expected="${TARGET_CASE_REF}|open_public|public|${TARGET_REPORT_REF}|active|${TARGET_VERSION_REF}|submitted|1|0|unpublished|current|native"
+          [ "$(cat "$RUNNER_TEMP/osi-target-record-before.txt")" = "$target_record_expected" ] || {
+            echo "::error::Protected target Report is not in the approved starting state."; exit 1;
+          }
+          psql -v ON_ERROR_STOP=1 \
+            -v case_ref="$TARGET_CASE_REF" \
+            -v report_ref="$TARGET_REPORT_REF" \
+            -v version_ref="$TARGET_VERSION_REF" \
+            -Atq \
+            > "$RUNNER_TEMP/osi-target-row-hashes-before.txt" <<'SQL'
+          begin read only;
+          with target as (
+            select
+              case_item.id as case_id,
+              report.id as report_id,
+              version.id as version_id
+            from public.case_report_versions as version
+            join public.case_reports as report on report.id = version.report_id
+            join public.cases as case_item on case_item.id = report.case_id
+            where case_item.public_ref = :'case_ref'
+              and report.public_ref = :'report_ref'
+              and version.version_ref = :'version_ref'
+          ), hashes as (
+            select 'case' as label, md5(to_jsonb(case_item)::text) as row_hash
+            from public.cases as case_item, target
+            where case_item.id = target.case_id
+            union all
+            select 'report', md5(to_jsonb(report)::text)
+            from public.case_reports as report, target
+            where report.id = target.report_id
+            union all
+            select 'version', md5(to_jsonb(version)::text)
+            from public.case_report_versions as version, target
+            where version.id = target.version_id
+            union all
+            select 'evidence_links', md5(coalesce(jsonb_agg(
+              to_jsonb(link) order by link.ordinal, link.evidence_item_id
+            ), '[]'::jsonb)::text)
+            from public.case_report_version_evidence as link, target
+            where link.report_version_id = target.version_id
+            union all
+            select 'evidence_items', md5(coalesce(jsonb_agg(
+              to_jsonb(item) order by item.id
+            ), '[]'::jsonb)::text)
+            from public.evidence_items as item
+            join public.case_report_version_evidence as link
+              on link.evidence_item_id = item.id
+            join target on target.version_id = link.report_version_id
+            union all
+            select 'reviews', md5(coalesce(jsonb_agg(
+              to_jsonb(review) order by review.id
+            ), '[]'::jsonb)::text)
+            from public.case_report_reviews as review, target
+            where review.report_version_id = target.version_id
+          )
+          select label || '|' || row_hash from hashes order by label;
+          commit;
+          SQL
+          [ "$(wc -l < "$RUNNER_TEMP/osi-target-row-hashes-before.txt")" = "6" ] || {
+            echo "::error::Protected target hash snapshot is incomplete."; exit 1;
+          }
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          do $$
+          begin
+            if exists (
+              select 1
+              from (values
+                ('OSI_V2_WRITES_ENABLED', 'false'),
+                ('OSI_V2_PROOF_ENABLED', 'false'),
+                ('OSI_V2_FALLBACK_GOVERNANCE', 'false'),
+                ('OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED', 'false'),
+                ('OSI_V2_CASE_WRITES_ENABLED', 'true'),
+                ('OSI_V2_ANALYST_WRITES_ENABLED', 'true'),
+                ('OSI_V2_REPORT_WRITES_ENABLED', 'true'),
+                ('OSI_V2_REPORT_REVIEW_WRITES_ENABLED', 'true'),
+                ('OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED', 'true'),
+                ('OSI_V2_WIRE_WRITES_ENABLED', 'true'),
+                ('OSI_V2_PAYMENT_WRITES_ENABLED', 'true'),
+                ('OSI_V2_SOLANA_PAY_ENABLED', 'true'),
+                ('OSI_V2_READ_SESSION_ENABLED', 'true'),
+                ('OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED', 'true'),
+                ('OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED', 'true'),
+                ('OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED', 'true'),
+                ('OSI_V2_AI_PACK_WRITES_ENABLED', 'true'),
+                ('OSI_V2_AI_PACK_ACCESS_MODE', 'maintainer_only')
+              ) as expected(key, value)
+              left join public.osi_config as config using (key)
+              where config.value is distinct from expected.value
+            ) then
+              raise exception 'Production feature flags are not in the approved starting state';
+            end if;
+          end $$;
+          SQL
+          curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+            jq '[.[] | select(
+              .slug=="osi-v2-analyst" or
+              .slug=="osi-v2-case-read" or
+              .slug=="osi-v2-report-read" or
+              .slug=="osi-v2-report-write" or
+              .slug=="osi-v2-wire"
+            ) | {slug,version,status,verify_jwt,updated_at,ezbr_sha256}] |
+            sort_by(.slug)' > "$PROOF_DIR/functions-before.json"
+          jq -e --argjson expected "$EXPECTED_FUNCTION_VERSIONS" '
+            length == 5 and
+            all(.[]; .status=="ACTIVE" and .verify_jwt==false) and
+            ([.[] | {key:.slug,value:.version}] | from_entries) == $expected
+          ' "$PROOF_DIR/functions-before.json"
+
+      - name: Link project and require exact resumable migration history
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || {
+            echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1;
+          }
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          supabase migration list --linked > "$PROOF_DIR/migration-list-before.txt"
+          got="$(psql -Atqc \
+            "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          before="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          after="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          if [ "$got" = "$before" ]; then
+            echo "MIGRATION_MODE=deploy" >> "$GITHUB_ENV"
+          elif [ "$got" = "$after" ]; then
+            echo "MIGRATION_MODE=resume" >> "$GITHUB_ENV"
+          else
+            echo "::error::Remote migration history is not the exact before or resumed set."
+            exit 1
+          fi
+
+      - name: Record immutable forward-fix plan
+        run: |
+          {
+            echo "Migration ${NEW_VERSION} is additive and remains applied after a failure."
+            echo "Seven task-scoped gates are held fail-closed during deployment and restored only after contained smokes."
+            echo "Any later rollout failure leaves those same gates false; SAS enforcement remains true."
+            echo "A failure stops delivery for one focused forward-fix PR and a single resumed run."
+            echo "Do not drop schema, reset data, repair history, or disable an unrelated live flag."
+          } | tee "$PROOF_DIR/forward-fix-plan.txt"
+
+      - name: Dry-run exactly the approved additive migration
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 |
+            tee "$PROOF_DIR/migration-dry-run.txt"
+          versions="$(grep -oE '20[0-9]{12}' "$PROOF_DIR/migration-dry-run.txt" || true)"
+          got="$(printf '%s\n' "$versions" | awk '!seen[$0]++' |
+            tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          if [ "$MIGRATION_MODE" = "deploy" ]; then
+            [ "$got" = "$NEW_VERSION" ] || {
+              echo "::error::Dry-run is not exactly migration ${NEW_VERSION}: ${got}"; exit 1;
+            }
+          else
+            [ -z "$got" ] || {
+              echo "::error::Resumed dry-run unexpectedly contains migrations: ${got}"; exit 1;
+            }
+            grep -Fq 'Remote database is up to date.' \
+              "$PROOF_DIR/migration-dry-run.txt"
+          fi
+
+      - name: Apply exactly the dry-run-approved additive migration
+        if: ${{ env.MIGRATION_MODE == 'deploy' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase db push --linked --yes
+
+      - name: Verify exact history zero-evidence semantics RLS and privileges
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+          got="$(psql -Atqc \
+            "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          [ "$got" = "$expected" ] || {
+            echo "::error::Post-migration history is not exact."; exit 1;
+          }
+          supabase migration list --linked > "$PROOF_DIR/migration-list-after.txt"
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          begin read only;
+          do $$
+          begin
+            if osi_private.osi_v2_report_evidence_manifest('[]'::jsonb)
+                 is distinct from '[]'::jsonb then
+              raise exception 'Empty Report evidence is not canonical []';
+            end if;
+            if osi_private.osi_v2_report_manifest_hash('[]'::jsonb)
+                 is distinct from encode(
+                   extensions.digest(convert_to('[]', 'UTF8'), 'sha256'), 'hex'
+                 ) then
+              raise exception 'Empty Report evidence hash is not deterministic';
+            end if;
+            if to_regprocedure(
+                 'public.osi_v2_report_publication_capabilities(text,uuid[],text)'
+               ) is null
+               or to_regprocedure(
+                 'osi_private.osi_v2_report_publication_capabilities(text,uuid[],text)'
+               ) is null then
+              raise exception 'Exact Report capability RPC signature is absent';
+            end if;
+            if has_function_privilege(
+                 'anon',
+                 'public.osi_v2_report_publication_capabilities(text,uuid[],text)',
+                 'EXECUTE'
+               )
+               or has_function_privilege(
+                 'authenticated',
+                 'public.osi_v2_report_publication_capabilities(text,uuid[],text)',
+                 'EXECUTE'
+               )
+               or not has_function_privilege(
+                 'service_role',
+                 'public.osi_v2_report_publication_capabilities(text,uuid[],text)',
+                 'EXECUTE'
+               ) then
+              raise exception 'Public Report capability RPC privilege boundary is invalid';
+            end if;
+            if has_function_privilege(
+                 'anon',
+                 'osi_private.osi_v2_report_publication_capabilities(text,uuid[],text)',
+                 'EXECUTE'
+               )
+               or has_function_privilege(
+                 'authenticated',
+                 'osi_private.osi_v2_report_publication_capabilities(text,uuid[],text)',
+                 'EXECUTE'
+               )
+               or not has_function_privilege(
+                 'service_role',
+                 'osi_private.osi_v2_report_publication_capabilities(text,uuid[],text)',
+                 'EXECUTE'
+               ) then
+              raise exception 'Private Report capability RPC privilege boundary is invalid';
+            end if;
+            if exists (
+              select 1
+              from pg_proc as function
+              join pg_namespace as namespace on namespace.oid = function.pronamespace
+              where namespace.nspname = 'osi_private'
+                and (
+                  has_function_privilege('anon', function.oid, 'EXECUTE')
+                  or has_function_privilege('authenticated', function.oid, 'EXECUTE')
+                  or not has_function_privilege('service_role', function.oid, 'EXECUTE')
+                )
+            ) then
+              raise exception 'Private helper execution boundary is widened or broken';
+            end if;
+            if exists (
+              select 1
+              from pg_class as relation
+              join pg_namespace as namespace on namespace.oid = relation.relnamespace
+              where namespace.nspname = 'public'
+                and relation.relname in (
+                  'cases',
+                  'case_reports',
+                  'case_report_versions',
+                  'case_report_version_evidence',
+                  'case_report_reviews'
+                )
+                and relation.relrowsecurity is distinct from true
+            ) then
+              raise exception 'A Report-path relation does not have RLS enabled';
+            end if;
+          end $$;
+          commit;
+          SQL
+
+      - name: Enter task-scoped fail-closed rollout containment
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          touch "$RUNNER_TEMP/osi-rollout-containment-active"
+          touch "$RUNNER_TEMP/osi-rollout-guard-active"
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          begin;
+          do $$
+          begin
+            if exists (
+              select 1
+              from (values
+                ('OSI_V2_CASE_WRITES_ENABLED'),
+                ('OSI_V2_ANALYST_WRITES_ENABLED'),
+                ('OSI_V2_REPORT_WRITES_ENABLED'),
+                ('OSI_V2_REPORT_REVIEW_WRITES_ENABLED'),
+                ('OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED'),
+                ('OSI_V2_WIRE_WRITES_ENABLED'),
+                ('OSI_V2_READ_SESSION_ENABLED')
+              ) as expected(key)
+              left join public.osi_config as config using (key)
+              where config.value is distinct from 'true'
+            ) then
+              raise exception 'A task-scoped rollout gate is not in its approved live state';
+            end if;
+            if not exists (
+              select 1 from public.osi_config
+              where key = 'OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED'
+                and value = 'true'
+            ) then
+              raise exception 'SAS enforcement must remain enabled';
+            end if;
+          end $$;
+          update public.osi_config
+          set value = 'false', updated_at = statement_timestamp()
+          where key in (
+            'OSI_V2_CASE_WRITES_ENABLED',
+            'OSI_V2_ANALYST_WRITES_ENABLED',
+            'OSI_V2_REPORT_WRITES_ENABLED',
+            'OSI_V2_REPORT_REVIEW_WRITES_ENABLED',
+            'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
+            'OSI_V2_WIRE_WRITES_ENABLED',
+            'OSI_V2_READ_SESSION_ENABLED'
+          );
+          commit;
+          SQL
+          contained="$(psql -Atqc "
+            select count(*)
+            from public.osi_config
+            where key in (
+              'OSI_V2_CASE_WRITES_ENABLED',
+              'OSI_V2_ANALYST_WRITES_ENABLED',
+              'OSI_V2_REPORT_WRITES_ENABLED',
+              'OSI_V2_REPORT_REVIEW_WRITES_ENABLED',
+              'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
+              'OSI_V2_WIRE_WRITES_ENABLED',
+              'OSI_V2_READ_SESSION_ENABLED'
+            ) and value = 'false'
+          ")"
+          [ "$contained" = "7" ]
+          [ "$(psql -Atqc "
+            select value from public.osi_config
+            where key='OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED'
+          ")" = "true" ]
+          {
+            echo "mode=task_scoped_fail_closed"
+            echo "gates_disabled=7"
+            echo "sas_enforcement_preserved=true"
+          } > "$PROOF_DIR/containment-entered.txt"
+
+      - name: Deploy and attest exactly the five changed Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          deployment_started_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          printf '%s\n' "$deployment_started_at" \
+            > "$RUNNER_TEMP/osi-function-deployment-started-at.txt"
+          : > "$RUNNER_TEMP/osi-deployed-functions.txt"
+          git ls-files \
+            'supabase/functions/osi-v2-analyst/**' \
+            'supabase/functions/osi-v2-case-read/**' \
+            'supabase/functions/osi-v2-report-read/**' \
+            'supabase/functions/osi-v2-report-write/**' \
+            'supabase/functions/osi-v2-wire/**' \
+            'supabase/functions/_shared/**' |
+            sort | xargs sha256sum > "$PROOF_DIR/function-source-sha256.txt"
+          for function_name in \
+            osi-v2-report-read \
+            osi-v2-case-read \
+            osi-v2-analyst \
+            osi-v2-report-write \
+            osi-v2-wire
+          do
+            before_version="$(jq -r --arg slug "$function_name" \
+              '.[] | select(.slug==$slug) | .version' \
+              "$PROOF_DIR/functions-before.json")"
+            before_digest="$(jq -r --arg slug "$function_name" \
+              '.[] | select(.slug==$slug) | .ezbr_sha256' \
+              "$PROOF_DIR/functions-before.json")"
+            [[ "$before_version" =~ ^[0-9]+$ ]]
+            supabase functions deploy "$function_name" \
+              --project-ref "$EXPECTED_PROJECT_REF" \
+              --no-verify-jwt \
+              --use-api > "$RUNNER_TEMP/deploy-${function_name}.log" 2>&1
+            for attempt in $(seq 1 12); do
+              curl -sS --fail --max-time 30 \
+                -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+                "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+                jq --arg slug "$function_name" \
+                  '[.[] | select(.slug==$slug) |
+                    {slug,version,status,verify_jwt,updated_at,ezbr_sha256}] | .[0]' \
+                  > "$RUNNER_TEMP/function-${function_name}.json"
+              if jq -e \
+                --arg slug "$function_name" \
+                --argjson expected_version "$((before_version + 1))" \
+                --arg before_digest "$before_digest" \
+                --arg started "$deployment_started_at" '
+                def normalized_epoch:
+                  sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+                .slug==$slug and
+                .version==$expected_version and
+                .status=="ACTIVE" and .verify_jwt==false and
+                (.ezbr_sha256|type)=="string" and
+                (.ezbr_sha256|length)>0 and .ezbr_sha256!=$before_digest and
+                (.updated_at|normalized_epoch) >= ($started|normalized_epoch)
+              ' "$RUNNER_TEMP/function-${function_name}.json" >/dev/null
+              then
+                printf '%s\n' "$function_name" \
+                  >> "$RUNNER_TEMP/osi-deployed-functions.txt"
+                break
+              fi
+              sleep 5
+            done
+            grep -qx "$function_name" \
+              "$RUNNER_TEMP/osi-deployed-functions.txt" || {
+              echo "::error::${function_name} did not reach its exact attested next version."
+              exit 1
+            }
+          done
+          curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+            jq '[.[] | select(
+              .slug=="osi-v2-analyst" or
+              .slug=="osi-v2-case-read" or
+              .slug=="osi-v2-report-read" or
+              .slug=="osi-v2-report-write" or
+              .slug=="osi-v2-wire"
+            ) | {slug,version,status,verify_jwt,updated_at,ezbr_sha256}] |
+            sort_by(.slug)' > "$PROOF_DIR/functions-after.json"
+          jq -e --slurp '
+            .[0] as $before | .[1] as $after |
+            ($before|length)==5 and ($after|length)==5 and
+            all($after[]; .status=="ACTIVE" and .verify_jwt==false) and
+            all($after[] as $item;
+              $item.version ==
+                (($before[] | select(.slug==$item.slug) | .version) + 1)
+            )
+          ' "$PROOF_DIR/functions-before.json" \
+            "$PROOF_DIR/functions-after.json"
+          printf 'commit=%s\nversion_transition=exact_plus_one\n' \
+            "$GITHUB_SHA" > "$PROOF_DIR/function-deployment-attestation.txt"
+
+      - name: Non-mutating production HTTP and site smokes
+        env:
+          TARGET_CASE_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_CASE_REF }}
+          TARGET_REPORT_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_REPORT_REF }}
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          origin_header="Origin: ${PRODUCTION_WEB_URL}"
+
+          case_code="$(curl -sS --max-time 30 \
+            -o "$PROOF_DIR/case-read-method.json" -w '%{http_code}' \
+            -X GET "$base/osi-v2-case-read" -H "$origin_header")"
+          [ "$case_code" = "405" ]
+          jq -e '.ok==false and .error=="method_not_allowed"' \
+            "$PROOF_DIR/case-read-method.json"
+
+          public_reports="$(curl -sS --fail --max-time 30 \
+            -X POST "$base/osi-v2-report-read" \
+            -H "$origin_header" -H 'Content-Type: application/json' \
+            -d "{\"op\":\"list_public_reports\",\"case_ref\":\"${TARGET_CASE_REF}\"}")"
+          jq -e --arg case_ref "$TARGET_CASE_REF" --arg target "$TARGET_REPORT_REF" \
+            '.ok==true and .case_public_ref==$case_ref and
+             all(.reports[]?; .report_public_ref != $target)' <<< "$public_reports"
+          jq --arg target "$TARGET_REPORT_REF" '{
+            ok,
+            public_report_count: (.reports | length),
+            protected_unpublished_target_absent: all(.reports[]?; .report_public_ref != $target)
+          }' <<< "$public_reports" > "$PROOF_DIR/public-report-smoke.json"
+
+          capability="$(curl -sS --fail --max-time 30 \
+            -X POST "$base/osi-v2-report-write" \
+            -H "$origin_header" -H 'Content-Type: application/json' \
+            -d "{\"op\":\"capabilities\",\"case_ref\":\"${TARGET_CASE_REF}\"}")"
+          jq -e '.ok==true and
+            .report_writes_enabled==false and
+            .report_review_writes_enabled==false and
+            .case_eligible==true and
+            .case_stage=="open_public" and
+            .wallet_connected==false' <<< "$capability"
+          jq '{
+            ok,
+            report_writes_enabled,
+            report_review_writes_enabled,
+            case_eligible,
+            case_stage,
+            wallet_connected
+          }' <<< "$capability" > "$PROOF_DIR/report-write-capability.json"
+
+          analyst_status="$(curl -sS --fail --max-time 30 \
+            -X POST "$base/osi-v2-analyst" \
+            -H "$origin_header" -H 'Content-Type: application/json' \
+            -d '{"op":"rollout_status"}')"
+          jq -e '.ok==true and .analyst_writes_enabled==false' <<< "$analyst_status"
+          jq '{ok,analyst_writes_enabled}' <<< "$analyst_status" \
+            > "$PROOF_DIR/analyst-rollout-status.json"
+
+          wire_capability="$(curl -sS --fail --max-time 30 \
+            -X POST "$base/osi-v2-wire" \
+            -H "$origin_header" -H 'Content-Type: application/json' \
+            -d '{"op":"capabilities"}')"
+          jq -e '.ok==true and .wire_writes_enabled==false and
+            .wallet_connected==false and .maintainer_access==false' \
+            <<< "$wire_capability"
+          jq '{
+            ok,
+            wire_writes_enabled,
+            wallet_connected,
+            maintainer_access
+          }' <<< "$wire_capability" > "$PROOF_DIR/wire-capability.json"
+
+          web_code="$(curl -sS --fail --max-time 30 \
+            -D "$PROOF_DIR/web-headers.txt" \
+            -o "$PROOF_DIR/web-root.html" -w '%{http_code}' \
+            "$PRODUCTION_WEB_URL")"
+          [ "$web_code" = "200" ]
+          grep -Fqi 'content-security-policy:' "$PROOF_DIR/web-headers.txt"
+          grep -Fq 'Open Solana Intelligence' "$PROOF_DIR/web-root.html"
+          legacy_code="$(curl -sS --fail --max-time 30 -o /dev/null \
+            -w '%{http_code}' "${PRODUCTION_WEB_URL}/legacy.html")"
+          [ "$legacy_code" = "200" ]
+          preview_code="$(curl -sS --max-time 30 -o /dev/null \
+            -w '%{http_code}' "${PRODUCTION_WEB_URL}/v2-preview.html")"
+          case "$preview_code" in
+            301|308) : ;;
+            *) echo "::error::v2-preview is not a permanent redirect."; exit 1 ;;
+          esac
+
+      - name: Restore exact task-scoped live gates after contained smokes
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TARGET_CASE_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_CASE_REF }}
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/osi-rollout-containment-active"
+          [ "$(psql -Atqc "
+            select count(*)
+            from public.osi_config
+            where key in (
+              'OSI_V2_CASE_WRITES_ENABLED',
+              'OSI_V2_ANALYST_WRITES_ENABLED',
+              'OSI_V2_REPORT_WRITES_ENABLED',
+              'OSI_V2_REPORT_REVIEW_WRITES_ENABLED',
+              'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
+              'OSI_V2_WIRE_WRITES_ENABLED',
+              'OSI_V2_READ_SESSION_ENABLED'
+            ) and value = 'false'
+          ")" = "7" ]
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          begin;
+          update public.osi_config
+          set value = 'true', updated_at = statement_timestamp()
+          where key in (
+            'OSI_V2_CASE_WRITES_ENABLED',
+            'OSI_V2_ANALYST_WRITES_ENABLED',
+            'OSI_V2_REPORT_WRITES_ENABLED',
+            'OSI_V2_REPORT_REVIEW_WRITES_ENABLED',
+            'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
+            'OSI_V2_WIRE_WRITES_ENABLED',
+            'OSI_V2_READ_SESSION_ENABLED'
+          );
+          commit;
+          SQL
+          [ "$(psql -Atqc "
+            select count(*)
+            from public.osi_config
+            where key in (
+              'OSI_V2_CASE_WRITES_ENABLED',
+              'OSI_V2_ANALYST_WRITES_ENABLED',
+              'OSI_V2_REPORT_WRITES_ENABLED',
+              'OSI_V2_REPORT_REVIEW_WRITES_ENABLED',
+              'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
+              'OSI_V2_WIRE_WRITES_ENABLED',
+              'OSI_V2_READ_SESSION_ENABLED'
+            ) and value = 'true'
+          ")" = "7" ]
+          [ "$(psql -Atqc "
+            select value from public.osi_config
+            where key='OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED'
+          ")" = "true" ]
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          origin_header="Origin: ${PRODUCTION_WEB_URL}"
+          report_caps="$(curl -sS --fail --max-time 30 \
+            -X POST "$base/osi-v2-report-write" \
+            -H "$origin_header" -H 'Content-Type: application/json' \
+            -d "{\"op\":\"capabilities\",\"case_ref\":\"${TARGET_CASE_REF}\"}")"
+          jq -e '.ok==true and .report_writes_enabled==true and
+            .report_review_writes_enabled==true' <<< "$report_caps"
+          analyst_status="$(curl -sS --fail --max-time 30 \
+            -X POST "$base/osi-v2-analyst" \
+            -H "$origin_header" -H 'Content-Type: application/json' \
+            -d '{"op":"rollout_status"}')"
+          jq -e '.ok==true and .analyst_writes_enabled==true' \
+            <<< "$analyst_status"
+          wire_caps="$(curl -sS --fail --max-time 30 \
+            -X POST "$base/osi-v2-wire" \
+            -H "$origin_header" -H 'Content-Type: application/json' \
+            -d '{"op":"capabilities"}')"
+          jq -e '.ok==true and .wire_writes_enabled==true' <<< "$wire_caps"
+          {
+            echo "mode=restored_exact_live_values"
+            echo "gates_enabled=7"
+            echo "sas_enforcement_preserved=true"
+          } > "$PROOF_DIR/containment-restored.txt"
+          rm "$RUNNER_TEMP/osi-rollout-containment-active"
+
+      - name: Read-only analyst and server-projected maintainer capability proof
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TARGET_VERSION_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_VERSION_REF }}
+        run: |
+          set -euo pipefail
+          independent_wallet="$(psql -v ON_ERROR_STOP=1 \
+            -v version_ref="$TARGET_VERSION_REF" -Atq <<'SQL'
+            select profile.wallet
+            from public.analyst_profiles as profile
+            cross join (
+              select report.author_wallet, case_item.submitted_by_wallet
+              from public.case_report_versions as version
+              join public.case_reports as report on report.id = version.report_id
+              join public.cases as case_item on case_item.id = report.case_id
+              where version.version_ref = :'version_ref'
+            ) as target
+            where profile.status in (
+              'probationary_analyst','verified_analyst','senior_analyst'
+            )
+              and profile.verified is true
+              and profile.approved is true
+              and profile.weight_cached between 0.50 and 3.00
+              and profile.wallet <> target.author_wallet
+              and profile.wallet <> target.submitted_by_wallet
+            order by profile.wallet
+            limit 1;
+          SQL
+          )"
+          if [ -n "$independent_wallet" ]; then
+            analyst_wallet="$independent_wallet"
+            analyst_mode="independent_eligible"
+            analyst_reason=""
+            jq -n \
+              --arg mode "$analyst_mode" \
+              --argjson independent_eligible_available true \
+              '{mode:$mode,independent_eligible_available:$independent_eligible_available}' \
+              > "$PROOF_DIR/analyst-proof-context.json"
+          else
+            conflicted_actor="$(psql -v ON_ERROR_STOP=1 \
+              -v version_ref="$TARGET_VERSION_REF" -Atq -F'|' <<'SQL'
+              select
+                profile.wallet,
+                case
+                  when profile.wallet = target.author_wallet
+                    then 'report_author_conflict'
+                  else 'case_owner_conflict'
+                end
+              from public.analyst_profiles as profile
+              cross join (
+                select report.author_wallet, case_item.submitted_by_wallet
+                from public.case_report_versions as version
+                join public.case_reports as report on report.id = version.report_id
+                join public.cases as case_item on case_item.id = report.case_id
+                where version.version_ref = :'version_ref'
+              ) as target
+              where profile.status in (
+                'probationary_analyst','verified_analyst','senior_analyst'
+              )
+                and profile.verified is true
+                and profile.approved is true
+                and profile.weight_cached between 0.50 and 3.00
+                and profile.wallet in (
+                  target.author_wallet, target.submitted_by_wallet
+              )
+              order by (profile.wallet = target.author_wallet) desc, profile.wallet
+              limit 1;
+            SQL
+            )"
+            [ -n "$conflicted_actor" ] || {
+              echo "::error::No eligible analyst exists for the protected target capability proof."; exit 1;
+            }
+            analyst_wallet="${conflicted_actor%%|*}"
+            analyst_reason="${conflicted_actor#*|}"
+            analyst_mode="eligible_but_conflicted"
+            jq -n \
+              --arg mode "$analyst_mode" \
+              --arg expected_reason "$analyst_reason" \
+              --argjson independent_eligible_available false \
+              '{
+                mode:$mode,
+                independent_eligible_available:$independent_eligible_available,
+                expected_reason:$expected_reason
+              }' > "$PROOF_DIR/analyst-proof-context.json"
+          fi
+          psql -v ON_ERROR_STOP=1 \
+            -v actor="$analyst_wallet" \
+            -v version_ref="$TARGET_VERSION_REF" -Atq \
+            > "$PROOF_DIR/analyst-capability.json" <<'SQL'
+          begin read only;
+          select json_build_object(
+            'target_matched', capability.version_public_ref = :'version_ref',
+            'actor_is_eligible_analyst', capability.actor_is_eligible_analyst,
+            'can_cast_analyst_review', capability.can_cast_analyst_review,
+            'analyst_review_reason_code', capability.analyst_review_reason_code,
+            'can_publish_via_standard_quorum',
+              capability.can_publish_via_standard_quorum,
+            'standard_publication_reason_code',
+              capability.standard_publication_reason_code,
+            'sas_enforcement_enabled', capability.sas_enforcement_enabled
+          )
+          from public.osi_v2_report_publication_capabilities(
+            :'actor',
+            array[
+              (select id from public.case_report_versions
+                where version_ref = :'version_ref')
+            ]::uuid[],
+            null
+          ) as capability;
+          commit;
+          SQL
+          if [ "$analyst_mode" = "independent_eligible" ]; then
+            jq -e \
+              '.target_matched==true and
+               .actor_is_eligible_analyst==true and
+               .can_cast_analyst_review==true and
+               .analyst_review_reason_code==null and
+               .can_publish_via_standard_quorum==false and
+               .standard_publication_reason_code=="active_approve_review_required" and
+               .sas_enforcement_enabled==true' \
+              "$PROOF_DIR/analyst-capability.json"
+          else
+            jq -e --arg reason "$analyst_reason" \
+              '.target_matched==true and
+               .actor_is_eligible_analyst==true and
+               .can_cast_analyst_review==false and
+               .analyst_review_reason_code==$reason and
+               .can_publish_via_standard_quorum==false and
+               .standard_publication_reason_code==$reason and
+               .sas_enforcement_enabled==true' \
+              "$PROOF_DIR/analyst-capability.json"
+          fi
+
+          admin_wallet="$(psql -Atqc \
+            "select value from public.osi_config where key='admin_wallet'")"
+          [[ "$admin_wallet" =~ ^[1-9A-HJ-NP-Za-km-z]{32,44}$ ]] || {
+            echo "::error::Configured maintainer wallet is invalid."; exit 1;
+          }
+          projection_auth_marker="00000000-0000-4000-8000-000000000001"
+          psql -v ON_ERROR_STOP=1 \
+            -v actor="$admin_wallet" \
+            -v auth_marker="$projection_auth_marker" \
+            -v version_ref="$TARGET_VERSION_REF" \
+            -Atq > "$PROOF_DIR/server-projected-maintainer-capability.json" <<'SQL'
+          begin read only;
+          select json_build_object(
+            'proof_scope', 'database_projection_edge_gate_not_invoked',
+            'target_matched', capability.version_public_ref = :'version_ref',
+            'actor_is_full_maintainer', capability.actor_is_full_maintainer,
+            'can_publish_via_maintainer_bootstrap',
+              capability.can_publish_via_maintainer_bootstrap,
+            'maintainer_bootstrap_reason_code',
+              capability.maintainer_bootstrap_reason_code,
+            'decision_channel', capability.decision_channel,
+            'bootstrap_enabled', capability.bootstrap_enabled,
+            'bootstrap_active', capability.bootstrap_active,
+            'bootstrap_tier', capability.bootstrap_tier
+          )
+          from public.osi_v2_report_publication_capabilities(
+            :'actor',
+            array[
+              (select id from public.case_report_versions
+                where version_ref = :'version_ref')
+            ]::uuid[],
+            :'auth_marker'
+          ) as capability;
+          commit;
+          SQL
+          jq -e \
+            '.proof_scope=="database_projection_edge_gate_not_invoked" and
+             .target_matched==true and
+             .actor_is_full_maintainer==true and
+             .can_publish_via_maintainer_bootstrap==true and
+             .maintainer_bootstrap_reason_code==null and
+             .decision_channel=="maintainer_bootstrap" and
+             .bootstrap_enabled==true and
+             .bootstrap_active==true' \
+            "$PROOF_DIR/server-projected-maintainer-capability.json"
+
+          psql -v ON_ERROR_STOP=1 \
+            -v actor="$admin_wallet" \
+            -v version_ref="$TARGET_VERSION_REF" -Atq \
+            > "$PROOF_DIR/maintainer-wallet-only-capability.json" <<'SQL'
+          begin read only;
+          select json_build_object(
+            'actor_is_full_maintainer', capability.actor_is_full_maintainer,
+            'can_publish_via_maintainer_bootstrap',
+              capability.can_publish_via_maintainer_bootstrap,
+            'maintainer_bootstrap_reason_code',
+              capability.maintainer_bootstrap_reason_code
+          )
+          from public.osi_v2_report_publication_capabilities(
+            :'actor',
+            array[
+              (select id from public.case_report_versions
+                where version_ref = :'version_ref')
+            ]::uuid[],
+            null
+          ) as capability;
+          commit;
+          SQL
+          jq -e '.actor_is_full_maintainer==false and
+            .can_publish_via_maintainer_bootstrap==false and
+            .maintainer_bootstrap_reason_code=="maintainer_double_gate_required"' \
+            "$PROOF_DIR/maintainer-wallet-only-capability.json"
+
+          psql -v ON_ERROR_STOP=1 \
+            -v auth_marker="$projection_auth_marker" \
+            -v version_ref="$TARGET_VERSION_REF" -Atq \
+            > "$PROOF_DIR/non-admin-wallet-uuid-marker-capability.json" <<'SQL'
+          begin read only;
+          select json_build_object(
+            'actor_is_full_maintainer', capability.actor_is_full_maintainer,
+            'can_publish_via_maintainer_bootstrap',
+              capability.can_publish_via_maintainer_bootstrap,
+            'maintainer_bootstrap_reason_code',
+              capability.maintainer_bootstrap_reason_code
+          )
+          from public.osi_v2_report_publication_capabilities(
+            '11111111111111111111111111111112',
+            array[
+              (select id from public.case_report_versions
+                where version_ref = :'version_ref')
+            ]::uuid[],
+            :'auth_marker'
+          ) as capability;
+          commit;
+          SQL
+          jq -e '.actor_is_full_maintainer==false and
+            .can_publish_via_maintainer_bootstrap==false and
+            .maintainer_bootstrap_reason_code=="maintainer_double_gate_required"' \
+            "$PROOF_DIR/non-admin-wallet-uuid-marker-capability.json"
+          {
+            echo "scope=database_projection_edge_gate_not_invoked"
+            echo "authenticated_maintainer_edge_session_invoked=false"
+            echo "edge_gate_verified=false"
+            echo "auth_identity_verified=false"
+            echo "uuid_marker_is_real_auth_identity=false"
+            echo "signed_analyst_or_maintainer_queue_invoked=false"
+          } > "$PROOF_DIR/capability-boundary.txt"
+
+      - name: Verify restored config values protected target and exact function snapshot
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TARGET_CASE_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_CASE_REF }}
+          TARGET_REPORT_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_REPORT_REF }}
+          TARGET_VERSION_REF: ${{ secrets.OSI_WORKFLOW_RECOVERY_TARGET_VERSION_REF }}
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
+            "select key, md5(value) from public.osi_config order by key" \
+            > "$RUNNER_TEMP/osi-config-after.txt"
+          diff -u \
+            "$RUNNER_TEMP/osi-config-before.txt" \
+            "$RUNNER_TEMP/osi-config-after.txt"
+          psql -v ON_ERROR_STOP=1 -Atq -f scripts/protected-row-counts.sql \
+            > "$PROOF_DIR/protected-rows-after.txt"
+          psql -v ON_ERROR_STOP=1 -Atq -c \
+            "select 'osi_read_nonces|' || count(*) from public.osi_read_nonces" \
+            >> "$PROOF_DIR/protected-rows-after.txt"
+          sort -o "$PROOF_DIR/protected-rows-after.txt" \
+            "$PROOF_DIR/protected-rows-after.txt"
+          diff -u \
+            "$PROOF_DIR/protected-rows-before.txt" \
+            "$PROOF_DIR/protected-rows-after.txt"
+          psql -v ON_ERROR_STOP=1 \
+            -v case_ref="$TARGET_CASE_REF" \
+            -v report_ref="$TARGET_REPORT_REF" \
+            -v version_ref="$TARGET_VERSION_REF" \
+            -Atq -F'|' > "$RUNNER_TEMP/osi-target-record-after.txt" <<'SQL'
+          begin read only;
+          select
+            case_item.public_ref,
+            case_item.stage,
+            case_item.visibility,
+            report.public_ref,
+            report.status,
+            version.version_ref,
+            version.lifecycle_state,
+            (select count(*) from public.case_report_version_evidence as link
+              where link.report_version_id = version.id),
+            (select count(*) from public.case_report_reviews as review
+              where review.report_version_id = version.id and review.is_active),
+            case when report.current_published_version_id is null
+              then 'unpublished' else 'published' end,
+            case when report.current_version_id = version.id
+              then 'current' else 'not_current' end,
+            case when report.native_intake is true
+              then 'native' else 'legacy' end
+          from public.case_report_versions as version
+          join public.case_reports as report on report.id = version.report_id
+          join public.cases as case_item on case_item.id = report.case_id
+          where case_item.public_ref = :'case_ref'
+            and report.public_ref = :'report_ref'
+            and version.version_ref = :'version_ref';
+          commit;
+          SQL
+          diff -u \
+            "$RUNNER_TEMP/osi-target-record-before.txt" \
+            "$RUNNER_TEMP/osi-target-record-after.txt"
+          target_record_expected="${TARGET_CASE_REF}|open_public|public|${TARGET_REPORT_REF}|active|${TARGET_VERSION_REF}|submitted|1|0|unpublished|current|native"
+          [ "$(cat "$RUNNER_TEMP/osi-target-record-after.txt")" = "$target_record_expected" ]
+          psql -v ON_ERROR_STOP=1 \
+            -v case_ref="$TARGET_CASE_REF" \
+            -v report_ref="$TARGET_REPORT_REF" \
+            -v version_ref="$TARGET_VERSION_REF" \
+            -Atq \
+            > "$RUNNER_TEMP/osi-target-row-hashes-after.txt" <<'SQL'
+          begin read only;
+          with target as (
+            select
+              case_item.id as case_id,
+              report.id as report_id,
+              version.id as version_id
+            from public.case_report_versions as version
+            join public.case_reports as report on report.id = version.report_id
+            join public.cases as case_item on case_item.id = report.case_id
+            where case_item.public_ref = :'case_ref'
+              and report.public_ref = :'report_ref'
+              and version.version_ref = :'version_ref'
+          ), hashes as (
+            select 'case' as label, md5(to_jsonb(case_item)::text) as row_hash
+            from public.cases as case_item, target
+            where case_item.id = target.case_id
+            union all
+            select 'report', md5(to_jsonb(report)::text)
+            from public.case_reports as report, target
+            where report.id = target.report_id
+            union all
+            select 'version', md5(to_jsonb(version)::text)
+            from public.case_report_versions as version, target
+            where version.id = target.version_id
+            union all
+            select 'evidence_links', md5(coalesce(jsonb_agg(
+              to_jsonb(link) order by link.ordinal, link.evidence_item_id
+            ), '[]'::jsonb)::text)
+            from public.case_report_version_evidence as link, target
+            where link.report_version_id = target.version_id
+            union all
+            select 'evidence_items', md5(coalesce(jsonb_agg(
+              to_jsonb(item) order by item.id
+            ), '[]'::jsonb)::text)
+            from public.evidence_items as item
+            join public.case_report_version_evidence as link
+              on link.evidence_item_id = item.id
+            join target on target.version_id = link.report_version_id
+            union all
+            select 'reviews', md5(coalesce(jsonb_agg(
+              to_jsonb(review) order by review.id
+            ), '[]'::jsonb)::text)
+            from public.case_report_reviews as review, target
+            where review.report_version_id = target.version_id
+          )
+          select label || '|' || row_hash from hashes order by label;
+          commit;
+          SQL
+          diff -u \
+            "$RUNNER_TEMP/osi-target-row-hashes-before.txt" \
+            "$RUNNER_TEMP/osi-target-row-hashes-after.txt"
+
+          curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+            jq '[.[] | select(
+              .slug=="osi-v2-analyst" or
+              .slug=="osi-v2-case-read" or
+              .slug=="osi-v2-report-read" or
+              .slug=="osi-v2-report-write" or
+              .slug=="osi-v2-wire"
+            ) | {slug,version,status,verify_jwt,updated_at,ezbr_sha256}] |
+            sort_by(.slug)' > "$RUNNER_TEMP/functions-final.json"
+          jq -e --slurp '.[0] == .[1]' \
+            "$PROOF_DIR/functions-after.json" \
+            "$RUNNER_TEMP/functions-final.json"
+
+      - name: Write production delivery receipt
+        run: |
+          set -euo pipefail
+          {
+            echo "project_ref=${EXPECTED_PROJECT_REF}"
+            echo "commit=${GITHUB_SHA}"
+            echo "migration_mode=${MIGRATION_MODE}"
+            echo "migration=${NEW_VERSION}"
+            echo "functions=osi-v2-analyst,osi-v2-case-read,osi-v2-report-read,osi-v2-report-write,osi-v2-wire"
+            echo "feature_flags=seven task-scoped gates temporarily false then restored exactly"
+            echo "protected_row_count_diff=empty"
+            echo "target_record_diff=empty"
+            echo "protected_target_selectors_disclosed=false"
+            echo "solana_transactions_created=0"
+            echo "prepare_or_commit_calls=0"
+            echo "signed_queue_calls=0"
+            echo "maintainer_capability_scope=database_projection_edge_gate_not_invoked"
+            echo "maintainer_edge_gate_verified=false"
+            echo "maintainer_auth_identity_verified=false"
+            echo "provider_generation_calls=0"
+            echo "failure_containment=seven task-scoped gates false; SAS enforcement remains true"
+            echo "rollback=immutable additive schema plus focused forward fix"
+          } > "$PROOF_DIR/receipt.txt"
+          {
+            echo "## OSI workflow recovery production proof"
+            echo
+            echo '```text'
+            cat "$PROOF_DIR/receipt.txt"
+            echo '```'
+            echo
+            echo "The capability checks ran inside read-only transactions."
+            echo "The maintainer result is a database-owner projection using the configured admin wallet and a UUID-shaped synthetic marker. It is conditional capability evidence only: no authenticated Edge maintainer session or exact maintainer auth identity was verified."
+            echo "No domain mutation, nonce issuance, Memo, payment, or provider call was made."
+            echo
+            echo "### Function versions before"
+            echo '```json'
+            cat "$PROOF_DIR/functions-before.json"
+            echo '```'
+            echo "### Function versions after"
+            echo '```json'
+            cat "$PROOF_DIR/functions-after.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm "$RUNNER_TEMP/osi-rollout-guard-active"
+
+      - name: Fail closed and stop for an immutable forward fix on rollout error
+        if: ${{ failure() }}
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -f "$RUNNER_TEMP/osi-rollout-guard-active" ]; then
+            psql -v ON_ERROR_STOP=1 -Atq <<'SQL'
+            begin;
+            update public.osi_config
+            set value = 'false', updated_at = statement_timestamp()
+            where key in (
+              'OSI_V2_CASE_WRITES_ENABLED',
+              'OSI_V2_ANALYST_WRITES_ENABLED',
+              'OSI_V2_REPORT_WRITES_ENABLED',
+              'OSI_V2_REPORT_REVIEW_WRITES_ENABLED',
+              'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
+              'OSI_V2_WIRE_WRITES_ENABLED',
+              'OSI_V2_READ_SESSION_ENABLED'
+            );
+            commit;
+            SQL
+            [ "$(psql -Atqc "
+              select count(*)
+              from public.osi_config
+              where key in (
+                'OSI_V2_CASE_WRITES_ENABLED',
+                'OSI_V2_ANALYST_WRITES_ENABLED',
+                'OSI_V2_REPORT_WRITES_ENABLED',
+                'OSI_V2_REPORT_REVIEW_WRITES_ENABLED',
+                'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
+                'OSI_V2_WIRE_WRITES_ENABLED',
+                'OSI_V2_READ_SESSION_ENABLED'
+              ) and value = 'false'
+            ")" = "7" ]
+            [ "$(psql -Atqc "
+              select value from public.osi_config
+              where key='OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED'
+            ")" = "true" ]
+            {
+              echo "mode=failure_containment"
+              echo "gates_disabled=7"
+              echo "sas_enforcement_preserved=true"
+            } > "$PROOF_DIR/failure-containment.txt"
+            echo "::error::Rollout stopped; seven task-scoped gates are verified false and SAS enforcement remains true."
+          else
+            echo "::error::Rollout stopped before Edge rollout containment began; no production gate was changed by the failure handler."
+          fi
+          echo "::error::Preserve domain rows and the additive migration; prepare one focused forward-fix PR."
+          echo "::error::Do not retry until that PR merges with all required CI green."
+
+      - name: Upload sanitized production proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: osi-workflow-recovery-production-proof-${{ github.run_id }}
+          path: ${{ env.PROOF_DIR }}
+          if-no-files-found: ignore
+          retention-days: 30

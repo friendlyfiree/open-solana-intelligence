@@ -4,7 +4,7 @@
 
   var API_URL=SUPABASE_URL+'/functions/v1/osi-v2-analyst';
   var AVATAR_PREFIX=SUPABASE_URL+'/storage/v1/object/public/osi-analyst-avatars/';
-  var state={profiles:[],workspace:null,workspaceWallet:'',workspaceTab:'profile',queue:[],busy:false,returnFocus:null};
+  var state={profiles:[],profilesPromise:null,profileIntent:'',profileReturnFocus:null,workspace:null,workspaceWallet:'',workspaceTab:'profile',queue:[],busy:false,returnFocus:null,receipt:null};
 
   function esc(value){
     return String(value==null?'':value).replace(/[&<>"']/g,function(char){
@@ -13,8 +13,11 @@
   }
   function short(value){value=String(value||'');return value.length>18?value.slice(0,8)+'...'+value.slice(-6):value;}
   function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();});}
+  function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
   function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});}
   function randomKey(prefix){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return prefix+':'+id.replace(/[^A-Za-z0-9.-]/g,'');}
+  function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
+  function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
   function headers(){var token=(typeof SUPA_AUTH_TOKEN==='string'&&SUPA_AUTH_TOKEN)?SUPA_AUTH_TOKEN:SUPABASE_ANON_KEY;return {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};}
   async function api(body){
     var response=await fetch(API_URL,{method:'POST',headers:headers(),body:JSON.stringify(body)});
@@ -50,6 +53,7 @@
       ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
       ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
       ,read_session_tampered:'The private session token failed server verification.'
+      ,private_session_changed:'Private access changed while this action was running. Reopen the exact task.'
     };
     return messages[code]||code.replace(/_/g,' ');
   }
@@ -71,7 +75,9 @@
   async function sessionRead(scope,op){
     if(typeof window.osiV2ReadSession!=='function')throw new Error('read_session_disabled_or_unavailable');
     var session=await window.osiV2ReadSession([scope],{allowUnlock:true});
-    return await api({op:op,wallet:session.wallet,read_session:session.token});
+    var generation=privateGeneration();
+    var result=await api({op:op,wallet:session.wallet,read_session:session.token});
+    assertPrivateGeneration(generation);return result;
   }
   function trustedAvatar(url){url=String(url||'');return url.indexOf(AVATAR_PREFIX)===0?url:'';}
   function safeHttps(url){
@@ -80,7 +86,8 @@
   function avatar(profile,size){
     var url=trustedAvatar(profile&&profile.avatar_url);
     if(url)return '<img class="osi-an-avatar" src="'+esc(url)+'" alt="" width="'+size+'" height="'+size+'" loading="lazy">';
-    return typeof osiAvatarSvg==='function'?osiAvatarSvg(profile.wallet,size,profile.display_name||profile.handle,''):'<span class="osi-an-avatar fallback">'+esc((profile.display_name||profile.handle||'?').charAt(0).toUpperCase())+'</span>';
+    var wallet=profile&&profile.wallet||'',identity=profile&&profile.display_name||profile&&profile.handle||short(wallet)||'?';
+    return typeof osiAvatarSvg==='function'?osiAvatarSvg(wallet,size,identity,''):'<span class="osi-an-avatar fallback">'+esc(String(identity).charAt(0).toUpperCase())+'</span>';
   }
   function proofLabel(type){return type==='solana_memo'?'Memo-anchored on Solana':type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Legacy, not server-verified';}
   function solFromLamports(value){var text=String(value==null?'0':value);if(!/^\d+$/.test(text))return'0';text=text.replace(/^0+(?=\d)/,'');var padded=text.padStart(10,'0'),whole=padded.slice(0,-9),fraction=padded.slice(-9).replace(/0+$/,'');return whole+(fraction?'.'+fraction:'');}
@@ -97,14 +104,16 @@
     var expertise=(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
     var contributions=(profile.contributions||[]).length;
     var proofs=(profile.proof_history||[]).length;
+    var identity=profile.handle?'@'+profile.handle:short(profile.wallet);
     return '<button class="osi-analyst-row" type="button" data-analyst-wallet="'+esc(profile.wallet)+'">'
-      +'<span class="osi-analyst-person">'+avatar(profile,38)+'<span><b>'+esc(profile.display_name||profile.handle||short(profile.wallet))+'</b><em>@'+esc(profile.handle||short(profile.wallet))+'</em></span></span>'
+      +'<span class="osi-analyst-person">'+avatar(profile,38)+'<span><b data-osi-user-content>'+esc(profile.display_name||profile.handle||short(profile.wallet))+'</b><em class="mono">'+esc(identity)+'</em></span></span>'
       +'<span>'+statusBadge(profile.status)+'</span><span class="osi-expertise-list">'+(expertise||'<em>Not listed</em>')+'</span>'
       +'<span class="mono">'+contributions+'</span><span class="mono osi-weight">'+Number(profile.weight||0).toFixed(2)+'</span><span class="mono">'+proofs+'</span></button>';
   }
   function renderPublicProfiles(){
     var host=document.getElementById('lb-body'),count=document.getElementById('lb-count'),pager=document.getElementById('lb-pnav');
     if(!host)return;
+    host.removeAttribute('aria-busy');
     if(pager)pager.innerHTML='';
     if(!state.profiles.length){
       host.innerHTML='<div class="osi-activation-empty"><b>No activated analysts yet</b><span>Approved probationary analysts will appear here with server-derived status, weight, contributions, and proof.</span><button class="osi-empty-cta" type="button" onclick="apxOpen()">Start analyst application</button></div>';
@@ -114,31 +123,63 @@
     host.innerHTML=state.profiles.map(publicRow).join('');if(count)count.textContent=state.profiles.length+' analyst'+(state.profiles.length===1?'':'s');
     host.querySelectorAll('[data-analyst-wallet]').forEach(function(button){button.addEventListener('click',function(){openPublicProfile(button.dataset.analystWallet);});});
   }
-  async function loadPublicProfiles(){
-    var host=document.getElementById('lb-body');if(host)host.innerHTML='<div class="osi-activation-loading">Loading verified server-derived profiles...</div>';
-    try{var result=await api({op:'list_public_profiles'});state.profiles=Array.isArray(result.analysts)?result.analysts:[];syncAnalystMaps(state.profiles);renderPublicProfiles();}
-    catch(error){state.profiles=[];syncAnalystMaps([]);if(host)host.innerHTML=empty('Analyst directory unavailable',userError(error));}
-    return state.profiles;
+  async function loadPublicProfiles(options){
+    options=options||{};
+    if(state.profilesPromise)return state.profilesPromise;
+    var host=document.getElementById('lb-body');
+    if(host){host.setAttribute('aria-busy','true');host.innerHTML='<div class="osi-activation-loading" role="status">'+esc(t('Loading verified server-derived profiles...'))+'</div>';}
+    state.profilesPromise=(async function(){
+      try{
+        var result=await api({op:'list_public_profiles'});
+        state.profiles=Array.isArray(result.analysts)?result.analysts:[];
+        syncAnalystMaps(state.profiles);renderPublicProfiles();return state.profiles;
+      }catch(error){
+        state.profiles=[];syncAnalystMaps([]);
+        if(host){host.removeAttribute('aria-busy');host.innerHTML=empty(t('Analyst directory unavailable'),userError(error))+'<button class="osi-empty-cta" type="button" data-analyst-directory-retry>'+esc(t('Retry'))+'</button>';var retry=host.querySelector('[data-analyst-directory-retry]');if(retry)retry.addEventListener('click',function(){loadPublicProfiles();});}
+        if(options.throwOnError)throw error;
+        return state.profiles;
+      }finally{state.profilesPromise=null;}
+    })();
+    return state.profilesPromise;
   }
   function publicProof(row){
     var tx=row.proof_type==='solana_memo'&&/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(row.tx_sig||''))?'<a href="https://solscan.io/tx/'+encodeURIComponent(row.tx_sig)+'" target="_blank" rel="noopener noreferrer">Verify on Solscan</a>':'';
     var payment=row.payment_proof&&row.event_type==='SUPPORT_PAYMENT_CONFIRMED'?'<span>'+esc(solFromLamports(row.payment_proof.recipient_amount_lamports))+' SOL / '+esc(row.payment_proof.recipient_amount_lamports)+' lamports / '+esc(label(row.payment_proof.finality))+'</span>':'';
     return '<div class="osi-history-row"><div><b>'+esc(label(row.event_type))+'</b><span>'+esc(row.payment_proof?'SOL transfer verified on Solana':proofLabel(row.proof_type))+' / actor '+esc(label(row.actor_role))+'</span>'+payment+'</div><time>'+esc(dateText(row.occurred_at))+'</time>'+tx+'</div>';
   }
-  function openPublicProfile(wallet){
-    var profile=state.profiles.find(function(row){return String(row.wallet)===String(wallet);});if(!profile)return;
-    var links=(profile.links||[]).map(function(link){var url=safeHttps(link.url);return url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label||url)+'</a>':'';}).join('');
-    var contributions=(profile.contributions||[]).map(function(row){return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b><span>'+esc(label(row.subject_type))+' / '+esc(short(row.subject_id))+'</span></div><time>'+esc(dateText(row.created_at))+'</time></div>';}).join('');
-    var proofs=(profile.proof_history||[]).map(publicProof).join('');
-    var body=document.getElementById('ap-modal-body');if(!body)return;
-    body.innerHTML='<div class="osi-public-profile"><header>'+avatar(profile,64)+'<div><span class="mono">@'+esc(profile.handle)+'</span><h3>'+esc(profile.display_name||profile.handle)+sasSlot(profile.wallet,profile.status)+'</h3><p>'+esc(profile.bio)+'</p></div></header>'
-      +'<div class="osi-profile-facts"><div><span>Status</span>'+statusBadge(profile.status)+'</div><div><span>Server-derived weight</span><b>'+Number(profile.weight||0).toFixed(2)+'</b></div><div><span>Tier</span><b>'+esc(label(profile.tier_code))+'</b></div></div>'
-      +'<section><h4>Expertise</h4><div class="osi-tag-list">'+(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section>'
-      +(links?'<section><h4>Safe public links</h4><div class="osi-safe-links">'+links+'</div></section>':'')
-      +'<section><h4>Voluntary support</h4><p>Send native SOL directly to this verified analyst wallet. Support does not change weight, ranking, eligibility, or governance.</p><button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">Support analyst with SOL</button></section>'
-      +'<section><h4>Public contributions</h4>'+(contributions||empty('No public contributions recorded','Contribution history appears after attributable public work.'))+'</section>'
-      +'<section><h4>Proof history</h4>'+(proofs||empty('No public proof recorded','Verified receipts will appear here.'))+'</section></div>';
-    var modal=document.getElementById('ap-modal');modal.classList.add('open');modal.setAttribute('aria-hidden','false');
+  async function openPublicProfile(wallet,options){
+    options=options||{};
+    wallet=String(wallet||'');if(!wallet)return;
+    if(options.preserveReturnFocus!==true)state.profileReturnFocus=document.activeElement;
+    state.profileIntent=wallet;
+    var body=document.getElementById('ap-modal-body'),modal=document.getElementById('ap-modal');if(!body||!modal)return;
+    modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';body.setAttribute('aria-busy','true');body.innerHTML='<div class="osi-activation-loading" role="status">'+esc(t('Loading the selected analyst profile...'))+'</div>';
+    if(options.preserveFocus!==true)setTimeout(function(){var close=modal.querySelector('.ap-modal-x');if(close)close.focus();},0);
+    var profile=state.profiles.find(function(row){return String(row.wallet)===wallet;});
+    if(!profile){
+      try{await loadPublicProfiles({throwOnError:true});}catch(error){
+        if(state.profileIntent!==wallet)return;
+        body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),userError(error))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
+        var retry=body.querySelector('[data-profile-retry]');if(retry)retry.addEventListener('click',function(){openPublicProfile(wallet,{preserveReturnFocus:true});});return;
+      }
+      if(state.profileIntent!==wallet)return;
+      profile=state.profiles.find(function(row){return String(row.wallet)===wallet;});
+    }
+    if(!profile){
+      body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),t('This wallet is not in the current verified analyst directory.'))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
+      var missingRetry=body.querySelector('[data-profile-retry]');if(missingRetry)missingRetry.addEventListener('click',function(){openPublicProfile(wallet,{preserveReturnFocus:true});});return;
+    }
+    var links=(profile.links||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label||url)+'</a>':'';}).join('');
+    var contributions=(profile.contributions||[]).map(function(row){return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b><span data-osi-user-content>'+esc(label(row.subject_type))+' / '+esc(short(row.subject_id))+'</span></div><time>'+esc(dateText(row.created_at))+'</time></div>';}).join('');
+    var proofs=(profile.proof_history||[]).map(publicProof).join(''),identity=profile.handle?'@'+profile.handle:short(profile.wallet),displayName=profile.display_name||profile.handle||short(profile.wallet);
+    body.removeAttribute('aria-busy');
+    body.innerHTML='<div class="osi-public-profile"><header>'+avatar(profile,64)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(displayName)+sasSlot(profile.wallet,profile.status)+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
+      +'<div class="osi-profile-facts"><div><span>'+esc(t('Status'))+'</span>'+statusBadge(profile.status)+'</div><div><span>'+esc(t('Server-derived weight'))+'</span><b>'+Number(profile.weight||0).toFixed(2)+'</b></div><div><span>'+esc(t('Tier'))+'</span><b>'+esc(label(profile.tier_code))+'</b></div></div>'
+      +'<section><h4>'+esc(t('Expertise'))+'</h4><div class="osi-tag-list">'+(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section>'
+      +(links?'<section><h4>'+esc(t('Safe public links'))+'</h4><div class="osi-safe-links">'+links+'</div></section>':'')
+      +'<section><h4>'+esc(t('Voluntary support'))+'</h4><p>'+esc(t('Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.'))+'</p><button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">'+esc(t('Support with SOL via Phantom or Solana Pay'))+'</button></section>'
+      +'<section><h4>'+esc(t('Public contributions'))+'</h4>'+(contributions||empty(t('No public contributions recorded'),t('Contribution history appears after attributable public work.')))+'</section>'
+      +'<section><h4>'+esc(t('Proof history'))+'</h4>'+(proofs||empty(t('No public proof recorded'),t('Verified receipts will appear here.')))+'</section></div>';
   }
 
   function latestApplication(){return state.workspace&&state.workspace.applications&&state.workspace.applications[0]||null;}
@@ -152,8 +193,8 @@
   function profilePane(){
     var profile=state.workspace&&state.workspace.profile,application=latestApplication();
     if(!profile)return empty('No analyst profile yet','Create an immutable wallet-signed application version to begin.')+'<button class="osi-primary-action" type="button" onclick="apxOpen()">Start analyst application</button>';
-    var links=(profile.links_public||[]).map(function(link){var url=safeHttps(link.url);return url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label)+'</a>':'';}).join('');
-    return '<div class="osi-workspace-profile"><header>'+avatar(profile,58)+'<div><span class="mono">@'+esc(profile.handle)+'</span><h3>'+esc(profile.display_name)+'</h3><p>'+esc(profile.bio)+'</p></div></header>'
+    var links=(profile.links_public||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label)+'</a>':'';}).join(''),identity=profile.handle?'@'+profile.handle:short(profile.wallet);
+    return '<div class="osi-workspace-profile"><header>'+avatar(profile,58)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(profile.display_name||profile.handle||short(profile.wallet))+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
       +'<div class="osi-profile-facts"><div><span>Profile status</span>'+statusBadge(profile.status)+'</div><div><span>Tier</span><b>'+esc(label(profile.tier_code))+'</b></div><div><span>Server-derived weight</span><b>'+Number(profile.weight_cached||0).toFixed(2)+'</b></div></div>'
       +'<section><h4>Expertise</h4><div class="osi-tag-list">'+(profile.expertise_public||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section>'
       +(links?'<section><h4>Public links</h4><div class="osi-safe-links">'+links+'</div></section>':'')
@@ -213,19 +254,19 @@
   function applicationDraftKey(wallet){return'analyst-application:'+String(wallet||'');}
   function applicationDraft(){
     var checked=Array.prototype.map.call(document.querySelectorAll('input[name="an-expertise"]:checked'),function(box){return box.value;});
-    return{x_handle:(document.getElementById('an-x-handle')||{}).value||'',display_name:(document.getElementById('an-name')||{}).value||'',bio:(document.getElementById('an-bio')||{}).value||'',motivation:(document.getElementById('an-motivation')||{}).value||'',experience:(document.getElementById('an-experience')||{}).value||'',proof:(document.getElementById('an-proof')||{}).value||'',link_label:(document.getElementById('an-link-label')||{}).value||'',link_url:(document.getElementById('an-link-url')||{}).value||'',expertise:checked,safety:!!(document.getElementById('an-safety')||{}).checked};
+    return{handle:(document.getElementById('an-handle')||{}).value||'',x_handle:(document.getElementById('an-x-handle')||{}).value||'',display_name:(document.getElementById('an-name')||{}).value||'',bio:(document.getElementById('an-bio')||{}).value||'',motivation:(document.getElementById('an-motivation')||{}).value||'',experience:(document.getElementById('an-experience')||{}).value||'',proof:(document.getElementById('an-proof')||{}).value||'',link_label:(document.getElementById('an-link-label')||{}).value||'',link_url:(document.getElementById('an-link-url')||{}).value||'',expertise:checked,safety:!!(document.getElementById('an-safety')||{}).checked};
   }
   function saveApplicationDraft(){if(walletPubkey&&typeof window.osiV2SaveDraft==='function')window.osiV2SaveDraft(applicationDraftKey(walletPubkey),applicationDraft());}
   function restoreApplicationDraft(wallet){
     if(typeof window.osiV2LoadDraft!=='function')return false;var draft=window.osiV2LoadDraft(applicationDraftKey(wallet));if(!draft)return false;
-    var values={'an-x-handle':draft.x_handle,'an-name':draft.display_name,'an-bio':draft.bio,'an-motivation':draft.motivation,'an-experience':draft.experience,'an-proof':draft.proof,'an-link-label':draft.link_label,'an-link-url':draft.link_url};
+    var values={'an-handle':draft.handle,'an-x-handle':draft.x_handle,'an-name':draft.display_name,'an-bio':draft.bio,'an-motivation':draft.motivation,'an-experience':draft.experience,'an-proof':draft.proof,'an-link-label':draft.link_label,'an-link-url':draft.link_url};
     Object.keys(values).forEach(function(id){var node=document.getElementById(id);if(node&&values[id]!=null)node.value=values[id];});
     document.querySelectorAll('input[name="an-expertise"]').forEach(function(box){box.checked=(draft.expertise||[]).indexOf(box.value)!==-1;});var safety=document.getElementById('an-safety');if(safety)safety.checked=draft.safety===true;return true;
   }
   function prefillApplication(){
     var profile=state.workspace&&state.workspace.profile,application=latestApplication(),version=latestVersion(application),details=version&&version.details_restricted||{};
     var xLink=(profile&&profile.links_public||[]).find(function(item){return item&&item.label==='X / Twitter';});
-    var xHandle=details.x_handle||(xLink&&String(xLink.url||'').split('/').filter(Boolean).pop())||profile&&profile.handle||'';
+    var xHandle=details.x_handle||(xLink&&String(xLink.url||'').split('/').filter(Boolean).pop())||'';
     var values={'an-x-handle':xHandle?'@'+String(xHandle).replace(/^@/,''):'','an-handle':profile&&profile.handle,'an-name':profile&&profile.display_name,'an-bio':profile&&profile.bio,'an-motivation':details.motivation,'an-experience':details.experience,'an-proof':(details.proof_urls||[]).join('\n')};
     Object.keys(values).forEach(function(id){var node=document.getElementById(id);if(node)node.value=values[id]||'';});
     var link=(profile&&profile.links_public||[]).find(function(item){return item&&item.label!=='X / Twitter';});var ll=document.getElementById('an-link-label'),lu=document.getElementById('an-link-url');if(ll)ll.value=link&&link.label||'';if(lu)lu.value=link&&link.url||'';
@@ -233,6 +274,7 @@
     var title=document.getElementById('osi-application-title');if(title)title.textContent=application?'Submit immutable application version '+(Number(version&&version.version_no||0)+1):'Create your analyst profile';
   }
   async function openApplication(){
+    var generation;
     if(!walletPubkey&&typeof window.osiConnectForIntent==='function'){
       await window.osiConnectForIntent('analyst-application','Analyst application',openApplication);
       return;
@@ -240,12 +282,14 @@
     try{
       if(typeof showToast==='function')showToast('Approve the wallet message to unlock the private application workspace. No transaction will be sent.');
       var wallet=await ensureWallet();
+      generation=privateGeneration();
       if(!state.workspace||state.workspaceWallet!==wallet){state.workspace=await sessionRead('analyst:workspace','my_workspace');state.workspaceWallet=wallet;}
-      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();restoreApplicationDraft(wallet);setApplicationStatus('');
-      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');document.body.style.overflow='hidden';setTimeout(function(){var target=document.getElementById('an-x-handle');if(target)target.focus();},50);
-    }catch(error){if(typeof showToast==='function')showToast(userError(error));}
+      assertPrivateGeneration(generation);
+      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();restoreApplicationDraft(wallet);state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');setApplicationStatus('');
+      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');document.body.style.overflow='hidden';setTimeout(function(){var target=document.getElementById('an-handle')||document.getElementById('an-bio');if(target)target.focus();},50);
+    }catch(error){if((generation==null||generation===privateGeneration())&&typeof showToast==='function')showToast(userError(error));}
   }
-  function closeApplication(){var modal=document.getElementById('apx-modal');if(modal)modal.classList.remove('open');document.body.style.overflow='';if(state.returnFocus&&typeof state.returnFocus.focus==='function')state.returnFocus.focus();state.returnFocus=null;}
+  function closeApplication(){var modal=document.getElementById('apx-modal');if(modal)modal.classList.remove('open');document.body.style.overflow='';if(state.receipt){state.receipt=null;var form=document.getElementById('analyst-form');if(form)form.reset();if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');}if(state.returnFocus&&typeof state.returnFocus.focus==='function')state.returnFocus.focus();state.returnFocus=null;}
   function inputLines(id){var node=document.getElementById(id);return String(node&&node.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean);}
   async function avatarPayload(){
     var input=document.getElementById('an-avatar'),file=input&&input.files&&input.files[0];if(!file)return null;
@@ -253,34 +297,57 @@
     if(file.size>524288)throw new Error('Profile image must be 512 KB or smaller.');
     return {mime:file.type,data_base64:bytesToBase64(new Uint8Array(await file.arrayBuffer()))};
   }
+  function showApplicationReceipt(committed){
+    var application=committed&&committed.application||{};
+    state.receipt=application;
+    var access=typeof resolveMaintainerAccess==='function'?resolveMaintainerAccess():{allowed:false};
+    if(typeof window.osiV2RenderSubmissionReceipt==='function')window.osiV2RenderSubmissionReceipt('osi-analyst-receipt',{
+      title:'Analyst application version saved',publicRef:application.version_ref,
+      copyValue:application.version_ref||application.id,stage:label(application.status||'submitted'),visibility:'Private',
+      where:'My Applications, in the immutable application version history.',
+      reviewers:'Full double-gated maintainers. The applicant cannot review or activate their own application.',
+      next:'A full maintainer reviews this exact version. Approval does not activate an analyst until a separate confirmed ANALYST_PROBATION Memo is finalized.',
+      openLabel:'Open My Applications',
+      onOpen:function(){closeApplication();openWorkspace('applications');},
+      canOpenQueue:access.allowed===true,
+      onQueue:function(){closeApplication();if(typeof window.osiV2OpenReviewQueue==='function')window.osiV2OpenReviewQueue();},
+      onDismiss:closeApplication
+    });
+  }
   async function submitApplication(event){
     if(event)event.preventDefault();var form=document.getElementById('analyst-form');if(!form||!form.reportValidity()||state.busy)return;
-    state.busy=true;var button=document.getElementById('an-submit');if(button)button.disabled=true;
+    var generation=privateGeneration();
+    state.busy=true;var button=document.getElementById('an-submit');if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
     try{
       var wallet=await ensureWallet();var expertise=Array.prototype.map.call(document.querySelectorAll('input[name="an-expertise"]:checked'),function(box){return box.value;});
+      assertPrivateGeneration(generation);
       var linkLabel=String(document.getElementById('an-link-label').value||'').trim(),linkUrl=String(document.getElementById('an-link-url').value||'').trim();if((linkLabel&&!linkUrl)||(!linkLabel&&linkUrl))throw new Error('Provide both the public link label and HTTPS URL.');
       var proofUrls=inputLines('an-proof');if(proofUrls.length>5)throw new Error('Use at most five public proof links.');
-      var xHandle=document.getElementById('an-x-handle').value;var application={x_handle:xHandle,handle:String(xHandle||'').replace(/^@/,'').toLowerCase(),display_name:document.getElementById('an-name').value,bio:document.getElementById('an-bio').value,expertise:expertise,links:linkUrl?[{label:linkLabel,url:linkUrl}]:[],motivation:document.getElementById('an-motivation').value,experience:document.getElementById('an-experience').value,proof_urls:proofUrls,safety_acknowledged:document.getElementById('an-safety').checked===true};
-      var image=await avatarPayload();if(image)application.avatar=image;
+      var xHandle=String(document.getElementById('an-x-handle').value||'').trim(),handle=String(document.getElementById('an-handle').value||'').trim();
+      var application={x_handle:xHandle,handle:handle,display_name:document.getElementById('an-name').value,bio:document.getElementById('an-bio').value,expertise:expertise,links:linkUrl?[{label:linkLabel,url:linkUrl}]:[],motivation:document.getElementById('an-motivation').value,experience:document.getElementById('an-experience').value,proof_urls:proofUrls,safety_acknowledged:document.getElementById('an-safety').checked===true};
+      var image=await avatarPayload();assertPrivateGeneration(generation);if(image)application.avatar=image;
       setApplicationStatus('Preparing an exact single-use application message...');
       var prepared=await api({op:'prepare_application',wallet:wallet,application:application,idempotency_key:randomKey('application')});
+      assertPrivateGeneration(generation);
       setApplicationStatus('Sign exact '+prepared.version_ref+'. This is not an on-chain transaction.');
       var signature=await signMessage(prepared.message);
+      assertPrivateGeneration(generation);
       var committed=await api({op:'commit_application',wallet:wallet,application:application,nonce:prepared.nonce,message:prepared.message,signature:signature});
+      assertPrivateGeneration(generation);
       setApplicationStatus('Version '+committed.application.version_no+' recorded as wallet-signed and server-verified.','success');
       if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(applicationDraftKey(wallet));
       state.workspace=null;state.workspaceWallet='';if(typeof showToast==='function')showToast('Immutable analyst application version submitted.');
-      setTimeout(function(){closeApplication();openWorkspace('applications');},700);
-    }catch(error){setApplicationStatus(userError(error),'error');}
-    finally{state.busy=false;if(button)button.disabled=false;}
+      showApplicationReceipt(committed);
+    }catch(error){if(generation===privateGeneration())setApplicationStatus(userError(error),'error');}
+    finally{if(generation===privateGeneration()){state.busy=false;if(button){button.removeAttribute('aria-busy');button.disabled=!!state.receipt;}}}
   }
 
   function queueReview(app,wallet){return (app.reviews||[]).find(function(review){return review.is_active===true&&review.decision==='approve'&&String(review.reviewer_wallet)===String(wallet);});}
   function queueCard(app){
     var profile=app.profile||{},version=app.version||{},details=version.details_restricted||{},waiting=app.status==='revision_requested',approved=queueReview(app,walletPubkey);
-    var proofLinks=(details.proof_urls||[]).map(function(value){var url=safeHttps(value);return url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(url)+'</a>':'';}).join('');
-    return '<article class="osi-ops-application" data-application-id="'+esc(app.id)+'"><header>'+avatar(profile,46)+'<div><span class="mono">'+esc(version.version_ref||short(version.id))+'</span><h4>'+esc(profile.display_name||profile.handle||short(app.applicant_wallet))+'</h4><p>'+esc(short(app.applicant_wallet))+' / version '+Number(version.version_no||0)+'</p></div>'+statusBadge(app.status)+'</header>'
-      +'<div class="osi-ops-grid"><section><h5>Public profile</h5><p>'+esc(profile.bio||'No bio')+'</p><div class="osi-tag-list">'+(version.expertise_public||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section><section><h5>Restricted application evidence</h5><p><b>Motivation:</b> '+esc(details.motivation||'Not recorded')+'</p><p><b>Experience:</b> '+esc(details.experience||'Not recorded')+'</p><div class="osi-safe-links">'+proofLinks+'</div></section></div>'
+    var proofLinks=(details.proof_urls||[]).map(function(value){var url=safeHttps(value);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(url)+'</a>':'';}).join('');
+    return '<article class="osi-ops-application" data-application-id="'+esc(app.id)+'" tabindex="-1"><header>'+avatar(profile,46)+'<div><span class="mono">'+esc(version.version_ref||short(version.id))+'</span><h4 data-osi-user-content>'+esc(profile.display_name||profile.handle||short(app.applicant_wallet))+'</h4><p>'+esc(short(app.applicant_wallet))+' / version '+Number(version.version_no||0)+'</p></div>'+statusBadge(app.status)+'</header>'
+      +'<div class="osi-ops-grid"><section><h5>Public profile</h5><p data-osi-user-content>'+esc(profile.bio||'')+'</p><div class="osi-tag-list">'+(version.expertise_public||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section><section><h5>Restricted application evidence</h5><p data-osi-user-content><b>Motivation:</b> '+esc(details.motivation||'Not recorded')+'</p><p data-osi-user-content><b>Experience:</b> '+esc(details.experience||'Not recorded')+'</p><div class="osi-safe-links">'+proofLinks+'</div></section></div>'
       +((app.reviews||[]).length?'<div class="osi-review-list">'+app.reviews.map(reviewHistory).join('')+'</div>':'')
       +(waiting?'<div class="osi-callout warning"><b>Waiting for applicant revision</b><span>Review controls stay locked until a new exact version is submitted.</span></div>':'<div class="osi-ops-decision"><label>Reason code<select data-analyst-reason><option value="meets_probationary_baseline">Meets probationary baseline</option><option value="insufficient_public_work">Insufficient public work</option><option value="more_public_work_samples">More public work samples needed</option><option value="unsafe_or_prohibited">Unsafe or prohibited</option></select></label><div><button type="button" data-analyst-decision="approve">Approve</button><button type="button" data-analyst-decision="request_revision">Request revision</button><button type="button" data-analyst-decision="reject">Reject</button></div><p>Abstain is unavailable because it is not in the canonical application decision set.</p></div>')
       +(approved&&!waiting?'<button class="osi-primary-action" type="button" data-analyst-activate>Anchor probation activation</button>':'')+'<div class="osi-form-status mono" data-analyst-status role="status"></div></article>';
@@ -291,64 +358,131 @@
     host.innerHTML=state.queue.map(queueCard).join('');
     host.querySelectorAll('[data-application-id]').forEach(function(card){card.querySelectorAll('[data-analyst-decision]').forEach(function(button){button.addEventListener('click',function(){reviewApplication(card.dataset.applicationId,button.dataset.analystDecision);});});var activate=card.querySelector('[data-analyst-activate]');if(activate)activate.addEventListener('click',function(){activateProbation(card.dataset.applicationId);});});
   }
+  async function loadMaintainerQueueData(){
+    var access=typeof resolveMaintainerAccess==='function'?resolveMaintainerAccess():{allowed:false};
+    if(!access.allowed){state.queue=[];return{authorized:false,applications:[],reason:'full_maintainer_required'};}
+    var result=await sessionRead('analyst:maintainer','maintainer_queue');state.queue=Array.isArray(result.applications)?result.applications:[];
+    return{authorized:true,applications:state.queue,result:result};
+  }
   async function loadQueue(){
     var host=document.getElementById('osi-analyst-ops');if(!host)return;
-    var access=typeof resolveMaintainerAccess==='function'?resolveMaintainerAccess():{allowed:false};if(!access.allowed){host.innerHTML=empty('Both maintainer gates are required','Connect the configured admin wallet and restore the authorized Supabase maintainer session.');return;}
+    var access=typeof resolveMaintainerAccess==='function'?resolveMaintainerAccess():{allowed:false};if(!access.allowed){host.innerHTML=empty('Both maintainer gates are required','Connect the configured admin wallet and restore the authorized Supabase maintainer session.');return{authorized:false,applications:[],reason:'full_maintainer_required'};}
     host.innerHTML='<div class="osi-activation-loading">Unlocking the double-gated Operations read session...</div>';
-    try{var result=await sessionRead('analyst:maintainer','maintainer_queue');state.queue=Array.isArray(result.applications)?result.applications:[];renderQueue();}
-    catch(error){state.queue=[];var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=empty('Application queue unavailable',userError(error))+(refresh?'<button class="osi-primary-action" type="button" onclick="osiAnalystRefreshMaintainerQueue()">Refresh private access</button>':'');}
+    try{var loaded=await loadMaintainerQueueData();renderQueue();return loaded;}
+    catch(error){state.queue=[];var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=empty('Application queue unavailable',userError(error))+(refresh?'<button class="osi-primary-action" type="button" onclick="osiAnalystRefreshMaintainerQueue()">Refresh private access</button>':'');return{authorized:false,applications:[],error:String(error&&error.message||'request_failed')};}
+  }
+  async function openMaintainerApplication(id,expectedVersionRef){
+    var loaded=await loadMaintainerQueueData();if(!loaded||loaded.authorized!==true)return loaded;
+    var application=state.queue.find(function(item){return String(item.id)===String(id);});
+    if(!application||!application.version||String(application.version.version_ref)!==String(expectedVersionRef||'')){
+      if(typeof showToast==='function')showToast(t('This exact application task changed. Refresh My Reviews before acting.'));
+      return{authorized:true,stale:true,applications:state.queue};
+    }
+    if(typeof window.osiNavigate==='function')window.osiNavigate('admin',{render:true,focus:false});
+    renderQueue();
+    var card=document.querySelector('[data-application-id="'+String(id||'').replace(/[^A-Za-z0-9-]/g,'')+'"]');
+    if(card){card.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(function(){card.focus();},0);}
+    return loaded;
   }
   function queueStatus(appId,text,kind){var card=document.querySelector('[data-application-id="'+String(appId).replace(/[^A-Za-z0-9-]/g,'')+'"]'),node=card&&card.querySelector('[data-analyst-status]');if(node){node.textContent=text;node.className='osi-form-status mono '+(kind||'');}}
   function queueApplication(id){return state.queue.find(function(app){return String(app.id)===String(id);});}
   async function reviewApplication(id,decision){
     if(state.busy)return;var app=queueApplication(id),card=document.querySelector('[data-application-id="'+String(id).replace(/[^A-Za-z0-9-]/g,'')+'"]');if(!app||!app.version||!card)return;
+    var generation=privateGeneration();
     state.busy=true;card.querySelectorAll('button,select').forEach(function(node){node.disabled=true;});
     try{
       var wallet=await ensureWallet(),reason=card.querySelector('[data-analyst-reason]').value,review={application_version_id:app.version.id,version_ref:app.version.version_ref,decision:decision,reason_code:reason};
+      assertPrivateGeneration(generation);
       queueStatus(id,'Preparing exact '+label(decision)+' review...');var prepared=await api({op:'prepare_review',wallet:wallet,review:review,idempotency_key:randomKey('application-review')});
+      assertPrivateGeneration(generation);
       queueStatus(id,'Sign the exact review message. Review weight is 0.');var signature=await signMessage(prepared.message);
+      assertPrivateGeneration(generation);
       var committed=await api({op:'commit_review',wallet:wallet,review:review,nonce:prepared.nonce,message:prepared.message,signature:signature});
+      assertPrivateGeneration(generation);
       queueStatus(id,'Decision recorded as wallet-signed and server-verified.','success');
       if(committed.activation_ready&&confirm('Approval is recorded. Anchor the exact ANALYST_PROBATION Memo now? Only the standard Solana fee applies.'))await activateProbation(id);
       else await loadQueue();
-    }catch(error){queueStatus(id,userError(error),'error');}
-    finally{state.busy=false;if(card&&document.body.contains(card))card.querySelectorAll('button,select').forEach(function(node){node.disabled=false;});}
+      assertPrivateGeneration(generation);
+    }catch(error){if(generation===privateGeneration())queueStatus(id,userError(error),'error');}
+    finally{if(generation===privateGeneration()){state.busy=false;if(card&&document.body.contains(card))card.querySelectorAll('button,select').forEach(function(node){node.disabled=false;});}}
   }
-  async function commitActivationWithConfirmation(body){var last;for(var attempt=0;attempt<5;attempt++){try{return await api(body);}catch(error){last=error;if(String(error.message)!=='transaction_not_confirmed')throw error;await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});}}throw last;}
+  async function commitActivationWithConfirmation(body,generation){var last;for(var attempt=0;attempt<5;attempt++){assertPrivateGeneration(generation);try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){last=error;if(String(error.message)!=='transaction_not_confirmed')throw error;assertPrivateGeneration(generation);await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}}throw last;}
   async function activateProbation(id){
     if(state.busy&&!(document.querySelector('[data-application-id="'+String(id).replace(/[^A-Za-z0-9-]/g,'')+'"]')))return;
-    var app=queueApplication(id);if(!app||!app.version)return;var previouslyBusy=state.busy;state.busy=true;
+    var app=queueApplication(id);if(!app||!app.version)return;var generation=privateGeneration(),previouslyBusy=state.busy;state.busy=true;
     try{
       var wallet=await ensureWallet(),activation={analyst_wallet:app.applicant_wallet,application_version_id:app.version.id,version_ref:app.version.version_ref};
+      assertPrivateGeneration(generation);
       queueStatus(id,'Preparing exact ANALYST_PROBATION Memo...');var prepared=await api({op:'prepare_activation',wallet:wallet,activation:activation,idempotency_key:randomKey('analyst-probation')});
+      assertPrivateGeneration(generation);
       queueStatus(id,'Approve the probation Memo. Tier probationary and weight 0.50 are server-derived.');var txSig=await castOnchainVote(prepared.memo);
-      queueStatus(id,'Confirming exact signer, Memo, target, payload hash, and mainnet transaction...');var committed=await commitActivationWithConfirmation({op:'commit_activation',wallet:wallet,activation:activation,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig});
+      assertPrivateGeneration(generation);
+      queueStatus(id,'Confirming exact signer, Memo, target, payload hash, and mainnet transaction...');var committed=await commitActivationWithConfirmation({op:'commit_activation',wallet:wallet,activation:activation,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},generation);
+      assertPrivateGeneration(generation);
       queueStatus(id,'Probation activated at server-derived weight '+Number(committed.analyst.weight).toFixed(2)+'.','success');if(typeof showToast==='function')showToast('Analyst probation is Memo-anchored on Solana.');await Promise.all([loadQueue(),loadPublicProfiles()]);
-    }catch(error){queueStatus(id,userError(error),'error');}
-    finally{state.busy=previouslyBusy;}
+      assertPrivateGeneration(generation);
+    }catch(error){if(generation===privateGeneration())queueStatus(id,userError(error),'error');}
+    finally{if(generation===privateGeneration())state.busy=previouslyBusy;}
   }
 
   var legacyCloseProfile=window.closeAnalystProfile;
-  window.closeAnalystProfile=function(){var modal=document.getElementById('ap-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}if(typeof legacyCloseProfile==='function'&&legacyCloseProfile!==window.closeAnalystProfile)legacyCloseProfile();};
+  window.closeAnalystProfile=function(){var returnFocus=state.profileReturnFocus;state.profileIntent='';state.profileReturnFocus=null;var modal=document.getElementById('ap-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}document.body.style.overflow='';if(typeof legacyCloseProfile==='function'&&legacyCloseProfile!==window.closeAnalystProfile)legacyCloseProfile();if(returnFocus&&document.contains(returnFocus)&&typeof returnFocus.focus==='function')setTimeout(function(){returnFocus.focus();},0);};
   window.loadAnalysts=loadPublicProfiles;
   window.renderAnalysts=renderPublicProfiles;
   window.renderLeaderboard=renderPublicProfiles;
-  window.openAnalystProfile=function(id){openPublicProfile(id);};
-  window.openRosterProfile=function(id){openPublicProfile(id);};
+  window.openAnalystProfile=function(id){return openPublicProfile(id);};
+  window.openRosterProfile=function(id){return openPublicProfile(id);};
   window.osiAnalystOpenWorkspace=openWorkspace;
   window.apxOpen=openApplication;
   window.apxClose=closeApplication;
   window.osiAnalystSubmit=submitApplication;
   window.osiAnalystLoadMaintainerQueue=loadQueue;
+  window.osiAnalystLoadReviewTasks=loadMaintainerQueueData;
+  window.osiAnalystOpenMaintainerApplication=function(id,expectedVersionRef){return openMaintainerApplication(id,expectedVersionRef).catch(function(error){if(typeof showToast==='function')showToast(userError(error));throw error;});};
   window.osiAnalystRefreshWorkspace=function(tab){return window.osiV2RefreshReadSession(['analyst:workspace']).then(function(){return openWorkspace(tab);});};
   window.osiAnalystRefreshMaintainerQueue=function(){return window.osiV2RefreshReadSession(['analyst:maintainer']).then(loadQueue);};
   window.osiAnalystDecision=reviewApplication;
   window.osiAnalystActivate=activateProbation;
 
-  function clearPrivateAnalystCache(){state.workspace=null;state.workspaceWallet='';state.queue=[];state.busy=false;var host=document.getElementById('identity-body');if(host&&document.body&&document.body.dataset.view==='identity')host.innerHTML=empty('Analyst workspace locked','Sign once to unlock a bounded private working session. Any application draft in this tab is preserved.');var queueHost=document.getElementById('osi-analyst-ops');if(queueHost)queueHost.innerHTML=empty('Application queue locked','Restore the bounded double-gated private session to continue.');}
+  function clearPrivateAnalystCache(){
+    state.workspace=null;state.workspaceWallet='';state.queue=[];state.busy=false;state.receipt=null;state.returnFocus=null;
+    if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');
+    var form=document.getElementById('analyst-form');if(form)form.reset();
+    var modal=document.getElementById('apx-modal');if(modal)modal.classList.remove('open');
+    setApplicationStatus('');
+    var submit=document.querySelector('#analyst-form button[type="submit"]');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}
+    var profileModal=document.getElementById('ap-modal');document.body.style.overflow=profileModal&&profileModal.classList.contains('open')?'hidden':'';
+    var host=document.getElementById('identity-body');if(host&&document.body&&document.body.dataset.view==='identity')host.innerHTML=empty('Analyst workspace locked','Sign once to unlock a bounded private working session. Any application draft in this tab is preserved.');
+    var queueHost=document.getElementById('osi-analyst-ops');if(queueHost)queueHost.innerHTML=empty('Application queue locked','Restore the bounded double-gated private session to continue.');
+  }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('analyst',clearPrivateAnalystCache);
   var analystDraftForm=document.getElementById('analyst-form');
   if(analystDraftForm){analystDraftForm.addEventListener('input',saveApplicationDraft);analystDraftForm.addEventListener('change',saveApplicationDraft);}
 
-  document.addEventListener('keydown',function(event){if(event.key==='Escape'&&document.getElementById('apx-modal')&&document.getElementById('apx-modal').classList.contains('open'))closeApplication();});
+  function trapModalFocus(event,modal){
+    if(event.key!=='Tab'||!modal)return;
+    var nodes=Array.prototype.filter.call(modal.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'),function(node){return node.offsetParent!==null;});
+    if(!nodes.length)return;
+    var first=nodes[0],last=nodes[nodes.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  }
+  document.addEventListener('keydown',function(event){
+    var applicationModal=document.getElementById('apx-modal'),profileModal=document.getElementById('ap-modal');
+    if(event.key==='Escape'){
+      if(applicationModal&&applicationModal.classList.contains('open'))closeApplication();
+      else if(profileModal&&profileModal.classList.contains('open'))window.closeAnalystProfile();
+      return;
+    }
+    if(applicationModal&&applicationModal.classList.contains('open'))trapModalFocus(event,applicationModal);
+    else if(profileModal&&profileModal.classList.contains('open'))trapModalFocus(event,profileModal);
+  });
+  window.addEventListener('osi:localechange',function(){
+    var profileModal=document.getElementById('ap-modal');
+    if(profileModal&&profileModal.classList.contains('open')&&state.profileIntent){
+      openPublicProfile(state.profileIntent,{preserveReturnFocus:true,preserveFocus:true});
+    }
+    if(state.workspace)renderWorkspace();
+    if(state.queue.length)renderQueue();
+  });
 })();

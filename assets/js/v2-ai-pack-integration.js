@@ -24,7 +24,7 @@
   var state={
     caseItem:null,capabilities:null,mode:'public',result:null,versionRef:'',layer:'',
     busy:false,busyAction:'',loadToken:0,operationKeys:Object.create(null),
-    notices:Object.create(null)
+    notices:Object.create(null),actionEpoch:0
   };
 
   function esc(value){
@@ -44,6 +44,14 @@
   function wallet(){
     var value=typeof walletPubkey==='undefined'?window.walletPubkey:walletPubkey;
     return String(value||'');
+  }
+  function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
+  function assertPrivateGeneration(generation,actor){
+    if(generation!==privateGeneration()||(actor!=null&&String(actor)!==wallet()))throw new Error('private_session_changed');
+  }
+  function assertActionCurrent(generation,actor,epoch,ref){
+    assertPrivateGeneration(generation,actor);
+    if(epoch!==state.actionEpoch||String(ref||'')!==caseRef())throw new Error('private_session_changed');
   }
   function caseRef(){return String(state.caseItem&&state.caseItem.public_ref||'');}
   function host(){return document.getElementById('osi-ai-pack-root');}
@@ -102,27 +110,32 @@
     return{slot:slot,idempotencyKey:current.idempotencyKey};
   }
   function clearOperation(slot){delete state.operationKeys[slot];}
-  async function exactWrite(prepareOp,commitOp,target,payload){
+  async function exactWrite(prepareOp,commitOp,target,payload,generation,epoch,ref){
     var actor=wallet();
     if(!actor)throw new Error('wallet_required');
+    assertActionCurrent(generation,actor,epoch,ref);
     var operation=operationRecord(prepareOp,target,payload);
     var prepared;
     try{
       prepared=await api(Object.assign({
         op:prepareOp,wallet:actor,idempotency_key:operation.idempotencyKey
       },payload||{}));
+      assertActionCurrent(generation,actor,epoch,ref);
     }catch(error){
-      if(error&&error.retryWithNewIdempotencyKey)clearOperation(operation.slot);
+      if(generation===privateGeneration()&&actor===wallet()&&epoch===state.actionEpoch&&ref===caseRef()&&error&&error.retryWithNewIdempotencyKey)clearOperation(operation.slot);
       throw error;
     }
     if(prepared.already_committed){
       clearOperation(operation.slot);
       return prepared;
     }
+    assertActionCurrent(generation,actor,epoch,ref);
     var signature=await signMessage(prepared.message);
+    assertActionCurrent(generation,actor,epoch,ref);
     var committed=await api({
       op:commitOp,wallet:actor,nonce:prepared.nonce,message:prepared.message,signature:signature
     });
+    assertActionCurrent(generation,actor,epoch,ref);
     clearOperation(operation.slot);
     return committed;
   }
@@ -168,6 +181,7 @@
       read_session_disabled_or_unavailable:'Private AI Pack layers are locked because read sessions are disabled or unavailable.',
       read_session_wrong_scope:'Refresh private access for the AI Pack detail scope.',
       read_session_expired:'Refresh private access to view authorized AI Pack layers.',
+      private_session_changed:'Private access changed while this action was running. Reopen the exact AI Pack task.',
       wallet_required:'Connect a Solana wallet to continue.',
       wallet_message_unsupported:'This wallet does not support signMessage.',
       wallet_transaction_unsupported:'This wallet does not support the required Solana Memo transaction.'
@@ -540,7 +554,9 @@
       if(shouldUsePrivate(caps,ref)){
         try{
           var session=await window.osiV2ReadSession(['aipack:detail'],{allowUnlock:true});
+          var sessionGeneration=privateGeneration();
           result=await api({op:'get_case_packs',case_ref:ref,wallet:session.wallet,read_session:session.token});
+          assertPrivateGeneration(sessionGeneration,session.wallet);
         }catch(privateError){throw privateError;}
       }else{
         throw new Error('maintainer_only');
@@ -571,28 +587,28 @@
   async function generate(){
     var ref=caseRef();
     if(!ref||!beginAction('generation'))return;
-    var completed=false;
+    var completed=false,generation=privateGeneration(),epoch=++state.actionEpoch;
     try{
       setStatus('generation','Preparing an exact single-use generation authorization...');
       var packType=document.getElementById('osi-ai-pack-type').value;
       setStatus('generation','Approve the wallet-signature request. This is not an on-chain transaction.');
-      await exactWrite('prepare_generation','commit_generation',ref,{case_ref:ref,pack_type:packType});
-      if(ref!==caseRef())return;
+      await exactWrite('prepare_generation','commit_generation',ref,{case_ref:ref,pack_type:packType},generation,epoch,ref);
+      assertActionCurrent(generation,null,epoch,ref);
       setStatus('generation','Maintainer-only immutable draft generated from approved evidence. It remains private and cannot be published in this mode.','success');
       endAction();
       completed=true;
       await reload({focusId:''});
     }catch(error){
-      if(ref===caseRef())setStatus('generation',errorText(error),'error');
+      if(generation===privateGeneration()&&epoch===state.actionEpoch&&ref===caseRef())setStatus('generation',errorText(error),'error');
     }finally{
-      if(!completed&&state.busyAction==='generation')endAction();
+      if(generation===privateGeneration()&&epoch===state.actionEpoch&&ref===caseRef()&&!completed&&state.busyAction==='generation')endAction();
     }
   }
   async function review(){
     var version=selectedVersion();
     var ref=caseRef();
     if(!version||!beginAction('review'))return;
-    var completed=false;
+    var completed=false,generation=privateGeneration(),epoch=++state.actionEpoch;
     try{
       var rationale=String(document.getElementById('osi-ai-review-rationale').value||'').trim();
       if(rationale.length<10)throw new Error('Add a public rationale of at least 10 characters.');
@@ -603,24 +619,24 @@
         private_note:String(document.getElementById('osi-ai-review-note').value||'').trim()||null
       };
       setStatus('review','Approve the exact-version analyst review in your wallet.');
-      await exactWrite('prepare_review','commit_review',version.version_ref,payload);
-      if(ref!==caseRef())return;
+      await exactWrite('prepare_review','commit_review',version.version_ref,payload,generation,epoch,ref);
+      assertActionCurrent(generation,null,epoch,ref);
       setStatus('review','Exact-version review recorded with its server-verified receipt.','success');
       removeFormDraft();
       endAction();
       completed=true;
       await reload({focusId:'osi-ai-review-submit'});
     }catch(error){
-      if(ref===caseRef())setStatus('review',errorText(error),'error');
+      if(generation===privateGeneration()&&epoch===state.actionEpoch&&ref===caseRef())setStatus('review',errorText(error),'error');
     }finally{
-      if(!completed&&state.busyAction==='review')endAction();
+      if(generation===privateGeneration()&&epoch===state.actionEpoch&&ref===caseRef()&&!completed&&state.busyAction==='review')endAction();
     }
   }
   async function feedback(){
     var version=selectedVersion();
     var ref=caseRef();
     if(!version||!beginAction('feedback'))return;
-    var completed=false;
+    var completed=false,generation=privateGeneration(),epoch=++state.actionEpoch;
     try{
       var publicSummary=String(document.getElementById('osi-ai-feedback-public').value||'').trim();
       var restricted=String(document.getElementById('osi-ai-feedback-restricted').value||'').trim();
@@ -632,54 +648,58 @@
         feedback_restricted:restricted||null
       };
       setStatus('feedback','Approve the advisory owner feedback in your wallet.');
-      await exactWrite('prepare_owner_feedback','commit_owner_feedback',version.version_ref,payload);
-      if(ref!==caseRef())return;
+      await exactWrite('prepare_owner_feedback','commit_owner_feedback',version.version_ref,payload,generation,epoch,ref);
+      assertActionCurrent(generation,null,epoch,ref);
       setStatus('feedback','Advisory owner feedback recorded with zero review weight.','success');
       removeFormDraft();
       endAction();
       completed=true;
       await reload({focusId:'osi-ai-feedback-submit'});
     }catch(error){
-      if(ref===caseRef())setStatus('feedback',errorText(error),'error');
+      if(generation===privateGeneration()&&epoch===state.actionEpoch&&ref===caseRef())setStatus('feedback',errorText(error),'error');
     }finally{
-      if(!completed&&state.busyAction==='feedback')endAction();
+      if(generation===privateGeneration()&&epoch===state.actionEpoch&&ref===caseRef()&&!completed&&state.busyAction==='feedback')endAction();
     }
   }
   async function approve(){
     var version=selectedVersion();
     var ref=caseRef();
     if(!version||!beginAction('approval'))return;
-    var completed=false;
+    var completed=false,generation=privateGeneration(),actor=wallet(),epoch=++state.actionEpoch;
     var payload={version_ref:version.version_ref};
     var operation=operationRecord('prepare_approval',version.version_ref,payload);
     try{
       setStatus('approval','Preparing the exact AI_PACK_APPROVED Memo authorization...');
       var prepared=await api({
-        op:'prepare_approval',wallet:wallet(),version_ref:version.version_ref,
+        op:'prepare_approval',wallet:actor,version_ref:version.version_ref,
         idempotency_key:operation.idempotencyKey
       });
+      assertActionCurrent(generation,actor,epoch,ref);
       if(prepared.already_committed){
         clearOperation(operation.slot);
       }else{
         if(typeof window.castOnchainVote!=='function')throw new Error('wallet_transaction_unsupported');
         setStatus('approval','Approve the exact Solana Memo transaction. OSI receives no funds.');
+        assertActionCurrent(generation,actor,epoch,ref);
         var txSig=await window.castOnchainVote(prepared.memo);
+        assertActionCurrent(generation,actor,epoch,ref);
         setStatus('approval','Confirming the signer, exact Memo, target, freshness, and mainnet transaction...');
         await api({
-          op:'commit_approval',wallet:wallet(),version_ref:version.version_ref,
+          op:'commit_approval',wallet:actor,version_ref:version.version_ref,
           nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig
         });
+        assertActionCurrent(generation,actor,epoch,ref);
         clearOperation(operation.slot);
       }
-      if(ref!==caseRef())return;
+      assertActionCurrent(generation,actor,epoch,ref);
       setStatus('approval','Analyst-ready approval Memo confirmed. The exact version is now approved.','success');
       endAction();
       completed=true;
       await reload({focusId:'osi-ai-approve'});
     }catch(error){
-      if(ref===caseRef())setStatus('approval',errorText(error),'error');
+      if(generation===privateGeneration()&&actor===wallet()&&epoch===state.actionEpoch&&ref===caseRef())setStatus('approval',errorText(error),'error');
     }finally{
-      if(!completed&&state.busyAction==='approval')endAction();
+      if(generation===privateGeneration()&&actor===wallet()&&epoch===state.actionEpoch&&ref===caseRef()&&!completed&&state.busyAction==='approval')endAction();
     }
   }
   function bind(){
@@ -704,6 +724,7 @@
   }
   function render(caseItem,capabilities,mode){
     state.loadToken++;
+    state.actionEpoch++;
     var previousRef=caseRef();
     var nextRef=String(caseItem&&caseItem.public_ref||'');
     state.caseItem=caseItem;
@@ -731,6 +752,7 @@
   function clear(){
     saveFormDraft();
     state.loadToken++;
+    state.actionEpoch++;
     state.caseItem=null;
     state.capabilities=null;
     state.result=null;

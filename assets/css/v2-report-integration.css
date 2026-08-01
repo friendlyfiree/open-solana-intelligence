@@ -62,6 +62,13 @@
 .osi-report-timeline-item small,.osi-report-review-row small{color:var(--muted)}
 .osi-report-process-note{margin:16px 0 0;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.6}
 .osi-report-chain-link{display:inline-flex;align-items:center;min-height:40px;margin-top:14px;color:var(--cyan);text-decoration:underline;text-underline-offset:3px}
+.osi-report-publication-channel{display:grid;gap:5px;margin-top:12px;padding:10px 12px;border:1px solid var(--line-bright);border-radius:7px;background:rgba(34,211,238,.035);color:var(--muted);font-size:12px;line-height:1.55}
+.osi-report-publication-channel.bootstrap{border-color:rgba(155,123,255,.42);background:rgba(155,123,255,.07)}
+.osi-report-publication-channel b{color:var(--text)}
+.osi-report-publication-channel p{margin:0}
+.osi-report-projection{display:grid;gap:12px;margin-top:18px}
+.osi-report-projection>h4{margin:0;color:var(--text);font-size:14px}
+.osi-report-projection.restricted{padding-top:18px;border-top:1px solid var(--line-bright)}
 .osi-report-public-evidence{display:grid;gap:8px;margin-top:16px}
 .osi-report-public-evidence>div{display:grid;grid-template-columns:140px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font:500 12px/1.55 var(--mono)}
 .osi-report-public-evidence a{color:var(--cyan);overflow-wrap:anywhere}
@@ -74,6 +81,11 @@
 .osi-report-review-controls input:focus-visible,.osi-report-review-controls select:focus-visible,.osi-report-review-controls textarea:focus-visible,.osi-report-publish:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .osi-report-review-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .osi-report-review-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.osi-report-bootstrap{margin:14px -16px -16px;padding:18px 16px;border-top:1px solid rgba(155,123,255,.34);background:rgba(155,123,255,.045)}
+.osi-report-bootstrap h4{margin:0;color:var(--text);font-size:14px}
+.osi-report-bootstrap p{max-width:68ch;margin:8px 0 12px;color:var(--muted);font-size:12px;line-height:1.6}
+.osi-report-bootstrap .osi-report-publish{margin-top:12px}
+.osi-report-card:focus-visible,.osi-report-version:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
 .osi-report-publish{min-height:42px;padding:0 16px;border:1px solid #9b7bff;border-radius:7px;background:rgba(155,123,255,.1);color:#c8b6ff;font-weight:700;cursor:pointer}
 .osi-report-publish:disabled{border-color:var(--line);background:transparent;color:var(--muted);cursor:not-allowed}
 .osi-review-status{min-height:22px;margin-top:10px;color:var(--muted);font-size:12px;line-height:1.55}
@@ -100,6 +112,7 @@
   .osi-report-review-grid{grid-template-columns:1fr;gap:0}
   .osi-report-review-actions{flex-direction:column}
   .osi-report-review-actions button{width:100%}
+  .osi-report-bootstrap .osi-report-publish{width:100%}
 }
 
 @media(prefers-reduced-motion:reduce){

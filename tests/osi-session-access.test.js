@@ -69,7 +69,8 @@ ok(core.includes('autoRefreshToken:true'), 'Supabase Auth refreshes expiring acc
 ok(core.includes('persistSession:true'), 'Supabase Auth safely persists its session');
 ok(core.includes('onAuthStateChange'), 'Supabase Auth state changes clear or restore access state');
 ok(!core.includes("localStorage.setItem('SUPA_AUTH_TOKEN'"), 'application code never persists a raw access token itself');
-ok(core.includes('osiV2ReportClearSession'), 'Supabase auth changes clear cached maintainer Report access');
+ok(core.includes('osiV2ReadSessionHandleAuth') && !core.includes('osiV2ReportClearSession'),
+  'Supabase auth changes invalidate all private caches through the shared read-session authority');
 
 ok(maintainer.includes('OSI_MAINTAINER_SERVER_GATE'), 'maintainer UI tracks the server-verified gate');
 ok(maintainer.includes("data.maintainer_access===true"), 'server capabilities decide the full gate');

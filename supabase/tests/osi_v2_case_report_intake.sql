@@ -4,7 +4,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(39);
+select plan(50);
 
 select is(
   (select value from public.osi_config where key = 'OSI_V2_REPORT_WRITES_ENABLED'),
@@ -349,6 +349,133 @@ select isnt(
   'anonymous clients cannot enumerate private Report evidence links'
 );
 
+-- A structured evidence reference strengthens review but is not an intake
+-- prerequisite. Empty means exact [], never NULL and never a placeholder row.
+select is(
+  osi_private.osi_v2_report_evidence_manifest('[]'::jsonb),
+  '[]'::jsonb,
+  'zero Report evidence canonicalizes to the exact empty manifest'
+);
+select is(
+  osi_private.osi_v2_report_manifest_hash('[]'::jsonb),
+  encode(extensions.digest(convert_to('[]', 'UTF8'), 'sha256'), 'hex'),
+  'zero Report evidence receives the deterministic canonical empty-manifest hash'
+);
+select lives_ok(
+  $test$
+    create temporary table osi_report_empty_prepare on commit drop as
+    select * from public.osi_v2_prepare_report_version(
+      repeat('z', 32), '11111111111111111111111111111114',
+      '10000000-0000-4000-8000-000000000001',
+      'This zero-evidence restricted Report records the observation, uncertainty, source limitations, and reproducible review context without inventing a reference.',
+      'A zero-evidence Report submitted for independent process review.',
+      null, '[]'::jsonb,
+      'report-empty-evidence-pgtap-0005', repeat('5', 64)
+    )
+  $test$,
+  'zero-evidence Report prepare reserves an exact immutable version'
+);
+select is(
+  (select evidence_manifest_hash from pg_temp.osi_report_empty_prepare),
+  encode(extensions.digest(convert_to('[]', 'UTF8'), 'sha256'), 'hex'),
+  'prepare binds the exact deterministic empty-manifest hash'
+);
+select lives_ok(
+  $test$
+    select * from public.osi_v2_commit_report_version(
+      repeat('z', 32),
+      'This zero-evidence restricted Report records the observation, uncertainty, source limitations, and reproducible review context without inventing a reference.',
+      'A zero-evidence Report submitted for independent process review.',
+      null, '[]'::jsonb,
+      repeat('Z', 88), 'OSI2 test CASE_REPORT_VERSION_SUBMITTED empty evidence',
+      statement_timestamp()
+    )
+  $test$,
+  'zero-evidence Report commit succeeds with the exact prepared payload'
+);
+select ok(
+  (
+    select version.lifecycle_state = 'submitted'
+       and version.evidence_snapshot_hash =
+         encode(extensions.digest(convert_to('[]', 'UTF8'), 'sha256'), 'hex')
+      from public.case_report_versions as version
+     where version.id = (select version_id from pg_temp.osi_report_empty_prepare)
+  ),
+  'zero-evidence version remains submitted and immutable with its exact hash'
+);
+select is(
+  (
+    select count(*)::integer
+      from public.case_report_version_evidence
+     where report_version_id = (
+       select version_id from pg_temp.osi_report_empty_prepare
+     )
+  ),
+  0,
+  'zero-evidence commit creates no evidence links'
+);
+select is(
+  (
+    select count(*)::integer
+      from public.evidence_items
+     where added_by_wallet = '11111111111111111111111111111114'
+  ),
+  0,
+  'zero-evidence commit creates no fake or placeholder evidence item'
+);
+select is(
+  (
+    select jsonb_build_object(
+      'headers', (select count(*) from public.case_reports
+        where id = (select report_id from pg_temp.osi_report_empty_prepare)),
+      'versions', (select count(*) from public.case_report_versions
+        where id = (select version_id from pg_temp.osi_report_empty_prepare))
+    )
+  ),
+  jsonb_build_object('headers', 1, 'versions', 1),
+  'zero-evidence intake creates exactly one Report header and one version'
+);
+select is(
+  (
+    select idempotent_replay from public.osi_v2_commit_report_version(
+      repeat('z', 32),
+      'This zero-evidence restricted Report records the observation, uncertainty, source limitations, and reproducible review context without inventing a reference.',
+      'A zero-evidence Report submitted for independent process review.',
+      null, '[]'::jsonb,
+      repeat('Z', 88), 'OSI2 test CASE_REPORT_VERSION_SUBMITTED empty evidence',
+      statement_timestamp()
+    )
+  ),
+  true,
+  'exact zero-evidence retry returns the original result idempotently'
+);
+select throws_ok(
+  $test$
+    select * from public.osi_v2_commit_report_version(
+      repeat('z', 32),
+      'This zero-evidence restricted Report records the observation, uncertainty, source limitations, and reproducible review context without inventing a reference.',
+      'A zero-evidence Report submitted for independent process review.',
+      null,
+      jsonb_build_array(jsonb_build_object(
+        'kind', 'wallet',
+        'ref', '11111111111111111111111111111114',
+        'sha256', encode(
+          extensions.digest(
+            convert_to('11111111111111111111111111111114', 'UTF8'),
+            'sha256'
+          ),
+          'hex'
+        )
+      )),
+      repeat('Z', 88), 'OSI2 test CASE_REPORT_VERSION_SUBMITTED empty evidence',
+      statement_timestamp()
+    )
+  $test$,
+  '23514',
+  'Report content or evidence changed after prepare',
+  'a consumed zero-evidence nonce cannot be replayed with an invented reference'
+);
+
 select lives_ok(
   $test$
     insert into public.cases (
@@ -418,8 +545,8 @@ select is(
   (select count(*)::integer from public.event_receipts
     where event_type = 'CASE_REPORT_VERSION_SUBMITTED'
       and target_type = 'report_version'),
-  2,
-  'only the two successful exact versions created native receipts'
+  3,
+  'only the three successful exact versions created native receipts'
 );
 select is(
   (select count(*)::integer from public.case_report_versions

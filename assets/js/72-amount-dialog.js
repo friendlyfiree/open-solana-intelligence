@@ -22,6 +22,11 @@
 
   function el(id) { return document.getElementById(id); }
   function modal() { return el('sol-ask'); }
+  function t(key, variables) {
+    return typeof window.osiT === 'function' ? window.osiT(key, variables) : String(key || '').replace(/\{([a-zA-Z0-9_]+)\}/g, function (_, name) {
+      return variables && Object.prototype.hasOwnProperty.call(variables, name) ? String(variables[name]) : '{' + name + '}';
+    });
+  }
 
   function shortAddr(value) {
     var v = String(value || '');
@@ -99,7 +104,7 @@
     var raw = custom && String(custom.value || '').trim() ? custom.value : amount;
     var value = normalize(raw);
     if (value === null) {
-      setError('Enter a positive amount up to ' + MAX_SOL + ' SOL, with at most 9 decimals.');
+      setError(t('Enter a positive amount up to {max} SOL, with at most 9 decimals.', { max: MAX_SOL }));
       if (custom) custom.focus();
       return;
     }
@@ -110,7 +115,7 @@
   function ask(options) {
     options = options || {};
     var m = modal();
-    if (!m) return Promise.resolve(window.prompt(options.promptFallback || 'Amount in SOL', '0.1'));
+    if (!m) return Promise.resolve(window.prompt(t(options.promptFallback || 'Amount in SOL'), '0.1'));
     if (pending) close(null);
 
     // Route stylesheets normally switch on at the first interaction. A transfer
@@ -120,11 +125,11 @@
     if (typeof window.osiActivateRouteStyles === 'function') window.osiActivateRouteStyles();
 
     amount = Number(options.amount) > 0 ? Number(options.amount) : 0.1;
-    var head = el('sol-ask-h'); if (head) head.textContent = options.title || '◎ Voluntary support';
-    var label = el('sol-ask-label'); if (label) label.textContent = options.label || 'recipient';
+    var head = el('sol-ask-h'); if (head) head.textContent = t(options.title || '◎ Voluntary support');
+    var label = el('sol-ask-label'); if (label) label.textContent = t(options.label || 'recipient');
     var addr = el('sol-ask-addr'); if (addr) addr.textContent = options.address ? shortAddr(options.address) : '';
-    var go = el('sol-ask-go'); if (go) go.textContent = options.action || 'Continue →';
-    var note = el('sol-ask-note'); if (note && options.note) note.textContent = options.note;
+    var go = el('sol-ask-go'); if (go) go.textContent = t(options.action || 'Continue →');
+    var note = el('sol-ask-note'); if (note) note.textContent = t(options.note || 'Direct wallet-to-wallet in native SOL. No custody: OSI never holds, escrows, or routes the funds. Support never changes review, ranking, weight, eligibility, or publication. The server derives the exact recipient and Memo, and you approve one transaction in your wallet.');
     var custom = el('sol-ask-custom');
     if (custom) { custom.value = PRESETS.indexOf(amount) === -1 ? String(amount) : ''; }
     markActive(amount);

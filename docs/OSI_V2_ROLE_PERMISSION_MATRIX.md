@@ -7,6 +7,8 @@
 
 **Server enforcement legend:** `EF` = Edge Function verifies (signature and/or Supabase JWT + `analyst_profiles`/maintainer); `RLS` = row policy; client checks are UX-only.
 
+**D17 cold-start overlay (Constitution P3/P5):** the standard analyst-quorum rows remain authoritative. While the server-computed live eligible-analyst count is below 50 and `OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED=true`, a full double-gated maintainer has a separate, self-decaying finalization channel for exactly four outcomes: Case Report publication, Wire Report publication, resolution / winning-Report selection, and seal. The server requires the D17 tier support (maintainer alone below 20; one independent analyst at 20–29; two independent analysts plus the reduced weight gate at 30–49; unavailable at 50+), rejects an author conflict, and records `decision_channel='maintainer_bootstrap'`. This channel is never a counted maintainer review and never represents independent analyst consensus. It does not apply to rejection, AI-Pack approval, challenge accept/reject, or Case initial rejection.
+
 ---
 
 ## 1. Case
@@ -22,8 +24,10 @@
 | Safety-block lift | – | – | – | – | – | ✅ | EF maintainer | Memo `CASE_SAFETY_LIFTED` | re-enters review |
 | Normal initial reject | – | – | ❌ | quorum | quorum | (counts as analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**) | Memo `CASE_INITIAL_REVIEW_REJECTED` | private; appeal |
 | Appeal a rejection | – | – | ✅ (owner) | – | – | – | EF owner sig | Sig `CASE_APPEAL_SUBMITTED` | re-enters review |
-| Select exact primary Report | – | – | ❌ decisive | quorum | ✅ | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**; winner = unique server quorum leader; exact tie remains unresolved | Memo `REPORT_SELECTED_WINNING` | winner shown |
-| Seal | – | – | – | fallback-only | – | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer** | Memo `RECORD_SEALED` | sealed badge |
+| Select exact primary Report (standard) | – | – | ❌ decisive | quorum | ✅ | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**; winner = unique server quorum leader; exact tie remains unresolved | Memo `REPORT_SELECTED_WINNING` | winner shown as analyst-quorum outcome |
+| Select exact primary Report (D17 cold start) | – | – | ❌ decisive | tier support only | tier support only | ✅ full double-gate | EF D17 overlay; exact same-Case version; maintainer cannot be its author or a counted reviewer | Memo `REPORT_SELECTED_WINNING`; receipt `decision_channel='maintainer_bootstrap'` | winner shown with maintainer-bootstrap process notice |
+| Seal (standard) | – | – | – | fallback-only | – | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer** | Memo `RECORD_SEALED` | sealed badge; analyst-quorum outcome |
+| Seal (D17 cold start) | – | – | – | tier support only | tier support only | ✅ full double-gate | EF D17 overlay after the challenge window and all other seal prerequisites | Memo `RECORD_SEALED`; receipt `decision_channel='maintainer_bootstrap'` | sealed badge with maintainer-bootstrap process notice |
 | Halt (emergency) | – | – | – | – | – | ✅/fallback | EF maintainer | Memo `CASE_HALTED` | frozen |
 | Resume from halt | – | – | – | – | – | ✅ | EF maintainer | Memo `CASE_RESUMED` | resumed |
 | Reopen | – | – | appeal | quorum | quorum | ✅ | EF ≥2 indep **+ Σweight** | Memo `CASE_REOPENED` | reopened |
@@ -34,12 +38,14 @@
 |---|---|---|---|---|---|---|
 | Submit report / new version (v1 & every revision) | ✅ | ✅ | ✅ | ✅ | EF sig; RLS insert private version | Memo `CASE_REPORT_VERSION_SUBMITTED` |
 | View pending version | – | ✅ (proof) | ✅ | ✅ | EF owner-proof/analyst/maintainer | Sig |
-| Review exact version | – | ❌ own | ✅ | ✅ | EF verify analyst; **author≠reviewer**; targets `case_report_versions.id` | Sig `CASE_REPORT_REVIEW_CAST`/`_REVISED` |
-| Publish version (outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**); advances header `current_published_version_id` (never set-once) | Memo `REPORT_PUBLISHED` |
+| Review exact version | – | ❌ own | ✅ | only if separately analyst-eligible | EF verify analyst; **author≠reviewer**; targets `case_report_versions.id`; maintainer status adds no vote | Sig `CASE_REPORT_REVIEW_CAST`/`_REVISED` |
+| Publish version (standard outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**); advances header `current_published_version_id` (never set-once) | Memo `REPORT_PUBLISHED` |
+| Publish exact version via D17 cold start (v1 or correction) | – | ❌ | tier support only | ✅ full double-gate | EF D17 overlay; author conflict and counted-maintainer-review conflict denied; standard quorum remains separate | Memo `REPORT_PUBLISHED`; receipt `decision_channel='maintainer_bootstrap'` |
 | Reject version (outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight** (**no maintainer gate**) | Memo `REPORT_REJECTED` |
 | Author post-publication correction | – | ✅ | – | – | EF author sig; new version → normal review | Memo `CASE_REPORT_VERSION_SUBMITTED` |
-| Publish a **corrected** version | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight** (**no maintainer gate**); prior published version keeps history, resolution stays bound to its exact version | Memo `REPORT_PUBLISHED` (new version) |
-| Select winning version | – | ❌ | quorum | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**; server sets winner from quorum tally | Memo `REPORT_SELECTED_WINNING` |
+| Publish a **corrected** version (standard outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight** (**no maintainer gate**); prior published version keeps history, resolution stays bound to its exact version | Memo `REPORT_PUBLISHED` (new version) |
+| Select winning version (standard outcome) | – | ❌ | quorum | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**; server sets winner from quorum tally | Memo `REPORT_SELECTED_WINNING` |
+| Select winning version via D17 cold start | – | ❌ | tier support only | ✅ full double-gate | EF D17 overlay; exact same-Case version; author/counted-review conflicts denied | Memo `REPORT_SELECTED_WINNING`; receipt `decision_channel='maintainer_bootstrap'` |
 
 ## 3. Wire
 
@@ -47,7 +53,8 @@
 |---|---|---|---|---|---|---|
 | Submit wire report / version (v1 & every revision) | ✅ | (author) | ✅ | ✅ | EF sig | Memo `WIRE_REPORT_VERSION_SUBMITTED` |
 | Review exact wire version | ❌ | ❌ own | ✅ | ✅ | EF verify **eligible analyst**; **ordinary connected wallets cannot write `wire_report_reviews`**; **author excluded** | Sig `WIRE_REPORT_REVIEW_CAST`/`_REVISED` |
-| Publish (outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**) | Memo `WIRE_REPORT_PUBLISHED` |
+| Publish (standard outcome) | – | ❌ | quorum | (analyst only) | EF ≥2 indep **+ Σweight ≥2.00** (**no maintainer gate**) | Memo `WIRE_REPORT_PUBLISHED` |
+| Publish via D17 cold start | – | ❌ | tier support only | ✅ full double-gate | EF D17 overlay; author conflict and counted-maintainer-review conflict denied | Memo `WIRE_REPORT_PUBLISHED`; receipt `decision_channel='maintainer_bootstrap'` |
 | Promote to case | – | – | ✅ | ✅ | EF analyst/maintainer | Memo `WIRE_PROMOTED` |
 | Support author | ✅ | – | ✅ | ✅ | EF derives current published author; trusted RPC finality | `SUPPORT_PAYMENT_CONFIRMED` (no ranking effect) |
 
@@ -102,7 +109,7 @@ Submission alone never pauses sealing; only `open`/`under_review` do. No non-ter
 | Voluntary support published author / eligible analyst / counted reviewer | – | ✅ | ✅ | ✅ only when separately eligible as recipient | EF derives recipient; rejects self-support; 1–4 same-context recipients; trusted RPC finality; **no ranking/discovery/reputation/governance effect** | `SUPPORT_PAYMENT_CONFIRMED` |
 
 ## 8. Public analyst attribution (correction #14 / D16)
-For any **public** governance decision (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges), the public view shows for each participating analyst or full initial-open maintainer: **role, public profile/handle where applicable, wallet, decision, weight snapshot used (maintainer initial-open = 0), timestamp, proof type** (`solana_memo` / `wallet_signed_server_verified` / `system_event`), and a public-safe receipt/tx reference. Restricted always: private notes, private evidence, moderation reason detail, sensitive reason text. Pre-open/private queue shows **counts only**.
+For any **public** governance decision (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges), the public view shows for each participating analyst, full initial-open maintainer, or D17 bootstrap maintainer: **role, public profile/handle where applicable, wallet, decision, weight snapshot used where applicable (a maintainer action is never analyst weight), timestamp, proof type** (`solana_memo` / `wallet_signed_server_verified` / `system_event`), and a public-safe receipt/tx reference. A D17 outcome additionally shows `decision_channel='maintainer_bootstrap'` and an explicit notice that it is not independent analyst consensus. Restricted always: private notes, private evidence, moderation reason detail, sensitive reason text. Pre-open/private queue shows **counts only**.
 
 ## 9. The two half-maintainer roles
 
@@ -119,6 +126,6 @@ Signature-verified identity for all owner/analyst actions (ed25519, purpose+targ
 
 **Counted-review eligibility (correction #6 — applies to every counted Report / Wire / resolution / challenge / AI-Pack / application review):**
 - Only **eligible verified analysts** cast counted reviews; **ordinary connected wallets never write any `*_reviews` table** (they may only *submit* Cases/Reports/Wire Reports/challenges and voluntary support).
-- **Maintainer status alone confers no analyst voting weight.** A maintainer's vote is counted **only if the same wallet is separately analyst-eligible**, and then only after all exclusions pass. The single exception is the independent full-maintainer Case initial-open path: its review stores weight `0`, requires both maintainer gates, and authorizes only public investigation. It does not count as an analyst vote or imply truth/guilt. The maintainer *finalization* act (for resolution/winner, AI-Pack approval, seal) remains distinct from casting a weighted analyst vote.
+- **Maintainer status alone confers no analyst voting weight.** A maintainer's vote is counted **only if the same wallet is separately analyst-eligible**, and then only after all exclusions pass. The independent full-maintainer Case initial-open path stores weight `0`, requires both maintainer gates, and authorizes only public investigation. The separate D17 cold-start channel may finalize only the four outcomes in the overlay above and likewise contributes no maintainer analyst vote. Neither path implies truth, guilt, or independent analyst consensus. Maintainer finalization remains distinct from casting a weighted analyst vote.
 - **Server-enforced exclusions on every counted review:** author (Report/Wire), owner (Case/resolution), creator (AI Pack), applicant (analyst application), and challenger (challenge admissibility/merit/bad-faith) are excluded from deciding their own item — enforced in the Edge Function, never by a hidden button.
-- **Both gates shown:** every analyst-quorum outcome that requires them lists `≥N_min independent` **and** `Σweight ≥ W_thr`; the three maintainer-gated outcomes (resolution/winner, AI-Pack approval, seal) additionally require a maintainer signature. Case initial open alone also permits full maintainer approval as an alternative to, not an added gate on, its analyst path (D5).
+- **Both gates shown:** every standard analyst-quorum outcome that requires them lists `≥N_min independent` **and** `Σweight ≥ W_thr`; the three standard maintainer-gated outcomes (resolution/winner, AI-Pack approval, seal) additionally require a maintainer signature. Case initial open separately permits full maintainer approval as an alternative to, not an added gate on, its analyst path (D5). D17 is a second, explicitly labeled alternative only for Case Report publication, Wire Report publication, resolution/winner, and seal; its server-computed tier requirements self-retire at 50 live eligible analysts.

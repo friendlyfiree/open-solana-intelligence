@@ -139,14 +139,26 @@ ok('pending payment remains awaiting finality with exact retry',
   app.includes("result.state==='awaiting_finality'") && app.includes('not marked paid')
     && app.includes('osiV2RetryPayment'));
 ok('submitted signature survives reload and blocks an accidental second payment',
-  app.includes("PAYMENT_RECOVERY_KEY = 'osi:v2:payment-recovery:1'")
-    && app.includes('localStorage.setItem(PAYMENT_RECOVERY_KEY')
+  app.includes("PAYMENT_RECOVERY_PREFIX = 'osi:v2:payment-recovery:2:'")
+    && app.includes('localStorage.setItem(paymentRecoveryKey(wallet),serialized)')
+    && app.includes('localStorage.getItem(paymentRecoveryKey(wallet))!==serialized')
     && app.includes('<b>Do not start a second payment</b>')
     && app.includes('Re-verify existing signature')
     && app.includes('!pendingRecovery&&Object.keys(supportGroups)'));
-ok('wallet account or disconnect clears the pending payment intent',
+ok('wallet account or disconnect hides the pending intent without deleting durable recovery',
   app.includes("provider.on('disconnect',clearPaymentState)")
-    && app.includes("provider.on('accountChanged'"));
+    && app.includes("provider.on('accountChanged'")
+    && app.includes("if(settings.forgetRecovery===true)forgetPaymentRecovery(pendingWallet)"));
+ok('wallet opens only after a durable wallet-scoped recovery record exists',
+  app.indexOf('persistPaymentPending(pending);') < app.indexOf('var txSig=await sendPreparedPayment')
+    && app.includes("throw new Error('payment_recovery_unavailable')")
+    && app.includes('exactPaymentProvider(prepared,expectedWallet,generation)'));
+ok('restored Solana Pay records are server-poll-only and cannot reconstruct a transfer',
+  app.includes('pending.restored_from_storage=true')
+    && app.includes("if(pending&&pending.restored_from_storage===true)throw new Error('payment_recovery_poll_only')")
+    && app.includes('async function pollRestoredSolanaPay')
+    && app.indexOf("state.paymentPending.method==='solana_pay'&&state.paymentPending.restored_from_storage===true")
+      < app.indexOf('try{exactPaymentProvider(state.paymentPending.prepared'));
 ok('payment proof shows exact lamports, target, slot, finality and transfer verification',
   app.includes('payment.total_lamports') && app.includes('payment.target_public_ref')
     && app.includes('payment.finality') && app.includes('payment.transfers_verified'));
@@ -203,11 +215,64 @@ ok('responsive and reduced-motion states exist',
 ok('Case form and drawer trap keyboard focus',
   app.includes('function trapFocus(') &&
   (app.includes("event.key==='Tab'") || app.includes("event.key!=='Tab'")));
+ok('payment dialogs consume Escape before an underlying drawer or profile can close',
+  app.includes("event.stopImmediatePropagation==='function'")
+    && app.includes("document.addEventListener('keydown',keyHandler,true)")
+    && app.includes("document.removeEventListener('keydown',keyHandler,true)"));
 ok('Case detail tabs expose tab semantics',
   app.includes('role="tab"') && app.includes('aria-selected=') &&
   app.includes("'ArrowLeft','ArrowRight','Home','End'") &&
   app.includes('aria-controls="osi-case-content"') &&
   app.includes("content.setAttribute('aria-labelledby'"));
+ok('My Reviews composes all eight authorized workflow lanes',
+  ['initial_open','report_publication','analyst_applications','wire_reviews','resolution_selection','challenge_admissibility','challenge_adjudication','seal_reviews']
+    .every((lane) => app.includes("['" + lane + "'")));
+ok('Analyst application tasks bind the immutable version separately from routing',
+  app.includes("exact_target:version.version_ref,route_target:application.id")
+    && app.includes("osiAnalystOpenMaintainerApplication(task.routeTarget,task.exactTarget)"));
+ok('Report queue next actions distinguish standard quorum publication from bootstrap',
+  app.includes("var standard=report.can_publish_via_standard_quorum===true")
+    && app.includes("standard?'Publish exact Report version from completed analyst quorum'"));
+ok('unified lane failures remain errors and expired sessions offer explicit scoped refresh',
+  app.includes("errorCode:errorCode||''")
+    && app.includes("read_session_(expired|wrong_scope)")
+    && app.includes("window.osiV2RefreshReadSession([scope])")
+    && app.includes("id==='report_publication'?'report:review'")
+    && app.includes("id==='analyst_applications'?'analyst:maintainer'")
+    && app.includes("id==='wire_reviews'?'wire:queue':'case:review'"));
+ok('server-derived task conflicts survive exact queue routing and suppress conflicted governance controls',
+  app.includes('activeReviewTask: null')
+    && app.includes('function activeTaskConflict(lane,exactTarget)')
+    && app.includes('openCase(task.caseRef||task.exactTarget,task)')
+    && app.includes("!conflicted&&admissibilityTask&&(row.state==='submitted'||row.state==='admissibility_review')")
+    && app.includes('This wallet is excluded from the exact task by a server-derived conflict rule.'));
+ok('governance mutations require their exact My Reviews task even from a direct Case drawer',
+  app.includes('function requireActiveReviewTask(lane,exactTarget)')
+    && app.includes("if(!requireActiveReviewTask('resolution_selection'))return;")
+    && app.includes("if(!requireActiveReviewTask('seal_reviews'))return;")
+    && app.includes("if(!requireActiveReviewTask('challenge_admissibility',ref))return;")
+    && app.includes("if(!requireActiveReviewTask('challenge_adjudication',ref))return;")
+    && app.includes('Direct Case views are read-only.'));
+ok('Case-authored titles, summaries, evidence, and rationale opt out of automatic translation',
+  app.includes("<b data-osi-user-content>'+esc(item.title)")
+    && app.includes("<p data-osi-user-content>'+esc(item.summary)")
+    && app.includes('class="osi-evidence-ref" data-osi-user-content')
+    && app.includes("<p data-osi-user-content>'+esc(row.public_rationale"));
+ok('all four native submissions retain actionable exact-reference receipts',
+  index.includes('id="v2-case-receipt"')
+    && index.includes('id="osi-report-receipt"')
+    && index.includes('id="osi-analyst-receipt"')
+    && index.includes('id="osi-wire-receipt"')
+    && app.includes('osiV2RenderSubmissionReceipt')
+    && reportIntegration.includes("osiV2RenderSubmissionReceipt('osi-report-receipt'")
+    && analystIntegration.includes("osiV2RenderSubmissionReceipt('osi-analyst-receipt'"));
+ok('connected Phantom reuses the exact prepared Solana Pay intent',
+  app.includes('function sendPreparedSolanaPay(prepared,expectedWallet,generation,onBroadcast)')
+    && app.includes('data-solana-pay-phantom')
+    && solanaPay.includes("params.set('reference',exact.reference)")
+    && app.includes('new web3.PublicKey(prepared.solana_pay.reference)')
+    && app.includes("Use connected Phantom")
+    && app.includes('exactPaymentProvider(prepared,expectedWallet,generation)'));
 
 function uiFiles(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

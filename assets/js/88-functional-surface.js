@@ -84,7 +84,7 @@
     });
     host.appendChild(gates);
     var actions=make('div','osi-native-ops-actions');
-    var reviews=make('button','moc-action','Open Case review queue');reviews.type='button';reviews.addEventListener('click',function(){window.osiV2OpenReviewQueue();});actions.appendChild(reviews);
+    var reviews=make('button','moc-action','Open unified review queue');reviews.type='button';reviews.addEventListener('click',function(){window.osiV2OpenReviewQueue();});actions.appendChild(reviews);
     var applications=make('button','moc-action','Refresh analyst applications');applications.type='button';applications.addEventListener('click',function(){window.osiAnalystLoadMaintainerQueue();});actions.appendChild(applications);
     host.appendChild(actions);
   }

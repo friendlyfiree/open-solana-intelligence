@@ -49,6 +49,7 @@ import {
   READ_PURPOSES,
   validateChallengeBinding,
 } from "../_shared/osi-v2-case-read-core.mjs";
+import { reportPublicationCapabilityDto } from "../_shared/osi-v2-report-core.mjs";
 import { attachReviewAuthority } from "../_shared/osi-v2-sas-onchain.ts";
 import {
   isExactReadSessionOrigin,
@@ -858,8 +859,10 @@ async function isVerifiedAnalyst(wallet: string): Promise<boolean> {
 }
 
 function buildReviewTasks(
-  cases: Row[], wallet: string, actorKind: "analyst" | "maintainer",
-  analystWeight: number | null, reportVotesByVersion: Record<string, Row>,
+  cases: Row[], wallet: string, analystWeight: number | null,
+  reportVotesByVersion: Record<string, Row>,
+  actorCapabilities: { analyst: boolean; maintainer: boolean },
+  reportCapabilitiesByVersion: Record<string, Row>,
 ) {
   const groups: Record<string, Row[]> = {
     report_publication: [], resolution_selection: [], challenge_admissibility: [],
@@ -867,7 +870,7 @@ function buildReviewTasks(
   };
   const task = (lane: string, value: Row) => groups[lane].push({
     lane, deadline: null, conflict: false, current_vote: null,
-    weight_snapshot: actorKind === "analyst" ? analystWeight : null,
+    weight_snapshot: actorCapabilities.analyst ? analystWeight : null,
     ...value,
   });
   for (const caseItem of cases) {
@@ -876,16 +879,55 @@ function buildReviewTasks(
     for (const report of reports) {
       const author = String(report.author_wallet ?? "");
       for (const version of Array.isArray(report.versions) ? report.versions as Row[] : []) {
-        if (version.lifecycle_state !== "in_review") continue;
+        if (!["submitted", "in_review"].includes(String(version.lifecycle_state ?? ""))) {
+          continue;
+        }
         const ref = String(version.version_ref ?? "");
         const vote = reportVotesByVersion[ref];
+        const publicationCapability = reportCapabilitiesByVersion[ref] ?? null;
+        const canReview = publicationCapability?.can_cast_analyst_review === true;
+        const canPublishStandard =
+          publicationCapability?.can_publish_via_standard_quorum === true;
+        const canBootstrap =
+          publicationCapability?.can_publish_via_maintainer_bootstrap === true;
+        const capabilityReason = actorCapabilities.maintainer
+          ? publicationCapability?.maintainer_bootstrap_reason_code
+          : publicationCapability?.analyst_review_reason_code;
+        const conflict = author === wallet
+          || ["report_author_conflict", "case_owner_conflict"].includes(
+            String(capabilityReason ?? ""),
+          );
         task("report_publication", {
-          case_ref: caseRef, exact_target: ref, conflict: author === wallet,
+          case_ref: caseRef,
+          case_stage: String(caseItem.stage ?? ""),
+          report_ref: String(report.public_ref ?? ""),
+          exact_target: ref,
+          lifecycle_state: String(version.lifecycle_state ?? ""),
+          conflict,
           current_vote: vote ? String(vote.decision ?? "") : null,
           weight_snapshot: vote ? Number(vote.weight ?? analystWeight ?? 0)
-            : (actorKind === "analyst" ? analystWeight : null),
-          next_action: author === wallet ? "Self-review excluded"
-            : (actorKind === "analyst" ? "Review exact Report version" : "Analyst quorum required"),
+            : (actorCapabilities.analyst ? analystWeight : null),
+          can_cast_analyst_review: canReview,
+          can_publish_via_standard_quorum: canPublishStandard,
+          can_publish_via_maintainer_bootstrap: canBootstrap,
+          decision_channel: publicationCapability?.decision_channel ?? null,
+          publication_capability: publicationCapability,
+          next_action_code: canBootstrap
+            ? "publish_via_maintainer_bootstrap"
+            : canPublishStandard
+            ? "publish_via_standard_quorum"
+            : canReview
+            ? "cast_analyst_review"
+            : String(capabilityReason ?? "report_capability_unavailable"),
+          next_action: canBootstrap
+            ? "Publish via maintainer bootstrap (not independent analyst quorum)"
+            : canPublishStandard
+            ? "Publish exact Report version from the completed analyst quorum"
+            : canReview
+            ? "Review exact Report version"
+            : conflict
+            ? "Conflicted actor excluded"
+            : "Report publication prerequisite is not met",
         });
       }
     }
@@ -914,9 +956,9 @@ function buildReviewTasks(
             case_ref: caseRef, exact_target: ref, conflict: author === wallet,
             current_vote: own ? String(own.decision ?? "") : null,
             weight_snapshot: own ? Number(own.weight ?? analystWeight ?? 0)
-              : (actorKind === "analyst" ? analystWeight : null),
-            next_action: author === wallet ? "Selected Report author excluded"
-              : (actorKind === "analyst" ? "Review exact primary candidate" : "Finalize only after unique analyst quorum"),
+            : (actorCapabilities.analyst ? analystWeight : null),
+          next_action: author === wallet ? "Selected Report author excluded"
+              : (actorCapabilities.analyst ? "Review exact primary candidate" : "Finalize only after unique analyst quorum"),
           });
         }
       }
@@ -929,7 +971,7 @@ function buildReviewTasks(
           case_ref: caseRef, exact_target: String(challenge.public_ref ?? ""),
           deadline: challenge.admissibility_deadline_at ?? null, conflict,
           next_action: conflict ? "Conflicted actor excluded"
-            : (actorKind === "analyst" ? "Decide admissibility" : "Double-gated admissibility decision"),
+            : (actorCapabilities.analyst ? "Decide admissibility" : "Double-gated admissibility decision"),
         });
       }
       if (["open", "under_review"].includes(String(challenge.state ?? ""))) {
@@ -940,9 +982,9 @@ function buildReviewTasks(
           deadline: challenge.review_deadline_at ?? null, conflict,
           current_vote: own ? String(own.decision ?? "") : null,
           weight_snapshot: own ? Number(own.weight ?? analystWeight ?? 0)
-            : (actorKind === "analyst" ? analystWeight : null),
+            : (actorCapabilities.analyst ? analystWeight : null),
           next_action: conflict ? "Conflicted actor excluded"
-            : (actorKind === "analyst" ? "Review challenge merits" : "Analyst quorum required"),
+            : (actorCapabilities.analyst ? "Review challenge merits" : "Analyst quorum required"),
         });
       }
     }
@@ -958,9 +1000,9 @@ function buildReviewTasks(
         conflict: selectedAuthorConflict,
         current_vote: own ? String(own.decision ?? "") : null,
         weight_snapshot: own ? Number(own.weight ?? analystWeight ?? 0)
-          : (actorKind === "analyst" ? analystWeight : null),
+          : (actorCapabilities.analyst ? analystWeight : null),
         next_action: selectedAuthorConflict ? "Selected Report author excluded"
-          : (actorKind === "analyst" ? "Review process seal" : "Finalize only after analyst seal quorum"),
+          : (actorCapabilities.analyst ? "Review process seal" : "Finalize only after analyst seal quorum"),
       });
     }
   }
@@ -972,9 +1014,15 @@ async function listReviewableCases(req: Request, body: Row): Promise<Response> {
   const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_REVIEW);
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
 
-  let actorKind: "analyst" | "maintainer" | null = null;
-  if (await isVerifiedAnalyst(wallet)) actorKind = "analyst";
-  else if (await hasFullMaintainerAccess(req, wallet)) actorKind = "maintainer";
+  const [analystEligible, maintainerAccess] = await Promise.all([
+    isVerifiedAnalyst(wallet),
+    hasFullMaintainerAccess(req, wallet),
+  ]);
+  const actorKind: "analyst" | "maintainer" | null = maintainerAccess
+    ? "maintainer"
+    : analystEligible
+    ? "analyst"
+    : null;
   if (!actorKind) return jsonResponse(403, { ok: false, error: "not_eligible_reviewer" });
 
   const { data, error } = await admin.from("cases").select(CASE_COLS)
@@ -1005,6 +1053,24 @@ async function listReviewableCases(req: Request, body: Row): Promise<Response> {
     for (const version of versions) versionRefById[String(version.id)] = String(version.version_ref ?? "");
   }
   const versionIds = Object.keys(versionRefById);
+  const capabilityResult = versionIds.length
+    ? await admin.rpc("osi_v2_report_publication_capabilities", {
+      p_actor_wallet: wallet,
+      p_version_ids: versionIds,
+      p_maintainer_auth_uuid: maintainerAccess ? MAINTAINER_AUTH_UUID : null,
+    })
+    : { data: [], error: null };
+  if (capabilityResult.error) {
+    return jsonResponse(500, { ok: false, error: "review_capability_unavailable" });
+  }
+  const reportCapabilitiesByVersion: Record<string, Row> = {};
+  for (const capability of capabilityResult.data ?? []) {
+    const ref = String(capability.version_public_ref ?? "");
+    if (ref) {
+      reportCapabilitiesByVersion[ref] =
+        reportPublicationCapabilityDto(capability) ?? {};
+    }
+  }
   const { data: reportVotes } = versionIds.length
     ? await admin.from("case_report_reviews")
       .select("report_version_id,reviewer_wallet,decision,weight,is_active")
@@ -1016,16 +1082,34 @@ async function listReviewableCases(req: Request, body: Row): Promise<Response> {
     const ref = versionRefById[String(review.report_version_id)];
     if (ref) reportVotesByVersion[ref] = review;
   }
-  const { data: profileRows } = actorKind === "analyst"
+  const { data: profileRows } = analystEligible
     ? await admin.from("analyst_profiles").select("weight_cached").eq("wallet", wallet).limit(1)
     : { data: [] };
-  const analystWeight = actorKind === "analyst" ? Number(profileRows?.[0]?.weight_cached ?? 0) : null;
+  const analystWeight = analystEligible
+    ? Number(profileRows?.[0]?.weight_cached ?? 0)
+    : null;
+  const capabilityRows = Object.values(reportCapabilitiesByVersion);
   return jsonResponse(200, {
     ok: true,
     actor_role: actorKind,
+    actor_roles: [
+      ...(analystEligible ? ["analyst"] : []),
+      ...(maintainerAccess ? ["maintainer"] : []),
+    ],
+    can_cast_analyst_review: capabilityRows.some(
+      (capability) => capability.can_cast_analyst_review === true,
+    ),
+    can_publish_via_standard_quorum: capabilityRows.some(
+      (capability) => capability.can_publish_via_standard_quorum === true,
+    ),
+    can_publish_via_maintainer_bootstrap: capabilityRows.some(
+      (capability) => capability.can_publish_via_maintainer_bootstrap === true,
+    ),
     cases: caseDtos,
     review_tasks: buildReviewTasks(
-      caseDtos, wallet, actorKind, analystWeight, reportVotesByVersion,
+      caseDtos, wallet, analystWeight, reportVotesByVersion,
+      { analyst: analystEligible, maintainer: maintainerAccess },
+      reportCapabilitiesByVersion,
     ),
   });
 }
@@ -1064,13 +1148,14 @@ async function getAuthorizedCase(req: Request, body: Row): Promise<Response> {
   let actorKind: "owner" | "report_author" | "analyst" | "maintainer" | null = null;
   if (caseRow.submitted_by_wallet === proof.actor.wallet) {
     actorKind = "owner";
+  } else if (await hasFullMaintainerAccess(req, proof.actor.wallet)) {
+    actorKind = "maintainer";
   } else if (await isVerifiedAnalyst(proof.actor.wallet)) {
     actorKind = "analyst";
   } else {
     const { data: authoredReports } = await admin.from("case_reports").select("id")
       .eq("case_id", caseRow.id).eq("author_wallet", proof.actor.wallet).limit(1);
     if ((authoredReports ?? []).length > 0) actorKind = "report_author";
-    else if (await hasFullMaintainerAccess(req, proof.actor.wallet)) actorKind = "maintainer";
   }
   const actor = actorKind
     ? { kind: actorKind, wallet: proof.actor.wallet }
@@ -1141,6 +1226,8 @@ async function maintainerCaseOverview(req: Request, body: Row): Promise<Response
     .in("key", [
       "admin_wallet", "OSI_V2_WRITES_ENABLED", "OSI_V2_PROOF_ENABLED",
       "OSI_V2_CASE_WRITES_ENABLED", "OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED",
+      "OSI_V2_REPORT_WRITES_ENABLED", "OSI_V2_REPORT_REVIEW_WRITES_ENABLED",
+      "OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED",
     ]);
   const config: Record<string, string> = {};
   for (const row of configRows ?? []) config[String(row.key)] = String(row.value ?? "");
@@ -1200,6 +1287,12 @@ async function maintainerCaseOverview(req: Request, body: Row): Promise<Response
         OSI_V2_CASE_WRITES_ENABLED: config.OSI_V2_CASE_WRITES_ENABLED ?? "",
         OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED:
           config.OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED ?? "",
+        OSI_V2_REPORT_WRITES_ENABLED:
+          config.OSI_V2_REPORT_WRITES_ENABLED ?? "",
+        OSI_V2_REPORT_REVIEW_WRITES_ENABLED:
+          config.OSI_V2_REPORT_REVIEW_WRITES_ENABLED ?? "",
+        OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED:
+          config.OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED ?? "",
       },
     }),
   });
