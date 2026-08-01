@@ -599,10 +599,23 @@ select throws_ok($test$
   'OSI2 test REPORT_PUBLISHED bootstrap channel',statement_timestamp(),null)
 $test$,'23514','Report publication maintainer binding changed after prepare',
  'the bootstrap publication commit cannot drop the maintainer identity');
-update public.osi_nonces
-set issued_at=statement_timestamp()-interval '10 minutes',
-    expires_at=statement_timestamp()-interval '5 minutes'
+insert into public.osi_nonces (
+ nonce,purpose,actor_wallet,target_type,target_id,payload_hash,idempotency_key,
+ issued_at,expires_at,created_at,updated_at,request_fingerprint_hash,binding_context
+)
+select repeat('w',32),purpose,actor_wallet,target_type,target_id,payload_hash,
+ 'boot-tier1-publication-late-recovery-0001',
+ statement_timestamp()-interval '10 minutes',
+ statement_timestamp()-interval '5 minutes',
+ statement_timestamp()-interval '10 minutes',
+ statement_timestamp()-interval '10 minutes',
+ request_fingerprint_hash,binding_context
+from public.osi_nonces
 where nonce=(select issued_nonce from pg_temp.boot_publication_prepare);
+update pg_temp.boot_publication_prepare
+set issued_nonce=repeat('w',32),
+    issued_at=statement_timestamp()-interval '10 minutes',
+    expires_at=statement_timestamp()-interval '5 minutes';
 select throws_ok($test$
  select * from public.osi_v2_commit_report_publication(
   (select issued_nonce from pg_temp.boot_publication_prepare),repeat('T',88),
