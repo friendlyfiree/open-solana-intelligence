@@ -48,6 +48,18 @@ equal((workflow.match(/version: 2\.109\.1/g) ?? []).length, 2,
 
 matches(workflow, /NEW_VERSION: "20260729134213"/, "one migration version is pinned");
 matches(workflow,
+  /EXPECTED_FUNCTION_BASELINE_DIGESTS: '[^\n]*"osi-v2-report-read":"891433d28c6224c5e4fdcf8569f1297564b940aa817d7cf5d7f780e102193290"/,
+  "the exact pre-rollout function digests are pinned");
+matches(workflow,
+  /EXPECTED_PARTIAL_FUNCTION_VERSIONS: '[^\n]*"osi-v2-report-read":19/,
+  "the exact partial report-read deployment is a recognized resume snapshot");
+matches(workflow,
+  /EXPECTED_PARTIAL_FUNCTION_DIGESTS: '[^\n]*"osi-v2-report-read":"c38267cd8aaa3a01d8f83d218d0c673618a9a64b1a488924d21f21df9d999d24"/,
+  "the partial report-read bundle digest is pinned");
+matches(workflow,
+  /TARGET_FUNCTION_VERSIONS: '[^\n]*"osi-v2-analyst":18[^\n]*"osi-v2-case-read":24[^\n]*"osi-v2-report-read":19[^\n]*"osi-v2-report-write":16[^\n]*"osi-v2-wire":10/,
+  "the exact completed function target is pinned");
+matches(workflow,
   /20260729134213_osi_v2_workflow_recovery_usability\.sql/,
   "the exact migration filename is required and nonempty");
 matches(workflow,
@@ -80,8 +92,9 @@ matches(workflow, /tests\/osi-v2-concurrency\.test\.sh/,
 
 matches(workflow, /scripts\/protected-row-counts\.sql/,
   "protected domain and infrastructure row counts are snapshotted");
-matches(workflow, /md5\(value\) from public\.osi_config order by key/,
-  "all config values are compared through deterministic runner-local digests");
+matches(workflow,
+  /md5\(value\) from public\.osi_config where key not in \('OSI_V2_CASE_WRITES_ENABLED'[^\n]*'OSI_V2_READ_SESSION_ENABLED'\) order by key/,
+  "all non-task config values are compared through deterministic runner-local digests");
 matches(workflow, /RUNNER_TEMP\/osi-config-before\.txt/,
   "per-key config digests stay outside the uploaded proof artifact");
 matches(workflow,
@@ -118,7 +131,7 @@ matches(workflow,
   "complete protected target row hashes must remain unchanged");
 matches(workflow,
   /diff -u\s+\\?\s*"\$RUNNER_TEMP\/osi-config-before\.txt"\s+\\?\s*"\$RUNNER_TEMP\/osi-config-after\.txt"/,
-  "all feature/config values must remain unchanged");
+  "all non-task feature and config values must remain unchanged");
 excludes(workflow, /PROOF_DIR\/(?:config|target-row-hashes)-(?:before|after)\.txt/,
   "sensitive-derived comparison digests are not uploaded");
 excludes(workflow, /PROOF_DIR\/target-record-(?:before|after)\.txt/,
@@ -129,8 +142,8 @@ matches(workflow,
   /EXPECTED_FUNCTION_VERSIONS: '\{"osi-v2-analyst":17,"osi-v2-case-read":23,"osi-v2-report-read":18,"osi-v2-report-write":15,"osi-v2-wire":9\}'/,
   "all five exact production function baselines are pinned");
 matches(workflow,
-  /\(\[.\[\] \| \{key:\.slug,value:\.version\}\] \| from_entries\) == \$expected/,
-  "the function snapshot must match the exact baseline before deployment");
+  /function_rollout_mode="\$\(jq -r[\s\S]*\$versions == \$baseline_versions and \$digests == \$baseline_digests[\s\S]*\$versions == \$partial_versions and \$digests == \$partial_digests/,
+  "the function snapshot must match an exact baseline or pinned partial-resume state");
 
 matches(workflow,
   /osi_v2_report_evidence_manifest\('\[\]'::jsonb\)[\s\S]*is distinct from '\[\]'::jsonb/,
@@ -186,12 +199,24 @@ for (const forbidden of [
 }
 equal((deployBlock.match(/supabase functions deploy/g) ?? []).length, 1,
   "one bounded loop owns all function deployments");
-matches(deployBlock, /expected_version "\$\(\(before_version \+ 1\)\)"/,
-  "each function must attest the exact next version");
+matches(deployBlock, /expected_version "\$\(\(baseline_version \+ 1\)\)"/,
+  "each newly deployed function must attest the exact task-target version");
 matches(deployBlock, /\.ezbr_sha256!=\$before_digest/,
   "each deployed bundle digest must differ from its exact baseline");
 matches(deployBlock, /\.updated_at\|normalized_epoch[\s\S]*\$started\|normalized_epoch/,
   "each deployed function must have a rollout-time update timestamp");
+matches(deployBlock,
+  /type == "number"[\s\S]*100000000000[\s\S]*\. \/ 1000 \| floor/,
+  "millisecond numeric Supabase function timestamps normalize to epoch seconds");
+matches(deployBlock,
+  /type == "string"[\s\S]*fromdateiso8601/,
+  "ISO Supabase function timestamps remain supported");
+matches(deployBlock,
+  /FUNCTION_ROLLOUT_MODE" = "partial_report_read"[\s\S]*function_name" = "osi-v2-report-read"[\s\S]*continue/,
+  "the exact attested partial report-read deployment is not redeployed");
+matches(deployBlock,
+  /--argjson target_versions "\$TARGET_FUNCTION_VERSIONS"[\s\S]*\$target_versions/,
+  "the final five-function snapshot must equal the exact task target");
 
 const smokeStart = workflow.indexOf("Non-mutating production HTTP and site smokes");
 const smokeEnd = workflow.indexOf(
@@ -262,6 +287,12 @@ excludes(productionBlock, /^\s*(?:drop\s+(?:table|schema)|truncate\b|delete\s+fr
   "production workflow contains no destructive SQL");
 excludes(productionBlock, /supabase\s+(?:db reset|migration repair)/,
   "production job contains no reset or migration repair");
+matches(productionBlock,
+  /task_gates_true[\s\S]*task_gates_false[\s\S]*rollout_start_mode="live"[\s\S]*rollout_start_mode="contained_resume"/,
+  "the seven task gates must be uniformly live or uniformly fail-closed");
+matches(productionBlock,
+  /function_rollout_mode" = "partial_report_read"[\s\S]*rollout_start_mode" != "contained_resume"/,
+  "a partial function snapshot is accepted only while every task gate is contained");
 const taskGates = [
   "OSI_V2_CASE_WRITES_ENABLED",
   "OSI_V2_ANALYST_WRITES_ENABLED",
@@ -304,6 +335,12 @@ matches(failureBlock, /and value = 'false'[\s\S]*= "7"/,
   "failure containment verifies all seven task-scoped gates are false");
 matches(failureBlock, /OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED[\s\S]*= "true"/,
   "failure containment preserves SAS enforcement");
+matches(failureBlock,
+  /psql -v ON_ERROR_STOP=1 -Atq <<'SQL'[\s\S]*\n          SQL\n            \[ "\$\(psql/,
+  "failure containment closes its heredoc at the generated shell column zero");
+excludes(failureBlock,
+  /\n            SQL\n            \[ "\$\(psql/,
+  "failure containment never indents the shell heredoc delimiter");
 matches(productionBlock, /one focused forward-fix PR/,
   "failure path requires a focused forward fix");
 matches(productionBlock, /Do not retry until that PR merges/,
