@@ -145,7 +145,7 @@ jobs:
     environment: Production
     env:
       PGSSLMODE: require
-      PROOF_DIR: ${{ runner.temp }}/osi-workflow-recovery-proof
+      PROOF_DIR: /tmp/osi-workflow-recovery-proof
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
