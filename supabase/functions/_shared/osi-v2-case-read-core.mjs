@@ -488,11 +488,12 @@ export function publicCaseDto(
           (version) => version.id === report.current_published_version_id,
         ) ?? null,
       ),
-      content_public_safe: String(
-        (versionsByReport[report.id] ?? []).find(
+      content_public_safe: (() => {
+        const summary = (versionsByReport[report.id] ?? []).find(
           (version) => version.id === report.current_published_version_id,
-        )?.content_public_safe ?? "",
-      ),
+        )?.content_public_safe;
+        return summary == null ? null : String(summary);
+      })(),
       published: true,
     })),
     governance: governanceDto(governance, false),

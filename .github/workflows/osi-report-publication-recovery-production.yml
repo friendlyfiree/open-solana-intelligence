@@ -1,13 +1,13 @@
-name: OSI Report Publication Recovery Production
+name: OSI Report Nullable Summary Recovery Production
 
-# Current-main-only production delivery for the Report publication RPC-indexing
-# recovery slice. It applies one additive migration, deploys only report-write,
-# and never calls a prepare/commit endpoint or changes a domain row.
+# Current-main-only forward fix for nullable public Report summaries. It applies
+# one additive constraint migration, deploys only the three affected read/write
+# Functions, and never calls a prepare/commit endpoint or changes a domain row.
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type REPORT-RECOVERY-afibxpniwfnavdobecrn to authorize"
+        description: "Type REPORT-NULLABLE-SUMMARY-afibxpniwfnavdobecrn to authorize"
         required: true
         default: ""
 
@@ -21,9 +21,13 @@ concurrency:
 env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
   PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
-  NEW_VERSION: "20260801092744"
-  EXPECTED_REPORT_WRITE_VERSION: "16"
-  EXPECTED_REPORT_WRITE_DIGEST: a7c9fc6959809aba5ba072348e0e7e278957ea93df2a52344a3c1f4550e6583d
+  NEW_VERSION: "20260801120700"
+  EXPECTED_CASE_READ_VERSION: "24"
+  EXPECTED_CASE_READ_DIGEST: e89897739779cdaaef9179f7a1e971d8284a30cac3fb39f8058233df2cffee0f
+  EXPECTED_REPORT_READ_VERSION: "19"
+  EXPECTED_REPORT_READ_DIGEST: c38267cd8aaa3a01d8f83d218d0c673618a9a64b1a488924d21f21df9d999d24
+  EXPECTED_REPORT_WRITE_VERSION: "17"
+  EXPECTED_REPORT_WRITE_DIGEST: 05ac686786d3f251f8a36b9ef7c03ab26903e4c2caa9f305cdc0fd7ddeb3d779
   BEFORE_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949
     20260712002518 20260712121301 20260713045903 20260713184533
@@ -32,7 +36,7 @@ env:
     20260718130000 20260718140000 20260725120000 20260725140000
     20260726173000 20260726185457 20260726200249 20260727170000
     20260727173000 20260728132011 20260728153100 20260728170000
-    20260729134213
+    20260729134213 20260801092744
   AFTER_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949
     20260712002518 20260712121301 20260713045903 20260713184533
@@ -41,7 +45,7 @@ env:
     20260718130000 20260718140000 20260725120000 20260725140000
     20260726173000 20260726185457 20260726200249 20260727170000
     20260727173000 20260728132011 20260728153100 20260728170000
-    20260729134213 20260801092744
+    20260729134213 20260801092744 20260801120700
   OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
@@ -55,7 +59,7 @@ jobs:
           CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
         run: |
           set -euo pipefail
-          [ "$CONFIRM_INPUT" = "REPORT-RECOVERY-${EXPECTED_PROJECT_REF}" ]
+          [ "$CONFIRM_INPUT" = "REPORT-NULLABLE-SUMMARY-${EXPECTED_PROJECT_REF}" ]
           [ "$GITHUB_REF" = "refs/heads/main" ]
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -72,7 +76,7 @@ jobs:
             sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
           expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
           [ "$got" = "$expected" ]
-          test -s "supabase/migrations/${NEW_VERSION}_report_publication_rpc_recovery.sql"
+          test -s "supabase/migrations/${NEW_VERSION}_report_nullable_public_summary.sql"
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -106,6 +110,7 @@ jobs:
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           "$(go env GOPATH)/bin/actionlint" .github/workflows/osi-report-publication-recovery-production.yml
           bash -n tests/osi-v2-concurrency.test.sh
+          shellcheck tests/osi-v2-concurrency.test.sh
 
       - name: Desktop mobile keyboard and refresh recovery
         run: |
@@ -132,7 +137,7 @@ jobs:
         run: supabase stop --no-backup
 
   deploy:
-    name: One migration, one Function, read-only proof
+    name: One migration, three Functions, read-only proof
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -156,7 +161,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$PROOF_DIR"
-          [ "$CONFIRM_INPUT" = "REPORT-RECOVERY-${EXPECTED_PROJECT_REF}" ]
+          [ "$CONFIRM_INPUT" = "REPORT-NULLABLE-SUMMARY-${EXPECTED_PROJECT_REF}" ]
           [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
           [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
           git fetch origin main --quiet
@@ -225,9 +230,16 @@ jobs:
           [ "$(wc -l < "$RUNNER_TEMP/target-before.txt")" = 6 ]
           curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
             "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
-            jq '[.[]|select(.slug=="osi-v2-report-write")|{slug,version,status,verify_jwt,updated_at,ezbr_sha256}]' > "$PROOF_DIR/function-before.json"
-          jq -e --argjson version "$EXPECTED_REPORT_WRITE_VERSION" --arg digest "$EXPECTED_REPORT_WRITE_DIGEST" \
-            'length==1 and .[0].version==$version and .[0].status=="ACTIVE" and .[0].verify_jwt==false and .[0].ezbr_sha256==$digest' "$PROOF_DIR/function-before.json"
+            jq '[.[]|select(.slug=="osi-v2-case-read" or .slug=="osi-v2-report-read" or .slug=="osi-v2-report-write")|{slug,version,status,verify_jwt,updated_at,ezbr_sha256}]|sort_by(.slug)' > "$PROOF_DIR/function-before.json"
+          jq -e \
+            --argjson case_version "$EXPECTED_CASE_READ_VERSION" --arg case_digest "$EXPECTED_CASE_READ_DIGEST" \
+            --argjson read_version "$EXPECTED_REPORT_READ_VERSION" --arg read_digest "$EXPECTED_REPORT_READ_DIGEST" \
+            --argjson write_version "$EXPECTED_REPORT_WRITE_VERSION" --arg write_digest "$EXPECTED_REPORT_WRITE_DIGEST" '
+              length==3 and all(.[]; .status=="ACTIVE" and .verify_jwt==false) and
+              (map(select(.slug=="osi-v2-case-read" and .version==$case_version and .ezbr_sha256==$case_digest))|length)==1 and
+              (map(select(.slug=="osi-v2-report-read" and .version==$read_version and .ezbr_sha256==$read_digest))|length)==1 and
+              (map(select(.slug=="osi-v2-report-write" and .version==$write_version and .ezbr_sha256==$write_digest))|length)==1
+            ' "$PROOF_DIR/function-before.json"
 
       - name: Link and dry-run exactly one additive migration
         env:
@@ -270,7 +282,7 @@ jobs:
           SQL
           touch "$RUNNER_TEMP/report-recovery-contained"
 
-      - name: Apply migration and verify exact block-time guard
+      - name: Apply migration and verify exact nullable-summary constraint
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -281,30 +293,42 @@ jobs:
           expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
           got="$(psql -Atqc "select string_agg(version,' ' order by version) from supabase_migrations.schema_migrations")"
           [ "$got" = "$expected" ]
-          definition="$(psql -Atqc "select pg_get_functiondef('osi_private.osi_v2_commit_report_publication(text,text,text,timestamptz,text)'::regprocedure)")"
-          grep -Fq 'p_occurred_at < bound.issued_at' <<< "$definition"
-          grep -Fq 'p_occurred_at > bound.expires_at' <<< "$definition"
-          grep -Fq 'set consumed_at = p_occurred_at' <<< "$definition"
-          if grep -Fq 'statement_timestamp() > bound.expires_at' <<< "$definition"; then
-            echo "::error::The legacy commit-time expiry guard is still present."
+          definition="$(psql -Atqc "select pg_get_constraintdef(oid,true) from pg_constraint where conrelid='public.case_report_versions'::regclass and conname='case_report_versions_publication_state_check'")"
+          grep -Fq 'published_at IS NOT NULL' <<< "$definition"
+          grep -Fq 'publication_receipt_id IS NOT NULL' <<< "$definition"
+          grep -Fq 'published_at IS NULL' <<< "$definition"
+          grep -Fq 'publication_receipt_id IS NULL' <<< "$definition"
+          if grep -Fq 'content_public_safe IS NOT NULL' <<< "$definition"; then
+            echo "::error::The obsolete mandatory public-summary condition is still present."
             exit 1
           fi
+          printf '%s\n' "$definition" > "$PROOF_DIR/publication-state-constraint.txt"
           supabase migration list --linked > "$PROOF_DIR/migration-list-after.txt"
 
-      - name: Deploy and attest only osi-v2-report-write
+      - name: Deploy and attest only the three affected Functions
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           started="$(date +%s)"
+          supabase functions deploy osi-v2-case-read --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt
+          supabase functions deploy osi-v2-report-read --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt
           supabase functions deploy osi-v2-report-write --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt
           curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
             "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
-            jq '[.[]|select(.slug=="osi-v2-report-write")|{slug,version,status,verify_jwt,updated_at,ezbr_sha256}]' > "$PROOF_DIR/function-after.json"
-          jq -e --argjson version "$((EXPECTED_REPORT_WRITE_VERSION + 1))" --arg digest "$EXPECTED_REPORT_WRITE_DIGEST" \
-            'length==1 and .[0].version==$version and .[0].status=="ACTIVE" and .[0].verify_jwt==false and .[0].ezbr_sha256!=$digest' "$PROOF_DIR/function-after.json"
-          updated="$(jq -r '.[0].updated_at|if type=="number" then (if .>100000000000 then ./1000 else . end)|floor else fromdateiso8601 end' "$PROOF_DIR/function-after.json")"
-          [ "$updated" -ge "$started" ]
+            jq '[.[]|select(.slug=="osi-v2-case-read" or .slug=="osi-v2-report-read" or .slug=="osi-v2-report-write")|{slug,version,status,verify_jwt,updated_at,ezbr_sha256}]|sort_by(.slug)' > "$PROOF_DIR/function-after.json"
+          jq -e \
+            --argjson case_version "$((EXPECTED_CASE_READ_VERSION + 1))" --arg case_digest "$EXPECTED_CASE_READ_DIGEST" \
+            --argjson read_version "$((EXPECTED_REPORT_READ_VERSION + 1))" --arg read_digest "$EXPECTED_REPORT_READ_DIGEST" \
+            --argjson write_version "$((EXPECTED_REPORT_WRITE_VERSION + 1))" --arg write_digest "$EXPECTED_REPORT_WRITE_DIGEST" '
+              length==3 and all(.[]; .status=="ACTIVE" and .verify_jwt==false) and
+              (map(select(.slug=="osi-v2-case-read" and .version==$case_version and .ezbr_sha256!=$case_digest))|length)==1 and
+              (map(select(.slug=="osi-v2-report-read" and .version==$read_version and .ezbr_sha256!=$read_digest))|length)==1 and
+              (map(select(.slug=="osi-v2-report-write" and .version==$write_version and .ezbr_sha256!=$write_digest))|length)==1
+            ' "$PROOF_DIR/function-after.json"
+          while IFS= read -r updated; do [ "$updated" -ge "$started" ]; done < <(
+            jq -r '.[].updated_at|if type=="number" then (if .>100000000000 then ./1000 else . end)|floor else fromdateiso8601 end' "$PROOF_DIR/function-after.json"
+          )
 
       - name: Read-only contained smoke then restore exact flag
         env:
@@ -318,6 +342,15 @@ jobs:
             -d "{\"op\":\"capabilities\",\"case_ref\":\"${TARGET_CASE_REF}\"}")"
           jq -e '.ok==true and .report_review_writes_enabled==false and .case_eligible==true' <<< "$capability"
           jq '{ok,report_review_writes_enabled,case_eligible,case_stage}' <<< "$capability" > "$PROOF_DIR/contained-smoke.json"
+          public_reports="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-report-read" \
+            -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' \
+            -d "{\"op\":\"list_public_reports\",\"case_ref\":\"${TARGET_CASE_REF}\"}")"
+          jq -e '.ok==true and (.reports|type)=="array"' <<< "$public_reports"
+          if jq -e '[..|objects|select(has("body") or has("body_private"))]|length>0' <<< "$public_reports" >/dev/null; then
+            echo "::error::A public Report response contained a restricted body key."
+            exit 1
+          fi
+          jq '{ok,case_public_ref,report_count:(.reports|length)}' <<< "$public_reports" > "$PROOF_DIR/public-read-smoke.json"
           psql -v ON_ERROR_STOP=1 <<'SQL'
           begin;
           do $$ begin
@@ -371,6 +404,13 @@ jobs:
           web_code="$(curl -sS --fail --max-time 30 -o "$PROOF_DIR/web-root.html" -w '%{http_code}' "$PRODUCTION_WEB_URL")"
           [ "$web_code" = 200 ]
           grep -Fq 'Open Solana Intelligence' "$PROOF_DIR/web-root.html"
+          curl -sS --fail --max-time 30 -o "$PROOF_DIR/web-report-integration.js" \
+            "$PRODUCTION_WEB_URL/assets/js/v2-report-integration.js"
+          grep -Fq 'No public-safe summary was provided.' "$PROOF_DIR/web-report-integration.js"
+          if grep -Fq 'row.body' "$PROOF_DIR/web-report-integration.js"; then
+            echo "::error::Production public Report rendering still contains a body fallback."
+            exit 1
+          fi
           printf 'solana_transactions_created=0\ndomain_records_created=0\nprepare_or_commit_calls=0\n' > "$PROOF_DIR/non-mutation-attestation.txt"
 
       - name: Fail closed on rollout error

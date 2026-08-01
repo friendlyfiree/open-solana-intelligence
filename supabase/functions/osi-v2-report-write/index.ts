@@ -18,6 +18,7 @@ import {
   REPORT_REVIEW_EVENT_TYPES,
   canonicalReportMemo,
   canonicalReportGovernanceMessage,
+  classifyReportRpcFailure,
   normalizeReportPayload,
   normalizeReportReview,
   validateReportGovernanceBinding,
@@ -88,22 +89,8 @@ function isoSeconds(value: unknown): number {
 }
 
 function rpcFailure(error: Row | null, governance = false): Response {
-  const code = safeText(error?.code);
-  if (safeText(error?.message) === "Report publication transaction outside issuance window") {
-    return jsonResponse(409, { ok: false, error: "publication_transaction_outside_window" });
-  }
-  if (code === "42501") {
-    return governance
-      ? jsonResponse(403, { ok: false, error: "not_eligible_or_self_review" })
-      : jsonResponse(404, { ok: false, error: "case_not_available" });
-  }
-  if (code === "23514" || code === "22023") {
-    return jsonResponse(409, { ok: false, error: "proof_binding_rejected" });
-  }
-  if (code === "40001") return jsonResponse(409, { ok: false, error: "lineage_changed_retry" });
-  if (code === "P0001") return jsonResponse(429, { ok: false, error: "rate_limited" });
-  if (code === "55000") return jsonResponse(503, { ok: false, error: "report_writes_disabled_or_unavailable" });
-  return jsonResponse(500, { ok: false, error: "report_write_failed" });
+  const failure = classifyReportRpcFailure(error, governance);
+  return jsonResponse(failure.status, { ok: false, error: failure.error });
 }
 
 async function reportWritesEnabled(): Promise<boolean> {

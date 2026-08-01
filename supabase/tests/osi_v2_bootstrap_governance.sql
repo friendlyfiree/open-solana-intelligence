@@ -3,7 +3,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(94);
+select plan(98);
 
 -- ---------------------------------------------------------------------------
 -- Shared fixture helpers (same shapes as the accepted governance suite).
@@ -243,7 +243,7 @@ create temporary table cn1_prepare on commit drop as
 select * from public.osi_v2_prepare_report_version(
   repeat('g',32),'11111111111111111111111111111132','40000000-0000-4000-8000-000000000002',
   'This immutable restricted Report describes transaction order, relationships, limits, and uncertainty for cold-start publication review.',
-  'A public-safe summary for the bootstrap publication fixture.',
+  null,
   null,
   jsonb_build_array(jsonb_build_object(
     'kind','wallet','ref','11111111111111111111111111111133',
@@ -255,7 +255,7 @@ select lives_ok($test$
  select * from public.osi_v2_commit_report_version(
   repeat('g',32),
   'This immutable restricted Report describes transaction order, relationships, limits, and uncertainty for cold-start publication review.',
-  'A public-safe summary for the bootstrap publication fixture.',
+  null,
   null,
   jsonb_build_array(jsonb_build_object(
     'kind','wallet','ref','11111111111111111111111111111133',
@@ -263,6 +263,32 @@ select lives_ok($test$
   )),
   repeat('R',88),'OSI2 test CASE_REPORT_VERSION_SUBMITTED',statement_timestamp())
 $test$,'native Report version fixture is committed for publication checks');
+select ok((
+  select content_public_safe is null
+     and body_private = 'This immutable restricted Report describes transaction order, relationships, limits, and uncertainty for cold-start publication review.'
+  from public.case_report_versions
+  where id=(select version_id from pg_temp.cn1_prepare)
+), 'native unpublished Report preserves the optional summary and exact restricted body');
+select throws_ok($test$
+ insert into public.case_report_versions (
+  id,report_id,version_no,version_ref,created_by_wallet,body_private,
+  content_public_safe,evidence_snapshot_hash,lifecycle_state,event_receipt_id
+ ) select gen_random_uuid(),report_id,99,'OSI-RV-BBBBDDDD00029999',created_by_wallet,
+   'Restricted published-state negative fixture.',null,repeat('9',64),'published',event_receipt_id
+ from public.case_report_versions where id=(select version_id from pg_temp.cn1_prepare)
+$test$,'23514',null,
+ 'published Report still requires both publication timestamp and receipt');
+select throws_ok($test$
+ insert into public.case_report_versions (
+  id,report_id,version_no,version_ref,created_by_wallet,body_private,
+  content_public_safe,evidence_snapshot_hash,lifecycle_state,published_at,
+  publication_receipt_id,event_receipt_id
+ ) select gen_random_uuid(),report_id,100,'OSI-RV-BBBBDDDD00021000',created_by_wallet,
+   'Restricted unpublished-state negative fixture.',null,repeat('8',64),'submitted',
+   statement_timestamp(),event_receipt_id,event_receipt_id
+ from public.case_report_versions where id=(select version_id from pg_temp.cn1_prepare)
+$test$,'23514',null,
+ 'unpublished Report still forbids publication timestamp and receipt');
 select throws_ok($test$
  select * from public.osi_v2_prepare_report_publication(
   repeat('h',32),'44444444444444444444444444444444',
@@ -640,6 +666,11 @@ select ok((select version.lifecycle_state='published' and receipt.decision_chann
  join public.event_receipts as receipt on receipt.id=version.publication_receipt_id
  where version.id=(select version_id from pg_temp.cn1_prepare)),
  'bootstrap publication receipt carries the distinct maintainer_bootstrap channel');
+select ok((select version.content_public_safe is null
+ and version.body_private='This immutable restricted Report describes transaction order, relationships, limits, and uncertainty for cold-start publication review.'
+ from public.case_report_versions as version
+ where version.id=(select version_id from pg_temp.cn1_prepare)),
+ 'bootstrap publication succeeds with no public-safe summary and preserves the restricted body');
 select is((select idempotent_replay from public.osi_v2_commit_report_publication(
   (select issued_nonce from pg_temp.boot_publication_prepare),repeat('T',88),
   'OSI2 test REPORT_PUBLISHED bootstrap channel',

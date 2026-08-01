@@ -248,6 +248,25 @@ ok("public DTO exposes the server-derived Case risk tier",
 ok("public DTO keeps the exact legacy label",
   pub.proof_log[0].label === "Legacy / not server-verified");
 
+const publishedHeader = {
+  ...report,
+  current_published_version_id: version.id,
+  public_ref: "OSI-RPT-A1B2C3D4E5F6",
+};
+const publishedVersion = {
+  ...version,
+  lifecycle_state: "published",
+  published_at: "2026-01-03T00:01:00Z",
+};
+const publishedCase = core.publicCaseDto(
+  caseRow, [publishedHeader], { [report.id]: [publishedVersion] }, [receipt],
+);
+ok("public Case projection preserves an optional Report summary as null",
+  publishedCase.reports[0].content_public_safe === null);
+ok("public Case projection never substitutes a restricted Report body",
+  !JSON.stringify(publishedCase).includes(version.body_private)
+    && !Object.hasOwn(publishedCase.reports[0], "body_private"));
+
 const maintainerReceipt = {
   event_type: "CASE_OPENED",
   target_type: "case",

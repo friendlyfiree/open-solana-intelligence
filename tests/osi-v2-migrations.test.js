@@ -41,6 +41,7 @@ const expectedFiles = [
   '20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql',
   '20260729134213_osi_v2_workflow_recovery_usability.sql',
   '20260801092744_report_publication_rpc_recovery.sql',
+  '20260801120700_report_nullable_public_summary.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -75,6 +76,8 @@ const launchCompletion =
   sqlByFile['20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql'] || '';
 const reportPublicationRpcRecovery =
   sqlByFile['20260801092744_report_publication_rpc_recovery.sql'] || '';
+const reportNullablePublicSummary =
+  sqlByFile['20260801120700_report_nullable_public_summary.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -1210,6 +1213,25 @@ ok(
     && reportPublicationRpcRecovery.includes('set consumed_at = p_occurred_at')
     && !reportPublicationRpcRecovery.includes('drop constraint osi_nonces_consumption_check')
     && !/drop\s+(?:table|schema)/i.test(reportPublicationRpcRecovery),
+);
+ok(
+  'nullable Report summary migration replaces only the exact publication-state constraint',
+  reportNullablePublicSummary.includes('pg_get_constraintdef')
+    && reportNullablePublicSummary.includes('case_report_versions_publication_state_check')
+    && reportNullablePublicSummary.includes('drop constraint case_report_versions_publication_state_check')
+    && reportNullablePublicSummary.includes('add constraint case_report_versions_publication_state_check')
+    && reportNullablePublicSummary.includes('validate constraint case_report_versions_publication_state_check')
+    && reportNullablePublicSummary.includes("lifecycle_state in ('published', 'superseded')")
+    && reportNullablePublicSummary.includes('published_at is not null')
+    && reportNullablePublicSummary.includes('publication_receipt_id is not null')
+    && reportNullablePublicSummary.includes("lifecycle_state not in ('published', 'superseded')")
+    && reportNullablePublicSummary.includes('published_at is null')
+    && reportNullablePublicSummary.includes('publication_receipt_id is null')
+    && !/add constraint case_report_versions_publication_state_check[\s\S]*content_public_safe\s+is\s+not\s+null/i
+      .test(reportNullablePublicSummary)
+    && !/(?:insert|update|delete)\s+(?:into|from)?\s*public\./i.test(reportNullablePublicSummary)
+    && !/create\s+(?:or\s+replace\s+)?function/i.test(reportNullablePublicSummary)
+    && !/osi_config/i.test(reportNullablePublicSummary),
 );
 
 const identifiers = [

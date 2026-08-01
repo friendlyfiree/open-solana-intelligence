@@ -51,6 +51,8 @@ const REPORT_COLS =
   "id,case_id,author_wallet,current_version_id,current_published_version_id,status,public_ref,native_intake,created_at,updated_at";
 const VERSION_COLS =
   "id,report_id,version_no,version_ref,created_by_wallet,body_private,content_public_safe,evidence_snapshot_hash,supersedes_version_id,revision_reason_code,lifecycle_state,event_receipt_id,publication_receipt_id,publication_quorum_hash,published_at,created_at";
+const PUBLIC_VERSION_COLS =
+  "id,report_id,version_no,version_ref,content_public_safe,lifecycle_state,publication_receipt_id,published_at";
 const CASE_COLS = "id,public_ref,stage,visibility,risk_tier,submitted_by_wallet,category,archived_at";
 const EVIDENCE_COLS = "id,kind,ref,sha256,is_public,moderation_state";
 const RECEIPT_COLS =
@@ -638,7 +640,7 @@ async function listPublicReports(body: Row): Promise<Response> {
   if (!versionIds.length) return jsonResponse(200, { ok: true, case_public_ref: caseRef, reports: [] });
   try {
     const [{ data: versions, error: versionError }, { data: reviews, error: reviewError }, thresholds] = await Promise.all([
-      admin.from("case_report_versions").select(VERSION_COLS).in("id", versionIds).limit(400),
+      admin.from("case_report_versions").select(PUBLIC_VERSION_COLS).in("id", versionIds).limit(400),
       admin.from("case_report_reviews").select(REVIEW_COLS)
         .in("report_version_id", versionIds).order("created_at", { ascending: true }).limit(5000),
       quorumThresholds(),
@@ -714,7 +716,6 @@ async function listPublicReports(body: Row): Promise<Response> {
         version_no: version.version_no,
         lifecycle_state: version.lifecycle_state,
         content_public_safe: version.content_public_safe,
-        body_private: version.body_private,
         evidence: evidenceByVersion.get(String(version.id)) ?? [],
         quorum: quorumFor(
           String(caseRow.risk_tier || "standard"), reviewRows,
