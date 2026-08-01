@@ -33,6 +33,10 @@ env:
   PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
   NEW_VERSION: "20260729134213"
   EXPECTED_FUNCTION_VERSIONS: '{"osi-v2-analyst":17,"osi-v2-case-read":23,"osi-v2-report-read":18,"osi-v2-report-write":15,"osi-v2-wire":9}'
+  EXPECTED_FUNCTION_BASELINE_DIGESTS: '{"osi-v2-analyst":"9be64701b28cadf96d5ecf213a9741f4b854f0c75a544aa3012a2b065af59e94","osi-v2-case-read":"7ad1906b52c74425209314924f466751f62759f3d076a0e08f293b31952e5883","osi-v2-report-read":"891433d28c6224c5e4fdcf8569f1297564b940aa817d7cf5d7f780e102193290","osi-v2-report-write":"029ea4aace8bc478357975e740d2071a25c7d2b941bd1861913234723b1d97b8","osi-v2-wire":"dbd8f5d4c53360b6d96148a2d285583a15f64b50842aeebb9088b845857662d1"}'
+  EXPECTED_PARTIAL_FUNCTION_VERSIONS: '{"osi-v2-analyst":17,"osi-v2-case-read":23,"osi-v2-report-read":19,"osi-v2-report-write":15,"osi-v2-wire":9}'
+  EXPECTED_PARTIAL_FUNCTION_DIGESTS: '{"osi-v2-analyst":"9be64701b28cadf96d5ecf213a9741f4b854f0c75a544aa3012a2b065af59e94","osi-v2-case-read":"7ad1906b52c74425209314924f466751f62759f3d076a0e08f293b31952e5883","osi-v2-report-read":"c38267cd8aaa3a01d8f83d218d0c673618a9a64b1a488924d21f21df9d999d24","osi-v2-report-write":"029ea4aace8bc478357975e740d2071a25c7d2b941bd1861913234723b1d97b8","osi-v2-wire":"dbd8f5d4c53360b6d96148a2d285583a15f64b50842aeebb9088b845857662d1"}'
+  TARGET_FUNCTION_VERSIONS: '{"osi-v2-analyst":18,"osi-v2-case-read":24,"osi-v2-report-read":19,"osi-v2-report-write":16,"osi-v2-wire":10}'
   BEFORE_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949
     20260712002518 20260712121301 20260713045903 20260713184533
@@ -238,7 +242,7 @@ jobs:
             echo "::error::Protected Report version selector secret is absent or invalid."; exit 1;
           }
           psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
-            "select key, md5(value) from public.osi_config order by key" \
+            "select key, md5(value) from public.osi_config where key not in ('OSI_V2_CASE_WRITES_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED','OSI_V2_REPORT_REVIEW_WRITES_ENABLED','OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED','OSI_V2_WIRE_WRITES_ENABLED','OSI_V2_READ_SESSION_ENABLED') order by key" \
             > "$RUNNER_TEMP/osi-config-before.txt"
           psql -v ON_ERROR_STOP=1 -Atq -f scripts/protected-row-counts.sql \
             > "$PROOF_DIR/protected-rows-before.txt"
@@ -350,15 +354,8 @@ jobs:
                 ('OSI_V2_PROOF_ENABLED', 'false'),
                 ('OSI_V2_FALLBACK_GOVERNANCE', 'false'),
                 ('OSI_V2_AI_PACK_REVIEW_WRITES_ENABLED', 'false'),
-                ('OSI_V2_CASE_WRITES_ENABLED', 'true'),
-                ('OSI_V2_ANALYST_WRITES_ENABLED', 'true'),
-                ('OSI_V2_REPORT_WRITES_ENABLED', 'true'),
-                ('OSI_V2_REPORT_REVIEW_WRITES_ENABLED', 'true'),
-                ('OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED', 'true'),
-                ('OSI_V2_WIRE_WRITES_ENABLED', 'true'),
                 ('OSI_V2_PAYMENT_WRITES_ENABLED', 'true'),
                 ('OSI_V2_SOLANA_PAY_ENABLED', 'true'),
-                ('OSI_V2_READ_SESSION_ENABLED', 'true'),
                 ('OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED', 'true'),
                 ('OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED', 'true'),
                 ('OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED', 'true'),
@@ -372,6 +369,43 @@ jobs:
             end if;
           end $$;
           SQL
+          task_gates_true="$(psql -Atqc "
+            select count(*)
+            from public.osi_config
+            where key in (
+              'OSI_V2_CASE_WRITES_ENABLED',
+              'OSI_V2_ANALYST_WRITES_ENABLED',
+              'OSI_V2_REPORT_WRITES_ENABLED',
+              'OSI_V2_REPORT_REVIEW_WRITES_ENABLED',
+              'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
+              'OSI_V2_WIRE_WRITES_ENABLED',
+              'OSI_V2_READ_SESSION_ENABLED'
+            ) and value = 'true'
+          ")"
+          task_gates_false="$(psql -Atqc "
+            select count(*)
+            from public.osi_config
+            where key in (
+              'OSI_V2_CASE_WRITES_ENABLED',
+              'OSI_V2_ANALYST_WRITES_ENABLED',
+              'OSI_V2_REPORT_WRITES_ENABLED',
+              'OSI_V2_REPORT_REVIEW_WRITES_ENABLED',
+              'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED',
+              'OSI_V2_WIRE_WRITES_ENABLED',
+              'OSI_V2_READ_SESSION_ENABLED'
+            ) and value = 'false'
+          ")"
+          if [ "$task_gates_true" = "7" ] && [ "$task_gates_false" = "0" ]; then
+            rollout_start_mode="live"
+          elif [ "$task_gates_true" = "0" ] && [ "$task_gates_false" = "7" ]; then
+            rollout_start_mode="contained_resume"
+          else
+            echo "::error::The seven task-scoped gates are in a mixed or invalid state."
+            exit 1
+          fi
+          echo "ROLLOUT_START_MODE=$rollout_start_mode" >> "$GITHUB_ENV"
+          printf 'rollout_start_mode=%s\n' "$rollout_start_mode" \
+            > "$PROOF_DIR/rollout-start-mode.txt"
           curl -sS --fail --max-time 30 \
             -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
             "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
@@ -383,11 +417,36 @@ jobs:
               .slug=="osi-v2-wire"
             ) | {slug,version,status,verify_jwt,updated_at,ezbr_sha256}] |
             sort_by(.slug)' > "$PROOF_DIR/functions-before.json"
-          jq -e --argjson expected "$EXPECTED_FUNCTION_VERSIONS" '
-            length == 5 and
-            all(.[]; .status=="ACTIVE" and .verify_jwt==false) and
-            ([.[] | {key:.slug,value:.version}] | from_entries) == $expected
-          ' "$PROOF_DIR/functions-before.json"
+          function_rollout_mode="$(jq -r \
+            --argjson baseline_versions "$EXPECTED_FUNCTION_VERSIONS" \
+            --argjson baseline_digests "$EXPECTED_FUNCTION_BASELINE_DIGESTS" \
+            --argjson partial_versions "$EXPECTED_PARTIAL_FUNCTION_VERSIONS" \
+            --argjson partial_digests "$EXPECTED_PARTIAL_FUNCTION_DIGESTS" '
+            ([.[] | {key:.slug,value:.version}] | from_entries) as $versions |
+            ([.[] | {key:.slug,value:.ezbr_sha256}] | from_entries) as $digests |
+            if length == 5 and
+               all(.[]; .status=="ACTIVE" and .verify_jwt==false) and
+               $versions == $baseline_versions and $digests == $baseline_digests
+            then "baseline"
+            elif length == 5 and
+                 all(.[]; .status=="ACTIVE" and .verify_jwt==false) and
+                 $versions == $partial_versions and $digests == $partial_digests
+            then "partial_report_read"
+            else "invalid"
+            end
+          ' "$PROOF_DIR/functions-before.json")"
+          [ "$function_rollout_mode" != "invalid" ] || {
+            echo "::error::Function versions or digests are not an exact approved baseline or partial-resume snapshot."
+            exit 1
+          }
+          if [ "$function_rollout_mode" = "partial_report_read" ] &&
+             [ "$rollout_start_mode" != "contained_resume" ]; then
+            echo "::error::A partial function resume requires all seven task-scoped gates to be false."
+            exit 1
+          fi
+          echo "FUNCTION_ROLLOUT_MODE=$function_rollout_mode" >> "$GITHUB_ENV"
+          printf 'function_rollout_mode=%s\n' "$function_rollout_mode" \
+            >> "$PROOF_DIR/rollout-start-mode.txt"
 
       - name: Link project and require exact resumable migration history
         env:
@@ -660,7 +719,24 @@ jobs:
             before_digest="$(jq -r --arg slug "$function_name" \
               '.[] | select(.slug==$slug) | .ezbr_sha256' \
               "$PROOF_DIR/functions-before.json")"
+            baseline_version="$(jq -r --arg slug "$function_name" \
+              '.[$slug]' <<< "$EXPECTED_FUNCTION_VERSIONS")"
+            baseline_digest="$(jq -r --arg slug "$function_name" \
+              '.[$slug]' <<< "$EXPECTED_FUNCTION_BASELINE_DIGESTS")"
             [[ "$before_version" =~ ^[0-9]+$ ]]
+            [[ "$baseline_version" =~ ^[0-9]+$ ]]
+            if [ "$before_version" = "$((baseline_version + 1))" ]; then
+              partial_digest="$(jq -r --arg slug "$function_name" \
+                '.[$slug]' <<< "$EXPECTED_PARTIAL_FUNCTION_DIGESTS")"
+              [ "$FUNCTION_ROLLOUT_MODE" = "partial_report_read" ]
+              [ "$function_name" = "osi-v2-report-read" ]
+              [ "$before_digest" = "$partial_digest" ]
+              printf '%s\n' "$function_name" \
+                >> "$RUNNER_TEMP/osi-deployed-functions.txt"
+              continue
+            fi
+            [ "$before_version" = "$baseline_version" ]
+            [ "$before_digest" = "$baseline_digest" ]
             supabase functions deploy "$function_name" \
               --project-ref "$EXPECTED_PROJECT_REF" \
               --no-verify-jwt \
@@ -675,11 +751,17 @@ jobs:
                   > "$RUNNER_TEMP/function-${function_name}.json"
               if jq -e \
                 --arg slug "$function_name" \
-                --argjson expected_version "$((before_version + 1))" \
-                --arg before_digest "$before_digest" \
+                --argjson expected_version "$((baseline_version + 1))" \
+                --arg before_digest "$baseline_digest" \
                 --arg started "$deployment_started_at" '
                 def normalized_epoch:
-                  sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+                  if type == "number" then
+                    if . > 100000000000 then (. / 1000 | floor) else floor end
+                  elif type == "string" then
+                    sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601
+                  else
+                    error("unsupported function timestamp type")
+                  end;
                 .slug==$slug and
                 .version==$expected_version and
                 .status=="ACTIVE" and .verify_jwt==false and
@@ -711,17 +793,19 @@ jobs:
               .slug=="osi-v2-wire"
             ) | {slug,version,status,verify_jwt,updated_at,ezbr_sha256}] |
             sort_by(.slug)' > "$PROOF_DIR/functions-after.json"
-          jq -e --slurp '
+          jq -e --slurp \
+            --argjson target_versions "$TARGET_FUNCTION_VERSIONS" \
+            --argjson baseline_digests "$EXPECTED_FUNCTION_BASELINE_DIGESTS" '
             .[0] as $before | .[1] as $after |
             ($before|length)==5 and ($after|length)==5 and
             all($after[]; .status=="ACTIVE" and .verify_jwt==false) and
+            ([ $after[] | {key:.slug,value:.version}] | from_entries) ==
+              $target_versions and
             all($after[] as $item;
-              $item.version ==
-                (($before[] | select(.slug==$item.slug) | .version) + 1)
-            )
+              $item.ezbr_sha256 != $baseline_digests[$item.slug])
           ' "$PROOF_DIR/functions-before.json" \
             "$PROOF_DIR/functions-after.json"
-          printf 'commit=%s\nversion_transition=exact_plus_one\n' \
+          printf 'commit=%s\nversion_transition=exact_task_target_with_pinned_partial_resume\n' \
             "$GITHUB_SHA" > "$PROOF_DIR/function-deployment-attestation.txt"
 
       - name: Non-mutating production HTTP and site smokes
@@ -1140,7 +1224,7 @@ jobs:
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -Atq -F'|' -c \
-            "select key, md5(value) from public.osi_config order by key" \
+            "select key, md5(value) from public.osi_config where key not in ('OSI_V2_CASE_WRITES_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED','OSI_V2_REPORT_WRITES_ENABLED','OSI_V2_REPORT_REVIEW_WRITES_ENABLED','OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED','OSI_V2_WIRE_WRITES_ENABLED','OSI_V2_READ_SESSION_ENABLED') order by key" \
             > "$RUNNER_TEMP/osi-config-after.txt"
           diff -u \
             "$RUNNER_TEMP/osi-config-before.txt" \
@@ -1331,7 +1415,7 @@ jobs:
               'OSI_V2_READ_SESSION_ENABLED'
             );
             commit;
-            SQL
+          SQL
             [ "$(psql -Atqc "
               select count(*)
               from public.osi_config
