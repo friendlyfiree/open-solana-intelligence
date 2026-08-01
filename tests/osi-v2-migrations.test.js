@@ -40,6 +40,7 @@ const expectedFiles = [
   '20260728153100_osi_v1_requests_exact_policy_boundary.sql',
   '20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql',
   '20260729134213_osi_v2_workflow_recovery_usability.sql',
+  '20260801092744_report_publication_rpc_recovery.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -72,6 +73,8 @@ const exactRequestPolicyBoundary =
   sqlByFile['20260728153100_osi_v1_requests_exact_policy_boundary.sql'] || '';
 const launchCompletion =
   sqlByFile['20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql'] || '';
+const reportPublicationRpcRecovery =
+  sqlByFile['20260801092744_report_publication_rpc_recovery.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -1197,6 +1200,14 @@ ok(
 ok(
   'D19 report quorum gates the case_report review kind',
   /osi_private\.osi_v2_sas_review_counts\('case_report', review\.id\)/.test(sasCredential),
+);
+ok(
+  'Report publication recovery replaces only the reviewed commit-time expiry guard',
+  reportPublicationRpcRecovery.includes('pg_get_functiondef')
+    && reportPublicationRpcRecovery.includes('Report publication expiry guard drifted')
+    && reportPublicationRpcRecovery.includes('p_occurred_at < bound.issued_at')
+    && reportPublicationRpcRecovery.includes('p_occurred_at > bound.expires_at')
+    && !/drop\s+(?:table|schema)/i.test(reportPublicationRpcRecovery),
 );
 
 const identifiers = [

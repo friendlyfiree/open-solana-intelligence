@@ -88,6 +88,18 @@
 .osi-report-card:focus-visible,.osi-report-version:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
 .osi-report-publish{min-height:42px;padding:0 16px;border:1px solid #9b7bff;border-radius:7px;background:rgba(155,123,255,.1);color:#c8b6ff;font-weight:700;cursor:pointer}
 .osi-report-publish:disabled{border-color:var(--line);background:transparent;color:var(--muted);cursor:not-allowed}
+.osi-report-recovery{display:grid;gap:10px;margin:0 -16px 16px;padding:16px;border:1px solid rgba(155,123,255,.44);border-radius:8px;background:linear-gradient(135deg,rgba(155,123,255,.1),rgba(34,211,238,.035))}
+.osi-report-recovery h4{margin:0;color:var(--text);font-size:14px}
+.osi-report-recovery>p,.osi-report-recovery small{max-width:70ch;margin:0;color:var(--muted);font-size:12px;line-height:1.65}
+.osi-report-recovery a{width:max-content;max-width:100%;color:var(--cyan);font:600 12px/1.5 var(--mono);overflow-wrap:anywhere;text-decoration:underline;text-underline-offset:3px}
+.osi-report-recovery-error{padding:9px 10px;border:1px solid rgba(255,107,125,.35);border-radius:6px;background:rgba(255,107,125,.06);color:var(--red,#ff6b7d);font-size:12px;line-height:1.55}
+.osi-report-recovery-candidate{display:grid;gap:8px;padding:13px;border:1px solid var(--line-bright);border-radius:7px;background:rgba(7,12,20,.34)}
+.osi-report-recovery-candidate>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px}
+.osi-report-recovery-candidate span{color:var(--muted);font:500 11px/1.55 var(--mono)}
+.osi-report-recovery-candidate label{color:var(--text);font-size:12px;font-weight:650}
+.osi-report-recovery-candidate input{width:100%;min-width:0;min-height:42px;border:1px solid var(--line-bright);border-radius:7px;background:var(--surface,#0b111b);color:var(--text);font:500 12px/1.5 var(--mono);padding:9px 10px}
+.osi-report-recovery-candidate input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.osi-report-recovery-actions{display:flex;flex-wrap:wrap;gap:10px}
 .osi-review-status{min-height:22px;margin-top:10px;color:var(--muted);font-size:12px;line-height:1.55}
 .osi-review-status.success{color:var(--green,#55d89b)}
 .osi-review-status.error{color:var(--red,#ff6b7d)}
@@ -113,6 +125,9 @@
   .osi-report-review-actions{flex-direction:column}
   .osi-report-review-actions button{width:100%}
   .osi-report-bootstrap .osi-report-publish{width:100%}
+  .osi-report-recovery{margin-right:-10px;margin-left:-10px}
+  .osi-report-recovery-actions{flex-direction:column}
+  .osi-report-recovery-actions button,.osi-report-recovery-candidate .osi-report-publish{width:100%}
 }
 
 @media(prefers-reduced-motion:reduce){

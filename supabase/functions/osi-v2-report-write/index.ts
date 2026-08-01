@@ -20,10 +20,10 @@ import {
   canonicalReportGovernanceMessage,
   normalizeReportPayload,
   normalizeReportReview,
-  validateConfirmedReportTransaction,
   validateReportGovernanceBinding,
   validateReportIdempotencyKey,
   validateReportMemoBinding,
+  verifyReportMainnetMemoTransaction,
 } from "../_shared/osi-v2-report-core.mjs";
 import { refreshReviewVerifications, resolveReviewIdByPublicRef, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
 import { maintainerGate } from "../_shared/osi-v2-case-write-core.mjs";
@@ -89,6 +89,9 @@ function isoSeconds(value: unknown): number {
 
 function rpcFailure(error: Row | null, governance = false): Response {
   const code = safeText(error?.code);
+  if (safeText(error?.message) === "Report publication transaction outside issuance window") {
+    return jsonResponse(409, { ok: false, error: "publication_transaction_outside_window" });
+  }
   if (code === "42501") {
     return governance
       ? jsonResponse(403, { ok: false, error: "not_eligible_or_self_review" })
@@ -212,39 +215,9 @@ async function verifyMainnetMemoTransaction(
   issuedAt: number,
   expiresAt: number,
 ) {
-  if (!/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(txSig)) {
-    return { ok: false, reason: "bad_transaction_signature" };
-  }
-  let response: Response;
-  try {
-    response = await fetch(SOLANA_RPC_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([
-        { jsonrpc: "2.0", id: 1, method: "getTransaction", params: [txSig, {
-          commitment: "confirmed", encoding: "jsonParsed", maxSupportedTransactionVersion: 0,
-        }] },
-        { jsonrpc: "2.0", id: 2, method: "getSignatureStatuses", params: [[txSig], {
-          searchTransactionHistory: true,
-        }] },
-        { jsonrpc: "2.0", id: 3, method: "getGenesisHash" },
-      ]),
-    });
-  } catch {
-    return { ok: false, reason: "rpc_unavailable" };
-  }
-  if (!response.ok) return { ok: false, reason: "rpc_unavailable" };
-  let results: Row[];
-  try { results = await response.json() as Row[]; }
-  catch { return { ok: false, reason: "rpc_invalid_response" }; }
-  if (!Array.isArray(results)) return { ok: false, reason: "rpc_invalid_response" };
-  if (results.find((item) => item.id === 3)?.result !== MAINNET_GENESIS_HASH) {
-    return { ok: false, reason: "wrong_cluster" };
-  }
-  const transaction = results.find((item) => item.id === 1)?.result;
-  const status = results.find((item) => item.id === 2)?.result?.value?.[0];
-  return validateConfirmedReportTransaction(transaction, status, {
+  return await verifyReportMainnetMemoTransaction({
     tx_sig: txSig, wallet, memo, issued_at: issuedAt, expires_at: expiresAt,
+    rpc_url: SOLANA_RPC_URL, mainnet_genesis_hash: MAINNET_GENESIS_HASH,
   });
 }
 
@@ -625,23 +598,23 @@ async function commitPublication(req: Request, body: Row): Promise<Response> {
     return jsonResponse(409, { ok: false, error: "unknown_or_wrong_nonce" });
   }
   const binding = governanceBinding(bound, "publish");
-  const verificationTime = bound.consumed_at
-    ? Math.min(Math.floor(Date.now() / 1000), binding.expires_at)
-    : Math.floor(Date.now() / 1000);
+  // A finalized transaction may become queryable after the nonce deadline.
+  // Exact recovery remains constrained by its verified mainnet block time.
+  const verificationTime = Math.min(Math.floor(Date.now() / 1000), binding.expires_at);
   const exact = validateReportGovernanceBinding(memo, binding, verificationTime);
   if (!exact.ok || bound.actor_wallet !== wallet || binding.version_public_ref !== versionRef) {
     return jsonResponse(409, { ok: false, error: "proof_binding_rejected" });
   }
-  const chain = await verifyMainnetMemoTransaction(
-    txSig, wallet, memo, binding.issued_at, binding.expires_at,
-  );
-  if (!chain.ok) return jsonResponse(409, { ok: false, error: chain.reason });
   let maintainerAuthId = "";
   if (bound.binding_context?.decision_channel === "maintainer_bootstrap") {
     const gate = await fullMaintainer(req, wallet);
     if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
     maintainerAuthId = gate.auth_id;
   }
+  const chain = await verifyMainnetMemoTransaction(
+    txSig, wallet, memo, binding.issued_at, binding.expires_at,
+  );
+  if (!chain.ok) return jsonResponse(409, { ok: false, error: chain.reason });
   // The commit recomputes the publication quorum inside its transaction.
   await refreshReviewVerifications(admin, "report_version", String(bound.target_id ?? ""));
   const { data, error } = await admin.rpc("osi_v2_commit_report_publication", {
@@ -678,6 +651,60 @@ async function commitPublication(req: Request, body: Row): Promise<Response> {
       ? "Publication was finalized through the maintainer bootstrap (cold-start) channel, not an independent analyst quorum. It is not proof of truth, guilt, or legal certainty."
       : "Publication records a reviewed OSI process outcome. It is not proof of truth, guilt, or legal certainty.",
     idempotent_replay: committed.idempotent_replay === true,
+  });
+}
+
+async function listPublicationRecovery(req: Request, body: Row): Promise<Response> {
+  if (!await reportReviewWritesEnabled()) {
+    return jsonResponse(503, { ok: false, error: "report_review_writes_disabled" });
+  }
+  const wallet = safeText(body.wallet);
+  const versionRef = safeText(body.version_public_ref);
+  try { validateWallet(wallet); }
+  catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
+  if (!/^OSI-RV-[0-9A-F]{16}$/.test(versionRef)) {
+    return jsonResponse(400, { ok: false, error: "report_version_not_available" });
+  }
+  const gate = await fullMaintainer(req, wallet);
+  if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
+  const target = await exactVersion(versionRef);
+  if (target.error || !target.row
+      || !["submitted", "in_review"].includes(String(target.row.lifecycle_state))) {
+    return jsonResponse(200, { ok: true, version_public_ref: versionRef, candidates: [] });
+  }
+  const { data, error } = await admin.from("osi_nonces")
+    .select("nonce,purpose,actor_wallet,target_type,target_id,payload_hash,idempotency_key,issued_at,expires_at,consumed_at,binding_context")
+    .eq("purpose", REPORT_PUBLICATION_EVENT_TYPE)
+    .eq("actor_wallet", wallet)
+    .eq("target_type", "report_version")
+    .eq("target_id", String(target.row.id))
+    .is("consumed_at", null)
+    .order("issued_at", { ascending: false })
+    .limit(8);
+  if (error) return jsonResponse(500, { ok: false, error: "publication_recovery_unavailable" });
+  const candidates = (data ?? []).flatMap((row: Row) => {
+    if (row.binding_context?.decision_channel !== "maintainer_bootstrap"
+        || row.binding_context?.maintainer_auth_uuid !== gate.auth_id
+        || row.binding_context?.version_public_ref !== versionRef) return [];
+    const binding = governanceBinding(row, "publish");
+    try {
+      validateReportIdempotencyKey(String(row.idempotency_key ?? ""));
+      return [{
+        route: "maintainer_bootstrap",
+        version_public_ref: versionRef,
+        nonce: String(row.nonce),
+        memo: canonicalReportGovernanceMessage(binding),
+        issued_at: binding.issued_at,
+        expires_at: binding.expires_at,
+        idempotency_key: String(row.idempotency_key),
+      }];
+    } catch { return []; }
+  });
+  return jsonResponse(200, {
+    ok: true,
+    version_public_ref: versionRef,
+    candidates,
+    recovery_requires_existing_transaction: true,
   });
 }
 
@@ -747,6 +774,7 @@ serve(async (req: Request): Promise<Response> => {
     case "commit_review": return await commitReview(body);
     case "prepare_publication": return await preparePublication(req, body);
     case "commit_publication": return await commitPublication(req, body);
+    case "list_publication_recovery": return await listPublicationRecovery(req, body);
     case "capabilities": return await capabilities(body);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });
   }

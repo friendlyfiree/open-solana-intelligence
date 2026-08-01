@@ -477,6 +477,7 @@ async function installFixtureNetwork(page, options = {}) {
   let wireReviewed = false;
   let wirePublished = false;
   let expireReportReviewOnce = options.expireReportReviewOnce === true;
+  let publicationCommitIndexingLagOnce = options.publicationCommitIndexingLagOnce === true;
   let publicProfileRequestCount = 0;
 
   await page.route(/https:\/\/(?:bundle\.run|unpkg\.com|cdn\.jsdelivr\.net)\/.*/, (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
@@ -679,14 +680,32 @@ async function installFixtureNetwork(page, options = {}) {
       else if (body.op === 'prepare_publication') response = {
         ok: true,
         nonce: 'report-publication-nonce',
-        memo: 'OSI REPORT_PUBLISHED maintainer bootstrap fixture memo',
+        memo: `OSI2|1|REPORT_PUBLISHED|t=report_version|id=${body.version_public_ref}|a=${wallet}|r=${body.route === 'maintainer_bootstrap' ? 'maintainer' : 'analyst'}|d=publish|n=report-publication-nonce|h=${'a'.repeat(64)}|ts=${Math.floor(Date.now() / 1000)}|exp=${Math.floor(Date.now() / 1000) + 300}`,
+        expires_at: Math.floor(Date.now() / 1000) + 300,
         decision_channel: body.route === 'maintainer_bootstrap' ? 'maintainer_bootstrap' : 'standard_analyst_quorum',
       };
-      else if (body.op === 'commit_publication') response = {
+      else if (body.op === 'list_publication_recovery') response = {
         ok: true,
         version_public_ref: body.version_public_ref,
-        decision_channel: maintainerAccess ? 'maintainer_bootstrap' : 'standard_analyst_quorum',
+        candidates: options.publicationRecoveryCandidate ? [{
+          route: 'maintainer_bootstrap',
+          version_public_ref: body.version_public_ref,
+          nonce: 'historical-publication-nonce',
+          memo: `OSI2|1|REPORT_PUBLISHED|t=report_version|id=${body.version_public_ref}|a=${wallet}|r=maintainer|d=publish|n=historical-publication-nonce|h=${'b'.repeat(64)}|ts=${Math.floor(Date.now() / 1000) - 600}|exp=${Math.floor(Date.now() / 1000) - 300}`,
+          issued_at: Math.floor(Date.now() / 1000) - 600,
+          expires_at: Math.floor(Date.now() / 1000) - 300,
+          idempotency_key: 'report-publish:historical-recovery-fixture',
+        }] : [],
       };
+      else if (body.op === 'commit_publication' && publicationCommitIndexingLagOnce) {
+        publicationCommitIndexingLagOnce = false;
+        responseStatus = 409;
+        response = { ok: false, error: 'transaction_not_indexed' };
+      } else if (body.op === 'commit_publication') response = {
+          ok: true,
+          version_public_ref: body.version_public_ref,
+          decision_channel: maintainerAccess ? 'maintainer_bootstrap' : 'standard_analyst_quorum',
+        };
     } else if (endpoint === 'osi-v2-report-read') {
       if (body.op === 'list_review_queue' && Number(options.reportQueueDelayMs || 0) > 0) {
         await new Promise((resolve) => setTimeout(
@@ -1080,7 +1099,10 @@ async function ready(page, options = {}) {
     const expectedReviewQueueFailure = options.reportQueueFailure
       && message.type() === 'error'
       && /^Failed to load resource: the server responded with a status of 503 \(Service Unavailable\)$/.test(text);
-    if (!fixtureSriBlock && !expectedPublicFailure && !expectedSessionExpiry && !expectedReviewQueueFailure) page.__issue26Errors.push(`console ${message.type()}: ${text}`);
+    const expectedPublicationIndexingLag = options.publicationCommitIndexingLagOnce
+      && message.type() === 'error'
+      && /^Failed to load resource: the server responded with a status of 409 \(Conflict\)$/.test(text);
+    if (!fixtureSriBlock && !expectedPublicFailure && !expectedSessionExpiry && !expectedReviewQueueFailure && !expectedPublicationIndexingLag) page.__issue26Errors.push(`console ${message.type()}: ${text}`);
   });
   page.on('requestfailed', (request) => {
     const failure = request.failure() && request.failure().errorText || 'unknown';
@@ -1093,7 +1115,10 @@ async function ready(page, options = {}) {
     const expectedReviewQueueFailure = options.reportQueueFailure
       && response.status() === 503
       && response.url().includes('/functions/v1/osi-v2-report-read');
-    if (response.status() >= 400 && !(options.publicFailure && response.status() === 503 && response.url().includes('/functions/v1/')) && !expectedSessionExpiry && !expectedReviewQueueFailure) {
+    const expectedPublicationIndexingLag = options.publicationCommitIndexingLagOnce
+      && response.status() === 409
+      && response.url().includes('/functions/v1/osi-v2-report-write');
+    if (response.status() >= 400 && !(options.publicFailure && response.status() === 503 && response.url().includes('/functions/v1/')) && !expectedSessionExpiry && !expectedReviewQueueFailure && !expectedPublicationIndexingLag) {
       page.__issue26Errors.push(`http: ${response.status()} ${response.url()}`);
     }
   });
@@ -1656,6 +1681,75 @@ test('launch readiness: full maintainer controls review candidacy and finalize o
   await expect(page.locator('#osi-ai-approve')).toHaveCount(0);
   await page.locator('#osi-ai-pack-generate').click();
   await expectFixtureOperation(page, 'osi-v2-ai-pack', 'commit_generation');
+  expectCleanRuntime(page);
+});
+
+test('Report publication survives RPC indexing lag and browser refresh without a second Phantom transaction', async ({ page }) => {
+  test.setTimeout(120_000);
+  await ready(page, { role: 'maintainer', publicationCommitIndexingLagOnce: true });
+  await page.evaluate((tx) => {
+    sessionStorage.setItem('fixture_publication_wallet_calls', '0');
+    window.castOnchainVote = async () => {
+      sessionStorage.setItem('fixture_publication_wallet_calls', String(Number(sessionStorage.getItem('fixture_publication_wallet_calls') || 0) + 1));
+      return tx;
+    };
+    return window.osiV2OpenReportQueue();
+  }, TX);
+  const version = page.locator(`[data-report-version-ref="${reportFixture.current_version_ref}"]`);
+  await expect(version.getByRole('button', { name: 'Publish via maintainer bootstrap' })).toBeVisible();
+  await version.getByRole('button', { name: 'Publish via maintainer bootstrap' }).click();
+  await expect.poll(() => fixtureOperationCount(page, 'osi-v2-report-write', 'commit_publication')).toBe(1);
+  await expect(version.locator('[role="status"]')).toContainText('same transaction');
+  await expect(version.locator('[role="status"]')).toContainText('Phantom will not open again');
+  await expect.poll(() => page.evaluate((versionRef) => {
+    const key = Object.keys(sessionStorage).find((item) => item.startsWith('osi_report_publication_pending_v1:') && item.endsWith(`:${versionRef}`));
+    const pending = key && JSON.parse(sessionStorage.getItem(key));
+    return pending && pending.txSig;
+  }, reportFixture.current_version_ref)).toBe(TX);
+  await expect(version.locator('[role="status"]')).not.toContainText('Memo-anchored and public');
+
+  await page.reload();
+  await page.waitForFunction(() => typeof window.osiV2OpenReportQueue === 'function');
+  await page.evaluate(async ({ actor }) => {
+    if (typeof SUPA_AUTH_READY !== 'undefined') await SUPA_AUTH_READY;
+    if (typeof loadConfig === 'function') await loadConfig();
+    OSI_ADMIN_WALLET = actor;
+    if (typeof setMaintainerServerGate === 'function') setMaintainerServerGate(true, 'full');
+    if (typeof updateWalletUI === 'function') updateWalletUI();
+    return window.osiV2OpenReportQueue();
+  }, { actor: ROLE_WALLETS.maintainer });
+  const recoveredVersion = page.locator(`[data-report-version-ref="${reportFixture.current_version_ref}"]`);
+  const recovery = recoveredVersion.locator('[data-publication-recovery]');
+  await expect(recovery).toContainText('Recoverable pending transaction');
+  await expect(recovery).toContainText('Phantom will not open again');
+  await expect(recovery.getByRole('link', { name: /Open existing transaction/i })).toHaveAttribute('href', `https://solscan.io/tx/${TX}`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoPageOverflow(page);
+  const recoverButton = recovery.getByRole('button', { name: 'Recover publication' });
+  await recoverButton.focus();
+  await expect(recoverButton).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => fixtureOperationCount(page, 'osi-v2-report-write', 'commit_publication')).toBe(2);
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('fixture_publication_wallet_calls'))).toBe('1');
+  await expect.poll(() => page.evaluate(() => Object.keys(sessionStorage).filter((item) => item.startsWith('osi_report_publication_pending_v1:')).length)).toBe(0);
+  expectCleanRuntime(page);
+});
+
+test('full maintainer can recover a historical prepared publication with an existing transaction and no Phantom call', async ({ page }) => {
+  await ready(page, { role: 'maintainer', publicationRecoveryCandidate: true });
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const version = page.locator(`[data-report-version-ref="${reportFixture.current_version_ref}"]`);
+  const recovery = version.locator('[data-publication-recovery]');
+  await expect(recovery).toContainText('Recover an existing transaction');
+  await expect(recovery).toContainText('does not open Phantom');
+  await recovery.getByLabel('Existing Solana transaction signature').fill(TX);
+  const transactionCount = await page.evaluate(() => window.__fixtureProviderCounts().transaction);
+  const recoverButton = recovery.getByRole('button', { name: 'Recover with existing transaction' });
+  await recoverButton.focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => fixtureOperationCount(page, 'osi-v2-report-write', 'commit_publication')).toBe(1);
+  expect(await page.evaluate(() => window.__fixtureProviderCounts().transaction)).toBe(transactionCount);
+  await expect.poll(() => page.evaluate(() => Object.keys(sessionStorage).filter((item) => item.startsWith('osi_report_publication_pending_v1:')).length)).toBe(0);
   expectCleanRuntime(page);
 });
 
