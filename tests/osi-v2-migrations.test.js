@@ -1207,6 +1207,8 @@ ok(
     && reportPublicationRpcRecovery.includes('Report publication expiry guard drifted')
     && reportPublicationRpcRecovery.includes('p_occurred_at < bound.issued_at')
     && reportPublicationRpcRecovery.includes('p_occurred_at > bound.expires_at')
+    && reportPublicationRpcRecovery.includes('set consumed_at = p_occurred_at')
+    && !reportPublicationRpcRecovery.includes('drop constraint osi_nonces_consumption_check')
     && !/drop\s+(?:table|schema)/i.test(reportPublicationRpcRecovery),
 );
 

@@ -11,6 +11,7 @@ assert.match(workflow, /refs\/heads\/main/);
 assert.match(workflow, /\$\{NEW_VERSION\}_report_publication_rpc_recovery\.sql/);
 assert.match(workflow, /supabase db push --linked --dry-run/);
 assert.match(workflow, /\[ "\$got" = "\$NEW_VERSION" \]/);
+assert.match(workflow, /set consumed_at = p_occurred_at/);
 assert.match(workflow, /supabase db reset --local --no-seed/);
 assert.match(workflow, /supabase db lint --local --level error/);
 assert.match(workflow, /supabase test db/);

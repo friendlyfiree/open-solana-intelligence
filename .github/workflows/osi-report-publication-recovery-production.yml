@@ -269,6 +269,7 @@ jobs:
           definition="$(psql -Atqc "select pg_get_functiondef('osi_private.osi_v2_commit_report_publication(text,text,text,timestamptz,text)'::regprocedure)")"
           grep -Fq 'p_occurred_at < bound.issued_at' <<< "$definition"
           grep -Fq 'p_occurred_at > bound.expires_at' <<< "$definition"
+          grep -Fq 'set consumed_at = p_occurred_at' <<< "$definition"
           ! grep -Fq 'statement_timestamp() > bound.expires_at' <<< "$definition"
           supabase migration list --linked > "$PROOF_DIR/migration-list-after.txt"
 
