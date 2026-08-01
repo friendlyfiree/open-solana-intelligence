@@ -37,6 +37,7 @@ env:
   EXPECTED_PARTIAL_FUNCTION_VERSIONS: '{"osi-v2-analyst":17,"osi-v2-case-read":23,"osi-v2-report-read":19,"osi-v2-report-write":15,"osi-v2-wire":9}'
   EXPECTED_PARTIAL_FUNCTION_DIGESTS: '{"osi-v2-analyst":"9be64701b28cadf96d5ecf213a9741f4b854f0c75a544aa3012a2b065af59e94","osi-v2-case-read":"7ad1906b52c74425209314924f466751f62759f3d076a0e08f293b31952e5883","osi-v2-report-read":"c38267cd8aaa3a01d8f83d218d0c673618a9a64b1a488924d21f21df9d999d24","osi-v2-report-write":"029ea4aace8bc478357975e740d2071a25c7d2b941bd1861913234723b1d97b8","osi-v2-wire":"dbd8f5d4c53360b6d96148a2d285583a15f64b50842aeebb9088b845857662d1"}'
   TARGET_FUNCTION_VERSIONS: '{"osi-v2-analyst":18,"osi-v2-case-read":24,"osi-v2-report-read":19,"osi-v2-report-write":16,"osi-v2-wire":10}'
+  EXPECTED_COMPLETE_FUNCTION_DIGESTS: '{"osi-v2-analyst":"b679eee04ed49116b9ef1bd29024d7264ea8238d628e1b6a51d7249b02fb7b82","osi-v2-case-read":"e89897739779cdaaef9179f7a1e971d8284a30cac3fb39f8058233df2cffee0f","osi-v2-report-read":"c38267cd8aaa3a01d8f83d218d0c673618a9a64b1a488924d21f21df9d999d24","osi-v2-report-write":"a7c9fc6959809aba5ba072348e0e7e278957ea93df2a52344a3c1f4550e6583d","osi-v2-wire":"fc75e74494fcc7bf2f531d51bca8ddcdd3609f75a1ee8e52737121d44936decc"}'
   BEFORE_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949
     20260712002518 20260712121301 20260713045903 20260713184533
@@ -421,7 +422,9 @@ jobs:
             --argjson baseline_versions "$EXPECTED_FUNCTION_VERSIONS" \
             --argjson baseline_digests "$EXPECTED_FUNCTION_BASELINE_DIGESTS" \
             --argjson partial_versions "$EXPECTED_PARTIAL_FUNCTION_VERSIONS" \
-            --argjson partial_digests "$EXPECTED_PARTIAL_FUNCTION_DIGESTS" '
+            --argjson partial_digests "$EXPECTED_PARTIAL_FUNCTION_DIGESTS" \
+            --argjson target_versions "$TARGET_FUNCTION_VERSIONS" \
+            --argjson complete_digests "$EXPECTED_COMPLETE_FUNCTION_DIGESTS" '
             ([.[] | {key:.slug,value:.version}] | from_entries) as $versions |
             ([.[] | {key:.slug,value:.ezbr_sha256}] | from_entries) as $digests |
             if length == 5 and
@@ -430,18 +433,22 @@ jobs:
             then "baseline"
             elif length == 5 and
                  all(.[]; .status=="ACTIVE" and .verify_jwt==false) and
-                 $versions == $partial_versions and $digests == $partial_digests
-            then "partial_report_read"
-            else "invalid"
+                  $versions == $partial_versions and $digests == $partial_digests
+             then "partial_report_read"
+             elif length == 5 and
+                  all(.[]; .status=="ACTIVE" and .verify_jwt==false) and
+                  $versions == $target_versions and $digests == $complete_digests
+             then "complete_target"
+             else "invalid"
             end
           ' "$PROOF_DIR/functions-before.json")"
           [ "$function_rollout_mode" != "invalid" ] || {
-            echo "::error::Function versions or digests are not an exact approved baseline or partial-resume snapshot."
+            echo "::error::Function versions or digests are not an exact approved resumable snapshot."
             exit 1
           }
-          if [ "$function_rollout_mode" = "partial_report_read" ] &&
+          if [ "$function_rollout_mode" != "baseline" ] &&
              [ "$rollout_start_mode" != "contained_resume" ]; then
-            echo "::error::A partial function resume requires all seven task-scoped gates to be false."
+            echo "::error::A deployed function resume requires all seven task-scoped gates to be false."
             exit 1
           fi
           echo "FUNCTION_ROLLOUT_MODE=$function_rollout_mode" >> "$GITHUB_ENV"
@@ -739,14 +746,26 @@ jobs:
               '.[$slug]' <<< "$EXPECTED_FUNCTION_VERSIONS")"
             baseline_digest="$(jq -r --arg slug "$function_name" \
               '.[$slug]' <<< "$EXPECTED_FUNCTION_BASELINE_DIGESTS")"
+            target_version="$(jq -r --arg slug "$function_name" \
+              '.[$slug]' <<< "$TARGET_FUNCTION_VERSIONS")"
             [[ "$before_version" =~ ^[0-9]+$ ]]
             [[ "$baseline_version" =~ ^[0-9]+$ ]]
-            if [ "$before_version" = "$((baseline_version + 1))" ]; then
-              partial_digest="$(jq -r --arg slug "$function_name" \
-                '.[$slug]' <<< "$EXPECTED_PARTIAL_FUNCTION_DIGESTS")"
-              [ "$FUNCTION_ROLLOUT_MODE" = "partial_report_read" ]
-              [ "$function_name" = "osi-v2-report-read" ]
-              [ "$before_digest" = "$partial_digest" ]
+            [[ "$target_version" =~ ^[0-9]+$ ]]
+            [ "$target_version" = "$((baseline_version + 1))" ]
+            if [ "$before_version" = "$target_version" ]; then
+              case "$FUNCTION_ROLLOUT_MODE" in
+                partial_report_read)
+                  [ "$function_name" = "osi-v2-report-read" ]
+                  expected_deployed_digest="$(jq -r --arg slug "$function_name" \
+                    '.[$slug]' <<< "$EXPECTED_PARTIAL_FUNCTION_DIGESTS")"
+                  ;;
+                complete_target)
+                  expected_deployed_digest="$(jq -r --arg slug "$function_name" \
+                    '.[$slug]' <<< "$EXPECTED_COMPLETE_FUNCTION_DIGESTS")"
+                  ;;
+                *) echo "::error::Unexpected deployed function resume mode."; exit 1 ;;
+              esac
+              [ "$before_digest" = "$expected_deployed_digest" ]
               printf '%s\n' "$function_name" \
                 >> "$RUNNER_TEMP/osi-deployed-functions.txt"
               continue
@@ -811,17 +830,17 @@ jobs:
             sort_by(.slug)' > "$PROOF_DIR/functions-after.json"
           jq -e --slurp \
             --argjson target_versions "$TARGET_FUNCTION_VERSIONS" \
-            --argjson baseline_digests "$EXPECTED_FUNCTION_BASELINE_DIGESTS" '
+            --argjson target_digests "$EXPECTED_COMPLETE_FUNCTION_DIGESTS" '
             .[0] as $before | .[1] as $after |
             ($before|length)==5 and ($after|length)==5 and
             all($after[]; .status=="ACTIVE" and .verify_jwt==false) and
             ([ $after[] | {key:.slug,value:.version}] | from_entries) ==
               $target_versions and
-            all($after[] as $item;
-              $item.ezbr_sha256 != $baseline_digests[$item.slug])
+            ([ $after[] | {key:.slug,value:.ezbr_sha256}] | from_entries) ==
+              $target_digests
           ' "$PROOF_DIR/functions-before.json" \
             "$PROOF_DIR/functions-after.json"
-          printf 'commit=%s\nversion_transition=exact_task_target_with_pinned_partial_resume\n' \
+          printf 'commit=%s\nversion_transition=exact_task_target_with_pinned_resumable_snapshot\n' \
             "$GITHUB_SHA" > "$PROOF_DIR/function-deployment-attestation.txt"
 
       - name: Non-mutating production HTTP and site smokes

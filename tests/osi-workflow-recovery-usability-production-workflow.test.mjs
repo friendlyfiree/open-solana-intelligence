@@ -60,6 +60,9 @@ matches(workflow,
   /TARGET_FUNCTION_VERSIONS: '[^\n]*"osi-v2-analyst":18[^\n]*"osi-v2-case-read":24[^\n]*"osi-v2-report-read":19[^\n]*"osi-v2-report-write":16[^\n]*"osi-v2-wire":10/,
   "the exact completed function target is pinned");
 matches(workflow,
+  /EXPECTED_COMPLETE_FUNCTION_DIGESTS: '[^\n]*"osi-v2-analyst":"b679eee04ed49116b9ef1bd29024d7264ea8238d628e1b6a51d7249b02fb7b82"[^\n]*"osi-v2-wire":"fc75e74494fcc7bf2f531d51bca8ddcdd3609f75a1ee8e52737121d44936decc"/,
+  "the exact fully deployed contained snapshot digests are pinned");
+matches(workflow,
   /20260729134213_osi_v2_workflow_recovery_usability\.sql/,
   "the exact migration filename is required and nonempty");
 matches(workflow,
@@ -212,11 +215,19 @@ matches(deployBlock,
   /type == "string"[\s\S]*fromdateiso8601/,
   "ISO Supabase function timestamps remain supported");
 matches(deployBlock,
-  /FUNCTION_ROLLOUT_MODE" = "partial_report_read"[\s\S]*function_name" = "osi-v2-report-read"[\s\S]*continue/,
+  /partial_report_read\)[\s\S]*function_name" = "osi-v2-report-read"[\s\S]*continue/,
   "the exact attested partial report-read deployment is not redeployed");
+matches(deployBlock,
+  /complete_target\)[\s\S]*EXPECTED_COMPLETE_FUNCTION_DIGESTS[\s\S]*continue/,
+  "a fully deployed contained resume skips every exact target function");
 matches(deployBlock,
   /--argjson target_versions "\$TARGET_FUNCTION_VERSIONS"[\s\S]*\$target_versions/,
   "the final five-function snapshot must equal the exact task target");
+matches(deployBlock,
+  /\{key:\.slug,value:\.ezbr_sha256\}[\s\S]*\$target_digests/,
+  "the final five-function snapshot must equal the exact complete digest map");
+excludes(deployBlock, /all\(\$after\[\] as \$item;/,
+  "final attestation does not use the invalid jq all-as binding syntax");
 
 const smokeStart = workflow.indexOf("Non-mutating production HTTP and site smokes");
 const smokeEnd = workflow.indexOf(
@@ -291,8 +302,11 @@ matches(productionBlock,
   /task_gates_true[\s\S]*task_gates_false[\s\S]*rollout_start_mode="live"[\s\S]*rollout_start_mode="contained_resume"/,
   "the seven task gates must be uniformly live or uniformly fail-closed");
 matches(productionBlock,
-  /function_rollout_mode" = "partial_report_read"[\s\S]*rollout_start_mode" != "contained_resume"/,
-  "a partial function snapshot is accepted only while every task gate is contained");
+  /function_rollout_mode" != "baseline"[\s\S]*rollout_start_mode" != "contained_resume"/,
+  "every deployed function resume snapshot is accepted only while every task gate is contained");
+matches(productionBlock,
+  /\$versions == \$target_versions and \$digests == \$complete_digests[\s\S]*then "complete_target"/,
+  "the exact fully deployed snapshot is recognized as a resumable target");
 const taskGates = [
   "OSI_V2_CASE_WRITES_ENABLED",
   "OSI_V2_ANALYST_WRITES_ENABLED",
