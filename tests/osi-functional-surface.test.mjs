@@ -11,6 +11,7 @@ const index = read("index.html");
 const legacy = read("legacy.html");
 const script = read("assets/js/88-functional-surface.js");
 const aiPack = read("assets/js/v2-ai-pack-integration.js");
+const legacyAiPack = read("assets/js/80-ai-pack.js");
 const home = index.slice(index.indexOf('<section class="osi-home osi-home-hero"'), index.indexOf('<section class="sec" id="records-hero"'));
 const platformMenuStart = index.indexOf('id="platform-menu"');
 const platformMenu = index.slice(platformMenuStart, index.indexOf('<button class="osi-nav-link"', platformMenuStart));
@@ -88,6 +89,13 @@ ok("legacy keeps its archived runtime dependencies",
     && legacy.includes("assets/js/12-demo-briefing.js")
     && legacy.includes("assets/js/22-analyst-intake.js")
     && legacy.includes("assets/js/80-ai-pack.js"));
+ok("retired preview and unreachable legacy control code stays removed",
+  !existsSync(join(root, "assets/js/v2-case-app.js"))
+    && !existsSync(join(root, "assets/css/v2-shell.css"))
+    && !legacy.includes('id="adm-edit-modal"')
+    && !legacy.includes('id="esc-pack-controls"')
+    && !legacyAiPack.includes("escGenerate")
+    && !legacyAiPack.includes("escLoadCases"));
 ok("retired preview file is absent and permanently redirected to root",
   !existsSync(join(root, "v2-preview.html"))
     && read("vercel.json").includes('"source": "/v2-preview.html"')

@@ -202,7 +202,6 @@ function plProofState(ev){
   }
   return {key:'legacy',label:'Legacy / not server-verified',tx_sig:'',legacy_tx_sig:plValidTxSig(ev.tx_sig)?String(ev.tx_sig):'',onchain:false};
 }
-function plMemoStatus(ev){ return plProofState(ev).label; }
 function plCanonicalCaseRef(ev){
   var values=[ev&&ev.case_public_ref,ev&&ev.case_ref,ev&&ev.target_public_ref,ev&&ev.public_ref,ev&&ev.item_id];
   for(var i=0;i<values.length;i++){

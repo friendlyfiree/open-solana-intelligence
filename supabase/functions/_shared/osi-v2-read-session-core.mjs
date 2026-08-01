@@ -99,10 +99,6 @@ export function readSessionIssuer(supabaseUrl) {
   }
 }
 
-export function isReadSessionFeatureEnabled(value) {
-  return value === "true";
-}
-
 function normalizedScopes(scopes) {
   if (!Array.isArray(scopes)) throw new TypeError("bad_scopes");
   const result = [...new Set(scopes.map((scope) => String(scope)))].sort();

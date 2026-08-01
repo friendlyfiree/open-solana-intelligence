@@ -125,11 +125,6 @@ function admLockedHost(){
 function admClearProtectedData(){
   var consoleHost = document.getElementById('admConsole'); if(consoleHost) consoleHost.innerHTML = '<div class="moc-loading">Maintainer access locked.</div>';
   var queue = document.getElementById('admQueue'); if(queue) queue.innerHTML = '';
-  var controls = document.getElementById('esc-pack-controls'); if(controls) controls.innerHTML = '';
-  var out = document.getElementById('esc-out'); if(out) out.value = '';
-  var outWrap = document.getElementById('esc-out-wrap'); if(outWrap) outWrap.style.display = 'none';
-  var status = document.getElementById('esc-status'); if(status) status.textContent = 'Locked';
-  window.__admBounties = [];
   window.__admConsoleModel = null;
   window.__admSelectedKey = null;
   var analystQueue = document.getElementById('osi-analyst-ops');
@@ -520,7 +515,6 @@ async function admRefresh(){
     if(!resolveMaintainerAccess().allowed){ renderAdminAccess({clear:true}); return; }
     const model = admConsoleModel({ reports:reads[0], bounties:reads[1], analysts:reads[2], challenges:reads[3], vouches:reads[4], events:reads[5], ai:reads[7], sas:reads[8] });
     model.v2=reads[6];
-    window.__admBounties = reads[1].rows || [];
     admRenderConsole(model);
   }catch(e){
     if(host) host.innerHTML='<div class="moc-error">Could not load the operations center ('+admEsc(e.message)+'). Recheck maintainer access and Supabase policies, then refresh.</div>';
@@ -555,21 +549,6 @@ function admReflow(){
   try{ if(typeof renderFieldOffice==='function') renderFieldOffice(); }catch(_){}
   try{ if(typeof renderWire==='function') renderWire(); }catch(_){}
   try{ if(typeof renderActivity==='function') renderActivity(); }catch(_){}
-}
-async function admSet(table, id, approved){
-  if(!requireMaintainerAccess(approved ? 'Approve item' : 'Unpublish item')) return;
-  osiSignEvent({ eventType: approved?'MAINTAINER_APPROVAL':'MAINTAINER_REJECTION', actionLabel: approved?'Approve item':'Unpublish item', caseId: (table==='bounties'?id:''), reportId: (table==='reports'?id:''), itemType: (table==='reports'?'report':(table==='bounties'?'bounty':String(table||'item'))), itemId: id, sensitive: !approved, publicLabel: (approved?'Maintainer approved':null), onSuccess: async (sig)=>{
-  try{ await supaPatch(table+'?id=eq.'+encodeURIComponent(id), { approved: approved }); showToast(approved?'Published. Now public for everyone.':'Unpublished.'); admRefresh(); admReflow(); }
-  catch(e){ showToast('Action failed: '+e.message); }
-  }});
-}
-async function admDel(table, id){
-  if(!requireMaintainerAccess('Delete item')) return;
-  if(!confirm('Delete this permanently? This cannot be undone.')) return;
-  osiSignEvent({ eventType:'RECORD_DELETED', actionLabel:'Delete item', caseId: (table==='bounties'?id:''), reportId: (table==='reports'?id:''), itemType: (table==='reports'?'report':(table==='bounties'?'bounty':String(table||'item'))), itemId: id, sensitive:true, onSuccess: async (sig)=>{
-  try{ await supaDelete(table+'?id=eq.'+encodeURIComponent(id)); showToast('Deleted.'); admRefresh(); admReflow(); }
-  catch(e){ showToast('Delete failed: '+e.message); }
-  }});
 }
 document.addEventListener('DOMContentLoaded', function(){ if(location.hash==='#admin'){ try{ showView('admin'); }catch(_){} } });
 window.addEventListener('hashchange', function(){ if(location.hash==='#admin'){ try{ showView('admin'); }catch(_){} } });

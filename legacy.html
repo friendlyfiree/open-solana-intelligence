@@ -881,10 +881,6 @@
       <div class="moc-loading">Loading maintainer operations center...</div>
     </div>
     <div id="admQueue" style="display:none"></div>
-    <div id="esc-pack-controls" style="display:none"></div>
-    <textarea id="esc-out" style="display:none"></textarea>
-    <div id="esc-out-wrap" style="display:none"></div>
-    <span id="esc-status" style="display:none"></span>
   </div>
 </div></div>
 </section>
@@ -1363,29 +1359,6 @@
 <script src="./assets/js/84-public-records.js"></script>
 <script src="./assets/js/99-app.js"></script>
 <link rel="stylesheet" href="./assets/css/50-late-components.css">
-<div class="adm-edit" id="adm-edit-modal">
-  <div class="adm-edit-box">
-    <button class="adm-edit-x" onclick="admCloseEdit()">×</button>
-    <div class="adm-edit-h">Edit case</div>
-    <input type="hidden" id="aeb-id">
-    <label class="aeb-lab">Target</label>
-    <input class="aeb-in" id="aeb-target" placeholder="Case subject  ·  wallet, scam, or incident">
-    <label class="aeb-lab">Brief</label>
-    <textarea class="aeb-in aeb-ta" id="aeb-detail" placeholder="What this case needs proven"></textarea>
-    <label class="aeb-lab">Reward (SOL, max 2)</label>
-    <input class="aeb-in" id="aeb-reward" type="number" step="0.1" min="0" max="2" placeholder="0">
-    <label class="aeb-lab">Logo / image</label>
-    <input class="aeb-in" id="aeb-image" placeholder="Image URL (or upload below)">
-    <div class="file-drop">
-      <input type="file" id="aeb-file" accept="image/*" style="display:none" onchange="onPickFile('aeb')">
-      <button type="button" class="file-btn" onclick="document.getElementById('aeb-file').click()">🖼 Upload a logo</button>
-      <span class="file-name mono" id="aeb-file-name"></span>
-      <div class="file-prev" id="aeb-file-prev"></div>
-    </div>
-    <button class="adm-edit-save" onclick="admSaveBounty()">Save changes</button>
-    <div class="aeb-msg mono" id="aeb-msg"></div>
-  </div>
-</div>
 <div id="osi-welcome" class="osi-welcome" hidden>
   <div class="ow-card">
     <button class="ow-x" onclick="welcomeClose()" aria-label="Close">&times;</button>

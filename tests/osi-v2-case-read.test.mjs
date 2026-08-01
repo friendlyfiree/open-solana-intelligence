@@ -461,7 +461,7 @@ ok("maintainer overview reports broad and exact Case flags verbatim",
 // ---------------------------------------------------------------------------
 // Stored-XSS escaping in the V2 frontend renderer.
 // ---------------------------------------------------------------------------
-const appSource = readFileSync(join(root, "assets/js/v2-case-app.js"), "utf8");
+const appSource = readFileSync(join(root, "assets/js/v2-case-integration.js"), "utf8");
 function loadFn(src, name) {
   const start = src.indexOf("function " + name + "(");
   if (start === -1) throw new Error(name + " not found");
@@ -472,10 +472,10 @@ function loadFn(src, name) {
   }
   return (0, eval)("(" + src.slice(start, end).replace("function " + name, "function") + ")");
 }
-const escapeHtml = loadFn(appSource, "escapeHtml");
-ok("v2 escapeHtml neutralises all five significant characters",
+const escapeHtml = loadFn(appSource, "esc");
+ok("active v2 escapeHtml neutralises all five significant characters",
   escapeHtml("<>&\"'") === "&lt;&gt;&amp;&quot;&#39;");
-ok("v2 escapeHtml neutralises a script payload",
+ok("active v2 escapeHtml neutralises a script payload",
   !escapeHtml("</script><img src=x onerror=alert(1)>").includes("<"));
 
 // ---------------------------------------------------------------------------
@@ -555,10 +555,10 @@ const configToml = readFileSync(join(root, "supabase/config.toml"), "utf8");
 ok("config.toml declares explicit auth for osi-v2-case-read",
   /\[functions\.osi-v2-case-read\][\s\S]*?verify_jwt\s*=\s*false/.test(configToml));
 
-// The classic app source never logs API payloads and never touches the
+// The active classic app source never logs API payloads and never touches the
 // service key; the only key literal allowed is the publishable config global.
-ok("v2 app never console.logs API data", !/console\.log/.test(appSource));
-ok("v2 app holds no service-role literal", !/service_role|SERVICE_ROLE/i.test(appSource));
+ok("active v2 app never console.logs API data", !/console\.log/.test(appSource));
+ok("active v2 app holds no service-role literal", !/service_role|SERVICE_ROLE/i.test(appSource));
 
 console.log((fail ? "FAILED: " + fail : "OK") + " (" + pass + " assertions passed, " + fail + " failed)");
 process.exit(fail ? 1 : 0);

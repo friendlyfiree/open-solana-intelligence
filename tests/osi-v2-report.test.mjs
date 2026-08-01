@@ -507,9 +507,13 @@ ok("author, review and public Report reads exclude archived and legacy-import pa
     && readSource.includes('return !!caseRow && (access === "author" || (')
     && readSource.includes('header.author_wallet !== viewerWallet')
     && readSource.includes('caseRow?.submitted_by_wallet !== viewerWallet'));
-ok("read gateway has durable issue and consume RPCs but no domain writes",
-  readSource.includes('rpc("osi_v2_issue_read_nonce"')
-    && readSource.includes('rpc("osi_v2_consume_read_nonce"')
+ok("read gateway uses the shared read session without a dormant per-endpoint challenge path or domain writes",
+  readSource.includes("verifyReadSessionToken")
+    && readSource.includes("READ_SESSION_SCOPES.REPORT_MINE")
+    && readSource.includes("READ_SESSION_SCOPES.REPORT_REVIEW")
+    && !readSource.includes('case "issue_read_challenge"')
+    && !readSource.includes('rpc("osi_v2_issue_read_nonce"')
+    && !readSource.includes('rpc("osi_v2_consume_read_nonce"')
     && !/[.]insert\(|[.]update\(|[.]delete\(|[.]upsert\(/.test(readSource));
 ok("database commit is one exact atomic function",
   /create function osi_private\.osi_v2_commit_report_version[\s\S]*insert into public\.event_receipts[\s\S]*update public\.osi_nonces[\s\S]*insert into public\.case_report_versions[\s\S]*update public\.case_reports/i.test(migration));

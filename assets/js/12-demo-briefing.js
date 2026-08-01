@@ -66,16 +66,6 @@ function demoBoxApply(){
   var m = document.getElementById('apply-modal');
   if(m){ var nm = document.getElementById('apply-bounty-name'); if(nm) nm.textContent = '\uD83C\uDFAF Sample target'; m.classList.add('open'); }
 }
-function demoBoxPay(){
-  if(!location.pathname.toLowerCase().endsWith('/legacy.html')){
-    if(typeof showToast === 'function') showToast('Open an eligible V2 reward or support surface to review a real transfer.');
-    return;
-  }
-  // No hardcoded fallback wallet. Support opens only to the configured OSI wallet.
-  var w = (typeof OSI_SUPPORT_WALLET !== 'undefined' && OSI_SUPPORT_WALLET) ? OSI_SUPPORT_WALLET : '';
-  if(!w){ if(typeof showToast === 'function') showToast('Support is unavailable until a support wallet is configured.'); return; }
-  if(typeof openTip === 'function') openTip(w, 'OSI project support', 0.1, '\u25CE Voluntary support', {kind:'osi'});
-}
 function demoBoxWire(){ if(typeof wireOpenForm === 'function') wireOpenForm(); demoBlurInputs(); }
 function demoBoxGuard(){ if(typeof osiSubmitGuard === 'function'){ osiSubmitGuard('report', function(){}); } }
 function demoBoxCloseAll(){

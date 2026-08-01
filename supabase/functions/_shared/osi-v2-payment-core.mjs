@@ -639,12 +639,3 @@ export function validateFinalizedPaymentTransaction(transaction, signatureStatus
     total_lamports: normalized.total_lamports,
   };
 }
-
-export function paymentProgramIds() {
-  return {
-    system: SYSTEM_PROGRAM,
-    memo: MEMO_PROGRAM,
-    compute_budget: COMPUTE_BUDGET_PROGRAM,
-    lighthouse: LIGHTHOUSE_PROGRAM,
-  };
-}
