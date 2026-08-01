@@ -110,7 +110,9 @@ jobs:
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           "$(go env GOPATH)/bin/actionlint" .github/workflows/osi-report-publication-recovery-production.yml
           bash -n tests/osi-v2-concurrency.test.sh
-          shellcheck tests/osi-v2-concurrency.test.sh
+          # cleanup() is reached through the EXIT trap; SC2317/SC2329 cannot
+          # infer that indirect call. Every other ShellCheck rule stays enforced.
+          shellcheck --exclude=SC2317,SC2329 tests/osi-v2-concurrency.test.sh
 
       - name: Desktop mobile keyboard and refresh recovery
         run: |
