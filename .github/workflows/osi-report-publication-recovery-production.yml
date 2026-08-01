@@ -51,9 +51,11 @@ jobs:
     timeout-minutes: 70
     steps:
       - name: Require exact confirmation and current main
+        env:
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
         run: |
           set -euo pipefail
-          [ "${{ github.event.inputs.confirm }}" = "REPORT-RECOVERY-${EXPECTED_PROJECT_REF}" ]
+          [ "$CONFIRM_INPUT" = "REPORT-RECOVERY-${EXPECTED_PROJECT_REF}" ]
           [ "$GITHUB_REF" = "refs/heads/main" ]
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -150,10 +152,11 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
         run: |
           set -euo pipefail
           mkdir -p "$PROOF_DIR"
-          [ "${{ github.event.inputs.confirm }}" = "REPORT-RECOVERY-${EXPECTED_PROJECT_REF}" ]
+          [ "$CONFIRM_INPUT" = "REPORT-RECOVERY-${EXPECTED_PROJECT_REF}" ]
           [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
           [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
           git fetch origin main --quiet
@@ -282,7 +285,10 @@ jobs:
           grep -Fq 'p_occurred_at < bound.issued_at' <<< "$definition"
           grep -Fq 'p_occurred_at > bound.expires_at' <<< "$definition"
           grep -Fq 'set consumed_at = p_occurred_at' <<< "$definition"
-          ! grep -Fq 'statement_timestamp() > bound.expires_at' <<< "$definition"
+          if grep -Fq 'statement_timestamp() > bound.expires_at' <<< "$definition"; then
+            echo "::error::The legacy commit-time expiry guard is still present."
+            exit 1
+          fi
           supabase migration list --linked > "$PROOF_DIR/migration-list-after.txt"
 
       - name: Deploy and attest only osi-v2-report-write
