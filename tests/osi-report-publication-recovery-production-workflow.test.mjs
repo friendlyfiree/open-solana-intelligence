@@ -19,6 +19,9 @@ assert.match(workflow, /tests\/osi-v2-concurrency\.test\.sh/);
 assert.match(workflow, /npx playwright test --config tests\/browser\/playwright\.config\.js/);
 assert.match(workflow, /actionlint/);
 assert.match(workflow, /bash -n tests\/osi-v2-concurrency\.test\.sh/);
+assert.match(workflow, /deno_check_with_retry\(\)/);
+assert.match(workflow, /for attempt in 1 2 3/);
+assert.match(workflow, /deno_check_with_retry "\$\{deno_sources\[@\]\}" tests\/osi-core-flow-production-smoke\.mjs/);
 assert.match(workflow, /EXPECTED_REPORT_WRITE_VERSION: "16"/);
 assert.match(workflow, /EXPECTED_REPORT_WRITE_DIGEST: a7c9fc6959809aba5ba072348e0e7e278957ea93df2a52344a3c1f4550e6583d/);
 
@@ -49,4 +52,4 @@ const uses = [...workflow.matchAll(/uses:\s+\S+@(\S+)/g)].map((match) => match[1
 assert.ok(uses.length >= 5);
 assert.ok(uses.every((ref) => /^[0-9a-f]{40}$/.test(ref)));
 
-console.log("osi-report-publication-recovery-production-workflow: 30 passed, 0 failed");
+console.log("osi-report-publication-recovery-production-workflow: 33 passed, 0 failed");
