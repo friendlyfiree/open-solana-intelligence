@@ -7,11 +7,14 @@ const workflow = readFileSync(new URL(
 ), "utf8");
 
 assert.match(workflow, /workflow_dispatch:[\s\S]*REPORT-RECOVERY-\$\{EXPECTED_PROJECT_REF\}/);
+assert.equal((workflow.match(/CONFIRM_INPUT: \$\{\{ github\.event\.inputs\.confirm \}\}/g) ?? []).length, 2);
+assert.doesNotMatch(workflow, /\[ "\$\{\{ github\.event\.inputs\.confirm \}\}" =/);
 assert.match(workflow, /refs\/heads\/main/);
 assert.match(workflow, /\$\{NEW_VERSION\}_report_publication_rpc_recovery\.sql/);
 assert.match(workflow, /supabase db push --linked --dry-run/);
 assert.match(workflow, /\[ "\$got" = "\$NEW_VERSION" \]/);
 assert.match(workflow, /set consumed_at = p_occurred_at/);
+assert.match(workflow, /if grep -Fq 'statement_timestamp\(\) > bound\.expires_at'/);
 assert.match(workflow, /supabase db reset --local --no-seed/);
 assert.match(workflow, /supabase db lint --local --level error/);
 assert.match(workflow, /supabase test db/);
@@ -52,4 +55,4 @@ const uses = [...workflow.matchAll(/uses:\s+\S+@(\S+)/g)].map((match) => match[1
 assert.ok(uses.length >= 5);
 assert.ok(uses.every((ref) => /^[0-9a-f]{40}$/.test(ref)));
 
-console.log("osi-report-publication-recovery-production-workflow: 33 passed, 0 failed");
+console.log("osi-report-publication-recovery-production-workflow: 36 passed, 0 failed");
