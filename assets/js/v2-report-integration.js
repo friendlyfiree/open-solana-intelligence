@@ -266,6 +266,12 @@
       var reason=document.getElementById('osi-report-revision-reason');
       revision.hidden=!state.isRevision;reason.required=state.isRevision;
       restoreDraft(wallet,caseRef);
+      // Deliberately not restored from a draft: choosing to publish without a
+      // readable finding is re-affirmed each time the form is opened.
+      var waived=document.getElementById('osi-report-no-summary');
+      if(waived)waived.checked=false;
+      var summaryField=document.getElementById('osi-report-summary');
+      if(summaryField)summaryField.setCustomValidity('');
       var context=document.getElementById('osi-report-context');
       context.textContent=state.isRevision
         ? caseRef+' · Revision of '+existing.report_public_ref+' · Next version '+(Number(existing.current_version_no)+1)
@@ -315,9 +321,30 @@
     });
   }
 
+  // A published Report with no public-safe summary is an accepted, honest
+  // nullable state, so the form must not forbid it. What the form must not do
+  // is let it happen by accident, which is what the previous copy caused. The
+  // summary is therefore the guided default and omitting it is an explicit,
+  // acknowledged choice.
+  function syncSummaryRequirement(){
+    var summary=document.getElementById('osi-report-summary');
+    var waived=document.getElementById('osi-report-no-summary');
+    if(!summary)return;
+    var text=String(summary.value||'').trim();
+    if(!text){
+      summary.setCustomValidity(waived&&waived.checked
+        ? ''
+        : 'Write the public-safe summary, or tick the box below to publish this Report with proof and evidence only.');
+      return;
+    }
+    summary.setCustomValidity(text.length<40
+      ? 'A public-safe summary needs at least 40 characters so a reader gets a usable finding.'
+      : '');
+  }
   async function submitReport(event){
     if(event)event.preventDefault();
     var form=document.getElementById('osi-report-form');
+    syncSummaryRequirement();
     if(!form||!form.reportValidity()||state.busy)return;
     var report=payload();
     if(report.evidence.length>12){status('A Report version can include at most 12 evidence references.','error');return;}
@@ -402,6 +429,18 @@
       return'<div><dt>'+esc(pair[0])+'</dt><dd class="mono">'+esc(pair[1]==null?'':pair[1])+'</dd></div>';
     }).join('')+'</dl>'+(proof.tx_sig?'<div class="osi-report-proof-sig mono" data-osi-user-content>'+esc(proof.tx_sig)+'</div>':'');
   }
+  // A published summary is prose an analyst wrote, and it can be up to 4,000
+  // characters. Preserve its paragraphs so it reads as a finding instead of one
+  // unbroken block. Every chunk is escaped: only the structure is markup.
+  function publicProse(value){
+    var text=String(value==null?'':value).replace(/\r\n?/g,'\n').trim();
+    if(!text)return'';
+    return text.split(/\n{2,}/).map(function(block){
+      return'<p data-osi-user-content>'+block.split('\n').map(function(line){
+        return esc(line.trim());
+      }).join('<br>')+'</p>';
+    }).join('');
+  }
   function publishedRows(rows){
     rows=(rows||[]).filter(function(row){return row&&row.state==='published';});
     if(!rows.length)return'<div class="osi-v2-empty"><b>No published Reports</b><span>Every Report and exact version stays private until publication is finalized.</span></div>';
@@ -410,7 +449,7 @@
       var detailId='osi-report-detail-'+esc(row.version_public_ref);
       var progress='<div class="osi-report-quorum" aria-label="Publication quorum"><span><b>'+esc(q.approve_count||0)+'</b> / '+esc(q.required_count||0)+' analysts</span><span><b>'+esc(Number(q.approve_weight||0).toFixed(2))+'</b> / '+esc(Number(q.required_weight||0).toFixed(2))+' weight</span></div>';
       var summary=row.content_public_safe
-        ? '<p class="osi-report-public-body" data-osi-user-content><b>Public-safe summary:</b> '+esc(row.content_public_safe)+'</p>'
+        ? '<div class="osi-report-public-body"><h4>'+esc(t('Published finding'))+'</h4>'+publicProse(row.content_public_safe)+'</div>'
         : '<p class="osi-report-public-body" role="note"><b>No public-safe summary was provided.</b> Publication metadata, public evidence and proof remain available. The restricted Report body is not public.</p>';
       var content=summary+publicEvidence(row.evidence);
       var proof=publicationChannelHtml(row.publication_proof)+(row.publication_proof&&row.publication_proof.tx_sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(row.publication_proof.tx_sig)+'" target="_blank" rel="noopener">Verify REPORT_PUBLISHED on Solscan ↗</a>':'');
@@ -423,7 +462,10 @@
         +'<span class="osi-proof-label">'+esc(row.state==='published'?'Published':'Under review')+'</span>'
         +'<span class="osi-report-public-toggle" aria-hidden="true">'+esc(t('Report detail'))+'</span></button>';
       var detail='<div class="osi-report-public-detail" id="'+detailId+'" hidden>'+publicationProofDetail(row)+'</div>';
-      return'<article class="osi-report-public-card" data-report-public-ref="'+esc(row.report_public_ref)+'" data-report-version-public-ref="'+esc(row.version_public_ref)+'">'+head+progress+content+publicReviewTimeline(row.review_timeline)+proof+detail+support+'<p class="osi-report-process-note">'+esc(row.process_notice)+'</p></article>';
+      // Reading order is the finding first. Governance numbers, proof and the
+      // support control follow it; they explain the finding rather than stand
+      // between the reader and it.
+      return'<article class="osi-report-public-card" data-report-public-ref="'+esc(row.report_public_ref)+'" data-report-version-public-ref="'+esc(row.version_public_ref)+'">'+head+content+progress+publicReviewTimeline(row.review_timeline)+proof+detail+support+'<p class="osi-report-process-note">'+esc(row.process_notice)+'</p></article>';
     }).join('')+'</div>';
   }
   function sectionIsCurrent(token,caseRef,host){
@@ -572,6 +614,36 @@
     var parts=['Tier '+label(tier)];if(eligible!=null)parts.push(eligible+' live eligible analysts');if(required!=null)parts.push(required+' independent required');if(weight!=null)parts.push(Number(weight).toFixed(2)+' weight required');
     return parts.join(' · ');
   }
+  // Counted approve weight reaching the threshold is the moment the workflow
+  // turns, so it gets its own unmissable state instead of only flipping a
+  // disabled attribute deep inside the review form. Publication itself still
+  // needs one wallet-signed REPORT_PUBLISHED Memo: OSI holds no signing key,
+  // so no server can publish unattended, and this says so plainly.
+  // Quorum is met but this wallet is not the one who can finish it. Say which
+  // wallet can, in a sentence, rather than surfacing a raw server reason code.
+  function readyBlockedCopy(reasonCode){
+    if(reasonCode==='active_approve_review_required')return'Any analyst whose active review on this exact version is approve can publish it. Cast or revise your review to approve to take that step.';
+    if(reasonCode==='analyst_not_eligible')return'An eligible analyst who approved this exact version completes the publication. This wallet does not carry counted analyst weight.';
+    if(reasonCode==='report_author_conflict')return'The Report author cannot publish their own version. An approving independent analyst completes this step.';
+    if(reasonCode==='case_owner_conflict')return'The Case owner cannot publish a Report on their own Case. An approving independent analyst completes this step.';
+    if(reasonCode==='report_review_writes_disabled')return'Counted Report review and publication are safely disabled during rollout.';
+    return'An eligible analyst who approved this exact version completes the publication.';
+  }
+  function readyBanner(version,canPublishStandard,standardReady,standardReason){
+    if(!standardReady)return'';
+    var q=version.quorum||{};
+    var counts=esc(Number(q.approve_count||0))+' / '+esc(Number(q.required_count||0))+' '+esc(t('analysts'))
+      +' · '+esc(Number(q.approve_weight||0).toFixed(2))+' / '+esc(Number(q.required_weight||0).toFixed(2))+' '+esc(t('weight'));
+    var action=canPublishStandard
+      ?'<button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')">'+esc(t('Publish this version now'))+'</button>'
+      :'<span class="osi-report-card-meta">'+esc(t(readyBlockedCopy(standardReason)))+'</span>';
+    // `note`, not `status`: this is a rendered state disclosure, not a live
+    // region. The publication progress line is the live region for this card.
+    return'<div class="osi-state-message success osi-report-ready" role="note"><b>'+esc(t('Approve quorum reached. This version is ready to publish.'))+'</b>'
+      +'<span>'+counts+'</span>'
+      +'<span>'+esc(t('Publication is anchored by one wallet-signed REPORT_PUBLISHED Memo. OSI holds no signing key, so a person completes this last step; nothing publishes silently.'))+'</span>'
+      +action+'</div>';
+  }
   function reviewControls(report,version,mode){
     var current=version.version_ref===report.current_version_ref;
     var actionable=mode==='queue'&&current&&['submitted','in_review'].indexOf(version.lifecycle_state)>=0;
@@ -588,7 +660,7 @@
       ? 'Full maintainers may inspect restricted material. They do not cast analyst weight; any cold-start publication uses the separate maintainer bootstrap channel below.'
       : 'Review controls are unavailable for this wallet or version.';
     var standardReason=capability.standard_publication_reason_code||'Standard analyst quorum is not ready for publication.';
-    var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
+    var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+readyBanner(version,canPublishStandard,standardReady,standardReason)+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
     var prerequisite=capability.maintainer_bootstrap_reason_code||report.bootstrap_prerequisite||'The current server-computed bootstrap tier is not satisfied.';
     var bootstrap='<section class="osi-report-bootstrap"><h4>Maintainer bootstrap publication</h4><p>This is not independent analyst quorum. The receipt is permanently labeled <span class="mono">decision_channel=maintainer_bootstrap</span>.</p><div class="osi-report-card-meta">'+esc(bootstrapRequirement(capability))+'</div><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'maintainer_bootstrap\')"'+(canBootstrap?'':' disabled title="'+esc(prerequisite)+'"')+'>Publish via maintainer bootstrap</button>'+(canBootstrap?'':'<p>'+esc(prerequisite)+'</p>')+'</section>';
     return publicationRecoveryHtml(version.version_ref)+analyst+(mode==='queue'&&(report.access==='maintainer'||canBootstrap||capability.decision_channel==='maintainer_bootstrap')?bootstrap:'')+'<div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div>'+reviewHistoryHtml(version,true);
@@ -852,7 +924,14 @@
   window.osiV2LoadReportReviewTasks=loadReviewQueueData;
   window.osiV2RefreshReportWorkspace=function(mode){var scope=mode==='queue'?'report:review':'report:mine';return window.osiV2RefreshReadSession([scope]).then(function(){return openReportWorkspace(mode==='queue'?'queue':'mine',{authorize:true});});};
   var reportDraftForm=document.getElementById('osi-report-form');
-  if(reportDraftForm){reportDraftForm.addEventListener('input',saveDraft);reportDraftForm.addEventListener('change',saveDraft);}
+  if(reportDraftForm){
+    reportDraftForm.addEventListener('input',saveDraft);
+    reportDraftForm.addEventListener('change',saveDraft);
+    // Clear a standing summary objection as soon as the author resolves it,
+    // either by writing one or by acknowledging its absence.
+    reportDraftForm.addEventListener('input',syncSummaryRequirement);
+    reportDraftForm.addEventListener('change',syncSummaryRequirement);
+  }
   var reportWorkspace=document.getElementById('field-cases');
   if(reportWorkspace){reportWorkspace.addEventListener('input',saveWorkspaceDraft);reportWorkspace.addEventListener('change',saveWorkspaceDraft);}
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('reports',clearSessionState);

@@ -21,6 +21,17 @@
   --acc-line:rgba(255,122,61,.42);
   --acc-glow:rgba(255,122,61,.34);
   --sb:252px;
+
+  /* Aliases for the token names the Report and modal stylesheets were authored
+     against. Those files were written for a shell stylesheet this page does not
+     load, so without these every `font:… var(--mono)` shorthand is invalid and
+     the whole declaration is dropped, taking size and line-height with it. */
+  --panel:var(--bg-card);
+  --surface:var(--bg-raised);
+  --text:var(--ink);
+  --muted:var(--ink-dim);
+  --green:var(--sol);
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}

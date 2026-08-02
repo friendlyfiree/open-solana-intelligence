@@ -12,6 +12,11 @@
 .osi-report-evidence{margin:22px 0 0;padding:16px;border:1px solid var(--line);border-radius:10px}
 .osi-report-evidence legend{padding:0 7px;color:var(--text);font-size:13px;font-weight:700}
 .osi-report-safety{display:flex;align-items:flex-start;gap:10px;margin:20px 0;padding:14px;border:1px solid rgba(245,158,11,.3);border-radius:8px;background:rgba(245,158,11,.05);color:var(--text);font-size:12px;line-height:1.6}
+/* Opting out of a readable public finding is allowed but never incidental, so
+   it reads as a deliberate choice rather than one more unlabelled checkbox. */
+.osi-report-nosummary{display:flex;align-items:flex-start;gap:10px;margin:10px 0 0;padding:12px 14px;border:1px dashed var(--line-bright);border-radius:8px;color:var(--muted);font-size:12px;line-height:1.6}
+.osi-report-nosummary input{flex:0 0 auto;width:18px;height:18px;margin-top:2px;accent-color:var(--cyan)}
+.osi-report-nosummary:focus-within{border-color:var(--cyan);border-style:solid}
 .osi-report-safety input{flex:0 0 auto;width:18px;height:18px;margin-top:2px;accent-color:var(--cyan)}
 .osi-report-modal .fo-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
 .osi-report-modal .fo-form-actions button{min-height:44px}
@@ -48,7 +53,14 @@
 .osi-report-public-card .osi-list-item-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
 .osi-report-public-card .osi-list-item-head div{display:grid;gap:4px}
 .osi-report-public-card small{color:var(--muted);font:500 11px/1.5 var(--mono)}
-.osi-report-public-body{max-width:72ch;white-space:pre-wrap;color:var(--text);line-height:1.75}
+/* The published finding is the reason this card exists, so it gets real
+   reading typography and real paragraphs. `pre-wrap` is gone because the
+   summary is now emitted as escaped <p> blocks rather than one raw string. */
+.osi-report-public-body{max-width:68ch;margin:16px 0 4px;color:var(--text);font-size:15px;line-height:1.75}
+.osi-report-public-body h4{margin-bottom:10px;color:var(--cyan);font:600 11px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.osi-report-public-body p+p{margin-top:12px}
+.osi-report-public-body[role="note"]{color:var(--muted);font-size:14px}
+.osi-report-public-body[role="note"] b{color:var(--text)}
 .osi-report-under-review{max-width:70ch;color:var(--muted);line-height:1.65}
 .osi-report-quorum{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
 .osi-report-quorum span{min-height:34px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;color:var(--muted);font:500 12px/1.5 var(--mono)}

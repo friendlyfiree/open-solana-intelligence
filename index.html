@@ -665,15 +665,19 @@
     <div class="fo-form-head">
       <span class="fo-form-eyebrow">Wallet-authored Case Report</span>
       <h2 id="osi-report-modal-title">Submit an exact Report version</h2>
-      <p id="osi-report-modal-copy">The restricted narrative and evidence stay private until a future reviewed publication transition. This action anchors only the exact version hash and safe reference on Solana.</p>
+      <p id="osi-report-modal-copy">The restricted narrative and evidence stay private. Only your public-safe summary and public evidence become readable, and only after this exact version is reviewed and published. This action anchors the exact version hash and safe reference on Solana.</p>
     </div>
     <div class="osi-report-context" id="osi-report-context" aria-live="polite"></div>
     <label class="fo-label" for="osi-report-narrative">Restricted Report narrative <span aria-hidden="true">*</span></label>
     <textarea id="osi-report-narrative" rows="9" minlength="80" maxlength="100000" required aria-describedby="osi-report-narrative-help"></textarea>
-    <span class="fo-hint" id="osi-report-narrative-help">80 to 100,000 characters. Explain the trace, limits, and uncertainty. This is not public before reviewed publication.</span>
+    <span class="fo-hint" id="osi-report-narrative-help">80 to 100,000 characters. Explain the trace, limits, and uncertainty. This body is never published and is never returned by the anonymous API.</span>
     <label class="fo-label" for="osi-report-summary">Public-safe summary</label>
-    <textarea id="osi-report-summary" rows="3" maxlength="4000" aria-describedby="osi-report-summary-help"></textarea>
-    <span class="fo-hint" id="osi-report-summary-help">Optional. It is still private in this intake slice.</span>
+    <textarea id="osi-report-summary" rows="5" maxlength="4000" aria-describedby="osi-report-summary-help"></textarea>
+    <span class="fo-hint" id="osi-report-summary-help">40 to 4,000 characters. <b>This is the only part of your Report that the public can ever read.</b> The restricted narrative above is never published. Write a neutral, public-safe account with no private personal data and no guilt claim.</span>
+    <label class="osi-report-nosummary" for="osi-report-no-summary">
+      <input id="osi-report-no-summary" type="checkbox">
+      <span>This Report has no public-safe summary. If it is published it will show publication proof and public evidence, but no readable finding. I am choosing that deliberately.</span>
+    </label>
     <fieldset class="osi-report-evidence">
       <legend>Structured evidence references (optional)</legend>
       <label class="fo-label" for="osi-report-wallets">Wallet addresses</label>

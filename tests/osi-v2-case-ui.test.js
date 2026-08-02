@@ -210,8 +210,11 @@ ok('public proof attribution is shown only from returned receipt fields',
 ok('new visual layer does not use gradients', !/gradient\s*\(/i.test(css));
 ok('legacy operations deck remains hidden in the native Case registry',
   css.includes('.fo-deck[hidden]{display:none!important}'));
+// Both spellings count. A `font:` shorthand carries the size too, and that is
+// how 9.5px chips reached the Case rows without tripping this gate.
 ok('new visual layer does not use 9px micro text',
-  !/font-size:\s*(?:8(?:\.\d+)?|9(?:\.\d+)?)px/i.test(css));
+  !/font-size:\s*(?:8(?:\.\d+)?|9(?:\.\d+)?)px/i.test(css)
+  && !/font:[^;}]*?\b(?:8(?:\.\d+)?|9(?:\.\d+)?)px/i.test(css));
 ok('responsive and reduced-motion states exist',
   css.includes('@media(max-width:640px)') && css.includes('prefers-reduced-motion:reduce'));
 ok('Case form and drawer trap keyboard focus',
