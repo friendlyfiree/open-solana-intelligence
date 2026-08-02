@@ -57,12 +57,15 @@ function sessionToken(origin, wallet) {
 // The canonical OSI2 envelope. The browser re-validates a pending publication
 // Memo against this exact shape before it will keep a recovery record, so the
 // fixture has to produce the real thing rather than a placeholder.
-function publicationMemo(versionRef, wallet, nonce, expiresAt) {
+function outcomeMemo(purpose, decision, versionRef, wallet, nonce, expiresAt) {
   return [
-    'OSI2', '1', 'REPORT_PUBLISHED', 't=report_version', `id=${versionRef}`,
-    `a=${wallet}`, 'r=analyst', 'd=publish', `n=${nonce}`, `h=${'d'.repeat(64)}`,
+    'OSI2', '1', purpose, 't=report_version', `id=${versionRef}`,
+    `a=${wallet}`, 'r=analyst', `d=${decision}`, `n=${nonce}`, `h=${'d'.repeat(64)}`,
     `ts=${expiresAt - 240}`, `exp=${expiresAt}`,
   ].join('|');
+}
+function publicationMemo(versionRef, wallet, nonce, expiresAt) {
+  return outcomeMemo('REPORT_PUBLISHED', 'publish', versionRef, wallet, nonce, expiresAt);
 }
 
 function createBackend() {
@@ -85,17 +88,22 @@ function createBackend() {
   };
 
   function quorumFor(version) {
-    const approvals = version.reviews.filter((row) => row.is_active && row.decision === 'approve');
-    const approveWeight = approvals.reduce((sum, row) => sum + Number(row.weight || 0), 0);
+    const counted = (decision) => version.reviews.filter((row) => row.is_active && row.decision === decision);
+    const weigh = (rows) => rows.reduce((sum, row) => sum + Number(row.weight || 0), 0);
+    const approvals = counted('approve');
+    const rejections = counted('reject');
+    const approveWeight = weigh(approvals);
+    const rejectWeight = weigh(rejections);
     return {
       risk_tier: 'standard',
       approve_count: approvals.length,
       approve_weight: approveWeight,
-      reject_count: 0,
-      reject_weight: 0,
+      reject_count: rejections.length,
+      reject_weight: rejectWeight,
       required_count: REQUIRED_COUNT,
       required_weight: REQUIRED_WEIGHT,
       approve_ready: approvals.length >= REQUIRED_COUNT && approveWeight >= REQUIRED_WEIGHT,
+      reject_ready: rejections.length >= REQUIRED_COUNT && rejectWeight >= REQUIRED_WEIGHT,
     };
   }
 
@@ -122,8 +130,8 @@ function createBackend() {
       standard_quorum_ready: quorum.approve_ready,
       approve_count: quorum.approve_count,
       approve_weight: quorum.approve_weight,
-      reject_count: 0,
-      reject_weight: 0,
+      reject_count: quorum.reject_count,
+      reject_weight: quorum.reject_weight,
       required_count: REQUIRED_COUNT,
       required_weight: REQUIRED_WEIGHT,
       risk_tier: 'standard',
@@ -365,6 +373,20 @@ function createBackend() {
       version.lifecycle_state = 'in_review';
       return api;
     },
+    seedRejectQuorum() {
+      api.seedSubmittedReport();
+      const { version } = findVersion(VERSION_REF);
+      [ANALYST_A, ANALYST_B].forEach((wallet, index) => {
+        version.reviews.push({
+          reviewer_wallet: wallet, decision: 'reject', weight: ANALYST_WEIGHT[wallet],
+          reason_code: 'evidence_insufficient', is_active: true,
+          public_rationale: 'The evidence in this exact version does not support its stated conclusion.',
+          created_at: `2026-07-23T1${index}:00:00+00:00`,
+        });
+      });
+      version.lifecycle_state = 'in_review';
+      return api;
+    },
     seedPublishedReport() {
       api.seedApprovedReport();
       const { report, version } = findVersion(VERSION_REF);
@@ -577,6 +599,43 @@ function createBackend() {
       }
       if (op === 'list_publication_recovery') {
         return { status: 200, payload: { ok: true, candidates: [] } };
+      }
+      if (op === 'prepare_rejection') {
+        const found = findVersion(String(body.version_public_ref || ''));
+        if (!found) return { status: 404, payload: { ok: false, error: 'report_version_not_available' } };
+        const q = quorumFor(found.version);
+        if (!q.reject_ready || q.approve_ready) {
+          return { status: 409, payload: { ok: false, error: 'analyst_quorum_not_ready' } };
+        }
+        const nonce = `${nextNonce('reject')}-${'r'.repeat(25)}`;
+        const expires = Math.floor(Date.now() / 1000) + 240;
+        return {
+          status: 200,
+          payload: {
+            ok: true, already_committed: false, nonce,
+            memo: outcomeMemo('REPORT_REJECTED', 'reject', found.version.version_ref, wallet, nonce, expires),
+            expires_at: expires,
+          },
+        };
+      }
+      if (op === 'commit_rejection') {
+        const found = findVersion(String(body.version_public_ref || ''));
+        if (!found) return { status: 404, payload: { ok: false, error: 'report_version_not_available' } };
+        const q = quorumFor(found.version);
+        // The server refuses whatever the browser believes.
+        if (!q.reject_ready || q.approve_ready) {
+          return { status: 409, payload: { ok: false, error: 'analyst_quorum_not_ready' } };
+        }
+        found.version.lifecycle_state = 'rejected';
+        state.receipts.push({
+          case_public_ref: found.report.case_public_ref, public_ref: found.version.version_ref,
+          event_type: 'REPORT_REJECTED', actor_wallet: wallet, actor_role: 'analyst',
+          decision: 'reject', occurred_at: new Date().toISOString(), tx_sig: PUBLISH_TX,
+        });
+        return {
+          status: 200,
+          payload: { ok: true, version_public_ref: found.version.version_ref, decision_channel: 'standard', lifecycle_state: 'rejected' },
+        };
       }
       if (op === 'prepare_publication') {
         const found = findVersion(String(body.version_public_ref || ''));
@@ -1111,4 +1170,66 @@ test('capture each lifecycle stage for release QA', async ({ page }) => {
   await showTab(page, 'reports');
   await expect(page.locator(`[data-report-version-public-ref="${VERSION_REF}"]`)).toBeVisible();
   await capture('06-published-finding-mobile');
+});
+
+// ---------------------------------------------------------------------------
+// The other analyst-quorum outcome
+// ---------------------------------------------------------------------------
+
+test('a version whose reject quorum is met offers the rejection, not a dead end', async ({ page }) => {
+  const backend = createBackend().seedRejectQuorum();
+  await boot(page, backend, { wallet: ANALYST_B });
+
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const banner = page.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-reject-ready`);
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Reject quorum reached');
+  await expect(banner).toContainText('2 / 2 analysts');
+  await expect(banner).toContainText('2.00 / 2.00 weight');
+  // Rejection is never a bad-faith finding and never blocks a revision.
+  await expect(banner).toContainText('not a finding of bad faith');
+  await expect(banner).toContainText('may submit a new revision');
+  // Approve-side publication must stay unavailable on the same version.
+  await expect(page.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-ready`)).toHaveCount(0);
+  await expect(banner.getByRole('button', { name: 'Record the rejection now' })).toBeEnabled();
+
+  expectClean(page);
+});
+
+test('recording the rejection moves the exact version to rejected and never publishes it', async ({ page }) => {
+  const backend = createBackend().seedRejectQuorum();
+  await boot(page, backend, { wallet: ANALYST_B });
+
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const banner = page.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-reject-ready`);
+  await expect(banner).toBeVisible();
+  await banner.getByRole('button', { name: 'Record the rejection now' }).click();
+
+  await expect.poll(() => backend.state.reports[0].versions[0].lifecycle_state).toBe('rejected');
+  // The published pointer never moves on a rejection.
+  expect(backend.state.reports[0].current_published_version_ref).toBeNull();
+  expect(backend.state.receipts.some((row) => row.event_type === 'REPORT_REJECTED')).toBe(true);
+  await expect(page.locator(`#osi-review-status-${VERSION_REF}`)).toContainText('rejected');
+  await expect(page.locator(`#osi-review-status-${VERSION_REF}`)).toContainText('may submit a new revision');
+
+  // The anonymous Case surface still shows no published Report.
+  await boot(page, backend);
+  await openCaseDrawer(page);
+  await showTab(page, 'reports');
+  await expect(page.locator('#osi-public-reports')).toContainText('No published Reports');
+  await expect(page.locator('body')).not.toContainText(PRIVATE_SENTINEL);
+
+  expectClean(page);
+});
+
+test('a wallet without an active reject review is told who can record the rejection', async ({ page }) => {
+  const backend = createBackend().seedRejectQuorum();
+  // The Report author is never an eligible reviewer of their own version.
+  await boot(page, backend, { wallet: AUTHOR });
+
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  // The author's own Report never enters their review queue at all.
+  await expect(page.locator(`[data-report-version-ref="${VERSION_REF}"]`)).toHaveCount(0);
+
+  expectClean(page);
 });

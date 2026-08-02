@@ -16,6 +16,14 @@ export const REPORT_REVIEW_EVENT_TYPES = new Set([
   "CASE_REPORT_REVIEW_REVISED",
 ]);
 export const REPORT_PUBLICATION_EVENT_TYPE = "REPORT_PUBLISHED";
+export const REPORT_REJECTION_EVENT_TYPE = "REPORT_REJECTED";
+// Both quorum outcomes ride the same class-A governance envelope. They differ
+// only in purpose and decision, and rejection never reaches the D17 maintainer
+// bootstrap channel, so it never carries the maintainer role.
+export const REPORT_OUTCOME_DECISIONS = Object.freeze({
+  [REPORT_PUBLICATION_EVENT_TYPE]: "publish",
+  [REPORT_REJECTION_EVENT_TYPE]: "reject",
+});
 export const REPORT_REVIEW_DECISIONS = new Set([
   "approve",
   "reject",
@@ -46,11 +54,11 @@ function cleanText(value) {
 }
 
 const PROOF_BINDING_DATABASE_MESSAGES = Object.freeze([
-  /^Report (?:review|publication) nonce binding is invalid$/,
-  /^Report (?:review|publication) payload changed after prepare$/,
-  /^Consumed Report (?:review|publication) nonce does not match exact retry$/,
-  /^Idempotency key is bound to another exact Report (?:review|publication)$/,
-  /^Report (?:review|publication) nonce expired$/,
+  /^Report (?:review|publication|rejection) nonce binding is invalid$/,
+  /^Report (?:review|publication|rejection) payload changed after prepare$/,
+  /^Consumed Report (?:review|publication|rejection) nonce does not match exact retry$/,
+  /^Idempotency key is bound to another exact Report (?:review|publication|rejection)$/,
+  /^Report (?:review|publication|rejection) nonce expired$/,
 ]);
 
 // Database SQLSTATE classes are deliberately broad. Classify only reviewed,
@@ -262,15 +270,17 @@ export function canonicalReportGovernanceMessage(binding) {
   const expiresAt = Number(binding.expires_at);
   validateWallet(binding.actor_wallet);
   const reviewPurpose = REPORT_REVIEW_EVENT_TYPES.has(purpose);
+  const outcomeDecision = REPORT_OUTCOME_DECISIONS[purpose];
   // Counted reviews are always analyst-cast. The maintainer role appears only
   // on the publication message, for the D17 bootstrap channel; the database
   // still enforces the full double gate and the live tier before committing.
-  if ((!reviewPurpose && purpose !== REPORT_PUBLICATION_EVENT_TYPE)
+  // Rejection is analyst-quorum only, so it never carries the maintainer role.
+  if ((!reviewPurpose && !outcomeDecision)
       || !VERSION_REF.test(publicRef)
       || !(new Set(["analyst", "senior"]).has(role)
-        || (!reviewPurpose && role === "maintainer"))
+        || (purpose === REPORT_PUBLICATION_EVENT_TYPE && role === "maintainer"))
       || (reviewPurpose && !REPORT_REVIEW_DECISIONS.has(decision))
-      || (!reviewPurpose && decision !== "publish")
+      || (!reviewPurpose && decision !== outcomeDecision)
       || !NONCE.test(nonce) || !HASH.test(hash)
       || !Number.isSafeInteger(issuedAt) || !Number.isSafeInteger(expiresAt)
       || expiresAt <= issuedAt || expiresAt - issuedAt > 300) {

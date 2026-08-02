@@ -8,7 +8,7 @@
   var state={
     caseRef:'',isRevision:false,idempotency:'',pending:null,returnFocus:null,drawerWasOpen:false,
     cacheWallet:'',myReports:[],sectionContext:null,sectionMode:'public',busy:false,receipt:null,formCapability:null,
-    reviewPending:{},publicationPending:{},publicationWallet:'',recoveryCandidates:{},recoveryErrors:{},queueMode:'',sectionLoadToken:0
+    reviewPending:{},publicationPending:{},rejectionPending:{},publicationWallet:'',recoveryCandidates:{},recoveryErrors:{},queueMode:'',sectionLoadToken:0
   };
 
   function sasAuthority(review){
@@ -55,7 +55,7 @@
     if(!preserve&&state.publicationWallet)clearPublicationPendingForWallet(state.publicationWallet);
     if(preserve&&privateWorkspace)saveWorkspaceDraft();
     state.cacheWallet='';state.myReports=[];state.busy=false;state.sectionLoadToken+=1;
-    state.reviewPending={};state.publicationPending={};state.publicationWallet='';state.recoveryCandidates={};state.recoveryErrors={};state.queueMode='';
+    state.reviewPending={};state.publicationPending={};state.rejectionPending={};state.publicationWallet='';state.recoveryCandidates={};state.recoveryErrors={};state.queueMode='';
     state.pending=null;state.idempotency='';state.returnFocus=null;state.receipt=null;
     state.formCapability=null;state.caseRef='';state.isRevision=false;state.drawerWasOpen=false;
     state.sectionContext=null;state.sectionMode='public';
@@ -84,38 +84,68 @@
   function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
   function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});}
   function randomKey(){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return'report:'+id.replace(/[^A-Za-z0-9.-]/g,'');}
-  function publicationStorageKey(wallet,versionRef){return PUBLICATION_PENDING_PREFIX+String(wallet||'')+':'+String(versionRef||'');}
+  // Both quorum outcomes anchor a Memo, so both need the same bounded browser
+  // recovery record: a sent transaction whose commit failed must never turn
+  // into a second transaction. The record is keyed by purpose so a pending
+  // publication and a pending rejection can never be mistaken for each other.
+  var OUTCOME_PURPOSES={REPORT_PUBLISHED:{prefix:'report-publish:',op:'publication'},REPORT_REJECTED:{prefix:'report-reject:',op:'rejection'}};
+  function outcomePurpose(raw){
+    var purpose=String(raw&&raw.purpose||'REPORT_PUBLISHED');
+    return Object.prototype.hasOwnProperty.call(OUTCOME_PURPOSES,purpose)?purpose:'';
+  }
+  function publicationStorageKey(wallet,versionRef,purpose){
+    var suffix=purpose&&purpose!=='REPORT_PUBLISHED'?':'+purpose:'';
+    return PUBLICATION_PENDING_PREFIX+String(wallet||'')+':'+String(versionRef||'')+suffix;
+  }
   function normalizePublicationPending(raw,wallet,versionRef){
     if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
+    var purpose=outcomePurpose(raw);if(!purpose)return null;
+    var rejection=purpose==='REPORT_REJECTED';
+    // Rejection has no maintainer bootstrap route; only publication does.
     var route=raw.route==='maintainer_bootstrap'?'maintainer_bootstrap':raw.route==='standard'?'standard':'';
+    if(rejection&&route!=='standard')return null;
     var exactVersion=String(raw.versionRef||''),exactWallet=String(raw.wallet||'');
     var nonce=String(raw.nonce||''),memo=String(raw.memo||''),txSig=String(raw.txSig||'');
     var expiresAt=Number(raw.expiresAt),idempotencyKey=String(raw.idempotencyKey||'');
+    var keyPattern=new RegExp('^'+OUTCOME_PURPOSES[purpose].prefix.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[A-Za-z0-9.-]{8,128}$');
     if(!route||exactWallet!==String(wallet||'')||exactVersion!==String(versionRef||'')
       ||!/^OSI-RV-[0-9A-F]{16}$/.test(exactVersion)||!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(exactWallet)
       ||!/^[A-Za-z0-9_-]{16,128}$/.test(nonce)||memo.length<140||memo.length>512
-      ||memo.indexOf('OSI2|1|REPORT_PUBLISHED|t=report_version|id='+exactVersion+'|a='+exactWallet+'|')!==0
-      ||!Number.isSafeInteger(expiresAt)||expiresAt<=0||!/^report-publish:[A-Za-z0-9.-]{8,128}$/.test(idempotencyKey)
+      ||memo.indexOf('OSI2|1|'+purpose+'|t=report_version|id='+exactVersion+'|a='+exactWallet+'|')!==0
+      ||!Number.isSafeInteger(expiresAt)||expiresAt<=0||!keyPattern.test(idempotencyKey)
       ||(txSig&&!/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(txSig)))return null;
     if(!txSig&&expiresAt<Math.floor(Date.now()/1000))return null;
-    return{route:route,versionRef:exactVersion,wallet:exactWallet,nonce:nonce,memo:memo,txSig:txSig,
+    return{purpose:purpose,route:route,versionRef:exactVersion,wallet:exactWallet,nonce:nonce,memo:memo,txSig:txSig,
       expiresAt:expiresAt,idempotencyKey:idempotencyKey,lastError:String(raw.lastError||''),updatedAt:Number(raw.updatedAt)||Date.now()};
   }
   function savePublicationPending(pending){
     if(!pending)return false;var normalized=normalizePublicationPending(pending,pending.wallet,pending.versionRef);if(!normalized)return false;
-    try{sessionStorage.setItem(publicationStorageKey(normalized.wallet,normalized.versionRef),JSON.stringify(normalized));return true;}catch(_){return false;}
+    try{sessionStorage.setItem(publicationStorageKey(normalized.wallet,normalized.versionRef,normalized.purpose),JSON.stringify(normalized));return true;}catch(_){return false;}
   }
-  function removePublicationPending(wallet,versionRef){try{sessionStorage.removeItem(publicationStorageKey(wallet,versionRef));}catch(_){};delete state.publicationPending[versionRef];}
+  function removePublicationPending(wallet,versionRef,purpose){
+    try{sessionStorage.removeItem(publicationStorageKey(wallet,versionRef,purpose||'REPORT_PUBLISHED'));}catch(_){}
+    if(!purpose||purpose==='REPORT_PUBLISHED')delete state.publicationPending[versionRef];
+    else delete state.rejectionPending[versionRef];
+  }
   function clearPublicationPendingForWallet(wallet){
     try{for(var i=sessionStorage.length-1;i>=0;i--){var key=sessionStorage.key(i);if(key&&key.indexOf(PUBLICATION_PENDING_PREFIX+String(wallet||'')+':')===0)sessionStorage.removeItem(key);}}catch(_){}
   }
-  function loadPublicationPending(wallet,versionRef){
-    var key=publicationStorageKey(wallet,versionRef),raw=null;try{raw=JSON.parse(sessionStorage.getItem(key)||'null');}catch(_){}
-    var normalized=normalizePublicationPending(raw,wallet,versionRef);if(!normalized){try{sessionStorage.removeItem(key);}catch(_){}return null;}return normalized;
+  function loadPublicationPending(wallet,versionRef,purpose){
+    purpose=purpose||'REPORT_PUBLISHED';
+    var key=publicationStorageKey(wallet,versionRef,purpose),raw=null;try{raw=JSON.parse(sessionStorage.getItem(key)||'null');}catch(_){}
+    if(raw&&typeof raw==='object'&&!raw.purpose)raw.purpose=purpose;
+    var normalized=normalizePublicationPending(raw,wallet,versionRef);
+    if(!normalized||normalized.purpose!==purpose){try{sessionStorage.removeItem(key);}catch(_){}return null;}
+    return normalized;
   }
   function restorePublicationPending(reports,wallet){
-    state.publicationPending={};state.publicationWallet=String(wallet||'');
-    (reports||[]).forEach(function(report){(report.versions||[]).forEach(function(version){var pending=loadPublicationPending(wallet,version.version_ref);if(pending)state.publicationPending[version.version_ref]=pending;});});
+    state.publicationPending={};state.rejectionPending={};state.publicationWallet=String(wallet||'');
+    (reports||[]).forEach(function(report){(report.versions||[]).forEach(function(version){
+      var pending=loadPublicationPending(wallet,version.version_ref);
+      if(pending)state.publicationPending[version.version_ref]=pending;
+      var rejecting=loadPublicationPending(wallet,version.version_ref,'REPORT_REJECTED');
+      if(rejecting)state.rejectionPending[version.version_ref]=rejecting;
+    });});
   }
   function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
   function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
@@ -579,6 +609,17 @@
     var node=document.getElementById('osi-review-status-'+versionRef);if(!node)return;
     node.textContent=text||'';node.className='osi-review-status '+(kind||'');
   }
+  // A rejection whose Memo was sent but whose commit failed must be recoverable
+  // for exactly the same reason a publication must: otherwise the only way
+  // forward looks like sending a second transaction.
+  function rejectionRecoveryHtml(versionRef){
+    var pending=state.rejectionPending[versionRef];
+    if(!pending)return'';
+    var hasTx=!!pending.txSig;
+    var failure=pending.lastError?'<p class="osi-report-recovery-error">Last confirmation result: '+esc(userError({message:pending.lastError}))+'</p>':'';
+    var explorer=hasTx?'<a href="https://solscan.io/tx/'+esc(pending.txSig)+'" target="_blank" rel="noopener">Open existing transaction on Solscan</a>':'';
+    return'<section class="osi-report-recovery" data-rejection-recovery="'+esc(versionRef)+'"><h4>'+esc(hasTx?'Recoverable pending rejection transaction':'Prepared rejection pending')+'</h4><p>'+esc(hasTx?'Recovery uses the existing transaction signature. Phantom will not open again. The backend rechecks mainnet, signer, exact Memo, block time, nonce, lineage and reject quorum.':'No transaction signature was submitted yet. Continuing will open Phantom for the prepared Memo.')+'</p>'+failure+explorer+'<div class="osi-report-recovery-actions"><button class="osi-report-publish" type="button" onclick="osiV2RejectReport(\''+esc(versionRef)+'\')">'+esc(hasTx?'Recover rejection':'Continue rejection')+'</button><button class="osi-report-action" type="button" onclick="osiV2CancelReportRejection(\''+esc(versionRef)+'\')">Cancel pending rejection</button></div></section>';
+  }
   function publicationRecoveryHtml(versionRef){
     var pending=state.publicationPending[versionRef];
     if(pending){
@@ -644,6 +685,26 @@
       +'<span>'+esc(t('Publication is anchored by one wallet-signed REPORT_PUBLISHED Memo. OSI holds no signing key, so a person completes this last step; nothing publishes silently.'))+'</span>'
       +action+'</div>';
   }
+  // The mirror of readyBanner for the other quorum outcome. Rejection is
+  // analyst-quorum only: there is no maintainer bootstrap route, so the copy
+  // never offers one. Rejecting an exact version is not a bad-faith finding and
+  // never blocks a new revision, and this says both.
+  function rejectBanner(version,canAnalyst,mine){
+    var q=version.quorum||{};
+    if(q.reject_ready!==true||q.approve_ready===true)return'';
+    var counts=esc(Number(q.reject_count||0))+' / '+esc(Number(q.required_count||0))+' '+esc(t('analysts'))
+      +' · '+esc(Number(q.reject_weight||0).toFixed(2))+' / '+esc(Number(q.required_weight||0).toFixed(2))+' '+esc(t('weight'));
+    var mineRejects=!!mine&&mine.decision==='reject';
+    var action=canAnalyst&&mineRejects&&version.lifecycle_state==='in_review'
+      ?'<button class="osi-report-publish" type="button" onclick="osiV2RejectReport(\''+esc(version.version_ref)+'\')">'+esc(t('Record the rejection now'))+'</button>'
+      :'<span class="osi-report-card-meta">'+esc(t(canAnalyst
+        ?'Any analyst whose active review on this exact version is reject can record it. Revise your review to reject to take that step.'
+        :'An eligible analyst who rejected this exact version records the outcome. This wallet does not carry counted analyst weight.'))+'</span>';
+    return'<div class="osi-state-message warning osi-report-reject-ready" role="note"><b>'+esc(t('Reject quorum reached. This version can be rejected.'))+'</b>'
+      +'<span>'+counts+'</span>'
+      +'<span>'+esc(t('Rejection is anchored by one wallet-signed REPORT_REJECTED Memo and applies to this exact version only. It is not a finding of bad faith, and the author may submit a new revision.'))+'</span>'
+      +action+'</div>';
+  }
   function reviewControls(report,version,mode){
     var current=version.version_ref===report.current_version_ref;
     var actionable=mode==='queue'&&current&&['submitted','in_review'].indexOf(version.lifecycle_state)>=0;
@@ -660,10 +721,10 @@
       ? 'Full maintainers may inspect restricted material. They do not cast analyst weight; any cold-start publication uses the separate maintainer bootstrap channel below.'
       : 'Review controls are unavailable for this wallet or version.';
     var standardReason=capability.standard_publication_reason_code||'Standard analyst quorum is not ready for publication.';
-    var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+readyBanner(version,canPublishStandard,standardReady,standardReason)+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
+    var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+readyBanner(version,canPublishStandard,standardReady,standardReason)+rejectBanner(version,canAnalyst,mine)+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
     var prerequisite=capability.maintainer_bootstrap_reason_code||report.bootstrap_prerequisite||'The current server-computed bootstrap tier is not satisfied.';
     var bootstrap='<section class="osi-report-bootstrap"><h4>Maintainer bootstrap publication</h4><p>This is not independent analyst quorum. The receipt is permanently labeled <span class="mono">decision_channel=maintainer_bootstrap</span>.</p><div class="osi-report-card-meta">'+esc(bootstrapRequirement(capability))+'</div><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'maintainer_bootstrap\')"'+(canBootstrap?'':' disabled title="'+esc(prerequisite)+'"')+'>Publish via maintainer bootstrap</button>'+(canBootstrap?'':'<p>'+esc(prerequisite)+'</p>')+'</section>';
-    return publicationRecoveryHtml(version.version_ref)+analyst+(mode==='queue'&&(report.access==='maintainer'||canBootstrap||capability.decision_channel==='maintainer_bootstrap')?bootstrap:'')+'<div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div>'+reviewHistoryHtml(version,true);
+    return publicationRecoveryHtml(version.version_ref)+rejectionRecoveryHtml(version.version_ref)+analyst+(mode==='queue'&&(report.access==='maintainer'||canBootstrap||capability.decision_channel==='maintainer_bootstrap')?bootstrap:'')+'<div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div>'+reviewHistoryHtml(version,true);
   }
   function reportReviewDefaults(decision){
     if(decision==='approve')return{reason:'evidence_reviewed',rationale:'The exact report version and its evidence were reviewed.'};
@@ -751,6 +812,45 @@
       var code=String(error.message||'');pending=state.publicationPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef);
       var terminal=['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo','stale_transaction','publication_transaction_outside_window'].indexOf(code)>=0;
       if(terminal&&pending)removePublicationPending(pending.wallet,versionRef);else if(pending){pending.lastError=code;pending.updatedAt=Date.now();state.publicationPending[versionRef]=pending;savePublicationPending(pending);}
+      queueStatus(versionRef,userError(error),terminal?'error':'');
+    }}finally{if(generation===privateGeneration())state.busy=false;}
+  }
+  // The rejection outcome. Same proof discipline as publication: one prepared
+  // nonce, one wallet-signed Memo, a bounded browser recovery record so a sent
+  // transaction is never sent twice, and the same confirmation retry loop.
+  async function rejectReport(versionRef){
+    if(state.busy)return;var generation=privateGeneration();state.busy=true;
+    try{
+      var wallet=await ensureWallet();
+      var pending=state.rejectionPending[versionRef]||loadPublicationPending(wallet,versionRef,'REPORT_REJECTED');
+      assertPrivateGeneration(generation);state.publicationWallet=wallet;
+      if(!pending){
+        queueStatus(versionRef,'Freezing the exact active analyst quorum snapshot and preparing REPORT_REJECTED...');
+        var idempotencyKey='report-reject:'+(crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2));
+        var prepared=await api(WRITE_URL,{op:'prepare_rejection',wallet:wallet,version_public_ref:versionRef,idempotency_key:idempotencyKey});
+        assertPrivateGeneration(generation);
+        if(prepared.already_committed){removePublicationPending(wallet,versionRef,'REPORT_REJECTED');queueStatus(versionRef,'This exact version is already rejected. Inspect its retained rejection receipt.','success');return;}
+        pending={purpose:'REPORT_REJECTED',route:'standard',versionRef:versionRef,wallet:wallet,nonce:String(prepared.nonce||''),memo:String(prepared.memo||''),txSig:'',expiresAt:Number(prepared.expires_at),idempotencyKey:idempotencyKey,lastError:'',updatedAt:Date.now()};
+        if(!savePublicationPending(pending))throw new Error('publication_recovery_storage_unavailable');
+        state.rejectionPending[versionRef]=pending;
+      }
+      if(!pending.txSig){
+        queueStatus(versionRef,'Approve the exact REPORT_REJECTED Memo in Phantom. OSI receives no funds.');
+        pending.txSig=await castOnchainVote(pending.memo);assertPrivateGeneration(generation);pending.updatedAt=Date.now();
+        if(!savePublicationPending(pending))throw new Error('publication_recovery_storage_unavailable');
+      }else queueStatus(versionRef,'Retrying confirmation with the existing transaction. Phantom will not open again.');
+      queueStatus(versionRef,'Confirming mainnet, signer, exact version, quorum hash, nonce and Memo...');
+      var committed=await commitWithConfirmation({op:'commit_rejection',wallet:wallet,version_public_ref:versionRef,nonce:pending.nonce,memo:pending.memo,tx_sig:pending.txSig},generation,function(retryText){queueStatus(versionRef,retryText+' Phantom will not open again.');});
+      assertPrivateGeneration(generation);
+      removePublicationPending(wallet,versionRef,'REPORT_REJECTED');
+      queueStatus(versionRef,'This exact version is rejected through the standard analyst-quorum route. It is not a finding of bad faith, and the author may submit a new revision. The parent Case remains open.','success');
+      if(typeof showToast==='function')showToast(committed.version_public_ref+' is rejected with a Memo-anchored receipt.');
+    }catch(error){if(generation===privateGeneration()){
+      var code=String(error.message||'');
+      var current=state.rejectionPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef,'REPORT_REJECTED');
+      var terminal=['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo','stale_transaction','publication_transaction_outside_window'].indexOf(code)>=0;
+      if(terminal&&current)removePublicationPending(current.wallet,versionRef,'REPORT_REJECTED');
+      else if(current){current.lastError=code;current.updatedAt=Date.now();state.rejectionPending[versionRef]=current;savePublicationPending(current);}
       queueStatus(versionRef,userError(error),terminal?'error':'');
     }}finally{if(generation===privateGeneration())state.busy=false;}
   }
@@ -908,6 +1008,7 @@
   window.osiV2SubmitReport=submitReport;
   window.osiV2SubmitReportReview=submitReportReview;
   window.osiV2PublishReport=publishReport;
+  window.osiV2RejectReport=rejectReport;
   window.osiV2RecoverReportPublication=function(versionRef){
     var pending=state.publicationPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef);
     if(!pending){queueStatus(versionRef,'No bounded browser recovery record is available. Reopen the exact review task.','error');return;}
@@ -915,6 +1016,12 @@
   };
   window.osiV2RecoverExistingReportPublication=recoverExistingPublication;
   window.osiV2CancelReportPublication=cancelPublication;
+  window.osiV2CancelReportRejection=function(versionRef){
+    var pending=state.rejectionPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef,'REPORT_REJECTED');
+    if(pending)removePublicationPending(pending.wallet,versionRef,'REPORT_REJECTED');
+    queueStatus(versionRef,'Pending browser recovery was canceled. Any existing Solana transaction remains immutable and can be re-entered while the server still proves every binding.');
+    openReportWorkspace('queue',{authorize:true});
+  };
   window.osiV2ReportClearSession=clearSessionState;
   window.osiV2RefreshPublicReports=function(){if(state.sectionContext)reloadSection(state.sectionContext,'public');};
   window.osiV2RefreshCaseReports=function(){if(state.sectionContext)reloadSection(state.sectionContext,state.sectionMode);};
