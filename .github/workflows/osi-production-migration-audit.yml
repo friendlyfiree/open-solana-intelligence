@@ -1,0 +1,116 @@
+name: OSI Production Migration Audit
+
+# Read-only diagnostic for exact repository/production migration alignment.
+# It never applies, repairs, resets or mutates a database, Function or flag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type AUDIT-MIGRATIONS-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-production-migration-audit
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+
+jobs:
+  audit:
+    name: Read-only exact migration audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "AUDIT-MIGRATIONS-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production audit must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out current main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify credentials, project and current main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Record and compare exact migration versions
+        run: |
+          set -euo pipefail
+          proof="$RUNNER_TEMP/migration-audit"
+          mkdir -p "$proof"
+          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' |
+            sort | sed -E 's/^([0-9]{14}).*/\1/' > "$proof/repository-versions.txt"
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL' > "$proof/production-versions.txt"
+          begin read only;
+          select version from supabase_migrations.schema_migrations order by version;
+          commit;
+          SQL
+          comm -23 "$proof/repository-versions.txt" "$proof/production-versions.txt" > "$proof/missing-in-production.txt"
+          comm -13 "$proof/repository-versions.txt" "$proof/production-versions.txt" > "$proof/extra-in-production.txt"
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' <<'SQL' > "$proof/feature-flags.txt"
+          begin read only;
+          select key,value from public.osi_config
+          where key in ('OSI_V2_REPORT_REVIEW_WRITES_ENABLED','OSI_V2_ANALYST_WRITES_ENABLED')
+          order by key;
+          commit;
+          SQL
+          echo 'Repository migration versions:'
+          cat "$proof/repository-versions.txt"
+          echo 'Production migration versions:'
+          cat "$proof/production-versions.txt"
+          echo 'Missing in production:'
+          cat "$proof/missing-in-production.txt"
+          echo 'Extra in production:'
+          cat "$proof/extra-in-production.txt"
+          echo 'Relevant feature flags:'
+          cat "$proof/feature-flags.txt"
+          printf 'production_writes=0\nfunction_deployments=0\nsecret_changes=0\n' > "$proof/non-mutation-attestation.txt"
+
+      - name: Upload sanitized audit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: osi-production-migration-audit-${{ github.sha }}
+          path: ${{ runner.temp }}/migration-audit
+          retention-days: 14
