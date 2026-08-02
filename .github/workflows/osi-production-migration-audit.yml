@@ -96,6 +96,25 @@ jobs:
           order by key;
           commit;
           SQL
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL' > "$proof/20260802102728-history-row.json"
+          begin read only;
+          select jsonb_pretty(to_jsonb(migration))
+          from supabase_migrations.schema_migrations as migration
+          where migration.version='20260802102728';
+          commit;
+          SQL
+          sha256sum supabase/migrations/20260802071500_osi_v2_report_rejection_transition.sql > "$proof/local-rejection-migration-sha256.txt"
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' <<'SQL' > "$proof/rejection-contract.txt"
+          begin read only;
+          select 'private_prepare|' || coalesce(to_regprocedure('osi_private.osi_v2_prepare_report_rejection(text,text,uuid,text,text)')::text,'absent');
+          select 'private_commit|' || coalesce(to_regprocedure('osi_private.osi_v2_commit_report_rejection(text,text,text,timestamptz)')::text,'absent');
+          select 'public_prepare|' || coalesce(to_regprocedure('public.osi_v2_prepare_report_rejection(text,text,uuid,text,text)')::text,'absent');
+          select 'public_commit|' || coalesce(to_regprocedure('public.osi_v2_commit_report_rejection(text,text,text,timestamptz)')::text,'absent');
+          select 'service_prepare|' || case when to_regprocedure('public.osi_v2_prepare_report_rejection(text,text,uuid,text,text)') is null then 'absent' else has_function_privilege('service_role','public.osi_v2_prepare_report_rejection(text,text,uuid,text,text)','execute')::text end;
+          select 'service_commit|' || case when to_regprocedure('public.osi_v2_commit_report_rejection(text,text,text,timestamptz)') is null then 'absent' else has_function_privilege('service_role','public.osi_v2_commit_report_rejection(text,text,text,timestamptz)','execute')::text end;
+          select 'rate_window_counts_rejection|' || case when to_regprocedure('osi_private.osi_v2_check_report_review_rate(text,text,text,timestamptz)') is null then 'absent' else (pg_get_functiondef('osi_private.osi_v2_check_report_review_rate(text,text,text,timestamptz)'::regprocedure) like '%REPORT_REJECTED%')::text end;
+          commit;
+          SQL
           echo 'Repository migration versions:'
           cat "$proof/repository-versions.txt"
           echo 'Production migration versions:'
@@ -106,6 +125,10 @@ jobs:
           cat "$proof/extra-in-production.txt"
           echo 'Relevant feature flags:'
           cat "$proof/feature-flags.txt"
+          echo 'Unexpected migration history row:'
+          cat "$proof/20260802102728-history-row.json"
+          echo 'Report rejection database contract:'
+          cat "$proof/rejection-contract.txt"
           printf 'production_writes=0\nfunction_deployments=0\nsecret_changes=0\n' > "$proof/non-mutation-attestation.txt"
 
       - name: Upload sanitized audit
