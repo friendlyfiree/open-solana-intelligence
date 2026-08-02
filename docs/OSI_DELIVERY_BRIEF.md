@@ -65,8 +65,8 @@ Operational flag and dormant-surface classification:
 - The frontend is static HTML, modular CSS, and classic JavaScript.
 - The repository has no package-manager manifest or frontend build step.
 - Supabase PostgreSQL and Edge Functions provide the backend.
-- Production migration history is additive through `20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql`. The repository's next task-scoped additive delta is `20260729134213_osi_v2_workflow_recovery_usability.sql`; production delivery must first re-read the live migration list and accept only the exact before or already-resumed history.
-- The deployed V2 slices cover schema, integrity guards, default deny, Stage-5 proofs, legacy materialization, Case/Report/Wire lifecycles, governance, native SOL payments, read sessions, SAS issuance/enforcement, and AI Pack foundations.
+- Production migration history is additive through `20260802180000_osi_v2_case_initial_rejection_appeal.sql`. Local and production histories were verified synchronized after the task-scoped recovery; every later production delivery must still re-read the live migration list and accept only its exact reviewed history.
+- The deployed V2 slices cover schema, integrity guards, default deny, Stage-5 proofs, legacy materialization, complete Case initial review including normal rejection and owner appeal, Report/Wire lifecycles, governance, native SOL payments, read sessions, SAS issuance/enforcement, and AI Pack foundations.
 - Production Case, Report, Wire, analyst, governance, proof, payment, and read functions are reachable behind their dedicated gates.
 - The mature production shell responds successfully.
 - Solana Pay and maintainer-only AI Pack generation are live behind their dedicated narrow flags; AI Pack review writes remain disabled.
@@ -74,6 +74,8 @@ Operational flag and dormant-surface classification:
 - Broad `OSI_V2_WRITES_ENABLED` remains false.
 - Broad `OSI_V2_PROOF_ENABLED` remains false.
 - The Case slice uses exact `OSI_V2_CASE_WRITES_ENABLED` gating.
+- Normal Case rejection requires at least two independent SAS-valid analysts and total counted weight `2.00`; a maintainer cannot replace that quorum. An eligible rejecting analyst anchors the outcome with a confirmed Solana Memo.
+- An owner appeal appends new private evidence with one wallet signature, preserves the original intake and rejection proof, and starts a fresh review cycle in which earlier votes carry no authority.
 - The analyst slice uses exact `OSI_V2_ANALYST_WRITES_ENABLED` gating.
 - The Report and Wire slices use their exact dedicated gates and are live.
 - Missing, malformed, or unavailable flags fail closed.
@@ -268,7 +270,7 @@ Operational flag and dormant-surface classification:
 - Soak the server-bound Solana Pay single-recipient path; retain Phantom for atomic multi-recipient support.
 - Keep broad V2 write/proof/schema flags false while dedicated production slices remain independently gated.
 - Keep AI Pack review, owner feedback, approval, publication, and public discovery false until a separately reviewed governed mode enforces independent SAS-valid analyst count and weight quorum plus creator exclusion.
-- Add complete initial rejection quorum and terminal transition before enabling rejection.
+- Soak the live Case rejection and owner-appeal loop while preserving its dedicated fail-closed flag and immutable review-cycle history.
 - Add reputation snapshot progression after sufficient real attributable contributions exist.
 - Improve My OSI and notification coverage only with real read/write contracts.
 - Retire legacy writes only after soak, reconciliation, and explicit cutover approval.
