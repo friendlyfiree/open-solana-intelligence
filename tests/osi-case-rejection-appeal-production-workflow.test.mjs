@@ -30,6 +30,8 @@ matches(/prepare_case_appeal/, "appeal RPC contract is verified");
 matches(/anon_denied\|true/, "anonymous execution denial is verified");
 matches(/auth_denied\|true/, "authenticated direct execution denial is verified");
 matches(/service_allowed\|true/, "service-only execution is verified");
+matches(/\[ "\$code" = 503 \]/, "contained writes fail closed before payload validation");
+matches(/\[ "\$invalid_code" = 400 \]/, "live writes reject invalid payloads at validation");
 matches(/scripts\/protected-row-counts\.sql/, "protected domain rows are compared");
 matches(/slug!="osi-v2-case-write"/, "non-task functions are compared");
 matches(/npx playwright test --config tests\/browser\/playwright\.config\.js/, "full browser proof is required");
