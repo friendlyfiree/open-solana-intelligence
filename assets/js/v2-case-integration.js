@@ -1150,7 +1150,18 @@
       host.innerHTML='<span class="osi-action-help">Private and awaiting an eligible analyst or full maintainer review. Case owners cannot self-review.</span><button class="osi-action" disabled title="Requires an eligible analyst or full maintainer">Awaiting review</button>';
     }else{
       var hasGovernance=item.governance&&item.governance.resolution;
-      host.innerHTML='<span class="osi-action-help">Contribute findings to this public investigation. Reports remain private until reviewed publication.</span><button class="osi-action primary" type="button" onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button><button class="osi-action" type="button" onclick="osiV2ShowTab(\'evidence\')">Inspect evidence</button>'+(hasGovernance?'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'resolution\')">Inspect resolution</button><button class="osi-action" type="button" onclick="osiV2ShowTab(\'challenges\')">Inspect challenges</button>':'')+'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'proof\')">Inspect proof</button>';
+      // Report intake accepts exactly these stages server-side. Offering the
+      // action outside them opened a wallet prompt only to fail on the
+      // capability check, which is the dormant-control problem in its most
+      // expensive form.
+      var intakeOpen=['open_public','in_review','reopened'].indexOf(String(item.stage||''))>=0;
+      var intakeHelp=intakeOpen
+        ? 'Contribute findings to this public investigation. Reports remain private until reviewed publication.'
+        : 'This Case is past Report intake at stage '+stageLabel(item.stage,item)+'. Its record stays readable and its proof stays verifiable.';
+      var submit=intakeOpen
+        ? '<button class="osi-action primary" type="button" onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button>'
+        : '<button class="osi-action" type="button" disabled title="'+esc(t('Report intake is open only while a Case is in public investigation, under Report review, or reopened.'))+'">'+esc(t('Report intake closed'))+'</button>';
+      host.innerHTML='<span class="osi-action-help">'+esc(t(intakeHelp))+'</span>'+submit+'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'evidence\')">Inspect evidence</button>'+(hasGovernance?'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'resolution\')">Inspect resolution</button><button class="osi-action" type="button" onclick="osiV2ShowTab(\'challenges\')">Inspect challenges</button>':'')+'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'proof\')">Inspect proof</button>';
     }
   }
   async function composeReview(){

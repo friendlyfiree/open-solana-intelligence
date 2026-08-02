@@ -96,6 +96,46 @@ ok("REPORT_PUBLISHED Memo binds the exact version and eligible analyst actor",
     publicationMemo, publicationBinding, NOW + 10,
   ).ok === true);
 
+// The other analyst-quorum outcome. It rides the same class-A envelope, so the
+// contracts that keep the two apart are the ones worth pinning.
+const rejectionBinding = {
+  ...reviewBinding,
+  purpose: "REPORT_REJECTED",
+  decision: "reject",
+  nonce: "x".repeat(43),
+};
+const rejectionMemo = core.canonicalReportGovernanceMessage(rejectionBinding);
+ok("REPORT_REJECTED Memo binds the exact version and eligible analyst actor",
+  core.validateReportGovernanceBinding(
+    rejectionMemo, rejectionBinding, NOW + 10,
+  ).ok === true
+    && rejectionMemo.includes("REPORT_REJECTED")
+    && rejectionMemo.includes("d=reject"));
+ok("a rejection Memo can never be replayed as a publication",
+  core.validateReportGovernanceBinding(
+    rejectionMemo, { ...rejectionBinding, purpose: "REPORT_PUBLISHED" }, NOW + 10,
+  ).ok !== true);
+ok("REPORT_REJECTED refuses the publish decision",
+  (() => {
+    try {
+      core.canonicalReportGovernanceMessage({ ...rejectionBinding, decision: "publish" });
+      return false;
+    } catch { return true; }
+  })());
+// Rejection is analyst-quorum only, so the D17 maintainer bootstrap role that
+// publication may carry must never appear on a rejection message.
+ok("REPORT_REJECTED refuses the maintainer actor role",
+  (() => {
+    try {
+      core.canonicalReportGovernanceMessage({ ...rejectionBinding, actor_role: "maintainer" });
+      return false;
+    } catch { return true; }
+  })());
+ok("REPORT_PUBLISHED still accepts the maintainer bootstrap actor role",
+  typeof core.canonicalReportGovernanceMessage({
+    ...publicationBinding, actor_role: "maintainer", nonce: "m".repeat(43),
+  }) === "string");
+
 const validPayload = {
   body_private: "A complete restricted trace explains transaction order, wallet relationships, uncertainty, and evidentiary limits.",
   content_public_safe: "A wallet-linked transfer sequence is submitted for independent review.",

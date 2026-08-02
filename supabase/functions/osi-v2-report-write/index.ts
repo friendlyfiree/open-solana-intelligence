@@ -15,6 +15,7 @@ import {
 import {
   REPORT_EVENT_TYPE,
   REPORT_PUBLICATION_EVENT_TYPE,
+  REPORT_REJECTION_EVENT_TYPE,
   REPORT_REVIEW_EVENT_TYPES,
   canonicalReportMemo,
   canonicalReportGovernanceMessage,
@@ -641,6 +642,136 @@ async function commitPublication(req: Request, body: Row): Promise<Response> {
   });
 }
 
+// Rejection is the other half of the analyst quorum outcome. It mirrors
+// publication exactly except that it is analyst-quorum only: there is no
+// maintainer bootstrap route, the version stays private, and the header's
+// published pointer is never touched.
+async function prepareRejection(req: Request, body: Row): Promise<Response> {
+  if (!await reportReviewWritesEnabled()) {
+    return jsonResponse(503, { ok: false, error: "report_review_writes_disabled" });
+  }
+  const wallet = safeText(body.wallet);
+  const versionRef = safeText(body.version_public_ref);
+  let idempotencyKey: string;
+  try {
+    validateWallet(wallet);
+    idempotencyKey = validateReportIdempotencyKey(body.idempotency_key);
+  } catch (error) {
+    return jsonResponse(400, { ok: false, error: errorMessage(error) || "bad_rejection_payload" });
+  }
+  const found = await exactVersion(versionRef);
+  if (found.error || !found.row) {
+    return jsonResponse(404, { ok: false, error: "report_version_not_available" });
+  }
+  // Settle every pending SAS snapshot before the reject quorum is computed, so
+  // a credential failure contributes zero here exactly as it does on approve.
+  await refreshReviewVerifications(admin, "report_version", String(found.row.id));
+  const { data, error } = await admin.rpc("osi_v2_prepare_report_rejection", {
+    p_nonce: randomNonce(),
+    p_actor_wallet: wallet,
+    p_version_id: found.row.id,
+    p_idempotency_key: idempotencyKey,
+    p_request_fingerprint_hash: await fingerprint(req),
+  });
+  if (error || !data?.[0]) return rpcFailure(error, true);
+  const issued = data[0];
+  if (issued.consumed_receipt_id) {
+    return jsonResponse(200, {
+      ok: true,
+      already_committed: true,
+      case_public_ref: issued.case_public_ref,
+      report_public_ref: issued.report_public_ref,
+      version_public_ref: issued.version_public_ref,
+      idempotent_replay: true,
+    });
+  }
+  const binding = {
+    purpose: REPORT_REJECTION_EVENT_TYPE,
+    version_public_ref: issued.version_public_ref,
+    actor_wallet: wallet,
+    actor_role: issued.actor_role,
+    decision: "reject",
+    nonce: issued.issued_nonce,
+    payload_hash: issued.payload_hash,
+    issued_at: isoSeconds(issued.issued_at),
+    expires_at: isoSeconds(issued.expires_at),
+  };
+  return jsonResponse(200, {
+    ok: true,
+    already_committed: false,
+    case_public_ref: issued.case_public_ref,
+    report_public_ref: issued.report_public_ref,
+    version_public_ref: issued.version_public_ref,
+    actor_role: issued.actor_role,
+    quorum_hash: issued.quorum_hash,
+    nonce: issued.issued_nonce,
+    payload_hash: issued.payload_hash,
+    memo: canonicalReportGovernanceMessage(binding),
+    expires_at: binding.expires_at,
+    idempotent_replay: issued.idempotent_replay === true,
+  });
+}
+
+async function commitRejection(body: Row): Promise<Response> {
+  if (!await reportReviewWritesEnabled()) {
+    return jsonResponse(503, { ok: false, error: "report_review_writes_disabled" });
+  }
+  const wallet = safeText(body.wallet);
+  const nonce = safeText(body.nonce);
+  const memo = safeText(body.memo);
+  const txSig = safeText(body.tx_sig);
+  const versionRef = safeText(body.version_public_ref);
+  try { validateWallet(wallet); }
+  catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
+  const nonceResult = await loadBoundNonce(nonce);
+  const bound = nonceResult.row;
+  if (nonceResult.error || !bound || bound.purpose !== REPORT_REJECTION_EVENT_TYPE
+      || bound.target_type !== "report_version") {
+    return jsonResponse(409, { ok: false, error: "unknown_or_wrong_nonce" });
+  }
+  const binding = governanceBinding(bound, "reject");
+  const verificationTime = Math.min(Math.floor(Date.now() / 1000), binding.expires_at);
+  const exact = validateReportGovernanceBinding(memo, binding, verificationTime);
+  if (!exact.ok || bound.actor_wallet !== wallet || binding.version_public_ref !== versionRef) {
+    return jsonResponse(409, { ok: false, error: "proof_binding_rejected" });
+  }
+  const chain = await verifyMainnetMemoTransaction(
+    txSig, wallet, memo, binding.issued_at, binding.expires_at,
+  );
+  if (!chain.ok) return jsonResponse(409, { ok: false, error: chain.reason });
+  await refreshReviewVerifications(admin, "report_version", String(bound.target_id ?? ""));
+  const { data, error } = await admin.rpc("osi_v2_commit_report_rejection", {
+    p_nonce: nonce,
+    p_tx_sig: txSig,
+    p_memo_ref: memo,
+    p_occurred_at: (chain as { occurred_at: string }).occurred_at,
+  });
+  if (error || !data?.[0]) return rpcFailure(error, true);
+  const committed = data[0];
+  return jsonResponse(200, {
+    ok: true,
+    case_public_ref: committed.case_public_ref,
+    report_public_ref: committed.report_public_ref,
+    version_public_ref: committed.version_public_ref,
+    lifecycle_state: "rejected",
+    actor_role: committed.actor_role,
+    quorum_hash: committed.quorum_hash,
+    decision_channel: "standard",
+    proof: {
+      event_type: REPORT_REJECTION_EVENT_TYPE,
+      label: "Memo-anchored on Solana",
+      proof_type: "solana_memo",
+      actor_role: committed.actor_role,
+      tx_sig: txSig,
+      server_verified: true,
+      decision_channel: "standard",
+    },
+    case_lifecycle_changed: false,
+    process_notice: "Rejection records a reviewed OSI process outcome for this exact version. It is not a finding of bad faith, and the author may submit a new revision.",
+    idempotent_replay: committed.idempotent_replay === true,
+  });
+}
+
 async function listPublicationRecovery(req: Request, body: Row): Promise<Response> {
   if (!await reportReviewWritesEnabled()) {
     return jsonResponse(503, { ok: false, error: "report_review_writes_disabled" });
@@ -761,6 +892,8 @@ serve(async (req: Request): Promise<Response> => {
     case "commit_review": return await commitReview(body);
     case "prepare_publication": return await preparePublication(req, body);
     case "commit_publication": return await commitPublication(req, body);
+    case "prepare_rejection": return await prepareRejection(req, body);
+    case "commit_rejection": return await commitRejection(body);
     case "list_publication_recovery": return await listPublicationRecovery(req, body);
     case "capabilities": return await capabilities(body);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });

@@ -57,12 +57,15 @@ function sessionToken(origin, wallet) {
 // The canonical OSI2 envelope. The browser re-validates a pending publication
 // Memo against this exact shape before it will keep a recovery record, so the
 // fixture has to produce the real thing rather than a placeholder.
-function publicationMemo(versionRef, wallet, nonce, expiresAt) {
+function outcomeMemo(purpose, decision, versionRef, wallet, nonce, expiresAt) {
   return [
-    'OSI2', '1', 'REPORT_PUBLISHED', 't=report_version', `id=${versionRef}`,
-    `a=${wallet}`, 'r=analyst', 'd=publish', `n=${nonce}`, `h=${'d'.repeat(64)}`,
+    'OSI2', '1', purpose, 't=report_version', `id=${versionRef}`,
+    `a=${wallet}`, 'r=analyst', `d=${decision}`, `n=${nonce}`, `h=${'d'.repeat(64)}`,
     `ts=${expiresAt - 240}`, `exp=${expiresAt}`,
   ].join('|');
+}
+function publicationMemo(versionRef, wallet, nonce, expiresAt) {
+  return outcomeMemo('REPORT_PUBLISHED', 'publish', versionRef, wallet, nonce, expiresAt);
 }
 
 function createBackend() {
@@ -85,17 +88,22 @@ function createBackend() {
   };
 
   function quorumFor(version) {
-    const approvals = version.reviews.filter((row) => row.is_active && row.decision === 'approve');
-    const approveWeight = approvals.reduce((sum, row) => sum + Number(row.weight || 0), 0);
+    const counted = (decision) => version.reviews.filter((row) => row.is_active && row.decision === decision);
+    const weigh = (rows) => rows.reduce((sum, row) => sum + Number(row.weight || 0), 0);
+    const approvals = counted('approve');
+    const rejections = counted('reject');
+    const approveWeight = weigh(approvals);
+    const rejectWeight = weigh(rejections);
     return {
       risk_tier: 'standard',
       approve_count: approvals.length,
       approve_weight: approveWeight,
-      reject_count: 0,
-      reject_weight: 0,
+      reject_count: rejections.length,
+      reject_weight: rejectWeight,
       required_count: REQUIRED_COUNT,
       required_weight: REQUIRED_WEIGHT,
       approve_ready: approvals.length >= REQUIRED_COUNT && approveWeight >= REQUIRED_WEIGHT,
+      reject_ready: rejections.length >= REQUIRED_COUNT && rejectWeight >= REQUIRED_WEIGHT,
     };
   }
 
@@ -122,8 +130,8 @@ function createBackend() {
       standard_quorum_ready: quorum.approve_ready,
       approve_count: quorum.approve_count,
       approve_weight: quorum.approve_weight,
-      reject_count: 0,
-      reject_weight: 0,
+      reject_count: quorum.reject_count,
+      reject_weight: quorum.reject_weight,
       required_count: REQUIRED_COUNT,
       required_weight: REQUIRED_WEIGHT,
       risk_tier: 'standard',
@@ -365,6 +373,26 @@ function createBackend() {
       version.lifecycle_state = 'in_review';
       return api;
     },
+    seedSealedCase() {
+      api.seedPublishedReport();
+      const row = findCase(CASE_REF);
+      row.stage = 'sealed';
+      return api;
+    },
+    seedRejectQuorum() {
+      api.seedSubmittedReport();
+      const { version } = findVersion(VERSION_REF);
+      [ANALYST_A, ANALYST_B].forEach((wallet, index) => {
+        version.reviews.push({
+          reviewer_wallet: wallet, decision: 'reject', weight: ANALYST_WEIGHT[wallet],
+          reason_code: 'evidence_insufficient', is_active: true,
+          public_rationale: 'The evidence in this exact version does not support its stated conclusion.',
+          created_at: `2026-07-23T1${index}:00:00+00:00`,
+        });
+      });
+      version.lifecycle_state = 'in_review';
+      return api;
+    },
     seedPublishedReport() {
       api.seedApprovedReport();
       const { report, version } = findVersion(VERSION_REF);
@@ -577,6 +605,43 @@ function createBackend() {
       }
       if (op === 'list_publication_recovery') {
         return { status: 200, payload: { ok: true, candidates: [] } };
+      }
+      if (op === 'prepare_rejection') {
+        const found = findVersion(String(body.version_public_ref || ''));
+        if (!found) return { status: 404, payload: { ok: false, error: 'report_version_not_available' } };
+        const q = quorumFor(found.version);
+        if (!q.reject_ready || q.approve_ready) {
+          return { status: 409, payload: { ok: false, error: 'analyst_quorum_not_ready' } };
+        }
+        const nonce = `${nextNonce('reject')}-${'r'.repeat(25)}`;
+        const expires = Math.floor(Date.now() / 1000) + 240;
+        return {
+          status: 200,
+          payload: {
+            ok: true, already_committed: false, nonce,
+            memo: outcomeMemo('REPORT_REJECTED', 'reject', found.version.version_ref, wallet, nonce, expires),
+            expires_at: expires,
+          },
+        };
+      }
+      if (op === 'commit_rejection') {
+        const found = findVersion(String(body.version_public_ref || ''));
+        if (!found) return { status: 404, payload: { ok: false, error: 'report_version_not_available' } };
+        const q = quorumFor(found.version);
+        // The server refuses whatever the browser believes.
+        if (!q.reject_ready || q.approve_ready) {
+          return { status: 409, payload: { ok: false, error: 'analyst_quorum_not_ready' } };
+        }
+        found.version.lifecycle_state = 'rejected';
+        state.receipts.push({
+          case_public_ref: found.report.case_public_ref, public_ref: found.version.version_ref,
+          event_type: 'REPORT_REJECTED', actor_wallet: wallet, actor_role: 'analyst',
+          decision: 'reject', occurred_at: new Date().toISOString(), tx_sig: PUBLISH_TX,
+        });
+        return {
+          status: 200,
+          payload: { ok: true, version_public_ref: found.version.version_ref, decision_channel: 'standard', lifecycle_state: 'rejected' },
+        };
       }
       if (op === 'prepare_publication') {
         const found = findVersion(String(body.version_public_ref || ''));
@@ -984,66 +1049,89 @@ test('supporting a Report author never shows a version reference as a payable ad
   expectClean(page);
 });
 
-test('the full lifecycle runs from private intake to a readable public finding', async ({ page }) => {
+// Each leg of this journey acts as a different wallet. Reusing one page would
+// carry that leg's read session, drafts and accumulated init scripts into the
+// next, so every leg gets its own context. The backend state machine is the
+// only thing that persists across them, which is exactly the real situation:
+// different people, one server.
+test('the full lifecycle runs from private intake to a readable public finding', async ({ browser }) => {
+  test.setTimeout(180_000);
   const backend = createBackend();
+  const contexts = [];
+  const asWallet = async (wallet) => {
+    const context = await browser.newContext();
+    contexts.push(context);
+    const page = await context.newPage();
+    await boot(page, backend, wallet ? { wallet } : {});
+    return page;
+  };
 
-  // 1. The owner files a private Case.
-  await boot(page, backend, { wallet: OWNER });
-  await page.evaluate(() => window.fieldOpenForm());
-  await page.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
-  await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
-  await page.locator('#v2-case-category').selectOption('wallet_drain');
-  await page.locator('#v2-case-confirm').check();
-  await page.getByRole('button', { name: 'Review and sign' }).click();
-  await expect.poll(() => backend.state.cases.length).toBe(1);
-  expect(backend.state.cases[0].visibility).toBe('private');
-  await expect(page.locator('#v2-case-receipt')).toContainText(CASE_REF);
+  try {
+    // 1. The owner files a private Case.
+    const owner = await asWallet(OWNER);
+    await owner.evaluate(() => window.fieldOpenForm());
+    await owner.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
+    await owner.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
+    await owner.locator('#v2-case-category').selectOption('wallet_drain');
+    await owner.locator('#v2-case-confirm').check();
+    await owner.getByRole('button', { name: 'Review and sign' }).click();
+    await expect.poll(() => backend.state.cases.length).toBe(1);
+    expect(backend.state.cases[0].visibility).toBe('private');
+    await expect(owner.locator('#v2-case-receipt')).toContainText(CASE_REF);
+    expectClean(owner);
 
-  // 2. An eligible analyst approves it and anchors the public open.
-  await page.evaluate(() => { window.walletPubkey = null; });
-  await boot(page, backend, { wallet: ANALYST_A });
-  await openCaseDrawerPrivate(page, backend);
-  await expect.poll(() => backend.state.cases[0].visibility).toBe('public');
+    // 2. An eligible analyst approves it and anchors the public open.
+    const approver = await asWallet(ANALYST_A);
+    await openCaseDrawerPrivate(approver, backend);
+    await expect.poll(() => backend.state.cases[0].visibility).toBe('public');
+    expectClean(approver);
 
-  // 3. A different wallet submits a Report with a public-safe summary.
-  await boot(page, backend, { wallet: AUTHOR });
-  await openCaseDrawer(page);
-  await page.getByRole('button', { name: 'Submit Report' }).click();
-  await page.locator('#osi-report-narrative').fill(NARRATIVE);
-  await page.locator('#osi-report-summary').fill(PUBLIC_SUMMARY);
-  await page.locator('#osi-report-safety').check();
-  await page.getByRole('button', { name: 'Prepare exact Memo' }).click();
-  await expect.poll(() => backend.state.reports.length).toBe(1);
+    // 3. A different wallet submits a Report with a public-safe summary.
+    const author = await asWallet(AUTHOR);
+    await openCaseDrawer(author);
+    await author.getByRole('button', { name: 'Submit Report' }).click();
+    await expect(author.locator('#osi-report-modal')).toHaveClass(/open/);
+    await author.locator('#osi-report-narrative').fill(NARRATIVE);
+    await author.locator('#osi-report-summary').fill(PUBLIC_SUMMARY);
+    await author.locator('#osi-report-safety').check();
+    await author.getByRole('button', { name: 'Prepare exact Memo' }).click();
+    await expect.poll(() => backend.state.reports.length).toBe(1);
+    expectClean(author);
 
-  // 4. Two independent analysts approve, reaching quorum.
-  for (const analyst of [ANALYST_A, ANALYST_B]) {
-    await boot(page, backend, { wallet: analyst });
-    await page.evaluate(() => window.osiV2OpenReportQueue());
-    const version = page.locator(`[data-report-version-ref="${VERSION_REF}"]`);
-    await expect(version).toBeVisible();
-    await version.locator(`#osi-review-decision-${VERSION_REF}`).selectOption('approve');
-    await version.getByRole('button', { name: /Sign and cast review|Revise my review/ }).click();
-    await expect.poll(() => backend.state.reports[0].versions[0].reviews.some((row) => row.reviewer_wallet === analyst)).toBe(true);
+    // 4. Two independent analysts approve, reaching quorum.
+    let lastAnalystPage = null;
+    for (const analyst of [ANALYST_A, ANALYST_B]) {
+      const reviewer = await asWallet(analyst);
+      lastAnalystPage = reviewer;
+      await reviewer.evaluate(() => window.osiV2OpenReportQueue());
+      const version = reviewer.locator(`[data-report-version-ref="${VERSION_REF}"]`);
+      await expect(version).toBeVisible();
+      await version.locator(`#osi-review-decision-${VERSION_REF}`).selectOption('approve');
+      await version.getByRole('button', { name: /Sign and cast review|Revise my review/ }).click();
+      await expect.poll(() => backend.state.reports[0].versions[0].reviews.some((row) => row.reviewer_wallet === analyst)).toBe(true);
+    }
+
+    // 5. The second approver publishes from the ready state.
+    const ready = lastAnalystPage.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-ready`);
+    await expect(ready).toBeVisible();
+    await ready.getByRole('button', { name: 'Publish this version now' }).click();
+    await expect.poll(() => backend.state.reports[0].current_published_version_ref).toBe(VERSION_REF);
+    expectClean(lastAnalystPage);
+
+    // 6. An anonymous visitor reads the finding.
+    const visitor = await asWallet(null);
+    await openCaseDrawer(visitor);
+    await showTab(visitor, 'reports');
+    const card = visitor.locator(`[data-report-version-public-ref="${VERSION_REF}"]`);
+    await expect(card).toContainText(SUMMARY_P1);
+    await expect(card).toContainText(SUMMARY_P2);
+    await expect(card).toContainText('2 / 2 analysts');
+    await expect(card).not.toContainText(PRIVATE_SENTINEL);
+    await expect(card.getByRole('button', { name: 'Support author with SOL' })).toBeVisible();
+    expectClean(visitor);
+  } finally {
+    for (const context of contexts) await context.close();
   }
-
-  // 5. The second approver publishes from the ready state.
-  const ready = page.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-ready`);
-  await expect(ready).toBeVisible();
-  await ready.getByRole('button', { name: 'Publish this version now' }).click();
-  await expect.poll(() => backend.state.reports[0].current_published_version_ref).toBe(VERSION_REF);
-
-  // 6. An anonymous visitor reads the finding.
-  await boot(page, backend);
-  await openCaseDrawer(page);
-  await showTab(page, 'reports');
-  const card = page.locator(`[data-report-version-public-ref="${VERSION_REF}"]`);
-  await expect(card).toContainText(SUMMARY_P1);
-  await expect(card).toContainText(SUMMARY_P2);
-  await expect(card).toContainText('2 / 2 analysts');
-  await expect(card).not.toContainText(PRIVATE_SENTINEL);
-  await expect(card.getByRole('button', { name: 'Support author with SOL' })).toBeVisible();
-
-  expectClean(page);
 });
 
 // The private intake drawer is reached through the authorized review lane
@@ -1111,4 +1199,142 @@ test('capture each lifecycle stage for release QA', async ({ page }) => {
   await showTab(page, 'reports');
   await expect(page.locator(`[data-report-version-public-ref="${VERSION_REF}"]`)).toBeVisible();
   await capture('06-published-finding-mobile');
+});
+
+// ---------------------------------------------------------------------------
+// The other analyst-quorum outcome
+// ---------------------------------------------------------------------------
+
+test('a version whose reject quorum is met offers the rejection, not a dead end', async ({ page }) => {
+  const backend = createBackend().seedRejectQuorum();
+  await boot(page, backend, { wallet: ANALYST_B });
+
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const banner = page.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-reject-ready`);
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Reject quorum reached');
+  await expect(banner).toContainText('2 / 2 analysts');
+  await expect(banner).toContainText('2.00 / 2.00 weight');
+  // Rejection is never a bad-faith finding and never blocks a revision.
+  await expect(banner).toContainText('not a finding of bad faith');
+  await expect(banner).toContainText('may submit a new revision');
+  // Approve-side publication must stay unavailable on the same version.
+  await expect(page.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-ready`)).toHaveCount(0);
+  await expect(banner.getByRole('button', { name: 'Record the rejection now' })).toBeEnabled();
+
+  expectClean(page);
+});
+
+test('recording the rejection moves the exact version to rejected and never publishes it', async ({ page }) => {
+  const backend = createBackend().seedRejectQuorum();
+  await boot(page, backend, { wallet: ANALYST_B });
+
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const banner = page.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-reject-ready`);
+  await expect(banner).toBeVisible();
+  await banner.getByRole('button', { name: 'Record the rejection now' }).click();
+
+  await expect.poll(() => backend.state.reports[0].versions[0].lifecycle_state).toBe('rejected');
+  // The published pointer never moves on a rejection.
+  expect(backend.state.reports[0].current_published_version_ref).toBeNull();
+  expect(backend.state.receipts.some((row) => row.event_type === 'REPORT_REJECTED')).toBe(true);
+  await expect(page.locator(`#osi-review-status-${VERSION_REF}`)).toContainText('rejected');
+  await expect(page.locator(`#osi-review-status-${VERSION_REF}`)).toContainText('may submit a new revision');
+
+  // The anonymous Case surface still shows no published Report.
+  await boot(page, backend);
+  await openCaseDrawer(page);
+  await showTab(page, 'reports');
+  await expect(page.locator('#osi-public-reports')).toContainText('No published Reports');
+  await expect(page.locator('body')).not.toContainText(PRIVATE_SENTINEL);
+
+  expectClean(page);
+});
+
+test('a wallet without an active reject review is told who can record the rejection', async ({ page }) => {
+  const backend = createBackend().seedRejectQuorum();
+  // The Report author is never an eligible reviewer of their own version.
+  await boot(page, backend, { wallet: AUTHOR });
+
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  // The author's own Report never enters their review queue at all.
+  await expect(page.locator(`[data-report-version-ref="${VERSION_REF}"]`)).toHaveCount(0);
+
+  expectClean(page);
+});
+
+// ---------------------------------------------------------------------------
+// Shipped-surface contract
+// ---------------------------------------------------------------------------
+
+// index.html once carried two containers, #osi-guard and #rv-drawer, whose
+// openers and handlers live in scripts only legacy.html loads. Every control
+// inside them threw ReferenceError. Nothing opened those containers so no user
+// could reach them, but a dormant control that cannot work is exactly what the
+// delivery brief forbids. This walks the real shipped DOM instead of trusting a
+// grep, so a handler that stops being loaded fails here.
+test('every inline handler in the shipped page resolves to a real function', async ({ page }) => {
+  const backend = createBackend().seedPublishedReport();
+  await boot(page, backend);
+
+  const missing = await page.evaluate(() => {
+    const names = new Set();
+    document.querySelectorAll('*').forEach((element) => {
+      for (const attribute of element.attributes) {
+        if (!/^on[a-z]+$/.test(attribute.name)) continue;
+        // Skip method calls: `event.preventDefault()` is not a global.
+        const pattern = /(?:^|[^.\w$])([A-Za-z_$][\w$]*)\s*\(/g;
+        let match;
+        while ((match = pattern.exec(attribute.value))) names.add(match[1]);
+      }
+    });
+    const reserved = new Set(['if', 'return', 'typeof', 'function', 'catch', 'for', 'while', 'switch', 'new']);
+    const unresolved = [];
+    names.forEach((name) => {
+      if (reserved.has(name)) return;
+      let resolved = false;
+      try { resolved = typeof window[name] === 'function' || typeof eval(name) === 'function'; } catch (_) { resolved = false; }
+      if (!resolved) unresolved.push(name);
+    });
+    return unresolved.sort();
+  });
+  expect(missing, `unresolved inline handlers: ${missing.join(', ')}`).toEqual([]);
+
+  expectClean(page);
+});
+
+test('a Case past Report intake states the closure instead of opening a wallet', async ({ page }) => {
+  const backend = createBackend().seedSealedCase();
+  await boot(page, backend, { wallet: OWNER });
+
+  // Baseline excludes the harness's own initial connect.
+  await page.evaluate(() => { window.__osiWalletCalls.length = 0; });
+  await openCaseDrawer(page);
+  const actions = page.locator('#osi-case-actions');
+  await expect(actions).toContainText('past Report intake');
+  // The server accepts intake only while a Case is open, under Report review or
+  // reopened. Offering the action anyway spent a wallet prompt to reach a
+  // guaranteed capability failure.
+  await expect(actions.getByRole('button', { name: 'Submit Report' })).toHaveCount(0);
+  const closed = actions.getByRole('button', { name: 'Report intake closed' });
+  await expect(closed).toBeDisabled();
+  await expect(closed).toHaveAttribute('title', /open only while a Case is in public investigation/);
+  // The record stays readable and the closed control reaches no wallet API.
+  await expect(actions.getByRole('button', { name: 'Inspect proof' })).toBeEnabled();
+  await closed.click({ force: true });
+  expect(await page.evaluate(() => window.__osiWalletCalls)).toEqual([]);
+
+  expectClean(page);
+});
+
+test('an open Case still offers Report submission', async ({ page }) => {
+  const backend = createBackend().seedApprovedCase();
+  await boot(page, backend, { wallet: OWNER });
+
+  await openCaseDrawer(page);
+  const actions = page.locator('#osi-case-actions');
+  await expect(actions.getByRole('button', { name: 'Submit Report' })).toBeEnabled();
+  await expect(actions).toContainText('Contribute findings');
+
+  expectClean(page);
 });
