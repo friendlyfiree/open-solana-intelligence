@@ -103,6 +103,16 @@ async function analystRef(wallet: string): Promise<string> {
 
 function rpcFailure(error: Row | null): Response {
   const code = safeText(error?.code);
+  const message = safeText(error?.message);
+  if (message === "Current application is already under review") {
+    return jsonResponse(409, { ok: false, error: "application_under_review" });
+  }
+  if (message === "An active analyst cannot open a candidate application") {
+    return jsonResponse(409, { ok: false, error: "active_analyst_cannot_apply" });
+  }
+  if (message === "Application state changed after nonce issuance") {
+    return jsonResponse(409, { ok: false, error: "application_state_changed" });
+  }
   if (code === "42501") return jsonResponse(403, { ok: false, error: "not_authorized" });
   if (["23514", "22023", "23505"].includes(code)) {
     return jsonResponse(409, { ok: false, error: code === "23505" ? "handle_unavailable" : "proof_binding_rejected" });

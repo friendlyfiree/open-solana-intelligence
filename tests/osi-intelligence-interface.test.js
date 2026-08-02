@@ -7,6 +7,7 @@ const vm = require('vm');
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const index = read('index.html');
+const baseCss = read('assets/css/00-theme-base.css');
 const css = read('assets/css/70-intelligence-redesign.css');
 const shell = read('assets/js/94-navigation-shell.js');
 const signal = read('assets/js/95-signal-interactions.js');
@@ -40,6 +41,7 @@ ok(!index.includes('id="tip-modal"') && index.includes('assets/js/70-support-tra
   && supportTransfer.includes("endsWith('/legacy.html')"),
   'primary app excludes the legacy OSI1 direct-tip modal while shared community helpers keep direct tips fail-closed');
 ok(index.includes('id="sol-ask" role="dialog" aria-modal="true" aria-labelledby="sol-ask-h" aria-describedby="sol-ask-note" aria-hidden="true"') && index.includes('aria-label="Cancel transfer"'), 'V2 SOL support uses a named amount dialog with an accessible close control');
+ok(baseCss.includes('.ap-modal:not(.open)') && baseCss.includes('.sol-ask:not(.open)') && baseCss.includes('.wb-menu:not(.open){display:none!important}'), 'closed analyst and SOL dialogs stay absent on the Home first paint before route CSS activates');
 ok(amountDialog.includes("event.key === 'Escape'") && amountDialog.includes("event.key !== 'Tab'") && amountDialog.includes('returnFocus') && amountDialog.includes("m.setAttribute('aria-hidden', 'false')"), 'V2 amount dialog traps focus, closes on Escape, and restores focus');
 ok(supportTransfer.includes("endsWith('/legacy.html')"), 'legacy OSI1 direct-tip runtime remains fail-closed outside legacy.html');
 ok(index.indexOf('70-intelligence-redesign.css') > index.indexOf('v2-activation.css'), 'redesign CSS is the final cascade layer');

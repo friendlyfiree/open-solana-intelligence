@@ -129,6 +129,23 @@
 .osi-analyst-form textarea{min-height:92px;resize:vertical}
 .osi-analyst-form input[type=file]{padding:10px;border:1px dashed var(--osi-border-strong);border-radius:var(--osi-radius-sm);background:rgba(255,255,255,.015);color:var(--ink-dim)}
 .osi-analyst-form small{font-size:10px;color:var(--ink-faint)}
+.osi-application-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px;border:1px solid rgba(49,245,181,.2);border-radius:var(--osi-radius-md);background:rgba(49,245,181,.035)}
+.osi-application-steps span{display:flex;align-items:center;gap:7px;color:var(--ink-dim);font-size:11px;line-height:1.35}
+.osi-application-steps b{display:grid;place-items:center;flex:0 0 24px;height:24px;border:1px solid rgba(49,245,181,.35);border-radius:50%;color:var(--cyan);font:700 10px 'JetBrains Mono',monospace}
+.osi-application-optional{border:1px solid var(--osi-border);border-radius:var(--osi-radius-md);background:rgba(255,255,255,.012);overflow:hidden}
+.osi-application-optional summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:10px 13px;cursor:pointer;list-style:none;color:var(--ink)}
+.osi-application-optional summary::-webkit-details-marker{display:none}
+.osi-application-optional summary span{display:flex;flex-direction:column;gap:2px}
+.osi-application-optional summary b{font-size:12px}
+.osi-application-optional summary small{font-size:10px;font-weight:400}
+.osi-application-optional summary i{color:var(--cyan);font:500 22px/1 'JetBrains Mono',monospace;font-style:normal;transition:transform .16s ease}
+.osi-application-optional[open] summary{border-bottom:1px solid var(--osi-border);background:rgba(49,245,181,.025)}
+.osi-application-optional[open] summary i{transform:rotate(45deg)}
+.osi-application-optional-body{display:flex;flex-direction:column;gap:14px;padding:14px}
+.osi-application-optional-body>label{display:flex;flex-direction:column;gap:7px}
+.osi-application-actions{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.osi-application-actions .rec-go{min-height:44px;margin-top:0}
+.osi-application-actions .osi-secondary-action{min-height:44px}
 .osi-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .osi-expertise{display:flex;gap:8px;flex-wrap:wrap;padding:13px;border:1px solid var(--osi-border);border-radius:var(--osi-radius-md)}
 .osi-expertise legend{padding:0 6px}
@@ -177,6 +194,9 @@
   .osi-profile-facts>div:last-child{border-bottom:0}
   .osi-review-history,.osi-history-row{grid-template-columns:1fr;gap:4px}
   .osi-application-card,.osi-workspace-profile{padding:15px}
+  .osi-application-steps{grid-template-columns:1fr}
+  .osi-application-actions{align-items:stretch;flex-direction:column-reverse}
+  .osi-application-actions button{width:100%}
   .osi-version-card>header{flex-direction:column}
   .moc-section-head{align-items:flex-start;flex-direction:column}
   .osi-ops-application{padding:13px}

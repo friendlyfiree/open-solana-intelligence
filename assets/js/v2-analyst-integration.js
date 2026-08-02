@@ -45,7 +45,10 @@
       not_found_or_not_reviewable:'This exact application version is no longer reviewable.',
       not_ready_for_probation:'This exact version needs an active maintainer approval before probation activation.',
       rate_limited:'Too many proof requests. Wait a few minutes and try again.',
-      concurrent_retry:'Another operation changed this record. Refresh and try again.'
+      concurrent_retry:'Another operation changed this record. Refresh and try again.',
+      application_under_review:'Your current application is already under review. Open My Applications to check its status.',
+      active_analyst_cannot_apply:'Your wallet already has an active analyst profile. Open My Profile instead.',
+      application_state_changed:'Your application changed while this proof was prepared. Open My Applications and try the exact available action again.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
       ,read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; your draft is preserved.'
@@ -194,11 +197,14 @@
     var profile=state.workspace&&state.workspace.profile,application=latestApplication();
     if(!profile)return empty('No analyst profile yet','Create an immutable wallet-signed application version to begin.')+'<button class="osi-primary-action" type="button" onclick="apxOpen()">Start analyst application</button>';
     var links=(profile.links_public||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label)+'</a>':'';}).join(''),identity=profile.handle?'@'+profile.handle:short(profile.wallet);
+    var applicationAction=application&&application.status==='revision_requested'
+      ?'<button class="osi-primary-action" type="button" onclick="apxOpen()">Submit requested revision</button>'
+      :(application?'<div class="osi-callout"><b>Application '+esc(label(application.status))+'</b><span>No new version is needed now. Open My Applications for the exact status and review history.</span></div><button class="osi-secondary-action" type="button" onclick="osiAnalystOpenWorkspace(\'applications\')">Open My Applications</button>':'');
     return '<div class="osi-workspace-profile"><header>'+avatar(profile,58)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(profile.display_name||profile.handle||short(profile.wallet))+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
       +'<div class="osi-profile-facts"><div><span>Profile status</span>'+statusBadge(profile.status)+'</div><div><span>Tier</span><b>'+esc(label(profile.tier_code))+'</b></div><div><span>Server-derived weight</span><b>'+Number(profile.weight_cached||0).toFixed(2)+'</b></div></div>'
       +'<section><h4>Expertise</h4><div class="osi-tag-list">'+(profile.expertise_public||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section>'
       +(links?'<section><h4>Public links</h4><div class="osi-safe-links">'+links+'</div></section>':'')
-      +'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+(application&&application.status==='revision_requested'?'Submit requested revision':'Submit a new application version')+'</button></div>';
+      +applicationAction+'</div>';
   }
   function reviewHistory(review){return '<div class="osi-review-history"><b>'+esc(label(review.decision))+'</b><span>'+esc(label(review.reason_code))+' / weight '+Number(review.weight||0).toFixed(2)+'</span><time>'+esc(dateText(review.created_at))+'</time></div>';}
   function applicationPane(){
@@ -256,6 +262,9 @@
     var checked=Array.prototype.map.call(document.querySelectorAll('input[name="an-expertise"]:checked'),function(box){return box.value;});
     return{handle:(document.getElementById('an-handle')||{}).value||'',x_handle:(document.getElementById('an-x-handle')||{}).value||'',display_name:(document.getElementById('an-name')||{}).value||'',bio:(document.getElementById('an-bio')||{}).value||'',motivation:(document.getElementById('an-motivation')||{}).value||'',experience:(document.getElementById('an-experience')||{}).value||'',proof:(document.getElementById('an-proof')||{}).value||'',link_label:(document.getElementById('an-link-label')||{}).value||'',link_url:(document.getElementById('an-link-url')||{}).value||'',expertise:checked,safety:!!(document.getElementById('an-safety')||{}).checked};
   }
+  function hasOptionalApplicationData(draft){
+    return !!(draft&&(draft.handle||draft.x_handle||draft.display_name||draft.motivation||draft.experience||draft.proof||draft.link_label||draft.link_url||(draft.expertise||[]).length));
+  }
   function saveApplicationDraft(){if(walletPubkey&&typeof window.osiV2SaveDraft==='function')window.osiV2SaveDraft(applicationDraftKey(walletPubkey),applicationDraft());}
   function restoreApplicationDraft(wallet){
     if(typeof window.osiV2LoadDraft!=='function')return false;var draft=window.osiV2LoadDraft(applicationDraftKey(wallet));if(!draft)return false;
@@ -280,16 +289,14 @@
       return;
     }
     try{
-      if(typeof showToast==='function')showToast('Approve the wallet message to unlock the private application workspace. No transaction will be sent.');
       var wallet=await ensureWallet();
       generation=privateGeneration();
-      if(!state.workspace||state.workspaceWallet!==wallet){state.workspace=await sessionRead('analyst:workspace','my_workspace');state.workspaceWallet=wallet;}
       assertPrivateGeneration(generation);
-      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();restoreApplicationDraft(wallet);state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');setApplicationStatus('');
-      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');document.body.style.overflow='hidden';setTimeout(function(){var target=document.getElementById('an-handle')||document.getElementById('an-bio');if(target)target.focus();},50);
+      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();var restored=restoreApplicationDraft(wallet),optional=document.getElementById('analyst-optional-details');if(optional)optional.open=!!latestApplication()||(restored&&hasOptionalApplicationData(applicationDraft()));state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');setApplicationStatus('');
+      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(typeof showToast==='function')showToast('Application ready. Only the final exact message needs one wallet signature.');setTimeout(function(){var target=document.getElementById('an-bio');if(target)target.focus();},50);
     }catch(error){if((generation==null||generation===privateGeneration())&&typeof showToast==='function')showToast(userError(error));}
   }
-  function closeApplication(){var modal=document.getElementById('apx-modal');if(modal)modal.classList.remove('open');document.body.style.overflow='';if(state.receipt){state.receipt=null;var form=document.getElementById('analyst-form');if(form)form.reset();if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');}if(state.returnFocus&&typeof state.returnFocus.focus==='function')state.returnFocus.focus();state.returnFocus=null;}
+  function closeApplication(){var modal=document.getElementById('apx-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}document.body.style.overflow='';if(state.receipt){state.receipt=null;var form=document.getElementById('analyst-form');if(form)form.reset();if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');}if(state.returnFocus&&typeof state.returnFocus.focus==='function')state.returnFocus.focus();state.returnFocus=null;}
   function inputLines(id){var node=document.getElementById(id);return String(node&&node.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean);}
   async function avatarPayload(){
     var input=document.getElementById('an-avatar'),file=input&&input.files&&input.files[0];if(!file)return null;
@@ -448,7 +455,7 @@
     state.workspace=null;state.workspaceWallet='';state.queue=[];state.busy=false;state.receipt=null;state.returnFocus=null;
     if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');
     var form=document.getElementById('analyst-form');if(form)form.reset();
-    var modal=document.getElementById('apx-modal');if(modal)modal.classList.remove('open');
+    var modal=document.getElementById('apx-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}
     setApplicationStatus('');
     var submit=document.querySelector('#analyst-form button[type="submit"]');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}
     var profileModal=document.getElementById('ap-modal');document.body.style.overflow=profileModal&&profileModal.classList.contains('open')?'hidden':'';

@@ -28,6 +28,15 @@ ok(html.includes('id="an-safety" type="checkbox" required')
   && html.includes('Describe your work (optional)')
   && analyst.includes('safety_acknowledged:document.getElementById(\'an-safety\').checked===true'),
   'application keeps a signed safety acknowledgement while detailed experience is optional');
+ok(html.includes('Apply in about one minute')
+  && html.includes('This is the only written field required for a first application.')
+  && html.includes('id="analyst-optional-details"')
+  && html.includes('SIGN ONCE AND SUBMIT'),
+  'first application exposes a one-minute minimal path and collapses optional evidence');
+ok(html.includes('id="apx-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="osi-application-title"')
+  && analyst.includes("modal.setAttribute('aria-hidden','false')")
+  && analyst.includes("modal.setAttribute('aria-hidden','true')"),
+  'application dialog publishes an exact accessible open and closed state');
 ok(html.includes('accept="image/png,image/jpeg"'), 'profile image picker excludes SVG and arbitrary formats');
 ok(!html.includes('Most backed') && !html.includes('data-s="supported"'), 'The Wire has no support-based sort control');
 ok(!wire.includes("wireState.sort==='supported'"), 'The Wire cannot order by support signals');
@@ -41,6 +50,10 @@ ok(analyst.includes("sessionRead('analyst:workspace','my_workspace')")
   && analyst.includes("sessionRead('analyst:maintainer','maintainer_queue')"),
   'private workspaces use the shared scoped read session');
 ok(analyst.includes("op:'prepare_application'") && analyst.includes("op:'commit_application'"), 'application submission has prepare and commit stages');
+ok(!analyst.includes('Approve the wallet message to unlock the private application workspace.')
+  && analyst.includes("var target=document.getElementById('an-bio')")
+  && analyst.includes('Only the final exact message needs one wallet signature.'),
+  'first application opens without a private-read signature and focuses the only required written field');
 ok(analyst.includes("op:'prepare_review'") && analyst.includes("op:'commit_review'"), 'maintainer review has prepare and commit stages');
 ok(analyst.includes("op:'prepare_activation'") && analyst.includes("op:'commit_activation'"), 'probation activation has prepare and commit stages');
 ok(analyst.includes('signMessage(prepared.message)'), 'class-B application and review proofs sign exact server messages');
@@ -66,6 +79,10 @@ ok(analyst.includes('window.osiAnalystLoadReviewTasks=loadMaintainerQueueData')
   && analyst.includes('String(application.version.version_ref)!==String(expectedVersionRef')
   && analyst.includes('This exact application task changed. Refresh My Reviews before acting.'),
   'application review tasks compose into the unified queue with exact-target routing');
+ok(!analyst.includes('Submit a new application version')
+  && analyst.includes('No new version is needed now. Open My Applications')
+  && analyst.includes('application_under_review'),
+  'pending applicants are routed to status instead of a duplicate submission dead end');
 
 ok(analyst.includes('trustedAvatar') && analyst.includes('osi-analyst-avatars'), 'public avatar rendering accepts only the owned storage prefix');
 ok(analyst.includes("['image/png','image/jpeg']") && analyst.includes('524288'), 'client mirrors strict avatar MIME and size gates');
@@ -112,6 +129,10 @@ ok(!html.includes('Apply for credentials'), 'application wording describes the r
 ok(css.includes(':focus-visible'), 'shared UI has visible keyboard focus');
 ok(css.includes('prefers-reduced-motion:reduce'), 'shared UI respects reduced motion');
 ok(css.includes('@media(max-width:600px)') && css.includes('@media(max-width:900px)'), 'analyst surfaces adapt to mobile and tablet widths');
+ok(css.includes('.osi-application-steps')
+  && css.includes('.osi-application-optional')
+  && css.includes('.osi-application-actions'),
+  'fast application guidance, progressive disclosure and mobile actions have dedicated styling');
 ok(!analyst.includes('\u2014') && !css.includes('\u2014'), 'new visible analyst UI introduces no em dash');
 
 console.log('1..' + assertions);
