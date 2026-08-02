@@ -1,0 +1,225 @@
+name: OSI Case Rejection and Appeal Recovery
+
+# One-purpose recovery after the approved migration and Case-write Function
+# deployed successfully but the rollout's contained-state smoke expected 400
+# instead of the correct fail-closed 503. This workflow deploys nothing and
+# applies no migration; it verifies the installed contract, restores only the
+# Case write flag, and proves the live validation boundary.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RECOVER-CASE-REJECTION-APPEAL-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-case-rejection-appeal-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  FUNCTION_SLUG: osi-v2-case-write
+  EXPECTED_VERSION: '20260802180000'
+  EXPECTED_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457 20260726200249 20260727170000
+    20260727173000 20260728132011 20260728153100 20260728170000
+    20260729134213 20260801092744 20260801120700 20260802102728
+    20260802180000
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean recovery validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Require exact confirmation and current main
+        env:
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [ "$CONFIRM_INPUT" = "RECOVER-CASE-REJECTION-APPEAL-${EXPECTED_PROJECT_REF}" ]
+          [ "$GITHUB_REF" = 'refs/heads/main' ]
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact current main and task files
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          [ -z "$(git status --porcelain)" ]
+          test -s "supabase/migrations/${EXPECTED_VERSION}_osi_v2_case_initial_rejection_appeal.sql"
+          test -s "supabase/functions/${FUNCTION_SLUG}/index.ts"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.111.0
+
+      - name: Focused application workflow and database proof
+        run: |
+          set -euo pipefail
+          node tests/osi-v2-case-write.test.mjs
+          node tests/osi-v2-case-ui.test.js
+          node tests/osi-v2-migrations.test.js
+          node tests/osi-case-rejection-appeal-production-workflow.test.mjs
+          node tests/osi-case-rejection-appeal-recovery-workflow.test.mjs
+          deno check "supabase/functions/${FUNCTION_SLUG}/index.ts"
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint" .github/workflows/osi-case-rejection-appeal-recovery-production.yml
+          supabase db start
+          supabase db reset --local --no-seed
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop and discard the disposable database
+        if: always()
+        run: supabase stop --no-backup
+
+  recover:
+    name: Verify installed Case contract and restore only Case writes
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: Production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+      PROOF_DIR: /tmp/osi-case-recovery-proof
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.111.0
+
+      - name: Verify credentials project and unchanged main
+        env:
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROOF_DIR"
+          [ "$CONFIRM_INPUT" = "RECOVER-CASE-REJECTION-APPEAL-${EXPECTED_PROJECT_REF}" ]
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ]
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          git rev-parse HEAD > "$PROOF_DIR/main-commit.txt"
+
+      - name: Resolve pinned session pooler
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import json,sys
+          data=json.load(sys.stdin); rows=data if isinstance(data,list) else [data]
+          row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
+          print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) :;; *) exit 1;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
+          printf 'PGHOST=%s\nPGPORT=%s\nPGUSER=%s\nPGDATABASE=%s\n' "$PGHOST" "$PGPORT" "$PGUSER" "$PGDATABASE" >> "$GITHUB_ENV"
+
+      - name: Prove exact installed migration Function and contained state
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          expected="$(echo "$EXPECTED_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          remote="$(psql -Atqc "select string_agg(version,' ' order by version) from supabase_migrations.schema_migrations")"
+          [ "$remote" = "$expected" ]
+          supabase migration list --linked > "$PROOF_DIR/migration-list.txt"
+          supabase db push --linked --dry-run 2>&1 | tee "$PROOF_DIR/migration-dry-run.txt"
+          grep -Eqi 'up to date|no migrations' "$PROOF_DIR/migration-dry-run.txt"
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED'")" = false ]
+          psql -Atq <<'SQL' > "$PROOF_DIR/installed-contract.txt"
+          begin read only;
+          select to_regprocedure('public.osi_v2_prepare_case_rejection(text,text,uuid,text,text)') is not null;
+          select to_regprocedure('public.osi_v2_prepare_case_appeal(text,text,uuid,text,jsonb,text,text)') is not null;
+          select not has_function_privilege('anon','public.osi_v2_prepare_case_appeal(text,text,uuid,text,jsonb,text,text)','execute');
+          select not has_function_privilege('authenticated','public.osi_v2_prepare_case_appeal(text,text,uuid,text,jsonb,text,text)','execute');
+          select has_function_privilege('service_role','public.osi_v2_prepare_case_appeal(text,text,uuid,text,jsonb,text,text)','execute');
+          commit;
+          SQL
+          [ "$(grep -c '^t$' "$PROOF_DIR/installed-contract.txt")" = 5 ]
+          supabase functions list --project-ref "$EXPECTED_PROJECT_REF" -o json > "$PROOF_DIR/functions-before.json"
+          jq -e '.[]|select(.slug=="osi-v2-case-write" and .status=="ACTIVE" and .verify_jwt==false)' "$PROOF_DIR/functions-before.json" > "$PROOF_DIR/case-write.json"
+          jq '[.[]|{slug,version,status,verify_jwt,updated_at}]|sort_by(.slug)' "$PROOF_DIR/functions-before.json" > "$PROOF_DIR/all-functions-before.json"
+          psql -Atq -f scripts/protected-row-counts.sql | sort > "$PROOF_DIR/rows-before.txt"
+          psql -Atq -F'|' -c "select key,md5(value) from public.osi_config where key<>'OSI_V2_CASE_WRITES_ENABLED' order by key" > "$PROOF_DIR/config-before.txt"
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/${FUNCTION_SLUG}"
+          caps="$(curl -sS --fail --max-time 30 -X POST "$base" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d '{"op":"actor_capabilities","wallet":"9xQeWvG816bUx9EPfEzjW5eC4oe9hMLxZQW6vMVnL8vS"}')"
+          jq -e '.ok==true and .case_writes_enabled==false and .maintainer_access==false' <<< "$caps"
+          code="$(curl -sS --max-time 30 -o "$PROOF_DIR/contained-invalid.json" -w '%{http_code}' -X POST "$base" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d '{"op":"prepare_appeal","wallet":"bad"}')"
+          [ "$code" = 503 ]
+
+      - name: Record recovery plan and restore only Case writes
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'No migration or Function deployment is performed.' 'Only OSI_V2_CASE_WRITES_ENABLED changes false to true.' 'Any failure restores false and preserves immutable data.' > "$PROOF_DIR/recovery-plan.txt"
+          touch "$RUNNER_TEMP/case-recovery-started"
+          psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='true',updated_at=statement_timestamp() where key='OSI_V2_CASE_WRITES_ENABLED' and value='false'"
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_CASE_WRITES_ENABLED'")" = true ]
+
+      - name: Live validation privacy and isolation smoke
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/${FUNCTION_SLUG}"
+          caps="$(curl -sS --fail --max-time 30 -X POST "$base" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d '{"op":"actor_capabilities","wallet":"9xQeWvG816bUx9EPfEzjW5eC4oe9hMLxZQW6vMVnL8vS"}')"
+          jq -e '.ok==true and .case_writes_enabled==true and .maintainer_access==false' <<< "$caps"
+          code="$(curl -sS --max-time 30 -o "$PROOF_DIR/live-invalid.json" -w '%{http_code}' -X POST "$base" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d '{"op":"prepare_appeal","wallet":"bad"}')"
+          [ "$code" = 400 ]
+          read_base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-case-read"
+          public_body="$(curl -sS --fail --max-time 30 -X POST "$read_base" -H 'Content-Type: application/json' -d '{"op":"list_public_cases"}')"
+          jq -e '.ok==true' <<< "$public_body"
+          if grep -Eq 'details_restricted|submitted_by_wallet|reason_code' <<< "$public_body"; then exit 1; fi
+          psql -Atq -f scripts/protected-row-counts.sql | sort > "$PROOF_DIR/rows-after.txt"
+          diff -u "$PROOF_DIR/rows-before.txt" "$PROOF_DIR/rows-after.txt"
+          psql -Atq -F'|' -c "select key,md5(value) from public.osi_config where key<>'OSI_V2_CASE_WRITES_ENABLED' order by key" > "$PROOF_DIR/config-after.txt"
+          diff -u "$PROOF_DIR/config-before.txt" "$PROOF_DIR/config-after.txt"
+          supabase functions list --project-ref "$EXPECTED_PROJECT_REF" -o json > "$PROOF_DIR/functions-after.json"
+          jq '[.[]|{slug,version,status,verify_jwt,updated_at}]|sort_by(.slug)' "$PROOF_DIR/functions-after.json" > "$PROOF_DIR/all-functions-after.json"
+          diff -u "$PROOF_DIR/all-functions-before.json" "$PROOF_DIR/all-functions-after.json"
+          rm "$RUNNER_TEMP/case-recovery-started"
+
+      - name: Fail closed on recovery error
+        if: failure()
+        run: |
+          set -euo pipefail
+          [ -f "$RUNNER_TEMP/case-recovery-started" ] || exit 0
+          psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='false',updated_at=statement_timestamp() where key='OSI_V2_CASE_WRITES_ENABLED' and value<>'false'"
+          echo '::error::Case writes remain fail-closed; do not retry automatically.'
+
+      - name: Upload sanitized recovery proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: osi-case-rejection-appeal-recovery-${{ github.sha }}
+          path: /tmp/osi-case-recovery-proof
+          if-no-files-found: warn
+          retention-days: 30

@@ -223,7 +223,7 @@ jobs:
           caps="$(curl -sS --fail --max-time 30 -X POST "$base" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d '{"op":"actor_capabilities","wallet":"9xQeWvG816bUx9EPfEzjW5eC4oe9hMLxZQW6vMVnL8vS"}')"
           jq -e '.ok==true and .case_writes_enabled==false and .maintainer_access==false' <<< "$caps"
           code="$(curl -sS --max-time 30 -o "$PROOF_DIR/invalid-appeal.json" -w '%{http_code}' -X POST "$base" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d '{"op":"prepare_appeal","wallet":"bad"}')"
-          [ "$code" = 400 ]
+          [ "$code" = 503 ]
 
       - name: Restore Case writes and verify isolation
         run: |
@@ -234,6 +234,8 @@ jobs:
           base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/${FUNCTION_SLUG}"
           live="$(curl -sS --fail --max-time 30 -X POST "$base" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d '{"op":"actor_capabilities","wallet":"9xQeWvG816bUx9EPfEzjW5eC4oe9hMLxZQW6vMVnL8vS"}')"
           jq -e '.ok==true and .case_writes_enabled==true and .maintainer_access==false' <<< "$live"
+          invalid_code="$(curl -sS --max-time 30 -o "$PROOF_DIR/live-invalid-appeal.json" -w '%{http_code}' -X POST "$base" -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' -d '{"op":"prepare_appeal","wallet":"bad"}')"
+          [ "$invalid_code" = 400 ]
           psql -Atq -F'|' -c "select key,md5(value) from public.osi_config where key<>'OSI_V2_CASE_WRITES_ENABLED' order by key" > "$PROOF_DIR/config-after.txt"
           diff -u "$PROOF_DIR/config-before.txt" "$PROOF_DIR/config-after.txt"
           psql -Atq -f scripts/protected-row-counts.sql | sort > "$PROOF_DIR/rows-after.txt"
