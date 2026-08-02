@@ -43,6 +43,7 @@ const expectedFiles = [
   '20260801092744_report_publication_rpc_recovery.sql',
   '20260801120700_report_nullable_public_summary.sql',
   '20260802102728_osi_v2_report_rejection_transition.sql',
+  '20260802180000_osi_v2_case_initial_rejection_appeal.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -79,6 +80,8 @@ const reportPublicationRpcRecovery =
   sqlByFile['20260801092744_report_publication_rpc_recovery.sql'] || '';
 const reportNullablePublicSummary =
   sqlByFile['20260801120700_report_nullable_public_summary.sql'] || '';
+const caseInitialRejectionAppeal =
+  sqlByFile['20260802180000_osi_v2_case_initial_rejection_appeal.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -598,9 +601,13 @@ ok(
     && lifecycle.includes('Idempotency key is bound to another exact Case action'),
 );
 ok(
-  'unfinished initial rejection outcome fails closed in the database',
-  lifecycle.includes("p_decision not in ('approve_open', 'needs_more')")
-    && lifecycle.includes('Initial rejection outcome is not enabled in this Case slice'),
+  'normal initial rejection and owner appeal are complete current-cycle transitions',
+  caseInitialRejectionAppeal.includes('reject_count >= 2 and reject_weight >= 2.00')
+    && caseInitialRejectionAppeal.includes("'CASE_INITIAL_REVIEW_REJECTED'")
+    && caseInitialRejectionAppeal.includes("'CASE_APPEAL_SUBMITTED'")
+    && caseInitialRejectionAppeal.includes('osi_v2_case_review_cycle_started_at')
+    && caseInitialRejectionAppeal.includes("stage='initial_rejected'")
+    && caseInitialRejectionAppeal.includes("stage='initial_review'"),
 );
 ok(
   'all submission-bound Case content is immutable',

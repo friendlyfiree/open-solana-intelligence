@@ -100,6 +100,7 @@
     if(hasBlockingChallenge(item))return 'Challenge active';
     if(isSealReady(item))return 'Seal ready';
     return ({draft:'Private intake',submitted:'Private intake',initial_review:'Initial review',
+      initial_rejected:'Initial review rejected',
       open_public:'Public investigation',in_review:'Reports under review',
       ready_for_finalization:'Resolution selection',resolution_proposed:'Resolution selection',
       in_challenge_window:'Challenge window',resolved:'Seal ready',sealed:'Sealed',
@@ -118,7 +119,8 @@
     return(days?days+'d ':'')+(hours?hours+'h ':days?'':minutes+'m ')+'remaining';
   }
   function nextStepText(item){
-    if(item.visibility==='private')return'Await an eligible analyst or full double-gated maintainer initial-open review.';
+    if(item.stage==='initial_rejected')return'The owner may appeal once new evidence is ready. The original submission and rejection proof remain immutable.';
+    if(item.visibility==='private')return'Await an eligible analyst or full double-gated maintainer initial-open review, or the independent normal-rejection quorum.';
     if(hasBlockingChallenge(item))return'Resolve the admitted challenge before any process seal.';
     if(isSealReady(item))return'Collect full maintainer finalization for the analyst-ready process seal.';
     return({open_public:'Submit and publish an exact immutable Case Report.',
@@ -167,6 +169,10 @@
       prohibited_secret_material:'Remove any seed phrase, recovery phrase, mnemonic, private key, or secret key reference.',
       prohibited_illegal_access_material:'Illegal-access material cannot be submitted.',
       rate_limited:'Too many proof requests. Wait a few minutes and try again.'
+      ,analyst_required:'Normal Case rejection requires an eligible analyst. Maintainer authority cannot replace this quorum.'
+      ,owner_required:'Only the Case owner can submit this appeal.'
+      ,not_found_or_not_appealable:'This Case is no longer in the exact rejected state required for an appeal.'
+      ,appeal_requires_new_evidence:'Add one new evidence reference before appealing.'
       ,read_failed:'The public Case registry could not be loaded. Retry when the service is available.'
       // One message for both cases on purpose: an anonymous caller must not be
       // able to tell a missing Case apart from a private one.
@@ -950,7 +956,8 @@
   function emptySection(title,text){return'<section class="osi-case-section"><h3>'+esc(title)+'</h3><div class="osi-v2-empty"><b>Nothing recorded</b><span>'+esc(text)+'</span></div></section>';}
   function overview(item){
     var restricted=item.details_restricted?'<div class="osi-case-note"><b>Restricted intake detail</b><br><span data-osi-user-content>'+esc(item.details_restricted)+'</span></div>':'';
-    var active=(item.reviews||[]).filter(function(review){return review.is_active===true;});
+    var cycle=reviewCycleStartedAt(item);
+    var active=(item.reviews||[]).filter(function(review){return review.is_active===true&&new Date(review.created_at).getTime()>cycle;});
     var initial=active.length?'<div class="osi-governance-mini"><b>Initial review</b><span>'+active.length+' active attributable '+(active.length===1?'review':'reviews')+'</span></div>':'';
     return '<section class="osi-case-section"><h3>Case overview</h3><div class="osi-case-meta"><div><span>Reference</span><b>'+esc(item.public_ref)+'</b></div><div><span>Created</span><b>'+esc(dateText(item.created_at))+'</b></div><div><span>Stage</span><b>'+esc(stageLabel(item.stage,item))+'</b></div><div><span>Visibility</span><b>'+esc(label(item.visibility))+'</b></div></div><p data-osi-user-content>'+esc(item.summary)+'</p><div class="osi-governance-mini"><b>Exact next step</b><span>'+esc(nextStepText(item))+'</span></div>'+initial+restricted+'<div class="osi-case-note">OSI records attributable, human-reviewed and challengeable process. It does not determine guilt, legal certainty, truth, custody, recovery, or guaranteed payment.</div></section>';
   }
@@ -968,7 +975,8 @@
   // confirmed Memo anchored the opening; never infer an opening that has no
   // recorded receipt.
   function openingOutcome(item){
-    var approvals=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.decision==='approve_open';});
+    var cycle=reviewCycleStartedAt(item);
+    var approvals=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.decision==='approve_open'&&new Date(row.created_at).getTime()>cycle;});
     var maintainer=approvals.some(function(row){return row.reviewer_role==='maintainer';});
     var analysts=approvals.filter(function(row){return row.reviewer_role==='analyst';});
     var opened=(item.proof_log||[]).find(function(row){return row.event_type==='CASE_OPENED';});
@@ -990,8 +998,8 @@
       +anchor+'</div>';
   }
   function reviews(item){
-    var rows=item.reviews||[];
-    var list=rows.length?'<div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,row.reviewer_role)+' &middot; '+esc(label(row.decision))+'</b><span class="osi-proof-label">'+esc(row.proof_label)+'</span></div><p>'+esc(label(row.reviewer_role))+' &middot; weight '+esc(row.weight)+sasAuthority(row)+' &middot; '+esc(dateText(row.created_at))+'</p>'+(row.reason_code?'<p>Reason code: '+esc(row.reason_code)+'</p>':'')+'</div>';}).join('')+'</div>':'<div class="osi-v2-empty"><b>Awaiting initial review</b><span>No eligible reviewer has recorded a decision yet.</span></div>';
+    var rows=item.reviews||[],cycle=reviewCycleStartedAt(item);
+    var list=rows.length?'<div class="osi-list">'+rows.map(function(row){var prior=new Date(row.created_at).getTime()<=cycle;return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,row.reviewer_role)+' &middot; '+esc(label(row.decision))+'</b><span class="osi-proof-label">'+esc(prior?'Previous review cycle':row.proof_label)+'</span></div><p>'+esc(label(row.reviewer_role))+' &middot; weight '+esc(row.weight)+(prior?'':sasAuthority(row))+' &middot; '+esc(dateText(row.created_at))+'</p>'+(row.reason_code?'<p>Reason code: '+esc(row.reason_code)+'</p>':'')+'</div>';}).join('')+'</div>':'<div class="osi-v2-empty"><b>Awaiting initial review</b><span>No eligible reviewer has recorded a decision yet.</span></div>';
     return '<section class="osi-case-section"><h3>Initial reviews</h3>'+openingOutcome(item)+list+'<div id="osi-review-compose"></div></section>';
   }
   function publishedCandidates(item){
@@ -1132,20 +1140,40 @@
   }
   function activeOpeningRoute(item){
     var wallet=String(walletPubkey||'');var caps=state.capabilities||{};
-    var own=(item.reviews||[]).find(function(row){return row.is_active===true&&row.decision==='approve_open'&&String(row.reviewer_wallet)===wallet;});
+    var cycle=reviewCycleStartedAt(item);
+    var rejects=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.reviewer_role==='analyst'&&row.decision==='reject'&&new Date(row.created_at).getTime()>cycle;});
+    if(rejects.length>=2&&rejects.reduce(function(sum,row){return sum+Number(row.weight||0);},0)>=2)return'';
+    var own=(item.reviews||[]).find(function(row){return row.is_active===true&&row.decision==='approve_open'&&new Date(row.created_at).getTime()>cycle&&String(row.reviewer_wallet)===wallet;});
     if(!own)return'';
     if(own.reviewer_role==='maintainer')return caps.maintainer_access===true?'maintainer':'';
-    var approvals=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.reviewer_role==='analyst'&&row.decision==='approve_open';});
+    var approvals=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.reviewer_role==='analyst'&&row.decision==='approve_open'&&new Date(row.created_at).getTime()>cycle;});
     return caps.analyst_eligible===true&&approvals.length>=1&&approvals.reduce(function(sum,row){return sum+Number(row.weight||0);},0)>=0.5?'analyst':'';
+  }
+  function reviewCycleStartedAt(item){
+    return (item.proof_log||[]).filter(function(row){return row.event_type==='CASE_APPEAL_SUBMITTED';})
+      .reduce(function(latest,row){return Math.max(latest,new Date(row.occurred_at).getTime()||0);},0);
+  }
+  function activeRejectionReady(item){
+    var wallet=String(walletPubkey||''),cycle=reviewCycleStartedAt(item),caps=state.capabilities||{};
+    var reviews=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.reviewer_role==='analyst'&&row.decision==='reject'&&new Date(row.created_at).getTime()>cycle;});
+    var own=reviews.some(function(row){return String(row.reviewer_wallet)===wallet;});
+    var approvals=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.reviewer_role==='analyst'&&row.decision==='approve_open'&&new Date(row.created_at).getTime()>cycle;});
+    return caps.analyst_eligible===true&&own&&reviews.length>=2
+      &&reviews.reduce(function(sum,row){return sum+Number(row.weight||0);},0)>=2
+      &&!(approvals.length>=1&&approvals.reduce(function(sum,row){return sum+Number(row.weight||0);},0)>=0.5);
   }
   function renderActions(){
     var host=document.getElementById('osi-case-actions');var item=state.current;if(!host||!item)return;
-    if(state.mode==='review'&&item.visibility==='private'){
+    if(item.stage==='initial_rejected'&&state.mode==='mine'){
+      host.innerHTML='<span class="osi-action-help">The rejection is retained with its Memo proof. Appeal only with a new evidence reference; the original submission is never rewritten.</span><button class="osi-action primary" type="button" onclick="osiV2ComposeCaseAppeal()">Appeal with new evidence</button>';
+    }else if(state.mode==='review'&&item.visibility==='private'){
       var openingRoute=activeOpeningRoute(item);
+      var rejectionReady=activeRejectionReady(item);
       var conflicted=activeTaskConflict('initial_open');
       host.innerHTML='<span class="osi-action-help">'+esc(conflicted?conflictMessage():'Reviews use signMessage. Public opening requires either the analyst threshold or a full double-gated maintainer approval, then a separate confirmed Solana Memo. It authorizes public investigation only; it does not determine truth or guilt.')+'</span>'
         +(conflicted?'<button class="osi-action" type="button" disabled title="'+esc(conflictMessage())+'">'+esc(t('Review unavailable'))+'</button>':'<button class="osi-action" type="button" onclick="osiV2ComposeReview()">Record review</button>')
-        +(openingRoute&&!conflicted?'<button class="osi-action primary" type="button" onclick="osiV2AnchorOpen()">Anchor public open</button>':'');
+        +(openingRoute&&!conflicted?'<button class="osi-action primary" type="button" onclick="osiV2AnchorOpen()">Anchor public open</button>':'')
+        +(rejectionReady&&!conflicted?'<button class="osi-action" type="button" onclick="osiV2AnchorCaseRejection()">Anchor normal rejection</button>':'');
     }else if(item.visibility==='private'){
       host.innerHTML='<span class="osi-action-help">Private and awaiting an eligible analyst or full maintainer review. Case owners cannot self-review.</span><button class="osi-action" disabled title="Requires an eligible analyst or full maintainer">Awaiting review</button>';
     }else{
@@ -1180,13 +1208,16 @@
     }
     var route=caps.analyst_eligible?'analyst':'maintainer';
     var routeChoices=caps.analyst_eligible&&caps.maintainer_access?'<label>Credential route<select id="osi-review-route"><option value="analyst">Counted analyst review</option><option value="maintainer">Full maintainer initial-open review</option></select></label>':'<input id="osi-review-route" type="hidden" value="'+route+'">';
-    host.innerHTML='<div class="osi-review-form"><div class="osi-review-route">'+(route==='analyst'?'This decision uses the server-derived analyst weight.':'The full maintainer path has analyst weight 0 but independently authorizes initial open after both maintainer gates pass.')+' Opening starts a public investigation; it is not a truth or guilt decision.</div>'+routeChoices+'<label>Decision<select id="osi-review-decision"><option value="approve_open">Approve public open</option><option value="needs_more">Needs more evidence</option></select></label><label>Reason code<select id="osi-review-reason"><option value="public_scope_clear">Public scope clear</option><option value="needs_more_evidence">Needs more evidence</option><option value="unsafe_or_prohibited">Unsafe or prohibited</option><option value="duplicate_or_out_of_scope">Duplicate or out of scope</option></select></label><p class="osi-action-help">A rejection outcome is unavailable until its separate quorum transition is implemented.</p><button class="osi-action primary" id="osi-review-submit" type="button">Sign and record review</button><div class="osi-form-status mono" id="osi-review-status" role="status"></div></div>';
+    host.innerHTML='<div class="osi-review-form"><div class="osi-review-route">'+(route==='analyst'?'Analyst decisions use server-derived SAS-valid weight. Normal rejection needs at least 2 independent analysts and total weight 2.00.':'The full maintainer path has analyst weight 0 and independently authorizes initial open after both maintainer gates pass.')+' This records process authority; it is not a truth or guilt decision.</div>'+routeChoices+'<label>Decision<select id="osi-review-decision"><option value="approve_open">Approve public open</option><option value="needs_more">Needs more evidence</option><option value="reject" data-analyst-only="true">Reject normal investigation</option></select></label><label>Reason code<select id="osi-review-reason"><option value="public_scope_clear">Public scope clear</option><option value="needs_more_evidence">Needs more evidence</option><option value="unsafe_or_prohibited">Unsafe or prohibited</option><option value="duplicate_or_out_of_scope">Duplicate or out of scope</option></select></label><p class="osi-action-help">A reject vote is wallet-signed. The terminal rejection is a separate Solana Memo after the full analyst quorum; maintainers cannot replace it.</p><button class="osi-action primary" id="osi-review-submit" type="button">Sign and record review</button><div class="osi-form-status mono" id="osi-review-status" role="status"></div></div>';
+    var routeSelect=document.getElementById('osi-review-route');
+    function syncReviewRoute(){var decision=document.getElementById('osi-review-decision');var reject=decision&&decision.querySelector('[value="reject"]');var maintainer=routeSelect&&routeSelect.value==='maintainer';if(reject)reject.disabled=maintainer;if(maintainer&&decision.value==='reject')decision.value='approve_open';}
+    if(routeSelect&&routeSelect.tagName==='SELECT')routeSelect.addEventListener('change',syncReviewRoute);syncReviewRoute();
     document.getElementById('osi-review-submit').addEventListener('click',submitReview);
   }
   function reviewStatus(text,kind){var node=document.getElementById('osi-review-status');if(node){node.textContent=text;node.className='osi-form-status mono '+(kind||'');}}
   async function submitReview(){
     if(state.reviewBusy||!state.current)return;
-    var generation=privateGeneration(),anchorAfter=false;
+    var generation=privateGeneration(),anchorAfter=false,rejectAfter=false;
     state.reviewBusy=true;var button=document.getElementById('osi-review-submit');if(button)button.disabled=true;
     try{
       var wallet=await ensureWallet();var route=document.getElementById('osi-review-route').value;
@@ -1212,9 +1243,11 @@
       if(refreshed&&reviewDrawerToken===state.drawerLoadToken)await openCase(refreshed.public_ref);
       assertPrivateGeneration(generation);
       anchorAfter=committed.actor_open_ready&&review.decision==='approve_open'&&confirm('This initial-open path is ready. Anchor CASE_OPENED on Solana now? This uses only the standard network fee.');
+      rejectAfter=committed.actor_reject_ready&&review.decision==='reject'&&confirm('The independent rejection quorum is ready. Anchor CASE_INITIAL_REVIEW_REJECTED on Solana now? This uses only the standard network fee.');
     }catch(error){if(generation===privateGeneration())reviewStatus(userError(error),'error');}
     finally{if(generation===privateGeneration()){state.reviewBusy=false;if(button)button.disabled=false;}}
     if(anchorAfter&&generation===privateGeneration())await anchorOpen(route);
+    if(rejectAfter&&generation===privateGeneration())await anchorCaseRejection();
   }
   async function anchorOpen(route){
     if(state.reviewBusy||!state.current)return;
@@ -1240,6 +1273,48 @@
       assertPrivateGeneration(generation);
     }catch(error){if(generation===privateGeneration())showToast(userError(error));}
     finally{if(generation===privateGeneration())state.reviewBusy=false;}
+  }
+
+  async function anchorCaseRejection(){
+    if(state.reviewBusy||!state.current)return;
+    var generation=privateGeneration();state.reviewBusy=true;
+    try{
+      var wallet=await ensureWallet(),ref=state.current.public_ref;assertPrivateGeneration(generation);
+      showToast('Preparing the canonical CASE_INITIAL_REVIEW_REJECTED Memo...');
+      var prepared=await api(WRITE_URL,{op:'prepare_rejection',wallet:wallet,case_ref:ref,idempotency_key:randomKey('case-reject')});
+      assertPrivateGeneration(generation);var txSig=await castOnchainVote(prepared.memo);assertPrivateGeneration(generation);
+      await commitWithConfirmation({op:'commit_rejection',wallet:wallet,case_ref:ref,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},WRITE_URL,generation);
+      assertPrivateGeneration(generation);showToast('Case rejected by independent analyst quorum with confirmed Memo proof.');
+      closeCase();await openSignedCollection('review',{authorize:true});
+    }catch(error){if(generation===privateGeneration())showToast(userError(error));}
+    finally{if(generation===privateGeneration())state.reviewBusy=false;}
+  }
+
+  function composeCaseAppeal(){
+    var host=document.getElementById('osi-case-actions'),item=state.current;if(!host||!item||item.stage!=='initial_rejected')return;
+    host.innerHTML='<div class="osi-review-form"><div class="osi-review-route">Appeal starts a fresh review cycle and appends one new private evidence reference. It does not erase the rejection or rewrite the original Case.</div><label>Appeal reason<select id="osi-appeal-reason"><option value="new_evidence">New evidence</option><option value="scope_clarified">Scope clarified</option><option value="submission_corrected">Submission corrected</option></select></label><label>Evidence type<select id="osi-appeal-evidence-kind"><option value="url">HTTPS URL</option><option value="onchain_tx">Solana transaction</option><option value="wallet">Wallet address</option></select></label><label>New evidence reference<input id="osi-appeal-evidence-ref" type="text" maxlength="4096" autocomplete="off" placeholder="https://..." required></label><button class="osi-action primary" id="osi-appeal-submit" type="button">Sign and submit appeal</button><button class="osi-action" id="osi-appeal-cancel" type="button">Cancel</button><div class="osi-form-status mono" id="osi-appeal-status" role="status"></div></div>';
+    document.getElementById('osi-appeal-submit').addEventListener('click',submitCaseAppeal);
+    document.getElementById('osi-appeal-cancel').addEventListener('click',renderActions);
+    document.getElementById('osi-appeal-evidence-ref').focus();
+  }
+  function appealStatus(text,kind){var node=document.getElementById('osi-appeal-status');if(node){node.textContent=text;node.className='osi-form-status mono '+(kind||'');}}
+  async function submitCaseAppeal(){
+    if(state.reviewBusy||!state.current)return;var generation=privateGeneration();state.reviewBusy=true;
+    var button=document.getElementById('osi-appeal-submit');if(button)button.disabled=true;
+    try{
+      var wallet=await ensureWallet(),ref=String(document.getElementById('osi-appeal-evidence-ref').value||'').trim();assertPrivateGeneration(generation);
+      if(!ref)throw new Error('appeal_requires_new_evidence');
+      var appeal={case_ref:state.current.public_ref,reason_code:document.getElementById('osi-appeal-reason').value,evidence:[{kind:document.getElementById('osi-appeal-evidence-kind').value,ref:ref}]};
+      appealStatus('Preparing one exact owner appeal message...');
+      var prepared=await api(WRITE_URL,{op:'prepare_appeal',wallet:wallet,appeal:appeal,idempotency_key:randomKey('case-appeal')});
+      assertPrivateGeneration(generation);appealStatus('Sign the appeal message. This is not an on-chain transaction.');
+      var signature=await signMessage(prepared.message);assertPrivateGeneration(generation);
+      await api(WRITE_URL,{op:'commit_appeal',wallet:wallet,appeal:appeal,nonce:prepared.nonce,message:prepared.message,signature:signature});
+      assertPrivateGeneration(generation);appealStatus('Appeal submitted. A fresh initial-review cycle is open.','success');showToast('Appeal submitted with new evidence.');
+      var caseRef=state.current.public_ref;await openSignedCollection('mine',{keepDrawer:true,authorize:true});assertPrivateGeneration(generation);
+      var refreshed=state.cases.find(function(item){return item.public_ref===caseRef;});if(refreshed)await openCase(caseRef);
+    }catch(error){if(generation===privateGeneration())appealStatus(userError(error),'error');}
+    finally{if(generation===privateGeneration()){state.reviewBusy=false;if(button)button.disabled=false;}}
   }
 
   async function reloadGovernanceCase(caseRef){
@@ -1809,6 +1884,8 @@
   window.osiV2ShowTab=function(tab){state.tab=tab;drawTabs();renderTab();};
   window.osiV2ComposeReview=composeReview;
   window.osiV2AnchorOpen=anchorOpen;
+  window.osiV2AnchorCaseRejection=anchorCaseRejection;
+  window.osiV2ComposeCaseAppeal=composeCaseAppeal;
   window.osiV2Pledge=pledge;
   window.osiV2PayReward=payReward;
   window.osiV2SupportContributors=supportContributors;

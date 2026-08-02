@@ -197,10 +197,16 @@ ok('maintainer receives the real review and CASE_OPENED route',
 ok('initial open copy remains explicit that it is not truth or guilt approval',
   app.includes('it does not determine truth or guilt') &&
   app.includes('it is not a truth or guilt decision'));
-ok('unfinished rejection outcome is absent from review choices',
-  !app.includes('<option value="reject">'));
-ok('unfinished rejection outcome is explicitly explained',
-  app.includes('rejection outcome is unavailable'));
+ok('normal rejection is an analyst-only exact review and Memo outcome',
+  app.includes('<option value="reject" data-analyst-only="true">')
+    && app.includes("op:'prepare_rejection'")
+    && app.includes("op:'commit_rejection'")
+    && app.includes('at least 2 independent analysts and total weight 2.00'));
+ok('rejected Case owner gets a compact new-evidence appeal path',
+  app.includes('Appeal with new evidence')
+    && app.includes("op:'prepare_appeal'")
+    && app.includes("op:'commit_appeal'")
+    && app.includes('fresh review cycle'));
 ok('Case form fails closed before opening when the server gate is unavailable',
   app.includes("capabilities.case_writes_enabled!==true"));
 ok('public proof attribution is shown only from returned receipt fields',
