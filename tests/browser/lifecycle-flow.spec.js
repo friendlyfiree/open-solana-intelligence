@@ -373,6 +373,12 @@ function createBackend() {
       version.lifecycle_state = 'in_review';
       return api;
     },
+    seedSealedCase() {
+      api.seedPublishedReport();
+      const row = findCase(CASE_REF);
+      row.stage = 'sealed';
+      return api;
+    },
     seedRejectQuorum() {
       api.seedSubmittedReport();
       const { version } = findVersion(VERSION_REF);
@@ -1293,6 +1299,42 @@ test('every inline handler in the shipped page resolves to a real function', asy
     return unresolved.sort();
   });
   expect(missing, `unresolved inline handlers: ${missing.join(', ')}`).toEqual([]);
+
+  expectClean(page);
+});
+
+test('a Case past Report intake states the closure instead of opening a wallet', async ({ page }) => {
+  const backend = createBackend().seedSealedCase();
+  await boot(page, backend, { wallet: OWNER });
+
+  // Baseline excludes the harness's own initial connect.
+  await page.evaluate(() => { window.__osiWalletCalls.length = 0; });
+  await openCaseDrawer(page);
+  const actions = page.locator('#osi-case-actions');
+  await expect(actions).toContainText('past Report intake');
+  // The server accepts intake only while a Case is open, under Report review or
+  // reopened. Offering the action anyway spent a wallet prompt to reach a
+  // guaranteed capability failure.
+  await expect(actions.getByRole('button', { name: 'Submit Report' })).toHaveCount(0);
+  const closed = actions.getByRole('button', { name: 'Report intake closed' });
+  await expect(closed).toBeDisabled();
+  await expect(closed).toHaveAttribute('title', /open only while a Case is in public investigation/);
+  // The record stays readable and the closed control reaches no wallet API.
+  await expect(actions.getByRole('button', { name: 'Inspect proof' })).toBeEnabled();
+  await closed.click({ force: true });
+  expect(await page.evaluate(() => window.__osiWalletCalls)).toEqual([]);
+
+  expectClean(page);
+});
+
+test('an open Case still offers Report submission', async ({ page }) => {
+  const backend = createBackend().seedApprovedCase();
+  await boot(page, backend, { wallet: OWNER });
+
+  await openCaseDrawer(page);
+  const actions = page.locator('#osi-case-actions');
+  await expect(actions.getByRole('button', { name: 'Submit Report' })).toBeEnabled();
+  await expect(actions).toContainText('Contribute findings');
 
   expectClean(page);
 });
