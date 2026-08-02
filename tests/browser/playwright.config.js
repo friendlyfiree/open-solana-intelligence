@@ -4,7 +4,7 @@ const remoteBaseURL = process.env.OSI_QA_BASE_URL;
 
 module.exports = defineConfig({
   testDir: __dirname,
-  testMatch: ['issue-26.spec.js', 'i18n.spec.js', 'case-navigation.spec.js'],
+  testMatch: ['issue-26.spec.js', 'i18n.spec.js', 'case-navigation.spec.js', 'lifecycle-flow.spec.js'],
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

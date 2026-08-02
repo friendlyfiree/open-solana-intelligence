@@ -268,3 +268,21 @@ body.osi-case-open{overflow:hidden}
   .osi-workspace-lock{padding:30px 18px}
   .osi-workspace-lock .osi-action,.osi-workspace-lock .osi-report-action{width:100%}
 }
+
+/* Inline state banner. Used for every "this is where the workflow stands and
+   here is the one next action" moment: an opening outcome, a reached quorum, a
+   payment that must not be repeated. It had markup in three integrations but no
+   styling, so it rendered as undifferentiated stacked text. */
+.osi-state-message{display:grid;gap:8px;justify-items:start;margin:0 0 14px;padding:14px 16px;border:1px solid var(--line);border-left:3px solid var(--ink-faint);border-radius:8px;background:rgba(12,17,29,.6)}
+.osi-state-message b{color:var(--ink);font-size:14px;line-height:1.5}
+.osi-state-message span{color:var(--ink-dim);font-size:13px;line-height:1.65}
+.osi-state-message .mono,.osi-state-message .osi-report-card-meta{color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.6}
+.osi-state-message a{color:var(--cyan)}
+.osi-state-message>.osi-action,.osi-state-message>.osi-report-action,.osi-state-message>.osi-report-publish{min-height:44px;margin-top:2px}
+.osi-state-message.success{border-left-color:var(--sol);background:rgba(20,241,149,.06)}
+.osi-state-message.success b{color:var(--sol)}
+.osi-state-message.warning{border-left-color:var(--amber);background:rgba(255,176,32,.07)}
+.osi-state-message.warning b{color:var(--amber)}
+
+/* Published-Report signal on a Case row: the reason a reader opens the Case. */
+.osi-published-chip{display:inline-flex;width:max-content;margin-top:7px;margin-right:6px;border:1px solid rgba(34,211,238,.32);padding:3px 6px;color:var(--cyan);font:9.5px 'JetBrains Mono',monospace;text-transform:uppercase;font-style:normal}

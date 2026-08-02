@@ -48,7 +48,14 @@
 .osi-report-public-card .osi-list-item-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
 .osi-report-public-card .osi-list-item-head div{display:grid;gap:4px}
 .osi-report-public-card small{color:var(--muted);font:500 11px/1.5 var(--mono)}
-.osi-report-public-body{max-width:72ch;white-space:pre-wrap;color:var(--text);line-height:1.75}
+/* The published finding is the reason this card exists, so it gets real
+   reading typography and real paragraphs. `pre-wrap` is gone because the
+   summary is now emitted as escaped <p> blocks rather than one raw string. */
+.osi-report-public-body{max-width:68ch;margin:16px 0 4px;color:var(--text);font-size:15px;line-height:1.75}
+.osi-report-public-body h4{margin-bottom:10px;color:var(--cyan);font:600 11px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.osi-report-public-body p+p{margin-top:12px}
+.osi-report-public-body[role="note"]{color:var(--muted);font-size:14px}
+.osi-report-public-body[role="note"] b{color:var(--text)}
 .osi-report-under-review{max-width:70ch;color:var(--muted);line-height:1.65}
 .osi-report-quorum{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
 .osi-report-quorum span{min-height:34px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;color:var(--muted);font:500 12px/1.5 var(--mono)}

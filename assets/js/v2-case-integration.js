@@ -489,7 +489,7 @@
           +' ('+stageLabel(item.stage,item)+', '+(published?published+' '+t('published Reports'):t('no published Report'))+')';
         return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'" aria-label="'+esc(rowLabel)+'">'
           +'<span class="osi-v2-id">'+esc(item.public_ref)+'</span>'
-          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
+          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+(published?'<em class="osi-published-chip">'+esc(published+' '+(published===1?t('published Report'):t('published Reports')))+'</em>':'')+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
           +'<span class="osi-v2-stage '+stageClass(item)+'">'+esc(stageLabel(item.stage,item))+'</span>'
           +'<span class="osi-v2-category">'+esc(label(item.category))+'</span>'
           +'<span class="osi-v2-reviews">'+countActiveReviews(item)+'</span>'
@@ -801,7 +801,13 @@
       // Anonymous and ordinary visitors only ever see published Reports here,
       // so name the section for what it actually contains.
       .map(function(tab){return tab[0]==='reports'&&!authorized?['reports','Published Reports']:tab;});
-    if(state.mode==='review'&&state.current&&state.current.visibility==='private')return rows.slice(0,1).concat([['reviews','Initial Review']],rows.slice(1));
+    // The initial-review record is the proof that a Case was approved for
+    // public investigation. It is already in the anonymous projection, so it
+    // stays reachable for every visitor once any review exists, not only for
+    // an authorized reviewer working a private intake.
+    var reviewing=state.mode==='review'&&state.current&&state.current.visibility==='private';
+    var hasReviews=!!(state.current&&(state.current.reviews||[]).length);
+    if(reviewing||hasReviews)return rows.slice(0,1).concat([['reviews','Initial Review']],rows.slice(1));
     return rows;
   }
   // A public Case reference is the canonical, shareable route segment. It is
@@ -957,10 +963,36 @@
     var rows=item.reports||[];if(!rows.length)return emptySection('Reports','Report data is temporarily unavailable.');
     return '<section class="osi-case-section"><h3>Reports</h3><div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><b>'+esc(label(row.status))+'</b><p>'+(row.published?'Published exact version':'No published version')+'</p></div>';}).join('')+'</div></section>';
   }
+  // The approval that moved a Case from private intake to public investigation
+  // is a first-class public fact. Say who approved it, in what role, and which
+  // confirmed Memo anchored the opening; never infer an opening that has no
+  // recorded receipt.
+  function openingOutcome(item){
+    var approvals=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.decision==='approve_open';});
+    var maintainer=approvals.some(function(row){return row.reviewer_role==='maintainer';});
+    var analysts=approvals.filter(function(row){return row.reviewer_role==='analyst';});
+    var opened=(item.proof_log||[]).find(function(row){return row.event_type==='CASE_OPENED';});
+    if(!approvals.length){
+      return String(item.visibility||'')==='public'
+        ? '<div class="osi-state-message" role="note"><b>'+esc(t('Opened for public investigation'))+'</b><span>'+esc(t('No attributable initial-review row is exposed for this Case. OSI shows no reviewer it cannot prove.'))+'</span></div>'
+        : '<div class="osi-state-message warning" role="note"><b>'+esc(t('Awaiting initial review'))+'</b><span>'+esc(t('This Case stays private until an eligible analyst or a full maintainer records an approve-open decision.'))+'</span></div>';
+    }
+    var who=[];
+    if(maintainer)who.push(t('a full maintainer'));
+    if(analysts.length)who.push(analysts.length+' '+(analysts.length===1?t('eligible analyst'):t('eligible analysts')));
+    var weight=analysts.reduce(function(sum,row){return sum+Number(row.weight||0);},0);
+    var anchor=opened&&opened.solscan_url&&/^https:\/\/solscan\.io\/tx\/[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(opened.solscan_url)
+      ?'<a class="osi-proof-link" href="'+esc(opened.solscan_url)+'" target="_blank" rel="noopener">'+esc(t('Verify CASE_OPENED on Solscan'))+'</a>'
+      :'<span class="osi-case-note">'+esc(t('No confirmed CASE_OPENED Memo is public for this Case yet.'))+'</span>';
+    return '<div class="osi-state-message success" role="note"><b>'+esc(t('Approved for public investigation'))+'</b>'
+      +'<span>'+esc(t('Approved by')+' '+who.join(' '+t('and')+' ')+(analysts.length?' · '+t('counted analyst weight')+' '+weight.toFixed(2):'')+'.')+'</span>'
+      +'<span>'+esc(t('Approval authorizes public investigation only. It is not a truth, guilt or recovery decision.'))+'</span>'
+      +anchor+'</div>';
+  }
   function reviews(item){
     var rows=item.reviews||[];
     var list=rows.length?'<div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,row.reviewer_role)+' &middot; '+esc(label(row.decision))+'</b><span class="osi-proof-label">'+esc(row.proof_label)+'</span></div><p>'+esc(label(row.reviewer_role))+' &middot; weight '+esc(row.weight)+sasAuthority(row)+' &middot; '+esc(dateText(row.created_at))+'</p>'+(row.reason_code?'<p>Reason code: '+esc(row.reason_code)+'</p>':'')+'</div>';}).join('')+'</div>':'<div class="osi-v2-empty"><b>Awaiting initial review</b><span>No eligible reviewer has recorded a decision yet.</span></div>';
-    return '<section class="osi-case-section"><h3>Initial reviews</h3>'+list+'<div id="osi-review-compose"></div></section>';
+    return '<section class="osi-case-section"><h3>Initial reviews</h3>'+openingOutcome(item)+list+'<div id="osi-review-compose"></div></section>';
   }
   function publishedCandidates(item){
     var rows=[];
@@ -1597,16 +1629,29 @@
   function supportLabel(targetType){
     if(targetType==='analyst')return 'this analyst';
     if(targetType==='counted_reviewer')return 'this counted reviewer';
+    if(targetType==='report_author')return 'the author of this published Report version';
     return 'this recipient';
+  }
+  // The anonymous projection never carries a Report author wallet, so the
+  // address slot must stay empty for that route instead of rendering the
+  // version reference as if it were a payable Solana address. The server
+  // resolves and proves the real recipient when the transfer is prepared.
+  function supportAddress(targetType,targetRef,reviewerWallet){
+    if(targetType==='counted_reviewer')return reviewerWallet;
+    if(targetType==='report_author')return '';
+    return targetRef;
   }
   async function supportExternal(targetType,targetRef,reviewerWallet){
     var generation=privateGeneration();
-    var address=targetType==='counted_reviewer'?reviewerWallet:targetRef;
+    var address=supportAddress(targetType,targetRef,reviewerWallet);
     var amount=await askSolAmount({
       title:'◎ Voluntary support',
       label:supportLabel(targetType),
       address:address,
-      action:'Review transfer →'
+      action:'Review transfer →',
+      note:targetType==='report_author'
+        ?'Recipient: the wallet that authored '+String(targetRef||'')+'. OSI never publishes that wallet, so the server derives the exact recipient and Memo when the transfer is prepared and you approve one transaction in your wallet. Direct wallet-to-wallet in native SOL. No custody. Support never changes review, ranking, weight, eligibility, or publication.'
+        :undefined
     });
     if(generation!==privateGeneration())return;
     if(amount===null)return;
