@@ -747,7 +747,7 @@ function expectClean(page) {
 // Specs
 // ---------------------------------------------------------------------------
 
-test('the Report form states that the public-safe summary is the only public text and requires it', async ({ page }) => {
+test('the Report form guides toward a public-safe summary without forbidding its absence', async ({ page }) => {
   const backend = createBackend().seedApprovedCase();
   await boot(page, backend, { wallet: AUTHOR });
 
@@ -761,15 +761,62 @@ test('the Report form states that the public-safe summary is the only public tex
   // published Report nobody could read.
   await expect(hint).not.toContainText('Optional');
   await expect(hint).not.toContainText('still private in this intake slice');
-  await expect(page.locator('#osi-report-summary')).toHaveAttribute('required', '');
 
-  // Narrative only: the form must refuse rather than create another unreadable
-  // publication candidate.
+  // Narrative only, no summary, no acknowledgement: the form stops and says why
+  // rather than silently creating another unreadable publication candidate.
   await page.locator('#osi-report-narrative').fill(NARRATIVE);
   await page.locator('#osi-report-safety').check();
   await page.getByRole('button', { name: 'Prepare exact Memo' }).click();
   expect(backend.state.calls.filter((call) => call === 'osi-v2-report-write:prepare_report')).toHaveLength(0);
   await expect(page.locator('#osi-report-summary')).toBeFocused();
+  expect(await page.locator('#osi-report-summary').evaluate((node) => node.validationMessage))
+    .toContain('tick the box below');
+
+  // A summary that is too short to be a usable finding is also refused.
+  await page.locator('#osi-report-summary').fill('Too short.');
+  await page.getByRole('button', { name: 'Prepare exact Memo' }).click();
+  expect(backend.state.calls.filter((call) => call === 'osi-v2-report-write:prepare_report')).toHaveLength(0);
+  expect(await page.locator('#osi-report-summary').evaluate((node) => node.validationMessage))
+    .toContain('at least 40 characters');
+
+  expectClean(page);
+});
+
+// The Product Constitution calls a missing public-safe summary an honest
+// nullable state and explicitly not a publication blocker, so the product must
+// still allow it. What it must not do is let it happen by accident.
+test('an author may deliberately submit a Report with no public-safe summary', async ({ page }) => {
+  const backend = createBackend().seedApprovedCase();
+  await boot(page, backend, { wallet: AUTHOR });
+
+  await openCaseDrawer(page);
+  await page.getByRole('button', { name: 'Submit Report' }).click();
+  await page.locator('#osi-report-narrative').fill(NARRATIVE);
+  await page.locator('#osi-report-safety').check();
+  await page.locator('#osi-report-no-summary').check();
+  await page.getByRole('button', { name: 'Prepare exact Memo' }).click();
+
+  await expect.poll(() => backend.state.reports.length).toBe(1);
+  expect(backend.state.reports[0].versions[0].content_public_safe).toBeNull();
+
+  expectClean(page);
+});
+
+test('the no-summary acknowledgement is re-affirmed on every open, never inherited from a draft', async ({ page }) => {
+  const backend = createBackend().seedApprovedCase();
+  await boot(page, backend, { wallet: AUTHOR });
+
+  await openCaseDrawer(page);
+  await page.getByRole('button', { name: 'Submit Report' }).click();
+  await page.locator('#osi-report-narrative').fill(NARRATIVE);
+  await page.locator('#osi-report-no-summary').check();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  await page.getByRole('button', { name: 'Submit Report' }).click();
+  await expect(page.locator('#osi-report-modal')).toHaveClass(/open/);
+  // The narrative comes back from the draft; the waiver does not.
+  await expect(page.locator('#osi-report-narrative')).toHaveValue(NARRATIVE);
+  await expect(page.locator('#osi-report-no-summary')).not.toBeChecked();
 
   expectClean(page);
 });

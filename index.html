@@ -671,9 +671,13 @@
     <label class="fo-label" for="osi-report-narrative">Restricted Report narrative <span aria-hidden="true">*</span></label>
     <textarea id="osi-report-narrative" rows="9" minlength="80" maxlength="100000" required aria-describedby="osi-report-narrative-help"></textarea>
     <span class="fo-hint" id="osi-report-narrative-help">80 to 100,000 characters. Explain the trace, limits, and uncertainty. This body is never published and is never returned by the anonymous API.</span>
-    <label class="fo-label" for="osi-report-summary">Public-safe summary <span aria-hidden="true">*</span></label>
-    <textarea id="osi-report-summary" rows="5" minlength="40" maxlength="4000" required aria-describedby="osi-report-summary-help"></textarea>
-    <span class="fo-hint" id="osi-report-summary-help">40 to 4,000 characters. <b>This is the only part of your Report that the public can ever read.</b> If you leave it out, a published Report shows proof and evidence but no readable finding. Write a neutral, public-safe account with no private personal data and no guilt claim.</span>
+    <label class="fo-label" for="osi-report-summary">Public-safe summary</label>
+    <textarea id="osi-report-summary" rows="5" maxlength="4000" aria-describedby="osi-report-summary-help"></textarea>
+    <span class="fo-hint" id="osi-report-summary-help">40 to 4,000 characters. <b>This is the only part of your Report that the public can ever read.</b> The restricted narrative above is never published. Write a neutral, public-safe account with no private personal data and no guilt claim.</span>
+    <label class="osi-report-nosummary" for="osi-report-no-summary">
+      <input id="osi-report-no-summary" type="checkbox">
+      <span>This Report has no public-safe summary. If it is published it will show publication proof and public evidence, but no readable finding. I am choosing that deliberately.</span>
+    </label>
     <fieldset class="osi-report-evidence">
       <legend>Structured evidence references (optional)</legend>
       <label class="fo-label" for="osi-report-wallets">Wallet addresses</label>

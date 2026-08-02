@@ -170,7 +170,7 @@
 .osi-challenge-list{display:grid;gap:14px}
 .osi-challenge-record>p{margin:10px 0 14px!important}
 .osi-chip.warning{color:var(--amber);border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.06)}
-.osi-reward-chip{display:inline-flex;width:max-content;margin-top:7px;border:1px solid rgba(20,241,149,.28);padding:3px 6px;color:var(--sol);font:9.5px 'JetBrains Mono',monospace;text-transform:uppercase;font-style:normal}
+.osi-reward-chip{display:inline-flex;width:max-content;margin-top:7px;border:1px solid rgba(20,241,149,.28);padding:3px 7px;color:var(--sol);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;font-style:normal}
 
 .osi-payment-compose{display:grid;gap:12px;margin:16px 0;padding:16px;border:1px solid rgba(20,241,149,.24);background:rgba(20,241,149,.035)}
 .osi-payment-compose h4{margin:0;color:var(--ink);font-size:15px}
@@ -184,7 +184,7 @@
 .osi-support-recipient>span{overflow-wrap:anywhere}
 .osi-payment-proof{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:12px 0}
 .osi-payment-proof div{padding:8px;border:1px solid var(--line);min-width:0}
-.osi-payment-proof dt{color:var(--ink-faint);font:9.5px 'JetBrains Mono',monospace;text-transform:uppercase}
+.osi-payment-proof dt{color:var(--ink-faint);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase}
 .osi-payment-proof dd{margin:4px 0 0;color:var(--ink-dim);font:11px 'JetBrains Mono',monospace;overflow-wrap:anywhere}
 .osi-payment-proof-recipients{margin:9px 0;padding-left:19px;color:var(--ink-dim);font:11px/1.6 'JetBrains Mono',monospace}
 .osi-payment-review{position:fixed;inset:0;z-index:5200;display:grid;place-items:center;padding:18px;background:rgba(2,5,10,.86);backdrop-filter:blur(7px)}
@@ -284,5 +284,7 @@ body.osi-case-open{overflow:hidden}
 .osi-state-message.warning{border-left-color:var(--amber);background:rgba(255,176,32,.07)}
 .osi-state-message.warning b{color:var(--amber)}
 
-/* Published-Report signal on a Case row: the reason a reader opens the Case. */
-.osi-published-chip{display:inline-flex;width:max-content;margin-top:7px;margin-right:6px;border:1px solid rgba(34,211,238,.32);padding:3px 6px;color:var(--cyan);font:9.5px 'JetBrains Mono',monospace;text-transform:uppercase;font-style:normal}
+/* Published-Report signal on a Case row: the reason a reader opens the Case.
+   Sized to the 11px monospace step used elsewhere rather than the 9.5px of the
+   older chip beside it, which predates the no-micro-text rule. */
+.osi-published-chip{display:inline-flex;width:max-content;margin-top:7px;margin-right:6px;border:1px solid rgba(34,211,238,.32);padding:3px 7px;color:var(--cyan);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;font-style:normal}

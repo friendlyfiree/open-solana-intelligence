@@ -266,6 +266,12 @@
       var reason=document.getElementById('osi-report-revision-reason');
       revision.hidden=!state.isRevision;reason.required=state.isRevision;
       restoreDraft(wallet,caseRef);
+      // Deliberately not restored from a draft: choosing to publish without a
+      // readable finding is re-affirmed each time the form is opened.
+      var waived=document.getElementById('osi-report-no-summary');
+      if(waived)waived.checked=false;
+      var summaryField=document.getElementById('osi-report-summary');
+      if(summaryField)summaryField.setCustomValidity('');
       var context=document.getElementById('osi-report-context');
       context.textContent=state.isRevision
         ? caseRef+' · Revision of '+existing.report_public_ref+' · Next version '+(Number(existing.current_version_no)+1)
@@ -315,9 +321,30 @@
     });
   }
 
+  // A published Report with no public-safe summary is an accepted, honest
+  // nullable state, so the form must not forbid it. What the form must not do
+  // is let it happen by accident, which is what the previous copy caused. The
+  // summary is therefore the guided default and omitting it is an explicit,
+  // acknowledged choice.
+  function syncSummaryRequirement(){
+    var summary=document.getElementById('osi-report-summary');
+    var waived=document.getElementById('osi-report-no-summary');
+    if(!summary)return;
+    var text=String(summary.value||'').trim();
+    if(!text){
+      summary.setCustomValidity(waived&&waived.checked
+        ? ''
+        : 'Write the public-safe summary, or tick the box below to publish this Report with proof and evidence only.');
+      return;
+    }
+    summary.setCustomValidity(text.length<40
+      ? 'A public-safe summary needs at least 40 characters so a reader gets a usable finding.'
+      : '');
+  }
   async function submitReport(event){
     if(event)event.preventDefault();
     var form=document.getElementById('osi-report-form');
+    syncSummaryRequirement();
     if(!form||!form.reportValidity()||state.busy)return;
     var report=payload();
     if(report.evidence.length>12){status('A Report version can include at most 12 evidence references.','error');return;}
@@ -897,7 +924,14 @@
   window.osiV2LoadReportReviewTasks=loadReviewQueueData;
   window.osiV2RefreshReportWorkspace=function(mode){var scope=mode==='queue'?'report:review':'report:mine';return window.osiV2RefreshReadSession([scope]).then(function(){return openReportWorkspace(mode==='queue'?'queue':'mine',{authorize:true});});};
   var reportDraftForm=document.getElementById('osi-report-form');
-  if(reportDraftForm){reportDraftForm.addEventListener('input',saveDraft);reportDraftForm.addEventListener('change',saveDraft);}
+  if(reportDraftForm){
+    reportDraftForm.addEventListener('input',saveDraft);
+    reportDraftForm.addEventListener('change',saveDraft);
+    // Clear a standing summary objection as soon as the author resolves it,
+    // either by writing one or by acknowledging its absence.
+    reportDraftForm.addEventListener('input',syncSummaryRequirement);
+    reportDraftForm.addEventListener('change',syncSummaryRequirement);
+  }
   var reportWorkspace=document.getElementById('field-cases');
   if(reportWorkspace){reportWorkspace.addEventListener('input',saveWorkspaceDraft);reportWorkspace.addEventListener('change',saveWorkspaceDraft);}
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('reports',clearSessionState);
