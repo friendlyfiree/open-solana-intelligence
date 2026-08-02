@@ -21,6 +21,7 @@ has(/OSI_V2_ANALYST_WRITES_ENABLED/, "analyst flag is read");
 has(/20260802102728-history-row\.json/, "unexpected production migration provenance is captured");
 has(/jsonb_pretty\(to_jsonb\(migration\)\)/, "complete sanitized migration-history row is recorded");
 has(/local-rejection-migration-sha256\.txt/, "local rejection migration digest is recorded");
+has(/20260802102728_osi_v2_report_rejection_transition\.sql/, "digest targets the production-aligned migration file");
 has(/private_prepare[\s\S]*public_commit[\s\S]*rate_window_counts_rejection/, "live rejection database contract is audited");
 has(/production_writes=0/, "non-mutation receipt is explicit");
 lacks(/\b(?:update|insert|delete|drop|truncate|alter|create)\s+(?:public\.|table|schema|function|policy)/i, "no SQL mutation");

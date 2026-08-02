@@ -1,9 +1,10 @@
 name: OSI Report Rejection Transition Production
 
 # Current-main-only rollout for the already-reviewed Report rejection delta.
-# It applies exactly one additive migration. The Report-write Function was
-# deployed separately from current main; this workflow verifies that bundle
-# and leaves every Function unchanged.
+# The production history may already contain the byte-equivalent SQL under its
+# canonical 20260802102728 version; in that case the workflow proves a zero
+# delta and resumes verification without migration repair. The Report-write
+# Function was deployed separately and every Function remains unchanged.
 on:
   workflow_dispatch:
     inputs:
@@ -22,7 +23,7 @@ concurrency:
 env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
   PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
-  NEW_VERSION: "20260802071500"
+  NEW_VERSION: "20260802102728"
   BEFORE_VERSIONS: >-
     20260711092711 20260711092852 20260711092856 20260711182949
     20260712002518 20260712121301 20260713045903 20260713184533
@@ -40,7 +41,7 @@ env:
     20260718130000 20260718140000 20260725120000 20260725140000
     20260726173000 20260726185457 20260726200249 20260727170000
     20260727173000 20260728132011 20260728153100 20260728170000
-    20260729134213 20260801092744 20260801120700 20260802071500
+    20260729134213 20260801092744 20260801120700 20260802102728
   OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:

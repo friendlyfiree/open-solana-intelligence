@@ -103,7 +103,7 @@ jobs:
           where migration.version='20260802102728';
           commit;
           SQL
-          sha256sum supabase/migrations/20260802071500_osi_v2_report_rejection_transition.sql > "$proof/local-rejection-migration-sha256.txt"
+          sha256sum supabase/migrations/20260802102728_osi_v2_report_rejection_transition.sql > "$proof/local-rejection-migration-sha256.txt"
           psql -v ON_ERROR_STOP=1 -Atq -F'|' <<'SQL' > "$proof/rejection-contract.txt"
           begin read only;
           select 'private_prepare|' || coalesce(to_regprocedure('osi_private.osi_v2_prepare_report_rejection(text,text,uuid,text,text)')::text,'absent');
