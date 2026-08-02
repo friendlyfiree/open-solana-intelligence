@@ -36,8 +36,8 @@ update public.osi_config set value='false'
 
 insert into public.analyst_profiles(wallet,status,tier_code,verified,approved,weight_cached)
 values
- ('22222222222222222222222222222222','verified_analyst','verified',true,true,1.00),
- ('33333333333333333333333333333333','verified_analyst','verified',true,true,1.00);
+ ('22222222222222222222222222222222','probationary_analyst','probationary',true,true,1.00),
+ ('33333333333333333333333333333333','probationary_analyst','probationary',true,true,1.00);
 
 create temporary table case_fixture on commit drop as
 select * from public.osi_v2_issue_case_nonce(
