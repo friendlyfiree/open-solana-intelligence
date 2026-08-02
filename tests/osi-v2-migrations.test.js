@@ -42,7 +42,7 @@ const expectedFiles = [
   '20260729134213_osi_v2_workflow_recovery_usability.sql',
   '20260801092744_report_publication_rpc_recovery.sql',
   '20260801120700_report_nullable_public_summary.sql',
-  '20260802071500_osi_v2_report_rejection_transition.sql',
+  '20260802102728_osi_v2_report_rejection_transition.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
