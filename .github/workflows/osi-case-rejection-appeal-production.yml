@@ -51,9 +51,11 @@ jobs:
     timeout-minutes: 70
     steps:
       - name: Require exact confirmation and current main
+        env:
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
         run: |
           set -euo pipefail
-          [ "${{ github.event.inputs.confirm }}" = "CASE-REJECTION-APPEAL-${EXPECTED_PROJECT_REF}" ]
+          [ "$CONFIRM_INPUT" = "CASE-REJECTION-APPEAL-${EXPECTED_PROJECT_REF}" ]
           [ "$GITHUB_REF" = 'refs/heads/main' ]
 
       - name: Check out the dispatched commit
@@ -132,10 +134,12 @@ jobs:
           version: 2.111.0
 
       - name: Verify credentials project secrets and unchanged main
+        env:
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
         run: |
           set -euo pipefail
           mkdir -p "$PROOF_DIR"
-          [ "${{ github.event.inputs.confirm }}" = "CASE-REJECTION-APPEAL-${EXPECTED_PROJECT_REF}" ]
+          [ "$CONFIRM_INPUT" = "CASE-REJECTION-APPEAL-${EXPECTED_PROJECT_REF}" ]
           [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
           [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
           [ -n "${SUPABASE_DB_PASSWORD:-}" ]
