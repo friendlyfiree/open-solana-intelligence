@@ -51,9 +51,11 @@ body{
    closed product drawers and modals stay absent before those sheets land. */
 .fo-deck[hidden],
 .osi-case-drawer[hidden],
+.ap-modal:not(.open),
 .cr-drawer:not(.open),
 .fo-modal:not(.open),
 .tip-modal:not(.open),
+.sol-ask:not(.open),
 .wb-menu:not(.open){display:none!important}
 .fo-rail{display:none}
 

@@ -1,0 +1,403 @@
+name: OSI Report Rejection Transition Production
+
+# Current-main-only rollout for the already-reviewed Report rejection delta.
+# It applies exactly one additive migration. The Report-write Function was
+# deployed separately from current main; this workflow verifies that bundle
+# and leaves every Function unchanged.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type REPORT-REJECTION-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-report-rejection-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  PRODUCTION_WEB_URL: https://open-solana-intel.vercel.app
+  NEW_VERSION: "20260802071500"
+  BEFORE_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457 20260726200249 20260727170000
+    20260727173000 20260728132011 20260728153100 20260728170000
+    20260729134213 20260801092744 20260801120700
+  AFTER_VERSIONS: >-
+    20260711092711 20260711092852 20260711092856 20260711182949
+    20260712002518 20260712121301 20260713045903 20260713184533
+    20260714044036 20260714064501 20260714082218 20260715053828
+    20260715112621 20260716063000 20260716120000 20260718120000
+    20260718130000 20260718140000 20260725120000 20260725140000
+    20260726173000 20260726185457 20260726200249 20260727170000
+    20260727173000 20260728132011 20260728153100 20260728170000
+    20260729134213 20260801092744 20260801120700 20260802071500
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Full local proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Require exact confirmation and current main
+        env:
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [ "$CONFIRM_INPUT" = "REPORT-REJECTION-${EXPECTED_PROJECT_REF}" ]
+          [ "$GITHUB_REF" = "refs/heads/main" ]
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify clean current main and exact migration set
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          [ -z "$(git status --porcelain)" ]
+          got="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' |
+            sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          [ "$got" = "$expected" ]
+          test -s "supabase/migrations/${NEW_VERSION}_osi_v2_report_rejection_transition.sql"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.111.0
+
+      - name: Application Deno workflow and shell tests
+        run: |
+          set -euo pipefail
+          deno_check_with_retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              if deno check "$@"; then return 0; fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "::error::Deno check failed after ${attempt} attempts."
+                return 1
+              fi
+              echo "::warning::Deno dependency fetch/check failed; retrying (${attempt}/3)."
+              sleep "$((attempt * 5))"
+            done
+          }
+          for test_file in tests/*.test.js tests/*.test.mjs; do node "$test_file"; done
+          mapfile -t deno_sources < <(find supabase/functions -type f \
+            \( -path '*/index.ts' -o -path '*/_shared/*.ts' -o -path '*/_shared/*.mjs' \) | sort)
+          deno_check_with_retry "${deno_sources[@]}" tests/osi-core-flow-production-smoke.mjs
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint" .github/workflows/osi-report-rejection-production.yml
+          bash -n tests/osi-v2-concurrency.test.sh
+          shellcheck --exclude=SC2317,SC2329 tests/osi-v2-concurrency.test.sh
+
+      - name: Desktop mobile keyboard and lifecycle proof
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @playwright/test@1.55.0 http-server@14.1.1
+          npx playwright install --with-deps chromium
+          npx playwright test --config tests/browser/playwright.config.js
+
+      - name: PostgreSQL 17 migration from zero lint pgTAP and races
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          got="$(psql "$OSI_TEST_DATABASE_URL" -Atqc \
+            "select string_agg(version, ' ' order by version) from supabase_migrations.schema_migrations")"
+          [ "$got" = "$expected" ]
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Stop disposable database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: One migration, no Function deploy, read-only proof
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: Production
+    env:
+      PGSSLMODE: require
+      PROOF_DIR: /tmp/osi-report-rejection-proof
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.111.0
+
+      - name: Verify credentials project and unchanged main
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROOF_DIR"
+          [ "$CONFIRM_INPUT" = "REPORT-REJECTION-${EXPECTED_PROJECT_REF}" ]
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          [ -z "$(git status --porcelain)" ]
+          git rev-parse HEAD > "$PROOF_DIR/main-commit.txt"
+          secret_names="$(supabase secrets list --project-ref "$EXPECTED_PROJECT_REF" --output json | jq -r '.[].name')"
+          for required in SOLANA_RPC_URL OSI_V2_ALLOWED_ORIGIN OSI_MAINTAINER_AUTH_UUID; do
+            grep -qx "$required" <<< "$secret_names"
+          done
+
+      - name: Resolve pinned session pooler
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import json,sys
+          data=json.load(sys.stdin); rows=data if isinstance(data,list) else [data]
+          row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
+          print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) :;; *) exit 1;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
+          printf 'PGHOST=%s\nPGPORT=%s\nPGUSER=%s\nPGDATABASE=%s\n' \
+            "$PGHOST" "$PGPORT" "$PGUSER" "$PGDATABASE" >> "$GITHUB_ENV"
+
+      - name: Snapshot exact gates rows and Report-write Function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          gate_value="$(psql -Atqc "select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED'")"
+          case "$gate_value" in
+            true) echo 'ROLLOUT_START_MODE=live' >> "$GITHUB_ENV" ;;
+            false) echo 'ROLLOUT_START_MODE=contained_resume' >> "$GITHUB_ENV" ;;
+            *) echo '::error::Report review gate is absent or malformed.'; exit 1 ;;
+          esac
+          psql -Atq -F'|' -c "select key,md5(value) from public.osi_config where key<>'OSI_V2_REPORT_REVIEW_WRITES_ENABLED' order by key" > "$RUNNER_TEMP/config-before.txt"
+          psql -Atq -f scripts/protected-row-counts.sql | sort > "$PROOF_DIR/protected-rows-before.txt"
+          curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+            jq '[.[]|select(.slug=="osi-v2-report-write")|{slug,version,status,verify_jwt,updated_at,ezbr_sha256}]' > "$PROOF_DIR/function-before.json"
+          jq -e 'length==1 and .[0].status=="ACTIVE" and .[0].verify_jwt==false and (.[0].ezbr_sha256|length)==64' \
+            "$PROOF_DIR/function-before.json"
+
+      - name: Link inspect history and dry-run exact delta
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          got="$(psql -Atqc "select string_agg(version,' ' order by version) from supabase_migrations.schema_migrations")"
+          before="$(echo "$BEFORE_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          after="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          case "$got" in
+            "$before") echo 'ROLLOUT_HISTORY_MODE=before' >> "$GITHUB_ENV" ;;
+            "$after") echo 'ROLLOUT_HISTORY_MODE=already_applied' >> "$GITHUB_ENV" ;;
+            *) echo '::error::Remote migration history is not the exact before or already-applied set.'; exit 1 ;;
+          esac
+          supabase migration list --linked > "$PROOF_DIR/migration-list-before.txt"
+          supabase db push --linked --dry-run 2>&1 | tee "$PROOF_DIR/migration-dry-run.txt"
+          versions="$(grep -oE '20[0-9]{12}' "$PROOF_DIR/migration-dry-run.txt" || true)"
+          pending="$(printf '%s\n' "$versions" | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          if [ "$got" = "$before" ]; then
+            [ "$pending" = "$NEW_VERSION" ]
+          else
+            [ -z "$pending" ]
+          fi
+
+      - name: Record forward-fix plan and contain Report review outcomes
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            'The additive migration remains applied after failure.' \
+            'Only OSI_V2_REPORT_REVIEW_WRITES_ENABLED is held false during rollout.' \
+            'A failure stops for one focused forward-fix PR; no migration repair, drop, or repeated retry.' \
+            > "$PROOF_DIR/forward-fix-plan.txt"
+          expected_gate_value=true
+          if [ "$ROLLOUT_START_MODE" = contained_resume ]; then expected_gate_value=false; fi
+          psql -v ON_ERROR_STOP=1 -v expected_gate_value="$expected_gate_value" <<'SQL'
+          begin;
+          select set_config(
+            'osi.rollout.expected_gate_value', :'expected_gate_value', true
+          );
+          do $$
+          declare expected text := current_setting('osi.rollout.expected_gate_value');
+          begin
+            if (select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED')
+                 is distinct from expected then
+              raise exception 'Report review gate changed before containment';
+            end if;
+            update public.osi_config set value='false',updated_at=statement_timestamp()
+            where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED' and value is distinct from 'false';
+            if (select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED')<>'false' then
+              raise exception 'Report review containment failed';
+            end if;
+          end $$;
+          commit;
+          SQL
+          touch "$RUNNER_TEMP/report-rejection-contained"
+
+      - name: Apply only when pending and verify exact rejection contract
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ "$ROLLOUT_HISTORY_MODE" = before ]; then
+            supabase db push --linked --yes
+          fi
+          expected="$(echo "$AFTER_VERSIONS" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')"
+          got="$(psql -Atqc "select string_agg(version,' ' order by version) from supabase_migrations.schema_migrations")"
+          [ "$got" = "$expected" ]
+          psql -v ON_ERROR_STOP=1 -Atq > "$PROOF_DIR/rejection-contract.txt" <<'SQL'
+          begin read only;
+          select 'private_prepare|' ||
+            to_regprocedure('osi_private.osi_v2_prepare_report_rejection(text,text,uuid,text,text)')::text;
+          select 'private_commit|' ||
+            to_regprocedure('osi_private.osi_v2_commit_report_rejection(text,text,text,timestamptz)')::text;
+          select 'public_prepare|' ||
+            to_regprocedure('public.osi_v2_prepare_report_rejection(text,text,uuid,text,text)')::text;
+          select 'public_commit|' ||
+            to_regprocedure('public.osi_v2_commit_report_rejection(text,text,text,timestamptz)')::text;
+          select 'anon_prepare|' || has_function_privilege(
+            'anon','public.osi_v2_prepare_report_rejection(text,text,uuid,text,text)','execute'
+          )::text;
+          select 'authenticated_prepare|' || has_function_privilege(
+            'authenticated','public.osi_v2_prepare_report_rejection(text,text,uuid,text,text)','execute'
+          )::text;
+          select 'service_prepare|' || has_function_privilege(
+            'service_role','public.osi_v2_prepare_report_rejection(text,text,uuid,text,text)','execute'
+          )::text;
+          select 'anon_commit|' || has_function_privilege(
+            'anon','public.osi_v2_commit_report_rejection(text,text,text,timestamptz)','execute'
+          )::text;
+          select 'authenticated_commit|' || has_function_privilege(
+            'authenticated','public.osi_v2_commit_report_rejection(text,text,text,timestamptz)','execute'
+          )::text;
+          select 'service_commit|' || has_function_privilege(
+            'service_role','public.osi_v2_commit_report_rejection(text,text,text,timestamptz)','execute'
+          )::text;
+          select 'rate_window_counts_rejection|' || (
+            pg_get_functiondef('osi_private.osi_v2_check_report_review_rate(text,text,text,timestamptz)'::regprocedure)
+              like '%REPORT_REJECTED%'
+          )::text;
+          commit;
+          SQL
+          for expected_line in \
+            'private_prepare|osi_private.osi_v2_prepare_report_rejection(text,text,uuid,text,text)' \
+            'private_commit|osi_private.osi_v2_commit_report_rejection(text,text,text,timestamp with time zone)' \
+            'public_prepare|osi_v2_prepare_report_rejection(text,text,uuid,text,text)' \
+            'public_commit|osi_v2_commit_report_rejection(text,text,text,timestamp with time zone)' \
+            'anon_prepare|false' 'authenticated_prepare|false' 'service_prepare|true' \
+            'anon_commit|false' 'authenticated_commit|false' 'service_commit|true' \
+            'rate_window_counts_rejection|true'; do
+            grep -Fxq "$expected_line" "$PROOF_DIR/rejection-contract.txt"
+          done
+          supabase migration list --linked > "$PROOF_DIR/migration-list-after.txt"
+
+      - name: Read-only and invalid-input smokes then restore exact flag
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          capability="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-report-write" \
+            -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' \
+            -d '{"op":"capabilities","case_ref":"OSI-DOESNOTEXIST0"}')"
+          jq -e '.ok==true and .report_review_writes_enabled==false and .case_eligible==false' <<< "$capability"
+          invalid="$(curl -sS --max-time 30 -X POST "$base/osi-v2-report-write" \
+            -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' \
+            -d '{"op":"prepare_rejection"}')"
+          jq -e '.ok==false and .error!="bad_op"' <<< "$invalid"
+          jq '{ok,report_review_writes_enabled,case_eligible}' <<< "$capability" > "$PROOF_DIR/contained-smoke.json"
+          jq '{ok,error}' <<< "$invalid" > "$PROOF_DIR/rejection-invalid-input-smoke.json"
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          do $$ begin
+            update public.osi_config set value='true',updated_at=statement_timestamp()
+            where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED' and value='false';
+            if not found or (select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED')<>'true' then
+              raise exception 'Report review flag restore failed';
+            end if;
+          end $$;
+          commit;
+          SQL
+          rm "$RUNNER_TEMP/report-rejection-contained"
+          live="$(curl -sS --fail --max-time 30 -X POST "$base/osi-v2-report-write" \
+            -H "Origin: ${PRODUCTION_WEB_URL}" -H 'Content-Type: application/json' \
+            -d '{"op":"capabilities","case_ref":"OSI-DOESNOTEXIST0"}')"
+          jq -e '.ok==true and .report_review_writes_enabled==true and .case_eligible==false' <<< "$live"
+          jq '{ok,report_review_writes_enabled,case_eligible}' <<< "$live" > "$PROOF_DIR/live-smoke.json"
+
+      - name: Verify no domain config or Function mutation
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql -Atq -F'|' -c "select key,md5(value) from public.osi_config where key<>'OSI_V2_REPORT_REVIEW_WRITES_ENABLED' order by key" > "$RUNNER_TEMP/config-after.txt"
+          diff -u "$RUNNER_TEMP/config-before.txt" "$RUNNER_TEMP/config-after.txt"
+          psql -Atq -f scripts/protected-row-counts.sql | sort > "$PROOF_DIR/protected-rows-after.txt"
+          diff -u "$PROOF_DIR/protected-rows-before.txt" "$PROOF_DIR/protected-rows-after.txt"
+          curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/functions" |
+            jq '[.[]|select(.slug=="osi-v2-report-write")|{slug,version,status,verify_jwt,updated_at,ezbr_sha256}]' > "$PROOF_DIR/function-after.json"
+          diff -u "$PROOF_DIR/function-before.json" "$PROOF_DIR/function-after.json"
+          web_code="$(curl -sS --fail --max-time 30 -o "$PROOF_DIR/web-root.html" -w '%{http_code}' "$PRODUCTION_WEB_URL")"
+          [ "$web_code" = 200 ]
+          grep -Fq 'Open Solana Intelligence' "$PROOF_DIR/web-root.html"
+          printf 'solana_transactions_created=0\ndomain_records_created=0\nprepare_or_commit_successes=0\nfunction_deployments=0\n' \
+            > "$PROOF_DIR/non-mutation-attestation.txt"
+
+      - name: Fail closed on rollout error
+        if: ${{ failure() }}
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [ -f "$RUNNER_TEMP/report-rejection-contained" ] || exit 0
+          psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='false',updated_at=statement_timestamp() where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED' and value<>'false'"
+          [ "$(psql -Atqc "select value from public.osi_config where key='OSI_V2_REPORT_REVIEW_WRITES_ENABLED'")" = false ]
+          echo 'Report review outcomes remain fail-closed. Prepare one focused forward-fix PR; do not repeatedly retry this workflow.'
+
+      - name: Upload sanitized production proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: osi-report-rejection-production-proof
+          path: /tmp/osi-report-rejection-proof
+          if-no-files-found: warn
+          retention-days: 30
