@@ -1,6 +1,6 @@
 # OSI production feature and gate status
 
-Verified baseline: 2026-07-28  
+Verified baseline: 2026-08-02  
 Project: `afibxpniwfnavdobecrn`  
 Web: `https://open-solana-intel.vercel.app`
 
@@ -12,20 +12,28 @@ malformed, or unavailable values always fail closed.
 
 | Gate or mode | Launch-completion value | User-visible result |
 | --- | --- | --- |
-| `OSI_V2_CASE_WRITES_ENABLED` | `true` | Native private Case intake and opening |
+| `OSI_V2_CASE_WRITES_ENABLED` | `true` | Native private Case intake, initial review, normal rejection, owner appeal, and public opening |
 | `OSI_V2_ANALYST_WRITES_ENABLED` | `true` | Analyst application and activation lifecycle |
 | `OSI_V2_REPORT_WRITES_ENABLED` | `true` | Immutable Case Report intake |
 | `OSI_V2_REPORT_REVIEW_WRITES_ENABLED` | `true` | Exact-version review and publication |
 | `OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED` | `true` | Winner, challenge window, reopen, and seal |
 | `OSI_V2_PAYMENT_WRITES_ENABLED` | `true` | Reward pledges/payments and voluntary support |
 | `OSI_V2_SOLANA_PAY_ENABLED` | `true` | Secondary Solana Pay choice for one exact recipient |
-| `OSI_V2_READ_SESSION_ENABLED` | `true` | Five-minute scoped private-read sessions |
+| `OSI_V2_READ_SESSION_ENABLED` | `true` | Scoped private-read sessions with a 30-minute inactivity window and eight-hour absolute lifetime |
 | `OSI_V2_WIRE_WRITES_ENABLED` | `true` | Wire intake, review, publication, and support |
 | `OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED` | `true` | Server-derived issuance/revocation lifecycle |
 | `OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED` | `true` | Invalid/unavailable credentials carry zero quorum authority |
 | `OSI_V2_AI_PACK_ACCESS_MODE` | `maintainer_only` | Pack discovery, generation, and private reads require both maintainer gates |
 | `OSI_V2_AI_PACK_WRITES_ENABLED` | `true` | Private immutable maintainer draft generation |
 | `OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED` | `true` | Transparently labeled, self-decaying cold-start outcomes only |
+
+Normal Case rejection is not a maintainer shortcut. It requires at least two
+independent SAS-valid analysts and total counted weight `2.00`, followed by a
+confirmed `CASE_INITIAL_REVIEW_REJECTED` Solana Memo from an eligible rejecting
+analyst. The Case remains private. Its owner may appeal only with newly appended
+private evidence and one wallet signature; the original intake, rejection proof,
+and earlier reviews remain immutable and earlier reviews do not count in the new
+review cycle.
 
 ## Every intentionally false production flag
 
