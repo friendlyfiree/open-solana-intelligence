@@ -1043,66 +1043,89 @@ test('supporting a Report author never shows a version reference as a payable ad
   expectClean(page);
 });
 
-test('the full lifecycle runs from private intake to a readable public finding', async ({ page }) => {
+// Each leg of this journey acts as a different wallet. Reusing one page would
+// carry that leg's read session, drafts and accumulated init scripts into the
+// next, so every leg gets its own context. The backend state machine is the
+// only thing that persists across them, which is exactly the real situation:
+// different people, one server.
+test('the full lifecycle runs from private intake to a readable public finding', async ({ browser }) => {
+  test.setTimeout(180_000);
   const backend = createBackend();
+  const contexts = [];
+  const asWallet = async (wallet) => {
+    const context = await browser.newContext();
+    contexts.push(context);
+    const page = await context.newPage();
+    await boot(page, backend, wallet ? { wallet } : {});
+    return page;
+  };
 
-  // 1. The owner files a private Case.
-  await boot(page, backend, { wallet: OWNER });
-  await page.evaluate(() => window.fieldOpenForm());
-  await page.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
-  await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
-  await page.locator('#v2-case-category').selectOption('wallet_drain');
-  await page.locator('#v2-case-confirm').check();
-  await page.getByRole('button', { name: 'Review and sign' }).click();
-  await expect.poll(() => backend.state.cases.length).toBe(1);
-  expect(backend.state.cases[0].visibility).toBe('private');
-  await expect(page.locator('#v2-case-receipt')).toContainText(CASE_REF);
+  try {
+    // 1. The owner files a private Case.
+    const owner = await asWallet(OWNER);
+    await owner.evaluate(() => window.fieldOpenForm());
+    await owner.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
+    await owner.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
+    await owner.locator('#v2-case-category').selectOption('wallet_drain');
+    await owner.locator('#v2-case-confirm').check();
+    await owner.getByRole('button', { name: 'Review and sign' }).click();
+    await expect.poll(() => backend.state.cases.length).toBe(1);
+    expect(backend.state.cases[0].visibility).toBe('private');
+    await expect(owner.locator('#v2-case-receipt')).toContainText(CASE_REF);
+    expectClean(owner);
 
-  // 2. An eligible analyst approves it and anchors the public open.
-  await page.evaluate(() => { window.walletPubkey = null; });
-  await boot(page, backend, { wallet: ANALYST_A });
-  await openCaseDrawerPrivate(page, backend);
-  await expect.poll(() => backend.state.cases[0].visibility).toBe('public');
+    // 2. An eligible analyst approves it and anchors the public open.
+    const approver = await asWallet(ANALYST_A);
+    await openCaseDrawerPrivate(approver, backend);
+    await expect.poll(() => backend.state.cases[0].visibility).toBe('public');
+    expectClean(approver);
 
-  // 3. A different wallet submits a Report with a public-safe summary.
-  await boot(page, backend, { wallet: AUTHOR });
-  await openCaseDrawer(page);
-  await page.getByRole('button', { name: 'Submit Report' }).click();
-  await page.locator('#osi-report-narrative').fill(NARRATIVE);
-  await page.locator('#osi-report-summary').fill(PUBLIC_SUMMARY);
-  await page.locator('#osi-report-safety').check();
-  await page.getByRole('button', { name: 'Prepare exact Memo' }).click();
-  await expect.poll(() => backend.state.reports.length).toBe(1);
+    // 3. A different wallet submits a Report with a public-safe summary.
+    const author = await asWallet(AUTHOR);
+    await openCaseDrawer(author);
+    await author.getByRole('button', { name: 'Submit Report' }).click();
+    await expect(author.locator('#osi-report-modal')).toHaveClass(/open/);
+    await author.locator('#osi-report-narrative').fill(NARRATIVE);
+    await author.locator('#osi-report-summary').fill(PUBLIC_SUMMARY);
+    await author.locator('#osi-report-safety').check();
+    await author.getByRole('button', { name: 'Prepare exact Memo' }).click();
+    await expect.poll(() => backend.state.reports.length).toBe(1);
+    expectClean(author);
 
-  // 4. Two independent analysts approve, reaching quorum.
-  for (const analyst of [ANALYST_A, ANALYST_B]) {
-    await boot(page, backend, { wallet: analyst });
-    await page.evaluate(() => window.osiV2OpenReportQueue());
-    const version = page.locator(`[data-report-version-ref="${VERSION_REF}"]`);
-    await expect(version).toBeVisible();
-    await version.locator(`#osi-review-decision-${VERSION_REF}`).selectOption('approve');
-    await version.getByRole('button', { name: /Sign and cast review|Revise my review/ }).click();
-    await expect.poll(() => backend.state.reports[0].versions[0].reviews.some((row) => row.reviewer_wallet === analyst)).toBe(true);
+    // 4. Two independent analysts approve, reaching quorum.
+    let lastAnalystPage = null;
+    for (const analyst of [ANALYST_A, ANALYST_B]) {
+      const reviewer = await asWallet(analyst);
+      lastAnalystPage = reviewer;
+      await reviewer.evaluate(() => window.osiV2OpenReportQueue());
+      const version = reviewer.locator(`[data-report-version-ref="${VERSION_REF}"]`);
+      await expect(version).toBeVisible();
+      await version.locator(`#osi-review-decision-${VERSION_REF}`).selectOption('approve');
+      await version.getByRole('button', { name: /Sign and cast review|Revise my review/ }).click();
+      await expect.poll(() => backend.state.reports[0].versions[0].reviews.some((row) => row.reviewer_wallet === analyst)).toBe(true);
+    }
+
+    // 5. The second approver publishes from the ready state.
+    const ready = lastAnalystPage.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-ready`);
+    await expect(ready).toBeVisible();
+    await ready.getByRole('button', { name: 'Publish this version now' }).click();
+    await expect.poll(() => backend.state.reports[0].current_published_version_ref).toBe(VERSION_REF);
+    expectClean(lastAnalystPage);
+
+    // 6. An anonymous visitor reads the finding.
+    const visitor = await asWallet(null);
+    await openCaseDrawer(visitor);
+    await showTab(visitor, 'reports');
+    const card = visitor.locator(`[data-report-version-public-ref="${VERSION_REF}"]`);
+    await expect(card).toContainText(SUMMARY_P1);
+    await expect(card).toContainText(SUMMARY_P2);
+    await expect(card).toContainText('2 / 2 analysts');
+    await expect(card).not.toContainText(PRIVATE_SENTINEL);
+    await expect(card.getByRole('button', { name: 'Support author with SOL' })).toBeVisible();
+    expectClean(visitor);
+  } finally {
+    for (const context of contexts) await context.close();
   }
-
-  // 5. The second approver publishes from the ready state.
-  const ready = page.locator(`[data-report-version-ref="${VERSION_REF}"] .osi-report-ready`);
-  await expect(ready).toBeVisible();
-  await ready.getByRole('button', { name: 'Publish this version now' }).click();
-  await expect.poll(() => backend.state.reports[0].current_published_version_ref).toBe(VERSION_REF);
-
-  // 6. An anonymous visitor reads the finding.
-  await boot(page, backend);
-  await openCaseDrawer(page);
-  await showTab(page, 'reports');
-  const card = page.locator(`[data-report-version-public-ref="${VERSION_REF}"]`);
-  await expect(card).toContainText(SUMMARY_P1);
-  await expect(card).toContainText(SUMMARY_P2);
-  await expect(card).toContainText('2 / 2 analysts');
-  await expect(card).not.toContainText(PRIVATE_SENTINEL);
-  await expect(card.getByRole('button', { name: 'Support author with SOL' })).toBeVisible();
-
-  expectClean(page);
 });
 
 // The private intake drawer is reached through the authorized review lane
