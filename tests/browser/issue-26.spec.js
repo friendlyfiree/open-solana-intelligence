@@ -32,7 +32,7 @@ const ROLE_WALLETS = Object.freeze({
 });
 const APPLICATION_ID = '55555555-5555-4555-8555-555555555555';
 const APPLICATION_VERSION_ID = '66666666-6666-4666-8666-666666666666';
-const APPLICATION_VERSION_REF = 'OSI-AV-B1B2C3D4E5F60718';
+const APPLICATION_VERSION_REF = 'OSI-APP-B1B2C3D4E5F6';
 const now = Date.now();
 const iso = (offsetDays) => new Date(now + offsetDays * 86_400_000).toISOString();
 
@@ -354,14 +354,14 @@ const analystWorkspace = {
   profile: { ...analystFixture, weight_cached: 1.5, expertise_public: analystFixture.expertise, links_public: [] },
   applications: [{
     id: '44444444-4444-4444-4444-444444444444', status: 'revision_requested',
-    versions: [{ version_no: 2, version_ref: 'OSI-AV-A1B2C3D4E5F60718', details_restricted: { motivation: PRIVATE_SENTINEL, experience: 'Public evidence review experience.', proof_urls: [] }, expertise_public: ['onchain_tracing'] }],
+    versions: [{ version_no: 2, version_ref: 'OSI-APP-A1B2C3D4E5F6', details_restricted: { motivation: PRIVATE_SENTINEL, experience: 'Public evidence review experience.', proof_urls: [] }, expertise_public: ['onchain_tracing'] }],
     reviews: [{ decision: 'request_revision', reason_code: 'more_public_work_samples', weight: 0, created_at: iso(-1) }],
   }],
 };
 
 const candidateApplication = {
   id: APPLICATION_ID,
-  status: 'submitted',
+  status: 'in_review',
   applicant_wallet: ROLE_WALLETS.analyst_candidate,
   profile: {
     wallet: ROLE_WALLETS.analyst_candidate,
@@ -928,7 +928,7 @@ async function installFixtureNetwork(page, options = {}) {
       const roleAnalystProfile = { ...analystFixture, wallet, handle: 'verified-role-fixture', display_name: 'Verified analyst role fixture' };
       const candidateWorkspaceApplication = {
         id: APPLICATION_ID,
-        status: applicationActivated ? 'probationary' : 'submitted',
+        status: applicationActivated ? 'probationary' : 'in_review',
         versions: [{
           id: APPLICATION_VERSION_ID,
           version_no: 1,
@@ -975,7 +975,7 @@ async function installFixtureNetwork(page, options = {}) {
       } else if (body.op === 'prepare_application') response = { ok: true, nonce: 'application-nonce', message: 'OSI analyst application fixture message', version_ref: APPLICATION_VERSION_REF };
       else if (body.op === 'commit_application') response = {
         ok: true,
-        application: { id: APPLICATION_ID, version_ref: APPLICATION_VERSION_REF, version_no: 1, status: 'submitted' },
+        application: { id: APPLICATION_ID, version_ref: APPLICATION_VERSION_REF, version_no: 1, status: 'in_review' },
       };
       else if (body.op === 'prepare_review') response = { ok: true, nonce: 'application-review-nonce', message: 'OSI analyst application review fixture message' };
       else if (body.op === 'commit_review') {
@@ -1284,20 +1284,23 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
 
     if (role === 'analyst_candidate') {
       await page.evaluate(() => window.osiAnalystOpenWorkspace('applications'));
-      await expect(page.locator('#identity-body')).toContainText('Submitted');
+      await expect(page.locator('#identity-body')).toContainText('In Review');
       await expect(page.locator('#identity-body')).toContainText('Current version 1');
     }
 
     if (role === 'ordinary_wallet') {
+      const signaturesBeforeOpen = (await page.evaluate(() => window.__fixtureProviderCounts())).signMessage;
       await page.evaluate(() => window.apxOpen());
       await expect(page.locator('#apx-modal')).toHaveClass(/\bopen\b/);
-      await expect(page.locator('#an-handle')).toBeFocused();
+      await expect(page.locator('#apx-modal')).toHaveAttribute('aria-hidden', 'false');
+      await expect(page.locator('#an-bio')).toBeFocused();
+      await expect(page.locator('#analyst-optional-details')).not.toHaveAttribute('open', '');
       await expect(page.locator('#an-handle')).toHaveValue('');
       await expect(page.locator('#an-x-handle')).toHaveValue('');
+      expect((await page.evaluate(() => window.__fixtureProviderCounts())).signMessage).toBe(signaturesBeforeOpen);
       await page.locator('#an-bio').fill('I investigate public Solana activity with reproducible evidence.');
-      await page.locator('#an-experience').fill('I publish attributable wallet-flow research with explicit limits.');
       await page.locator('#an-safety').check();
-      await page.locator('#an-handle').scrollIntoViewIfNeeded();
+      await page.locator('#osi-application-title').scrollIntoViewIfNeeded();
       await captureRepairEvidence(page, '06-minimal-analyst-application');
       await page.setViewportSize({ width: 390, height: 844 });
       await expectNoPageOverflow(page);
@@ -1305,6 +1308,7 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
       await page.setViewportSize({ width: 1280, height: 720 });
       await page.locator('#an-submit').click();
       await expectFixtureOperation(page, 'osi-v2-analyst', 'commit_application');
+      expect((await page.evaluate(() => window.__fixtureProviderCounts())).signMessage).toBe(signaturesBeforeOpen + 1);
       await expect(page.locator('#an-status')).toContainText('wallet-signed and server-verified');
       await expect(page.locator('#apx-modal')).toHaveClass(/\bopen\b/);
       await expect(page.locator('#osi-analyst-receipt')).toBeVisible();
@@ -1320,6 +1324,10 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
       await expect(operations).toBeVisible();
       await operations.click();
       await expect(page.locator('#admPanel')).toBeVisible();
+      await expect(page.locator('#osi-analyst-ops')).toContainText(APPLICATION_VERSION_REF);
+      await expect(page.locator('#osi-analyst-ops')).toContainText('Analyst candidate fixture');
+      await expect(page.locator('#osi-analyst-ops [data-analyst-decision]')).toHaveCount(3);
+      await captureRepairEvidence(page, '07-maintainer-analyst-queue');
       await page.getByRole('button', { name: 'Refresh overview' }).click();
       await expect(page.locator('#osi-native-ops-overview')).toContainText('Cases');
     } else {
@@ -1364,11 +1372,11 @@ test('wallet-required Case and Analyst intents resume exactly once after a later
   await page.evaluate(() => { window.__fixtureAllowExplicitConnect = true; });
   await page.locator('#walletBtn').click();
   await expect(page.locator('#apx-modal')).toHaveClass(/open/);
-  await expect(page.locator('#an-handle')).toBeFocused();
-  await expect(page.locator('#stw-toast')).toContainText('No transaction will be sent.');
+  await expect(page.locator('#an-bio')).toBeFocused();
+  await expect(page.locator('#stw-toast')).toContainText('Only the final exact message needs one wallet signature.');
   const provider = await page.evaluate(() => window.__fixtureProviderCounts());
   expect(provider.connect).toBe(4);
-  expect(provider.signMessage).toBe(1);
+  expect(provider.signMessage).toBe(0);
   expectCleanRuntime(page);
 });
 

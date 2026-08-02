@@ -189,6 +189,10 @@ ok(!("verification_metadata" in supportDto.proof_history[0]) && !("payload_hash"
 "analyst support proof exposes no raw verification metadata or binding hash");
 
 ok(edge.includes("authenticatedMaintainerId") && edge.includes("configuredAdminWallet") && edge.includes("fullMaintainer"), "every maintainer operation has a double-gate primitive");
+ok(edge.includes('"application_under_review"')
+  && edge.includes('"active_analyst_cannot_apply"')
+  && edge.includes('"application_state_changed"'),
+"application lifecycle conflicts return actionable stable error codes");
 ok((edge.match(/await fullMaintainer\(req, wallet\)/g) ?? []).length >= 5, "maintainer reads and writes independently revalidate both gates");
 ok(edge.includes("target.application.applicant_wallet === wallet") && sql.includes("application_row.applicant_wallet = bound_nonce.actor_wallet"), "self-review is denied in Edge and database layers");
 ok(edge.includes("inspectProfileImage") && edge.includes('sha256HexUtf8(wallet)) + \"/\" + image.sha256'), "avatar bytes and immutable owner/content path are enforced");
