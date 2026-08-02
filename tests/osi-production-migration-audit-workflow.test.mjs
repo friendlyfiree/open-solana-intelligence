@@ -1,0 +1,27 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const workflow = readFileSync(new URL("../.github/workflows/osi-production-migration-audit.yml", import.meta.url), "utf8");
+let passed = 0;
+const has = (pattern, label) => { assert.match(workflow, pattern, label); passed += 1; };
+const lacks = (pattern, label) => { assert.doesNotMatch(workflow, pattern, label); passed += 1; };
+
+has(/^name: OSI Production Migration Audit$/m, "named read-only audit");
+has(/\bon:\n  workflow_dispatch:\n/, "manual only");
+lacks(/\n  (?:push|pull_request|schedule):/, "no automatic trigger");
+has(/AUDIT-MIGRATIONS-\$\{EXPECTED_PROJECT_REF\}/, "typed project confirmation");
+has(/EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn/, "pinned project");
+has(/refs\/heads\/main/, "main only");
+has(/git rev-parse origin\/main/, "current main only");
+has(/begin read only;[\s\S]*supabase_migrations\.schema_migrations[\s\S]*commit;/, "migration query is read only");
+has(/missing-in-production\.txt/, "missing versions are isolated");
+has(/extra-in-production\.txt/, "extra versions are isolated");
+has(/OSI_V2_REPORT_REVIEW_WRITES_ENABLED/, "report flag is read");
+has(/OSI_V2_ANALYST_WRITES_ENABLED/, "analyst flag is read");
+has(/production_writes=0/, "non-mutation receipt is explicit");
+lacks(/\b(?:update|insert|delete|drop|truncate|alter|create)\s+(?:public\.|table|schema|function|policy)/i, "no SQL mutation");
+lacks(/supabase (?:db push|migration repair|functions deploy|secrets set|secrets unset)/i, "no Supabase mutation command");
+const refs = [...workflow.matchAll(/uses:\s+\S+@(\S+)/g)].map((match) => match[1]);
+assert.ok(refs.length >= 2 && refs.every((ref) => /^[0-9a-f]{40}$/.test(ref)), "actions are SHA pinned");
+passed += 1;
+console.log(`osi-production-migration-audit-workflow: ${passed} passed, 0 failed`);
