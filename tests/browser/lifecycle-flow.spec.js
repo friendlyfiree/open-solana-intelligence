@@ -1233,3 +1233,43 @@ test('a wallet without an active reject review is told who can record the reject
 
   expectClean(page);
 });
+
+// ---------------------------------------------------------------------------
+// Shipped-surface contract
+// ---------------------------------------------------------------------------
+
+// index.html once carried two containers, #osi-guard and #rv-drawer, whose
+// openers and handlers live in scripts only legacy.html loads. Every control
+// inside them threw ReferenceError. Nothing opened those containers so no user
+// could reach them, but a dormant control that cannot work is exactly what the
+// delivery brief forbids. This walks the real shipped DOM instead of trusting a
+// grep, so a handler that stops being loaded fails here.
+test('every inline handler in the shipped page resolves to a real function', async ({ page }) => {
+  const backend = createBackend().seedPublishedReport();
+  await boot(page, backend);
+
+  const missing = await page.evaluate(() => {
+    const names = new Set();
+    document.querySelectorAll('*').forEach((element) => {
+      for (const attribute of element.attributes) {
+        if (!/^on[a-z]+$/.test(attribute.name)) continue;
+        // Skip method calls: `event.preventDefault()` is not a global.
+        const pattern = /(?:^|[^.\w$])([A-Za-z_$][\w$]*)\s*\(/g;
+        let match;
+        while ((match = pattern.exec(attribute.value))) names.add(match[1]);
+      }
+    });
+    const reserved = new Set(['if', 'return', 'typeof', 'function', 'catch', 'for', 'while', 'switch', 'new']);
+    const unresolved = [];
+    names.forEach((name) => {
+      if (reserved.has(name)) return;
+      let resolved = false;
+      try { resolved = typeof window[name] === 'function' || typeof eval(name) === 'function'; } catch (_) { resolved = false; }
+      if (!resolved) unresolved.push(name);
+    });
+    return unresolved.sort();
+  });
+  expect(missing, `unresolved inline handlers: ${missing.join(', ')}`).toEqual([]);
+
+  expectClean(page);
+});
