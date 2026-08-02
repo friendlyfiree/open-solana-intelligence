@@ -171,6 +171,16 @@ const privateCase = {
   ...richCase, public_ref: PRIVATE_REF, title: 'Private owner workspace', visibility: 'private', stage: 'submitted',
   details_restricted: PRIVATE_SENTINEL, governance: {}, reports: [], proof_log: [], money: {},
 };
+const rejectedCase = {
+  ...privateCase,
+  title: 'Rejected Case ready for owner appeal',
+  stage: 'initial_rejected',
+  reviews: [
+    { reviewer_wallet: OTHER, reviewer_role: 'analyst', decision: 'reject', reason_code: 'duplicate_or_out_of_scope', weight: 1, is_active: true, proof_label: 'Wallet-signed and server-verified', created_at: iso(-2) },
+    { reviewer_wallet: ROLE_WALLETS.verified_analyst, reviewer_role: 'analyst', decision: 'reject', reason_code: 'duplicate_or_out_of_scope', weight: 1, is_active: true, proof_label: 'Wallet-signed and server-verified', created_at: iso(-1) },
+  ],
+  proof_log: [{ event_type: 'CASE_INITIAL_REVIEW_REJECTED', actor_wallet: OTHER, actor_role: 'analyst', decision: 'reject', label: 'Memo-anchored on Solana', occurred_at: iso(-1), solscan_url: `https://solscan.io/tx/${TX}` }],
+};
 const legacyImportPrivateDraft = {
   ...privateCase,
   public_ref: LEGACY_IMPORT_REF,
@@ -472,6 +482,7 @@ async function installFixtureNetwork(page, options = {}) {
   let submittedCase = false;
   let caseReviewed = false;
   let openedCase = false;
+  let appealedCase = false;
   let applicationReviewed = false;
   let applicationActivated = false;
   let wireReviewed = false;
@@ -537,7 +548,16 @@ async function installFixtureNetwork(page, options = {}) {
       else if (body.op === 'get_public_case') response.case = (openedCase && body.public_ref === PRIVATE_REF)
         ? openedFixture
         : auditCases.find((item) => item.public_ref === body.public_ref) || richCase;
-      else if (body.op === 'list_my_cases') response.cases = submittedCase ? [privateCase] : [privateCase];
+      else if (body.op === 'list_my_cases') {
+        const ownerCase = options.initialRejected
+          ? (appealedCase ? {
+            ...rejectedCase, stage: 'initial_review',
+            evidence: [{ kind: 'url', ref: 'https://example.org/appeal-proof', sha256: 'e'.repeat(64) }],
+            proof_log: rejectedCase.proof_log.concat({ event_type: 'CASE_APPEAL_SUBMITTED', actor_wallet: wallet, actor_role: 'owner', decision: 'appeal', label: 'Wallet-signed and server-verified', occurred_at: iso(0) }),
+          } : rejectedCase)
+          : privateCase;
+        response.cases = [ownerCase];
+      }
       else if (body.op === 'list_reviewable_cases') {
         const reviewedFixture = caseReviewed ? {
           ...privateCase,
@@ -636,6 +656,11 @@ async function installFixtureNetwork(page, options = {}) {
       else if (body.op === 'commit_open') {
         openedCase = true;
         response = { ok: true, case: { ...privateCase, visibility: 'public', stage: 'open_public' } };
+      }
+      else if (body.op === 'prepare_appeal') response = { ok: true, nonce: 'case-appeal-nonce', message: 'OSI CASE_APPEAL_SUBMITTED fixture message' };
+      else if (body.op === 'commit_appeal') {
+        appealedCase = true;
+        response = { ok: true, case: { ...rejectedCase, stage: 'initial_review' } };
       }
     } else if (endpoint === 'osi-v2-governance-write') {
       if (body.op === 'actor_capabilities') response = {
@@ -1468,6 +1493,29 @@ async function captureRepairEvidence(page, name) {
   fs.mkdirSync(directory, { recursive: true });
   await page.screenshot({ path: path.join(directory, `${name}.png`), fullPage: false });
 }
+
+test('Case owner appeals a normal rejection quickly with one new evidence reference', async ({ page }) => {
+  await ready(page, { role: 'legacy', initialRejected: true });
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  const card = page.locator(`[data-case-ref="${PRIVATE_REF}"]`).first();
+  await expect(card).toBeVisible();
+  await card.click();
+  await expect(page.locator('#osi-case-state')).toContainText('Initial review rejected');
+  await page.getByRole('button', { name: 'Appeal with new evidence' }).click();
+  await expect(page.locator('#osi-appeal-evidence-ref')).toBeFocused();
+  await page.locator('#osi-appeal-evidence-ref').fill('https://example.org/appeal-proof');
+  const before = await page.evaluate(() => window.__fixtureProviderCounts());
+  await page.getByRole('button', { name: 'Sign and submit appeal' }).click();
+  await expectFixtureOperation(page, 'osi-v2-case-write', 'prepare_appeal');
+  await expectFixtureOperation(page, 'osi-v2-case-write', 'commit_appeal');
+  await expect.poll(async () => (await page.evaluate(() => window.__fixtureProviderCounts())).signMessage)
+    .toBe(before.signMessage + 1);
+  await expect(page.locator('#osi-case-state')).toContainText('Initial review');
+  await page.getByRole('tab', { name: 'Initial Review', exact: true }).click();
+  await expect(page.locator('#osi-case-content')).toContainText('Previous review cycle');
+  await captureRepairEvidence(page, '08-case-owner-appeal');
+  expectCleanRuntime(page);
+});
 
 test('launch readiness: verified analyst controls traverse Case, Wire, governance, and challenge while AI Pack stays private', async ({ page }) => {
   test.setTimeout(180_000);

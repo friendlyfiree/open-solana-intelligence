@@ -115,12 +115,20 @@ throws("oversized reward intent is blocked", () => core.normalizeCasePayload({
 ok("review input allows canonical decision/reason", core.normalizeReviewInput({
   case_ref: PUBLIC_REF, decision: "approve_open", reason_code: "public_scope_clear",
 }).decision === "approve_open");
-throws("initial rejection stays disabled until its quorum outcome exists", () => core.normalizeReviewInput({
+ok("normal rejection is an exact analyst decision", core.normalizeReviewInput({
   case_ref: PUBLIC_REF, decision: "reject", reason_code: "unsafe_or_prohibited",
-}), /decision/);
+}).decision === "reject");
 throws("review reason is a server allow-list", () => core.normalizeReviewInput({
   case_ref: PUBLIC_REF, decision: "approve_open", reason_code: "free form private note",
 }), /reason code/);
+ok("owner appeal requires a canonical reason and new evidence",
+  core.normalizeAppealInput({
+    case_ref: PUBLIC_REF, reason_code: "new_evidence",
+    evidence: [{ kind: "url", ref: "https://example.com/new-evidence" }],
+  }).evidence.length === 1);
+throws("owner appeal cannot reopen a Case without new evidence", () => core.normalizeAppealInput({
+  case_ref: PUBLIC_REF, reason_code: "scope_clarified", evidence: [],
+}), /requires new evidence/);
 
 const txFixture = {
   blockTime: NOW + 15,
@@ -174,25 +182,30 @@ const edgeSource = readFileSync(
 const migrationSource = readFileSync(
   join(root, "supabase", "migrations", "20260713045903_osi_v2_case_lifecycle.sql"), "utf8",
 );
+const rejectionAppealSource = readFileSync(
+  join(root, "supabase", "migrations", "20260802180000_osi_v2_case_initial_rejection_appeal.sql"), "utf8",
+);
 ok("Case Edge Function never selects broad star", !edgeSource.includes('select("*")'));
 ok("Case Edge Function uses only the Case-specific write flag",
   edgeSource.includes("OSI_V2_CASE_WRITES_ENABLED")
     && !edgeSource.includes("OSI_V2_WRITES_ENABLED")
     && !edgeSource.includes("OSI_V2_PROOF_ENABLED"));
-ok("all three native Case effects use service-only RPCs",
+ok("all five native Case lifecycle effects use service-only RPCs",
   edgeSource.includes('rpc("osi_v2_commit_case_submission"')
-    && edgeSource.includes('rpc("osi_v2_commit_case_review"')
-    && edgeSource.includes('rpc("osi_v2_commit_case_open"'));
+    && edgeSource.includes('rpc("osi_v2_commit_case_review_current"')
+    && edgeSource.includes('rpc("osi_v2_commit_case_open_outcome"')
+    && edgeSource.includes('rpc("osi_v2_commit_case_rejection"')
+    && edgeSource.includes('rpc("osi_v2_commit_case_appeal"'));
 ok("maintainer auth UUID is explicit and fail-closed",
   edgeSource.includes("OSI_MAINTAINER_AUTH_UUID")
     && edgeSource.includes("data?.user?.id === MAINTAINER_AUTH_UUID"));
 ok("prepare and commit open both resolve the requested analyst or maintainer route",
   (edgeSource.match(/resolveReviewActor\(req, wallet, safeText\(body\.route\)\)/g) ?? []).length >= 4
     && edgeSource.includes("async function commitOpen(req: Request"));
-ok("CASE_OPENED payload binds actor role and the independent opening path",
-  edgeSource.includes("actor_role: actorRole")
-    && edgeSource.includes('opening_path: actorRole === "maintainer" ? "maintainer" : "analyst"')
-    && edgeSource.includes("maintainer_double_gate_required"));
+ok("CASE_OPENED payload binds the server-derived role and current-cycle quorum",
+  rejectionAppealSource.includes("'actor_role', p_actor_role")
+    && rejectionAppealSource.includes("'outcome', p_outcome")
+    && rejectionAppealSource.includes("'quorum_hash', p_quorum_hash"));
 ok("half-maintainer reasons remain explicit on the server path",
   core.maintainerGate.toString().includes("half_maintainer_wallet_only")
     && core.maintainerGate.toString().includes("half_maintainer_auth_only")
@@ -221,6 +234,15 @@ ok("review and open receipts preserve exact maintainer proof attribution",
 ok("consumed nonces reject changed signed review and open transaction proof",
   migrationSource.includes("Consumed review nonce cannot change signed decision")
     && migrationSource.includes("Consumed open nonce cannot change transaction proof"));
+ok("normal rejection requires two independent analysts and weight 2.00 with no maintainer shortcut",
+  rejectionAppealSource.includes("reject_count >= 2 and reject_weight >= 2.00")
+    && rejectionAppealSource.includes("Maintainer cannot cast normal Case rejection")
+    && rejectionAppealSource.includes("quorum.approve_ready is true"));
+ok("appeal appends evidence and starts a fresh review cycle without rewriting intake",
+  rejectionAppealSource.includes("'CASE_APPEAL_SUBMITTED'")
+    && rejectionAppealSource.includes("insert into public.case_evidence_links")
+    && rejectionAppealSource.includes("stage='initial_review'")
+    && rejectionAppealSource.includes("osi_v2_case_review_cycle_started_at"));
 ok("Case gateway never logs payloads", !/console\.log/.test(edgeSource));
 
 console.log((fail ? "FAILED: " + fail : "OK")

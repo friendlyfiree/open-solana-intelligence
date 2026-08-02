@@ -19,17 +19,21 @@ export const CASE_WRITE_PURPOSES = new Set([
   "CASE_INITIAL_REVIEW_CAST",
   "CASE_INITIAL_REVIEW_REVISED",
   "CASE_OPENED",
+  "CASE_INITIAL_REVIEW_REJECTED",
+  "CASE_APPEAL_SUBMITTED",
 ]);
 
-// This first slice deliberately omits the rejection outcome. Recording a
-// rejection before its counted quorum and terminal transition exist would
-// leave the Case in a misleading nonterminal state.
-export const REVIEW_DECISIONS = new Set(["approve_open", "needs_more"]);
+export const REVIEW_DECISIONS = new Set(["approve_open", "reject", "needs_more"]);
 export const REVIEW_REASON_CODES = new Set([
   "public_scope_clear",
   "needs_more_evidence",
   "unsafe_or_prohibited",
   "duplicate_or_out_of_scope",
+]);
+export const APPEAL_REASON_CODES = new Set([
+  "new_evidence",
+  "scope_clarified",
+  "submission_corrected",
 ]);
 
 const PUBLIC_REF = /^OSI-[0-9A-F]{12}$/;
@@ -130,6 +134,19 @@ export function normalizeReviewInput(input) {
   if (!REVIEW_DECISIONS.has(decision)) throw new TypeError("decision is invalid");
   if (!REVIEW_REASON_CODES.has(reason_code)) throw new TypeError("reason code is invalid");
   return { case_ref, decision, reason_code };
+}
+
+export function normalizeAppealInput(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new TypeError("appeal payload is invalid");
+  }
+  const case_ref = cleanText(input.case_ref);
+  const reason_code = cleanText(input.reason_code);
+  if (!PUBLIC_REF.test(case_ref)) throw new TypeError("case ref is invalid");
+  if (!APPEAL_REASON_CODES.has(reason_code)) throw new TypeError("appeal reason is invalid");
+  const evidence = normalizeEvidence(input.evidence ?? []);
+  if (evidence.length < 1) throw new TypeError("appeal requires new evidence");
+  return { case_ref, reason_code, evidence };
 }
 
 export function validateIdempotencyKey(value) {
