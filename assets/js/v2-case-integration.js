@@ -502,9 +502,23 @@
     state.page=Math.min(state.page,pages);
     var visible=rows.slice((state.page-1)*PAGE_SIZE,state.page*PAGE_SIZE);
     if(!visible.length){
-      var emptyTitle=state.mode==='public'?'No public V2 Cases yet':(state.mode==='mine'?'No Cases for this wallet':'No Cases currently await this wallet');
-      var emptyBody=state.mode==='public'?'The registry is live and reads production data. A Case appears only after an eligible analyst threshold or full maintainer approval, plus a confirmed CASE_OPENED Memo.':(state.mode==='mine'?'Open a Case to create a private, wallet-anchored record.':'Only private initial-review Cases available under server-derived authorization appear here.');
-      host.innerHTML='<div class="osi-v2-empty"><b>'+esc(emptyTitle)+'</b><span>'+esc(emptyBody)+'</span></div>';
+      // A filtered-out list is not an empty registry. Saying "No public V2
+      // Cases yet" while real Cases sit behind a stage filter or a search term
+      // states something untrue about the record, so the two are separated and
+      // the filtered case offers one control back to the full list.
+      var filtered=!!query||state.stage!=='all';
+      var emptyTitle;
+      var emptyBody;
+      var emptyAction='';
+      if(filtered&&state.cases.length){
+        emptyTitle='No Cases match this view';
+        emptyBody=state.cases.length+' '+(state.cases.length===1?'Case is':'Cases are')+' available here. None of them '+(query?'matches this search':'is at this stage')+' right now.';
+        emptyAction='<button class="osi-action" type="button" onclick="osiV2ClearCaseFilters()">Show all Cases</button>';
+      }else{
+        emptyTitle=state.mode==='public'?'No public V2 Cases yet':(state.mode==='mine'?'No Cases for this wallet':'No Cases currently await this wallet');
+        emptyBody=state.mode==='public'?'The registry is live and reads production data. A Case appears only after an eligible analyst threshold or full maintainer approval, plus a confirmed CASE_OPENED Memo.':(state.mode==='mine'?'Open a Case to create a private, wallet-anchored record.':'Only private initial-review Cases available under server-derived authorization appear here.');
+      }
+      host.innerHTML='<div class="osi-v2-empty"><b>'+esc(emptyTitle)+'</b><span>'+esc(emptyBody)+'</span>'+emptyAction+'</div>';
     }else{
       host.innerHTML=visible.map(function(item){
         var proof=hasOpenProof(item)?'Memo anchored':((item.proof_log||[]).length?'Proof recorded':'Awaiting proof');
@@ -1918,6 +1932,19 @@
   window.fieldMine=function(mine){return mine?openSignedCollection('mine'):loadPublicCases();};
   window.fieldSearch=function(value){state.query=String(value||'');state.page=1;drawCases();};
   window.fieldFilter=function(value){state.stage=String(value||'all');state.page=1;drawCases();};
+  // Offered by the filtered-empty state so a stage filter or search term is
+  // never a dead end.
+  window.osiV2ClearCaseFilters=function(){
+    state.query='';state.stage='all';state.page=1;
+    var search=document.querySelector('#field-view input[oninput*="fieldSearch"],#field-view input[onchange*="fieldSearch"]');
+    if(search)search.value='';
+    var select=document.querySelector('#field-view select[onchange*="fieldFilter"]');
+    if(select)select.value='all';
+    document.querySelectorAll('#field-view .fo-fil').forEach(function(button){
+      button.classList.toggle('active',button.dataset.f==='all');
+    });
+    drawCases();
+  };
   window.fieldSort=function(value){state.sort=String(value||'newest');drawCases();};
   window.osiV2OpenMyCases=function(options){return openSignedCollection('mine',options);};
   window.osiV2OpenReviewQueue=function(options){return openSignedCollection('review',options);};
