@@ -3885,10 +3885,26 @@ footer > .wrap {
   font-size: clamp(26px, 3vw, 38px);
 }
 
+/* Four equal next actions. As a wrapping flex row they left a ragged pair of
+   right-aligned lines; a 2x2 grid gives the block one edge on both sides. */
 .osi-about-cta .osi-about-actions {
   flex: 0 1 560px;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-content: stretch;
   margin-top: 0;
+}
+
+.osi-about-cta .osi-about-actions > .osi-button {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .osi-about-cta .osi-about-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .osi-about-notice {
