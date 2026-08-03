@@ -1,22 +1,9 @@
 // OSI V2 Case Report read gateway. Unpublished Report existence and content
-// stay behind a durable, single-use wallet-signed read. Author, analyst and
-// full maintainer projections are resolved on the server from stored state.
+// stay behind a short-lived shared wallet-signed read session. Author, analyst
+// and full maintainer projections are resolved on the server from stored state.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import {
-  randomNonce,
-  requestFingerprint,
-  trustedClientAddress,
-  validateWallet,
-  verifyEd25519Signature,
-} from "../_shared/osi-v2-proof-core.mjs";
-import {
-  buildChallenge,
-  challengeSigningInput,
-  parseChallenge,
-  validateChallengeBinding,
-} from "../_shared/osi-v2-case-read-core.mjs";
 import {
   authorizedReportDto,
   publicReportGovernanceDto,
@@ -45,7 +32,6 @@ async function readSessionEnabled(): Promise<boolean> {
 }
 
 type Row = Record<string, any>;
-type Scope = "my_reports" | "review_queue";
 
 const REPORT_COLS =
   "id,case_id,author_wallet,current_version_id,current_published_version_id,status,public_ref,native_intake,created_at,updated_at";
@@ -80,115 +66,6 @@ function jsonResponse(status: number, body: unknown): Response {
 
 function safeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function scopeBinding(scope: Scope, wallet: string) {
-  return scope === "my_reports"
-    ? { purpose: "CASE_READ_MY_CASES", target_type: "wallet_cases", target_id: wallet }
-    : { purpose: "CASE_READ_REVIEW_QUEUE", target_type: "review_queue", target_id: wallet };
-}
-
-async function hmacHex(input: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(SERVICE_ROLE_KEY + "\u0000osi-v2-report-read-challenge"),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = new Uint8Array(
-    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(input)),
-  );
-  return Array.from(signature, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function timingSafeEqualHex(left: string, right: string): boolean {
-  if (left.length !== right.length) return false;
-  let diff = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  }
-  return diff === 0;
-}
-
-async function issueChallenge(req: Request, body: Row): Promise<Response> {
-  const scope = safeText(body.scope) as Scope;
-  const wallet = safeText(body.wallet);
-  if (!new Set(["my_reports", "review_queue"]).has(scope)) {
-    return jsonResponse(400, { ok: false, error: "bad_scope" });
-  }
-  try { validateWallet(wallet); }
-  catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
-  const binding = scopeBinding(scope, wallet);
-  const nonce = randomNonce();
-  const fingerprintHash = await requestFingerprint(
-    SERVICE_ROLE_KEY + "\u0000osi-v2-report-read",
-    trustedClientAddress(req.headers),
-  );
-  const { data, error } = await admin.rpc("osi_v2_issue_read_nonce", {
-    p_nonce: nonce,
-    p_purpose: binding.purpose,
-    p_actor_wallet: wallet,
-    p_target_type: binding.target_type,
-    p_target_id: binding.target_id,
-    p_request_fingerprint_hash: fingerprintHash,
-  });
-  if (error || !data?.[0]) {
-    return jsonResponse(error?.code === "P0001" ? 429 : 503, {
-      ok: false,
-      error: error?.code === "P0001" ? "rate_limited" : "challenge_unavailable",
-    });
-  }
-  const fields = {
-    ...binding,
-    wallet,
-    nonce,
-    issued_at: Math.floor(Date.parse(String(data[0].issued_at)) / 1000),
-    expires_at: Math.floor(Date.parse(String(data[0].expires_at)) / 1000),
-  };
-  const mac = await hmacHex(challengeSigningInput(fields));
-  return jsonResponse(200, {
-    ok: true,
-    challenge: buildChallenge(fields, mac),
-    expires_at: fields.expires_at,
-  });
-}
-
-async function verifySignedRead(body: Row, scope: Scope) {
-  const wallet = safeText(body.wallet);
-  const challenge = safeText(body.challenge);
-  const signature = safeText(body.signature);
-  if (!wallet || !challenge || !signature) {
-    return { ok: false as const, status: 400, reason: "missing_fields" };
-  }
-  const fields = parseChallenge(challenge);
-  if (!fields) return { ok: false as const, status: 400, reason: "bad_challenge" };
-  const expectedMac = await hmacHex(challengeSigningInput(fields));
-  if (!timingSafeEqualHex(expectedMac, fields.hmac ?? "")) {
-    return { ok: false as const, status: 403, reason: "bad_challenge" };
-  }
-  const binding = scopeBinding(scope, wallet);
-  const exact = validateChallengeBinding(
-    fields,
-    { ...binding, wallet },
-    Math.floor(Date.now() / 1000),
-  );
-  if (!exact.ok) {
-    return { ok: false as const, status: 403, reason: exact.reason ?? "bad_binding" };
-  }
-  if (!await verifyEd25519Signature(challenge, signature, wallet)) {
-    return { ok: false as const, status: 403, reason: "bad_signature" };
-  }
-  const { data, error } = await admin.rpc("osi_v2_consume_read_nonce", {
-    p_nonce: fields.nonce,
-    p_purpose: binding.purpose,
-    p_actor_wallet: wallet,
-    p_target_type: binding.target_type,
-    p_target_id: binding.target_id,
-  });
-  if (error) return { ok: false as const, status: 503, reason: "challenge_unavailable" };
-  if (data !== true) return { ok: false as const, status: 403, reason: "replayed_or_expired" };
-  return { ok: true as const, wallet };
 }
 
 async function verifyReadSession(
@@ -758,7 +635,6 @@ serve(async (req: Request): Promise<Response> => {
 
   switch (body.op) {
     case "list_public_reports": return await listPublicReports(body);
-    case "issue_read_challenge": return await issueChallenge(req, body);
     case "list_my_reports": return await listMyReports(req, body);
     case "list_review_queue": return await listReviewQueue(req, body);
     default: return jsonResponse(400, { ok: false, error: "bad_op" });

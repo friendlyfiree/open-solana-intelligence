@@ -5,10 +5,6 @@
 //  read session. The Edge Function rechecks the current V2 analyst roster or
 //  the full maintainer gate. Legacy voting is disabled; use native Case review.
 // ============================================================
-async function osiReviewAction(o){
-  void o;
-  var er=new Error('legacy_review_writes_disabled'); er.status=503; throw er;
-}
 // Fetch pending intake through the shared V2 read session. The session is
 // read-only and cannot authorize a vote or any other mutation.
 async function osiAnalystIntakeFetch(opts){
@@ -272,20 +268,3 @@ function rvDrawerHtml(type,id,row){
 }
 
 // ----- maintainer: consensus settings -----
-async function admSaveConsensus(){
-  if(!requireMaintainerAccess('Save consensus settings')) return;
-  const thr = parseInt((document.getElementById('admConThr').value||'3'),10);
-  const auto = document.getElementById('admConAuto').checked ? 'on' : 'off';
-  const msg = document.getElementById('admConMsg');
-  if(isNaN(thr) || thr<1){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Threshold must be 1 or more.'; } return; }
-  osiSignEvent({ eventType:'CONFIG_CHANGED', actionLabel:'Save consensus settings', itemType:'config', itemId:'consensus', sensitive:true, onSuccess: async (sig)=>{
-  if(msg){ msg.style.color='var(--ink-dim)'; msg.textContent='Saving\u2026'; }
-  try{
-    await supaUpsertConfig('consensus_threshold', String(thr));
-    await supaUpsertConfig('consensus_auto', auto);
-    CONSENSUS_THRESHOLD = thr; CONSENSUS_AUTO = (auto==='on');
-    if(msg){ msg.style.color='var(--sol)'; msg.textContent = '\u2713 Saved. ' + (auto==='on' ? ('Items now auto-publish at '+thr+' approve-weight.') : 'Auto-publish off, your seal stays final.'); }
-    renderReviewFloor();
-  }catch(e){ if(msg){ msg.style.color='var(--red)'; msg.textContent='Failed: '+((e&&e.message)||e); } }
-  }});
-}

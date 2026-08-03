@@ -843,7 +843,6 @@ async function renewReadSession(req: Request, body: Row): Promise<Response> {
 // ---------------------------------------------------------------------------
 
 async function listMyCases(req: Request, body: Row): Promise<Response> {
-  const wallet = safeText(body.wallet);
   const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_MINE);
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
 

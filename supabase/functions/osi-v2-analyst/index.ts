@@ -1,5 +1,5 @@
 // Native V2 analyst gateway. Public reads expose approved profiles only.
-// Private reads use durable wallet challenges. Every mutation uses an exact
+// Private reads use the short-lived shared wallet-signed session. Every mutation uses an exact
 // Stage-5 nonce and immutable receipt; maintainer operations independently
 // revalidate the configured wallet and Supabase auth UUID.
 
@@ -14,12 +14,6 @@ import {
   validateWallet,
   verifyEd25519Signature,
 } from "../_shared/osi-v2-proof-core.mjs";
-import {
-  buildChallenge,
-  challengeSigningInput,
-  parseChallenge,
-  validateChallengeBinding,
-} from "../_shared/osi-v2-case-read-core.mjs";
 import {
   analystProbationPayload,
   canonicalAnalystEventMessage,
@@ -624,76 +618,6 @@ async function commitActivation(req: Request, body: Row): Promise<Response> {
   });
 }
 
-async function hmacHex(input: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(SERVICE_ROLE_KEY + "\u0000osi-v2-analyst-read"),
-    { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
-  );
-  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(input)));
-  return Array.from(signature, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function equalHex(left: string, right: string): boolean {
-  if (left.length !== right.length) return false;
-  let diff = 0;
-  for (let index = 0; index < left.length; index++) diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  return diff === 0;
-}
-
-async function issueReadChallenge(req: Request, body: Row): Promise<Response> {
-  const wallet = safeText(body.wallet);
-  const purpose = safeText(body.purpose);
-  try { validateWallet(wallet); } catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
-  if (!["ANALYST_READ_MY_WORKSPACE", "ANALYST_READ_MAINTAINER_QUEUE"].includes(purpose)) {
-    return jsonResponse(400, { ok: false, error: "bad_read_purpose" });
-  }
-  if (purpose === "ANALYST_READ_MAINTAINER_QUEUE") {
-    const gate = await fullMaintainer(req, wallet);
-    if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
-  }
-  const nonce = randomNonce();
-  const issuedAt = Math.floor(Date.now() / 1000);
-  const target = { target_type: "analyst", target_id: wallet };
-  const { data, error } = await admin.rpc("osi_v2_issue_read_nonce", {
-    p_nonce: nonce, p_purpose: purpose, p_actor_wallet: wallet,
-    p_target_type: target.target_type, p_target_id: target.target_id,
-    p_request_fingerprint_hash: await fingerprint(req),
-  });
-  if (error || !data?.[0]) return rpcFailure(error);
-  const fields = {
-    purpose, ...target, wallet, nonce,
-    issued_at: isoSeconds(data[0].issued_at), expires_at: isoSeconds(data[0].expires_at),
-  };
-  const mac = await hmacHex(challengeSigningInput(fields));
-  return jsonResponse(200, { ok: true, challenge: buildChallenge(fields, mac), expires_at: fields.expires_at });
-}
-
-async function verifyRead(body: Row, purpose: string): Promise<ReadVerification> {
-  const wallet = safeText(body.wallet);
-  const challenge = safeText(body.challenge);
-  const signature = safeText(body.signature);
-  try { validateWallet(wallet); } catch { return { ok: false, status: 400, reason: "bad_wallet" }; }
-  const fields = parseChallenge(challenge);
-  if (!fields) return { ok: false, status: 400, reason: "bad_challenge" };
-  const binding = validateChallengeBinding(fields, {
-    purpose, target_type: "analyst", target_id: wallet, wallet,
-  }, Math.floor(Date.now() / 1000));
-  if (!binding.ok) return { ok: false, status: 403, reason: binding.reason || "bad_challenge" };
-  const expectedMac = await hmacHex(challengeSigningInput(fields));
-  if (!equalHex(fields.hmac, expectedMac)) return { ok: false, status: 403, reason: "bad_challenge" };
-  if (!await verifyEd25519Signature(challenge, signature, wallet)) {
-    return { ok: false, status: 403, reason: "bad_signature" };
-  }
-  const { data, error } = await admin.rpc("osi_v2_consume_read_nonce", {
-    p_nonce: fields.nonce, p_purpose: purpose, p_actor_wallet: wallet,
-    p_target_type: "analyst", p_target_id: wallet,
-  });
-  if (error) return { ok: false, status: 503, reason: "challenge_unavailable" };
-  if (data !== true) return { ok: false, status: 409, reason: "replayed_or_expired" };
-  return { ok: true, wallet };
-}
-
 async function verifyReadSession(req: Request, body: Row, requiredScope: string): Promise<ReadVerification> {
   if (!await readSessionEnabled()) {
     return { ok: false, status: 503, reason: "read_session_disabled_or_unavailable" };
@@ -959,7 +883,6 @@ serve(async (req: Request): Promise<Response> => {
 
   switch (body.op) {
     case "list_public_profiles": return await listPublicProfiles();
-    case "issue_read_challenge": return await issueReadChallenge(req, body);
     case "my_workspace": return await myWorkspace(req, body);
     case "maintainer_queue": return await maintainerQueue(req, body);
     case "sas_operations_status": return await sasOperationsStatus(req, body);

@@ -4,19 +4,6 @@
 .fo-search{width:100%;background:var(--bg-card);border:1px solid var(--line);border-radius:3px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:12px 14px;box-sizing:border-box}
 .fo-search::placeholder{color:var(--ink-faint)}
 .fo-search:focus{outline:none;border-color:var(--sol)}
-.adm-edit{position:fixed;inset:0;background:rgba(4,6,12,.82);backdrop-filter:blur(4px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
-.adm-edit.open{display:flex}
-.adm-edit-box{position:relative;background:var(--bg-card);border:1px solid var(--line-bright);border-top:2px solid var(--cyan);border-radius:4px;max-width:480px;width:100%;padding:26px;max-height:90vh;overflow:auto}
-.adm-edit-x{position:absolute;top:14px;right:16px;background:transparent;border:0;color:var(--ink-faint);font-size:22px;cursor:pointer;line-height:1}
-.adm-edit-x:hover{color:var(--ink)}
-.adm-edit-h{font-family:'Archivo',sans-serif;font-weight:800;font-size:18px;margin-bottom:6px}
-.aeb-lab{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:var(--ink-faint);text-transform:uppercase;margin:12px 0 6px}
-.aeb-in{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:11px 12px;box-sizing:border-box}
-.aeb-in:focus{outline:none;border-color:var(--cyan)}
-.aeb-ta{min-height:90px;resize:vertical;line-height:1.5}
-.adm-edit-save{width:100%;margin-top:16px;background:var(--sol);color:var(--bg);border:0;border-radius:3px;padding:12px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;cursor:pointer}
-.adm-edit-save:hover{background:var(--sol-deep)}
-.aeb-msg{font-size:11px;color:var(--ink-dim);margin-top:10px;min-height:14px}
 .ar-count{display:inline-block;margin-left:8px;font-size:9px;color:var(--bg);background:var(--sol);border-radius:8px;padding:1px 7px;vertical-align:middle}
 .ar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:8px}
 .ar-card{background:var(--bg-card);border:1px solid var(--line);border-radius:4px;padding:16px;display:flex;flex-direction:column;transition:border-color .15s,transform .15s}

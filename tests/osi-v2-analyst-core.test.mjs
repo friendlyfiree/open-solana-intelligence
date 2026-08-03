@@ -201,6 +201,12 @@ ok(edge.includes("data?.[0]?.value === \"true\""), "missing or malformed analyst
 ok(sql.includes("weight_cached = 0.50") && sql.includes("tier_code = 'probationary'"), "database derives exact probationary weight and tier");
 ok(sql.includes("force row level security") || fs.readFileSync(path.join(root, "supabase/migrations/20260711092856_osi_v2_default_deny.sql"), "utf8").includes("analyst_application_reviews"), "analyst tables remain under forced default-deny RLS");
 ok(!edge.includes("select(\"*\")"), "gateway avoids select-star projections");
+ok(edge.includes("verifyReadSessionToken")
+  && edge.includes("READ_SESSION_SCOPES.ANALYST_WORKSPACE")
+  && edge.includes("READ_SESSION_SCOPES.ANALYST_MAINTAINER")
+  && !edge.includes('case "issue_read_challenge"')
+  && !edge.includes('rpc("osi_v2_issue_read_nonce"'),
+"analyst private reads use the shared session without a dormant per-endpoint challenge path");
 ok(edge.includes('SUPPORT_PAYMENT_CONFIRMED') && edge.includes('recipient_amount_lamports'), "public analyst graph maps finalized support manifests back to every exact recipient");
 ok(/create table public\.analyst_profiles[\s\S]*wallet text primary key[\s\S]*handle text[\s\S]*check \(handle is null/i.test(schema),
 "database keeps the wallet as canonical identity and permits an omitted public handle");

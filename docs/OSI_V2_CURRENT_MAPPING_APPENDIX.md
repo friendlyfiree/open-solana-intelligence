@@ -50,10 +50,10 @@ New V2 tables with **no v1 predecessor** (created additively, not mapped from le
 | Field Office "Open a Case" → `submitBounty` (`74-community-cases.js`) | Case submission (`cases`) + optional `reward_pledges` |
 | Bounty "Apply" → `submitBountyReport` (`74-community-cases.js`) | Submit `case_reports` + `case_report_versions` v1 to a Case |
 | The Wire "dispatch" → `submitIntel` (`40-wire-field.js`) | Submit `wire_reports` + `wire_report_versions` v1 |
-| `vouch` (`20-safety-consensus.js`) + `osiReviewAction` (`22-analyst-intake.js`) | Typed review Edge Fns writing `case_report_reviews` / `wire_report_reviews` / `case_initial_reviews` |
+| `vouch` (`20-safety-consensus.js`) legacy read-only review display | Typed review Edge Fns writing `case_report_reviews` / `wire_report_reviews` / `case_initial_reviews` |
 | `chxOpen`/`chxSubmit` (`20-safety-consensus.js`) | V2 challenge flow (`challenges` + admissibility + `challenge_reviews`) |
-| `escGenerate`/`escLoadCases` (`80-ai-pack.js`) — **currently unreachable (no `esc-case` DOM)** | reachable AI Pack tab in Case Detail + Ops Center (`ai_packs` + `ai_pack_versions`) |
-| `escApprovePack`/`escSealCase` (`80-ai-pack.js`) | Pack approval (`ai_pack_reviews`) / Case seal (`case_resolutions`) |
+| Retired legacy AI Pack controls (removed from `80-ai-pack.js`) | reachable AI Pack tab in Case Detail + Ops Center (`ai_packs` + `ai_pack_versions`) |
+| Retired legacy Pack approval and Case seal controls | Pack approval (`ai_pack_reviews`) / Case seal (`case_resolutions`) |
 | `renderCaseRecords` (`84-public-records.js`, reads `reports?approved`) | Public Records over `cases` + published `wire_report_versions` |
 | `renderFieldOffice` (bounties) | Field Office over `cases` |
 | Maintainer Ops Center disabled placeholder buttons (`54-maintainer-console.js`) | Real signed maintainer actions (every button → modeled transition) |

@@ -171,10 +171,6 @@ function epochSeconds(value: unknown): number {
   return Math.floor(milliseconds / 1000);
 }
 
-export function normalizeSafeText(value: unknown): string {
-  return text(value);
-}
-
 export function assertSafeText(value: unknown, name = "content"): string {
   const result = text(value);
   if (SECRET_LABEL.test(result) || SECRET_VALUE.test(result)) {
