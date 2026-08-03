@@ -19,10 +19,15 @@
   function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
   function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
   function headers(){var token=(typeof SUPA_AUTH_TOKEN==='string'&&SUPA_AUTH_TOKEN)?SUPA_AUTH_TOKEN:SUPABASE_ANON_KEY;return {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};}
+  var ANALYST_NON_MUTATING_OPS={capabilities:1,list_public_profiles:1,my_workspace:1};
   async function api(body){
     var response=await fetch(API_URL,{method:'POST',headers:headers(),body:JSON.stringify(body)});
     var payload={};try{payload=await response.json();}catch(_){payload={ok:false,error:'invalid_server_response'};}
     if(!response.ok||payload.ok!==true){var failure=new Error(payload.error||('request_failed_'+response.status));failure.status=response.status;throw failure;}
+    // Application and activation writes change the public analyst roster.
+    if(ANALYST_NON_MUTATING_OPS[body&&body.op]!==1&&typeof window.osiPublicReadInvalidate==='function'){
+      window.osiPublicReadInvalidate();
+    }
     return payload;
   }
   function userError(error){
@@ -133,7 +138,10 @@
     if(host){host.setAttribute('aria-busy','true');host.innerHTML='<div class="osi-activation-loading" role="status">'+esc(t('Loading verified server-derived profiles...'))+'</div>';}
     state.profilesPromise=(async function(){
       try{
-        var result=await api({op:'list_public_profiles'});
+        var body={op:'list_public_profiles'};
+        var result=typeof window.osiPublicRead==='function'
+          ? await window.osiPublicRead('osi-v2-analyst',body)
+          : await api(body);
         state.profiles=Array.isArray(result.analysts)?result.analysts:[];
         syncAnalystMaps(state.profiles);renderPublicProfiles();return state.profiles;
       }catch(error){

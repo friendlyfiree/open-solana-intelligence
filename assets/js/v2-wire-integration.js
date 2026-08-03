@@ -26,10 +26,18 @@
   function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
   function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
   function headers(){var token=typeof SUPA_AUTH_TOKEN==='string'&&SUPA_AUTH_TOKEN?SUPA_AUTH_TOKEN:SUPABASE_ANON_KEY;return{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};}
+  var WIRE_NON_MUTATING_OPS={
+    capabilities:1,get_public_wire_report:1,list_my_wire_reports:1,
+    list_public_wire_reports:1,list_wire_review_queue:1
+  };
   async function api(body){
     var response=await fetch(WIRE_URL,{method:'POST',headers:headers(),body:JSON.stringify(body)}),payload={};
     try{payload=await response.json();}catch(_){payload={ok:false,error:'invalid_server_response'};}
     if(!response.ok||payload.ok!==true){var failure=new Error(payload.error||('request_failed_'+response.status));failure.status=response.status;throw failure;}
+    // A Wire submission, review or publication changes the public feed.
+    if(WIRE_NON_MUTATING_OPS[body&&body.op]!==1&&typeof window.osiPublicReadInvalidate==='function'){
+      window.osiPublicReadInvalidate();
+    }
     return payload;
   }
   function userError(error){
@@ -461,7 +469,20 @@
       : (unavailableReason||'Connect an eligible analyst wallet, or open both maintainer gates (the configured maintainer wallet, plus a sign-in from Operations Center in the wallet menu), to open this queue');
   }
 
+  // Several surfaces refresh the Wire intake control on the same tick (boot,
+  // the public feed render, the wallet menu). Collapsing an already running
+  // request for the exact same wallet keeps the answer identical while asking
+  // the gateway once instead of five times per page load.
+  var wireCapabilityInflight=null,wireCapabilityWallet=null;
   async function refreshCapability(){
+    var button=document.getElementById('osi-wire-intake-action');if(!button)return;
+    var wallet=String(walletPubkey||'');
+    if(wireCapabilityInflight&&wireCapabilityWallet===wallet)return wireCapabilityInflight;
+    wireCapabilityWallet=wallet;
+    wireCapabilityInflight=refreshCapabilityOnce().finally(function(){wireCapabilityInflight=null;});
+    return wireCapabilityInflight;
+  }
+  async function refreshCapabilityOnce(){
     var button=document.getElementById('osi-wire-intake-action');if(!button)return;
     var loadToken=++state.capabilityLoadToken,generation=privateGeneration(),requestedWallet=String(walletPubkey||'');
     try{var result=await api({op:'capabilities',wallet:requestedWallet});if(loadToken!==state.capabilityLoadToken||generation!==privateGeneration()||requestedWallet!==String(walletPubkey||''))return;state.capabilities=result;button.disabled=result.wire_writes_enabled!==true;button.textContent=result.wire_writes_enabled===true?'Submit a Wire Report':'Wire intake unavailable';button.title=result.prerequisite||'Create an exact private Wire Report version';setWireQueueAction(result.analyst_eligible===true||result.maintainer_access===true,null);}
@@ -512,7 +533,14 @@
   window.osiV2OpenWireQueue=function(){return openWireQueue().catch(function(error){showToast(userError(error));});};
   window.osiV2LoadWireReviewTasks=loadWireQueueData;
   window.osiV2OpenWireQueueTarget=function(versionRef){return openWireQueueTarget(versionRef).catch(function(error){showToast(userError(error));throw error;});};
-  window.osiV2ListPublicWireReports=function(){return api({op:'list_public_wire_reports',limit:40});};
+  // The Wire feed, Public Records and the Proof Log all read this exact
+  // public projection. Route it through the shared reader so one page visit
+  // asks the server once instead of once per surface.
+  window.osiV2ListPublicWireReports=function(options){
+    var body={op:'list_public_wire_reports',limit:40};
+    if(typeof window.osiPublicRead==='function')return window.osiPublicRead('osi-v2-wire',body,options);
+    return api(body);
+  };
   window.osiV2OpenWireReport=function(ref){return openPublicWireReport(ref).catch(function(error){showToast(userError(error));throw error;});};
   window.osiV2CloseWireReport=closePublicWireReport;
   window.osiV2RefreshWireCapability=refreshCapability;

@@ -303,24 +303,11 @@
     return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
   }
 
-  function publicApi(path, body) {
-    var controller = new AbortController();
-    var timer = window.setTimeout(function () { controller.abort(); }, 9000);
-    return fetch(SUPABASE_URL + '/functions/v1/' + path, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: 'Bearer ' + SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    }).then(function (response) {
-      if (!response.ok) throw new Error('public_read_unavailable');
-      return response.json();
-    }).finally(function () {
-      window.clearTimeout(timer);
-    });
+  // One shared public reader for every surface. It de-duplicates concurrent
+  // identical requests and reuses a list projection for a few seconds, so a
+  // page visit no longer pays for the same server projection once per tab.
+  function publicApi(path, body, options) {
+    return window.osiPublicRead(path, body, options);
   }
 
   function renderHomeCaseState(cases) {

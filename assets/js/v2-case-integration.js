@@ -141,6 +141,22 @@
     var token=(typeof SUPA_AUTH_TOKEN==='string'&&SUPA_AUTH_TOKEN)?SUPA_AUTH_TOKEN:SUPABASE_ANON_KEY;
     return {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
   }
+  // Public projections go through the shared reader (single flight plus a
+  // short list cache); everything wallet-bound or authorized keeps its own
+  // direct request and is never cached.
+  function publicRead(body,options){
+    if(typeof window.osiPublicRead==='function')return window.osiPublicRead('osi-v2-case-read',body,options);
+    return api(READ_URL,body);
+  }
+  // Ops that only read state. Anything else may change a public projection,
+  // so the shared public cache is dropped after it succeeds and the next
+  // read comes from the server.
+  var NON_MUTATING_OPS={
+    actor_capabilities:1,capabilities:1,issue_read_challenge:1,
+    issue_read_session_challenge:1,create_read_session:1,renew_read_session:1,
+    list_public_cases:1,get_public_case:1,list_my_cases:1,
+    list_reviewable_cases:1,get_authorized_case:1,maintainer_case_overview:1
+  };
   async function api(url,body){
     var response=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body)});
     var payload={};
@@ -149,6 +165,9 @@
       var failure=new Error(payload.error||('request_failed_'+response.status));
       failure.status=response.status;
       throw failure;
+    }
+    if(NON_MUTATING_OPS[body&&body.op]!==1&&typeof window.osiPublicReadInvalidate==='function'){
+      window.osiPublicReadInvalidate();
     }
     return payload;
   }
@@ -604,7 +623,7 @@
     state.locked=null;setFieldRailActive('cases');
     state.mode='public';state.actorRole='public';state.page=1;setFieldCopy('public');setReviewChrome(false);setLoading();
     try{
-      var result=await api(READ_URL,{op:'list_public_cases'});
+      var result=await publicRead({op:'list_public_cases'});
       if(token!==state.loadToken) return;
       state.cases=result.cases||[];state.reviewTasks={};drawCases();
     }catch(error){
@@ -678,6 +697,7 @@
       assertPrivateGeneration(generation);if(wallet!==String(walletPubkey||''))throw new Error('private_session_changed');
       state.capabilities=Object.assign({},results[0],results[1],results[2],aiPackCapabilities);
       restorePaymentPending(wallet);
+      maybeResumePendingVerification(generation);
       if(typeof setMaintainerServerGate==='function') setMaintainerServerGate(state.capabilities.maintainer_access===true,state.capabilities.maintainer_gate||'denied');
       setAdminVisibility(state.capabilities.maintainer_access===true);
       setReviewNavigationVisibility(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true);
@@ -886,7 +906,7 @@
     var item=cached;
     try{
       if(!cached||state.mode==='public'){
-        var result=await api(READ_URL,{op:'get_public_case',public_ref:ref});
+        var result=await publicRead({op:'get_public_case',public_ref:ref});
         if(drawerToken!==state.drawerLoadToken)return null;
         item=result.case;
       }
@@ -1635,13 +1655,73 @@
     modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">'+esc(t('SOL transfer verified on Solana'))+'</span><h3 id="osi-payment-receipt-title">'+esc(t('Finalized payment receipt'))+'</h3><dl><div><dt>'+esc(t('Transaction'))+'</dt><dd class="mono">'+esc(short(receipt.tx_sig))+'</dd></div><div><dt>'+esc(t('Finality'))+'</dt><dd>'+esc(receipt.finality)+'</dd></div><div><dt>'+esc(t('Total'))+'</dt><dd>'+esc(receipt.total_sol)+' SOL / '+esc(receipt.total_lamports)+' lamports</dd></div><div><dt>'+esc(t('Slot'))+'</dt><dd>'+esc(receipt.slot)+'</dd></div><div><dt>'+esc(t('Block time'))+'</dt><dd>'+esc(dateText(receipt.block_time))+'</dd></div><div><dt>'+esc(t('Server verification'))+'</dt><dd>'+esc(t('Signer, transfers, Memo and mainnet verified'))+'</dd></div></dl><div class="osi-payment-actions"><a class="osi-action" href="'+esc(receipt.solscan_url)+'" target="_blank" rel="noopener">'+esc(t('Open Solscan'))+'</a><button class="osi-action primary" type="button" data-receipt-close>'+esc(t('Done'))+'</button></div><div class="osi-case-note">'+esc(t('This receipt records a direct wallet-to-wallet transfer. It is not an endorsement, truth vote, guilt decision, legal finding, custody service, or governance weight.'))+'</div></div>';
     document.body.appendChild(modal);modal.querySelector('[data-receipt-close]').addEventListener('click',function(){modal.remove();});modal.querySelector('[data-receipt-close]').focus();
   }
-  async function verifyPreparedPayment(pending,recovery,generation){
+  // A transfer is broadcast seconds before Solana finalizes it, so the first
+  // trusted verification almost always answers "awaiting_finality". Asking
+  // once and stopping left a real, confirmed transfer with no receipt: the
+  // wallet had paid, the single-use intent expired a couple of minutes later,
+  // and nothing in the Proof Log ever showed the support. The exact same
+  // signature is now re-verified on a bounded schedule until the server can
+  // reach a finalized answer. Nothing is ever marked paid by waiting; only a
+  // successful server verification produces the receipt.
+  var FINALITY_RETRY_DELAY_MS=4000;
+  var FINALITY_RETRY_BUDGET_MS=180000;
+  // A signature that was broadcast in an earlier visit is re-verified once,
+  // automatically, as soon as the wallet is known again. This opens no wallet
+  // and sends nothing: it only asks the server to check the exact existing
+  // signature, which is what recovers a transfer whose page was closed before
+  // Solana finalized it.
+  var resumedPaymentNonces={};
+  function maybeResumePendingVerification(generation){
+    var pending=state.paymentPending;
+    if(!pending||pending.method==='solana_pay')return;
+    if(!/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(pending.txSig||'')))return;
+    var nonce=String(pending.prepared&&pending.prepared.nonce||'');
+    if(!nonce||resumedPaymentNonces[nonce])return;
+    resumedPaymentNonces[nonce]=1;
+    verifyPreparedPayment(pending,false,generation,{automatic:true}).then(function(result){
+      if(result&&result.state==='awaiting_finality')awaitFinality(pending,generation,Date.now());
+    }).catch(function(){ /* the manual re-verify control stays available */ });
+  }
+  function paymentPendingMatches(pending){
+    return !!(state.paymentPending&&state.paymentPending.prepared
+      &&String(state.paymentPending.prepared.nonce||'')===String(pending.prepared.nonce||''));
+  }
+  function awaitFinality(pending,generation,startedAt){
+    var deadline=startedAt+FINALITY_RETRY_BUDGET_MS;
+    function attempt(){
+      if(generation!==privateGeneration()||!paymentPendingMatches(pending))return;
+      if(Date.now()>=deadline){
+        paymentStatus('The transfer is still not finalized on Solana. It is not marked paid and nothing was lost. Use Re-verify existing signature in a moment; do not send a second payment.','warning');
+        return;
+      }
+      var secondsLeft=Math.max(1,Math.round((deadline-Date.now())/1000));
+      paymentStatus('Transaction submitted. Waiting for Solana finality, then trusted server verification. Checking again automatically for up to '+secondsLeft+' seconds. Do not send another payment.','warning');
+      verifyPreparedPayment(pending,false,generation,{automatic:true}).then(function(result){
+        if(result&&result.state==='awaiting_finality')window.setTimeout(attempt,FINALITY_RETRY_DELAY_MS);
+      }).catch(function(error){
+        if(generation!==privateGeneration())return;
+        paymentStatus(userError(error)+' The exact signature stays available; use Re-verify existing signature rather than paying again.','error');
+      });
+    }
+    window.setTimeout(attempt,FINALITY_RETRY_DELAY_MS);
+  }
+  async function verifyPreparedPayment(pending,recovery,generation,options){
+    options=options||{};
     assertPrivateGeneration(generation);
     var result=await api(PAYMENT_URL,{op:recovery?'recover_payment':'commit_payment',wallet:pending.wallet,nonce:pending.prepared.nonce,tx_sig:pending.txSig});
     assertPrivateGeneration(generation);
     if(result.state==='awaiting_finality'){
-      persistPaymentPending(pending);paymentStatus('Transaction submitted. Awaiting finalized trusted RPC verification; not marked paid. Do not send another payment.','warning');
-      if(state.current){state.tab='reward';renderTab();}return result;
+      persistPaymentPending(pending);
+      if(options.automatic!==true){
+        var waiting='Transaction submitted. Waiting for Solana finality, then trusted server verification. This checks again automatically; do not send another payment.';
+        paymentStatus(waiting,'warning');
+        // The Wire support flow has no inline payment status line, so the
+        // same honest message is surfaced as a toast instead.
+        if(!document.getElementById('osi-payment-status'))showToast(waiting);
+        if(state.current){state.tab='reward';renderTab();}
+        awaitFinality(pending,generation,Date.now());
+      }
+      return result;
     }
     clearPaymentState({forgetRecovery:true,wallet:pending.wallet});showToast((result.historical_reverification?t('Existing signature re-verified. ') : '')+t('Finalized direct SOL transfer verified. Receipt {receipt} is available in the Proof Log.',{receipt:result.receipt.id}));showPaymentReceipt(result.receipt);
     if(pending.restored_from_storage!==true){

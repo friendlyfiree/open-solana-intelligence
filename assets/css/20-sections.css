@@ -606,8 +606,14 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 #prooflog .plc-ref a{color:var(--cyan);text-decoration:none}
 #prooflog .plc-ref a:hover{text-decoration:underline}
 #prooflog .plc-time{text-align:right;font-family:'JetBrains Mono',monospace;color:var(--ink-faint);font-size:10px;line-height:1.45;white-space:nowrap}
-#prooflog .plc-grid{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;border-top:1px solid var(--line);margin-top:14px;padding-top:13px;align-items:end}
-#prooflog .plc-meta-k{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:rgba(148,163,184,.48);margin-bottom:5px}
+/* Flex rather than a fixed four-column grid: a receipt that carries a counted
+   review weight renders one extra cell, and the transaction action still has
+   to stay on the trailing edge at every width. */
+#prooflog .plc-grid{display:flex;flex-wrap:wrap;gap:12px 20px;border-top:1px solid var(--line);margin-top:14px;padding-top:13px;align-items:end}
+#prooflog .plc-grid>div{flex:1 1 150px;min-width:0}
+#prooflog .plc-grid>.plc-action{flex:0 0 auto;margin-left:auto}
+#prooflog .plc-channel{display:inline-block;margin-left:8px;vertical-align:middle;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(255,176,32,.34);background:rgba(255,176,32,.08);border-radius:5px;padding:2px 7px}
+#prooflog .plc-meta-k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(178,192,212,.78);margin-bottom:5px}
 #prooflog .plc-meta-v{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #prooflog .plc-meta-v.ok{color:var(--sol)}
 #prooflog .plc-copy{margin-left:6px;background:none;border:1px solid var(--line);border-radius:5px;color:rgba(148,163,184,.65);font-size:10px;padding:3px 6px;cursor:pointer;line-height:1;transition:border-color 120ms ease-out,color 120ms ease-out}
@@ -655,8 +661,8 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 #prooflog .pl-disclaimer span{display:inline-flex;align-items:center;gap:8px}
 #prooflog .pl-disclaimer span::before{content:"";width:4px;height:4px;border-radius:50%;background:rgba(148,163,184,.48)}
 @media(max-width:1280px){#prooflog .pl-dash{grid-template-columns:repeat(4,minmax(0,1fr))}#prooflog .pl-console{grid-template-columns:1fr}#prooflog .pl-aside{position:relative;top:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:820px){#prooflog .pl-shell{padding:0 16px}#prooflog .pl-hero{grid-template-columns:1fr;padding:24px 18px}#prooflog .pl-hero-mark{display:none}#prooflog .pl-dash{grid-template-columns:repeat(2,minmax(0,1fr))}#prooflog .pl-aside{grid-template-columns:1fr}#prooflog .pl-toolbar{align-items:stretch;flex-direction:column}#prooflog .pl-search-wrap{min-width:0;flex:auto;width:100%}#prooflog .plc-head{grid-template-columns:1fr;gap:10px}#prooflog .plc-time{text-align:left}#prooflog .plc-grid{grid-template-columns:1fr 1fr}#prooflog .plc-grid .plc-action{grid-column:1/-1}}
-@media(max-width:520px){#prooflog .pl-dash{grid-template-columns:1fr}#prooflog .pl-timeline{padding-left:0}#prooflog .pl-timeline::before,#prooflog .plc-dot{display:none}#prooflog .plc-grid{grid-template-columns:1fr}#prooflog .pl-sc code{white-space:normal;overflow-wrap:anywhere;line-height:1.35}}
+@media(max-width:820px){#prooflog .pl-shell{padding:0 16px}#prooflog .pl-hero{grid-template-columns:1fr;padding:24px 18px}#prooflog .pl-hero-mark{display:none}#prooflog .pl-dash{grid-template-columns:repeat(2,minmax(0,1fr))}#prooflog .pl-aside{grid-template-columns:1fr}#prooflog .pl-toolbar{align-items:stretch;flex-direction:column}#prooflog .pl-search-wrap{min-width:0;flex:auto;width:100%}#prooflog .plc-head{grid-template-columns:1fr;gap:10px}#prooflog .plc-time{text-align:left}#prooflog .plc-grid>div{flex:1 1 45%}#prooflog .plc-grid>.plc-action{flex:1 1 100%;margin-left:0}}
+@media(max-width:520px){#prooflog .pl-dash{grid-template-columns:1fr}#prooflog .pl-timeline{padding-left:0}#prooflog .pl-timeline::before,#prooflog .plc-dot{display:none}#prooflog .plc-grid>div{flex:1 1 100%}#prooflog .pl-sc code{white-space:normal;overflow-wrap:anywhere;line-height:1.35}}
 /* ==@osi-src: index.html <style> block #19 (style-block-19) */
 
 #field-view .wrap{max-width:1140px}

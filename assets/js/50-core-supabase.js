@@ -122,7 +122,23 @@ function supaHeaders(extra){
   else if(/^eyJ/.test(SUPABASE_ANON_KEY)) h.Authorization = 'Bearer ' + SUPABASE_ANON_KEY;
   return Object.assign(h, extra || {});
 }
-async function supaGet(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: supaHeaders() }); if(!r.ok) throw new Error('supa get ' + r.status); return r.json(); }
+// V1 tables that the mature product no longer sources anything from. They are
+// retired, empty, and read-only; the V2 gateways own every surface on `/`.
+// Reading them from the root product cost a round trip per page load for an
+// answer that is always the empty list, and the V1 analyst roster could still
+// race ahead of the V2 roster and blank out a live analyst badge. legacy.html
+// is the V1 archive and keeps its own reads, so the guard is route-scoped
+// rather than a deletion.
+const OSI_LEGACY_V1_RELATIONS = /^(analysts|bounties|bounty_boosts|challenges|escalation_packs|onchain_events|profiles|reports|request_votes|requests|vouches)(\?|$)/;
+function osiLegacySurface(){
+  try{ return String(location.pathname || '').toLowerCase().endsWith('/legacy.html'); }catch(e){ return false; }
+}
+function osiRetiredLegacyRead(path){
+  return !osiLegacySurface() && OSI_LEGACY_V1_RELATIONS.test(String(path || ''));
+}
+async function supaGet(path){
+  if(osiRetiredLegacyRead(path)) return [];
+  const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: supaHeaders() }); if(!r.ok) throw new Error('supa get ' + r.status); return r.json(); }
 async function supaPost(table, row){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + table, { method: 'POST', headers: supaHeaders({ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if(!r.ok && r.status !== 409) throw new Error('supa post ' + r.status); return true; }
 async function supaDelete(path){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { method: 'DELETE', headers: supaHeaders() }); if(!r.ok) throw new Error('supa del ' + r.status); return true; }
 async function supaPatch(path, row){ const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, { method:'PATCH', headers: supaHeaders({ Prefer:'return=minimal' }), body: JSON.stringify(row) }); if(!r.ok) throw new Error('supa patch ' + r.status); return true; }
