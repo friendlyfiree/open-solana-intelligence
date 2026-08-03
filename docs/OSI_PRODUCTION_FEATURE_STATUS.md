@@ -72,6 +72,15 @@ verification, and atomic commit to the existing payment/support/receipt model.
 - The wallet is never opened automatically.
 - Multi-recipient support remains one atomic Phantom transaction.
 - Scan/open/submission is never displayed as paid.
+- A broadcast transfer is normally not finalized yet when the first trusted
+  verification runs, so the client re-verifies the exact same signature
+  automatically on a bounded schedule, and re-checks a signature broadcast in
+  an earlier visit once the wallet is known again. Neither path opens a
+  wallet, sends a transaction, or marks anything paid: only a successful
+  server verification writes the payment, the support row and the receipt.
+- The Phantom path stays recoverable after the single-use intent expires
+  through `recover_payment`, which re-verifies the existing signature and
+  never creates a second transfer.
 
 ## SAS display contract
 

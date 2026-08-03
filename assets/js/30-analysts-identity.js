@@ -12,6 +12,12 @@ const ANALYST_TIERS = [
 window.VERIFIED_ANALYSTS = window.VERIFIED_ANALYSTS || {};
 async function loadAnalysts(){
   if(!SUPA_ON) return;
+  // On the mature product the roster is server-derived by the V2 analyst
+  // gateway (syncAnalystMaps). The retired V1 table always answers with an
+  // empty list, and letting it finish last used to wipe the live roster, so
+  // the wallet lost its analyst badge, weight, and review surfaces for the
+  // rest of the session. Only the V1 archive still reads it.
+  if(typeof osiLegacySurface==='function' && !osiLegacySurface()) return;
   try{
     const a = await supaGet('analysts?select=wallet,handle,name,bio,avatar_url,tier_weight,verified,approved,created_at&approved=eq.true&verified=eq.true') || [];
     const map={}, wmap={};

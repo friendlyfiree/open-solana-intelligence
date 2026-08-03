@@ -359,9 +359,13 @@ function identityRoleClass(ctx){
   var role = (ctx && ctx.workspaceRole) || 'public';
   return role === 'maintainer' ? 'maintainer' : (role === 'analyst' ? 'analyst' : (role === 'wallet' ? 'wallet' : 'public'));
 }
-async function identitySafeGet(path){
-  if(typeof SUPA_ON === 'undefined' || !SUPA_ON) return null;
-  try{ return await supaGet(path) || []; }catch(e){ return null; }
+// The passport reads the same public V2 projections the rest of the product
+// reads. It never asks for a wallet signature and never shows private Case or
+// unpublished Report material: everything below comes from an answer any
+// visitor could already fetch.
+async function identityPublicRead(path, body){
+  if(typeof window.osiPublicRead !== 'function') return null;
+  try{ return await window.osiPublicRead(path, body); }catch(e){ return null; }
 }
 function identityTabs(){
   var tabs = [
@@ -423,32 +427,45 @@ function identityPowCard(label, value, note){
 function identityPowGrid(m){
   var s = (m && m.stats) || {};
   return '<div class="identity-pow">'
-    + identityPowCard('Cases Opened', s.casesOpened, 'Visible cases opened by this wallet')
-    + identityPowCard('Reports Submitted', s.reportsSubmitted, 'Visible submissions from this wallet')
-    + identityPowCard('Reviews & Vouches', s.reviews, 'Visible review or vouch records')
-    + identityPowCard('Challenges Filed', s.challenges, 'Visible public challenge records')
-    + identityPowCard('Signed Actions', s.signedActions, 'Indexed proof log events')
-    + identityPowCard('Public Records', s.publicRecords, 'Approved public contributions')
+    + identityPowCard('Cases Filed', s.casesFiled, 'Public Cases submitted by this wallet')
+    + identityPowCard('Reports Submitted', s.reportsSubmitted, 'Immutable Case and Wire versions signed')
+    + identityPowCard('Reviews Cast', s.reviews, 'Typed reviews recorded with a receipt')
+    + identityPowCard('Challenges Filed', s.challenges, 'Public challenge records')
+    + identityPowCard('Signed Actions', s.signedActions, 'Server-verified proof receipts')
+    + identityPowCard('Published Records', s.publicRecords, 'Published Report and Wire versions')
+    + identityPowCard('Support Sent', s.supportSent, 'Verified direct SOL transfers')
+    + identityPowCard('Memo Anchors', s.memoAnchors, 'Confirmed Solana Memo receipts')
     + '</div>';
 }
+// Titles come from the shared Proof Log classifier so the passport, the Case
+// drawer and the Proof Log always name the same receipt the same way.
 function identityEventText(ev){
+  if(typeof plMemo === 'function'){
+    var mapped = plMemo(ev);
+    if(mapped && mapped.title) return mapped.title;
+  }
   var t = String((ev && ev.event_type) || 'signed_action');
   if(t === 'wire_dispatch') return 'Filed a Wire dispatch';
   if(t === 'analyst_vouch') return ev.vote === 'reject' ? 'Filed or supported a challenge' : 'Signed an analyst review';
   if(t === 'demand_signal') return 'Backed a case';
-  if(t === 'maintainer_seal') return 'Sealed a public record';
-  if(t === 'case_opened') return 'Opened a case';
-  if(t === 'report_submitted') return 'Submitted a report';
   return 'Signed an OSI action';
+}
+function identityProofLabel(ev){
+  if(typeof plProofState === 'function') return plProofState(ev).label;
+  return String((ev && ev.label) || 'Recorded receipt');
 }
 function identityActivity(m){
   var events = (m && m.events) || [];
   if(!events.length) return '<div class="identity-empty">No public signed activity yet.</div>';
-  return '<div class="identity-activity">' + events.slice(0,5).map(function(ev){
-    var item = ev.item_id ? ('Item ' + String(ev.item_id).slice(0,16)) : 'Public proof log';
+  return '<div class="identity-activity">' + events.slice(0,8).map(function(ev){
+    var reference = String(ev.target_public_ref || ev.item_id || '');
     var when = (typeof fdAgo === 'function') ? fdAgo(ev.created_at) : '';
-    var link = ev.tx_sig ? '<a href="https://solscan.io/tx/'+encodeURIComponent(String(ev.tx_sig))+'" target="_blank" rel="noopener">Verify</a>' : '<span></span>';
-    return '<div class="identity-act-row"><i class="identity-act-dot"></i><div><b>'+escapeHtml(identityEventText(ev))+'</b><span>'+escapeHtml(item + (when ? (' / ' + when) : ''))+'</span></div>'+link+'</div>';
+    var meta = [identityProofLabel(ev), reference, when].filter(Boolean).join(' / ');
+    var sig = String(ev.tx_sig || '');
+    var link = /^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(sig)
+      ? '<a href="https://solscan.io/tx/'+encodeURIComponent(sig)+'" target="_blank" rel="noopener">Verify</a>'
+      : '<span></span>';
+    return '<div class="identity-act-row"><i class="identity-act-dot"></i><div><b>'+escapeHtml(identityEventText(ev))+'</b><span>'+escapeHtml(meta)+'</span></div>'+link+'</div>';
   }).join('') + '</div>';
 }
 function identityStatusCard(m){
@@ -459,8 +476,12 @@ function identityStatusCard(m){
     + '<div class="identity-status-row"><span>Wallet</span><b>'+escapeHtml(m.walletShort || 'Not connected')+'</b></div>'
     + '<div class="identity-status-row"><span>Verified analyst</span><b>'+escapeHtml(ctx.isVerifiedAnalyst ? 'Verified' : 'Not verified')+'</b></div>'
     + '<div class="identity-status-row"><span>Maintainer session</span><b>'+escapeHtml(ctx.isMaintainer ? 'Active' : 'Not active')+'</b></div>';
-  if(ctx.isVerifiedAnalyst && m.analystWeight){ rows += '<div class="identity-status-row"><span>Review weight</span><b>x'+escapeHtml(String(m.analystWeight))+'</b></div>'; }
-  if(ctx.isVerifiedAnalyst && m.analystStats && m.analystStats.tier){ rows += '<div class="identity-status-row"><span>Analyst tier</span><b>'+escapeHtml(m.analystStats.tier.name || 'Available')+'</b></div>'; }
+  // Weight, tier and status are the server-derived values from the public
+  // analyst projection. No local score is computed for a governance figure.
+  if(m.analystStatus){ rows += '<div class="identity-status-row"><span>Analyst status</span><b>'+escapeHtml(m.analystStatus.replace(/_/g,' '))+'</b></div>'; }
+  if(m.analystTier){ rows += '<div class="identity-status-row"><span>Analyst tier</span><b>'+escapeHtml(m.analystTier.replace(/_/g,' '))+'</b></div>'; }
+  if(m.analystWeight !== null && m.analystWeight !== undefined){ rows += '<div class="identity-status-row"><span>Counted review weight</span><b>'+escapeHtml(Number(m.analystWeight).toFixed(2))+'</b></div>'; }
+  if(m.supportSol > 0){ rows += '<div class="identity-status-row"><span>Verified support sent</span><b>'+escapeHtml(String(Number(m.supportSol.toFixed(9))))+' SOL</b></div>'; }
   return '<div class="identity-card"><div class="identity-card-head"><div class="identity-card-title">Current Status</div><div class="identity-card-note">Read-only context</div></div>'+rows+'</div>';
 }
 function identityAvatarHtml(m, name){
@@ -504,42 +525,152 @@ function identityConnectHtml(ctx){
   var maint = ctx && ctx.isMaintainer ? '<div class="identity-empty identity-gate-note">Maintainer session is active. Connect a wallet to view the wallet-linked passport.</div>' : '';
   return identityHero() + '<div class="identity-connect-state"><div class="identity-connect-card"><div class="identity-kicker">Wallet Required</div><h2>Your Intelligence Passport</h2><p>Connect a wallet to view role status, signed actions, public records, and proof-of-work. This page is read-only.</p><button class="identity-connect" type="button" onclick="toggleWallet().then(function(){if(typeof renderIdentity===\'function\')renderIdentity();})">Connect Wallet</button>'+maint+'</div></div>';
 }
+// The same receipt can arrive through the Case projection, the Wire
+// projection and the analyst history. Only fields all three carry may take
+// part in the key, otherwise one action would be counted several times.
+function identityReceiptKey(ev){
+  return [ev.event_type, ev.tx_sig, ev.occurred_at || ev.created_at].map(function(value){
+    return String(value == null ? '' : value);
+  }).join('|');
+}
+function identityLamportsToSol(lamports){
+  var text = String(lamports == null ? '0' : lamports);
+  if(!/^\d+$/.test(text)) return 0;
+  return Number(text) / 1e9;
+}
+// One pass over every receipt attributable to this wallet. Each counter maps
+// to an exact registry event type, so a number here is always a receipt a
+// visitor can open on Solscan or in the Proof Log; nothing is estimated.
+function identityCollectStats(model, events){
+  var stats = { casesFiled:0, reportsSubmitted:0, reviews:0, challenges:0, signedActions:events.length, publicRecords:model.stats.publicRecords || 0, supportSent:0, memoAnchors:0 };
+  var supportLamports = 0;
+  var filedCases = {};
+  events.forEach(function(ev){
+    var type = String(ev.event_type || '').toUpperCase();
+    if(type === 'CASE_SUBMITTED') filedCases[String(ev.target_public_ref || ev.item_id || type)] = 1;
+    if(type === 'CASE_REPORT_VERSION_SUBMITTED' || type === 'WIRE_REPORT_VERSION_SUBMITTED') stats.reportsSubmitted++;
+    if(/_REVIEW_(CAST|REVISED)$/.test(type)) stats.reviews++;
+    if(type === 'CHALLENGE_SUBMITTED') stats.challenges++;
+    if(type === 'SUPPORT_PAYMENT_CONFIRMED' || type === 'REWARD_PAYMENT_CONFIRMED'){
+      stats.supportSent++;
+      var proof = ev.payment_proof || {};
+      supportLamports += identityLamportsToSol(proof.recipient_amount_lamports != null ? proof.recipient_amount_lamports : proof.total_lamports);
+    }
+    if(typeof plProofState === 'function' && plProofState(ev).onchain === true) stats.memoAnchors++;
+  });
+  stats.casesFiled = Object.keys(filedCases).length;
+  model.supportSol = supportLamports;
+  return stats;
+}
 async function identityLoadModel(ctx){
   var W = String(ctx.wallet || '');
-  var enc = encodeURIComponent(W);
   var analystProfile = ctx.analystProfile || null;
   var localName = ''; try{ localName = lsGet('stw_profile_name','') || ''; }catch(e){}
-  var model = { ctx:ctx, wallet:W, walletShort:workspaceShort(W), displayName:localName || workspaceShort(W), bio:'', avatarUrl:'', stats:{ casesOpened:null, reportsSubmitted:null, reviews:null, challenges:null, signedActions:null, publicRecords:null }, events:[], analystWeight:null, analystStats:null };
+  var model = {
+    ctx:ctx, wallet:W, walletShort:workspaceShort(W),
+    displayName:localName || workspaceShort(W), bio:'', avatarUrl:'',
+    stats:{ casesFiled:null, reportsSubmitted:null, reviews:null, challenges:null, signedActions:null, publicRecords:null, supportSent:null, memoAnchors:null },
+    events:[], analystWeight:null, analystTier:'', analystStatus:'', contributions:null,
+    supportSol:0, sourceAvailable:false
+  };
   var reads = await Promise.all([
-    identitySafeGet('profiles?select=name&wallet=eq.'+enc+'&limit=1'),
-    identitySafeGet('analysts?select=wallet,handle,name,bio,avatar_url,tier_weight,approved,verified,created_at&wallet=eq.'+enc+'&limit=1'),
-    identitySafeGet('bounties?select=id&created_by=eq.'+enc+'&limit=200'),
-    identitySafeGet('reports?select=id,approved&wallet=eq.'+enc+'&limit=200'),
-    identitySafeGet('reports?select=id&wallet=eq.'+enc+'&approved=eq.true&limit=200'),
-    identitySafeGet('vouches?select=item_id&analyst=eq.'+enc+'&limit=200'),
-    identitySafeGet('challenges?select=id&challenger=eq.'+enc+'&limit=200'),
-    identitySafeGet('onchain_events?select=event_type,item_type,item_id,vote,label,tx_sig,created_at,actor_wallet&actor_wallet=eq.'+enc+'&order=created_at.desc&limit=50'),
-    identitySafeGet('reports?select=wallet&approved=eq.true&limit=500'),
-    identitySafeGet('bounties?select=winner_wallet&winner_wallet=not.is.null&limit=500')
+    identityPublicRead('osi-v2-analyst', { op:'list_public_profiles' }),
+    identityPublicRead('osi-v2-case-read', { op:'list_public_cases' }),
+    typeof window.osiV2ListPublicWireReports === 'function'
+      ? window.osiV2ListPublicWireReports().catch(function(){ return null; })
+      : Promise.resolve(null)
   ]);
-  var prof = reads[0], analystRows = reads[1], cases = reads[2], reports = reads[3], publicReports = reads[4], vouches = reads[5], challenges = reads[6], events = reads[7], allReports = reads[8], allWins = reads[9];
-  var analystRow = (analystRows && analystRows[0]) ? analystRows[0] : null;
-  if(prof && prof[0] && prof[0].name) model.displayName = String(prof[0].name);
-  else if(localName) model.displayName = localName;
-  else if(analystRow && (analystRow.name || analystRow.handle)) model.displayName = analystRow.name || ('@'+String(analystRow.handle).replace(/^@/,''));
-  else if(analystProfile && (analystProfile.name || analystProfile.handle)) model.displayName = analystProfile.name || ('@'+String(analystProfile.handle).replace(/^@/,''));
-  if(analystRow && analystRow.bio) model.bio = String(analystRow.bio);
-  model.avatarUrl = (typeof osiAvatarUrl === 'function') ? osiAvatarUrl(W, analystRow || analystProfile) : '';
-  model.stats.casesOpened = cases === null ? null : cases.length;
-  model.stats.reportsSubmitted = reports === null ? null : reports.length;
-  model.stats.publicRecords = publicReports === null ? null : publicReports.length;
-  model.stats.challenges = challenges === null ? null : challenges.length;
-  model.events = events === null ? [] : events;
-  model.stats.signedActions = events === null ? null : events.length;
-  if(vouches !== null) model.stats.reviews = vouches.length;
-  else if(events !== null) model.stats.reviews = events.filter(function(e){ return e.event_type === 'analyst_vouch'; }).length;
-  if(ctx.isVerifiedAnalyst && typeof analystWeight === 'function') model.analystWeight = analystWeight(W);
-  if(ctx.isVerifiedAnalyst && allReports !== null && allWins !== null && typeof analystStats === 'function') model.analystStats = analystStats(W, allReports, allWins);
+  var profiles = reads[0], publicCases = reads[1], publicWire = reads[2];
+  model.sourceAvailable = !!(profiles || publicCases || publicWire);
+
+  var serverProfile = null;
+  if(profiles && Array.isArray(profiles.analysts)){
+    serverProfile = profiles.analysts.find(function(row){ return String(row.wallet) === W; }) || null;
+  }
+  if(serverProfile){
+    model.displayName = serverProfile.display_name || (serverProfile.handle ? ('@'+String(serverProfile.handle).replace(/^@/,'')) : model.displayName);
+    model.bio = String(serverProfile.bio || '');
+    model.analystWeight = serverProfile.weight == null ? null : Number(serverProfile.weight);
+    model.analystTier = String(serverProfile.tier_code || '');
+    model.analystStatus = String(serverProfile.status || '');
+    model.contributions = Array.isArray(serverProfile.contributions) ? serverProfile.contributions.length : null;
+  }else if(localName){
+    model.displayName = localName;
+  }else if(analystProfile && (analystProfile.name || analystProfile.handle)){
+    model.displayName = analystProfile.name || ('@'+String(analystProfile.handle).replace(/^@/,''));
+  }
+  model.avatarUrl = (typeof osiAvatarUrl === 'function') ? osiAvatarUrl(W, serverProfile || analystProfile) : '';
+
+  // Receipts for this wallet come from three public projections. The analyst
+  // endpoint returns this wallet's own receipt history; the Case and Wire
+  // projections carry every public receipt, filtered here to this actor.
+  var seen = {}, events = [];
+  function absorb(receipt, reference){
+    if(!receipt || String(receipt.actor_wallet || '') !== W) return;
+    var row = Object.assign({ proof_source:'native_public_dto' }, receipt);
+    if(reference && !row.target_public_ref) row.target_public_ref = reference;
+    row.created_at = row.occurred_at || row.created_at || null;
+    // The Case and Wire projections state the proof claim in `label`. The
+    // analyst history states it as `proof_type`, so it is mapped onto the same
+    // vocabulary here rather than falling through to "legacy".
+    if(!row.label){
+      var type = String(row.proof_type || '');
+      row.label = type === 'solana_memo' ? 'Memo-anchored on Solana'
+        : type === 'wallet_signed_server_verified' ? 'Wallet-signed and server-verified'
+        : type === 'system_event' ? 'System event' : '';
+    }
+    var key = identityReceiptKey(row);
+    if(seen[key]) return;
+    seen[key] = 1;
+    events.push(row);
+  }
+  var publishedVersionRefs = {}, publicRecords = 0;
+  if(publicCases && Array.isArray(publicCases.cases)){
+    publicCases.cases.forEach(function(item){
+      var reference = String(item.public_ref || '');
+      (Array.isArray(item.proof_log) ? item.proof_log : []).forEach(function(receipt){ absorb(receipt, reference); });
+      (Array.isArray(item.reports) ? item.reports : []).forEach(function(report){
+        var current = report && report.current_version;
+        if(report && report.published === true && current && current.version_ref){
+          publishedVersionRefs[String(current.version_ref)] = 1;
+        }
+      });
+    });
+  }
+  if(publicWire && Array.isArray(publicWire.reports)){
+    publicWire.reports.forEach(function(item){
+      var reference = String(item.version_public_ref || '');
+      (Array.isArray(item.proof_log) ? item.proof_log : []).forEach(function(receipt){ absorb(receipt, reference); });
+      if(item.author && String(item.author.wallet || '') === W && item.is_current_published !== false) publicRecords++;
+    });
+  }
+  // Absorbed last so a richer public receipt always wins the de-duplication
+  // over the same event seen through the analyst history.
+  if(serverProfile && Array.isArray(serverProfile.proof_history)){
+    serverProfile.proof_history.forEach(function(receipt){ absorb(receipt, ''); });
+  }
+  events.sort(function(left, right){
+    return new Date(right.created_at || 0) - new Date(left.created_at || 0);
+  });
+  // A published record is one this wallet actually authored: the version it
+  // signed is the version the public projection currently publishes. The
+  // public Case projection never names an unpublished author, so nothing
+  // private is inferred here.
+  var countedVersions = {};
+  events.forEach(function(ev){
+    if(String(ev.event_type || '') !== 'CASE_REPORT_VERSION_SUBMITTED') return;
+    var ref = String(ev.public_ref || ev.target_public_ref || '');
+    if(!ref || countedVersions[ref] || !publishedVersionRefs[ref]) return;
+    countedVersions[ref] = 1;
+    publicRecords++;
+  });
+  model.events = events;
+  // With no reachable projection every counter stays null and the passport
+  // says "Not available yet" instead of showing a zero it cannot stand behind.
+  if(model.sourceAvailable){
+    model.stats.publicRecords = publicRecords;
+    model.stats = identityCollectStats(model, events);
+  }
   return model;
 }
 function identityConnectedHtml(m){

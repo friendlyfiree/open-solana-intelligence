@@ -153,10 +153,18 @@
     var token=typeof SUPA_AUTH_TOKEN==='string'&&SUPA_AUTH_TOKEN?SUPA_AUTH_TOKEN:SUPABASE_ANON_KEY;
     return{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
   }
+  var REPORT_NON_MUTATING_OPS={
+    capabilities:1,list_public_reports:1,list_publication_recovery:1,
+    publication:1,rejection:1
+  };
   async function api(url,body){
     var response=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body)});
     var payload={};try{payload=await response.json();}catch(error){payload={ok:false,error:'invalid_server_response'};}
     if(!response.ok||payload.ok!==true){var failure=new Error(payload.error||('request_failed_'+response.status));failure.status=response.status;throw failure;}
+    // Publication and review change what public projections return.
+    if(REPORT_NON_MUTATING_OPS[body&&body.op]!==1&&typeof window.osiPublicReadInvalidate==='function'){
+      window.osiPublicReadInvalidate();
+    }
     return payload;
   }
   function userError(error){

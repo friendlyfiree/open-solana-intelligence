@@ -65,21 +65,65 @@ function plSealedRender(){
 // remain available only when window.OSI_DEMO_MODE === true.
 function plDemoMode(){ return window.OSI_DEMO_MODE === true; }
 function plSourceState(){ return window.__plSourceState || 'idle'; }
+// Native V2 receipts arrive with their exact registry event type, so the
+// timeline groups and the filter tabs have to recognise them by name. Before
+// this map every native Case, Report, review and seal receipt fell through to
+// "other", which showed them as an unnamed "Signed Action" and left the
+// Cases / Reports / Reviews / Challenges / Support / Seals filters empty on a
+// live Proof Log.
 function plGroup(ev){
   var t = String((ev && ev.event_type) || '').toLowerCase();
   var itemType = String((ev && ev.item_type) || '').toLowerCase();
   var vote = String((ev && ev.vote) || '').toLowerCase();
   if(t==='analyst_vouch' && (itemType==='challenge' || vote==='challenge')) return 'challenge';
-  if(t==='analyst_vouch' || t==='review_signed' || t==='analyst_review' || t==='wire_report_review_cast' || t==='wire_report_review_revised') return 'vote';
-  if(t==='report_submitted' || t==='wire_dispatch' || t==='wire_report_version_submitted' || t==='wire_report_published' || t==='wire_promoted') return 'report';
-  if(t==='demand_signal' || t==='support' || t==='support_signal' || t==='support_payment_confirmed') return 'support';
-  if(t==='maintainer_seal' || t==='record_sealed' || t==='public_record_sealed') return 'seal';
-  if(t==='case_opened' || t==='case_created' || t==='bounty_opened') return 'case';
-  if(t.indexOf('challenge') !== -1) return 'challenge';
+  if(t.indexOf('challenge') === 0 || t.indexOf('_challenge') !== -1) return 'challenge';
+  if(t.indexOf('review_cast') !== -1 || t.indexOf('review_revised') !== -1
+    || t==='analyst_vouch' || t==='review_signed' || t==='analyst_review'
+    || t==='case_initial_review_rejected' || t==='report_rejected') return 'vote';
+  if(t==='report_submitted' || t==='wire_dispatch' || t==='case_report_version_submitted'
+    || t==='wire_report_version_submitted' || t==='report_published' || t==='wire_report_published'
+    || t==='wire_promoted' || t==='report_selected_winning') return 'report';
+  if(t==='demand_signal' || t==='support' || t==='support_signal' || t==='support_sent'
+    || t==='support_payment_confirmed' || t==='reward_payment_confirmed'
+    || t.indexOf('reward_pledge') === 0 || t==='reward_pledged' || t==='reward_paid') return 'support';
+  if(t==='maintainer_seal' || t==='record_sealed' || t==='public_record_sealed'
+    || t==='case_resolved' || t==='resolution_proposed') return 'seal';
+  if(t.indexOf('case_') === 0 || t==='bounty_opened') return 'case';
   return 'other';
 }
 function plMemo(ev){
   var exact={
+    case_submitted:{tag:'OSI_CASE_SUBMITTED',title:'Case Submitted',cls:'case'},
+    case_opened:{tag:'OSI_CASE_OPENED',title:'Case Opened',cls:'case'},
+    case_initial_review_cast:{tag:'OSI_REVIEW_SIGNED',title:'Initial Review Cast',cls:'review'},
+    case_initial_review_revised:{tag:'OSI_REVIEW_SIGNED',title:'Initial Review Revised',cls:'review'},
+    case_initial_review_rejected:{tag:'OSI_CASE_REJECTED',title:'Initial Review Rejected',cls:'review'},
+    case_appeal_submitted:{tag:'OSI_CASE_APPEAL',title:'Owner Appeal Submitted',cls:'case'},
+    case_withdrawn:{tag:'OSI_CASE_WITHDRAWN',title:'Case Withdrawn',cls:'case'},
+    case_resumed:{tag:'OSI_CASE_RESUMED',title:'Case Resumed',cls:'case'},
+    case_reopened:{tag:'OSI_CASE_REOPENED',title:'Case Reopened',cls:'case'},
+    case_resolved:{tag:'OSI_CASE_RESOLVED',title:'Case Resolved',cls:'seal'},
+    case_report_version_submitted:{tag:'OSI_REPORT_SUBMITTED',title:'Report Version Submitted',cls:'report'},
+    case_report_review_cast:{tag:'OSI_REPORT_REVIEW',title:'Report Review Cast',cls:'review'},
+    case_report_review_revised:{tag:'OSI_REPORT_REVIEW',title:'Report Review Revised',cls:'review'},
+    report_published:{tag:'OSI_REPORT_PUBLISHED',title:'Report Published',cls:'report'},
+    report_rejected:{tag:'OSI_REPORT_REJECTED',title:'Report Rejected',cls:'review'},
+    report_selected_winning:{tag:'OSI_REPORT_SELECTED',title:'Winning Report Selected',cls:'report'},
+    resolution_proposed:{tag:'OSI_RESOLUTION_PROPOSED',title:'Resolution Proposed',cls:'seal'},
+    resolution_review_cast:{tag:'OSI_RESOLUTION_REVIEW',title:'Resolution Review Cast',cls:'review'},
+    resolution_review_revised:{tag:'OSI_RESOLUTION_REVIEW',title:'Resolution Review Revised',cls:'review'},
+    record_sealed:{tag:'OSI_RECORD_SEALED',title:'Record Sealed',cls:'seal'},
+    reward_pledge_created:{tag:'OSI_REWARD_PLEDGED',title:'Reward Pledged',cls:'support'},
+    reward_pledge_revised:{tag:'OSI_REWARD_PLEDGED',title:'Reward Pledge Revised',cls:'support'},
+    reward_pledge_withdrawn:{tag:'OSI_REWARD_WITHDRAWN',title:'Reward Pledge Withdrawn',cls:'support'},
+    reward_payment_confirmed:{tag:'OSI_REWARD_CONFIRMED',title:'Reward Transfer Confirmed',cls:'support'},
+    analyst_application_version_submitted:{tag:'OSI_ANALYST_APPLIED',title:'Analyst Application Submitted',cls:'other'},
+    analyst_application_review_cast:{tag:'OSI_ANALYST_REVIEW',title:'Application Review Cast',cls:'review'},
+    analyst_application_review_revised:{tag:'OSI_ANALYST_REVIEW',title:'Application Review Revised',cls:'review'},
+    analyst_probation:{tag:'OSI_ANALYST_PROBATION',title:'Analyst Probation Activated',cls:'other'},
+    analyst_verified:{tag:'OSI_ANALYST_VERIFIED',title:'Analyst Verified',cls:'other'},
+    analyst_senior:{tag:'OSI_ANALYST_SENIOR',title:'Senior Analyst Activated',cls:'other'},
+    analyst_revoked:{tag:'OSI_ANALYST_REVOKED',title:'Analyst Authority Revoked',cls:'other'},
     wire_report_version_submitted:{tag:'OSI_WIRE_SUBMITTED',title:'Wire Version Submitted',cls:'report'},
     wire_report_review_cast:{tag:'OSI_WIRE_REVIEW',title:'Wire Review Cast',cls:'review'},
     wire_report_review_revised:{tag:'OSI_WIRE_REVIEW',title:'Wire Review Revised',cls:'review'},
@@ -109,6 +153,13 @@ function plMemo(ev){
   return map[plGroup(ev)] || map.other;
 }
 function plCleanLabel(ev){
+  // A native public receipt carries its proof label in `label`, and that value
+  // is already rendered as the Proof status. Repeating it as the description
+  // said the same thing twice, so the recorded decision is used instead.
+  if(ev && ev.proof_source === 'native_public_dto'){
+    var decision = String(ev.decision || '').trim();
+    return decision ? ('Decision: ' + decision.replace(/_/g,' ')) : '';
+  }
   var label = String((ev && ev.label) || '').trim();
   if(!label) return '';
   return label
@@ -124,13 +175,18 @@ function plSignerRole(ev){
   var role=String((ev&&ev.actor_role)||'').trim().toLowerCase();
   var labels={
     analyst:'Analyst',
+    verified_analyst:'Verified analyst',
+    senior_analyst:'Senior analyst',
     probationary_analyst:'Probationary analyst',
+    owner:'Case owner',
     case_owner:'Case owner',
     report_author:'Report author',
     challenger:'Challenger',
     supporter:'Supporter',
     wire_author:'Wire author',
     maintainer:'Maintainer',
+    wallet:'Connected wallet',
+    service:'System',
     system:'System'
   };
   if(labels[role]) return labels[role];
@@ -235,6 +291,23 @@ function plCopyProofValue(text, label){
   if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(String(text)).then(done).catch(function(){ plCopyFallback(text,done); }); }
   else plCopyFallback(text,done);
 }
+// A cold-start maintainer decision must never read as an analyst quorum
+// outcome. The server marks those receipts, so the timeline repeats the mark
+// instead of presenting a bootstrap publication as a normal one.
+function plChannelChip(ev){
+  if(!ev || String(ev.decision_channel||'') !== 'maintainer_bootstrap') return '';
+  var note = String(ev.decision_channel_label || 'Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.');
+  return '<span class="plc-channel" title="'+escapeHtml(note)+'">Maintainer bootstrap</span>';
+}
+// Counted review weight is part of the accepted Proof Log contract (actor,
+// role, decision, weight, timestamp, receipt). It is shown only when the
+// server actually recorded one, so a receipt with no weight never implies a
+// zero-weight vote.
+function plWeightCell(ev){
+  var weight = ev && ev.weight;
+  if(weight === null || weight === undefined || weight === '' || isNaN(Number(weight))) return '';
+  return '<div><div class="plc-meta-k">Counted weight</div><div class="plc-meta-v">'+escapeHtml(Number(weight).toFixed(2))+'</div></div>';
+}
 function plTimelineCard(ev){
   ev = ev || {};
   var m = plMemo(ev);
@@ -255,12 +328,13 @@ function plTimelineCard(ev){
     + '<div class="plc-body">'
       + '<div class="plc-head">'
         + '<div><span class="plc-badge">'+m.tag+'</span></div>'
-        + '<div><div class="plc-title">'+m.title+'</div><div class="plc-ref">'+(label?escapeHtml(label):'Signed OSI action')+' - '+plReferenceHtml(ev)+'</div></div>'
+        + '<div><div class="plc-title">'+m.title+plChannelChip(ev)+'</div><div class="plc-ref">'+(label?(escapeHtml(label)+' - '):'')+plReferenceHtml(ev)+'</div></div>'
         + '<div class="plc-time">'+(ago?escapeHtml(ago):'Timestamp unavailable')+(when?('<br>'+escapeHtml(when)):'')+'</div>'
       + '</div>'
       + '<div class="plc-grid">'
         + '<div><div class="plc-meta-k">Wallet</div><div class="plc-meta-v">'+walletCell+'</div></div>'
         + '<div><div class="plc-meta-k">Wallet role</div><div class="plc-meta-v">'+escapeHtml(plSignerRole(ev))+'</div></div>'
+        + plWeightCell(ev)
         + '<div><div class="plc-meta-k">Proof status</div><div class="plc-meta-v '+(proof.key!=='legacy'?'ok':'')+'">'+escapeHtml(proof.label)+'</div></div>'
         + '<div class="plc-action"><div class="plc-meta-k">Transaction</div>'+txHtml+'</div>'
       + '</div>'

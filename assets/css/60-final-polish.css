@@ -239,7 +239,7 @@ body[data-view="analysts"] #community{padding-top:0}
 #analysts .lb-cta{border-radius:8px}
 #analysts .lb-cta.ghost:not(.lb-case-start){display:none}
 #analysts .fd-more{font-size:0}
-#analysts .fd-more::after{content:"View full proof log ->";font-size:10px}
+#analysts .fd-more::after{content:"View full proof log ->";font-size:11px}
 #analysts .lb-guideline-list{padding:9px 15px 13px}
 #analysts .lb-guide{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.08)}
 #analysts .lb-guide:last-child{border-bottom:0}

@@ -166,56 +166,117 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     return { reportsByCase, versionsByReport, receiptsByCaseTarget, evidenceByCase, reviewsByCase, governanceByCase, moneyByCase };
   }
 
+  // The graph used to be fetched one relation at a time, fifteen round trips
+  // deep, which is what made the Field Office, Public Records and the Proof
+  // Log wait several seconds for their first answer. Nothing about the data or
+  // the authorization boundary changes here: the queries are identical and the
+  // DTO builders are untouched. They are only grouped into dependency waves,
+  // so independent relations are fetched together instead of in single file.
+
+  // Wave 1: everything that needs only the Case ids.
   let reportsQuery = admin.from("case_reports").select(REPORT_COLS)
     .in("case_id", caseIds);
   if (publicOnly) reportsQuery = reportsQuery.not("current_published_version_id", "is", null);
-  const { data: reports } = await reportsQuery
-    .order("created_at", { ascending: true }).limit(200);
+  const [
+    { data: reports },
+    { data: pledges },
+    { data: supports },
+    { data: resolutions },
+    { data: configRows },
+    { data: links },
+    { data: reviews },
+  ] = await Promise.all([
+    reportsQuery.order("created_at", { ascending: true }).limit(200),
+    admin.from("reward_pledges").select(PLEDGE_COLS).in("case_id", caseIds).limit(200),
+    admin.from("support_events").select(SUPPORT_COLS).in("case_id", caseIds)
+      .order("created_at", { ascending: true }).limit(500),
+    admin.from("case_resolutions").select(RESOLUTION_COLS)
+      .in("case_id", caseIds).order("created_at", { ascending: true }).limit(300),
+    admin.from("osi_config").select("key,value").in("key", [
+      "OSI_V2_RESOLUTION_STANDARD_MIN_COUNT", "OSI_V2_RESOLUTION_STANDARD_MIN_WEIGHT",
+      "OSI_V2_RESOLUTION_HIGH_MIN_COUNT", "OSI_V2_RESOLUTION_HIGH_MIN_WEIGHT",
+      "OSI_V2_CHALLENGE_MIN_COUNT", "OSI_V2_CHALLENGE_MIN_WEIGHT",
+      "OSI_V2_SEAL_MIN_COUNT", "OSI_V2_SEAL_MIN_WEIGHT",
+    ]),
+    admin.from("case_evidence_links").select("case_id,evidence_item_id")
+      .in("case_id", caseIds).limit(400),
+    admin.from("case_initial_reviews").select(REVIEW_COLS)
+      .in("case_id", caseIds).order("created_at", { ascending: true }).limit(400),
+  ]);
   const reportIds = (reports ?? []).map((r) => String(r.id));
   for (const report of reports ?? []) {
     const key = String(report.case_id);
     (reportsByCase[key] ??= []).push(report);
   }
-
-  if (reportIds.length) {
-    const publishedVersionIds = (reports ?? [])
-      .map((report) => String(report.current_published_version_id ?? ""))
-      .filter(Boolean);
-    let versionsQuery = admin.from("case_report_versions").select(VERSION_COLS);
-    versionsQuery = publicOnly
-      ? versionsQuery.in("id", publishedVersionIds)
-      : versionsQuery.in("report_id", reportIds);
-    const { data: versions } = await versionsQuery
-      .order("version_no", { ascending: true }).limit(400);
-    for (const version of versions ?? []) {
-      const key = String(version.report_id);
-      (versionsByReport[key] ??= []).push(version);
-    }
-  }
-
-  const { data: pledges } = await admin.from("reward_pledges").select(PLEDGE_COLS)
-    .in("case_id", caseIds).limit(200);
   const pledgeIds = (pledges ?? []).map((row) => String(row.id));
-  const [{ data: payments }, { data: supports }] = await Promise.all([
+  const publishedVersionIds = (reports ?? []).map((row) => String(row.current_published_version_id ?? ""))
+    .filter(Boolean);
+  const resolutionIds = (resolutions ?? []).map((row) => String(row.id));
+  const winningVersionIds = (resolutions ?? [])
+    .map((row) => String(row.winning_report_version_id ?? "")).filter(Boolean);
+  const evidenceIds = (links ?? []).map((link) => String(link.evidence_item_id));
+
+  // Wave 2: everything that needs a wave 1 result and nothing later.
+  let versionsQuery = admin.from("case_report_versions").select(VERSION_COLS);
+  versionsQuery = publicOnly
+    ? versionsQuery.in("id", publishedVersionIds)
+    : versionsQuery.in("report_id", reportIds);
+  const [
+    { data: versions },
+    { data: payments },
+    { data: reportReviews },
+    { data: winningVersions },
+    { data: resolutionReviews },
+    { data: challenges },
+    { data: evidenceRows },
+  ] = await Promise.all([
+    reportIds.length
+      ? versionsQuery.order("version_no", { ascending: true }).limit(400)
+      : Promise.resolve({ data: [] }),
     pledgeIds.length
       ? admin.from("reward_payments").select(PAYMENT_COLS).in("pledge_id", pledgeIds)
         .order("created_at", { ascending: true }).limit(500)
       : Promise.resolve({ data: [] }),
-    admin.from("support_events").select(SUPPORT_COLS).in("case_id", caseIds)
-      .order("created_at", { ascending: true }).limit(500),
+    publishedVersionIds.length
+      ? admin.from("case_report_reviews")
+        .select("report_version_id,reviewer_wallet,weight,is_active")
+        .in("report_version_id", publishedVersionIds).eq("is_active", true).limit(1000)
+      : Promise.resolve({ data: [] }),
+    winningVersionIds.length
+      ? admin.from("case_report_versions").select("id,version_ref")
+        .in("id", winningVersionIds).limit(300)
+      : Promise.resolve({ data: [] }),
+    resolutionIds.length
+      ? admin.from("resolution_reviews").select(RESOLUTION_REVIEW_COLS)
+        .in("resolution_id", resolutionIds).order("created_at", { ascending: true }).limit(1000)
+      : Promise.resolve({ data: [] }),
+    resolutionIds.length
+      ? admin.from("challenges_v2").select(CHALLENGE_COLS)
+        .in("resolution_id", resolutionIds).order("created_at", { ascending: true }).limit(500)
+      : Promise.resolve({ data: [] }),
+    evidenceIds.length
+      ? admin.from("evidence_items").select(EVIDENCE_COLS)
+        .in("id", evidenceIds).order("created_at", { ascending: true }).limit(400)
+      : Promise.resolve({ data: [] }),
   ]);
-  const publishedVersionIds = (reports ?? []).map((row) => String(row.current_published_version_id ?? ""))
-    .filter(Boolean);
-  const { data: reportReviews } = publishedVersionIds.length
-    ? await admin.from("case_report_reviews")
-      .select("report_version_id,reviewer_wallet,weight,is_active")
-      .in("report_version_id", publishedVersionIds).eq("is_active", true).limit(1000)
-    : { data: [] };
+  for (const version of versions ?? []) {
+    const key = String(version.report_id);
+    (versionsByReport[key] ??= []).push(version);
+  }
+  const challengeIds = (challenges ?? []).map((row) => String(row.id));
+
+  // Wave 3: the two lookups that need a wave 2 result.
   const reviewerWallets = [...new Set((reportReviews ?? []).map((row) => String(row.reviewer_wallet)))];
-  const { data: reviewerProfiles } = reviewerWallets.length
-    ? await admin.from("analyst_profiles")
-      .select("wallet,status,verified,approved,weight_cached").in("wallet", reviewerWallets).limit(1000)
-    : { data: [] };
+  const [{ data: reviewerProfiles }, { data: challengeReviews }] = await Promise.all([
+    reviewerWallets.length
+      ? admin.from("analyst_profiles")
+        .select("wallet,status,verified,approved,weight_cached").in("wallet", reviewerWallets).limit(1000)
+      : Promise.resolve({ data: [] }),
+    challengeIds.length
+      ? admin.from("challenge_reviews").select(CHALLENGE_REVIEW_COLS)
+        .in("challenge_id", challengeIds).order("created_at", { ascending: true }).limit(1500)
+      : Promise.resolve({ data: [] }),
+  ]);
   const eligibleReviewerWallets = new Set((reviewerProfiles ?? []).filter((row) => (
     row.verified === true && row.approved === true
     && ["probationary_analyst", "verified_analyst", "senior_analyst"].includes(String(row.status))
@@ -262,41 +323,6 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     };
   }
 
-  const [{ data: resolutions }, { data: configRows }] = await Promise.all([
-    admin.from("case_resolutions").select(RESOLUTION_COLS)
-      .in("case_id", caseIds).order("created_at", { ascending: true }).limit(300),
-    admin.from("osi_config").select("key,value").in("key", [
-      "OSI_V2_RESOLUTION_STANDARD_MIN_COUNT", "OSI_V2_RESOLUTION_STANDARD_MIN_WEIGHT",
-      "OSI_V2_RESOLUTION_HIGH_MIN_COUNT", "OSI_V2_RESOLUTION_HIGH_MIN_WEIGHT",
-      "OSI_V2_CHALLENGE_MIN_COUNT", "OSI_V2_CHALLENGE_MIN_WEIGHT",
-      "OSI_V2_SEAL_MIN_COUNT", "OSI_V2_SEAL_MIN_WEIGHT",
-    ]),
-  ]);
-  const winningVersionIds = (resolutions ?? [])
-    .map((row) => String(row.winning_report_version_id ?? "")).filter(Boolean);
-  const { data: winningVersions } = winningVersionIds.length
-    ? await admin.from("case_report_versions").select("id,version_ref")
-      .in("id", winningVersionIds).limit(300)
-    : { data: [] };
-  const resolutionIds = (resolutions ?? []).map((row) => String(row.id));
-  const [{ data: resolutionReviews }, { data: challenges }] = resolutionIds.length
-    ? await Promise.all([
-      admin.from("resolution_reviews").select(RESOLUTION_REVIEW_COLS)
-        .in("resolution_id", resolutionIds).order("created_at", { ascending: true }).limit(1000),
-      admin.from("challenges_v2").select(CHALLENGE_COLS)
-        .in("resolution_id", resolutionIds).order("created_at", { ascending: true }).limit(500),
-    ])
-    : [{ data: [] }, { data: [] }];
-  const challengeIds = (challenges ?? []).map((row) => String(row.id));
-  const { data: challengeReviews } = challengeIds.length
-    ? await admin.from("challenge_reviews").select(CHALLENGE_REVIEW_COLS)
-      .in("challenge_id", challengeIds).order("created_at", { ascending: true }).limit(1500)
-    : { data: [] };
-  await Promise.all([
-    attachReviewAuthority(admin, "resolution", resolutionReviews ?? []),
-    attachReviewAuthority(admin, "challenge", challengeReviews ?? []),
-  ]);
-
   // Case-targeted receipts key on public_ref; report-version receipts on the
   // version uuid. Both are folded into the owning Case's proof log.
   const versionIds = Object.values(versionsByReport).flat().map((v) => String(v.id));
@@ -316,9 +342,18 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     }
   }
   const targetIds = [...publicRefs, ...caseIds, ...versionIds, ...resolutionIds, ...challengeIds, ...paymentIds];
-  if (targetIds.length) {
-    const { data: receipts } = await admin.from("event_receipts").select(RECEIPT_COLS)
-      .in("target_id", targetIds).order("occurred_at", { ascending: true }).limit(400);
+  // Wave 4: the receipt read and the three SAS authority labels are
+  // independent of one another, so they run together.
+  const [{ data: receipts }] = await Promise.all([
+    targetIds.length
+      ? admin.from("event_receipts").select(RECEIPT_COLS)
+        .in("target_id", targetIds).order("occurred_at", { ascending: true }).limit(400)
+      : Promise.resolve({ data: [] }),
+    attachReviewAuthority(admin, "resolution", resolutionReviews ?? []),
+    attachReviewAuthority(admin, "challenge", challengeReviews ?? []),
+    attachReviewAuthority(admin, "case_initial", reviews ?? []),
+  ]);
+  {
     for (const receipt of receipts ?? []) {
       const targetId = String(receipt.target_id);
       const directCase = caseRows.find((c) => String(c.id) === targetId);
@@ -340,19 +375,7 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     }
   }
 
-  const [{ data: links }, { data: reviews }] = await Promise.all([
-    admin.from("case_evidence_links").select("case_id,evidence_item_id")
-      .in("case_id", caseIds).limit(400),
-    admin.from("case_initial_reviews").select(REVIEW_COLS)
-      .in("case_id", caseIds).order("created_at", { ascending: true }).limit(400),
-  ]);
-  const evidenceIds = (links ?? []).map((link) => String(link.evidence_item_id));
-  let evidence: Row[] = [];
-  if (evidenceIds.length) {
-    const result = await admin.from("evidence_items").select(EVIDENCE_COLS)
-      .in("id", evidenceIds).order("created_at", { ascending: true }).limit(400);
-    evidence = result.data ?? [];
-  }
+  const evidence: Row[] = evidenceRows ?? [];
   for (const link of links ?? []) {
     const item = evidence.find((entry) => String(entry.id) === String(link.evidence_item_id));
     if (item) (evidenceByCase[String(link.case_id)] ??= []).push(item);
@@ -362,8 +385,8 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     for (const receipt of rows) receiptById[String(receipt.id)] = receipt;
   }
   // D19: label each analyst review with whether its authority was SAS-verified
-  // on chain, so a surface that shows a weight can say why it counted or did not.
-  await attachReviewAuthority(admin, "case_initial", reviews ?? []);
+  // on chain, so a surface that shows a weight can say why it counted or did
+  // not. The three review families are labelled together above.
   for (const review of reviews ?? []) {
     const value = { ...review, receipt: receiptById[String(review.event_receipt_id)] ?? null };
     (reviewsByCase[String(review.case_id)] ??= []).push(value);
