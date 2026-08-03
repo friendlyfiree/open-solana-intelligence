@@ -58,6 +58,7 @@ review cycle.
 | Fallback-governance dashboard | Emergency/fallback control | Not presented as an active ordinary action. |
 | Permanent Arweave mirror | Unfinished roadmap item | Documentation only; not labeled Live and no dormant button exists. |
 | Placeholder input text and honest loading/error messages | Not a feature gate | Retained where they explain valid input or a retryable dependency failure. They do not claim an action completed. |
+| Analyst "contributions" counter reading from the never-written `analyst_contributions` table | Misleading placeholder | Fixed. The table stays authoritative where it has rows; where it is silent the profile derives the list from that analyst's own server-verified receipts rather than publishing zero next to a non-empty proof history. See the public contribution contract below. |
 
 ## Payment surface contract
 
@@ -81,6 +82,30 @@ verification, and atomic commit to the existing payment/support/receipt model.
 - The Phantom path stays recoverable after the single-use intent expires
   through `recover_payment`, which re-verifies the existing signature and
   never creates a second transfer.
+
+## Public contribution contract
+
+`analyst_contributions` is the authoritative record of an analyst's public work
+and stays that way: wherever it has rows for a wallet, those rows are what the
+public profile publishes. Nothing writes to it yet, so where it is silent the
+profile derives the list from that analyst's own server-verified receipts
+instead of asserting zero contributions next to a non-empty proof history.
+
+A derived contribution is only ever the analyst's own attributable public work:
+
+- Counted: submitting a Case, a Case Report version or a Wire Report version;
+  proposing a resolution; submitting a challenge; and casting or revising any
+  Case, Report, Wire, resolution, challenge, admissibility, bad-faith, AI Pack
+  or analyst-application review.
+- Never counted: operator decisions such as opening a Case, publishing a
+  Report, activating an analyst or changing config, because those are the
+  maintainer's acts even when a maintainer also holds an analyst profile;
+  money, because a transfer is not a contribution; and applying or withdrawing.
+- A cast review and its later revision are one contribution on one subject, so
+  a revision never inflates the count.
+- Each row carries the subject's public reference (`OSI-...`), never an
+  internal id, and a receipt with no public reference is omitted rather than
+  published as something a reader cannot look up.
 
 ## SAS display contract
 

@@ -181,7 +181,9 @@
       var missingRetry=body.querySelector('[data-profile-retry]');if(missingRetry)missingRetry.addEventListener('click',function(){openPublicProfile(wallet,{preserveReturnFocus:true});});return;
     }
     var links=(profile.links||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label||url)+'</a>':'';}).join('');
-    var contributions=(profile.contributions||[]).map(function(row){return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b><span data-osi-user-content>'+esc(label(row.subject_type))+' / '+esc(short(row.subject_id))+'</span></div><time>'+esc(dateText(row.created_at))+'</time></div>';}).join('');
+    // A public reference is the thing a reader looks the work up by, so it is
+    // printed whole. Only opaque internal ids are shortened.
+    var contributions=(profile.contributions||[]).map(function(row){var subject=String(row.subject_id||'');return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b><span data-osi-user-content>'+esc(label(row.subject_type))+' / '+esc(/^OSI-/.test(subject)?subject:short(subject))+'</span></div><time>'+esc(dateText(row.created_at))+'</time></div>';}).join('');
     var proofs=(profile.proof_history||[]).map(publicProof).join(''),identity=profile.handle?'@'+profile.handle:short(profile.wallet),displayName=profile.display_name||profile.handle||short(profile.wallet);
     body.removeAttribute('aria-busy');
     body.innerHTML='<div class="osi-public-profile"><header>'+avatar(profile,64)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(displayName)+sasSlot(profile.wallet,profile.status)+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'

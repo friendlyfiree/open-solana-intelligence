@@ -1078,6 +1078,11 @@ test('the amount picker raised from the Case drawer renders on top of it', async
   });
   expect(covering).toEqual([]);
 
+  // Focus does not always stay inside the dialog: the surface underneath can
+  // re-render and take it back. A modal that answers Escape only while focus
+  // happens to be inside it is one a person can get stuck in, so drop focus
+  // first and require the dialog to answer anyway.
+  await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
   // Backing out of the amount must not also close the record behind it. Both
   // surfaces listen for Escape, so the picker has to stop the event.
   await page.keyboard.press('Escape');

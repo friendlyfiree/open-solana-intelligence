@@ -263,7 +263,82 @@ export function inspectProfileImage(bytes, mime) {
   return { width, height, mime, size: bytes.length };
 }
 
+// A public contribution is an attributable public act the analyst performed
+// themselves. The `analyst_contributions` table is the authoritative record of
+// those, but nothing writes to it yet, so a real analyst with a full proof
+// history was published as "0 contributions" next to their own receipts. Where
+// the table is silent, derive the list from the analyst's own server-verified
+// receipts instead of asserting zero.
+//
+// Only the analyst's own work counts. Operator decisions (opening a Case,
+// publishing a Report, changing config, activating an analyst) are the
+// maintainer's acts even when a maintainer also holds an analyst profile;
+// money is not a contribution; and withdrawing or applying is not either.
+export const ANALYST_CONTRIBUTION_KINDS = Object.freeze({
+  CASE_SUBMITTED: "case_submitted",
+  CASE_INITIAL_REVIEW_CAST: "case_initial_review",
+  CASE_INITIAL_REVIEW_REVISED: "case_initial_review",
+  CASE_REPORT_VERSION_SUBMITTED: "case_report_version",
+  CASE_REPORT_REVIEW_CAST: "case_report_review",
+  CASE_REPORT_REVIEW_REVISED: "case_report_review",
+  WIRE_REPORT_VERSION_SUBMITTED: "wire_report_version",
+  WIRE_REPORT_REVIEW_CAST: "wire_report_review",
+  WIRE_REPORT_REVIEW_REVISED: "wire_report_review",
+  RESOLUTION_PROPOSED: "resolution_proposed",
+  RESOLUTION_REVIEW_CAST: "resolution_review",
+  RESOLUTION_REVIEW_REVISED: "resolution_review",
+  CHALLENGE_SUBMITTED: "challenge_submitted",
+  CHALLENGE_REVIEW_CAST: "challenge_review",
+  CHALLENGE_REVIEW_REVISED: "challenge_review",
+  CHALLENGE_ADMISSIBILITY_ACCEPTED: "challenge_admissibility_review",
+  CHALLENGE_ADMISSIBILITY_REJECTED: "challenge_admissibility_review",
+  CHALLENGE_BAD_FAITH_REVIEW_CAST: "challenge_bad_faith_review",
+  CHALLENGE_BAD_FAITH_REVIEW_REVISED: "challenge_bad_faith_review",
+  AI_PACK_REVIEW_CAST: "ai_pack_review",
+  AI_PACK_REVIEW_REVISED: "ai_pack_review",
+  ANALYST_APPLICATION_REVIEW_CAST: "analyst_application_review",
+  ANALYST_APPLICATION_REVIEW_REVISED: "analyst_application_review",
+});
+
+/**
+ * @param {string} wallet the analyst whose contributions are being listed
+ * @param {Array<Record<string, any>>} receipts server-verified receipts
+ * @returns {Array<{kind:string,subject_type:string,subject_id:string,created_at:any,derived:true}>}
+ */
+export function deriveAnalystContributions(wallet, receipts = []) {
+  const owner = String(wallet ?? "");
+  if (!owner) return [];
+  // A cast review and its later revision are two signed acts on one subject,
+  // not two contributions. Keep the most recent act per subject so the count
+  // reads as "distinct public work", never inflated by revisions.
+  const bySubject = new Map();
+  for (const row of receipts) {
+    if (!row || String(row.actor_wallet ?? "") !== owner) continue;
+    if (row.server_verified === false) continue;
+    const kind = ANALYST_CONTRIBUTION_KINDS[String(row.event_type ?? "")];
+    if (!kind) continue;
+    const subjectType = String(row.target_type ?? "");
+    const subjectId = String(row.public_ref ?? "");
+    // Without a public reference there is nothing a reader could look up, so
+    // publishing the row would be a claim they cannot check.
+    if (!subjectType || !subjectId) continue;
+    const key = kind + "|" + subjectType + "|" + subjectId;
+    const at = row.occurred_at ?? null;
+    const existing = bySubject.get(key);
+    if (existing && String(existing.created_at ?? "") >= String(at ?? "")) continue;
+    bySubject.set(key, { kind, subject_type: subjectType, subject_id: subjectId, created_at: at, derived: true });
+  }
+  return [...bySubject.values()].sort((left, right) =>
+    String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
+}
+
 export function publicAnalystDto(profile, contributions = [], receipts = []) {
+  const stored = contributions.map((row) => ({
+    kind: String(row.kind ?? ""),
+    subject_type: String(row.subject_type ?? ""),
+    subject_id: String(row.subject_id ?? ""),
+    created_at: row.created_at ?? null,
+  }));
   return {
     wallet: String(profile.wallet ?? ""),
     handle: String(profile.handle ?? ""),
@@ -275,12 +350,9 @@ export function publicAnalystDto(profile, contributions = [], receipts = []) {
     status: String(profile.status ?? ""),
     tier_code: String(profile.tier_code ?? ""),
     weight: Number(profile.weight_cached ?? 0),
-    contributions: contributions.map((row) => ({
-      kind: String(row.kind ?? ""),
-      subject_type: String(row.subject_type ?? ""),
-      subject_id: String(row.subject_id ?? ""),
-      created_at: row.created_at ?? null,
-    })),
+    contributions: stored.length
+      ? stored
+      : deriveAnalystContributions(String(profile.wallet ?? ""), receipts),
     proof_history: receipts.map((row) => {
       const result = {
         event_type: String(row.event_type ?? ""),

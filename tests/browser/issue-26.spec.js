@@ -2068,6 +2068,9 @@ test('one shared analyst directory read serves the home panel and the profile mo
   expect(warmPaint.busy).toBeNull();
   expect(warmPaint.text).toContain('Public analyst fixture');
   await expect(page.locator('#ap-modal-body')).not.toContainText('@null');
+  // A contribution's public reference is the string a reader looks the work up
+  // by, so it must be printed whole rather than shortened like a wallet.
+  await expect(page.locator('#ap-modal-body')).toContainText(VERSION_REF);
   // The home panel and the profile modal read the same public directory, so
   // one page visit asks the gateway once rather than once per surface.
   expect(fixtureOperationCount(page, 'osi-v2-analyst', 'list_public_profiles')).toBe(1);

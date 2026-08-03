@@ -96,13 +96,17 @@
     if (event.key !== 'Tab') return;
     var items = focusable(); if (!items.length) return;
     var first = items[0], last = items[items.length - 1];
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    // A modal keeps its own focus ring. Focus that is already outside the
+    // dialog is pulled back in rather than allowed to walk the page behind it.
+    var index = items.indexOf(document.activeElement);
+    if (event.shiftKey && (document.activeElement === first || index === -1)) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && (document.activeElement === last || index === -1)) { event.preventDefault(); first.focus(); }
   }
 
   function close(result) {
     var m = modal();
-    if (m) { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); m.removeEventListener('keydown', onKeydown, true); }
+    if (m) { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); }
+    document.removeEventListener('keydown', onKeydown, true);
     var resolve = pending && pending.resolve; pending = null;
     var back = returnFocus; returnFocus = null;
     if (back && back.isConnected && typeof back.focus === 'function') window.setTimeout(function () { back.focus(); }, 0);
@@ -149,7 +153,12 @@
     returnFocus = document.activeElement && typeof document.activeElement.focus === 'function' ? document.activeElement : null;
     m.classList.add('open');
     m.setAttribute('aria-hidden', 'false');
-    m.addEventListener('keydown', onKeydown, true);
+    // Bound to the document, not to the dialog: the surface underneath can
+    // re-render and pull focus back to its own controls, and a modal that
+    // answers Escape only while focus happens to be inside it is a modal a
+    // person can get stuck in. Capture also puts it ahead of the drawer and
+    // form handlers other modules bind to the document.
+    document.addEventListener('keydown', onKeydown, true);
     var card = m.querySelector('.sol-ask-card');
     window.setTimeout(function () { if (card) card.focus(); }, 0);
 
