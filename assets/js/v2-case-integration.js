@@ -239,7 +239,13 @@
       ,payment_recovery_unavailable:'This browser cannot durably save the wallet-bound recovery record. No wallet was opened.'
       ,payment_recovery_poll_only:'A restored payment record can only be checked against the server. It cannot reopen a wallet or construct a transfer.'
     };
-    return messages[code]||code.replace(/_/g,' ');
+    if(messages[code])return messages[code];
+    // A wallet failure carries free text or a numeric provider code, never a
+    // server code, so the step that opens Phantom explains itself instead of
+    // printing a raw provider string.
+    var walletDetail=typeof walletErrorDetail==='function'?walletErrorDetail(error):'';
+    if(walletDetail)return walletDetail;
+    return code.replace(/_/g,' ');
   }
   async function ensureWallet(){
     if(!walletPubkey&&typeof toggleWallet==='function') await toggleWallet();
@@ -2095,9 +2101,14 @@
   setAdminVisibility(false);
   setReviewNavigationVisibility(false);
   window.addEventListener('load',function(){
-    var provider=typeof getProvider==='function'?getProvider():null;if(!provider||!provider.on)return;
-    provider.on('disconnect',clearPaymentState);
-    provider.on('disconnect',function(){setReviewNavigationVisibility(false);});
-    provider.on('accountChanged',function(){clearPaymentState();state.capabilities=null;setReviewNavigationVisibility(false);});
+    function attach(provider){
+      if(!provider||!provider.on)return;
+      provider.on('disconnect',clearPaymentState);
+      provider.on('disconnect',function(){setReviewNavigationVisibility(false);});
+      provider.on('accountChanged',function(){clearPaymentState();state.capabilities=null;setReviewNavigationVisibility(false);});
+    }
+    // The wallet extension can inject after load; attach to the real provider.
+    if(typeof waitForProvider==='function')waitForProvider().then(attach);
+    else attach(typeof getProvider==='function'?getProvider():null);
   });
 })();

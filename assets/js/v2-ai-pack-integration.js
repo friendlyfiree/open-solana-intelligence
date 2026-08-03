@@ -186,7 +186,8 @@
       wallet_message_unsupported:'This wallet does not support signMessage.',
       wallet_transaction_unsupported:'This wallet does not support the required Solana Memo transaction.'
     };
-    var message=messages[code]||(code.indexOf(' ')>=0?code:code.replace(/_/g,' '));
+    var walletDetail=typeof walletErrorDetail==='function'?walletErrorDetail(error):'';
+    var message=messages[code]||walletDetail||(code.indexOf(' ')>=0?code:code.replace(/_/g,' '));
     var wait=waitText(error);
     return wait?message+' '+wait:message;
   }

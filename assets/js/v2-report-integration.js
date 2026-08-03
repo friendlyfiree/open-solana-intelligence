@@ -212,7 +212,13 @@
       ,publication_recovery_storage_unavailable:'This browser could not preserve the bounded publication recovery record. No transaction was sent.'
       ,publication_recovery_unavailable:'Existing publication proofs could not be loaded safely. Refresh the exact review task and try again.'
     };
-    return messages[code]||code.replace(/_/g,' ');
+    if(messages[code])return messages[code];
+    // A wallet failure carries free text or a numeric provider code, never a
+    // server code, so the step that opens Phantom explains itself instead of
+    // printing a raw provider string.
+    var walletDetail=typeof walletErrorDetail==='function'?walletErrorDetail(error):'';
+    if(walletDetail)return walletDetail;
+    return code.replace(/_/g,' ');
   }
   async function ensureWallet(){
     if(!walletPubkey&&typeof toggleWallet==='function')await toggleWallet();
