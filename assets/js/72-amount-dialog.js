@@ -79,7 +79,17 @@
   }
 
   function onKeydown(event) {
-    if (event.key === 'Escape') { event.preventDefault(); close(null); return; }
+    // This dialog is raised on top of an open Case drawer or record drawer, and
+    // each of those closes itself on a bubbled Escape. Stop the event here, or
+    // one keypress backs out of the amount AND out of the record the person was
+    // reading behind it.
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      close(null);
+      return;
+    }
     if (event.key === 'Enter' && event.target && event.target.id === 'sol-ask-custom') {
       event.preventDefault(); confirm(); return;
     }

@@ -1,6 +1,17 @@
 /* ==@osi-src: index.html <style> block #1 (style-block-1) */
 
 :root{
+  /* One stacking scale for everything that floats. Every dialog used to pick
+     its own number, which is why the amount picker opened underneath the Case
+     drawer and every form opened underneath the fixed header. The order is:
+     page chrome, then surfaces that cover the page, then dialogs raised on top
+     of those surfaces, then the payment surfaces, which must never be covered
+     because a person is about to approve a transfer against what they read. */
+  --z-chrome:2100;
+  --z-drawer:4000;
+  --z-modal:4400;
+  --z-payment:5200;
+  --z-guard:9600;
   --bg:#080b14;
   --bg-raised:#0e1320;
   --bg-card:#11172a;
@@ -108,7 +119,7 @@ body{
 .btn-apply:hover{background:#9945ff;color:#fff;border-color:#9945ff}
 .btn-apply:disabled,.btn-stake:disabled{cursor:default;opacity:1}
 /* apply modal + published reports */
-.modal-overlay{position:fixed;inset:0;background:rgba(4,7,16,.8);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:3000;padding:20px}
+.modal-overlay{position:fixed;inset:0;background:rgba(4,7,16,.8);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:var(--z-modal);padding:20px}
 .modal-overlay.open{display:flex}
 .modal{background:var(--bg-card);border:1px solid var(--line-bright);border-radius:14px;max-width:540px;width:100%;padding:26px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,.65)}
 .modal-x{position:absolute;top:11px;right:15px;background:none;border:none;color:var(--ink-dim);font-size:25px;cursor:pointer;line-height:1;padding:0}

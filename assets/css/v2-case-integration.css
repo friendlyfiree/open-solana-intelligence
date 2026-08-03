@@ -73,7 +73,7 @@
 .osi-ops-head-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 
 .osi-case-drawer[hidden]{display:none}
-.osi-case-drawer{position:fixed;inset:0;z-index:3600;display:flex;justify-content:flex-end}
+.osi-case-drawer{position:fixed;inset:0;z-index:var(--z-drawer);display:flex;justify-content:flex-end}
 .osi-case-scrim{position:absolute;inset:0;border:0;background:rgba(3,6,12,.78);backdrop-filter:blur(6px);cursor:default}
 .osi-case-panel{position:relative;width:min(820px,94vw);height:100%;background:#0a0f1b;border-left:1px solid var(--line-bright);box-shadow:-28px 0 80px rgba(0,0,0,.6);display:flex;flex-direction:column;animation:osi-case-in .22s ease-out}
 @keyframes osi-case-in{from{transform:translateX(28px);opacity:.5}to{transform:none;opacity:1}}
@@ -198,7 +198,7 @@
 .osi-payment-proof dt{color:var(--ink-faint);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase}
 .osi-payment-proof dd{margin:4px 0 0;color:var(--ink-dim);font:11px 'JetBrains Mono',monospace;overflow-wrap:anywhere}
 .osi-payment-proof-recipients{margin:9px 0;padding-left:19px;color:var(--ink-dim);font:11px/1.6 'JetBrains Mono',monospace}
-.osi-payment-review{position:fixed;inset:0;z-index:5200;display:grid;place-items:center;padding:18px;background:rgba(2,5,10,.86);backdrop-filter:blur(7px)}
+.osi-payment-review{position:fixed;inset:0;z-index:var(--z-payment);display:grid;place-items:center;padding:18px;background:rgba(2,5,10,.86);backdrop-filter:blur(7px)}
 .osi-payment-review-card{width:min(540px,100%);max-height:calc(100vh - 36px);overflow:auto;border:1px solid var(--line-bright);background:#0a0f1b;box-shadow:0 28px 90px rgba(0,0,0,.72);padding:24px}
 .osi-payment-review-card h3{margin:7px 0 18px;color:var(--ink);font-size:22px}
 .osi-payment-review-card dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}

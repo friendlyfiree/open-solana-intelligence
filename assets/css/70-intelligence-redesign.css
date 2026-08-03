@@ -145,7 +145,7 @@ button {
 
 .osi-global-header {
   position: fixed;
-  z-index: 2100;
+  z-index: var(--z-chrome);
   inset: 0 0 auto;
   height: var(--header-h);
   display: grid;

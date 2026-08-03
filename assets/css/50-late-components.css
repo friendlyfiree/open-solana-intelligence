@@ -4,7 +4,7 @@
 .fo-search{width:100%;background:var(--bg-card);border:1px solid var(--line);border-radius:3px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:12px 14px;box-sizing:border-box}
 .fo-search::placeholder{color:var(--ink-faint)}
 .fo-search:focus{outline:none;border-color:var(--sol)}
-.adm-edit{position:fixed;inset:0;background:rgba(4,6,12,.82);backdrop-filter:blur(4px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+.adm-edit{position:fixed;inset:0;background:rgba(4,6,12,.82);backdrop-filter:blur(4px);z-index:var(--z-modal);display:none;align-items:center;justify-content:center;padding:20px}
 .adm-edit.open{display:flex}
 .adm-edit-box{position:relative;background:var(--bg-card);border:1px solid var(--line-bright);border-top:2px solid var(--cyan);border-radius:4px;max-width:480px;width:100%;padding:26px;max-height:90vh;overflow:auto}
 .adm-edit-x{position:absolute;top:14px;right:16px;background:transparent;border:0;color:var(--ink-faint);font-size:22px;cursor:pointer;line-height:1}
@@ -73,7 +73,7 @@
 .demo-spot.off{box-shadow:none;border-color:transparent;opacity:0}
 .osi-welcome[hidden]{display:none !important}
 .osi-guard[hidden]{display:none !important}
-.osi-guard{position:fixed;inset:0;z-index:9600;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(4,7,14,.8);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);animation:owFade .25s ease;overflow-y:auto}
+.osi-guard{position:fixed;inset:0;z-index:var(--z-guard);display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(4,7,14,.8);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);animation:owFade .25s ease;overflow-y:auto}
 .og-card{position:relative;max-width:520px;width:100%;background:linear-gradient(180deg,var(--bg-raised),var(--bg-card));border:1px solid var(--line-bright);border-top:2px solid var(--amber);border-radius:14px;padding:28px 26px;box-shadow:0 40px 100px rgba(0,0,0,.72);animation:owRise .3s cubic-bezier(.2,.7,.2,1);margin:auto}
 .og-x{position:absolute;top:12px;right:14px;background:transparent;border:0;color:var(--ink-faint);font-size:23px;line-height:1;cursor:pointer}
 .og-x:hover{color:var(--ink)}
