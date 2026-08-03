@@ -166,6 +166,75 @@ vm.createContext(context);vm.runInContext(walletSource, context);
 await Promise.all([context.toggleWallet(), context.toggleWallet(), context.toggleWallet()]);
 ok("explicit concurrent connect calls open Phantom once", connectCalls === 1);
 
+// Phantom detection must survive a second installed Solana wallet, a wallet
+// that only publishes window.phantom.solana, and a late-injecting extension.
+function phantomStub(overrides) {
+  const stub = {
+    isPhantom: true, isConnected: false, publicKey: null, connectCalls: 0,
+    async connect() {
+      stub.connectCalls += 1;stub.isConnected = true;stub.publicKey = { toString: () => wallet };
+      return { publicKey: stub.publicKey };
+    },
+  };
+  return Object.assign(stub, overrides || {});
+}
+function walletKey(ctx) { return vm.runInContext("walletPubkey", ctx); }
+function walletContext(globals) {
+  const store = new MemoryStorage();
+  const created = {
+    window: null, document: { readyState: "complete", getElementById: () => null, body: { dataset: {} } },
+    localStorage: store, sessionStorage: store, console, Promise, Map, Set,
+    TextEncoder, TextDecoder, Uint8Array, setTimeout, clearTimeout,
+    lsGet: () => "", pfIdenticon: () => "", showToast: () => {}, openedUrls: [],
+  };
+  Object.assign(created, globals || {});
+  created.window = created;
+  created.open = (url) => { created.openedUrls.push(url); };
+  vm.createContext(created);vm.runInContext(walletSource, created);
+  return created;
+}
+
+const foreignWallet = { isPhantom: false, isConnected: false, publicKey: null, connect: async () => ({}) };
+const namespaced = phantomStub();
+const namespacedContext = walletContext({ phantom: { solana: namespaced }, solana: foreignWallet });
+ok("a second installed wallet on window.solana never hides Phantom",
+  namespacedContext.getProvider() === namespaced);
+ok("connecting with a foreign window.solana still opens Phantom",
+  (await namespacedContext.toggleWallet()) === true && namespaced.connectCalls === 1
+    && walletKey(namespacedContext) === wallet);
+
+const listed = phantomStub();
+const listContext = walletContext({ solana: Object.assign({}, foreignWallet, { providers: [foreignWallet, listed] }) });
+ok("Phantom is found in a multi-provider list", listContext.getProvider() === listed);
+
+const emptyContext = walletContext({ solana: foreignWallet });
+ok("a browser with no Phantom reports it honestly and offers the install page",
+  emptyContext.getProvider() === null
+    && (await emptyContext.toggleWallet()) === false
+    && emptyContext.openedUrls.length === 1);
+
+const lateProvider = phantomStub();
+const lateContext = walletContext({ document: { readyState: "loading", getElementById: () => null, body: { dataset: {} } } });
+const lateConnect = lateContext.toggleWallet();
+setTimeout(() => { lateContext.phantom = { solana: lateProvider }; }, 200);
+ok("an extension that injects after the page starts still connects",
+  (await lateConnect) === true && lateProvider.connectCalls === 1 && lateContext.openedUrls.length === 0);
+
+const keyOnProvider = phantomStub({ async connect() { keyOnProvider.isConnected = true;keyOnProvider.publicKey = { toString: () => wallet };return undefined; } });
+const keyOnProviderContext = walletContext({ phantom: { solana: keyOnProvider } });
+ok("a connect result without a publicKey falls back to the provider key",
+  (await keyOnProviderContext.toggleWallet()) === true && walletKey(keyOnProviderContext) === wallet);
+
+const libraryContext = walletContext({ phantom: { solana: phantomStub() } });
+await libraryContext.toggleWallet();
+let libraryFailure = "";
+try { await libraryContext.castOnchainVote("CASE_SUBMITTED"); } catch (error) { libraryFailure = libraryContext.walletErrorMessage(error, "Signing"); }
+ok("a missing transaction library is named instead of thrown as a raw ReferenceError",
+  libraryFailure === "The Solana transaction library did not load in this browser. Hard-refresh (Ctrl/Cmd + Shift + R) and try again.");
+ok("an empty wallet is told about the network fee",
+  libraryContext.walletErrorMessage(new Error("Attempt to debit an account but found no record of a prior credit."), "Signing")
+    === "This wallet does not hold enough SOL for the Solana network fee (~0.000005 SOL). Add a small amount of SOL, then try again.");
+
 const bootSource = readFileSync(new URL("../assets/js/99-app.js", import.meta.url), "utf8");
 let trustedConnectCalls = 0;
 let trustedSignCalls = 0;

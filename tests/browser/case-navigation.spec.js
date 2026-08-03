@@ -138,8 +138,23 @@ async function installFixture(page, options = {}) {
         signAndSendTransaction: async () => { record('sendTransaction'); return { signature: '2'.repeat(88) }; },
         on: () => {}, off: () => {},
       };
-      window.solana = provider;
-      window.phantom = { solana: provider };
+      if (wallet === 'phantom-with-rival') {
+        // A second Solana extension won the shared window.solana alias, which
+        // is what a visitor with two wallets installed actually has.
+        window.phantom = { solana: provider };
+        window.solana = {
+          isPhantom: false, isConnected: false, publicKey: null,
+          connect: async () => { record('rival:connect'); throw new Error('rival wallet refused'); },
+          signMessage: async () => { record('rival:signMessage'); throw new Error('rival wallet refused'); },
+          on: () => {}, off: () => {},
+        };
+      } else if (wallet === 'phantom-late') {
+        // The extension finishes injecting after the page has started running.
+        setTimeout(() => { window.phantom = { solana: provider }; window.solana = provider; }, 700);
+      } else {
+        window.solana = provider;
+        window.phantom = { solana: provider };
+      }
     }
     window.open = function () { record('window.open'); return null; };
   }, { wallet: options.wallet || 'none' });
@@ -459,6 +474,38 @@ test.describe('accessibility and mobile', () => {
     expect((await toggle.boundingBox()).height).toBeGreaterThanOrEqual(44);
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+});
+
+test.describe('wallet detection', () => {
+  test('a second installed Solana wallet never blocks the Phantom connection', async ({ page }) => {
+    await boot(page, { wallet: 'phantom-with-rival' });
+
+    await page.locator('#walletBtn').click();
+    await expect(page.locator('#wbText')).toHaveText('1111…1111');
+    await expect(page.locator('#walletBtn')).toHaveClass(/connected/);
+
+    const calls = await walletCalls(page);
+    expect(calls).toContain('connect:explicit');
+    // The rival provider is never opened and the install page is never pushed
+    // at a visitor who already has Phantom.
+    expect(calls.filter((call) => call.startsWith('rival:'))).toEqual([]);
+    expect(calls).not.toContain('window.open');
+    expect(await toasts(page)).not.toContain('Phantom not found. Install it from phantom.app, then refresh and connect.');
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+
+  test('an extension that injects late still restores the trusted session', async ({ page }) => {
+    await boot(page, { wallet: 'phantom-late' });
+
+    // The silent trusted check must reach the provider that arrived after load.
+    await expect.poll(async () => (await walletCalls(page)).includes('connect:trusted'), { timeout: 5000 }).toBe(true);
+    expect(await walletCalls(page)).not.toContain('connect:explicit');
+
+    await page.locator('#walletBtn').click();
+    await expect(page.locator('#wbText')).toHaveText('1111…1111');
+    expect(await walletCalls(page)).not.toContain('window.open');
     expect(page.__runtimeErrors).toEqual([]);
   });
 });

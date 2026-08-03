@@ -2095,9 +2095,14 @@
   setAdminVisibility(false);
   setReviewNavigationVisibility(false);
   window.addEventListener('load',function(){
-    var provider=typeof getProvider==='function'?getProvider():null;if(!provider||!provider.on)return;
-    provider.on('disconnect',clearPaymentState);
-    provider.on('disconnect',function(){setReviewNavigationVisibility(false);});
-    provider.on('accountChanged',function(){clearPaymentState();state.capabilities=null;setReviewNavigationVisibility(false);});
+    function attach(provider){
+      if(!provider||!provider.on)return;
+      provider.on('disconnect',clearPaymentState);
+      provider.on('disconnect',function(){setReviewNavigationVisibility(false);});
+      provider.on('accountChanged',function(){clearPaymentState();state.capabilities=null;setReviewNavigationVisibility(false);});
+    }
+    // The wallet extension can inject after load; attach to the real provider.
+    if(typeof waitForProvider==='function')waitForProvider().then(attach);
+    else attach(typeof getProvider==='function'?getProvider():null);
   });
 })();
