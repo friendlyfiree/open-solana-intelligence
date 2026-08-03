@@ -298,7 +298,12 @@ async function renderFieldOffice(){
   window.__foError = false;
   if(SUPA_ON){
     try{
-      const rows = await supaGet('bounties?select=id,target,title,detail,reward_sol,image,created_by,approved,review_status,winner_wallet,winner_label,onchain,tx,expires_at,created_at&approved=eq.true&order=created_at.desc');
+      // The V1 archive asked for onchain, tx and expires_at, three columns the
+      // bounties table never had. PostgREST answered 400, so the archive's
+      // Field Office reported a source failure on every load instead of the
+      // honest empty list. The select now names only real columns; the code
+      // that reads a deadline or a direct proof already handles their absence.
+      const rows = await supaGet('bounties?select=id,target,title,detail,reward_sol,image,created_by,approved,review_status,winner_wallet,winner_label,created_at&approved=eq.true&order=created_at.desc');
       list = rows || [];
     }catch(e){
       list = demo ? FIELD_SEED.slice() : [];   // live mode: NO seed cards on failure
