@@ -542,14 +542,22 @@ a.fd-ago:hover{color:var(--cyan)}
 
 body[data-view="admin"] section[data-view="admin"]{display:block}
 #admin-view{padding-top:28px}
-#admin-view .wrap{max-width:none;width:100%;padding-left:12px;padding-right:12px}
-.adm-wrap{width:min(1600px,calc(100vw - 24px));max-width:none;margin:0 auto}
+/* The Operations Center stays a wide console, but it starts on the same left
+   edge as the header, every other view and the footer. A 12px full-bleed
+   gutter made the maintainer surface read as a broken page. */
+#admin-view .wrap{max-width:none;width:100%;padding-left:32px;padding-right:32px}
+.adm-wrap{width:100%;max-width:1280px;margin:0 auto}
 .adm-top{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:24px;flex-wrap:wrap}
 .adm-title{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.2em;color:var(--ink-dim)}
 .adm-title b{color:var(--ink);font-weight:700}
 .adm-clr{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;color:var(--amber);border:1px solid rgba(255,176,32,.3);border-radius:8px;padding:4px 9px}
 .adm-card{border:1px solid var(--line-bright);border-left:2px solid var(--sol);background:var(--bg-card);padding:26px;max-width:430px}
 .adm-card.locked{border-left-color:var(--amber);max-width:520px;background:linear-gradient(135deg,rgba(255,176,32,.08),rgba(8,14,26,.94) 42%,rgba(34,211,238,.04))}
+/* Signed out, the Operations Center is one gate card inside a very wide
+   console. Centre it so the checkpoint reads as deliberate instead of as a
+   half-rendered column. The unlocked panel keeps the full console width. */
+#admLogin,#admLocked{display:flex;justify-content:center;padding-top:14px}
+#admLogin>.adm-card,#admLocked>.adm-card{width:100%}
 .adm-card h3{font-family:'Archivo',sans-serif;font-size:18px;font-weight:800;margin:0 0 5px}
 .adm-card p{font-size:12.5px;color:var(--ink-faint);margin:0 0 18px;line-height:1.5}
 .adm-access-tag{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(255,176,32,.28);border-radius:999px;padding:4px 8px;margin-bottom:12px}
@@ -753,6 +761,17 @@ body[data-view="identity"] section[data-view="identity"]{display:block}
 .identity-connect{min-height:44px;border:1px solid var(--acc);background:var(--acc);color:#12040a;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:800;padding:11px 16px;cursor:pointer;transition:filter 140ms ease-out}
 .identity-connect:hover{filter:brightness(1.08)}
 .identity-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+/* Recorded identity values use the same labelled row as the sidebar panels.
+   Only a genuinely unset value keeps the dimmed placeholder tone. */
+.identity-record{display:grid;gap:0}
+.identity-record-row{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:11px 0;border-bottom:1px solid rgba(148,163,184,.1);color:var(--ink-dim);font-size:12px}
+.identity-record-row:last-child{border-bottom:0}
+.identity-record-row>span{flex:0 0 auto}
+.identity-record-row>b{flex:1 1 auto;min-width:0;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.55;color:var(--ink);text-align:right;overflow-wrap:anywhere}
+.identity-record-row.is-missing>b{color:var(--ink-faint);font-weight:400}
+/* A server-derived status answer, not an empty result. */
+.identity-note{border:1px solid rgba(148,163,184,.18);background:rgba(148,163,184,.05);border-radius:8px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.55;padding:12px 14px}
+.identity-note.is-verified{border-color:rgba(20,241,149,.28);background:rgba(20,241,149,.06);color:var(--sol)}
 .identity-readonly{color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.55}
 .identity-gate-note,.identity-section-note{margin-top:14px}
 @media(max-width:1060px){.identity-content{grid-template-columns:1fr}.identity-sidebar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.identity-grid{grid-template-columns:1fr}.identity-pow{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -1,6 +1,8 @@
 
 
 // ---- Public Case Records (premium intelligence archive + drawer) ----
+// Locale-aware copy for the record count this archive renders after every filter.
+function crT(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
 window.__crRecords = {};
 window.__crPacks = {};
 
@@ -349,7 +351,7 @@ function crPaint(){
         ? '<div class="fd-empty mono" style="grid-column:1/-1;padding:22px 4px">No public records match this search or filter.</div>'
         : emptyHtml);
   var cnt=document.getElementById('cr-count');
-  if(cnt) cnt.textContent = reports.length ? ('Showing '+(from+1)+'-'+(from+page.length)+' of '+reports.length+' record'+(reports.length===1?'':'s')) : '';
+  if(cnt) cnt.textContent = reports.length ? crT(reports.length===1?'Showing {from}-{to} of {total} record':'Showing {from}-{to} of {total} records',{from:from+1,to:from+page.length,total:reports.length}) : '';
   var pn=document.getElementById('cr-pnav');
   if(pn){
     if(totalPages<=1){ pn.innerHTML=''; }

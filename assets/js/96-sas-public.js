@@ -205,6 +205,16 @@
   function init(){
     var form=document.getElementById('sas-verifier-form');
     if(form)form.addEventListener('submit',function(event){event.preventDefault();verifyPublicWallet();});
+    // A verified answer belongs to exactly one pasted wallet. As soon as the
+    // field changes, the previous answer stops being true for what is on
+    // screen, so it is cleared instead of left standing next to a new address.
+    var walletInput=document.getElementById('sas-verifier-wallet');
+    if(walletInput)walletInput.addEventListener('input',function(){
+      var nodes=verifierNodes();
+      setStatus(nodes.status,'','');
+      clearNode(nodes.result);
+      if(nodes.result)nodes.result.hidden=true;
+    });
     decorateAll(document);
     if(typeof window.addEventListener==='function')window.addEventListener('osi:localechange',function(){
       var slots=document.querySelectorAll?document.querySelectorAll('[data-sas-wallet]'):[];

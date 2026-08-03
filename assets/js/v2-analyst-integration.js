@@ -102,6 +102,12 @@
   function statusBadge(status){return '<span class="osi-status '+esc(status)+'">'+esc(label(status))+'</span>';}
   function sasSlot(wallet,status){return '<span data-sas-wallet="'+esc(wallet)+'" data-sas-role="'+esc(status||'analyst_profile')+'"></span>';}
   function empty(title,body){return '<div class="osi-activation-empty"><b>'+esc(title)+'</b><span>'+esc(body)+'</span></div>';}
+  // Loading, locked and failed states keep the workspace chrome. Dropping the
+  // header left a bare notice floating on an otherwise empty page, which reads
+  // as a broken render rather than a state the product intends.
+  function workspaceShell(bodyHtml){
+    return '<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>Your server-derived analyst profile and immutable application history.</p></div></header><main>'+bodyHtml+'</main></div>';
+  }
 
   function syncAnalystMaps(rows){
     var profiles={},weights={};
@@ -125,10 +131,10 @@
     if(pager)pager.innerHTML='';
     if(!state.profiles.length){
       host.innerHTML='<div class="osi-activation-empty"><b>No activated analysts yet</b><span>Approved probationary analysts will appear here with server-derived status, weight, contributions, and proof.</span><button class="osi-empty-cta" type="button" onclick="apxOpen()">Start analyst application</button></div>';
-      if(count)count.textContent='0 analysts';
+      if(count)count.textContent=t('{count} analysts',{count:0});
       return;
     }
-    host.innerHTML=state.profiles.map(publicRow).join('');if(count)count.textContent=state.profiles.length+' analyst'+(state.profiles.length===1?'':'s');
+    host.innerHTML=state.profiles.map(publicRow).join('');if(count)count.textContent=state.profiles.length===1?t('{count} analyst',{count:1}):t('{count} analysts',{count:state.profiles.length});
     host.querySelectorAll('[data-analyst-wallet]').forEach(function(button){button.addEventListener('click',function(){openPublicProfile(button.dataset.analystWallet);});});
   }
   async function loadPublicProfiles(options){
@@ -261,9 +267,9 @@
   }
   async function openWorkspace(tab){
     state.workspaceTab=tab==='applications'?'applications':'profile';showNativeWorkspaceView();
-    var host=document.getElementById('identity-body');if(host)host.innerHTML='<div class="osi-activation-loading">Unlocking the shared private read session...</div>';
+    var host=document.getElementById('identity-body');if(host)host.innerHTML=workspaceShell('<div class="osi-activation-loading">Unlocking the shared private read session...</div>');
     try{var wallet=await ensureWallet();var result=await sessionRead('analyst:workspace','my_workspace');state.workspace=result;state.workspaceWallet=wallet;renderWorkspace();}
-    catch(error){if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=empty('Analyst workspace unavailable',userError(error))+'<button class="osi-primary-action" type="button" onclick="'+(refresh?'osiAnalystRefreshWorkspace(\''+esc(state.workspaceTab)+'\')':'osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')')+'">'+(refresh?'Refresh private access':'Try again')+'</button>';}}
+    catch(error){if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=workspaceShell(empty('Analyst workspace unavailable',userError(error))+'<div class="osi-workspace-recover"><button class="osi-secondary-action" type="button" onclick="'+(refresh?'osiAnalystRefreshWorkspace(\''+esc(state.workspaceTab)+'\')':'osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')')+'">'+(refresh?'Refresh private access':'Try again')+'</button></div>');}}
   }
 
   function setApplicationStatus(text,kind){var node=document.getElementById('an-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
@@ -469,7 +475,7 @@
     setApplicationStatus('');
     var submit=document.querySelector('#analyst-form button[type="submit"]');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}
     var profileModal=document.getElementById('ap-modal');document.body.style.overflow=profileModal&&profileModal.classList.contains('open')?'hidden':'';
-    var host=document.getElementById('identity-body');if(host&&document.body&&document.body.dataset.view==='identity')host.innerHTML=empty('Analyst workspace locked','Sign once to unlock a bounded private working session. Any application draft in this tab is preserved.');
+    var host=document.getElementById('identity-body');if(host&&document.body&&document.body.dataset.view==='identity')host.innerHTML=workspaceShell(empty('Analyst workspace locked','Sign once to unlock a bounded private working session. Any application draft in this tab is preserved.')+'<div class="osi-workspace-recover"><button class="osi-secondary-action" type="button" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Unlock workspace</button></div>');
     var queueHost=document.getElementById('osi-analyst-ops');if(queueHost)queueHost.innerHTML=empty('Application queue locked','Restore the bounded double-gated private session to continue.');
   }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('analyst',clearPrivateAnalystCache);

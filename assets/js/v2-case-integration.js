@@ -417,6 +417,22 @@
     var code=String(error&&error.message||'');
     return code==='read_failed'||/^request_failed(?:_|$)/.test(code)?'':userError(error);
   }
+  // A lane can be refused for a reason the server names with a code. Turn the
+  // known codes into the same plain sentences the rest of the queue uses, and
+  // fall back to the generic authorization sentence for anything unknown.
+  function laneReasonMessage(reason){
+    var code=String(reason||'');
+    if(!code)return t('This lane is not available to the current role.');
+    var known={
+      full_maintainer_required:t('Both maintainer gates are required for this lane. Connect the configured admin wallet and sign in from the Operations Center.'),
+      analyst_required:t('This lane requires an eligible server-derived analyst.'),
+      not_eligible_reviewer:t('This wallet is not an eligible V2 analyst and does not have full maintainer access.'),
+      analyst_writes_disabled:t('Analyst application review is safely disabled while rollout checks are incomplete.')
+    };
+    if(known[code])return known[code];
+    // An unmapped code is still a code. Show the neutral sentence instead.
+    return /^[a-z0-9_]+$/.test(code)?t('This lane is not available to the current role.'):code;
+  }
   function reviewTaskMarkup(task){
     return'<button class="osi-review-task" type="button" data-review-kind="'+esc(task.targetKind)+'" data-review-target="'+esc(task.exactTarget)+'" data-review-route="'+esc(task.routeTarget||task.exactTarget)+'" data-review-lane="'+esc(task.lane)+'" data-case-ref="'+esc(task.caseRef)+'"><div><span>'+esc(task.publicRef)+'</span>'+(task.exactTarget&&task.exactTarget!==task.publicRef?'<span>'+esc(task.exactTarget)+'</span>':'')+'<b>'+esc(t(task.nextAction))+'</b></div><dl>'
       +'<div><dt>'+esc(t('Stage'))+'</dt><dd>'+esc(t(label(task.stage)))+'</dd></div><div><dt>'+esc(t('Deadline'))+'</dt><dd>'+esc(task.deadline?dateText(task.deadline):t('No separate deadline'))+'</dd></div><div><dt>'+esc(t('Conflict'))+'</dt><dd class="'+(task.conflict?'warn':'ok')+'">'+esc(task.conflict?t('Excluded'):t('Clear'))+'</dd></div>'
@@ -588,7 +604,10 @@
     try{
       if(typeof window.osiAnalystLoadReviewTasks!=='function')throw new Error('Analyst application module unavailable');
       var result=await window.osiAnalystLoadReviewTasks();if(token!==state.reviewLoadToken)return;
-      if(result&&result.authorized===false){updateReviewLane('analyst_applications','unauthorized',[],result.reason||t('Full maintainer access is required for this lane.'));return;}
+      // result.reason is a machine code. Never print it: every other lane in
+      // this queue explains itself in a sentence, and a raw code reads as a
+      // crash rather than an authorization boundary.
+      if(result&&result.authorized===false){updateReviewLane('analyst_applications','unauthorized',[],laneReasonMessage(result.reason));return;}
       updateReviewLane('analyst_applications','success',applicationReviewTasks(result));
     }catch(error){if(token===state.reviewLoadToken)updateReviewLane('analyst_applications','error',[],reviewLaneError(error),String(error&&error.message||''));}
   }

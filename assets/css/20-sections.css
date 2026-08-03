@@ -36,7 +36,9 @@ body[data-view="records"] .sb-item[data-view="records"]{background:rgba(34,211,2
 .cr-card{position:relative;border:1px solid var(--line);border-radius:12px;background:linear-gradient(165deg,rgba(20,27,48,.55),rgba(12,16,29,.6));padding:16px;display:flex;flex-direction:column;gap:8px;cursor:default;transition:border-color .2s,transform .2s,box-shadow .2s}
 .cr-card:hover{border-color:var(--line-bright);transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.3)}
 .cr-cid{font-size:10px;letter-spacing:.08em;color:var(--ink-faint)}
-.cr-status{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:20px;border:1px solid var(--line-bright)}
+/* inline-flex keeps the pill one unbroken box: a plain inline span splits its
+   own border across lines when a two-word status wraps in a narrow column. */
+.cr-status{display:inline-flex;align-items:center;width:max-content;max-width:100%;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:20px;border:1px solid var(--line-bright)}
 .cr-sealed{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.07)}
 .cr-reviewed{color:var(--cyan);border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.06)}
 .cr-pending{color:var(--ink-faint)}
@@ -171,6 +173,15 @@ body[data-view="records"] #records-hero::before{content:"";position:absolute;ins
 #records-hero .cr-stats{grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:16px 0 18px}
 #records-hero .cr-stats .fo-op-n.cr-stat-na{font-size:15px;line-height:1.25;color:var(--ink-faint)}
 #records-hero .cr-toolbar{border:1px solid rgba(34,211,238,.14);border-radius:8px;background:rgba(7,12,22,.72);padding:9px;margin-top:0}
+/* Search, filters and sort never fit on one flex line in this column, so the
+   sort control used to wrap alone and leave the row half empty. Two declared
+   rows: the search field pairs with sort, the filter tabs take their own line. */
+@media(min-width:900px){
+  #records-hero .cr-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"search sort" "filters filters";gap:9px;align-items:center}
+  #records-hero .cr-toolbar .cr-search-wrap{grid-area:search;min-width:0}
+  #records-hero .cr-toolbar .cr-fils{grid-area:filters}
+  #records-hero .cr-toolbar .fo-sel{grid-area:sort;justify-self:end}
+}
 #records-hero #case-records{grid-template-columns:1fr;gap:10px;margin-top:14px}
 #records-hero .cr-card{display:grid;grid-template-columns:minmax(240px,1.3fr) minmax(330px,1.7fr) minmax(190px,.72fr);gap:16px;align-items:stretch;border-radius:8px;background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(6,11,21,.96));padding:16px;border-color:rgba(148,163,184,.16);box-shadow:none}
 #records-hero .cr-card:hover{transform:translateY(-1px);border-color:rgba(34,211,238,.32);box-shadow:none}

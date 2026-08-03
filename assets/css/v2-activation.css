@@ -63,6 +63,11 @@
 .osi-expertise-list span,.osi-tag-list span{padding:4px 7px;border:1px solid var(--osi-border);border-radius:999px;background:rgba(153,69,255,.06);font:500 10px 'JetBrains Mono',monospace;color:#c9b7ff}
 .osi-expertise-list em{font-size:11px;color:var(--ink-faint);font-style:normal}
 .osi-weight{color:var(--sol);font-weight:700}
+/* Weight and Proof are right-aligned in the header row, so their values follow
+   the same edge. A numeric column that does not line up with its own label
+   reads as a rendering fault. */
+#analysts .osi-analyst-row>*:nth-child(5),
+#analysts .osi-analyst-row>*:nth-child(6){text-align:right}
 .osi-activation-loading,.osi-activation-empty{padding:26px 18px;color:var(--ink-dim);text-align:center}
 .osi-activation-loading{font:500 11px 'JetBrains Mono',monospace}
 .osi-activation-empty{display:flex;flex-direction:column;align-items:center;gap:6px;border:1px dashed var(--osi-border-strong);border-radius:var(--osi-radius-md)}
@@ -101,6 +106,7 @@
 .osi-workspace-tabs button{white-space:nowrap;padding:9px 12px;border:1px solid transparent;border-radius:var(--osi-radius-sm);background:transparent;color:var(--ink-dim);font:600 10px 'JetBrains Mono',monospace;cursor:pointer}
 .osi-workspace-tabs button:hover,.osi-workspace-tabs button.active{color:var(--cyan);border-color:rgba(34,211,238,.28);background:rgba(34,211,238,.06)}
 .osi-analyst-workspace>main{padding-top:20px}
+.osi-workspace-recover{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:16px}
 .osi-workspace-profile,.osi-application-card{display:flex;flex-direction:column;gap:18px;padding:20px;border:1px solid var(--osi-border);border-radius:var(--osi-radius-lg);background:var(--osi-surface-1);box-shadow:var(--osi-shadow)}
 .osi-application-card+ .osi-application-card{margin-top:16px}
 .osi-application-card>header,.osi-version-card>header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
@@ -125,6 +131,10 @@
 .osi-analyst-form .lead{font-size:12px;line-height:1.65;color:var(--ink-dim)}
 .osi-analyst-form>label,.osi-form-grid label{display:flex;flex-direction:column;gap:7px}
 .osi-analyst-form label>span,.osi-expertise legend{font:600 10px 'JetBrains Mono',monospace;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.07em}
+/* The safety consent is a sentence the applicant has to read, not a field
+   label. The uppercase mono field-label face was leaking onto it and made it
+   render unlike the identical consent on the Report and Wire forms. */
+.osi-analyst-form .osi-report-safety>span{font:400 12px/1.6 'Archivo',sans-serif;color:var(--ink);text-transform:none;letter-spacing:normal}
 .osi-analyst-form input:not([type=checkbox]),.osi-analyst-form textarea,.osi-ops-decision select{width:100%;border:1px solid var(--osi-border-strong);border-radius:var(--osi-radius-sm);background:#070c16;color:var(--ink);padding:11px 12px;font:400 12px/1.5 'Archivo',sans-serif}
 .osi-analyst-form textarea{min-height:92px;resize:vertical}
 .osi-analyst-form input[type=file]{padding:10px;border:1px dashed var(--osi-border-strong);border-radius:var(--osi-radius-sm);background:rgba(255,255,255,.015);color:var(--ink-dim)}
