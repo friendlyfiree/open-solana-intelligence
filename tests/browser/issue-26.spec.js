@@ -2843,6 +2843,67 @@ test('the Case drawer marks its tab strip when the tabs overflow', async ({ page
   expectCleanRuntime(page);
 });
 
+// Every failing SAS state renders as a bordered chip. The verified state is the
+// only one that is also a link to the explanation, so it used to inherit the
+// plain underlined link treatment: the single state meaning "review authority
+// is verified on chain" was the one that read as a broken link.
+test('the verified SAS badge reads as a badge, not as a bare underlined link', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const badge = page.locator('#ap-modal-body [data-sas-badge="verified"]');
+  await expect(badge).toBeVisible();
+  const shape = await badge.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return {
+      underlined: style.textDecorationLine.includes('underline'),
+      borderWidth: parseFloat(style.borderTopWidth),
+      horizontalPadding: parseFloat(style.paddingLeft) + parseFloat(style.paddingRight),
+      transparentBackground: style.backgroundColor === 'rgba(0, 0, 0, 0)' || style.backgroundColor === 'transparent',
+      startsWithSpace: /^\s/.test(node.textContent),
+    };
+  });
+  expect(shape.underlined).toBe(false);
+  expect(shape.borderWidth).toBeGreaterThan(0);
+  expect(shape.horizontalPadding).toBeGreaterThan(0);
+  expect(shape.transparentBackground).toBe(false);
+  expect(shape.startsWithSpace).toBe(false);
+  expectCleanRuntime(page);
+});
+
+// The footer's standing boundary notice used the class name `warn`, which is
+// also the state modifier several components use for an amber variant. Every
+// one of those inherited a block notice's margin, border, padding and
+// background, which is why the Open Challenges stat sat 22px below the four
+// cards beside it.
+test('an amber state modifier never inherits the boundary notice block', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.osiNavigate('records'));
+  await expect(page.locator('#records-hero')).toBeVisible();
+  const strip = page.locator('#cr-stats');
+  await expect(strip).toBeVisible();
+  const tops = await strip.evaluate((host) => Array.from(host.children).map((card) => {
+    const badge = card.firstElementChild.getBoundingClientRect();
+    return Math.round(badge.top - card.getBoundingClientRect().top);
+  }));
+  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(1);
+
+  const amber = await page.locator('#cr-stats .fo-op-ic.warn').evaluate((node) => {
+    const style = getComputedStyle(node);
+    return { marginTop: parseFloat(style.marginTop), borderRadius: style.borderTopLeftRadius };
+  });
+  expect(amber.marginTop).toBe(0);
+
+  // The notice itself keeps its own block treatment under its own name.
+  const notice = await page.locator('footer .disclaimer').first().evaluate((node) => {
+    const style = getComputedStyle(node);
+    return { marginTop: parseFloat(style.marginTop), borderWidth: parseFloat(style.borderTopWidth) };
+  });
+  expect(notice.marginTop).toBeGreaterThan(0);
+  expect(notice.borderWidth).toBeGreaterThan(0);
+  expectCleanRuntime(page);
+});
+
 test('mobile, reduced motion and 200 percent reflow preserve access without overflow', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page, { writesEnabled: false });

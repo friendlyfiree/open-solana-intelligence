@@ -119,6 +119,13 @@
 .osi-evidence-ref{font-family:'JetBrains Mono',monospace;overflow-wrap:anywhere;margin-top:6px}
 .osi-proof-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sol);text-transform:uppercase}
 .osi-proof-label.legacy{color:var(--ink-faint)}
+/* Every failing SAS state renders as a bordered chip, but the verified state
+   is the one that is also a link to the explanation, so it was inheriting the
+   plain underlined link treatment. The single state that means "review
+   authority is verified on chain" was the one that read as a broken link.
+   Give it the same chip shape the other states already have. */
+a.osi-proof-label[data-sas-badge]{display:inline-flex;align-items:center;min-height:24px;max-width:100%;border:1px solid rgba(20,241,149,.35);background:rgba(20,241,149,.06);padding:3px 8px;text-decoration:none;overflow-wrap:anywhere}
+a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-visible{border-color:rgba(20,241,149,.6);background:rgba(20,241,149,.12)}
 .osi-proof-link{color:var(--acc);font-size:12px;text-decoration:none}
 .osi-proof-link:hover{text-decoration:underline}
 .osi-proof-key{display:grid;gap:9px;min-width:0}

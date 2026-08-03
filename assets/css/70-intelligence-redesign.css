@@ -2203,12 +2203,12 @@ footer > .wrap {
 }
 
 .osi-global-footer p,
-.osi-global-footer .warn {
+.osi-global-footer .disclaimer {
   max-width: 72ch;
   color: var(--ink-faint);
 }
 
-.osi-global-footer .warn {
+.osi-global-footer .disclaimer {
   border-color: var(--line) !important;
   background: var(--bg-raised) !important;
 }

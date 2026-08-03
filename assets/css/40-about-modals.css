@@ -86,7 +86,7 @@
 body[data-view="methodology"] footer{margin-top:18px;padding:16px 0 22px;background:linear-gradient(180deg,rgba(4,7,14,.2),rgba(4,7,14,.74));border-top:1px solid rgba(148,163,184,.12)}
 body[data-view="methodology"] footer .foot{align-items:center;gap:14px}
 body[data-view="methodology"] footer .foot .brand{margin-bottom:0;font-size:11px;letter-spacing:.16em;color:var(--ink-dim)}
-body[data-view="methodology"] footer .foot p,body[data-view="methodology"] footer .warn{display:none}
+body[data-view="methodology"] footer .foot p,body[data-view="methodology"] footer .disclaimer{display:none}
 body[data-view="methodology"] footer .foot .links{flex-direction:row;align-items:center;gap:8px 14px}
 body[data-view="methodology"] footer .foot .links a{font-size:11px;color:var(--ink-faint)}
 @media(max-width:1180px){#about-hero .abt-shell{grid-template-columns:1fr}#about-hero .abt-aside{position:relative;top:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-hero{grid-template-columns:minmax(0,1fr) 250px}#about-hero .abt-flow{grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-flow::before{display:none}#about-hero .abt-rules{grid-template-columns:repeat(2,minmax(0,1fr))}}

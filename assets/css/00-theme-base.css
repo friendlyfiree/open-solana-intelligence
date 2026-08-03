@@ -319,8 +319,14 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
 .foot .links{display:flex;flex-direction:column;gap:9px}
 .foot .links a{color:var(--ink-dim);text-decoration:none;font-size:13px;transition:color .15s}
 .foot .links a:hover{color:var(--sol)}
-.warn{margin-top:22px;font-size:11px;color:var(--ink-faint);border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--bg-raised);line-height:1.6}
-.warn b{color:var(--ink-dim)}
+/* The standing boundary notice in the footer and the custody panel. It was
+   called .warn, which is also the state modifier several components use
+   (.fo-op-ic.warn, .fo-op-n.warn, .cr-meta-v.warn, .osi-review-task dd.warn),
+   so every one of those inherited a block notice's margin, border, padding and
+   background. That is why the Open Challenges stat sat 22px below the four
+   cards beside it. */
+.disclaimer{margin-top:22px;font-size:11px;color:var(--ink-faint);border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--bg-raised);line-height:1.6}
+.disclaimer b{color:var(--ink-dim)}
 
 @media(max-width:780px){
   .stats{grid-template-columns:repeat(2,1fr)}
