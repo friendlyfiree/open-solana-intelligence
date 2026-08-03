@@ -315,7 +315,7 @@ function plTimelineCard(ev){
   var sig=proof.tx_sig||proof.legacy_tx_sig||'';
   var wallet = ev.actor_wallet ? String(ev.actor_wallet) : '';
   var walletCell = wallet
-    ? '<span title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span>'+plSasSlot(ev)+'<button class="plc-copy" type="button" title="Copy wallet" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'
+    ? '<span class="plc-wallet-id" title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'+plSasSlot(ev)
     : '<span>Wallet unavailable</span>';
   var label = plCleanLabel(ev);
   var when = plFullDate(ev.created_at);

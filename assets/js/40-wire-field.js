@@ -129,7 +129,9 @@ function wireStats(list){
   const published = list.filter(function(d){ return d.native; }).length;
   const legacy = total - published;
   host.innerHTML =
-      '<div class="wire-op"><div class="wire-op-n cy">'+total+'</div><div class="wire-op-l">Dispatches</div></div>'
+      // The lead count is not an alert. It reads in the same ink as the two
+      // beside it, so an empty wire is not coloured like a problem.
+      '<div class="wire-op"><div class="wire-op-n">'+total+'</div><div class="wire-op-l">Dispatches</div></div>'
     + '<div class="wire-op"><div class="wire-op-n">'+published+'</div><div class="wire-op-l">Reviewed publications</div></div>'
     + '<div class="wire-op"><div class="wire-op-n">'+legacy+'</div><div class="wire-op-l">Legacy references</div></div>';
 }

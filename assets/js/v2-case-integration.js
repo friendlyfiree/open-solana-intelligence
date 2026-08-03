@@ -965,6 +965,13 @@
     restoreFocus(state.drawerReturnFocus);
     state.drawerReturnFocus=null;
   }
+  // Marks the tab strip when it genuinely scrolls, so the trailing fade that
+  // signals "there are more tabs" appears only when there are.
+  function syncTabOverflow(host){
+    host=host||document.getElementById('osi-case-tabs');
+    if(!host)return;
+    host.setAttribute('data-osi-overflow',host.scrollWidth>host.clientWidth+1?'true':'false');
+  }
   function drawTabs(){
     var host=document.getElementById('osi-case-tabs');
     var rows=visibleTabs();
@@ -976,6 +983,7 @@
         '" tabindex="'+(active?'0':'-1')+'" data-tab="'+tab[0]+'">'+esc(tab[1])+'</button>';
     }).join('');
     var selected=host.querySelector('[aria-selected="true"]');if(selected&&typeof selected.scrollIntoView==='function')selected.scrollIntoView({block:'nearest',inline:'nearest'});
+    syncTabOverflow(host);
     Array.prototype.forEach.call(host.querySelectorAll('[data-tab]'),function(button){
       button.addEventListener('click',function(){state.tab=button.dataset.tab;drawTabs();renderTab();});
       button.addEventListener('keydown',function(event){
@@ -2002,6 +2010,7 @@
     return String(state.current&&state.current.public_ref||document.getElementById('osi-case-ref').textContent||'');
   };
   window.osiV2ShowTab=function(tab){state.tab=tab;drawTabs();renderTab();};
+  window.addEventListener('resize',function(){syncTabOverflow();});
   window.osiV2ComposeReview=composeReview;
   window.osiV2AnchorOpen=anchorOpen;
   window.osiV2AnchorCaseRejection=anchorCaseRejection;
