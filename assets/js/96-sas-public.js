@@ -79,7 +79,10 @@
       badge=doc.createElement('a');
       badge.className='osi-proof-label';
       badge.href='#sas-verifier';
-      badge.textContent='\u00a0'+tr('SAS verified')+' \u00b7 '+checkedText(result);
+      // The badge carries its own padding now, so the old leading space that
+      // separated a bare inline label from the wallet beside it would only
+      // push the text off centre inside the chip.
+      badge.textContent=tr('SAS verified')+' \u00b7 '+checkedText(result);
       badge.setAttribute('data-sas-badge','verified');
       badge.setAttribute('aria-label',tr('SAS analyst review authority verified. Last checked {checked}. Read the Solana Attestation Service explanation.',{checked:checkedText(result)}));
       badge.addEventListener('click',function(event){

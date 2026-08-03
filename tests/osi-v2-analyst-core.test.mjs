@@ -205,4 +205,51 @@ ok(edge.includes('SUPPORT_PAYMENT_CONFIRMED') && edge.includes('recipient_amount
 ok(/create table public\.analyst_profiles[\s\S]*wallet text primary key[\s\S]*handle text[\s\S]*check \(handle is null/i.test(schema),
 "database keeps the wallet as canonical identity and permits an omitted public handle");
 
+// Public contributions derived from receipts when the stored table is silent.
+const otherWallet = "11111111111111111111111111111112";
+const contributionReceipts = [
+  { event_type: "CASE_SUBMITTED", target_type: "case", public_ref: "OSI-BFD6490F5270", actor_wallet: wallet, server_verified: true, occurred_at: "2026-07-26T13:30:08Z" },
+  { event_type: "WIRE_REPORT_REVIEW_CAST", target_type: "wire_version", public_ref: "OSI-WV-FB0E72AC4878", actor_wallet: wallet, server_verified: true, occurred_at: "2026-07-26T20:37:47Z" },
+  { event_type: "WIRE_REPORT_REVIEW_REVISED", target_type: "wire_version", public_ref: "OSI-WV-FB0E72AC4878", actor_wallet: wallet, server_verified: true, occurred_at: "2026-07-27T16:31:21Z" },
+  { event_type: "CASE_INITIAL_REVIEW_CAST", target_type: "case", public_ref: "OSI-00CB089E5105", actor_wallet: wallet, server_verified: true, occurred_at: "2026-07-29T13:07:51Z" },
+  { event_type: "REPORT_PUBLISHED", target_type: "report_version", public_ref: "OSI-RV-7998E263D19C", actor_wallet: wallet, server_verified: true, occurred_at: "2026-08-01T09:02:46Z" },
+  { event_type: "SUPPORT_PAYMENT_CONFIRMED", target_type: "support", public_ref: "OSI-SUP-0001", actor_wallet: wallet, server_verified: true, occurred_at: "2026-08-03T05:55:16Z" },
+  { event_type: "CASE_REPORT_REVIEW_CAST", target_type: "report_version", public_ref: "OSI-RV-0000000000", actor_wallet: otherWallet, server_verified: true, occurred_at: "2026-08-02T00:00:00Z" },
+  { event_type: "CHALLENGE_SUBMITTED", target_type: "challenge", public_ref: "", actor_wallet: wallet, server_verified: true, occurred_at: "2026-08-02T10:00:00Z" },
+];
+const derived = core.deriveAnalystContributions(wallet, contributionReceipts);
+ok(derived.length === 3, "derived contributions cover exactly the analyst's own referenced public work");
+ok(derived.map((row) => row.kind).join(",") === "case_initial_review,wire_report_review,case_submitted",
+"derived contributions are ordered newest first");
+ok(derived.filter((row) => row.kind === "wire_report_review").length === 1
+  && derived.find((row) => row.kind === "wire_report_review").created_at === "2026-07-27T16:31:21Z",
+"a revised review collapses onto its subject instead of counting twice");
+ok(!derived.some((row) => row.kind === "report_published" || row.subject_type === "support"),
+"operator publication and money transfers are never counted as analyst contributions");
+ok(!derived.some((row) => row.subject_id === "OSI-RV-0000000000"),
+"another wallet's review is never attributed to this analyst");
+ok(!derived.some((row) => row.subject_type === "challenge"),
+"work with no public reference is omitted rather than published unlookupable");
+ok(derived.every((row) => /^OSI-/.test(row.subject_id)),
+"derived contributions publish the reader-facing reference, never an internal id");
+
+const derivedDto = core.publicAnalystDto({
+  wallet, handle: "chain_sleuth", display_name: "Chain Sleuth", bio: "Public bio",
+  expertise_public: [], links_public: [], status: "verified_analyst", tier_code: "verified", weight_cached: 1,
+}, [], contributionReceipts);
+ok(derivedDto.contributions.length === 3, "an analyst with no stored contribution rows still publishes their real public work");
+const storedDto = core.publicAnalystDto({
+  wallet, handle: "chain_sleuth", display_name: "Chain Sleuth", bio: "Public bio",
+  expertise_public: [], links_public: [], status: "verified_analyst", tier_code: "verified", weight_cached: 1,
+}, [{ kind: "case_report_review", subject_type: "report_version", subject_id: "OSI-RV-STORED00000", created_at: "2026-07-01T00:00:00Z" }], contributionReceipts);
+ok(storedDto.contributions.length === 1 && storedDto.contributions[0].subject_id === "OSI-RV-STORED00000",
+"the stored contribution table stays authoritative wherever it has rows");
+ok(edge.includes("target_type,public_ref,actor_wallet"),
+"the analyst gateway reads the subject reference its public contributions are derived from");
+// A typo in the map would silently drop a whole class of contribution forever,
+// so every key has to be an event the registry actually issues.
+const { osi2EventClass } = await import("../supabase/functions/_shared/osi-v2-event-registry.mjs");
+ok(Object.keys(core.ANALYST_CONTRIBUTION_KINDS).every((event) => osi2EventClass(event) !== null),
+"every contribution event is a registered OSI2 event type");
+
 console.log("1.." + count);

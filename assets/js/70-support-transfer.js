@@ -23,7 +23,12 @@ function tipHandleKeydown(event){
   var modal=document.getElementById('tip-modal');
   if(!modal || !modal.classList.contains('open')) return;
   if(event.key === 'Escape'){
+    // The support dialog is the topmost layer. The drawers underneath it also
+    // close on Escape, so the event has to stop here, or backing out of a
+    // transfer also closes the record that transfer was for.
     event.preventDefault();
+    event.stopPropagation();
+    if(typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
     closeTip();
     return;
   }
@@ -39,7 +44,9 @@ function tipHandleKeydown(event){
   if(event.shiftKey && (document.activeElement===first || activeIndex===-1)){ event.preventDefault(); last.focus(); }
   else if(!event.shiftKey && (document.activeElement===last || activeIndex===-1)){ event.preventDefault(); first.focus(); }
 }
-document.addEventListener('keydown', tipHandleKeydown);
+// Capture, so this runs ahead of the drawer and modal handlers that other
+// modules bind to document in bubble order.
+document.addEventListener('keydown', tipHandleKeydown, true);
 
 // Safe SOL -> lamports. Numeric, positive, within the UI max, and no more than 9
 // decimals (SOL precision). Integer lamports are composed from the decimal

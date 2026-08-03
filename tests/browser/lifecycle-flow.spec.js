@@ -1049,6 +1049,50 @@ test('supporting a Report author never shows a version reference as a payable ad
   expectClean(page);
 });
 
+// The amount picker used to be raised at a lower z-index than the Case drawer
+// it was opened from, so asking for a transfer painted the dialog *behind* the
+// drawer: the person saw the page dim and nothing else. Ask the browser what is
+// actually on top rather than trusting the declared z-index, because the answer
+// depends on the whole stacking context chain, not on one number.
+test('the amount picker raised from the Case drawer renders on top of it', async ({ page }) => {
+  const backend = createBackend().seedPublishedReport();
+  await boot(page, backend, { wallet: OWNER });
+
+  await openCaseDrawer(page);
+  await showTab(page, 'reports');
+  await page.locator(`[data-report-version-public-ref="${VERSION_REF}"]`).getByRole('button', { name: 'Support author with SOL' }).click();
+  await expect(page.locator('#sol-ask')).toHaveClass(/open/);
+
+  const covering = await page.evaluate(() => {
+    const card = document.querySelector('#sol-ask .sol-ask-card');
+    const rect = card.getBoundingClientRect();
+    const probes = [
+      [rect.left + rect.width / 2, rect.top + 12],
+      [rect.left + rect.width / 2, rect.top + rect.height / 2],
+      [rect.left + 12, rect.bottom - 12],
+    ];
+    return probes
+      .map(([x, y]) => document.elementFromPoint(x, y))
+      .filter((node) => !node || !card.contains(node))
+      .map((node) => (node ? node.id || node.className || node.tagName : 'nothing'));
+  });
+  expect(covering).toEqual([]);
+
+  // Focus does not always stay inside the dialog: the surface underneath can
+  // re-render and take it back. A modal that answers Escape only while focus
+  // happens to be inside it is one a person can get stuck in, so drop focus
+  // first and require the dialog to answer anyway.
+  await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
+  // Backing out of the amount must not also close the record behind it. Both
+  // surfaces listen for Escape, so the picker has to stop the event.
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#sol-ask')).not.toHaveClass(/open/);
+  await expect(page.locator('#osi-case-drawer')).toBeVisible();
+  await expect(page.locator('#osi-case-ref')).toHaveText(CASE_REF);
+
+  expectClean(page);
+});
+
 // Each leg of this journey acts as a different wallet. Reusing one page would
 // carry that leg's read session, drafts and accumulated init scripts into the
 // next, so every leg gets its own context. The backend state machine is the

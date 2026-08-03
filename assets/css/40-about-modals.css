@@ -86,7 +86,7 @@
 body[data-view="methodology"] footer{margin-top:18px;padding:16px 0 22px;background:linear-gradient(180deg,rgba(4,7,14,.2),rgba(4,7,14,.74));border-top:1px solid rgba(148,163,184,.12)}
 body[data-view="methodology"] footer .foot{align-items:center;gap:14px}
 body[data-view="methodology"] footer .foot .brand{margin-bottom:0;font-size:11px;letter-spacing:.16em;color:var(--ink-dim)}
-body[data-view="methodology"] footer .foot p,body[data-view="methodology"] footer .warn{display:none}
+body[data-view="methodology"] footer .foot p,body[data-view="methodology"] footer .disclaimer{display:none}
 body[data-view="methodology"] footer .foot .links{flex-direction:row;align-items:center;gap:8px 14px}
 body[data-view="methodology"] footer .foot .links a{font-size:11px;color:var(--ink-faint)}
 @media(max-width:1180px){#about-hero .abt-shell{grid-template-columns:1fr}#about-hero .abt-aside{position:relative;top:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-hero{grid-template-columns:minmax(0,1fr) 250px}#about-hero .abt-flow{grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-flow::before{display:none}#about-hero .abt-rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -205,7 +205,7 @@ body[data-view="methodology"] footer .foot .links a{font-size:11px;color:var(--i
 @media (prefers-reduced-motion: reduce){.rec-hero::after{animation:none}.rec-ey i{animation:none}}
 /* ==@osi-src: index.html <style> block #29 (style-block-29) */
 
-.tip-modal{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(4,6,12,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:20px}
+.tip-modal{position:fixed;inset:0;z-index:var(--z-payment);display:none;align-items:center;justify-content:center;background:rgba(4,6,12,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:20px}
 .tip-modal.open{display:flex}
 .tip-card{position:relative;width:min(420px,100%);background:var(--bg-card);border:1px solid var(--line-bright);border-top:2px solid var(--sol);padding:26px;box-shadow:0 30px 80px -20px #000}
 .tip-x{position:absolute;top:12px;right:14px;background:transparent;border:0;color:var(--ink-faint);font-size:22px;cursor:pointer;line-height:1}
@@ -242,7 +242,7 @@ body[data-view="methodology"] footer .foot .links a{font-size:11px;color:var(--i
 /* Amount picker for server-prepared V2 transfers. Same visual language as the
    support dialog, but its own class names: the tip flow queries `.tip-amt`
    globally, so sharing those would make one dialog silently drive the other. */
-.sol-ask{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(3,4,7,.72);backdrop-filter:blur(3px)}
+.sol-ask{position:fixed;inset:0;z-index:var(--z-payment);display:none;align-items:center;justify-content:center;padding:20px;background:rgba(3,4,7,.72);backdrop-filter:blur(3px)}
 .sol-ask.open{display:flex}
 .sol-ask-card{position:relative;width:100%;max-width:396px;max-height:calc(100vh - 40px);overflow-y:auto;background:var(--surface,#0f1218);border:1px solid var(--line);border-radius:6px;padding:26px 24px 22px;box-shadow:0 26px 60px rgba(3,4,7,.6)}
 .sol-ask-card:focus{outline:none}

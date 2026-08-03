@@ -727,8 +727,11 @@ async function profileGraph(profiles: Row[]) {
     admin.from("analyst_contributions")
       .select("analyst_wallet,kind,subject_type,subject_id,created_at")
       .in("analyst_wallet", wallets).order("created_at", { ascending: false }).limit(300),
+    // target_type and public_ref carry the subject of the analyst's own work.
+    // public_ref is the reader-facing reference (OSI-...), never an internal
+    // id, so it is safe to publish and is what a reader can actually look up.
     admin.from("event_receipts")
-      .select("event_type,actor_wallet,actor_role,decision,proof_type,tx_sig,server_verified,occurred_at")
+      .select("event_type,target_type,public_ref,actor_wallet,actor_role,decision,proof_type,tx_sig,server_verified,occurred_at")
       .in("actor_wallet", wallets).eq("server_verified", true)
       .order("occurred_at", { ascending: false }).limit(500),
     admin.from("event_receipts")

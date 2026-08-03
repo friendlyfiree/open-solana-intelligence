@@ -1,6 +1,17 @@
 /* ==@osi-src: index.html <style> block #1 (style-block-1) */
 
 :root{
+  /* One stacking scale for everything that floats. Every dialog used to pick
+     its own number, which is why the amount picker opened underneath the Case
+     drawer and every form opened underneath the fixed header. The order is:
+     page chrome, then surfaces that cover the page, then dialogs raised on top
+     of those surfaces, then the payment surfaces, which must never be covered
+     because a person is about to approve a transfer against what they read. */
+  --z-chrome:2100;
+  --z-drawer:4000;
+  --z-modal:4400;
+  --z-payment:5200;
+  --z-guard:9600;
   --bg:#080b14;
   --bg-raised:#0e1320;
   --bg-card:#11172a;
@@ -108,7 +119,7 @@ body{
 .btn-apply:hover{background:#9945ff;color:#fff;border-color:#9945ff}
 .btn-apply:disabled,.btn-stake:disabled{cursor:default;opacity:1}
 /* apply modal + published reports */
-.modal-overlay{position:fixed;inset:0;background:rgba(4,7,16,.8);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:3000;padding:20px}
+.modal-overlay{position:fixed;inset:0;background:rgba(4,7,16,.8);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:var(--z-modal);padding:20px}
 .modal-overlay.open{display:flex}
 .modal{background:var(--bg-card);border:1px solid var(--line-bright);border-radius:14px;max-width:540px;width:100%;padding:26px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,.65)}
 .modal-x{position:absolute;top:11px;right:15px;background:none;border:none;color:var(--ink-dim);font-size:25px;cursor:pointer;line-height:1;padding:0}
@@ -308,8 +319,14 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
 .foot .links{display:flex;flex-direction:column;gap:9px}
 .foot .links a{color:var(--ink-dim);text-decoration:none;font-size:13px;transition:color .15s}
 .foot .links a:hover{color:var(--sol)}
-.warn{margin-top:22px;font-size:11px;color:var(--ink-faint);border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--bg-raised);line-height:1.6}
-.warn b{color:var(--ink-dim)}
+/* The standing boundary notice in the footer and the custody panel. It was
+   called .warn, which is also the state modifier several components use
+   (.fo-op-ic.warn, .fo-op-n.warn, .cr-meta-v.warn, .osi-review-task dd.warn),
+   so every one of those inherited a block notice's margin, border, padding and
+   background. That is why the Open Challenges stat sat 22px below the four
+   cards beside it. */
+.disclaimer{margin-top:22px;font-size:11px;color:var(--ink-faint);border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:var(--bg-raised);line-height:1.6}
+.disclaimer b{color:var(--ink-dim)}
 
 @media(max-width:780px){
   .stats{grid-template-columns:repeat(2,1fr)}
