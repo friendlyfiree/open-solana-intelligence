@@ -1737,7 +1737,20 @@
       }
       return result;
     }
-    clearPaymentState({forgetRecovery:true,wallet:pending.wallet});showToast((result.historical_reverification?t('Existing signature re-verified. ') : '')+t('Finalized direct SOL transfer verified. Receipt {receipt} is available in the Proof Log.',{receipt:result.receipt.id}));showPaymentReceipt(result.receipt);
+    // Paid means the server said paid and handed back a receipt. Any other
+    // answer keeps the recovery record: dropping it on an ambiguous response
+    // would remove the do-not-pay-twice warning and the re-verify control
+    // while the transfer is still unresolved.
+    if(result.paid!==true||!result.receipt||!result.receipt.id){
+      persistPaymentPending(pending);
+      paymentStatus('The server did not return a confirmed receipt for this signature. It is not marked paid. Re-verify the same signature and do not send a second payment.','warning');
+      return result;
+    }
+    clearPaymentState({forgetRecovery:true,wallet:pending.wallet});
+    showToast((result.historical_reverification?t('Existing signature re-verified. ') : '')+t('Finalized direct SOL transfer verified. Receipt {receipt} is available in the Proof Log.',{receipt:result.receipt.id}));
+    // An automatic background re-verification must not take over the screen.
+    // The receipt modal belongs to an action the person just took.
+    if(options.automatic!==true)showPaymentReceipt(result.receipt);
     if(pending.restored_from_storage!==true){
       if(pending.caseRef)await reloadPaymentCase(pending.caseRef);
       else if(pending.wireVersionRef&&typeof window.osiV2OpenWireReport==='function')await window.osiV2OpenWireReport(pending.wireVersionRef);

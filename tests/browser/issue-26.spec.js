@@ -2042,7 +2042,7 @@ test('expired private Report lane remains an error until explicit scoped recover
   expectCleanRuntime(page);
 });
 
-test('first analyst profile click opens an honest loading modal and reuses the cold in-flight request', async ({ page }) => {
+test('one shared analyst directory read serves the home panel and the profile modal', async ({ page }) => {
   test.setTimeout(120_000);
   await ready(page, {
     role: 'ordinary_wallet',
@@ -2052,13 +2052,38 @@ test('first analyst profile click opens an honest loading modal and reuses the c
   });
   const profileButton = page.locator('#home-analyst-list').getByRole('button', { name: 'View profile' }).first();
   await expect(profileButton).toBeVisible();
-  await profileButton.click();
-  await expect(page.locator('#ap-modal')).toHaveClass(/\bopen\b/);
-  await expect(page.locator('#ap-modal-body')).toHaveAttribute('aria-busy', 'true');
-  await expect(page.locator('#ap-modal-body')).toContainText('Loading the selected analyst profile');
-  await expect(page.locator('#ap-modal-body')).toContainText('Public analyst fixture', { timeout: 10_000 });
+  // The home panel already read the shared public directory, so opening a
+  // profile renders it in the same frame. A loading flash here would be a
+  // regression, not a feature: the answer is already known.
+  const warmPaint = await page.evaluate((wallet) => {
+    window.openAnalystProfile(wallet);
+    const body = document.getElementById('ap-modal-body');
+    return {
+      open: document.getElementById('ap-modal').classList.contains('open'),
+      busy: body.getAttribute('aria-busy'),
+      text: body.textContent,
+    };
+  }, OTHER);
+  expect(warmPaint.open).toBe(true);
+  expect(warmPaint.busy).toBeNull();
+  expect(warmPaint.text).toContain('Public analyst fixture');
   await expect(page.locator('#ap-modal-body')).not.toContainText('@null');
-  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'list_public_profiles')).toBe(2);
+  // The home panel and the profile modal read the same public directory, so
+  // one page visit asks the gateway once rather than once per surface.
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'list_public_profiles')).toBe(1);
+
+  // A genuinely cold open still paints the honest loading state before it
+  // awaits anything, and it is read in the same frame rather than raced.
+  const coldPaint = await page.evaluate(() => {
+    window.osiPublicReadInvalidate();
+    window.openAnalystProfile('4kL7pQvS2mNbXcVzAeRtYuIoPaSdFgHjKlZxCvBnMqWe');
+    const body = document.getElementById('ap-modal-body');
+    return { busy: body.getAttribute('aria-busy'), text: body.textContent };
+  });
+  expect(coldPaint.busy).toBe('true');
+  expect(coldPaint.text).toContain('Loading the selected analyst profile');
+  await expect(page.locator('#ap-modal-body')).toContainText('Analyst profile unavailable', { timeout: 10_000 });
+  await expect.poll(() => fixtureOperationCount(page, 'osi-v2-analyst', 'list_public_profiles')).toBe(2);
   expectCleanRuntime(page);
 });
 
@@ -2323,8 +2348,14 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await page.evaluate(() => window.osiNavigate('records'));
   await expect(page.locator('#case-records')).toContainText(CASE_REF);
   await expect(page.locator('#case-records')).toContainText('Reviewed');
-  await expect(page.locator('#case-records')).toContainText('SOL transfer verified on Solana');
+  // A record's headline verification is the record's own lifecycle proof. The
+  // voluntary transfer is real and stays visible in the Case Proof Log and in
+  // Rewards & Support, but it never becomes the record's proof claim: it would
+  // otherwise outrank the confirmed Memo and point Verify on Solana at a tip.
   const publicRecordCard = page.locator(`[data-cid="${CASE_REF}"]`);
+  const publicRecordProof = publicRecordCard.locator('.cr-card-proof');
+  await expect(publicRecordProof).toContainText('Memo-anchored on Solana');
+  await expect(publicRecordProof).not.toContainText('SOL transfer verified on Solana');
   await expect(publicRecordCard).toHaveJSProperty('tagName', 'ARTICLE');
   await expect(publicRecordCard).not.toHaveAttribute('role', 'button');
   const publicRecordOpener = publicRecordCard.getByRole('button', { name: 'View Record' });
