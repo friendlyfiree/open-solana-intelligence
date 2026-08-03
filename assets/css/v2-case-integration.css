@@ -86,7 +86,18 @@
 .osi-chip.private{color:var(--amber);border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.06)}
 .osi-case-close{width:42px;height:42px;border:1px solid var(--line);background:var(--bg-raised);color:var(--ink-dim);cursor:pointer;font-size:16px}
 .osi-case-close:hover{color:var(--ink);border-color:var(--acc-line)}
-.osi-case-tabs{display:flex;gap:0;overflow-x:auto;padding:0 28px;border-bottom:1px solid var(--line);scrollbar-width:thin}
+/* Eight tabs do not fit the drawer at any realistic width, so the strip
+   scrolls. It used to scroll silently: the last tab was simply cut off at the
+   drawer edge with nothing to say more existed. The scrollbar is now always
+   visible when the strip overflows, which is the affordance the platform
+   already provides, and the strip keeps its existing keyboard path. */
+.osi-case-tabs{display:flex;gap:0;overflow-x:auto;padding:0 28px;border-bottom:1px solid var(--line);scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.55) transparent;-webkit-overflow-scrolling:touch}
+.osi-case-tabs::-webkit-scrollbar{height:6px}
+.osi-case-tabs::-webkit-scrollbar-thumb{background:rgba(148,163,184,.55);border-radius:3px}
+.osi-case-tabs::-webkit-scrollbar-track{background:transparent}
+/* Reserve the scrollbar gutter only when it is actually shown, so a strip that
+   fits is not padded for a bar that never appears. */
+.osi-case-tabs[data-osi-overflow="true"]{padding-bottom:6px}
 .osi-case-tab{flex:none;border:0;border-bottom:2px solid transparent;background:none;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;padding:15px 12px;cursor:pointer;white-space:nowrap}
 .osi-case-tab:hover{color:var(--ink-dim)}
 .osi-case-tab.active{color:var(--acc);border-bottom-color:var(--acc)}

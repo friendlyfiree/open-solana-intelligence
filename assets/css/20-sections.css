@@ -182,10 +182,14 @@ body[data-view="records"] #records-hero::before{content:"";position:absolute;ins
 #records-hero .cr-record-id{display:inline-flex;width:max-content;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);border:1px solid rgba(34,211,238,.25);background:rgba(34,211,238,.06);border-radius:6px;padding:5px 8px}
 #records-hero .cr-summary{font-size:12.5px;color:var(--ink-dim);line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 #records-hero .cr-wallet{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint)}
-#records-hero .cr-card-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-left:1px solid var(--line);border-right:1px solid var(--line)}
-#records-hero .cr-meta-cell{padding:0 14px;border-right:1px solid var(--line)}
-#records-hero .cr-meta-cell:last-child{border-right:0}
-#records-hero .cr-meta-k{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:rgba(148,163,184,.48);margin-bottom:7px}
+/* Four columns left roughly 53px of text width per cell, so "Public
+   investigation" ran into the neighbouring column and the Challenges heading
+   was clipped. Two columns give each cell about twice the room at the widths
+   this card actually gets. */
+#records-hero .cr-card-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 0;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+#records-hero .cr-meta-cell{padding:0 14px;border-right:1px solid var(--line);min-width:0}
+#records-hero .cr-meta-cell:nth-child(2n){border-right:0}
+#records-hero .cr-meta-k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(178,192,212,.78);margin-bottom:7px}
 #records-hero .cr-meta-v{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-bright)}
 #records-hero .cr-meta-v.warn{color:var(--amber)}
 #records-hero .cr-meta-v .na{font-size:11px;color:var(--ink-faint);line-height:1.45}
@@ -596,7 +600,11 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 #prooflog .plc.type-challenge .plc-dot{border-color:var(--amber);box-shadow:0 0 0 4px rgba(255,176,32,.08),0 0 16px rgba(255,176,32,.35)}
 #prooflog .plc-body{border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(11,18,32,.92),rgba(6,11,21,.96));padding:15px 16px;transition:border-color 120ms ease-out,background-color 120ms ease-out}
 #prooflog .plc-body:hover{border-color:rgba(34,211,238,.32)}
-#prooflog .plc-head{display:grid;grid-template-columns:142px minmax(0,1fr) auto;gap:14px;align-items:start}
+/* The tag column was a fixed 142px track sized for the old generic
+   OSI_SIGNED_ACTION label. Naming every receipt by its exact registry event
+   produced longer tags that pushed straight into the title, so the column now
+   sizes to its content and keeps a real gap. */
+#prooflog .plc-head{display:grid;grid-template-columns:max-content minmax(0,1fr) auto;gap:14px 16px;align-items:start}
 #prooflog .plc-badge{display:inline-flex;align-items:center;justify-content:center;min-height:30px;border:1px solid rgba(34,211,238,.28);border-radius:6px;background:rgba(34,211,238,.06);color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:0 10px;white-space:nowrap}
 #prooflog .plc.type-report .plc-badge,#prooflog .plc.type-review .plc-badge{border-color:rgba(139,92,246,.28);background:rgba(139,92,246,.07);color:#b9a2f7}
 #prooflog .plc.type-challenge .plc-badge{border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.08);color:var(--amber)}
@@ -609,12 +617,26 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 /* Flex rather than a fixed four-column grid: a receipt that carries a counted
    review weight renders one extra cell, and the transaction action still has
    to stay on the trailing edge at every width. */
-#prooflog .plc-grid{display:flex;flex-wrap:wrap;gap:12px 20px;border-top:1px solid var(--line);margin-top:14px;padding-top:13px;align-items:end}
-#prooflog .plc-grid>div{flex:1 1 150px;min-width:0}
-#prooflog .plc-grid>.plc-action{flex:0 0 auto;margin-left:auto}
+/* One shared basis so a receipt that carries a counted weight lines up with
+   one that does not: five cells and four cells sit on the same columns. */
+#prooflog .plc-grid{display:flex;flex-wrap:wrap;gap:14px 20px;border-top:1px solid var(--line);margin-top:14px;padding-top:13px;align-items:start}
+#prooflog .plc-grid>div{flex:1 1 168px;min-width:0;max-width:100%}
+/* The transaction cell flows as an ordinary cell rather than being pushed to
+   the trailing edge: pinning it right left a tall empty gap on any card whose
+   first row grew, for example when an analyst's SAS chip wrapped. */
+#prooflog .plc-grid>.plc-action{flex:1 1 190px}
 #prooflog .plc-channel{display:inline-block;margin-left:8px;vertical-align:middle;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(255,176,32,.34);background:rgba(255,176,32,.08);border-radius:5px;padding:2px 7px}
 #prooflog .plc-meta-k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(178,192,212,.78);margin-bottom:5px}
-#prooflog .plc-meta-v{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The proof claim is the whole point of this page, so it wraps rather than
+   ending in an ellipsis. Only the wallet and transaction values stay on one
+   line: their full string is on the copy control and the title attribute. */
+#prooflog .plc-meta-v{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);min-width:0;line-height:1.45;overflow-wrap:anywhere}
+#prooflog .plc-meta-v.mono-one-line{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The wallet cell carries a shortened address, a copy control and, for an
+   analyst, the SAS authority chip. They wrap onto their own line instead of
+   truncating the credential state. */
+#prooflog .plc-meta-v .plc-wallet-id{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+#prooflog .plc-meta-v [data-sas-wallet]{display:block;margin-top:6px}
 #prooflog .plc-meta-v.ok{color:var(--sol)}
 #prooflog .plc-copy{margin-left:6px;background:none;border:1px solid var(--line);border-radius:5px;color:rgba(148,163,184,.65);font-size:10px;padding:3px 6px;cursor:pointer;line-height:1;transition:border-color 120ms ease-out,color 120ms ease-out}
 #prooflog .plc-copy:hover{color:var(--cyan);border-color:rgba(34,211,238,.35)}
@@ -661,7 +683,7 @@ body[data-view="prooflog"] .sb-item[data-view="prooflog"]{background:rgba(34,211
 #prooflog .pl-disclaimer span{display:inline-flex;align-items:center;gap:8px}
 #prooflog .pl-disclaimer span::before{content:"";width:4px;height:4px;border-radius:50%;background:rgba(148,163,184,.48)}
 @media(max-width:1280px){#prooflog .pl-dash{grid-template-columns:repeat(4,minmax(0,1fr))}#prooflog .pl-console{grid-template-columns:1fr}#prooflog .pl-aside{position:relative;top:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:820px){#prooflog .pl-shell{padding:0 16px}#prooflog .pl-hero{grid-template-columns:1fr;padding:24px 18px}#prooflog .pl-hero-mark{display:none}#prooflog .pl-dash{grid-template-columns:repeat(2,minmax(0,1fr))}#prooflog .pl-aside{grid-template-columns:1fr}#prooflog .pl-toolbar{align-items:stretch;flex-direction:column}#prooflog .pl-search-wrap{min-width:0;flex:auto;width:100%}#prooflog .plc-head{grid-template-columns:1fr;gap:10px}#prooflog .plc-time{text-align:left}#prooflog .plc-grid>div{flex:1 1 45%}#prooflog .plc-grid>.plc-action{flex:1 1 100%;margin-left:0}}
+@media(max-width:820px){#prooflog .pl-shell{padding:0 16px}#prooflog .pl-hero{grid-template-columns:1fr;padding:24px 18px}#prooflog .pl-hero-mark{display:none}#prooflog .pl-dash{grid-template-columns:repeat(2,minmax(0,1fr))}#prooflog .pl-aside{grid-template-columns:1fr}#prooflog .pl-toolbar{align-items:stretch;flex-direction:column}#prooflog .pl-search-wrap{min-width:0;flex:auto;width:100%}#prooflog .plc-head{grid-template-columns:1fr;gap:10px}#prooflog .plc-time{text-align:left}#prooflog .plc-grid>div{flex:1 1 45%}#prooflog .plc-grid>.plc-action{flex:1 1 100%}}
 @media(max-width:520px){#prooflog .pl-dash{grid-template-columns:1fr}#prooflog .pl-timeline{padding-left:0}#prooflog .pl-timeline::before,#prooflog .plc-dot{display:none}#prooflog .plc-grid>div{flex:1 1 100%}#prooflog .pl-sc code{white-space:normal;overflow-wrap:anywhere;line-height:1.35}}
 /* ==@osi-src: index.html <style> block #19 (style-block-19) */
 

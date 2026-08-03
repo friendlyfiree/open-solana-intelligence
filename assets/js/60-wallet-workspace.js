@@ -523,7 +523,10 @@ function identitySidebar(m){
 }
 function identityConnectHtml(ctx){
   var maint = ctx && ctx.isMaintainer ? '<div class="identity-empty identity-gate-note">Maintainer session is active. Connect a wallet to view the wallet-linked passport.</div>' : '';
-  return identityHero() + '<div class="identity-connect-state"><div class="identity-connect-card"><div class="identity-kicker">Wallet Required</div><h2>Your Intelligence Passport</h2><p>Connect a wallet to view role status, signed actions, public records, and proof-of-work. This page is read-only.</p><button class="identity-connect" type="button" onclick="toggleWallet().then(function(){if(typeof renderIdentity===\'function\')renderIdentity();})">Connect Wallet</button>'+maint+'</div></div>';
+  // The hero above already says "Your Intelligence Passport". Repeating it in
+  // the card said the same thing twice on one screen and told the visitor
+  // nothing about what to do next.
+  return identityHero() + '<div class="identity-connect-state"><div class="identity-connect-card"><div class="identity-kicker">Wallet Required</div><h2>Connect a wallet to open your passport</h2><p>Your role status, signed actions, published records, and proof-of-work are read from the same public sources any visitor can read. This page is read-only and never asks for a signature.</p><button class="identity-connect" type="button" onclick="toggleWallet().then(function(){if(typeof renderIdentity===\'function\')renderIdentity();})">Connect Wallet</button>'+maint+'</div></div>';
 }
 // The same receipt can arrive through the Case projection, the Wire
 // projection and the analyst history. Only fields all three carry may take
@@ -690,7 +693,7 @@ async function renderIdentity(){
     host.innerHTML = identityConnectHtml(ctx);
     return;
   }
-  host.innerHTML = identityHero() + '<div class="identity-connect-state"><div class="identity-connect-card"><div class="identity-kicker">Loading</div><h2>Your Intelligence Passport</h2><p>Reading existing OSI profile, role, and proof-of-work data.</p></div></div>';
+  host.innerHTML = identityHero() + '<div class="identity-connect-state"><div class="identity-connect-card"><div class="identity-kicker">Loading</div><h2>Reading your public proof record</h2><p>Collecting this wallet\'s role, published records, and signed receipts from the public OSI projections.</p></div></div>';
   var model = await identityLoadModel(ctx);
   if(document.body && document.body.dataset && document.body.dataset.view === 'identity'){
     host.innerHTML = identityConnectedHtml(model);

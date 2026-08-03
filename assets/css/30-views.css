@@ -158,7 +158,8 @@ a.fd-ago:hover{color:var(--cyan)}
   linear-gradient(120deg,rgba(9,18,32,.96),rgba(9,18,32,.78) 54%,rgba(9,24,37,.62)),
   linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
   linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:auto,28px 28px,28px 28px;box-shadow:0 18px 54px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.035)}
-#field-view .fo-hero::before{content:"";position:absolute;right:22px;top:14px;width:230px;height:130px;border:1px solid rgba(34,211,238,.13);border-radius:50%;transform:rotate(-10deg);background:radial-gradient(circle at 70% 42%,rgba(34,211,238,.11),transparent 48%);opacity:.82}
+/* Same reason as the passport hero: keep the glow, drop the empty ring. */
+#field-view .fo-hero::before{content:"";position:absolute;right:22px;top:14px;width:230px;height:130px;border-radius:50%;transform:rotate(-10deg);background:radial-gradient(ellipse at 66% 44%,rgba(34,211,238,.13),rgba(34,211,238,.04) 46%,transparent 72%);opacity:.9}
 #field-view .fo-hero::after{content:"";display:block;position:absolute;inset:0;pointer-events:none;background:
   linear-gradient(115deg,transparent 0 58%,rgba(34,211,238,.07) 58.2%,transparent 58.6%),
   linear-gradient(145deg,transparent 0 70%,rgba(20,241,149,.055) 70.2%,transparent 70.55%),
@@ -658,7 +659,10 @@ body[data-view="identity"] section[data-view="identity"]{display:block}
 .identity-shell{border:1px solid rgba(34,211,238,.16);background:linear-gradient(145deg,rgba(8,14,25,.94),rgba(4,8,15,.97));box-shadow:0 18px 54px rgba(0,0,0,.34);overflow:hidden}
 .identity-hero{position:relative;min-height:152px;padding:26px 30px 0;border-bottom:1px solid var(--line);overflow:hidden}
 .identity-hero::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,9,20,.96),rgba(5,9,20,.72) 56%,rgba(5,9,20,.94)),radial-gradient(circle at 73% 40%,rgba(34,211,238,.14),transparent 27%),linear-gradient(rgba(34,211,238,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.032) 1px,transparent 1px);background-size:auto,auto,34px 34px,34px 34px;pointer-events:none}
-.identity-hero::after{content:"";position:absolute;right:76px;top:14px;width:192px;height:112px;border:1px solid rgba(34,211,238,.16);border-radius:50%;transform:rotate(-12deg);box-shadow:0 0 0 22px rgba(34,211,238,.016),0 0 0 44px rgba(20,241,149,.012),inset 0 0 34px rgba(34,211,238,.055);opacity:.72;pointer-events:none}
+/* A bare outlined oval reads as an image that failed to load. The decoration
+   keeps its place and its glow, without the hard ring that made it look like
+   an empty placeholder. */
+.identity-hero::after{content:"";position:absolute;right:76px;top:14px;width:192px;height:112px;border-radius:50%;transform:rotate(-12deg);background:radial-gradient(ellipse at 62% 44%,rgba(34,211,238,.11),rgba(20,241,149,.045) 46%,transparent 72%);opacity:.85;pointer-events:none}
 .identity-hero-main{position:relative;z-index:1;max-width:760px;padding-bottom:22px}
 .identity-kicker{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);text-transform:uppercase;letter-spacing:0;display:flex;align-items:center;gap:9px;margin-bottom:11px}
 .identity-kicker::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--sol);box-shadow:0 0 10px rgba(20,241,149,.72)}
@@ -743,7 +747,11 @@ body[data-view="identity"] section[data-view="identity"]{display:block}
 .identity-connect-card .identity-kicker{justify-content:center}
 .identity-connect-card h2{font-family:'Archivo',sans-serif;font-size:34px;letter-spacing:0;margin:0;color:var(--ink-bright)}
 .identity-connect-card p{color:var(--ink-dim);font-size:14px;line-height:1.65;margin:12px auto 22px;max-width:500px}
-.identity-connect{min-height:44px;border:1px solid var(--sol);background:var(--sol);color:#04130c;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:800;padding:11px 16px;cursor:pointer}
+/* Solana green is reserved for genuine chain proof. Connecting a wallet is an
+   ordinary primary action and takes the product's primary accent, like every
+   other one. */
+.identity-connect{min-height:44px;border:1px solid var(--acc);background:var(--acc);color:#12040a;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:800;padding:11px 16px;cursor:pointer;transition:filter 140ms ease-out}
+.identity-connect:hover{filter:brightness(1.08)}
 .identity-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .identity-readonly{color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.55}
 .identity-gate-note,.identity-section-note{margin-top:14px}

@@ -2764,6 +2764,82 @@ test('user identity, analyst workspace and Operations gate use one accessible pr
   expectCleanRuntime(page);
 });
 
+// Naming every receipt by its exact registry event made the tags longer than
+// the fixed column they used to sit in, and adding a counted-weight cell
+// squeezed the proof claim until it ended in an ellipsis. Both are geometry
+// regressions no text assertion can catch, so they are measured.
+test('the Proof Log states its proof claim in full and never collides tag with title', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.osiNavigate('prooflog'));
+  await expect(page.locator('#pl-body .plc').first()).toBeVisible();
+  for (const width of [1440, 1100, 900]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(150);
+    const faults = await page.evaluate(() => {
+      const bad = [];
+      document.querySelectorAll('#pl-body .plc-head').forEach((head) => {
+        const badge = head.querySelector('.plc-badge');
+        const title = head.querySelector('.plc-title');
+        if (!badge || !title) return;
+        const b = badge.getBoundingClientRect();
+        const t = title.getBoundingClientRect();
+        // Only a same-row collision counts; a stacked layout puts the title below.
+        if (t.top < b.bottom - 2 && t.left < b.right - 1) bad.push('collides:' + badge.textContent);
+      });
+      document.querySelectorAll('#pl-body .plc-meta-v').forEach((cell) => {
+        // The wallet value is deliberately shortened and carries a copy control.
+        if (cell.querySelector('.plc-wallet-id')) return;
+        if (cell.scrollWidth > cell.clientWidth + 1) bad.push('truncated:' + cell.innerText.trim().slice(0, 30));
+      });
+      return bad;
+    });
+    expect(faults, `proof log geometry at ${width}px`).toEqual([]);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  expectCleanRuntime(page);
+});
+
+// Every meta cell on a public record card used to need more width than it was
+// given, so the status ran into the neighbouring column and a heading clipped.
+test('public record cards fit their own meta cells', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.osiNavigate('records'));
+  await expect(page.locator('#case-records .cr-card').first()).toBeVisible();
+  for (const width of [1440, 1100, 900]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(150);
+    const overflowing = await page.evaluate(() => {
+      const bad = [];
+      document.querySelectorAll('#case-records .cr-card-meta > *').forEach((cell) => {
+        if (cell.scrollWidth > cell.clientWidth + 1) bad.push(cell.innerText.split('\n')[0]);
+      });
+      return [...new Set(bad)];
+    });
+    expect(overflowing, `record card cells at ${width}px`).toEqual([]);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  expectCleanRuntime(page);
+});
+
+// The drawer carries more tabs than fit, so the strip scrolls. It used to
+// scroll with no affordance at all: the last tab was simply cut off.
+test('the Case drawer marks its tab strip when the tabs overflow', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.osiNavigate('field'));
+  await page.getByLabel('Filter by status').selectOption('all');
+  await page.locator(`[data-case-ref="${CASE_REF}"]`).click();
+  const strip = page.locator('#osi-case-tabs');
+  await expect(strip).toBeVisible();
+  const state = await strip.evaluate((node) => ({
+    scrolls: node.scrollWidth > node.clientWidth + 1,
+    flag: node.getAttribute('data-osi-overflow'),
+    lastTabRendered: !!node.lastElementChild && node.lastElementChild.offsetWidth > 0,
+  }));
+  expect(state.flag).toBe(state.scrolls ? 'true' : 'false');
+  expect(state.lastTabRendered).toBe(true);
+  expectCleanRuntime(page);
+});
+
 test('mobile, reduced motion and 200 percent reflow preserve access without overflow', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page, { writesEnabled: false });
