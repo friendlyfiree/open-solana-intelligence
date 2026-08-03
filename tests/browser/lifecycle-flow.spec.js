@@ -719,7 +719,7 @@ async function boot(page, backend, options = {}) {
     if (response.status() >= 500) page.__errors.push(`http ${response.status()} ${response.url()}`);
   });
 
-  await page.addInitScript(({ wallet }) => {
+  await page.addInitScript(({ wallet, trusted }) => {
     window.__osiWalletCalls = [];
     const record = (name) => { window.__osiWalletCalls.push(name); };
     if (!wallet) {
@@ -727,9 +727,16 @@ async function boot(page, backend, options = {}) {
       Object.defineProperty(window, 'phantom', { configurable: true, get() { record('read:window.phantom'); return undefined; } });
     } else {
       const publicKey = { toString: () => wallet };
+      // trusted === false models the ordinary visitor: the silent reconnect
+      // finds no authorization, so the wallet only opens on an explicit action.
+      const preAuthorized = trusted !== false;
       const provider = {
-        isPhantom: true, isConnected: true, publicKey,
-        connect: async () => { record('connect'); provider.isConnected = true; provider.publicKey = publicKey; return { publicKey }; },
+        isPhantom: true, isConnected: preAuthorized, publicKey: preAuthorized ? publicKey : null,
+        connect: async (options) => {
+          record('connect');
+          if (!preAuthorized && options && options.onlyIfTrusted) throw new Error('not trusted');
+          provider.isConnected = true; provider.publicKey = publicKey; return { publicKey };
+        },
         disconnect: async () => { provider.isConnected = false; provider.publicKey = null; },
         signMessage: async () => { record('signMessage'); return { signature: new Uint8Array(64).fill(7) }; },
         signAndSendTransaction: async () => { record('sendTransaction'); return { signature: '3'.repeat(88) }; },
@@ -765,7 +772,7 @@ async function boot(page, backend, options = {}) {
       },
       SystemProgram: { transfer: (config) => ({ kind: 'transfer', ...config }) },
     };
-  }, { wallet: options.wallet || '' });
+  }, { wallet: options.wallet || '', trusted: options.trusted !== false });
 
   await page.route(/https:\/\/(?:bundle\.run|unpkg\.com|cdn\.jsdelivr\.net)\/.*/, (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
   await page.route('https://api.coingecko.com/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ solana: { usd: 0, usd_24h_change: 0 } }) }));
@@ -782,7 +789,7 @@ async function boot(page, backend, options = {}) {
 
   await page.goto('/');
   await page.waitForFunction(() => typeof window.osiNavigate === 'function' && typeof window.osiV2OpenCase === 'function');
-  if (options.wallet) {
+  if (options.wallet && options.trusted !== false) {
     // `walletPubkey` is a script-scoped binding, not a window property, so the
     // real connect path has to run. The fixture provider resolves it without a
     // prompt, which is what a trusted reconnect does in a live browser.
@@ -1402,6 +1409,10 @@ test('a Phantom failure during Case intake explains itself instead of printing t
   await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
   await page.locator('#v2-case-category').selectOption('wallet_drain');
   await page.locator('#v2-case-confirm').check();
+  // The intake restores a saved draft asynchronously, so settle on the real
+  // field values before submitting: an invalid form returns without a word.
+  await expect(page.locator('#v2-case-title')).toHaveValue(/Unexpected transfer pattern/);
+  await expect(page.locator('#v2-case-summary')).toHaveValue(/public-safe description/);
   await page.getByRole('button', { name: 'Review and sign' }).click();
 
   const status = page.locator('#v2-case-form-status');
@@ -1430,6 +1441,10 @@ test('a declined signature during Case intake names the decline, and an empty wa
   await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
   await page.locator('#v2-case-category').selectOption('wallet_drain');
   await page.locator('#v2-case-confirm').check();
+  // The intake restores a saved draft asynchronously, so settle on the real
+  // field values before submitting: an invalid form returns without a word.
+  await expect(page.locator('#v2-case-title')).toHaveValue(/Unexpected transfer pattern/);
+  await expect(page.locator('#v2-case-summary')).toHaveValue(/public-safe description/);
   await page.getByRole('button', { name: 'Review and sign' }).click();
   await expect(page.locator('#v2-case-form-status')).toContainText('You declined the request in Phantom.');
 
@@ -1442,5 +1457,28 @@ test('a declined signature during Case intake names the decline, and an empty wa
   await expect(page.locator('#v2-case-form-status')).toContainText('does not hold enough SOL');
   expect(backend.state.cases.length).toBe(0);
 
+  expectClean(page);
+});
+
+test('a visitor who connects at the signature still files the Case', async ({ page }) => {
+  const backend = createBackend();
+  // No silent authorization exists, so the wallet opens during the submission
+  // itself. That connect must not discard the private session under the action.
+  await boot(page, backend, { wallet: OWNER, trusted: false });
+  await expect(page.locator('#wbText')).toHaveText('Connect Wallet');
+
+  await page.evaluate(() => window.fieldOpenForm());
+  await page.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
+  await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
+  await page.locator('#v2-case-category').selectOption('wallet_drain');
+  await page.locator('#v2-case-confirm').check();
+  // The intake restores a saved draft asynchronously, so settle on the real
+  // field values before submitting: an invalid form returns without a word.
+  await expect(page.locator('#v2-case-title')).toHaveValue(/Unexpected transfer pattern/);
+  await expect(page.locator('#v2-case-summary')).toHaveValue(/public-safe description/);
+  await page.getByRole('button', { name: 'Review and sign' }).click();
+
+  await expect.poll(() => backend.state.cases.length).toBe(1);
+  await expect(page.locator('#v2-case-receipt')).toContainText(CASE_REF);
   expectClean(page);
 });
