@@ -133,9 +133,19 @@ function crNativeProofRank(receipt){
   var proof=crProofState({publication_proof:Object.assign({},receipt,{proof_source:'native_public_dto'})});
   return proof.key==='transfer'?5:(proof.key==='memo'?4:(proof.key==='wallet'?3:(proof.key==='system'?2:1)));
 }
+// A voluntary transfer is real proof that SOL moved. It is not proof about
+// the record. Ranking it as the record's headline verification let a support
+// payment outrank the confirmed CASE_OPENED Memo, which is exactly the kind of
+// influence support is never allowed to have, so money receipts are excluded
+// from the headline and stay visible in their own Rewards & Support surface.
+function crIsMoneyReceipt(receipt){
+  return /^(SUPPORT|REWARD)_/.test(String(receipt&&receipt.event_type||'').toUpperCase());
+}
 function crNativeCaseRecord(item){
   item=item||{};
-  var receipts=Array.isArray(item.proof_log)?item.proof_log:[];
+  var receipts=(Array.isArray(item.proof_log)?item.proof_log:[]).filter(function(receipt){
+    return !crIsMoneyReceipt(receipt);
+  });
   var sealReceipt=receipts.filter(function(receipt){
     var eventType=String(receipt&&receipt.event_type||'').toLowerCase();
     var proof=crProofState({publication_proof:Object.assign({},receipt,{proof_source:'native_public_dto'})});
@@ -429,7 +439,11 @@ function crCard(r, packs){
   var revCount = crAnalystReviews(r);
   var challengeCount = crChallengeCount(r.id);
   var challenged = challengeCount > 0;
-  var wallet = r.wallet ? escapeHtml(crShort(r.wallet)) : 'Wallet unavailable';
+  // A public Case projection deliberately omits the submitting wallet, so
+  // "Wallet unavailable" read as a lookup failure on a record where the
+  // omission is the rule. Only a wallet the projection genuinely publishes,
+  // such as a Wire author, gets a line at all.
+  var wallet = r.wallet ? '<div class="cr-wallet mono">'+escapeHtml(crShort(r.wallet))+'</div>' : '';
   var cls = 'cr-card' + (crIsNativeSealed(r) ? ' sealed' : '') + (challenged ? ' challenged' : '');
   var displayedSig=txSig||legacyTxSig;
   var copyBtn = displayedSig ? ('<button class="cr-copy" type="button" title="Copy transaction signature" onclick="event.stopPropagation();crCopyTx(&quot;'+crAttr(displayedSig)+'&quot;)">Copy</button>') : '';
@@ -450,7 +464,7 @@ function crCard(r, packs){
     + '<div class="cr-card-main">'
       + '<span class="cr-record-id">'+escapeHtml(cid)+(isWire?' | Wire Report':'')+'</span>'
       + '<div class="cr-title">'+title+'</div>'
-      + '<div class="cr-wallet mono">'+wallet+'</div>'
+      + wallet
       + '<div class="cr-summary">'+escapeHtml(String(r.summary || 'No public summary provided.').slice(0,220))+'</div>'
       + '<div class="cr-date mono">'+(date ? (recordDateLabel+date) : 'Record date unavailable')+(updated ? (' <span class="sep">|</span> Updated '+updated) : '')+'</div>'
     + '</div>'

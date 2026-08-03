@@ -213,7 +213,11 @@ Operational flag and dormant-surface classification:
 - Field Office then reads the Case through the public projection.
 - Proof Log distinguishes Memo proof from wallet-signature proof.
 - Proof Log shows actor, role, decision, weight, timestamp, and receipt link when available.
+- Proof Log names each receipt by its exact registry event type and files it under the matching filter.
+- Proof Log repeats a maintainer bootstrap mark so a cold-start decision never reads as analyst quorum.
 - Proof Log explicitly states that provenance is not a truth or legal verdict.
+- The Intelligence Passport counts only exact V2 registry receipts attributable to the connected wallet, from the same public projections any visitor can read.
+- A voluntary transfer never becomes a record's headline verification; money receipts stay in the reward and support surfaces.
 
 ## 8. Native analyst activation milestone
 

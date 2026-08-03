@@ -8,6 +8,13 @@
 <meta name="description" content="OSI turns public Solana incident evidence into attributable, community-reviewed and challengeable Case records with honest wallet and Memo proof. Information only: not truth, guilt, legal certainty, custody, recovery or guaranteed payment.">
 <meta name="theme-color" content="#08090d">
 <meta name="color-scheme" content="dark">
+<!-- The first public read fires as soon as the modules run. Opening the DNS,
+     TCP and TLS handshake to the API and the script hosts in parallel with
+     the stylesheets takes that setup cost off the critical path. -->
+<link rel="preconnect" href="https://afibxpniwfnavdobecrn.supabase.co" crossorigin>
+<link rel="dns-prefetch" href="https://afibxpniwfnavdobecrn.supabase.co">
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preload" as="image" href="./assets/images/osi-intelligence-desk-1536.avif" imagesrcset="./assets/images/osi-intelligence-desk-640.avif 640w, ./assets/images/osi-intelligence-desk-960.avif 960w, ./assets/images/osi-intelligence-desk-1536.avif 1536w" imagesizes="100vw" type="image/avif" fetchpriority="high">
 <link rel="stylesheet" href="./assets/css/00-theme-base.css">
 <link rel="stylesheet" href="./assets/css/v2-case-integration.css" media="print" fetchpriority="low" data-osi-route-style>
