@@ -442,8 +442,22 @@
   }
   async function openWireQueue(){
     if(typeof showView==='function')showView('wire');if(typeof wireEnterPrivateMode==='function')wireEnterPrivateMode();
-    var loaded=await loadWireQueueData(),host=document.getElementById('wire-cases');
-    if(loaded.authorized!==true){if(host)host.innerHTML='<div class="osi-report-empty"><b>Wire queue unavailable</b><span>Connect an eligible analyst wallet or unlock both maintainer gates.</span></div>';return loaded;}
+    // Entering private mode cancels the public feed render, so this function
+    // owns whatever the reader sees next. Without its own loading and failure
+    // states a refused queue left the feed frozen on "Opening the live wire".
+    var host=document.getElementById('wire-cases');
+    if(host)host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';
+    var loaded;
+    try{loaded=await loadWireQueueData();}
+    catch(error){
+      if(host){
+        var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));
+        host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Wire review queue locked</b><span>'+esc(userError(error))+'</span><div class="osi-wire-queue-recover"><button class="osi-report-action" type="button" onclick="'+(refresh?'osiV2RefreshWireQueue()':'osiV2OpenWireQueue()')+'">'+(refresh?'Refresh private access':'Try again')+'</button><button class="osi-report-action" type="button" onclick="wireOpenPublic()">Back to public Wire</button></div></div>';
+      }
+      throw error;
+    }
+    host=document.getElementById('wire-cases');
+    if(loaded.authorized!==true){if(host)host.innerHTML='<div class="osi-v2-empty"><b>Wire queue unavailable</b><span>'+esc(loaded.reason||'Connect an eligible analyst wallet or unlock both maintainer gates.')+'</span><div class="osi-wire-queue-recover"><button class="osi-report-action" type="button" onclick="wireOpenPublic()">Back to public Wire</button></div></div>';return loaded;}
     if(host)host.innerHTML='<div class="osi-case-note"><button class="osi-report-action" type="button" onclick="wireOpenPublic()">Back to public Wire</button><span>Restricted queue. The database rejects reviewing your own Wire, and rejects publishing it too, so your own submissions never appear here.</span></div><div class="osi-report-workspace">'+(state.queue.map(queueCard).join('')||'<div class="osi-report-empty"><b>No Wire versions await your review</b><span>Versions you wrote are never listed here. The database keeps an author out of both the review and the publication of their own Wire, so a version you submitted needs a different eligible analyst to review it and a different full maintainer to publish it.</span></div>')+'</div>';restoreQueueDraft();return loaded;
   }
   async function openWireQueueTarget(versionRef){
@@ -557,5 +571,6 @@
   var wireWorkspace=document.getElementById('wire-cases');
   if(wireWorkspace){wireWorkspace.addEventListener('input',saveQueueDraft);wireWorkspace.addEventListener('change',saveQueueDraft);}
   window.osiV2RefreshWireWorkspace=function(){return window.osiV2RefreshReadSession(['wire:mine']).then(openWorkspace);};
+  window.osiV2RefreshWireQueue=function(){return window.osiV2RefreshReadSession(['wire:queue']).then(openWireQueue).catch(function(error){showToast(userError(error));});};
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('wire',clearSessionState);
 })();

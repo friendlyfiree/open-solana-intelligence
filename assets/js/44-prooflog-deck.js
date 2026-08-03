@@ -1,6 +1,8 @@
 
 
 // ===== Proof Log: global timeline of signed, on-chain-verifiable actions =====
+// Locale-aware copy for the counts this deck renders after every filter.
+function plT(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
 function proofLogDemoSample(){
   if(window.OSI_DEMO_MODE !== true) return [];
   var now = Date.now();
@@ -381,7 +383,7 @@ function plHealthRender(){
   var src=plSourceState();
   var evs=window.__plEvents||[];
   var stateCls=''; var title='No proof events yet'; var body='Explicitly classified OSI proof events will appear here after they are recorded.';
-  if(src==='loaded' && evs.length){ stateCls='ok'; title='Live proof source connected'; body=evs.length+' classified proof event'+(evs.length===1?'':'s')+' loaded from the OSI proof index.'; }
+  if(src==='loaded' && evs.length){ stateCls='ok'; title='Live proof source connected'; body=plT(evs.length===1?'{count} classified proof event loaded from the OSI proof index.':'{count} classified proof events loaded from the OSI proof index.',{count:evs.length}); }
   else if(src==='error'){ stateCls='err'; title='Proof source unavailable'; body='Unable to load proof events right now.'; }
   else if(src==='unavailable'){ stateCls='err'; title='Proof source unavailable'; body='The proof source is not connected in this environment.'; }
   else if(src==='demo'){ title='Sample mode enabled'; body='Sample proof events are visible because the explicit sample-data switch is enabled.'; }
@@ -407,7 +409,7 @@ function plPaint(){
   if(plState.filter!=='all') evs=evs.filter(function(e){ return plGroup(e)===plState.filter; });
   var stripCls = (src==='loaded' && all.length) ? ' ok' : ((src==='error'||src==='unavailable') ? ' err' : '');
   var stripTitle = (src==='loaded' && all.length) ? 'Live proof source connected' : (src==='error'||src==='unavailable' ? 'Proof source unavailable' : (src==='demo' ? 'Sample mode enabled' : 'No proof events yet'));
-  var stripBody = (src==='loaded' && all.length) ? (all.length+' public proof event'+(all.length===1?'':'s')+' loaded and classified by explicit receipt fields.')
+  var stripBody = (src==='loaded' && all.length) ? plT(all.length===1?'{count} public proof event loaded and classified by explicit receipt fields.':'{count} public proof events loaded and classified by explicit receipt fields.',{count:all.length})
     : (src==='error' ? 'Unable to load proof events right now.'
     : (src==='unavailable' ? 'Proof source is not connected in this environment.'
     : (src==='demo' ? 'Sample rows are visible only because the explicit sample-data switch is enabled.' : 'Explicitly classified OSI proof events will appear here after they are recorded.')));
@@ -423,7 +425,7 @@ function plPaint(){
     ? '<div class="pl-timeline">' + page.map(plTimelineCard).join('') + '</div>'
     : '<div class="pl-empty"><h3>'+emptyTitle+'</h3><p>'+emptyBody+'</p></div>');
   var cnt=document.getElementById('pl-count');
-  if(cnt) cnt.textContent = evs.length ? ('Showing '+(from+1)+'-'+(from+page.length)+' of '+evs.length+' action'+(evs.length===1?'':'s')) : '';
+  if(cnt) cnt.textContent = evs.length ? plT(evs.length===1?'Showing {from}-{to} of {total} action':'Showing {from}-{to} of {total} actions',{from:from+1,to:from+page.length,total:evs.length}) : '';
   var pn=document.getElementById('pl-pnav');
   if(pn){
     if(totalPages<=1){ pn.innerHTML=''; }

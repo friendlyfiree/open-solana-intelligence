@@ -29,6 +29,9 @@
 .osi-v2-empty b{display:block;color:var(--ink);font-size:17px}
 .osi-v2-empty span{display:block;max-width:580px;margin:8px auto 0;color:var(--ink-dim);font-size:14px;line-height:1.65}
 .osi-v2-error{border-color:rgba(255,84,112,.4);color:var(--red)}
+/* Recovery controls under an empty or failed state sit on one centred row so
+   a locked surface always shows a way forward and a way back. */
+.osi-wire-queue-recover{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:16px}
 .osi-v2-skeleton{height:74px;border:1px solid var(--line);background:rgba(17,23,42,.65);position:relative;overflow:hidden}
 .osi-v2-skeleton::after{content:"";position:absolute;inset:12px 18px;background:rgba(255,255,255,.035);animation:osi-v2-shimmer 1.2s infinite}
 @keyframes osi-v2-shimmer{0%,100%{opacity:.35}50%{opacity:1}}

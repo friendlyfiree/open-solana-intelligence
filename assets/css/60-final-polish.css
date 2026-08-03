@@ -129,7 +129,7 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
 .fc-open{box-shadow:0 0 0 rgba(34,211,238,0);transition:background-color .13s,color .13s,border-color .13s,box-shadow .13s,transform .13s}
 .fo-case:hover .fc-open{box-shadow:0 0 16px rgba(34,211,238,.45)}
 .fo-preview .cf-btn.primary{box-shadow:0 8px 26px rgba(34,211,238,.32)}
-.lb-cta{box-shadow:0 6px 20px rgba(34,211,238,.24)}
+.lb-cta:not(.ghost){box-shadow:0 6px 20px rgba(34,211,238,.24)}
 .sb-item.active{text-shadow:0 0 12px rgba(255,122,61,.35)}
 /* amber: warnings only, but alive */
 .ab-warn{text-shadow:0 0 9px rgba(255,176,32,.6)}
@@ -237,7 +237,9 @@ body[data-view="analysts"] #community{padding-top:0}
   text-shadow:none;
 }
 #analysts .lb-cta{border-radius:8px}
-#analysts .lb-cta.ghost:not(.lb-case-start){display:none}
+/* "Open My Applications" is a real authorized route into the analyst
+   workspace. Hiding it left applicants with a way in and no way to check
+   what happened next. */
 #analysts .fd-more{font-size:0}
 #analysts .fd-more::after{content:"View full proof log ->";font-size:11px}
 #analysts .lb-guideline-list{padding:9px 15px 13px}

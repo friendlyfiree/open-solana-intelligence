@@ -346,6 +346,9 @@ function showView(v){
   if(v==='analysts'){ renderLeaderboard(); }
   if(v==='prooflog'){ renderProofLog(); }
   if(v==='records'){ if(typeof renderCaseRecords==='function' && (typeof demoRecState==='undefined' || demoRecState===null)){ try{ renderCaseRecords(); }catch(e){} } }
+  // Keep the address bar honest about which view is on screen, including for
+  // the workspace routes that switch views without going through osiNavigate.
+  if(typeof window.osiSyncRouteForView==='function') window.osiSyncRouteForView(v);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function identityRoleLabel(ctx){

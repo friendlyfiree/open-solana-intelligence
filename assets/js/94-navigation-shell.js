@@ -74,14 +74,41 @@
     }
   }
 
+  // Several workspace entry points (My Cases, My Reports, the review queues,
+  // the analyst workspace) switch the visible view through showView without
+  // going through navigate. The address bar used to keep the previous view's
+  // hash, so the URL contradicted the page and a reload landed somewhere else.
+  // This keeps the two in step without inventing extra history entries.
+  var suppressRouteSync = false;
+  function syncRouteForView(view) {
+    if (suppressRouteSync) return;
+    var target = viewHashes[view] ? view : 'registry';
+    var hash = window.location.hash.replace(/^#/, '');
+    // A Case route is a deeper address inside the Field Office, not a view
+    // hash. Flattening it would drop the shareable Case reference.
+    if (caseRouteRef(hash)) return;
+    if (hashViews[hash] === target) return;
+    try {
+      window.history.replaceState({ osiView: target }, '', '#' + viewHashes[target]);
+    } catch (_) { return; }
+    syncActiveNavigation(target);
+  }
+
   function navigate(view, options) {
     var opts = options || {};
     var target = viewHashes[view] ? view : 'registry';
     if (target !== 'registry' && typeof window.osiActivateRouteStyles === 'function') {
       window.osiActivateRouteStyles();
     }
-    if (opts.render === false) document.body.dataset.view = target;
-    else if (typeof window.showView === 'function') window.showView(target);
+    // navigate owns the history entry for this move, so the low-level sync
+    // must not consume the hash change before pushState can record it.
+    suppressRouteSync = true;
+    try {
+      if (opts.render === false) document.body.dataset.view = target;
+      else if (typeof window.showView === 'function') window.showView(target);
+    } finally {
+      suppressRouteSync = false;
+    }
     syncActiveNavigation(target);
     closeMobileNav(false);
     setPlatform(false);
@@ -534,6 +561,7 @@
   }
 
   window.osiNavigate = navigate;
+  window.osiSyncRouteForView = syncRouteForView;
   window.osiNavigateSection = navigateSection;
   window.osiOpenCase = openCase;
   window.osiOpenPublicCase = openPublicCase;
