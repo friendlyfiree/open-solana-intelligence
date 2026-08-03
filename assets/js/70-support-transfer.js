@@ -24,8 +24,8 @@ function tipHandleKeydown(event){
   if(!modal || !modal.classList.contains('open')) return;
   if(event.key === 'Escape'){
     // The support dialog is the topmost layer. The drawers underneath it also
-    // close on Escape, so the event has to stop here — otherwise backing out of
-    // a transfer also closes the record that transfer was for.
+    // close on Escape, so the event has to stop here, or backing out of a
+    // transfer also closes the record that transfer was for.
     event.preventDefault();
     event.stopPropagation();
     if(typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
