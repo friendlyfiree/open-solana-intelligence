@@ -1382,3 +1382,65 @@ test('an open Case still offers Report submission', async ({ page }) => {
 
   expectClean(page);
 });
+
+test('a Phantom failure during Case intake explains itself instead of printing the raw provider error', async ({ page }) => {
+  const backend = createBackend();
+  await boot(page, backend, { wallet: OWNER });
+
+  // Phantom answers a request it could not handle with a generic internal
+  // error. This is the exact failure that left prepared Cases unsigned.
+  await page.evaluate(() => {
+    window.solana.signAndSendTransaction = async () => {
+      const error = new Error('Unexpected error');
+      error.code = -32603;
+      throw error;
+    };
+  });
+
+  await page.evaluate(() => window.fieldOpenForm());
+  await page.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
+  await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
+  await page.locator('#v2-case-category').selectOption('wallet_drain');
+  await page.locator('#v2-case-confirm').check();
+  await page.getByRole('button', { name: 'Review and sign' }).click();
+
+  const status = page.locator('#v2-case-form-status');
+  await expect(status).toContainText('Phantom did not answer this request');
+  await expect(status).not.toHaveText('Unexpected error');
+  // A failed signature must still leave no Case behind.
+  expect(backend.state.cases.length).toBe(0);
+
+  expectClean(page);
+});
+
+test('a declined signature during Case intake names the decline, and an empty wallet names the fee', async ({ page }) => {
+  const backend = createBackend();
+  await boot(page, backend, { wallet: OWNER });
+
+  await page.evaluate(() => {
+    window.solana.signAndSendTransaction = async () => {
+      const error = new Error('User rejected the request.');
+      error.code = 4001;
+      throw error;
+    };
+  });
+
+  await page.evaluate(() => window.fieldOpenForm());
+  await page.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
+  await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
+  await page.locator('#v2-case-category').selectOption('wallet_drain');
+  await page.locator('#v2-case-confirm').check();
+  await page.getByRole('button', { name: 'Review and sign' }).click();
+  await expect(page.locator('#v2-case-form-status')).toContainText('You declined the request in Phantom.');
+
+  await page.evaluate(() => {
+    window.solana.signAndSendTransaction = async () => {
+      throw new Error('Attempt to debit an account but found no record of a prior credit.');
+    };
+  });
+  await page.getByRole('button', { name: 'Review and sign' }).click();
+  await expect(page.locator('#v2-case-form-status')).toContainText('does not hold enough SOL');
+  expect(backend.state.cases.length).toBe(0);
+
+  expectClean(page);
+});

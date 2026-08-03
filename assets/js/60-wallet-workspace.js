@@ -15,17 +15,21 @@ function isPhantomProvider(candidate){
   return !!(candidate && candidate.isPhantom && typeof candidate.connect === 'function');
 }
 function getProvider(){
-  var namespaced = window.phantom && window.phantom.solana;
-  if(isPhantomProvider(namespaced)) return namespaced;
-  if(isPhantomProvider(window.solana)) return window.solana;
-  // Some browsers publish every injected Solana provider in one list when more
-  // than one wallet is installed.
-  var lists = [window.solana && window.solana.providers, window.phantom && window.phantom.providers];
-  for(var i=0;i<lists.length;i++){
-    var list = lists[i];
-    if(!list || typeof list.length !== 'number') continue;
-    for(var k=0;k<list.length;k++) if(isPhantomProvider(list[k])) return list[k];
-  }
+  // A hostile or broken extension can define these as throwing getters, and a
+  // wallet lookup must never take the whole page down with it.
+  try{
+    var namespaced = window.phantom && window.phantom.solana;
+    if(isPhantomProvider(namespaced)) return namespaced;
+    if(isPhantomProvider(window.solana)) return window.solana;
+    // Some browsers publish every injected Solana provider in one list when
+    // more than one wallet is installed.
+    var lists = [window.solana && window.solana.providers, window.phantom && window.phantom.providers];
+    for(var i=0;i<lists.length;i++){
+      var list = lists[i];
+      if(!list || typeof list.length !== 'number') continue;
+      for(var k=0;k<list.length;k++) if(isPhantomProvider(list[k])) return list[k];
+    }
+  }catch(e){}
   return null;
 }
 // A wallet extension can finish injecting after the page starts running, so a
@@ -76,20 +80,35 @@ function getConnectedProvider(){
   if(!walletPubkey) return null;
   return prov;
 }
-// Map common Phantom / network failures to a clear, non-crashing message.
-function walletErrorMessage(e, ctx){
+// Phantom answers a request it could not handle at all with a generic internal
+// error. The usual cause is a suspended extension worker, so one retry of the
+// same call normally succeeds without ever showing a second prompt.
+function isTransientWalletError(e){
   var code = e && (e.code !== undefined ? e.code : (e.error && e.error.code));
   var msg = String((e && e.message) || e || "").toLowerCase();
-  ctx = ctx || "Action";
+  return code === -32603 || msg.indexOf("unexpected error") >= 0;
+}
+// The specific wallet mapping only. An empty answer means the failure did not
+// come from the wallet, so a caller can keep its own message instead.
+function walletErrorDetail(e){
+  var code = e && (e.code !== undefined ? e.code : (e.error && e.error.code));
+  var msg = String((e && e.message) || e || "").toLowerCase();
   if(code === 4001 || msg.indexOf("user rejected") >= 0 || msg.indexOf("rejected the request") >= 0) return "You declined the request in Phantom.";
   if(code === -32002 || msg.indexOf("already pending") >= 0 || msg.indexOf("request of type") >= 0) return "A Phantom request is already open. Finish or close the Phantom popup, then try again.";
+  if(code === 4100 || msg.indexOf("unauthorized") >= 0) return "Phantom has not authorized this site for that request. Open Phantom, approve the connection, then try again.";
+  if(code === 4900 || msg.indexOf("disconnected") >= 0 || msg.indexOf("locked") >= 0) return "Phantom is locked or disconnected. Open Phantom, unlock it, then connect again.";
+  if(isTransientWalletError(e)) return "Phantom did not answer this request. Open the Phantom extension once to wake it, then try again. If it repeats, reload the page.";
   if(msg.indexOf("popup") >= 0 || msg.indexOf("blocked") >= 0) return "Phantom popup was blocked. Allow popups for this site, then try again.";
   if(msg.indexOf("notconnected") >= 0 || msg.indexOf("not connected") >= 0 || msg.indexOf("publickey") >= 0 || msg.indexOf("provider missing") >= 0) return "Connect Phantom first.";
   if(msg.indexOf("insufficient") >= 0 || msg.indexOf("no record of a prior credit") >= 0) return "This wallet does not hold enough SOL for the Solana network fee (~0.000005 SOL). Add a small amount of SOL, then try again.";
   if(msg.indexOf("transaction library") >= 0 || msg.indexOf("solanaweb3") >= 0) return "The Solana transaction library did not load in this browser. Hard-refresh (Ctrl/Cmd + Shift + R) and try again.";
   if(msg.indexOf("rpc") >= 0 || msg.indexOf("network") >= 0 || msg.indexOf("blockhash") >= 0 || msg.indexOf("timeout") >= 0 || msg.indexOf("fetch") >= 0) return "Could not reach the Solana network. Check your connection and try again in a moment.";
   if(msg.indexOf("buffer") >= 0) return "Could not build the transaction in this browser. Hard-refresh (Ctrl/Cmd + Shift + R) and try again.";
-  return ctx + " could not be completed. " + (((e && e.message) || "Please try again."));
+  return "";
+}
+// Map common Phantom / network failures to a clear, non-crashing message.
+function walletErrorMessage(e, ctx){
+  return walletErrorDetail(e) || ((ctx || "Action") + " could not be completed. " + (((e && e.message) || "Please try again.")));
 }
 // Small menu under the wallet button (Open profile / Disconnect).
 function closeWalletMenu(){ var m=document.getElementById('wbMenu'); if(m) m.classList.remove('open'); }
@@ -135,7 +154,15 @@ async function toggleWalletOnce(){
   }
   if(walletPubkey && prov.publicKey && prov.isConnected !== false) return true; // already connected this session
   try{
-    var resp = await prov.connect();
+    var resp;
+    try{
+      resp = await prov.connect();
+    }catch(first){
+      // A declined or already-open request is a real answer and is never retried.
+      if(!isTransientWalletError(first)) throw first;
+      await new Promise(function(resolve){ setTimeout(resolve, 400); });
+      resp = await prov.connect();
+    }
     // Phantom answers with the key; some builds only publish it on the provider.
     var connectedKey = (resp && resp.publicKey) || prov.publicKey;
     if(!connectedKey){ if(typeof showToast==='function') showToast("Connect Phantom first."); return false; }
@@ -199,6 +226,7 @@ async function castOnchainVote(memoText){
   // A blocked or failed CDN leaves this global undefined. Say so instead of
   // throwing a bare ReferenceError at a user who is mid-submission.
   if(typeof solanaWeb3 === 'undefined' || !solanaWeb3 || !solanaWeb3.Transaction) throw new Error("The Solana transaction library is not available in this browser.");
+  if(typeof prov.signAndSendTransaction !== 'function') throw new Error("This wallet cannot sign and send the Memo transaction.");
   const { Connection, PublicKey, Transaction, TransactionInstruction } = solanaWeb3;
   const fromPub = new PublicKey(walletPubkey);
 

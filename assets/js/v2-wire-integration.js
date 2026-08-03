@@ -77,7 +77,13 @@
       ,bad_signature:'The wallet signature did not verify for this exact action.'
       ,private_session_changed:'Private access changed while this action was running. Reopen the exact task.'
     };
-    return messages[code]||code.replace(/_/g,' ');
+    if(messages[code])return messages[code];
+    // A wallet failure carries free text or a numeric provider code, never a
+    // server code, so the step that opens Phantom explains itself instead of
+    // printing a raw provider string.
+    var walletDetail=typeof walletErrorDetail==='function'?walletErrorDetail(error):'';
+    if(walletDetail)return walletDetail;
+    return code.replace(/_/g,' ');
   }
   function wireBootstrapUnavailableReason(item,maintainerAccess){
     if(maintainerAccess!==true)return'';

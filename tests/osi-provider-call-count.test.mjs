@@ -225,6 +225,45 @@ const keyOnProviderContext = walletContext({ phantom: { solana: keyOnProvider } 
 ok("a connect result without a publicKey falls back to the provider key",
   (await keyOnProviderContext.toggleWallet()) === true && walletKey(keyOnProviderContext) === wallet);
 
+// Phantom answers a request its suspended worker could not handle with a
+// generic internal error. One retry is honest; a decline never is.
+const sleepyProvider = phantomStub();
+const sleepyBase = sleepyProvider.connect;
+sleepyProvider.connect = async function (options) {
+  if (sleepyProvider.connectCalls === 0) {
+    sleepyProvider.connectCalls += 1;
+    const error = new Error("Unexpected error");
+    error.code = -32603;
+    throw error;
+  }
+  return sleepyBase.call(sleepyProvider, options);
+};
+const sleepyContext = walletContext({ phantom: { solana: sleepyProvider } });
+ok("a suspended Phantom worker is retried once and connects",
+  (await sleepyContext.toggleWallet()) === true && sleepyProvider.connectCalls === 2
+    && walletKey(sleepyContext) === wallet);
+
+const declinedProvider = phantomStub({
+  async connect() {
+    declinedProvider.connectCalls += 1;
+    const error = new Error("User rejected the request.");
+    error.code = 4001;
+    throw error;
+  },
+});
+const declinedContext = walletContext({ phantom: { solana: declinedProvider } });
+ok("a declined connection is never retried behind the user's back",
+  (await declinedContext.toggleWallet()) === false && declinedProvider.connectCalls === 1);
+
+const mappingContext = walletContext({ phantom: { solana: phantomStub() } });
+const unexpected = Object.assign(new Error("Unexpected error"), { code: -32603 });
+ok("the generic provider error is named for what the visitor can do about it",
+  mappingContext.walletErrorDetail(unexpected).indexOf("Phantom did not answer this request") === 0
+    && mappingContext.walletErrorDetail(new Error("locked")).indexOf("Phantom is locked") === 0);
+ok("a server code is not mistaken for a wallet failure",
+  mappingContext.walletErrorDetail(new Error("case_writes_disabled")) === ""
+    && mappingContext.walletErrorDetail(new Error("A Case can include at most 12 structured evidence references.")) === "");
+
 const libraryContext = walletContext({ phantom: { solana: phantomStub() } });
 await libraryContext.toggleWallet();
 let libraryFailure = "";

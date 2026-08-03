@@ -63,7 +63,13 @@
       ,read_session_tampered:'The private session token failed server verification.'
       ,private_session_changed:'Private access changed while this action was running. Reopen the exact task.'
     };
-    return messages[code]||code.replace(/_/g,' ');
+    if(messages[code])return messages[code];
+    // A wallet failure carries free text or a numeric provider code, never a
+    // server code, so the step that opens Phantom explains itself instead of
+    // printing a raw provider string.
+    var walletDetail=typeof walletErrorDetail==='function'?walletErrorDetail(error):'';
+    if(walletDetail)return walletDetail;
+    return code.replace(/_/g,' ');
   }
   async function ensureWallet(){
     if(!walletPubkey&&typeof toggleWallet==='function')await toggleWallet();
