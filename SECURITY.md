@@ -48,6 +48,34 @@ Highest priority is given to:
 
 No secret belongs in this repository, its history, its issues, or its logs: no service-role keys, no database passwords, no AI provider keys, no issuer private keys, and never a user's seed phrase or private key, which OSI never asks for. If you find an exposed secret, report it privately and do not use it.
 
+## Maintainer continuity
+
+OSI is currently maintained by one person. That is a real operational risk and
+is stated here rather than left for a reporter to discover during an incident.
+
+**If the maintainer does not respond within 14 days of a private report**, treat
+the report as unacknowledged and escalate publicly at your discretion. A
+disclosure timeline you are holding to alone is not a disclosure timeline. You
+are asked to allow a reasonable fix window; you are not asked to sit on a live
+vulnerability indefinitely because a single inbox went quiet.
+
+What is deliberately not dependent on the maintainer being reachable:
+
+- **The code and schema.** MIT licensed, fully public, including every migration.
+  [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) is a complete rebuild path from an
+  empty database.
+- **Analyst standing.** Credentials live in the Solana Attestation Service on
+  mainnet, not in this database. They remain verifiable by anyone if this
+  deployment disappears entirely. See [docs/VERIFY.md](docs/VERIFY.md).
+- **The public record.** Governance outcomes are confirmed mainnet Memo
+  transactions. They survive the database, the host, and the maintainer.
+- **The cold-start privilege.** Bootstrap governance retires on a ladder the
+  server computes from the live analyst count. It does not require the
+  maintainer to voluntarily give anything up on schedule.
+
+Any change that makes one of those four properties depend on the maintainer
+personally is treated as a security regression, not a convenience trade.
+
 ## Design documents
 
 The threat model is embedded in the public design documents: default-deny row level security, the Stage-5 replay defense, the four-label proof model, the double-gated maintainer, and the fail-closed flag discipline are specified in [AGENTS.md](AGENTS.md) and the `docs/OSI_V2_*.md` set. Reports that reference the specific guarantee they break are the fastest to triage.
