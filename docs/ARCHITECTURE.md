@@ -145,7 +145,9 @@ supabase/tests/                pgTAP suites
 tests/                         Node suites, browser E2E, concurrency script
 docs/                          constitution, domain model, state machines,
                                role matrix, memo spec, decision register, guides
-.github/workflows/             CI + per-slice production rollouts
+.github/workflows/             validation gate + reusable deploy/audit tools
+.github/workflows/archive/     completed one-shot rollouts, disabled by
+                               subdirectory, still supply-chain tested
 tools/                         one-time maintainer utilities
 ```
 

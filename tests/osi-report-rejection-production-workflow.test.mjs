@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const workflow = readFileSync(new URL(
-  "../.github/workflows/osi-report-rejection-production.yml",
+  "../.github/workflows/archive/osi-report-rejection-production.yml",
   import.meta.url,
 ), "utf8");
 

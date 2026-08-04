@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const workflow = fs.readFileSync(
-  new URL("../.github/workflows/osi-production-hardening-e2e.yml", import.meta.url),
+  new URL("../.github/workflows/archive/osi-production-hardening-e2e.yml", import.meta.url),
   "utf8",
 );
 

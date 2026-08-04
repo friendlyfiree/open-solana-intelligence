@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 const workflow = readFileSync(
-  new URL("../.github/workflows/osi-wire-proof-expiry-production.yml", import.meta.url),
+  new URL("../.github/workflows/archive/osi-wire-proof-expiry-production.yml", import.meta.url),
   "utf8",
 );
 const smoke = readFileSync(

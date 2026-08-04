@@ -22,7 +22,7 @@ const productionSmoke = fs.readFileSync(
 );
 const rollout = fs.readFileSync(
   new URL(
-    "../.github/workflows/osi-wire-empty-evidence-production.yml",
+    "../.github/workflows/archive/osi-wire-empty-evidence-production.yml",
     import.meta.url,
   ),
   "utf8",

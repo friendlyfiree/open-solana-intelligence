@@ -158,7 +158,7 @@ const ui = readFileSync(join(root, "assets/js/v2-case-integration.js"), "utf8");
 const html = readFileSync(join(root, "index.html"), "utf8");
 const maintainerUi = readFileSync(join(root, "assets/js/54-maintainer-console.js"), "utf8");
 const productionWorkflow = readFileSync(join(
-  root, ".github/workflows/osi-v2-resolution-production.yml",
+  root, ".github/workflows/archive/osi-v2-resolution-production.yml",
 ), "utf8");
 const pgTap = readFileSync(join(
   root, "supabase/tests/osi_v2_resolution_challenge_seal.sql",

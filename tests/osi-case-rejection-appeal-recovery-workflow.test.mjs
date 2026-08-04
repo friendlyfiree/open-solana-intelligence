@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const workflow = readFileSync(new URL(
-  "../.github/workflows/osi-case-rejection-appeal-recovery-production.yml",
+  "../.github/workflows/archive/osi-case-rejection-appeal-recovery-production.yml",
   import.meta.url,
 ), "utf8");
 

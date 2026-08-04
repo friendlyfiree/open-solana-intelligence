@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 
 const workflow = readFileSync(
   new URL(
-    "../.github/workflows/osi-workflow-recovery-usability-production.yml",
+    "../.github/workflows/archive/osi-workflow-recovery-usability-production.yml",
     import.meta.url,
   ),
   "utf8",

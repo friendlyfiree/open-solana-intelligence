@@ -404,7 +404,7 @@ for (const [name, source] of [["case", caseUi], ["report", reportUi]]) {
 // ---------------------------------------------------------------------------
 // 10. Rollout workflow: guarded, dispatch only, single-flag rollback
 // ---------------------------------------------------------------------------
-const workflow = read(".github/workflows/osi-v2-sas-enforcement-production.yml");
+const workflow = read(".github/workflows/archive/osi-v2-sas-enforcement-production.yml");
 ok("the rollout workflow is workflow_dispatch only",
   /^on:\s*\n\s*workflow_dispatch:/m.test(workflow) && !/\n\s*push:/.test(workflow));
 ok("the rollout workflow requires a typed confirmation phrase",
