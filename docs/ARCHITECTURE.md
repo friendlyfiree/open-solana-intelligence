@@ -91,6 +91,42 @@ Phantom and Solana Pay enter the same commit path. For a single-recipient intent
 
 Every capability has a dedicated `osi_config` key read server-side at action time, treating missing/malformed as false. Broad kill switches stay off (`OSI_V2_WRITES_ENABLED`, `OSI_V2_PROOF_ENABLED`, and `OSI_V2_SCHEMA_READY` are legacy/internal safety controls and false); scoped flags gate each slice (case, analyst, report, review, resolution, payment, Solana Pay, read session, wire, private AI Pack, bootstrap, SAS issuance/enforcement). AI Pack generation additionally requires the exact access mode. Rollback is always "turn the affected dedicated flag off", never a schema rollback.
 
+## Browser security headers
+
+`vercel.json` carries the origin's response headers. The Content-Security-Policy
+is a real allowlist rather than a token one: `default-src 'self'` with explicit
+`script-src`, `style-src`, `img-src`, `font-src`, `connect-src`, `frame-src`,
+`worker-src` and `form-action`.
+
+Two directives are the ones that matter for this product:
+
+- **`connect-src`** is the tight one, and it is the reason the policy is worth
+  having. It names exactly the Supabase project, the four public Solana RPC
+  endpoints the Proof Log falls back across, the price feed, and the contact
+  form endpoint. An injected script cannot reach an attacker's collector, which
+  is the realistic exfiltration path on a site that handles wallet interaction.
+- **`script-src`** allows `'self'`, the three SRI-pinned CDN origins, and the
+  `chrome-extension:` / `moz-extension:` schemes so an injected wallet provider
+  is never at the mercy of the page policy.
+
+**Known limitation, stated rather than hidden.** `script-src` still carries
+`'unsafe-inline'`, because the shipped interface uses several hundred inline
+`onclick` and `oninput` handlers, and `style-src` carries it for inline style
+attributes. So the policy does not by itself stop injected inline script. It is
+defence in depth behind the actual control, which is that every value rendered
+from untrusted input goes through the escaping helpers covered by
+`tests/xss-escaping.test.js` and the stored-XSS regression suites.
+
+Removing `'unsafe-inline'` means migrating those handlers to delegated
+listeners, which is a mechanical but wide change and is deliberately not bundled
+with a header change. Until then the policy is described here as what it is.
+`tests/osi-security-hardening.test.mjs` pins every directive above so the
+allowlist cannot quietly widen.
+
+The frozen `legacy.html` fallback is served with `X-Robots-Tag: noindex` and
+carries the same meta plus a canonical link to the live application, so a
+search result never lands a person on the unmaintained surface.
+
 ## Delivery pipeline
 
 - **CI (every PR):** dependency-free Node suites, Deno type checks, clean PostgreSQL migration from zero, database lint at error level, full pgTAP, two-connection replay/concurrency, browser contracts at desktop and 390px, stored-XSS regressions.
@@ -115,4 +151,4 @@ tools/                         one-time maintainer utilities
 
 The `_shared/*.mjs` core-module pattern is deliberate: governance, payment, proof, wire, and SAS decision logic lives in dependency-free ES modules that run identically under Deno (production) and Node (tests), so the exact production logic is what the test battery exercises.
 
-**Stacking order.** Every layer that floats above the page takes its `z-index` from one scale declared in `assets/css/00-theme-base.css`, and no floating layer may invent its own number. The order is `--z-chrome` (the fixed global header) below `--z-drawer` (surfaces that cover the page: the Case drawer, the public record drawer) below `--z-modal` (dialogs raised from those surfaces) below `--z-payment` (the amount picker and the transfer review) below `--z-guard` (the safety interstitial). Payment sits at the top on purpose: a person is about to approve a real transfer against what that dialog says, so nothing may cover it. Two rules travel with the scale — a dialog raised on top of another surface must render above it, and it must consume the Escape key it handles, because the surfaces underneath also close on Escape. `tests/browser/lifecycle-flow.spec.js` pins both by asking the browser what is actually on top rather than trusting the declared number.
+**Stacking order.** Every layer that floats above the page takes its `z-index` from one scale declared in `assets/css/00-theme-base.css`, and no floating layer may invent its own number. The order is `--z-chrome` (the fixed global header) below `--z-drawer` (surfaces that cover the page: the Case drawer, the public record drawer) below `--z-modal` (dialogs raised from those surfaces) below `--z-payment` (the amount picker and the transfer review) below `--z-guard` (the safety interstitial). Payment sits at the top on purpose: a person is about to approve a real transfer against what that dialog says, so nothing may cover it. Two rules travel with the scale: a dialog raised on top of another surface must render above it, and it must consume the Escape key it handles, because the surfaces underneath also close on Escape. `tests/browser/lifecycle-flow.spec.js` pins both by asking the browser what is actually on top rather than trusting the declared number.

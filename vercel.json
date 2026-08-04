@@ -10,12 +10,19 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src 'none'; form-action 'self'; worker-src 'self' blob:; script-src 'self' 'unsafe-inline' https://bundle.run https://unpkg.com https://cdn.jsdelivr.net chrome-extension: moz-extension:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://afibxpniwfnavdobecrn.supabase.co; font-src 'self' data:; connect-src 'self' https://afibxpniwfnavdobecrn.supabase.co wss://afibxpniwfnavdobecrn.supabase.co https://api.mainnet-beta.solana.com https://solana-rpc.publicnode.com https://solana.drpc.org https://endpoints.omniatech.io https://api.coingecko.com https://api.web3forms.com; upgrade-insecure-requests" },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), geolocation=(), microphone=(), payment=(), usb=()" }
+        { "key": "Permissions-Policy", "value": "camera=(), geolocation=(), microphone=(), payment=(), usb=()" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+      ]
+    },
+    {
+      "source": "/legacy.html",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }
       ]
     }
   ]

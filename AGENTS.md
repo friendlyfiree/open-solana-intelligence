@@ -77,10 +77,14 @@ failing production workflow. Authentication, branch protection, or a mandatory
 interactive browser/2FA challenge are valid manual blockers; otherwise do not
 hand routine GitHub or Supabase delivery steps back to the product owner.
 
-The product owner is nontechnical. Reports must use plain language and include
-exact commands or buttons only when a manual step is genuinely unavoidable.
-Never report "working" or "complete" from a narrative claim alone; prove it
-with a diff, test, query result or deployment verification.
+The product owner is a domain expert in on-chain intelligence and forensics,
+not a software engineer. Product, governance, threat-model and scope decisions
+are theirs and are authoritative; implementation choices are yours. Reports
+must use plain language and include exact commands or buttons only when a
+manual step is genuinely unavoidable. Never report "working" or "complete"
+from a narrative claim alone; prove it with a diff, test, query result or
+deployment verification. See section 15 for what that division of labour
+requires of you.
 
 For every task:
 
@@ -320,3 +324,63 @@ End every engineering task with:
 
 If a test could not run, say why and do not substitute "should pass". If a
 production surface was not changed, state that explicitly.
+
+## 15. Engineering model and its disclosure
+
+OSI is built by a domain expert working with AI engineering agents under this
+contract. This file is public, and stays public, for the same reason the code,
+the schema, the migrations and the production flag table are public: a project
+whose product is verifiable public record does not get to be selective about
+what it discloses.
+
+State this plainly when asked. Do not obscure it, and do not oversell it
+either.
+
+### Why this is disclosed rather than managed
+
+The honest objection to AI-assisted engineering is that it produces plausible
+code nobody has actually verified. That objection is correct in general, and
+the answer here is not a claim about the tooling. It is that **every guarantee
+this system makes is checkable by someone who trusts none of the people or
+tools involved**:
+
+- the code is MIT and public, including this contract;
+- authorization boundaries are covered by pgTAP suites that run against a
+  database built from zero on every pull request, so a claim about who can read
+  or write what is executed, not asserted;
+- the governance, payment, proof, wire and SAS decision cores are dependency-free
+  modules that run identically under Deno in production and Node in tests, so
+  the tested logic is the shipped logic rather than a parallel copy;
+- every production governance outcome resolves to a mainnet transaction a
+  stranger can pull without asking permission (`docs/VERIFY.md`);
+- the running configuration is publicly readable and can be held against its own
+  documentation (`docs/OSI_PRODUCTION_FEATURE_STATUS.md`).
+
+An unverifiable claim in this project is a defect regardless of who or what
+wrote it. That standard is what the rest of this contract exists to enforce.
+
+### What this requires of an agent working here
+
+1. **Never report a result you did not observe.** Section 14 is not a
+   formality. A test you did not run is a test that failed.
+2. **Never widen your own authority.** Section 3's standing authorization is
+   scoped to the task in front of you. Anything touching a product invariant,
+   a governance threshold, a privilege boundary, or the constitution is a
+   product-owner decision, not an implementation choice.
+3. **Surface disagreement rather than resolving it silently.** If two accepted
+   documents conflict, say so and take the safer, least-privileged option; do
+   not pick a reading because it is easier to implement.
+4. **Prefer the boring, inspectable construction.** Cleverness that a reviewer
+   cannot check is a liability here in a way it is not in an ordinary codebase.
+5. **Treat "the tests pass" as necessary and not sufficient.** Ask what a
+   hostile reader with the public endpoints and a mainnet RPC could disprove.
+
+### Maintainer continuity
+
+Bus factor is currently one. That is a real risk and is not written down here
+to be dismissed. What bounds it is that nothing important depends on the
+maintainer remaining reachable: the code and schema are public, `docs/SELF_HOSTING.md`
+is a complete rebuild path, analyst credentials live on Solana rather than in
+this database and survive the platform, and the cold-start maintainer privilege
+retires on a server-computed ladder rather than on anyone's promise to give it
+up. Do not add a dependency that breaks any of those four properties.

@@ -53,32 +53,44 @@ jobs:
 
       - name: Dependency-free unit tests
         run: |
-          node tests/osi-v2-migrations.test.js
-          node tests/osi-v2-proof-core.test.mjs
-          node tests/xss-escaping.test.js
-          node tests/osi-v2-case-read.test.mjs
-          node tests/osi-v2-case-write.test.mjs
-          node tests/osi-v2-case-ui.test.js
-          node tests/osi-session-access.test.js
-          node tests/osi-v2-read-session.test.mjs
-          node tests/osi-provider-call-count.test.mjs
-          node tests/osi-wire-integrity.test.mjs
-          node tests/osi-v2-wire.test.mjs
-          node tests/osi-v2-wire-ui.test.mjs
-          node tests/osi-v2-ai-pack.test.mjs
-          node tests/osi-v2-ai-pack-ui.test.mjs
-          node tests/osi-proof-public-truth.test.js
-          node tests/osi-functional-surface.test.mjs
-          node tests/osi-intelligence-interface.test.js
-          node tests/osi-motion-visual.test.mjs
-          node tests/osi-v2-analyst-core.test.mjs
-          node tests/osi-v2-analyst-ui.test.js
-          node tests/osi-v2-report.test.mjs
-          node tests/osi-v2-governance.test.mjs
-          node tests/osi-v2-payment.test.mjs
-          node tests/osi-v2-event-registry.test.mjs
-          node tests/osi-v2-sas-core.test.mjs
-          node tests/osi-workflow-recovery-usability-production-workflow.test.mjs
+          # Every Node suite in tests/ runs, discovered by glob rather than
+          # from a hand-maintained list. A list drifts silently: a suite added
+          # in a later slice and never appended here simply stops existing as
+          # far as CI is concerned, with nothing failing to say so. That is
+          # exactly what happened, and it left the security-hardening, SAS
+          # enforcement, Wire personal-data and i18n suites outside the gate
+          # while the README claimed a full battery ran on every change. A
+          # glob cannot drift.
+          #
+          # These suites are dependency-free by contract: no install step, no
+          # database, no network. Anything that needs the local Supabase stack
+          # belongs in the pgTAP and migration steps further down.
+          shopt -s nullglob
+          suites=(tests/*.test.mjs tests/*.test.js)
+          if [ "${#suites[@]}" -lt 40 ]; then
+            echo "::error::expected the full Node suite set, found ${#suites[@]}"
+            exit 1
+          fi
+          echo "Running ${#suites[@]} dependency-free Node suites."
+          failed=()
+          for suite in "${suites[@]}"; do
+            echo "::group::${suite}"
+            if node "${suite}"; then
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              echo "::error file=${suite}::suite failed"
+              failed+=("${suite}")
+            fi
+          done
+          if [ "${#failed[@]}" -ne 0 ]; then
+            echo "Failed suites: ${failed[*]}"
+            exit 1
+          fi
+          echo "All ${#suites[@]} Node suites passed."
+
+      - name: Deno type checks
+        run: |
           deno check supabase/functions/_shared/osi-v2-sas-core.mjs
           deno check supabase/functions/_shared/osi-v2-sas-onchain.ts
           deno check supabase/functions/_shared/osi-v2-sas-sdk.ts
