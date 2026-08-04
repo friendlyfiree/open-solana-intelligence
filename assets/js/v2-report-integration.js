@@ -200,6 +200,7 @@
       ,bad_signature:'The wallet signature did not verify for this exact Report review.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
+      ,read_session_scope_denied:'This view is open to verified analysts, and this wallet does not hold that standing yet. Nothing is wrong with your session: the surfaces your wallet can reach stay open, and no further signature will be asked for this one.'
       ,read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; your draft is preserved.'
       ,read_session_wrong_origin:'This private session belongs to a different site origin.'
       ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
@@ -323,7 +324,20 @@
       var drawer=document.getElementById('osi-case-drawer');state.drawerWasOpen=!!(drawer&&!drawer.hidden);
       if(state.drawerWasOpen)drawer.hidden=true;
       var modal=document.getElementById('osi-report-modal');modal.classList.add('open');syncBodyLock();status('');
-      setTimeout(function(){document.getElementById('osi-report-narrative').focus();},40);
+      // Take focus only if the person has not already put it inside this form.
+      // The delay lets the surface settle, but during it someone can click
+      // straight into the field they actually want and start typing, and pulling
+      // the cursor back to the first field mid-sentence loses what they wrote.
+      // Anything outside the form, including the control that opened it or a
+      // button that has since been re-rendered away, is not a person typing, so
+      // the convenience of landing in the first field is kept.
+      setTimeout(function(){
+        var target=document.getElementById('osi-report-narrative');
+        var host=document.getElementById('osi-report-form');
+        if(!target)return;
+        if(host&&document.activeElement&&host.contains(document.activeElement))return;
+        target.focus();
+      },40);
     }catch(error){if(generation==null||generation===privateGeneration()){status('');if(typeof showToast==='function')showToast(userError(error));if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;}}
   }
   function closeReportForm(){

@@ -98,4 +98,33 @@ ok("live SAS verification stays in About while Home and durable-record claims re
     && index.includes('id="sas-verifier"')
     && index.includes('assets/js/96-sas-public.js'));
 
+
+// Every form that takes focus on a delay must refuse to take it back off the
+// person filling that form.
+//
+// Each intake settles for a few tens of milliseconds and then focuses its first
+// field. Someone who clicks straight into the field they actually want and
+// starts typing inside that window used to have the cursor pulled back to the
+// first field mid-sentence, which scattered their text across two inputs. The
+// guard is a containment check against the form itself, so focus arriving from
+// outside, including from the control that opened the form or a button that has
+// since been re-rendered away, still lands in the first field as intended.
+for (const [module, field, host] of [
+  ["assets/js/v2-case-integration.js", "v2-case-title", "field-form"],
+  ["assets/js/v2-report-integration.js", "osi-report-narrative", "osi-report-form"],
+  ["assets/js/v2-wire-integration.js", "osi-wire-title", "osi-wire-form"],
+  ["assets/js/v2-analyst-integration.js", "an-bio", "apx-modal"],
+]) {
+  // Find the deferred block by what it must contain rather than by position:
+  // these ids appear elsewhere in each module, so an index scan finds the wrong
+  // one and the check silently stops meaning anything.
+  const guarded = read(module)
+    .split("setTimeout(")
+    .some((block) => block.includes(`getElementById('${field}')`)
+      && block.includes(`getElementById('${host}')`)
+      && /contains\(document\.activeElement\)\)\s*return;/.test(block)
+      && block.indexOf(`getElementById('${host}')`) < block.indexOf(".focus()"));
+  ok(`${field} is focused on a delay only when focus is not already inside ${host}`, guarded);
+}
+
 console.log(`\n${passed} functional surface and retirement checks passed.`);
