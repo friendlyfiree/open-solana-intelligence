@@ -1405,13 +1405,24 @@ test('a Phantom failure during Case intake explains itself instead of printing t
   });
 
   await page.evaluate(() => window.fieldOpenForm());
+  // The intake moves focus to the title 80ms after the form opens. Typing
+  // before that timer lands lets the autofocus arrive between a fill's focus
+  // and its value write, which redirects the summary text into the title and
+  // leaves the summary empty. On the connect-at-intent path the form opens
+  // later still, as a deferred callback, which widens the window. Wait for the
+  // intake to finish opening and take focus, so each fill goes where this test
+  // means it to go.
+  await expect(page.locator('#fo-modal')).toHaveClass(/open/);
+  await expect(page.locator('#v2-case-title')).toBeFocused();
+
   await page.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
   await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
   await page.locator('#v2-case-category').selectOption('wallet_drain');
   await page.locator('#v2-case-confirm').check();
-  // The intake restores a saved draft asynchronously, so settle on the real
-  // field values before submitting: an invalid form returns without a word.
-  await expect(page.locator('#v2-case-title')).toHaveValue(/Unexpected transfer pattern/);
+  // Settle on the exact field values before submitting: an invalid form returns
+  // without a word. Assert the title exactly, so a stray fill landing in it is
+  // a failure here rather than a puzzle three lines later.
+  await expect(page.locator('#v2-case-title')).toHaveValue('Unexpected transfer pattern for review');
   await expect(page.locator('#v2-case-summary')).toHaveValue(/public-safe description/);
   await page.getByRole('button', { name: 'Review and sign' }).click();
 
@@ -1437,13 +1448,24 @@ test('a declined signature during Case intake names the decline, and an empty wa
   });
 
   await page.evaluate(() => window.fieldOpenForm());
+  // The intake moves focus to the title 80ms after the form opens. Typing
+  // before that timer lands lets the autofocus arrive between a fill's focus
+  // and its value write, which redirects the summary text into the title and
+  // leaves the summary empty. On the connect-at-intent path the form opens
+  // later still, as a deferred callback, which widens the window. Wait for the
+  // intake to finish opening and take focus, so each fill goes where this test
+  // means it to go.
+  await expect(page.locator('#fo-modal')).toHaveClass(/open/);
+  await expect(page.locator('#v2-case-title')).toBeFocused();
+
   await page.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
   await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
   await page.locator('#v2-case-category').selectOption('wallet_drain');
   await page.locator('#v2-case-confirm').check();
-  // The intake restores a saved draft asynchronously, so settle on the real
-  // field values before submitting: an invalid form returns without a word.
-  await expect(page.locator('#v2-case-title')).toHaveValue(/Unexpected transfer pattern/);
+  // Settle on the exact field values before submitting: an invalid form returns
+  // without a word. Assert the title exactly, so a stray fill landing in it is
+  // a failure here rather than a puzzle three lines later.
+  await expect(page.locator('#v2-case-title')).toHaveValue('Unexpected transfer pattern for review');
   await expect(page.locator('#v2-case-summary')).toHaveValue(/public-safe description/);
   await page.getByRole('button', { name: 'Review and sign' }).click();
   await expect(page.locator('#v2-case-form-status')).toContainText('You declined the request in Phantom.');
@@ -1468,17 +1490,64 @@ test('a visitor who connects at the signature still files the Case', async ({ pa
   await expect(page.locator('#wbText')).toHaveText('Connect Wallet');
 
   await page.evaluate(() => window.fieldOpenForm());
+  // The intake moves focus to the title 80ms after the form opens. Typing
+  // before that timer lands lets the autofocus arrive between a fill's focus
+  // and its value write, which redirects the summary text into the title and
+  // leaves the summary empty. On the connect-at-intent path the form opens
+  // later still, as a deferred callback, which widens the window. Wait for the
+  // intake to finish opening and take focus, so each fill goes where this test
+  // means it to go.
+  await expect(page.locator('#fo-modal')).toHaveClass(/open/);
+  await expect(page.locator('#v2-case-title')).toBeFocused();
+
   await page.locator('#v2-case-title').fill('Unexpected transfer pattern for review');
   await page.locator('#v2-case-summary').fill('A neutral, public-safe description of the reported transfer pattern for independent review.');
   await page.locator('#v2-case-category').selectOption('wallet_drain');
   await page.locator('#v2-case-confirm').check();
-  // The intake restores a saved draft asynchronously, so settle on the real
-  // field values before submitting: an invalid form returns without a word.
-  await expect(page.locator('#v2-case-title')).toHaveValue(/Unexpected transfer pattern/);
+  // Settle on the exact field values before submitting: an invalid form returns
+  // without a word. Assert the title exactly, so a stray fill landing in it is
+  // a failure here rather than a puzzle three lines later.
+  await expect(page.locator('#v2-case-title')).toHaveValue('Unexpected transfer pattern for review');
   await expect(page.locator('#v2-case-summary')).toHaveValue(/public-safe description/);
   await page.getByRole('button', { name: 'Review and sign' }).click();
 
   await expect.poll(() => backend.state.cases.length).toBe(1);
   await expect(page.locator('#v2-case-receipt')).toContainText(CASE_REF);
+  expectClean(page);
+});
+
+test('a late draft restore never replaces what the author already typed', async ({ page }) => {
+  const backend = createBackend();
+  await boot(page, backend, { wallet: OWNER, trusted: true });
+
+  // Open once so the intake settles, then type. This is the state a person is
+  // in when they start filling the form.
+  await page.evaluate(() => window.fieldOpenForm());
+  await expect(page.locator('#fo-modal')).toHaveClass(/open/);
+  await expect(page.locator('#v2-case-title')).toBeFocused();
+  await page.locator('#v2-case-title').fill('Typed by the author');
+  await page.locator('#v2-case-summary').fill('A neutral, public-safe summary the author typed by hand.');
+  await page.locator('#v2-case-category').selectOption('wallet_drain');
+
+  // Plant an older draft: a half-finished one whose summary and category were
+  // saved before the author got that far. Restoring it wholesale is exactly the
+  // data loss this guards against, and an empty saved value is the worst case
+  // because it clears the field rather than swapping one sentence for another.
+  await page.evaluate((wallet) => window.osiV2SaveDraft('case-intake:' + wallet, {
+    'v2-case-title': 'Stale draft title',
+    'v2-case-summary': '',
+    'v2-case-category': '',
+    'v2-case-details': 'Stale details that should still land, because that field is blank.',
+  }), OWNER);
+
+  // Reopening runs restoreCaseDraft again, now with the fields already filled.
+  // This is the same call the connect-at-intent path makes as a late callback.
+  await page.evaluate(() => window.fieldOpenForm());
+
+  await expect(page.locator('#v2-case-title')).toHaveValue('Typed by the author');
+  await expect(page.locator('#v2-case-summary')).toHaveValue(/public-safe summary the author typed/);
+  await expect(page.locator('#v2-case-category')).toHaveValue('wallet_drain');
+  // The feature itself still works: a blank field is still filled from the draft.
+  await expect(page.locator('#v2-case-details')).toHaveValue(/Stale details that should still land/);
   expectClean(page);
 });

@@ -793,10 +793,29 @@
     var values={};CASE_DRAFT_FIELDS.forEach(function(id){var field=document.getElementById(id);if(field)values[id]=field.value;});
     window.osiV2SaveDraft(caseDraftKey(wallet),values);
   }
+  // A restore may only fill a field that is still blank. It may never replace
+  // something the person has already typed.
+  //
+  // fieldOpenFormV2 reaches this call after two awaits, and on the
+  // connect-at-intent path it is invoked later still, as the callback handed to
+  // osiConnectForIntent. Someone who starts typing while the form is opening
+  // therefore races a restore that used to overwrite every field it had a saved
+  // value for, including with the empty string. Losing what a person typed into
+  // a Case intake is data loss, not a cosmetic glitch.
+  //
+  // Restoring only into blank fields keeps the feature intact: every field in
+  // CASE_DRAFT_FIELDS is blank on an untouched form, including the category
+  // select, whose default option carries an empty value, and the numeric reward
+  // input, which starts empty. A returning author still gets their draft back.
   function restoreCaseDraft(wallet){
     if(typeof window.osiV2LoadDraft!=='function')return;
     var values=window.osiV2LoadDraft(caseDraftKey(wallet))||{};
-    CASE_DRAFT_FIELDS.forEach(function(id){var field=document.getElementById(id);if(field&&Object.prototype.hasOwnProperty.call(values,id))field.value=String(values[id]||'');});
+    CASE_DRAFT_FIELDS.forEach(function(id){
+      var field=document.getElementById(id);
+      if(!field||!Object.prototype.hasOwnProperty.call(values,id))return;
+      if(String(field.value||'')!=='')return;
+      field.value=String(values[id]||'');
+    });
   }
   function casePayload(){
     var sol=Number(document.getElementById('v2-case-reward').value||0);
