@@ -37,13 +37,30 @@
   function createReadSessionClient(options){
     var storage=options.storage,origin=String(options.origin||''),unlockPromise=null,renewPromise=null,expiryTimer=null,lastActivityAt=(options.now?options.now():Date.now()),generation=0;
     var cacheClearers=new Map();
+    // True once this page has obtained a token directly from the server, by
+    // issuing or by renewing. Both paths recompute scopes from the wallet's
+    // live standing, so such a token lists exactly what the wallet may reach
+    // right now, and a scope absent from it is a scope the wallet does not
+    // have. Signing again cannot conjure it, because the server decides scopes
+    // from standing and ignores what the client asks for.
+    //
+    // Without this, every visit to a surface the wallet cannot reach reopened
+    // the wallet for a signature that was guaranteed not to help, returned a
+    // token that still lacked the scope, and failed anyway. Moving between tabs
+    // produced an endless run of prompts that could never succeed.
+    //
+    // A token restored from storage on page load is not treated as fresh: it
+    // may predate standing the wallet has since been granted, so the first
+    // scope it cannot satisfy is worth exactly one server round trip. After
+    // that the answer is authoritative and no further prompt is raised.
+    var scopesAreFresh=false;
     function nowSeconds(){return Math.floor((options.now?options.now():Date.now())/1000);}
     function readRaw(){try{return JSON.parse(storage.getItem(TOKEN_KEY)||'null');}catch(_){return null;}}
     function clearTimer(){if(expiryTimer){(options.clearTimeout||clearTimeout)(expiryTimer);expiryTimer=null;}}
     function dispatch(reason){generation+=1;if(typeof options.onClear==='function')options.onClear(reason);cacheClearers.forEach(function(fn){try{fn(reason);}catch(_){}});}
     function getGeneration(){return generation;}
     function clear(reason,settings){
-      settings=settings||{};clearTimer();unlockPromise=null;renewPromise=null;
+      settings=settings||{};clearTimer();unlockPromise=null;renewPromise=null;scopesAreFresh=false;
       try{storage.removeItem(TOKEN_KEY);if(settings.markExpired)storage.setItem(EXPIRED_KEY,'1');else storage.removeItem(EXPIRED_KEY);}catch(_){ }
       dispatch(reason||'cleared');
     }
@@ -53,7 +70,9 @@
       var payload=decodePayload(token);
       if(!payload)throw error('read_session_tampered');
       lastWallet=String(payload.sub||'');lastAuth=payload.auth_sub||null;
-      var record={token:token};storage.setItem(TOKEN_KEY,JSON.stringify(record));schedule(record,payload);return{token:token,wallet:payload.sub,payload:payload};
+      var record={token:token};storage.setItem(TOKEN_KEY,JSON.stringify(record));schedule(record,payload);
+      scopesAreFresh=true;
+      return{token:token,wallet:payload.sub,payload:payload};
     }
     function recentlyActive(){return (options.now?options.now():Date.now())-lastActivityAt<=ACTIVE_WINDOW_MS;}
     async function renewRecord(record,payload){
@@ -97,13 +116,25 @@
         expiryTimer=(options.setTimeout||setTimeout)(function(){if(stillCurrent())clear('expiry',{markExpired:true});},Math.max(0,(Number(currentPayload.exp)-nowSeconds())*1000));
       },delay);
     }
-    function usableRecord(wallet,scopes){
-      var record=readRaw(),payload=record&&decodePayload(record.token),required=normalizeScopes(scopes);
+    // A live session for this wallet, independent of what any one surface needs.
+    // Splitting this out of usableRecord is what lets a scope miss be answered
+    // without discarding, or re-signing, an otherwise perfectly good session.
+    function validRecord(wallet){
+      var record=readRaw(),payload=record&&decodePayload(record.token);
       if(!record||!payload)return null;
       if(payload.aud!==origin||payload.sub!==wallet){clear(payload.sub!==wallet?'wallet_mismatch':'origin_mismatch');return null;}
       if(!Number.isSafeInteger(payload.exp)||payload.exp<=nowSeconds()){clear('expiry',{markExpired:true});return null;}
-      if(!Array.isArray(payload.scp)||required.some(function(scope){return payload.scp.indexOf(scope)<0;}))return null;
-      schedule(record,payload);return{token:record.token,wallet:wallet,payload:payload};
+      return{token:record.token,wallet:wallet,payload:payload,record:record};
+    }
+    function missingScopes(payload,scopes){
+      var granted=Array.isArray(payload&&payload.scp)?payload.scp:[];
+      return normalizeScopes(scopes).filter(function(scope){return granted.indexOf(scope)<0;});
+    }
+    function usableRecord(wallet,scopes){
+      var live=validRecord(wallet);
+      if(!live)return null;
+      if(missingScopes(live.payload,scopes).length)return null;
+      schedule(live.record,live.payload);return{token:live.token,wallet:wallet,payload:live.payload};
     }
     async function unlock(scopes,settings){
       settings=settings||{};
@@ -121,17 +152,33 @@
         }
         return cached;
       }
+      // A live session exists and simply does not reach this surface. Opening
+      // the wallet again would return the same scope set, because the server
+      // decides scopes from standing rather than from the request, so ask once
+      // and never again for the same scope. The session itself stays intact:
+      // the surfaces this wallet can reach keep working without interruption.
+      var live=validRecord(wallet);
+      if(live&&scopesAreFresh&&!settings.explicitRefresh&&missingScopes(live.payload,scopes).length){
+        throw error('read_session_scope_denied');
+      }
       var expired=false;try{expired=storage.getItem(EXPIRED_KEY)==='1';}catch(_){ }
       if(expired&&!settings.explicitRefresh)throw error('read_session_expired');
       if(settings.allowUnlock===false)throw error('read_session_required');
+      // Whether this call opened the wallet or waited on someone else's unlock,
+      // the session it ends up with either carries the scopes this surface
+      // needs or it does not. Deciding that here, once, keeps two concurrent
+      // callers independent: a surface asking for a scope the wallet lacks can
+      // no longer fail a surface whose scope was granted in the same unlock.
+      function settleScopes(session){
+        if(!missingScopes(session&&session.payload,scopes).length)return session;
+        throw error('read_session_scope_denied');
+      }
       if(unlockPromise){
         var sharedGeneration=generation;
         var shared=await unlockPromise;
         assertGeneration(sharedGeneration);
         if(!shared||shared.wallet!==wallet||!shared.payload||shared.payload.sub!==wallet)throw error('read_session_wrong_wallet');
-        var sharedScopes=shared.payload&&shared.payload.scp||[];
-        if(normalizeScopes(scopes).some(function(scope){return sharedScopes.indexOf(scope)<0;}))throw error('read_session_wrong_scope');
-        return shared;
+        return settleScopes(shared);
       }
       var attemptGeneration=generation;
       var pending=(async function(){
@@ -145,13 +192,21 @@
         if(!created||!created.read_session)throw error('read_session_unavailable');
         var payload=decodePayload(created.read_session);
         if(!payload||payload.sub!==wallet||payload.aud!==origin)throw error('read_session_tampered');
-        try{return writeRecord(created.read_session,attemptGeneration);}catch(writeError){
+        var written;
+        try{written=writeRecord(created.read_session,attemptGeneration);}catch(writeError){
           if(writeError&&writeError.message==='read_session_changed')throw writeError;
           throw error('read_session_storage_unavailable');
         }
+        // The signature is kept even when it did not buy this particular
+        // surface: the session is real and every scope it does carry works from
+        // here on, including for anyone else waiting on this same unlock.
+        // Whether it satisfies this caller is settled outside, per caller.
+        return written;
       })();
       unlockPromise=pending;
-      try{return await pending;}finally{if(unlockPromise===pending)unlockPromise=null;}
+      var issuedSession;
+      try{issuedSession=await pending;}finally{if(unlockPromise===pending)unlockPromise=null;}
+      return settleScopes(issuedSession);
     }
     function noteActivity(){
       lastActivityAt=options.now?options.now():Date.now();

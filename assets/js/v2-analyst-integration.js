@@ -56,6 +56,7 @@
       application_state_changed:'Your application changed while this proof was prepared. Open My Applications and try the exact available action again.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
+      ,read_session_scope_denied:'This view is open to verified analysts, and this wallet does not hold that standing yet. Nothing is wrong with your session: the surfaces your wallet can reach stay open, and no further signature will be asked for this one.'
       ,read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; your draft is preserved.'
       ,read_session_wrong_origin:'This private session belongs to a different site origin.'
       ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
@@ -315,7 +316,7 @@
       generation=privateGeneration();
       assertPrivateGeneration(generation);
       var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();var restored=restoreApplicationDraft(wallet),optional=document.getElementById('analyst-optional-details');if(optional)optional.open=!!latestApplication()||(restored&&hasOptionalApplicationData(applicationDraft()));state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');setApplicationStatus('');
-      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(typeof showToast==='function')showToast('Application ready. Only the final exact message needs one wallet signature.');setTimeout(function(){var target=document.getElementById('an-bio');if(target)target.focus();},50);
+      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(typeof showToast==='function')showToast('Application ready. Only the final exact message needs one wallet signature.');setTimeout(function(){var target=document.getElementById('an-bio');var host=document.getElementById('apx-modal');if(!target)return;if(host&&document.activeElement&&host.contains(document.activeElement))return;target.focus();},50);
     }catch(error){if((generation==null||generation===privateGeneration())&&typeof showToast==='function')showToast(userError(error));}
   }
   function closeApplication(){var modal=document.getElementById('apx-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}document.body.style.overflow='';if(state.receipt){state.receipt=null;var form=document.getElementById('analyst-form');if(form)form.reset();if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');}if(state.returnFocus&&typeof state.returnFocus.focus==='function')state.returnFocus.focus();state.returnFocus=null;}

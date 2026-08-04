@@ -1371,7 +1371,12 @@ test('a Case past Report intake states the closure instead of opening a wallet',
   await expect(closed).toBeDisabled();
   await expect(closed).toHaveAttribute('title', /open only while a Case is in public investigation/);
   // The record stays readable and the closed control reaches no wallet API.
-  await expect(actions.getByRole('button', { name: 'Inspect proof' })).toBeEnabled();
+  // The four Inspect buttons that used to sit here only switched tabs the
+  // always-visible tab bar already offers. What replaced them says something
+  // the bar cannot: how many Reports this Case holds.
+  const reports = actions.getByRole('button', { name: /Reports \(\d+\)/ });
+  await expect(reports).toBeEnabled();
+  await expect(actions.getByRole('button', { name: /^Inspect / })).toHaveCount(0);
   await closed.click({ force: true });
   expect(await page.evaluate(() => window.__osiWalletCalls)).toEqual([]);
 

@@ -199,6 +199,7 @@
       ,bad_public_ref:'That Case reference is not a valid public reference.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
+      ,read_session_scope_denied:'This view is open to verified analysts, and this wallet does not hold that standing yet. Nothing is wrong with your session: the surfaces your wallet can reach stay open, and no further signature will be asked for this one.'
       ,read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; typed drafts stay in this browser tab.'
       ,read_session_wrong_origin:'This private session belongs to a different site origin.'
       ,read_session_wrong_wallet:'This private session belongs to a different wallet.'
@@ -768,7 +769,20 @@
       restoreCaseDraft(wallet);
       var modal=document.getElementById('fo-modal'); if(modal) modal.classList.add('open');
       syncBodyLock();
-      setTimeout(function(){var title=document.getElementById('v2-case-title');if(title)title.focus();},80);
+      // Take focus only if the person has not already put it inside this form.
+      // The delay lets the surface settle, but during it someone can click
+      // straight into the field they actually want and start typing, and pulling
+      // the cursor back to the first field mid-sentence loses what they wrote.
+      // Anything outside the form, including the control that opened it or a
+      // button that has since been re-rendered away, is not a person typing, so
+      // the convenience of landing in the first field is kept.
+      setTimeout(function(){
+        var target=document.getElementById('v2-case-title');
+        var host=document.getElementById('field-form');
+        if(!target)return;
+        if(host&&document.activeElement&&host.contains(document.activeElement))return;
+        target.focus();
+      },80);
     }catch(error){if(generation==null||generation===privateGeneration()){showToast(userError(error));restoreFocus(state.modalReturnFocus);state.modalReturnFocus=null;}}
   }
   function syncBodyLock(){
@@ -1263,7 +1277,6 @@
     }else if(item.visibility==='private'){
       host.innerHTML='<span class="osi-action-help">Private and awaiting an eligible analyst or full maintainer review. Case owners cannot self-review.</span><button class="osi-action" disabled title="Requires an eligible analyst or full maintainer">Awaiting review</button>';
     }else{
-      var hasGovernance=item.governance&&item.governance.resolution;
       // Report intake accepts exactly these stages server-side. Offering the
       // action outside them opened a wallet prompt only to fail on the
       // capability check, which is the dormant-control problem in its most
@@ -1275,7 +1288,17 @@
       var submit=intakeOpen
         ? '<button class="osi-action primary" type="button" onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button>'
         : '<button class="osi-action" type="button" disabled title="'+esc(t('Report intake is open only while a Case is in public investigation, under Report review, or reopened.'))+'">'+esc(t('Report intake closed'))+'</button>';
-      host.innerHTML='<span class="osi-action-help">'+esc(t(intakeHelp))+'</span>'+submit+'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'evidence\')">Inspect evidence</button>'+(hasGovernance?'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'resolution\')">Inspect resolution</button><button class="osi-action" type="button" onclick="osiV2ShowTab(\'challenges\')">Inspect challenges</button>':'')+'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'proof\')">Inspect proof</button>';
+      // The four Inspect buttons that used to sit here only switched tabs, and
+      // the tab bar they duplicated is always on screen directly above, with a
+      // horizontal scroll on narrow viewports. What the bar cannot say is how
+      // many Reports a Case actually holds, and Reports is where a person goes
+      // next after reading the intake or filing one, so the shortcut carries the
+      // count and the rest go.
+      var reportCount=(item.reports||[]).length;
+      var reportsAuthorized=!!(state.capabilities&&(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true));
+      var reportsLabel=(reportsAuthorized?t('Reports'):t('Published Reports'))+' ('+reportCount+')';
+      host.innerHTML='<span class="osi-action-help">'+esc(t(intakeHelp))+'</span>'+submit
+        +'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'reports\')">'+esc(reportsLabel)+'</button>';
     }
   }
   async function composeReview(){

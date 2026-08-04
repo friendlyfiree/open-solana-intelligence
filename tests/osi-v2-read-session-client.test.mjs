@@ -204,4 +204,104 @@ ok("silent renewal preserves wallet, audience, scopes and absolute lifetime",
     clearEvents === 1 && !isolated.records.has("osi_v2_read_session_expired_v1"));
 }
 
+
+// Scopes the wallet is not entitled to must cost at most one round trip.
+//
+// The server derives scopes from standing and ignores what the client asks
+// for, so signing again cannot produce a scope the wallet does not have. Before
+// this guard, every visit to an analyst-only surface reopened the wallet, got
+// back a token that still lacked the scope, and failed anyway: moving between
+// tabs produced an endless run of prompts that could never succeed.
+//
+// This section keeps its own clock. The shared `nowMs` above is advanced by
+// earlier checks, and a token that drifts into the renewal window gets silently
+// refreshed, which would hide the very prompt these checks are counting.
+const BASE_SCOPES = ["case:mine", "case:detail", "report:mine", "wire:mine", "aipack:detail", "analyst:workspace"];
+const ANALYST_SCOPES = BASE_SCOPES.concat(["case:review", "report:review", "wire:queue"]);
+const SCOPE_NOW = 2_000_000_000_000;
+const SCOPE_SECONDS = SCOPE_NOW / 1000;
+
+function scopeToken(scp, serial) {
+  return `osi2r.${encode({
+    v: 1, iss: "issuer", aud: origin, sub: wallet,
+    iat: SCOPE_SECONDS, exp: SCOPE_SECONDS + 1800,
+    sid_iat: SCOPE_SECONDS, abs_exp: SCOPE_SECONDS + 28800,
+    jti: `S${String(serial).padStart(31, "x")}`, scp, auth_sub: null,
+  })}.signature`;
+}
+
+function scopeHarness(grants, seedScopes) {
+  const isolated = memoryStorage();
+  if (seedScopes) {
+    isolated.storage.setItem("osi_v2_read_session_v1", JSON.stringify({ token: scopeToken(seedScopes, 0) }));
+  }
+  const state = { signatures: 0, renewals: 0, grants, serial: 0 };
+  state.client = createReadSessionClient({
+    storage: isolated.storage,
+    origin,
+    now: () => SCOPE_NOW,
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+    ensureWallet: async () => wallet,
+    signMessage: async () => { state.signatures += 1; return "signed"; },
+    request: async (body) => {
+      if (body.op === "issue_read_session_challenge") return { ok: true, challenge: "challenge" };
+      if (body.op === "renew_read_session") state.renewals += 1;
+      if (body.op === "create_read_session" || body.op === "renew_read_session") {
+        return { ok: true, read_session: scopeToken(state.grants, ++state.serial) };
+      }
+      throw new Error(`unexpected op ${body.op}`);
+    },
+  });
+  return state;
+}
+
+async function reach(state, scopes) {
+  try { await state.client.get(scopes, { allowUnlock: true }); return "ok"; }
+  catch (error) { return error.code || error.message; }
+}
+
+{
+  const state = scopeHarness(BASE_SCOPES);
+  const opened = await reach(state, ["case:mine"]);
+  const afterOpen = state.signatures;
+  const granted = [await reach(state, ["report:mine"]), await reach(state, ["wire:mine"])];
+  ok("one signature opens every surface the wallet is entitled to",
+    opened === "ok" && afterOpen === 1 && granted.every((value) => value === "ok") && state.signatures === 1);
+
+  const denied = [
+    await reach(state, ["case:review"]),
+    await reach(state, ["case:review"]),
+    await reach(state, ["wire:queue"]),
+    await reach(state, ["report:review"]),
+  ];
+  ok("a scope the wallet lacks is refused without ever reopening the wallet",
+    denied.every((value) => value === "read_session_scope_denied") && state.signatures === 1);
+
+  ok("refusing one surface leaves the rest of the session working",
+    await reach(state, ["case:mine"]) === "ok" && state.signatures === 1);
+}
+
+{
+  // A token restored on page load may predate standing granted since. It is
+  // worth exactly one round trip, and the answer then holds for every scope.
+  const state = scopeHarness(ANALYST_SCOPES, BASE_SCOPES);
+  ok("a stale token still serves the scopes it does carry, with no signature",
+    await reach(state, ["case:mine"]) === "ok" && state.signatures === 0);
+  ok("newly granted standing is picked up by exactly one signature",
+    await reach(state, ["case:review"]) === "ok" && state.signatures === 1);
+  ok("the refreshed token then covers the rest without asking again",
+    await reach(state, ["report:review"]) === "ok"
+    && await reach(state, ["wire:queue"]) === "ok"
+    && state.signatures === 1);
+}
+
+{
+  // Two surfaces unlocking at once must not share each other's verdict.
+  const state = scopeHarness(BASE_SCOPES);
+  const [allowed, refused] = await Promise.all([reach(state, ["case:mine"]), reach(state, ["case:review"])]);
+  ok("concurrent callers are judged independently against one unlock",
+    allowed === "ok" && refused === "read_session_scope_denied" && state.signatures === 1);
+}
+
 console.log(`\n${passed} read-session client renewal checks passed.`);
