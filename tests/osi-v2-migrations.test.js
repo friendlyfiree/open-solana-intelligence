@@ -44,6 +44,7 @@ const expectedFiles = [
   '20260801120700_report_nullable_public_summary.sql',
   '20260802102728_osi_v2_report_rejection_transition.sql',
   '20260802180000_osi_v2_case_initial_rejection_appeal.sql',
+  '20260805090000_osi_v2_maintainer_profile.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -56,6 +57,7 @@ const schema = sqlByFile[expectedFiles[0]] || '';
 const integrity = sqlByFile[expectedFiles[1]] || '';
 const deny = sqlByFile[expectedFiles[2]] || '';
 const lifecycle = sqlByFile['20260713045903_osi_v2_case_lifecycle.sql'] || '';
+const maintainerProfile = sqlByFile['20260805090000_osi_v2_maintainer_profile.sql'] || '';
 const analystActivation = sqlByFile['20260713184533_osi_v2_analyst_activation.sql'] || '';
 const reportIntake = sqlByFile['20260714044036_osi_v2_case_report_intake.sql'] || '';
 const resolutionLifecycle = sqlByFile['20260714082218_osi_v2_resolution_challenge_seal.sql'] || '';
@@ -330,6 +332,11 @@ const infraTables = [
   'osi_v2_sas_verify_events',
   // AI Pack Phase 1: provider reservation/cost state, never a domain entity.
   'osi_v2_ai_pack_generation_runs',
+  // The operator's public identity. Deliberately not a domain entity: it holds
+  // no standing, no weight and no lifecycle, and nothing that computes quorum,
+  // weight or the bootstrap ladder reads it. Counting it as domain would put
+  // the operator inside the model the operator is supposed to stay outside of.
+  'maintainer_profile',
 ];
 const expectedPhysicalTables = logicalDomainTables
   .map((name) => name === 'challenges' ? 'challenges_v2' : name)
@@ -341,9 +348,9 @@ const createdTables = [...allSql.matchAll(
 )].map((match) => match[1]).sort();
 
 ok('32 logical domain tables', logicalDomainTables.length === 32);
-ok('8 separate infrastructure tables', infraTables.length === 8);
+ok('9 separate infrastructure tables', infraTables.length === 9);
 ok(
-  '40 expected physical tables represented',
+  '41 expected physical tables represented',
   JSON.stringify(createdTables) === JSON.stringify(expectedPhysicalTables),
   createdTables.join(', '),
 );
@@ -413,6 +420,12 @@ for (const table of expectedPhysicalTables.filter((name) => name !== 'osi_config
       // D19 SAS infrastructure tables force RLS and service-role grants inside
       // their own additive migration (same fail-closed pattern as default-deny).
       || (table.startsWith('osi_v2_sas_') && sasCredential.includes("'" + table + "'"))
+      // The maintainer profile forces RLS and revokes client grants inside its
+      // own additive migration, the same fail-closed pattern as the tables above.
+      || (table === 'maintainer_profile'
+        && /alter table public\.maintainer_profile enable row level security/i.test(maintainerProfile)
+        && /alter table public\.maintainer_profile force row level security/i.test(maintainerProfile)
+        && /revoke all on public\.maintainer_profile from anon, authenticated/i.test(maintainerProfile))
       || (table === 'osi_v2_ai_pack_generation_runs'
         && /alter table public\.osi_v2_ai_pack_generation_runs enable row level security/i.test(aiPackPhase1)
         && /alter table public\.osi_v2_ai_pack_generation_runs force row level security/i.test(aiPackPhase1)

@@ -215,3 +215,34 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+/* Maintainer profile.
+   Sits above the analyst roster and must never read as a roster entry. It gets
+   its own kicker, its own frame and a standing notice, because the operator
+   holds no analyst standing and the surface should say that rather than leave
+   it to be inferred from a column that is simply absent. */
+.osi-maintainer-profile{margin:0 0 18px;padding:0}
+.osi-maintainer-kicker{margin:0 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+.osi-maintainer-card{display:flex;gap:16px;align-items:flex-start;padding:16px 18px;border:1px solid var(--line-bright);border-radius:12px;background:var(--bg-soft,rgba(148,163,184,.05))}
+.osi-maintainer-avatar{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:0 0 auto}
+.osi-maintainer-body{display:flex;flex-direction:column;gap:7px;min-width:0}
+.osi-maintainer-name{font-size:15px;font-weight:700;color:var(--ink)}
+.osi-maintainer-wallet{font-size:11.5px;color:var(--ink-faint);word-break:break-all}
+.osi-maintainer-bio{margin:0;font-size:13px;line-height:1.55;color:var(--ink-dim)}
+.osi-maintainer-expertise,.osi-maintainer-links{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.osi-maintainer-expertise li{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 8px;border:1px solid var(--line-bright);border-radius:999px;color:var(--ink-faint)}
+.osi-maintainer-links a{font-size:12.5px;color:var(--sol);text-decoration:none;border-bottom:1px solid transparent}
+.osi-maintainer-links a:hover,.osi-maintainer-links a:focus-visible{border-bottom-color:currentColor}
+.osi-maintainer-proof{font-size:12.5px;font-weight:600;color:var(--sol);text-decoration:none;border-bottom:1px solid transparent;align-self:flex-start}
+.osi-maintainer-proof:hover,.osi-maintainer-proof:focus-visible{border-bottom-color:currentColor}
+.osi-maintainer-notice{margin:2px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink-faint)}
+@media (max-width:640px){.osi-maintainer-card{flex-direction:column;gap:12px}}
+.osi-maintainer-edit{margin-top:10px}
+.osi-maintainer-editor-host{margin-top:12px}
+.osi-maintainer-editor{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid var(--line-bright);border-radius:12px}
+.osi-maintainer-editor label{display:flex;flex-direction:column;gap:5px}
+.osi-maintainer-editor label span{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+.osi-maintainer-editor input,.osi-maintainer-editor textarea{width:100%;background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;font-family:'JetBrains Mono',monospace;outline:none;resize:vertical}
+.osi-maintainer-editor input:focus-visible,.osi-maintainer-editor textarea:focus-visible{border-color:var(--sol)}
+.osi-maintainer-editor-actions{display:flex;gap:8px;flex-wrap:wrap}
+.osi-maintainer-editor-status{margin:0;font-size:12px;color:var(--ink-dim);min-height:1em}

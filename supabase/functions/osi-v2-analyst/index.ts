@@ -15,6 +15,10 @@ import {
   verifyEd25519Signature,
 } from "../_shared/osi-v2-proof-core.mjs";
 import {
+  normalizeMaintainerProfile,
+  publicMaintainerProfile,
+} from "../_shared/osi-v2-maintainer-profile-core.mjs";
+import {
   buildChallenge,
   challengeSigningInput,
   parseChallenge,
@@ -769,6 +773,47 @@ async function profileGraph(profiles: Row[]) {
 
 const PROFILE_COLS = "wallet,handle,display_name,bio,avatar_url,expertise_public,links_public,status,tier_code,weight_cached,created_at,updated_at";
 
+// The operator's public identity. Anyone may read it: it is the answer to
+// "who runs this", which a project asking to be trusted should not hide. It is
+// deliberately a separate record from analyst_profiles, so it can never be
+// counted as analyst standing by anything that counts analysts.
+const MAINTAINER_PROFILE_COLS =
+  "wallet,display_name,bio,avatar_url,proof_of_work_url,expertise_public,links_public,updated_at";
+
+async function getMaintainerProfile(): Promise<Response> {
+  const { data, error } = await admin.from("maintainer_profile")
+    .select(MAINTAINER_PROFILE_COLS).limit(1);
+  if (error) return jsonResponse(503, { ok: false, error: "maintainer_profile_unavailable" });
+  // No row is an honest empty state, not an error: the deployment simply has
+  // no published operator identity yet.
+  return jsonResponse(200, { ok: true, profile: publicMaintainerProfile(data?.[0]) });
+}
+
+async function saveMaintainerProfile(req: Request, body: Row): Promise<Response> {
+  const wallet = safeText(body.wallet);
+  try { validateWallet(wallet); } catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
+  const gate = await fullMaintainer(req, wallet);
+  if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
+  let input;
+  try {
+    input = normalizeMaintainerProfile({ ...(body.profile as Row ?? {}), wallet });
+  } catch (error) {
+    return jsonResponse(400, { ok: false, error: errorMessage(error) || "bad_profile" });
+  }
+  const { data, error } = await admin.rpc("osi_v2_save_maintainer_profile", {
+    p_wallet: input.wallet,
+    p_display_name: input.display_name,
+    p_bio: input.bio,
+    p_avatar_url: input.avatar_url,
+    p_proof_of_work_url: input.proof_of_work_url,
+    p_expertise: input.expertise_public,
+    p_links: input.links_public,
+    p_auth_uuid: gate.auth_id,
+  });
+  if (error) return jsonResponse(403, { ok: false, error: "maintainer_profile_write_denied" });
+  return jsonResponse(200, { ok: true, profile: publicMaintainerProfile(data) });
+}
+
 async function listPublicProfiles(): Promise<Response> {
   const { data, error } = await admin.from("analyst_profiles").select(PROFILE_COLS)
     .in("status", PUBLIC_PROFILE_STATUSES).eq("verified", true).eq("approved", true)
@@ -962,6 +1007,8 @@ serve(async (req: Request): Promise<Response> => {
 
   switch (body.op) {
     case "list_public_profiles": return await listPublicProfiles();
+    case "get_maintainer_profile": return await getMaintainerProfile();
+    case "save_maintainer_profile": return await saveMaintainerProfile(req, body);
     case "issue_read_challenge": return await issueReadChallenge(req, body);
     case "my_workspace": return await myWorkspace(req, body);
     case "maintainer_queue": return await maintainerQueue(req, body);

@@ -390,6 +390,11 @@
     </div>
     <div class="lb-console">
       <div class="lb-maincol">
+        <!-- Who operates this deployment. Rendered above the roster and kept
+             visibly separate from it: the maintainer is not an analyst, holds no
+             review weight and is counted in no quorum. Empty until a profile is
+             published, and never a placeholder. -->
+        <section id="osi-maintainer-profile" class="osi-maintainer-profile" hidden aria-labelledby="osi-maintainer-profile-title"></section>
         <div class="lb-board" id="lb-board">
           <div class="lb-thead osi-analyst-head mono" aria-hidden="true"><span>Analyst</span><span>Status</span><span>Expertise</span><span>Contributions</span><span class="r">Weight</span><span class="r">Proof</span></div>
           <div class="lb-wrap" id="lb-body"></div>
