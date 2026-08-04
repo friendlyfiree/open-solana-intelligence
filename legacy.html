@@ -5,9 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Open Solana Intelligence · community-verified on-chain investigation</title>
 <meta name="description" content="OSI (Open Solana Intelligence) turns public Solana incident evidence into reviewed, on-chain verifiable case records and escalation packs for victims, exchanges, and law enforcement. Public, signed via Solana Memo. Information only, no recovery promised.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Frozen V1 fallback. It stays reachable so historical links resolve, but it
+     is not the product: it must never be indexed as it, and it must never be
+     the surface a search result sends someone to. The live application is
+     index.html. See robots.txt and the /legacy.html header rule in vercel.json. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="canonical" href="https://open-solana-intel.vercel.app/">
+<!-- The third-party webfont links that used to sit here were removed with the
+     site-wide Content-Security-Policy. They pulled Archivo and JetBrains Mono
+     from a hosted font service, which the shipped application never did:
+     index.html has always run on the system fallback stack declared in
+     assets/css/00-theme-base.css. Keeping them would have meant widening
+     style-src and font-src across the whole origin, and disclosing every
+     legacy visitor's IP to a third party, to style a page nobody maintains. -->
 <!-- Buffer polyfill, web3.js needs a global Buffer when building transactions in the browser. Must load before web3.js. -->
 <script src="https://bundle.run/buffer@6.0.3" integrity="sha384-PMSj0RMOtmkmKsWcDKPG3C6+cBg9JTZ+NnsE2U0yuOUA9Wzn5FQFnJeLS8EK5nW+" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="./assets/js/00-buffer-shim.js"></script>

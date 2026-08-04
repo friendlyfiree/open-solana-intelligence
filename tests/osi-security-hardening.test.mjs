@@ -42,6 +42,69 @@ ok("Vercel enforces transport and privacy headers", securityHeaders.get("Strict-
   && securityHeaders.get("Referrer-Policy") === "strict-origin-when-cross-origin"
   && securityHeaders.has("Permissions-Policy"));
 
+// The Content-Security-Policy is a real allowlist, not a token one. Each
+// directive below is pinned so the allowlist cannot quietly widen: a new
+// third-party script host or a new outbound endpoint has to change this test,
+// in the same pull request, with a reviewer looking at it.
+const csp = String(securityHeaders.get("Content-Security-Policy") || "");
+const directive = (name) => {
+  const match = csp.split(";").map((part) => part.trim()).find((part) => part === name || part.startsWith(`${name} `));
+  return match ? match.slice(name.length).trim() : null;
+};
+ok("CSP sets a self default rather than leaving unlisted fetches open",
+  directive("default-src") === "'self'");
+ok("CSP restricts script origins to self plus the three SRI-pinned CDNs",
+  ["'self'", "https://bundle.run", "https://unpkg.com", "https://cdn.jsdelivr.net"]
+    .every((source) => (directive("script-src") || "").split(/\s+/).includes(source)));
+ok("CSP admits injected wallet providers by scheme so the page policy never breaks a wallet",
+  ["chrome-extension:", "moz-extension:"].every((scheme) => (directive("script-src") || "").split(/\s+/).includes(scheme)));
+// connect-src is the directive that actually bounds exfiltration on a site that
+// handles wallet interaction, so it is pinned exactly rather than by substring.
+const connectSources = new Set((directive("connect-src") || "").split(/\s+/).filter(Boolean));
+ok("CSP names every outbound endpoint exactly, and nothing else",
+  connectSources.size === 9
+  && [
+    "'self'",
+    "https://afibxpniwfnavdobecrn.supabase.co",
+    // Same origin over websocket. The Supabase client library owns whether it
+    // opens one, not this codebase, so the origin is listed rather than left
+    // to fail in production the first time it decides to.
+    "wss://afibxpniwfnavdobecrn.supabase.co",
+    "https://api.mainnet-beta.solana.com",
+    "https://solana-rpc.publicnode.com",
+    "https://solana.drpc.org",
+    "https://endpoints.omniatech.io",
+    "https://api.coingecko.com",
+    "https://api.web3forms.com",
+  ].every((source) => connectSources.has(source)));
+ok("CSP forbids plugins, nested framing and cross-origin form posts",
+  directive("object-src") === "'none'"
+  && directive("frame-src") === "'none'"
+  && directive("frame-ancestors") === "'none'"
+  && directive("form-action") === "'self'"
+  && directive("base-uri") === "'self'"
+  && csp.includes("upgrade-insecure-requests"));
+ok("CSP keeps images and fonts off arbitrary third-party origins",
+  !/https:(?:\s|;|$)/.test(directive("img-src") || "")
+  && !(directive("img-src") || "").includes("*")
+  && (directive("font-src") || "").split(/\s+/).every((source) => source === "'self'" || source === "data:"));
+
+// The frozen V1 fallback stays reachable for historical links, but a search
+// result must never land a person on the unmaintained surface.
+const legacyHeaders = new Map(
+  (vercel.headers || [])
+    .filter((rule) => rule.source === "/legacy.html")
+    .flatMap((rule) => rule.headers || [])
+    .map((row) => [row.key, row.value]));
+const legacySource = read("legacy.html");
+ok("the frozen legacy surface is excluded from indexing at every layer",
+  /noindex/.test(legacyHeaders.get("X-Robots-Tag") || "")
+  && /<meta name="robots" content="noindex/.test(legacySource)
+  && /<link rel="canonical" href="https:\/\/open-solana-intel\.vercel\.app\/">/.test(legacySource)
+  && /^Disallow: \/legacy\.html$/m.test(read("robots.txt")));
+ok("no browser surface loads a third-party webfont",
+  !/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(browserSource));
+
 const workflowDir = path.join(root, ".github", "workflows");
 const workflowSource = fs.readdirSync(workflowDir)
   .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))

@@ -1,0 +1,9 @@
+# Open Solana Intelligence
+# https://open-solana-intel.vercel.app
+
+User-agent: *
+Allow: /
+
+# The frozen V1 fallback surface. It is kept reachable so historical links do
+# not break, but it is not the product and must not be indexed as it.
+Disallow: /legacy.html
