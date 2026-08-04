@@ -309,4 +309,11 @@ for (const handler of loadHandlers) handler();
 await new Promise((resolve) => setTimeout(resolve, 0));
 ok("trusted reload performs one silent connect and zero signature prompts", trustedConnectCalls === 1 && trustedSignCalls === 0);
 
+// The voluntary support transfer keeps its own tailored wording and inherits
+// every shared wallet mapping instead of falling back to "was not sent".
+const tipSource = readFileSync(new URL("../assets/js/70-support-transfer.js", import.meta.url), "utf8");
+ok("the support transfer explains a wallet failure with the shared mapping",
+  /walletErrorDetail\(e\)\)\|\|'The transfer was not sent\.'/.test(tipSource)
+    && tipSource.indexOf("Not enough SOL for that amount plus the network fee.") > 0);
+
 console.log(`\n${passed} provider call-count and invalidation checks passed.`);
