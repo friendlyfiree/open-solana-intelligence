@@ -267,7 +267,10 @@ async function osiTipSend(lamports){
       else if(/SELF_TRANSFER/i.test(m)) friendly='That is your own wallet.';
       else if(/BAD_AMOUNT/i.test(m)) friendly='Enter a valid amount.';
       else if(/Buffer/i.test(m)) friendly='The wallet library is still loading, try once more in a second.';
-      else friendly='The transfer was not sent.';
+      // Anything else the wallet can explain, including the generic internal
+      // error it returns when its worker was asleep, reads the same here as it
+      // does everywhere else in the product.
+      else friendly=(typeof walletErrorDetail==='function'&&walletErrorDetail(e))||'The transfer was not sent.';
       setTipStatus('<span class="tip-err">'+escapeHtml(friendly)+'</span>');
       return;
     }
