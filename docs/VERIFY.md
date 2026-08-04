@@ -147,20 +147,38 @@ and are summarized, with their limitations stated, in
 
 ## 6. Default deny, tested from outside
 
-The publishable key must not be able to read a governance table directly:
+The publishable key must not be able to read a governance table directly. These
+are the real V2 domain table names, so a `404` here would mean this page sent
+you to a table that does not exist rather than proving anything:
 
 ```bash
-for T in cases reports_v2 wire_reports event_receipts analyst_profiles; do
-  printf '%-20s ' "$T"
+for T in cases case_reports case_report_versions case_report_reviews \
+         wire_reports wire_report_versions evidence_items \
+         event_receipts analyst_profiles reward_payments; do
+  printf '%-24s ' "$T"
   curl -s -o /dev/null -w '%{http_code}\n' \
     "$OSI_API/rest/v1/$T?select=*&limit=1" \
     -H "apikey: $OSI_KEY" -H "Authorization: Bearer $OSI_KEY"
 done
 ```
 
-Expected: `401` on every V2 domain table. Public data is reachable only through
-the read functions in section 5, which apply explicit field allowlists rather
-than exposing rows.
+Expected: `401` on all ten. Public data is reachable only through the read
+functions in section 5, which apply explicit field allowlists rather than
+exposing rows.
+
+**One result that looks like a failure and is not.** A handful of frozen V1
+tables (`reports`, `analysts`, `profiles`, `vouches`, `requests`,
+`bounty_boosts`, `config`) still answer `200` with an empty array. They are the
+pre-V2 surface, they hold no rows, and their write policies were revoked in
+`20260727170000_osi_v1_legacy_policy_hardening.sql` and
+`20260727173000_osi_v1_legacy_counter_readonly.sql`. Nothing in the shipped
+application reads or writes them. They are named here rather than left for you
+to trip over, because a verification page that hides its own awkward results is
+not a verification page.
+
+Note that `reports` is a V1 table and is **not** the V2 report store. The V2
+equivalents are `case_reports` and `case_report_versions`, both of which are in
+the list above and both of which answer `401`.
 
 ## 7. Live configuration against the documentation
 

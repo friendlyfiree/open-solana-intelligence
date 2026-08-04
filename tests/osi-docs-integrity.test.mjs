@@ -85,6 +85,42 @@ const strayKeys = [...verifyGuide.matchAll(/\b[1-9A-HJ-NP-Za-km-z]{43,44}\b/g)]
 ok("the verification guide contains no unexplained base58 account key",
   strayKeys.length === 0 || assert.fail(`unexplained keys: ${strayKeys.join(", ")}`));
 
+// 2b. The default-deny proof in the verification guide names tables that exist.
+//
+// This check exists because the guide once told readers to expect 401 from a
+// table called `reports_v2`, which has never existed. Production answered 404,
+// and a reader following the page step by step got a result the page did not
+// predict. On a project whose entire claim is "check it yourself", a
+// verification instruction that does not reproduce is worse than no
+// instruction: it spends the reader's trust rather than earning it.
+const schemaSql = read("supabase/migrations/20260711092711_osi_v2_additive_schema.sql");
+const declaredTables = new Set(
+  [...schemaSql.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?public\.([a-z0-9_]+)/gi)]
+    .map((match) => match[1].toLowerCase()));
+ok(`the V2 additive schema declares its domain tables (${declaredTables.size} found)`,
+  declaredTables.size >= 30 && declaredTables.has("cases") && declaredTables.has("event_receipts"));
+
+// The guide's loop spans several backslash-continued lines; join them first.
+const denyLoop = verifyGuide.replace(/\\\n\s*/g, " ").match(/for\s+T\s+in\s+([^;]+?);\s*do/);
+ok("the verification guide contains a default-deny table loop", Boolean(denyLoop));
+const denyTables = (denyLoop?.[1] || "").trim().split(/\s+/).filter(Boolean);
+const undeclared = denyTables.filter((name) => !declaredTables.has(name.toLowerCase()));
+ok(`every table the guide tells a reader to probe actually exists (${denyTables.length} probed)`,
+  denyTables.length >= 5
+  && (undeclared.length === 0
+    || assert.fail(`the guide names tables that are not in the schema: ${undeclared.join(", ")}`)));
+
+// The frozen V1 tables answer 200 with an empty array. Putting one of them in a
+// list captioned "expect 401 on all of these" would manufacture a false
+// failure in the reader's terminal.
+const V1_LEGACY_TABLES = ["reports", "analysts", "profiles", "vouches", "requests", "bounty_boosts", "config"];
+const leakedLegacy = denyTables.filter((name) => V1_LEGACY_TABLES.includes(name.toLowerCase()));
+ok("the default-deny loop contains no frozen V1 table that would answer 200",
+  leakedLegacy.length === 0 || assert.fail(`V1 tables in the deny list: ${leakedLegacy.join(", ")}`));
+ok("the guide warns about the V1 tables that do answer 200, rather than leaving them to surprise a reader",
+  V1_LEGACY_TABLES.every((name) => new RegExp(`\`${name}\``).test(verifyGuide))
+  && /looks like a failure and is not/i.test(verifyGuide));
+
 // 3. The track record's counts equal the evidence listed under them.
 const proofOfWork = read("docs/PROOF_OF_WORK.md");
 const sections = proofOfWork.split(/^# Appendix /m);

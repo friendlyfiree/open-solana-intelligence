@@ -1,7 +1,7 @@
 import fs from "node:fs";
 
 const workflow = fs.readFileSync(
-  new URL("../.github/workflows/osi-legacy-demo-cleanup.yml", import.meta.url),
+  new URL("../.github/workflows/archive/osi-legacy-demo-cleanup.yml", import.meta.url),
   "utf8",
 );
 

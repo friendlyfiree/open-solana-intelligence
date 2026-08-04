@@ -105,11 +105,33 @@ ok("the frozen legacy surface is excluded from indexing at every layer",
 ok("no browser surface loads a third-party webfont",
   !/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(browserSource));
 
+// Recurse, so archived rollouts stay under the same supply-chain rule as live
+// ones. An archived workflow is one `git mv` away from running again, and a
+// float-tagged action inside it would be just as dangerous then as now.
 const workflowDir = path.join(root, ".github", "workflows");
-const workflowSource = fs.readdirSync(workflowDir)
-  .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
-  .map((name) => read(`.github/workflows/${name}`))
-  .join("\n");
+const workflowFiles = [];
+(function collect(dir, prefix) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) collect(path.join(dir, entry.name), `${prefix}${entry.name}/`);
+    else if (entry.name.endsWith(".yml") || entry.name.endsWith(".yaml")) workflowFiles.push(`${prefix}${entry.name}`);
+  }
+})(workflowDir, ".github/workflows/");
+const workflowSource = workflowFiles.map((name) => read(name)).join("\n");
+ok(`every workflow is covered by the supply-chain check, archived ones included (${workflowFiles.length})`,
+  workflowFiles.length >= 30
+  && workflowFiles.some((name) => name.includes("/archive/"))
+  && workflowFiles.includes(".github/workflows/osi-v2-foundation.yml"));
+
+// Exactly one workflow may run automatically on a pull request. Everything else
+// is manual by design: these are production rollouts against a live mainnet
+// project, and an accidental `on: push` in one of them is not a lint issue.
+const autoTriggered = workflowFiles.filter((name) => {
+  const source = read(name);
+  const header = source.slice(0, source.search(/^jobs:/m) >>> 0);
+  return /^on:\s*$/m.test(header) && /^\s{2}(pull_request|push|schedule):/m.test(header);
+});
+ok("only the validation gate runs without a human dispatching it",
+  autoTriggered.length === 1 && autoTriggered[0] === ".github/workflows/osi-v2-foundation.yml");
 const workflowUses = [...workflowSource.matchAll(/\buses:\s*([^\s#]+)/g)].map((match) => match[1]);
 ok("every external workflow action is immutable SHA-pinned", workflowUses.length > 0
   && workflowUses.every((value) => /@[a-f0-9]{40}$/.test(value))

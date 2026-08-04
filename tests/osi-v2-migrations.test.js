@@ -97,7 +97,7 @@ const allSql = migrationFiles.map((name) => sqlByFile[name]).join('\n');
 const config = fs.readFileSync(path.join(root, 'supabase', 'config.toml'), 'utf8');
 const openDecisions = fs.readFileSync(path.join(root, 'docs', 'OSI_V2_OPEN_DECISIONS.md'), 'utf8');
 const sasBootstrapWorkflow = fs.readFileSync(
-  path.join(root, '.github', 'workflows', 'osi-v2-sas-bootstrap-production.yml'),
+  path.join(root, '.github', 'workflows', 'archive', 'osi-v2-sas-bootstrap-production.yml'),
   'utf8',
 );
 const foundationWorkflow = fs.readFileSync(
@@ -105,31 +105,31 @@ const foundationWorkflow = fs.readFileSync(
   'utf8',
 );
 const analystProductionWorkflow = fs.readFileSync(
-  path.join(root, '.github', 'workflows', 'osi-v2-analyst-production.yml'),
+  path.join(root, '.github', 'workflows', 'archive', 'osi-v2-analyst-production.yml'),
   'utf8',
 );
 const reportProductionWorkflow = fs.readFileSync(
-  path.join(root, '.github', 'workflows', 'osi-v2-report-production.yml'),
+  path.join(root, '.github', 'workflows', 'archive', 'osi-v2-report-production.yml'),
   'utf8',
 );
 const resolutionProductionWorkflow = fs.readFileSync(
-  path.join(root, '.github', 'workflows', 'osi-v2-resolution-production.yml'),
+  path.join(root, '.github', 'workflows', 'archive', 'osi-v2-resolution-production.yml'),
   'utf8',
 );
 const paymentProductionWorkflow = fs.readFileSync(
-  path.join(root, '.github', 'workflows', 'osi-v2-payment-production.yml'),
+  path.join(root, '.github', 'workflows', 'archive', 'osi-v2-payment-production.yml'),
   'utf8',
 );
 const readSessionProductionWorkflow = fs.readFileSync(
-  path.join(root, '.github', 'workflows', 'osi-v2-read-session-production.yml'),
+  path.join(root, '.github', 'workflows', 'archive', 'osi-v2-read-session-production.yml'),
   'utf8',
 );
 const wireProductionWorkflow = fs.readFileSync(
-  path.join(root, '.github', 'workflows', 'osi-v2-wire-production.yml'),
+  path.join(root, '.github', 'workflows', 'archive', 'osi-v2-wire-production.yml'),
   'utf8',
 );
 const aiPackProductionWorkflow = fs.readFileSync(
-  path.join(root, '.github', 'workflows', 'osi-v2-ai-pack-production.yml'),
+  path.join(root, '.github', 'workflows', 'archive', 'osi-v2-ai-pack-production.yml'),
   'utf8',
 );
 function workflowVersionList(name) {

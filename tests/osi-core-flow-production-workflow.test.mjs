@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const workflow = fs.readFileSync(
-  new URL("../.github/workflows/osi-core-flow-repair-production.yml", import.meta.url),
+  new URL("../.github/workflows/archive/osi-core-flow-repair-production.yml", import.meta.url),
   "utf8",
 );
 const alignmentWorkflow = fs.readFileSync(
   new URL(
-    "../.github/workflows/osi-core-flow-validator-alignment-production.yml",
+    "../.github/workflows/archive/osi-core-flow-validator-alignment-production.yml",
     import.meta.url,
   ),
   "utf8",

@@ -513,7 +513,7 @@ const recoveryMigration = readFileSync(
 );
 const config = readFileSync(join(root, "supabase/config.toml"), "utf8");
 const productionWorkflow = readFileSync(
-  join(root, ".github/workflows/osi-v2-report-review-production.yml"), "utf8",
+  join(root, ".github/workflows/archive/osi-v2-report-review-production.yml"), "utf8",
 );
 
 ok("Report gateways never select broad star",

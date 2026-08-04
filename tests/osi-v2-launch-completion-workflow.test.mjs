@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const workflow = readFileSync(
-  new URL("../.github/workflows/osi-v2-launch-completion-production.yml", import.meta.url),
+  new URL("../.github/workflows/archive/osi-v2-launch-completion-production.yml", import.meta.url),
   "utf8",
 );
 

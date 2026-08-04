@@ -215,7 +215,9 @@ supabase/tests/         pgTAP authorization and lifecycle suites
 tests/                  Dependency-free Node suites, browser E2E, concurrency
 docs/                   Product constitution, domain model, state machines,
                         role matrix, decision register, guides, verification
-.github/workflows/      CI validation and typed, main-only production rollouts
+.github/workflows/      The validation gate plus reusable deploy and audit tools
+.github/workflows/archive/  Completed one-shot production rollouts, kept as the
+                        audit trail and disabled by living in a subdirectory
 tools/                  One-time maintainer utilities (SAS setup)
 scripts/                Third-party-runnable audit scripts
 ```
