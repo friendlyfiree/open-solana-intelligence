@@ -811,7 +811,9 @@ async function saveMaintainerProfile(req: Request, body: Row): Promise<Response>
     p_auth_uuid: gate.auth_id,
   });
   if (error) return jsonResponse(403, { ok: false, error: "maintainer_profile_write_denied" });
-  return jsonResponse(200, { ok: true, profile: publicMaintainerProfile(data) });
+  // The RPC is set-returning, like every other V2 write wrapper, so PostgREST
+  // hands back a one-row array rather than a bare object.
+  return jsonResponse(200, { ok: true, profile: publicMaintainerProfile(data?.[0]) });
 }
 
 async function listPublicProfiles(): Promise<Response> {

@@ -60,12 +60,19 @@ comment on table public.maintainer_profile is
 -- this through the allowlisted projection in osi-v2-analyst and never directly.
 alter table public.maintainer_profile enable row level security;
 alter table public.maintainer_profile force row level security;
-revoke all on public.maintainer_profile from anon, authenticated;
+revoke all privileges on table public.maintainer_profile from public, anon, authenticated;
+grant select, insert, update on table public.maintainer_profile to service_role;
 
 -- Writing is a service-role RPC behind the Edge function's maintainer double
 -- gate, matching every other privileged write in this schema. The function
 -- refuses any wallet that is not the configured admin wallet at write time, so
 -- a rotated admin wallet cannot keep editing through a stale caller.
+--
+-- `security invoker`, like every other function in this schema: the caller's
+-- own privileges decide every hop, so a widening mistake anywhere in the chain
+-- shows up as a refusal rather than being papered over by a definer's rights.
+-- That property is asserted for the whole schema in
+-- supabase/tests/osi_v2_service_role_execute_grants.sql.
 create or replace function osi_private.osi_v2_save_maintainer_profile(
   p_wallet text,
   p_display_name text,
@@ -74,29 +81,39 @@ create or replace function osi_private.osi_v2_save_maintainer_profile(
   p_proof_of_work_url text,
   p_expertise jsonb,
   p_links jsonb,
-  p_auth_uuid uuid
+  p_auth_uuid text
 )
-returns public.maintainer_profile
+returns table (
+  wallet text,
+  display_name text,
+  bio text,
+  avatar_url text,
+  proof_of_work_url text,
+  expertise_public jsonb,
+  links_public jsonb,
+  updated_at timestamptz
+)
 language plpgsql
-security definer
-set search_path = pg_catalog, public
+security invoker
+set search_path = ''
 as $$
 declare
-  configured_wallet text;
-  saved public.maintainer_profile;
+  saved public.maintainer_profile%rowtype;
 begin
-  select config.value into configured_wallet
-    from public.osi_config as config
-   where config.key = 'admin_wallet'
-   limit 1;
-
-  if configured_wallet is null or configured_wallet is distinct from p_wallet then
-    raise exception 'Maintainer profile may only be written by the configured admin wallet'
-      using errcode = '42501';
+  if current_user not in ('postgres', 'service_role', 'supabase_admin') then
+    raise exception 'Maintainer profile writes are service-only' using errcode = '42501';
   end if;
 
-  if p_auth_uuid is null then
-    raise exception 'Maintainer profile requires the authenticated maintainer identity'
+  -- One definition of "the maintainer", shared with every other maintainer-only
+  -- path: the configured admin wallet plus a real authenticated identity. A
+  -- rotated admin wallet therefore revokes editing here without a code change.
+  --
+  -- `is distinct from true`, the same form every other maintainer gate uses,
+  -- and for the same reason: the binding returns NULL rather than false when
+  -- p_auth_uuid is null, and `if not null then` does not fire. Written the
+  -- obvious way, a caller with no authenticated identity would be let through.
+  if osi_private.osi_v2_full_maintainer_binding(p_wallet, p_auth_uuid) is distinct from true then
+    raise exception 'Maintainer profile may only be written by the configured admin wallet'
       using errcode = '42501';
   end if;
 
@@ -106,7 +123,8 @@ begin
   )
   values (
     true, p_wallet, p_display_name, p_bio, p_avatar_url, p_proof_of_work_url,
-    coalesce(p_expertise, '[]'::jsonb), coalesce(p_links, '[]'::jsonb), now(), p_auth_uuid
+    coalesce(p_expertise, '[]'::jsonb), coalesce(p_links, '[]'::jsonb),
+    now(), p_auth_uuid::uuid
   )
   on conflict (singleton) do update set
     wallet = excluded.wallet,
@@ -120,15 +138,58 @@ begin
     updated_by_auth = excluded.updated_by_auth
   returning target.* into saved;
 
-  return saved;
+  return query
+    select saved.wallet, saved.display_name, saved.bio, saved.avatar_url,
+           saved.proof_of_work_url, saved.expertise_public, saved.links_public,
+           saved.updated_at;
 end;
 $$;
 
-revoke all on function osi_private.osi_v2_save_maintainer_profile(
-  text, text, text, text, text, jsonb, jsonb, uuid
+-- The PostgREST-reachable surface. osi_private is not an exposed schema, so
+-- without this thin wrapper the Edge function's rpc() call would resolve to
+-- nothing. Same shape as every other V2 write: public wrapper, private logic,
+-- both revoked from the browser-facing roles.
+create or replace function public.osi_v2_save_maintainer_profile(
+  p_wallet text,
+  p_display_name text,
+  p_bio text,
+  p_avatar_url text,
+  p_proof_of_work_url text,
+  p_expertise jsonb,
+  p_links jsonb,
+  p_auth_uuid text
+)
+returns table (
+  wallet text,
+  display_name text,
+  bio text,
+  avatar_url text,
+  proof_of_work_url text,
+  expertise_public jsonb,
+  links_public jsonb,
+  updated_at timestamptz
+)
+language sql
+security invoker
+set search_path = ''
+as $$
+  select * from osi_private.osi_v2_save_maintainer_profile(
+    p_wallet, p_display_name, p_bio, p_avatar_url, p_proof_of_work_url,
+    p_expertise, p_links, p_auth_uuid
+  )
+$$;
+
+revoke all privileges on function osi_private.osi_v2_save_maintainer_profile(
+  text, text, text, text, text, jsonb, jsonb, text
+) from public, anon, authenticated;
+revoke all privileges on function public.osi_v2_save_maintainer_profile(
+  text, text, text, text, text, jsonb, jsonb, text
 ) from public, anon, authenticated;
 grant execute on function osi_private.osi_v2_save_maintainer_profile(
-  text, text, text, text, text, jsonb, jsonb, uuid
+  text, text, text, text, text, jsonb, jsonb, text
+) to service_role;
+grant execute on function public.osi_v2_save_maintainer_profile(
+  text, text, text, text, text, jsonb, jsonb, text
 ) to service_role;
 
 commit;
