@@ -108,7 +108,11 @@ jobs:
         run: |
           set -euo pipefail
           psql "$OSI_TEST_DATABASE_URL" -Atq <<'SQL' > /tmp/deny.txt
-          select 'rls|' || relrowsecurity || '|' || relforcerowsecurity
+          -- One verdict, cast explicitly. `||` renders a boolean as true/false,
+          -- not as the t/f that psql prints for a boolean *column*, so a check
+          -- written against t/f can never match and would fail this gate closed
+          -- on a table that is in fact correct.
+          select 'rls|' || (relrowsecurity and relforcerowsecurity)::text
             from pg_class where oid = 'public.maintainer_profile'::regclass;
           select 'policies|' || count(*) from pg_policies
            where schemaname = 'public' and tablename = 'maintainer_profile';
@@ -116,7 +120,7 @@ jobs:
            where table_schema = 'public' and table_name = 'maintainer_profile'
              and grantee in ('anon', 'authenticated');
           SQL
-          grep -q '^rls|t|t$' /tmp/deny.txt || { echo "::error::maintainer_profile does not force row level security."; exit 1; }
+          grep -q '^rls|true$' /tmp/deny.txt || { echo "::error::maintainer_profile does not force row level security."; exit 1; }
           grep -q '^policies|0$' /tmp/deny.txt || { echo "::error::maintainer_profile has a policy; it must be service-only."; exit 1; }
           grep -q '^anon_grants|0$' /tmp/deny.txt || { echo "::error::maintainer_profile is reachable by a client role."; exit 1; }
 
@@ -228,7 +232,7 @@ jobs:
           set -euo pipefail
           psql -Atq <<'SQL' > /tmp/prod-deny.txt
           begin read only;
-          select 'rls|' || relrowsecurity || '|' || relforcerowsecurity
+          select 'rls|' || (relrowsecurity and relforcerowsecurity)::text
             from pg_class where oid = 'public.maintainer_profile'::regclass;
           select 'policies|' || count(*) from pg_policies
            where schemaname='public' and tablename='maintainer_profile';
@@ -237,7 +241,7 @@ jobs:
              and grantee in ('anon','authenticated');
           commit;
           SQL
-          grep -q '^rls|t|t$' /tmp/prod-deny.txt || { echo "::error::Forced RLS is absent in production."; exit 1; }
+          grep -q '^rls|true$' /tmp/prod-deny.txt || { echo "::error::Forced RLS is absent in production."; exit 1; }
           grep -q '^policies|0$' /tmp/prod-deny.txt || { echo "::error::A policy exists; the table must be service-only."; exit 1; }
           grep -q '^anon_grants|0$' /tmp/prod-deny.txt || { echo "::error::A client role can reach the table."; exit 1; }
 
