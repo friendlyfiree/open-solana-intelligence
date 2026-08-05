@@ -4,7 +4,11 @@
 
   var API_URL=SUPABASE_URL+'/functions/v1/osi-v2-analyst';
   var AVATAR_PREFIX=SUPABASE_URL+'/storage/v1/object/public/osi-analyst-avatars/';
-  var state={profiles:[],profilesPromise:null,profileIntent:'',profileReturnFocus:null,workspace:null,workspaceWallet:'',workspaceTab:'profile',queue:[],busy:false,returnFocus:null,receipt:null};
+  // maintainerAccess is pushed in by the Case module after the server answers
+  // who this browser is. This module has no capability fetch of its own, and an
+  // earlier version read `state.capabilities` here, a key nothing in this file
+  // ever set, so the operator's own edit control could never appear.
+  var state={profiles:[],profilesPromise:null,profileIntent:'',profileReturnFocus:null,workspace:null,workspaceWallet:'',workspaceTab:'profile',queue:[],busy:false,returnFocus:null,receipt:null,maintainerAccess:false};
 
   function esc(value){
     return String(value==null?'':value).replace(/[&<>"']/g,function(char){
@@ -288,7 +292,12 @@
       status.textContent=t('Saving...');
       try{
         var saved=await api({op:'save_maintainer_profile',wallet:walletPubkey,profile:readMaintainerEditor(form)});
+        // Rendering replaces the container's contents, so the edit control has
+        // to be put back or a successful save would leave the operator with no
+        // way to make a second one.
         renderMaintainerProfile(saved&&saved.profile);
+        panel.remove();
+        attachMaintainerEditor(saved&&saved.profile);
         if(typeof window.osiPublicReadInvalidate==='function')window.osiPublicReadInvalidate();
       }catch(error){
         // The card stays as it was. A failed save never leaves a half-written
@@ -299,10 +308,18 @@
   }
   function attachMaintainerEditor(profile){
     var host=document.getElementById('osi-maintainer-profile');
-    var caps=state.capabilities;
-    if(!host||host.hidden===true&&!profile)return;
-    if(!caps||caps.maintainer_access!==true)return;
+    if(!host)return;
+    if(state.maintainerAccess!==true)return;
     if(host.querySelector('[data-maintainer-edit]'))return;
+    // With nothing published yet there is no card to hang the control on, so
+    // the operator gets a minimal frame to publish the first profile. Without
+    // it the only way to create a profile would be to already have one, and
+    // the "Publish" wording below would be unreachable.
+    if(!profile||!profile.wallet){
+      host.innerHTML=
+        '<h3 id="osi-maintainer-profile-title" class="osi-maintainer-kicker">'+esc(t('Maintainer'))+'</h3>'
+        +'<p class="osi-maintainer-empty">'+esc(t('No maintainer profile is published yet.'))+'</p>';
+    }
     var button=document.createElement('button');
     button.className='osi-action osi-maintainer-edit';
     button.type='button';
@@ -316,6 +333,19 @@
     host.appendChild(button);
   }
   window.osiV2LoadMaintainerProfile=loadMaintainerProfile;
+  // The Case module is the one surface that already asks the server who this
+  // browser is, and it only knows after a wallet connects. It pushes the answer
+  // here rather than this module asking again, so the operator's own card can
+  // never disagree with the rest of the interface about whether the maintainer
+  // gates are held. The flag only decides whether a button is drawn:
+  // save_maintainer_profile re-derives the configured admin wallet and the
+  // authenticated identity on every write, so a stale true buys nothing.
+  window.osiV2SetMaintainerCapability=function(allowed){
+    var next=allowed===true;
+    if(state.maintainerAccess===next)return;
+    state.maintainerAccess=next;
+    loadMaintainerProfile();
+  };
 
   function publicProof(row){
     var tx=row.proof_type==='solana_memo'&&/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(row.tx_sig||''))?'<a href="https://solscan.io/tx/'+encodeURIComponent(row.tx_sig)+'" target="_blank" rel="noopener noreferrer">Verify on Solscan</a>':'';
