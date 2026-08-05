@@ -204,7 +204,13 @@ jobs:
           }
           supabase db push --linked --dry-run 2>&1 | tee /tmp/dry-run.txt
           grep -q "$SLICE_VERSION" /tmp/dry-run.txt || { echo "::error::Dry-run does not list this slice."; exit 1; }
-          count="$(grep -cE '^[[:space:]]*[0-9]{14}' /tmp/dry-run.txt || true)"
+          # Count distinct migration filenames anywhere in the output. The CLI
+          # prints them as a bullet list (" • 20260805090000_name.sql"), so a
+          # pattern anchored to the start of the line counts zero and fails the
+          # gate closed on a rollout that is in fact correct. Matching the
+          # filename token is robust to the bullet, the indentation, and to the
+          # same name being echoed more than once.
+          count="$(grep -oE '[0-9]{14}_[A-Za-z0-9_]+\.sql' /tmp/dry-run.txt | sort -u | wc -l | tr -d '[:space:]')"
           [ "$count" = "1" ] || { echo "::error::Dry-run lists ${count} pending migrations; exactly one is allowed."; exit 1; }
 
       - name: Snapshot protected state

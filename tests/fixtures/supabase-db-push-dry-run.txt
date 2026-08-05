@@ -1,0 +1,5 @@
+DRY RUN: migrations will *not* be pushed to the database.
+Connecting to remote database...
+Would push these migrations:
+ • 20260805090000_osi_v2_maintainer_profile.sql
+Finished supabase db push.
