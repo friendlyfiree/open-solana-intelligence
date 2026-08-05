@@ -187,7 +187,7 @@
     if(!rows.length)return '';
     return '<ul class="osi-maintainer-links">'+rows.map(function(link){
       var label=String(link.label||'').trim()||link.url.replace(/^https:\/\//,'');
-      return '<li><a href="'+esc(link.url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>';
+      return '<li><a data-osi-user-content href="'+esc(link.url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>';
     }).join('')+'</ul>';
   }
   function renderMaintainerProfile(profile){
@@ -197,28 +197,56 @@
     var name=String(profile.display_name||'').trim();
     var bio=String(profile.bio||'').trim();
     var expertise=(profile.expertise_public||[]).filter(function(v){return typeof v==='string'&&v;});
-    var avatar=/^https:\/\//.test(String(profile.avatar_url||''))
-      ? '<img class="osi-maintainer-avatar" src="'+esc(profile.avatar_url)+'" alt="" loading="lazy">'
-      : '';
-    var proof=/^https:\/\//.test(String(profile.proof_of_work_url||''))
-      ? '<a class="osi-maintainer-proof" href="'+esc(profile.proof_of_work_url)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a>'
-      : '';
+    // The same helper the roster uses, so an avatar this deployment owns is
+    // rendered and anything else degrades to the generated identicon instead of
+    // a broken image. An off-site URL would be blocked by the page's CSP, so
+    // drawing it would only ever produce an empty frame.
+    var portrait=avatar({avatar_url:profile.avatar_url,wallet:profile.wallet,display_name:name},56);
+    var proofUrl=safeHttps(profile.proof_of_work_url);
+    // Deliberately parallel to the analyst facts row, and every cell reads
+    // "None". The separation this record exists to state is easier to believe
+    // as three measured fields than as a sentence at the bottom of a card.
+    var facts=[
+      [t('Analyst standing'),t('None')],
+      [t('Review weight'),t('None')],
+      [t('Quorum vote'),t('None')]
+    ].map(function(row){
+      return '<div><span>'+esc(row[0])+'</span><b>'+esc(row[1])+'</b></div>';
+    }).join('');
     host.hidden=false;
     host.innerHTML=
       '<h3 id="osi-maintainer-profile-title" class="osi-maintainer-kicker">'+esc(t('Maintainer'))+'</h3>'
-      +'<div class="osi-maintainer-card">'
-      +avatar
-      +'<div class="osi-maintainer-body">'
-      +(name?'<b class="osi-maintainer-name">'+esc(name)+'</b>':'')
+      +'<article class="osi-maintainer-card">'
+      +'<header class="osi-maintainer-head">'
+      +'<span class="osi-maintainer-portrait">'+portrait+'</span>'
+      +'<div class="osi-maintainer-ident">'
+      +'<div class="osi-maintainer-nameline">'
+      +(name?'<b class="osi-maintainer-name" data-osi-user-content>'+esc(name)+'</b>':'')
+      +'<span class="osi-maintainer-role">'+esc(t('Maintainer'))+'</span>'
+      +'</div>'
       +'<span class="osi-maintainer-wallet mono">'+esc(profile.wallet)+'</span>'
-      +(bio?'<p class="osi-maintainer-bio">'+esc(bio)+'</p>':'')
-      +(expertise.length?'<ul class="osi-maintainer-expertise">'+expertise.map(function(item){
+      +'</div></header>'
+      +'<div class="osi-maintainer-facts">'+facts+'</div>'
+      // Two columns, matching the paired panels the rest of this page uses. In
+      // one column the prose runs to a readable measure and leaves half the
+      // card empty beside it, and the card ends up taller than the whole
+      // roster it sits above.
+      +'<div class="osi-maintainer-body">'
+      +(bio?'<p class="osi-maintainer-bio" data-osi-user-content>'+esc(bio)+'</p>':'<span></span>')
+      +'<div class="osi-maintainer-side">'
+      +(expertise.length?'<section class="osi-maintainer-section"><h4>'+esc(t('Expertise'))+'</h4>'
+        +'<ul class="osi-maintainer-expertise">'+expertise.map(function(item){
           return '<li>'+esc(label(item))+'</li>';
-        }).join('')+'</ul>':'')
-      +maintainerLinks(profile)
-      +proof
-      +'<p class="osi-maintainer-notice">'+esc(t('Operates the deployment. Not an analyst: holds no review weight and no vote in any quorum.'))+'</p>'
-      +'</div></div>';
+        }).join('')+'</ul></section>':'')
+      +(maintainerLinks(profile)?'<section class="osi-maintainer-section"><h4>'+esc(t('Safe public links'))+'</h4>'
+        +maintainerLinks(profile)+'</section>':'')
+      +(proofUrl?'<div class="osi-maintainer-actions"><a class="osi-maintainer-proof" href="'+esc(proofUrl)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a></div>':'')
+      +'</div></div>'
+      // The row above already states what the maintainer does not hold. This
+      // answers the question that leaves: what they do. Repeating the three
+      // "None" values here would read as insistence rather than disclosure.
+      +'<p class="osi-maintainer-notice">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. What gets published is decided by independent analyst quorum.'))+'</p>'
+      +'</article>';
   }
   async function loadMaintainerProfile(){
     var host=document.getElementById('osi-maintainer-profile');
@@ -253,7 +281,12 @@
     return '<form class="osi-maintainer-editor" data-maintainer-editor>'
       +'<label><span>'+esc(t('Display name'))+'</span><input type="text" maxlength="80" data-mp-name value="'+esc(profile.display_name||'')+'"></label>'
       +'<label><span>'+esc(t('Bio'))+'</span><textarea rows="3" maxlength="1000" data-mp-bio>'+esc(profile.bio||'')+'</textarea></label>'
-      +'<label><span>'+esc(t('Avatar URL'))+'</span><input type="url" data-mp-avatar placeholder="https://" value="'+esc(profile.avatar_url||'')+'"></label>'
+      +'<label><span>'+esc(t('Profile image'))+'</span><input type="file" accept="image/png,image/jpeg" data-mp-avatar-file>'
+      +'<small>'+esc(t('PNG or JPEG only, 64 to 1024 px, maximum 512 KB. Stored by this deployment: a remote image URL cannot be used, because the page only loads images it owns.'))+'</small></label>'
+      +(trustedAvatar(profile.avatar_url)?'<label><span>'+esc(t('Current image'))+'</span>'
+        +'<span class="osi-maintainer-current-avatar">'+avatar({avatar_url:profile.avatar_url,wallet:profile.wallet},40)
+        +'<button class="osi-action" type="button" data-mp-avatar-clear>'+esc(t('Remove image'))+'</button></span></label>':'')
+      +'<input type="hidden" data-mp-avatar value="'+esc(profile.avatar_url||'')+'">'
       +'<label><span>'+esc(t('Proof of work URL'))+'</span><input type="url" data-mp-proof placeholder="https://" value="'+esc(profile.proof_of_work_url||'')+'"></label>'
       +'<label><span>'+esc(t('Expertise, comma separated'))+'</span><input type="text" data-mp-expertise value="'+esc((profile.expertise_public||[]).join(', '))+'"></label>'
       +'<label><span>'+esc(t('Links, one per line as label | https://url'))+'</span><textarea rows="3" data-mp-links>'+esc(links)+'</textarea></label>'
@@ -262,9 +295,20 @@
       +'<button class="osi-action" type="button" data-mp-cancel>'+esc(t('Cancel'))+'</button>'
       +'</div><p class="osi-maintainer-editor-status" role="status" data-mp-status></p></form>';
   }
-  function readMaintainerEditor(form){
+  // The file is read here rather than in the submit handler so the payload the
+  // server sees is assembled in exactly one place.
+  async function maintainerAvatarPayload(form){
+    var input=form.querySelector('[data-mp-avatar-file]'),file=input&&input.files&&input.files[0];
+    if(!file)return null;
+    if(['image/png','image/jpeg'].indexOf(file.type)===-1)throw new Error('Profile image must be PNG or JPEG.');
+    if(file.size>524288)throw new Error('Profile image must be 512 KB or smaller.');
+    return {mime:file.type,data_base64:bytesToBase64(new Uint8Array(await file.arrayBuffer()))};
+  }
+  async function readMaintainerEditor(form){
     function value(selector){var node=form.querySelector(selector);return node?String(node.value||'').trim():'';}
+    var image=await maintainerAvatarPayload(form);
     return {
+      avatar:image,
       display_name:value('[data-mp-name]'),
       bio:value('[data-mp-bio]'),
       avatar_url:value('[data-mp-avatar]'),
@@ -287,11 +331,21 @@
     var form=panel.querySelector('[data-maintainer-editor]');
     var status=panel.querySelector('[data-mp-status]');
     panel.querySelector('[data-mp-cancel]').addEventListener('click',function(){panel.remove();});
+    // Removing clears the stored URL and any pending file, so saving after this
+    // genuinely publishes a profile with no image rather than keeping the old
+    // one because the field was left untouched.
+    var clear=panel.querySelector('[data-mp-avatar-clear]');
+    if(clear)clear.addEventListener('click',function(){
+      var stored=panel.querySelector('[data-mp-avatar]');if(stored)stored.value='';
+      var file=panel.querySelector('[data-mp-avatar-file]');if(file)file.value='';
+      var current=panel.querySelector('.osi-maintainer-current-avatar');if(current)current.remove();
+      status.textContent=t('Image will be removed when you save.');
+    });
     form.addEventListener('submit',async function(event){
       event.preventDefault();
       status.textContent=t('Saving...');
       try{
-        var saved=await api({op:'save_maintainer_profile',wallet:walletPubkey,profile:readMaintainerEditor(form)});
+        var saved=await api({op:'save_maintainer_profile',wallet:walletPubkey,profile:await readMaintainerEditor(form)});
         // Rendering replaces the container's contents, so the edit control has
         // to be put back or a successful save would leave the operator with no
         // way to make a second one.

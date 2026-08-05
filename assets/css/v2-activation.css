@@ -223,22 +223,62 @@
    it to be inferred from a column that is simply absent. */
 .osi-maintainer-profile{margin:0 0 18px;padding:0}
 .osi-maintainer-kicker{margin:0 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
-.osi-maintainer-card{display:flex;gap:16px;align-items:flex-start;padding:16px 18px;border:1px solid var(--line-bright);border-radius:12px;background:var(--bg-soft,rgba(148,163,184,.05))}
+/* The operator card sits directly above the analyst roster, so it has to read
+   as a peer of that table in weight while never reading as a row in it. It
+   carries the accent rule and the roster does not; the roster carries status
+   badges and weights and this never does. */
+.osi-maintainer-card{position:relative;display:flex;flex-direction:column;gap:14px;padding:18px 20px 16px;border:1px solid var(--line-bright);border-radius:14px;background:
+  linear-gradient(180deg,rgba(153,69,255,.055),rgba(153,69,255,0) 120px),var(--bg-soft,rgba(148,163,184,.05));overflow:hidden}
+.osi-maintainer-card::before{content:'';position:absolute;inset:0 auto 0 0;width:2px;background:linear-gradient(180deg,var(--sol,#14f195),rgba(153,69,255,.65))}
 /* Shown only to the operator, when no profile has been published yet. */
 .osi-maintainer-empty{margin:0 0 10px;font-size:13px;color:var(--ink-faint)}
-.osi-maintainer-avatar{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:0 0 auto}
-.osi-maintainer-body{display:flex;flex-direction:column;gap:7px;min-width:0}
-.osi-maintainer-name{font-size:15px;font-weight:700;color:var(--ink)}
+.osi-maintainer-head{display:flex;gap:14px;align-items:center;min-width:0}
+.osi-maintainer-portrait{flex:0 0 auto;display:block;width:56px;height:56px;line-height:0}
+.osi-maintainer-portrait img,.osi-maintainer-portrait svg,.osi-maintainer-portrait .osi-an-avatar{width:56px;height:56px;border-radius:12px;object-fit:cover;display:block}
+.osi-maintainer-ident{display:flex;flex-direction:column;gap:5px;min-width:0}
+.osi-maintainer-nameline{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.osi-maintainer-name{font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+/* Reads as a role, deliberately not as one of the analyst status badges: those
+   are green and pill-shaped, this is violet and square-shouldered. */
+.osi-maintainer-role{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:3px 7px;border-radius:5px;color:#c4a2ff;background:rgba(153,69,255,.14);border:1px solid rgba(153,69,255,.35)}
 .osi-maintainer-wallet{font-size:11.5px;color:var(--ink-faint);word-break:break-all}
-.osi-maintainer-bio{margin:0;font-size:13px;line-height:1.55;color:var(--ink-dim)}
+/* Two columns on wide screens: prose keeps a readable measure without leaving
+   the other half of the card empty, and the card stays shorter than the roster
+   it introduces. */
+.osi-maintainer-body{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px 30px;align-items:start}
+.osi-maintainer-side{display:flex;flex-direction:column;gap:13px;min-width:0}
+.osi-maintainer-bio{margin:0;font-size:13.5px;line-height:1.65;color:var(--ink-dim);white-space:pre-line}
+/* Same three-cell shape as the analyst facts row. Every value here is "None",
+   which is the point. */
+.osi-maintainer-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line-bright);border:1px solid var(--line-bright);border-radius:10px;overflow:hidden}
+.osi-maintainer-facts>div{display:flex;flex-direction:column;gap:3px;padding:9px 12px;background:var(--bg,#0b0e14)}
+.osi-maintainer-facts span{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+.osi-maintainer-facts b{font-size:13px;font-weight:700;color:var(--ink-dim)}
+.osi-maintainer-section{display:flex;flex-direction:column;gap:7px}
+.osi-maintainer-section h4{margin:0;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
 .osi-maintainer-expertise,.osi-maintainer-links{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
-.osi-maintainer-expertise li{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:3px 8px;border:1px solid var(--line-bright);border-radius:999px;color:var(--ink-faint)}
-.osi-maintainer-links a{font-size:12.5px;color:var(--sol);text-decoration:none;border-bottom:1px solid transparent}
-.osi-maintainer-links a:hover,.osi-maintainer-links a:focus-visible{border-bottom-color:currentColor}
-.osi-maintainer-proof{font-size:12.5px;font-weight:600;color:var(--sol);text-decoration:none;border-bottom:1px solid transparent;align-self:flex-start}
-.osi-maintainer-proof:hover,.osi-maintainer-proof:focus-visible{border-bottom-color:currentColor}
-.osi-maintainer-notice{margin:2px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink-faint)}
-@media (max-width:640px){.osi-maintainer-card{flex-direction:column;gap:12px}}
+.osi-maintainer-expertise li{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:4px 9px;border:1px solid var(--line-bright);border-radius:999px;color:var(--ink-faint)}
+/* Chips, not a run-on line of underlined text. */
+.osi-maintainer-links a{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 11px;border:1px solid var(--line-bright);border-radius:999px;color:var(--ink-dim);text-decoration:none;transition:border-color .15s,color .15s,background-color .15s}
+.osi-maintainer-links a::after{content:'\2197';font-size:10px;opacity:.5}
+.osi-maintainer-links a:hover,.osi-maintainer-links a:focus-visible{color:var(--sol);border-color:var(--sol);background:rgba(20,241,149,.07)}
+.osi-maintainer-actions{display:flex;flex-wrap:wrap;gap:8px}
+.osi-maintainer-proof{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:8px;color:#04120b;background:var(--sol,#14f195);text-decoration:none;transition:filter .15s}
+.osi-maintainer-proof::before{content:'\25C8';font-size:11px}
+.osi-maintainer-proof:hover,.osi-maintainer-proof:focus-visible{filter:brightness(1.08)}
+.osi-maintainer-notice{margin:0;padding-top:12px;border-top:1px solid var(--line-bright);font-size:11.5px;line-height:1.55;color:var(--ink-faint)}
+.osi-maintainer-current-avatar{display:flex;align-items:center;gap:10px}
+.osi-maintainer-current-avatar img,.osi-maintainer-current-avatar svg,.osi-maintainer-current-avatar .osi-an-avatar{width:40px;height:40px;border-radius:9px;object-fit:cover;display:block}
+.osi-maintainer-editor small{font-size:11px;line-height:1.5;color:var(--ink-faint)}
+.osi-maintainer-editor input[type=file]{padding:8px 10px;font-size:12px;cursor:pointer}
+@media (max-width:900px){.osi-maintainer-body{grid-template-columns:1fr;gap:14px}}
+@media (max-width:640px){
+  .osi-maintainer-card{padding:16px 16px 14px;gap:12px}
+  .osi-maintainer-head{gap:12px}
+  .osi-maintainer-portrait,.osi-maintainer-portrait img,.osi-maintainer-portrait svg,.osi-maintainer-portrait .osi-an-avatar{width:48px;height:48px}
+  .osi-maintainer-name{font-size:15.5px}
+  .osi-maintainer-facts{grid-template-columns:1fr}
+}
 .osi-maintainer-edit{margin-top:10px}
 .osi-maintainer-editor-host{margin-top:12px}
 .osi-maintainer-editor{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid var(--line-bright);border-radius:12px}

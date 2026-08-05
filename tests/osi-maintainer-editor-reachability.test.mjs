@@ -143,4 +143,61 @@ ok("a public visitor with no published profile sees no card",
   /if\(!profile\|\|!profile\.wallet\)\{host\.hidden=true;host\.innerHTML='';return;\}/
     .test(analyst));
 
+// ---------------------------------------------------------------------------
+// The card itself.
+// ---------------------------------------------------------------------------
+const css = read("assets/css/v2-activation.css");
+const edge = read("supabase/functions/osi-v2-analyst/index.ts");
+
+// Every class the card emits must actually be styled. An unstyled class is not
+// a crash and not a test failure anywhere else; it is just a card that renders
+// as unformatted prose, which is exactly how this one shipped.
+const emitted = new Set(
+  [...withoutComments(analyst).matchAll(/class="(osi-maintainer-[a-z-]+)"/g)].map((m) => m[1]),
+);
+ok("the card emits maintainer classes at all", emitted.size >= 8, String(emitted.size));
+const unstyled = [...emitted].filter((name) => !new RegExp("\\." + name + "[^a-z-]").test(css));
+ok("every maintainer class the card emits has a style rule", unstyled.length === 0, unstyled.join(", "));
+
+// The page's CSP only permits images from this project's storage, so an
+// off-site avatar is accepted by the server and then blocked by the browser.
+// Going through the shared helper means an unowned URL degrades to the
+// generated identicon instead of rendering an empty frame.
+ok("the portrait goes through the shared avatar helper, not a raw img tag",
+  /var portrait=avatar\(\{avatar_url:profile\.avatar_url/.test(analyst)
+  && !/<img class="osi-maintainer-avatar"/.test(analyst));
+ok("the editor takes an uploaded file rather than a remote image URL",
+  /type="file" accept="image\/png,image\/jpeg" data-mp-avatar-file/.test(analyst)
+  && !/type="url" data-mp-avatar[^-]/.test(analyst));
+
+// readMaintainerEditor became async to read the file. A dropped await posts a
+// Promise as the profile and the save fails in a way the UI cannot explain.
+ok("the submit handler awaits the editor read",
+  /profile:await readMaintainerEditor\(form\)/.test(analyst));
+ok("clearing the image clears both the stored URL and any pending file",
+  /data-mp-avatar-clear/.test(analyst)
+  && /\[data-mp-avatar\]'\);if\(stored\)stored\.value='';/.test(analyst));
+
+// The uploaded object is content-addressed into the bucket this deployment
+// owns, and it must win over whatever URL the form carried.
+ok("the server uploads the maintainer image through the owned bucket",
+  /image = await imageBinding\(body\.profile\)/.test(edge)
+  && /avatarUrl = await uploadAvatar\(wallet, image\)/.test(edge)
+  && /p_avatar_url: avatarUrl/.test(edge));
+ok("the submitted avatar object never reaches the normalizer",
+  /delete submitted\.avatar;/.test(edge));
+
+// Two columns on wide screens. In one column the prose leaves half the card
+// empty and the card grows taller than the roster it introduces.
+ok("the card body is a two-column grid that collapses on narrow screens",
+  /\.osi-maintainer-body\{display:grid;grid-template-columns:minmax\(0,1\.55fr\) minmax\(0,1fr\)/.test(css)
+  && /@media \(max-width:900px\)\{\.osi-maintainer-body\{grid-template-columns:1fr/.test(css));
+// The facts row is the scannable statement of the separation; the footer says
+// what the role does instead of repeating it a third time.
+ok("the facts row states the three absences and the footer adds what the role does",
+  /t\('Analyst standing'\),t\('None'\)/.test(analyst)
+  && /t\('Review weight'\),t\('None'\)/.test(analyst)
+  && /t\('Quorum vote'\),t\('None'\)/.test(analyst)
+  && /schema migrations, function rollouts and configuration/.test(analyst));
+
 process.stdout.write(`Maintainer editor reachability: ${passed} passed\n`);

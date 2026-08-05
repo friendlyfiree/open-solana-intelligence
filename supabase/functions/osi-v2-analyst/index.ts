@@ -794,17 +794,34 @@ async function saveMaintainerProfile(req: Request, body: Row): Promise<Response>
   try { validateWallet(wallet); } catch { return jsonResponse(400, { ok: false, error: "bad_wallet" }); }
   const gate = await fullMaintainer(req, wallet);
   if (!gate.ok) return jsonResponse(403, { ok: false, error: gate.reason });
+  // Same intake as an analyst avatar: magic bytes, dimensions and size are
+  // inspected before anything is stored, and the object key is the content
+  // hash. A remote image URL is not an option here on purpose — the page's own
+  // CSP only permits images from this project's storage, so an off-site avatar
+  // would be accepted by the server and then silently blocked by the browser.
+  let image: ImageBinding | null;
+  try { image = await imageBinding(body.profile); }
+  catch (error) { return jsonResponse(400, { ok: false, error: errorMessage(error) || "avatar is invalid" }); }
+  const submitted = { ...(body.profile as Row ?? {}) };
+  delete submitted.avatar;
   let input;
   try {
-    input = normalizeMaintainerProfile({ ...(body.profile as Row ?? {}), wallet });
+    input = normalizeMaintainerProfile({ ...submitted, wallet });
   } catch (error) {
     return jsonResponse(400, { ok: false, error: errorMessage(error) || "bad_profile" });
+  }
+  // A newly uploaded image wins over whatever the form carried, so the stored
+  // URL is always one this deployment owns.
+  let avatarUrl = input.avatar_url;
+  if (image) {
+    try { avatarUrl = await uploadAvatar(wallet, image); }
+    catch (error) { return jsonResponse(503, { ok: false, error: errorMessage(error) || "avatar_upload_failed" }); }
   }
   const { data, error } = await admin.rpc("osi_v2_save_maintainer_profile", {
     p_wallet: input.wallet,
     p_display_name: input.display_name,
     p_bio: input.bio,
-    p_avatar_url: input.avatar_url,
+    p_avatar_url: avatarUrl,
     p_proof_of_work_url: input.proof_of_work_url,
     p_expertise: input.expertise_public,
     p_links: input.links_public,
