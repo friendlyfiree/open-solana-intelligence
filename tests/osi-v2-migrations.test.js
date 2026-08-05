@@ -44,6 +44,7 @@ const expectedFiles = [
   '20260801120700_report_nullable_public_summary.sql',
   '20260802102728_osi_v2_report_rejection_transition.sql',
   '20260802180000_osi_v2_case_initial_rejection_appeal.sql',
+  '20260805090000_osi_v2_maintainer_profile.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -56,6 +57,7 @@ const schema = sqlByFile[expectedFiles[0]] || '';
 const integrity = sqlByFile[expectedFiles[1]] || '';
 const deny = sqlByFile[expectedFiles[2]] || '';
 const lifecycle = sqlByFile['20260713045903_osi_v2_case_lifecycle.sql'] || '';
+const maintainerProfile = sqlByFile['20260805090000_osi_v2_maintainer_profile.sql'] || '';
 const analystActivation = sqlByFile['20260713184533_osi_v2_analyst_activation.sql'] || '';
 const reportIntake = sqlByFile['20260714044036_osi_v2_case_report_intake.sql'] || '';
 const resolutionLifecycle = sqlByFile['20260714082218_osi_v2_resolution_challenge_seal.sql'] || '';
@@ -330,6 +332,11 @@ const infraTables = [
   'osi_v2_sas_verify_events',
   // AI Pack Phase 1: provider reservation/cost state, never a domain entity.
   'osi_v2_ai_pack_generation_runs',
+  // The operator's public identity. Deliberately not a domain entity: it holds
+  // no standing, no weight and no lifecycle, and nothing that computes quorum,
+  // weight or the bootstrap ladder reads it. Counting it as domain would put
+  // the operator inside the model the operator is supposed to stay outside of.
+  'maintainer_profile',
 ];
 const expectedPhysicalTables = logicalDomainTables
   .map((name) => name === 'challenges' ? 'challenges_v2' : name)
@@ -341,9 +348,9 @@ const createdTables = [...allSql.matchAll(
 )].map((match) => match[1]).sort();
 
 ok('32 logical domain tables', logicalDomainTables.length === 32);
-ok('8 separate infrastructure tables', infraTables.length === 8);
+ok('9 separate infrastructure tables', infraTables.length === 9);
 ok(
-  '40 expected physical tables represented',
+  '41 expected physical tables represented',
   JSON.stringify(createdTables) === JSON.stringify(expectedPhysicalTables),
   createdTables.join(', '),
 );
@@ -413,6 +420,12 @@ for (const table of expectedPhysicalTables.filter((name) => name !== 'osi_config
       // D19 SAS infrastructure tables force RLS and service-role grants inside
       // their own additive migration (same fail-closed pattern as default-deny).
       || (table.startsWith('osi_v2_sas_') && sasCredential.includes("'" + table + "'"))
+      // The maintainer profile forces RLS and revokes client grants inside its
+      // own additive migration, the same fail-closed pattern as the tables above.
+      || (table === 'maintainer_profile'
+        && /alter table public\.maintainer_profile enable row level security/i.test(maintainerProfile)
+        && /alter table public\.maintainer_profile force row level security/i.test(maintainerProfile)
+        && /revoke all privileges on table public\.maintainer_profile from public, anon, authenticated/i.test(maintainerProfile))
       || (table === 'osi_v2_ai_pack_generation_runs'
         && /alter table public\.osi_v2_ai_pack_generation_runs enable row level security/i.test(aiPackPhase1)
         && /alter table public\.osi_v2_ai_pack_generation_runs force row level security/i.test(aiPackPhase1)
@@ -1240,6 +1253,104 @@ ok(
     && !/(?:insert|update|delete)\s+(?:into|from)?\s*public\./i.test(reportNullablePublicSummary)
     && !/create\s+(?:or\s+replace\s+)?function/i.test(reportNullablePublicSummary)
     && !/osi_config/i.test(reportNullablePublicSummary),
+);
+
+// Every osi_private function is `security invoker`, so the caller's own
+// privileges decide every hop of a call chain instead of a definer's rights
+// papering over a gap. supabase/tests/osi_v2_service_role_execute_grants.sql
+// asserts this against a live database; that suite needs Docker, so the same
+// invariant is held here where it costs nothing to check.
+const privateFunctionHeaders = [
+  ...allSql.matchAll(
+    /create\s+(?:or\s+replace\s+)?function\s+osi_private\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([\s\S]*?)\bas\s+\$/gi,
+  ),
+].map((match) => ({ name: match[1], header: match[2] }));
+ok(
+  'the osi_private function headers are discoverable',
+  privateFunctionHeaders.length >= 20,
+  String(privateFunctionHeaders.length),
+);
+const definerPrivateFunctions = privateFunctionHeaders
+  .filter((fn) => /\bsecurity\s+definer\b/i.test(fn.header))
+  .map((fn) => fn.name);
+ok(
+  'no osi_private function is declared security definer',
+  definerPrivateFunctions.length === 0,
+  definerPrivateFunctions.join(', '),
+);
+const unscopedPrivateFunctions = privateFunctionHeaders
+  .filter((fn) => !/\bset\s+search_path\s*=/i.test(fn.header))
+  .map((fn) => fn.name);
+ok(
+  'every osi_private function pins its own search_path',
+  unscopedPrivateFunctions.length === 0,
+  unscopedPrivateFunctions.join(', '),
+);
+
+// osi_private is not a PostgREST-exposed schema, so a private write with no
+// public wrapper is unreachable from the Edge functions that call it by name.
+const maintainerSaveArgs = String.raw`text,\s*text,\s*text,\s*text,\s*text,\s*jsonb,\s*jsonb,\s*text`;
+ok(
+  'the maintainer profile write has a public wrapper over the private function',
+  /create\s+(?:or\s+replace\s+)?function\s+osi_private\.osi_v2_save_maintainer_profile\s*\(/i
+    .test(maintainerProfile)
+  && /create\s+(?:or\s+replace\s+)?function\s+public\.osi_v2_save_maintainer_profile\s*\(/i
+    .test(maintainerProfile)
+  && /select\s+\*\s+from\s+osi_private\.osi_v2_save_maintainer_profile\s*\(/i
+    .test(maintainerProfile),
+);
+ok(
+  'both maintainer profile functions are revoked from the browser roles and granted to service_role',
+  new RegExp(
+    String.raw`revoke all privileges on function osi_private\.osi_v2_save_maintainer_profile\(\s*${maintainerSaveArgs}\s*\) from public, anon, authenticated`,
+    'i',
+  ).test(maintainerProfile)
+  && new RegExp(
+    String.raw`revoke all privileges on function public\.osi_v2_save_maintainer_profile\(\s*${maintainerSaveArgs}\s*\) from public, anon, authenticated`,
+    'i',
+  ).test(maintainerProfile)
+  && new RegExp(
+    String.raw`grant execute on function osi_private\.osi_v2_save_maintainer_profile\(\s*${maintainerSaveArgs}\s*\) to service_role`,
+    'i',
+  ).test(maintainerProfile)
+  && new RegExp(
+    String.raw`grant execute on function public\.osi_v2_save_maintainer_profile\(\s*${maintainerSaveArgs}\s*\) to service_role`,
+    'i',
+  ).test(maintainerProfile),
+);
+ok(
+  'the maintainer profile write is service-only and reuses the shared maintainer binding',
+  /current_user not in \('postgres', 'service_role', 'supabase_admin'\)/i.test(maintainerProfile)
+  && /osi_private\.osi_v2_full_maintainer_binding\(p_wallet, p_auth_uuid\)\s*is distinct from true/i
+    .test(maintainerProfile),
+);
+
+// osi_v2_full_maintainer_binding returns NULL, not false, when the auth uuid is
+// null, so `if not binding(...) then raise` never fires and a caller with no
+// authenticated identity is admitted. Every gate must therefore compare against
+// true explicitly. This is a correctness trap that reads as correct code.
+const bareNotBindingGates = [
+  ...allSql.matchAll(
+    /\bnot\s+osi_private\.osi_v2_full_maintainer_binding\s*\(([\s\S]{0,200}?)\)\s*(?:then|and|or|;|\))/gi,
+  ),
+].map((match) => match[0].replace(/\s+/g, ' ').slice(0, 90));
+ok(
+  'no maintainer gate uses the NULL-unsafe `not binding(...)` form',
+  bareNotBindingGates.length === 0,
+  bareNotBindingGates.join(' | '),
+);
+ok(
+  'the maintainer binding is actually called somewhere, so the guard above is live',
+  /osi_private\.osi_v2_full_maintainer_binding\s*\(/i.test(allSql),
+);
+// The table is written only through that RPC, so service_role needs the grant
+// the invoker chain depends on, and nothing else may hold one.
+ok(
+  'maintainer_profile grants reach service_role only',
+  /grant select, insert, update on table public\.maintainer_profile to service_role/i
+    .test(maintainerProfile)
+  && !/grant[^;]*on table public\.maintainer_profile[^;]*to[^;]*\b(anon|authenticated)\b/i
+    .test(maintainerProfile),
 );
 
 const identifiers = [

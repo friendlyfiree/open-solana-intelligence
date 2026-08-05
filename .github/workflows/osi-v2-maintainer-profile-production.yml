@@ -1,0 +1,288 @@
+name: OSI V2 Maintainer Profile Production
+
+# Applies exactly one additive migration and redeploys exactly the analyst
+# Edge Function, so the deployment can publish who operates it.
+#
+# SAFETY CONTRACT:
+#   * main-only, typed confirmation, pinned project ref;
+#   * the full validation battery runs against a disposable database first;
+#   * migration history must already be synchronized, and the only pending
+#     delta may be this slice's single migration;
+#   * no feature flag is created, read or changed: the maintainer profile has
+#     no gate because it grants no authority. It is a public identity record
+#     that nothing in governance reads;
+#   * protected row counts are snapshotted before and after, and any change to
+#     analyst_profiles, cases or event_receipts fails the run;
+#   * containment is a forward fix. There is nothing to disable, because
+#     nothing depends on this table and an absent profile is an honest empty
+#     state that the interface already handles.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY-MAINTAINER-PROFILE-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-maintainer-profile-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  FUNCTION_SLUG: osi-v2-analyst
+  SLICE_MIGRATION: 20260805090000_osi_v2_maintainer_profile.sql
+  SLICE_VERSION: '20260805090000'
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean validation from zero
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "DEPLOY-MAINTAINER-PROFILE-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production deployment must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out the dispatched commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify the dispatched commit is current origin/main
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+          test -f "supabase/migrations/${SLICE_MIGRATION}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@909cc5acb0fdd60627fb858598759246509fa755 # v2.0.2
+        with:
+          deno-version: v2.4.1
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Full dependency-free battery and type checks
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          deno check "supabase/functions/${FUNCTION_SLUG}/index.ts"
+          deno check supabase/functions/_shared/osi-v2-maintainer-profile-core.mjs
+
+      - name: Start disposable PostgreSQL 17 and migrate from zero
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+
+      - name: Database lint, pgTAP and replay tests
+        run: |
+          set -euo pipefail
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Prove the new table is default deny and grants no authority
+        run: |
+          set -euo pipefail
+          psql "$OSI_TEST_DATABASE_URL" -Atq <<'SQL' > /tmp/deny.txt
+          select 'rls|' || relrowsecurity || '|' || relforcerowsecurity
+            from pg_class where oid = 'public.maintainer_profile'::regclass;
+          select 'policies|' || count(*) from pg_policies
+           where schemaname = 'public' and tablename = 'maintainer_profile';
+          select 'anon_grants|' || count(*) from information_schema.role_table_grants
+           where table_schema = 'public' and table_name = 'maintainer_profile'
+             and grantee in ('anon', 'authenticated');
+          SQL
+          grep -q '^rls|t|t$' /tmp/deny.txt || { echo "::error::maintainer_profile does not force row level security."; exit 1; }
+          grep -q '^policies|0$' /tmp/deny.txt || { echo "::error::maintainer_profile has a policy; it must be service-only."; exit 1; }
+          grep -q '^anon_grants|0$' /tmp/deny.txt || { echo "::error::maintainer_profile is reachable by a client role."; exit 1; }
+
+      - name: Prove the bootstrap ladder cannot see the maintainer profile
+        run: |
+          set -euo pipefail
+          # The whole reason this is a separate table: the operator must never
+          # be counted among the analysts whose number retires the operator's
+          # own cold-start privilege.
+          if grep -n 'maintainer_profile' supabase/migrations/20260716063000_osi_v2_bootstrap_governance.sql; then
+            echo "::error::The bootstrap ladder references maintainer_profile."; exit 1;
+          fi
+          psql "$OSI_TEST_DATABASE_URL" -Atqc "select pg_get_functiondef(oid) from pg_proc where proname='osi_v2_bootstrap_tier'" > /tmp/tier.sql
+          if grep -q 'maintainer_profile' /tmp/tier.sql; then
+            echo "::error::osi_v2_bootstrap_tier reads maintainer_profile."; exit 1;
+          fi
+
+      - name: Stop and discard the disposable database
+        if: always()
+        run: supabase stop --no-backup
+
+  rollout:
+    name: Apply exactly this migration and redeploy the analyst function
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Check out the exact validated main commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify credentials, project and current main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Validated commit is no longer current main."; exit 1;
+          }
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Dry-run and prove this slice is the only pending migration
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          remote="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          local_all="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected_remote="$(printf '%s' "$local_all" | sed -E "s/(^| )${SLICE_VERSION}( |$)/\1/" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
+          [ "$remote" = "$expected_remote" ] || {
+            echo "::error::Production history is not current main minus exactly this slice."; exit 1;
+          }
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/dry-run.txt
+          grep -q "$SLICE_VERSION" /tmp/dry-run.txt || { echo "::error::Dry-run does not list this slice."; exit 1; }
+          count="$(grep -cE '^[[:space:]]*[0-9]{14}' /tmp/dry-run.txt || true)"
+          [ "$count" = "1" ] || { echo "::error::Dry-run lists ${count} pending migrations; exactly one is allowed."; exit 1; }
+
+      - name: Snapshot protected state
+        run: |
+          set -euo pipefail
+          psql -Atq <<'SQL' > /tmp/before.txt
+          begin read only;
+          select 'profiles|' || count(*) from public.analyst_profiles;
+          select 'cases|' || count(*) from public.cases;
+          select 'receipts|' || count(*) from public.event_receipts;
+          select 'bootstrap|' || value from public.osi_config where key='OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED';
+          commit;
+          SQL
+          cat /tmp/before.txt
+
+      - name: Apply exactly this migration
+        run: |
+          set -euo pipefail
+          supabase db push --linked
+          applied="$(psql -Atqc "select count(*) from supabase_migrations.schema_migrations where version='${SLICE_VERSION}'")"
+          [ "$applied" = "1" ] || { echo "::error::Slice migration is not recorded as applied."; exit 1; }
+
+      - name: Verify the new table is default deny in production
+        run: |
+          set -euo pipefail
+          psql -Atq <<'SQL' > /tmp/prod-deny.txt
+          begin read only;
+          select 'rls|' || relrowsecurity || '|' || relforcerowsecurity
+            from pg_class where oid = 'public.maintainer_profile'::regclass;
+          select 'policies|' || count(*) from pg_policies
+           where schemaname='public' and tablename='maintainer_profile';
+          select 'anon_grants|' || count(*) from information_schema.role_table_grants
+           where table_schema='public' and table_name='maintainer_profile'
+             and grantee in ('anon','authenticated');
+          commit;
+          SQL
+          grep -q '^rls|t|t$' /tmp/prod-deny.txt || { echo "::error::Forced RLS is absent in production."; exit 1; }
+          grep -q '^policies|0$' /tmp/prod-deny.txt || { echo "::error::A policy exists; the table must be service-only."; exit 1; }
+          grep -q '^anon_grants|0$' /tmp/prod-deny.txt || { echo "::error::A client role can reach the table."; exit 1; }
+
+      - name: Deploy exactly the analyst Edge Function
+        run: |
+          set -euo pipefail
+          supabase functions deploy "$FUNCTION_SLUG" --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Public read and unauthorized write smoke tests
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/${FUNCTION_SLUG}"
+          body="$(curl -sS --fail --max-time 30 -X POST "$base" -H 'Content-Type: application/json' -d '{"op":"get_maintainer_profile"}')"
+          echo "$body" | grep -q '"ok":true' || { echo "::error::Public maintainer profile read failed."; exit 1; }
+          if echo "$body" | grep -Eq 'updated_by_auth|auth_sub|service_role'; then
+            echo "::error::Public maintainer DTO leaks an operator-only field."; exit 1;
+          fi
+          # An anonymous caller, and an ordinary wallet, must both be refused.
+          code="$(curl -sS --max-time 30 -o /tmp/w1.json -w '%{http_code}' -X POST "$base" -H 'Content-Type: application/json' -d '{"op":"save_maintainer_profile","wallet":"9xQeWvG816bUx9EPfEzjW5eC4oe9hMLxZQW6vMVnL8vS","profile":{"display_name":"not allowed"}}')"
+          [ "$code" = "403" ] || { echo "::error::An ordinary wallet reached the maintainer profile write (${code})."; exit 1; }
+          code="$(curl -sS --max-time 30 -o /tmp/w2.json -w '%{http_code}' -X POST "$base" -H 'Content-Type: application/json' -d '{"op":"save_maintainer_profile","wallet":"bad","profile":{}}')"
+          [ "$code" = "400" ] || { echo "::error::An invalid wallet was not refused (${code})."; exit 1; }
+          curl -sS --fail --max-time 30 -X POST "$base" -H 'Content-Type: application/json' -d '{"op":"list_public_profiles"}' | grep -q '"ok":true' \
+            || { echo "::error::The analyst roster regressed after deployment."; exit 1; }
+
+      - name: Verify protected rows and governance state are unchanged
+        run: |
+          set -euo pipefail
+          psql -Atq <<'SQL' > /tmp/after.txt
+          begin read only;
+          select 'profiles|' || count(*) from public.analyst_profiles;
+          select 'cases|' || count(*) from public.cases;
+          select 'receipts|' || count(*) from public.event_receipts;
+          select 'bootstrap|' || value from public.osi_config where key='OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED';
+          commit;
+          SQL
+          diff /tmp/before.txt /tmp/after.txt || {
+            echo "::error::Protected state changed during this rollout."; exit 1;
+          }
+          echo "Protected analyst, case, receipt and bootstrap state is byte-identical."
+
+      - name: Record the containment plan
+        if: always()
+        run: |
+          echo "There is no flag to disable: the maintainer profile grants no authority."
+          echo "Nothing in governance, quorum, weight or the bootstrap ladder reads this table."
+          echo "An absent or empty profile is an honest empty state the interface already renders."
+          echo "Containment for a defect here is a focused forward fix, not a schema rollback."

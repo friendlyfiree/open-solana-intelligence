@@ -156,7 +156,9 @@
           ? await window.osiPublicRead('osi-v2-analyst',body)
           : await api(body);
         state.profiles=Array.isArray(result.analysts)?result.analysts:[];
-        syncAnalystMaps(state.profiles);renderPublicProfiles();return state.profiles;
+        syncAnalystMaps(state.profiles);renderPublicProfiles();
+        loadMaintainerProfile();
+        return state.profiles;
       }catch(error){
         state.profiles=[];syncAnalystMaps([]);
         if(host){host.removeAttribute('aria-busy');host.innerHTML=empty(t('Analyst directory unavailable'),userError(error))+'<button class="osi-empty-cta" type="button" data-analyst-directory-retry>'+esc(t('Retry'))+'</button>';var retry=host.querySelector('[data-analyst-directory-retry]');if(retry)retry.addEventListener('click',function(){loadPublicProfiles();});}
@@ -166,6 +168,155 @@
     })();
     return state.profilesPromise;
   }
+  // The operator's public identity, rendered above the roster and kept visibly
+  // apart from it. The maintainer is not an analyst: no status, no tier, no
+  // weight, no vote. The card says so in words rather than leaving the reader
+  // to infer it from a missing column, and the endpoint says so in its payload
+  // too, so a third-party consumer carries the same disclaimer.
+  //
+  // Absent until a profile is published. An operator who has not written one
+  // gets no card, not a placeholder.
+  function maintainerLinks(profile){
+    var rows=(profile.links_public||[]).filter(function(link){
+      return link&&typeof link.url==='string'&&/^https:\/\//.test(link.url);
+    });
+    if(!rows.length)return '';
+    return '<ul class="osi-maintainer-links">'+rows.map(function(link){
+      var label=String(link.label||'').trim()||link.url.replace(/^https:\/\//,'');
+      return '<li><a href="'+esc(link.url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>';
+    }).join('')+'</ul>';
+  }
+  function renderMaintainerProfile(profile){
+    var host=document.getElementById('osi-maintainer-profile');
+    if(!host)return;
+    if(!profile||!profile.wallet){host.hidden=true;host.innerHTML='';return;}
+    var name=String(profile.display_name||'').trim();
+    var bio=String(profile.bio||'').trim();
+    var expertise=(profile.expertise_public||[]).filter(function(v){return typeof v==='string'&&v;});
+    var avatar=/^https:\/\//.test(String(profile.avatar_url||''))
+      ? '<img class="osi-maintainer-avatar" src="'+esc(profile.avatar_url)+'" alt="" loading="lazy">'
+      : '';
+    var proof=/^https:\/\//.test(String(profile.proof_of_work_url||''))
+      ? '<a class="osi-maintainer-proof" href="'+esc(profile.proof_of_work_url)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a>'
+      : '';
+    host.hidden=false;
+    host.innerHTML=
+      '<h3 id="osi-maintainer-profile-title" class="osi-maintainer-kicker">'+esc(t('Maintainer'))+'</h3>'
+      +'<div class="osi-maintainer-card">'
+      +avatar
+      +'<div class="osi-maintainer-body">'
+      +(name?'<b class="osi-maintainer-name">'+esc(name)+'</b>':'')
+      +'<span class="osi-maintainer-wallet mono">'+esc(profile.wallet)+'</span>'
+      +(bio?'<p class="osi-maintainer-bio">'+esc(bio)+'</p>':'')
+      +(expertise.length?'<ul class="osi-maintainer-expertise">'+expertise.map(function(item){
+          return '<li>'+esc(label(item))+'</li>';
+        }).join('')+'</ul>':'')
+      +maintainerLinks(profile)
+      +proof
+      +'<p class="osi-maintainer-notice">'+esc(t('Operates the deployment. Not an analyst: holds no review weight and no vote in any quorum.'))+'</p>'
+      +'</div></div>';
+  }
+  async function loadMaintainerProfile(){
+    var host=document.getElementById('osi-maintainer-profile');
+    if(!host)return null;
+    try{
+      var body={op:'get_maintainer_profile'};
+      var result=typeof window.osiPublicRead==='function'
+        ? await window.osiPublicRead('osi-v2-analyst',body)
+        : await api(body);
+      renderMaintainerProfile(result&&result.profile);
+      attachMaintainerEditor(result&&result.profile);
+      return result&&result.profile;
+    }catch(_){
+      // An unavailable operator card is not worth an error banner over the
+      // roster, and inventing one would be worse. Stay absent.
+      host.hidden=true;host.innerHTML='';
+      attachMaintainerEditor(null);
+      return null;
+    }
+  }
+
+  // Editing is the operator's own surface and is offered only when the server
+  // has already said this browser holds both maintainer gates. The button is a
+  // convenience, not the authorization: save_maintainer_profile re-derives the
+  // configured admin wallet and the authenticated identity on every write, so a
+  // stale flag in this page buys nothing.
+  function maintainerEditorMarkup(profile){
+    profile=profile||{};
+    var links=(profile.links_public||[]).map(function(link){
+      return String(link.label||'')+' | '+String(link.url||'');
+    }).join('\n');
+    return '<form class="osi-maintainer-editor" data-maintainer-editor>'
+      +'<label><span>'+esc(t('Display name'))+'</span><input type="text" maxlength="80" data-mp-name value="'+esc(profile.display_name||'')+'"></label>'
+      +'<label><span>'+esc(t('Bio'))+'</span><textarea rows="3" maxlength="1000" data-mp-bio>'+esc(profile.bio||'')+'</textarea></label>'
+      +'<label><span>'+esc(t('Avatar URL'))+'</span><input type="url" data-mp-avatar placeholder="https://" value="'+esc(profile.avatar_url||'')+'"></label>'
+      +'<label><span>'+esc(t('Proof of work URL'))+'</span><input type="url" data-mp-proof placeholder="https://" value="'+esc(profile.proof_of_work_url||'')+'"></label>'
+      +'<label><span>'+esc(t('Expertise, comma separated'))+'</span><input type="text" data-mp-expertise value="'+esc((profile.expertise_public||[]).join(', '))+'"></label>'
+      +'<label><span>'+esc(t('Links, one per line as label | https://url'))+'</span><textarea rows="3" data-mp-links>'+esc(links)+'</textarea></label>'
+      +'<div class="osi-maintainer-editor-actions">'
+      +'<button class="osi-action primary" type="submit">'+esc(t('Save profile'))+'</button>'
+      +'<button class="osi-action" type="button" data-mp-cancel>'+esc(t('Cancel'))+'</button>'
+      +'</div><p class="osi-maintainer-editor-status" role="status" data-mp-status></p></form>';
+  }
+  function readMaintainerEditor(form){
+    function value(selector){var node=form.querySelector(selector);return node?String(node.value||'').trim():'';}
+    return {
+      display_name:value('[data-mp-name]'),
+      bio:value('[data-mp-bio]'),
+      avatar_url:value('[data-mp-avatar]'),
+      proof_of_work_url:value('[data-mp-proof]'),
+      expertise_public:value('[data-mp-expertise]').split(',').map(function(item){return item.trim();}).filter(Boolean),
+      links_public:value('[data-mp-links]').split('\n').map(function(line){
+        var parts=String(line).split('|');
+        if(parts.length<2)return {label:'',url:String(parts[0]||'').trim()};
+        return {label:parts[0].trim(),url:parts.slice(1).join('|').trim()};
+      }).filter(function(link){return link.url;})
+    };
+  }
+  async function openMaintainerEditor(profile){
+    var host=document.getElementById('osi-maintainer-profile');
+    if(!host)return;
+    var panel=document.createElement('div');
+    panel.className='osi-maintainer-editor-host';
+    panel.innerHTML=maintainerEditorMarkup(profile);
+    host.appendChild(panel);
+    var form=panel.querySelector('[data-maintainer-editor]');
+    var status=panel.querySelector('[data-mp-status]');
+    panel.querySelector('[data-mp-cancel]').addEventListener('click',function(){panel.remove();});
+    form.addEventListener('submit',async function(event){
+      event.preventDefault();
+      status.textContent=t('Saving...');
+      try{
+        var saved=await api({op:'save_maintainer_profile',wallet:walletPubkey,profile:readMaintainerEditor(form)});
+        renderMaintainerProfile(saved&&saved.profile);
+        if(typeof window.osiPublicReadInvalidate==='function')window.osiPublicReadInvalidate();
+      }catch(error){
+        // The card stays as it was. A failed save never leaves a half-written
+        // profile on screen pretending to be published.
+        status.textContent=userError(error);
+      }
+    });
+  }
+  function attachMaintainerEditor(profile){
+    var host=document.getElementById('osi-maintainer-profile');
+    var caps=state.capabilities;
+    if(!host||host.hidden===true&&!profile)return;
+    if(!caps||caps.maintainer_access!==true)return;
+    if(host.querySelector('[data-maintainer-edit]'))return;
+    var button=document.createElement('button');
+    button.className='osi-action osi-maintainer-edit';
+    button.type='button';
+    button.setAttribute('data-maintainer-edit','');
+    button.textContent=t(profile&&profile.wallet?'Edit maintainer profile':'Publish maintainer profile');
+    button.addEventListener('click',function(){
+      if(host.querySelector('[data-maintainer-editor]'))return;
+      openMaintainerEditor(profile);
+    });
+    host.hidden=false;
+    host.appendChild(button);
+  }
+  window.osiV2LoadMaintainerProfile=loadMaintainerProfile;
+
   function publicProof(row){
     var tx=row.proof_type==='solana_memo'&&/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(row.tx_sig||''))?'<a href="https://solscan.io/tx/'+encodeURIComponent(row.tx_sig)+'" target="_blank" rel="noopener noreferrer">Verify on Solscan</a>':'';
     var payment=row.payment_proof&&row.event_type==='SUPPORT_PAYMENT_CONFIRMED'?'<span>'+esc(solFromLamports(row.payment_proof.recipient_amount_lamports))+' SOL / '+esc(row.payment_proof.recipient_amount_lamports)+' lamports / '+esc(label(row.payment_proof.finality))+'</span>':'';
