@@ -141,6 +141,17 @@ ok("every external workflow action is immutable SHA-pinned", workflowUses.length
   && /denoland\/setup-deno@[a-f0-9]{40}/.test(workflowSource)
   && /supabase\/setup-cli@[a-f0-9]{40}/.test(workflowSource));
 
+// A rollout gate that can never match fails the deployment closed on a
+// deployment that is in fact correct, and reads as a real safety refusal. The
+// way to write one is to compare a `||`-concatenated boolean against t or f:
+// psql prints t/f for a boolean *column*, but concatenation casts to
+// true/false, so `select 'rls|' || relforcerowsecurity` emits `rls|true` and a
+// `grep '^rls|t$'` never fires. Gates must therefore spell the value out.
+const psqlBooleanTokens = [...workflowSource.matchAll(/grep\s+-q\s+'\^[a-z_]+\|(?:[a-z0-9_|]*\|)?([tf])\$?'/g)]
+  .map((match) => match[0]);
+ok("no workflow gate greps for psql's t/f display form of a concatenated boolean",
+  psqlBooleanTokens.length === 0, psqlBooleanTokens.join(" | "));
+
 const intakeEdge = read("supabase/functions/osi-analyst-intake/index.ts");
 const intakeUi = read("assets/js/22-analyst-intake.js");
 const legacySafety = read("assets/js/20-safety-consensus.js");
