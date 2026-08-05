@@ -740,9 +740,10 @@
       maybeResumePendingVerification(generation);
       if(typeof setMaintainerServerGate==='function') setMaintainerServerGate(state.capabilities.maintainer_access===true,state.capabilities.maintainer_gate||'denied');
       setAdminVisibility(state.capabilities.maintainer_access===true);
+      if(typeof window.osiV2SetMaintainerCapability==='function') window.osiV2SetMaintainerCapability(state.capabilities.maintainer_access===true);
       setReviewNavigationVisibility(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true);
       return state.capabilities;
-    }catch(error){if(generation!==privateGeneration()||wallet!==String(walletPubkey||''))return null;state.capabilities=null;if(typeof setMaintainerServerGate==='function')setMaintainerServerGate(false,'unavailable');setAdminVisibility(false);setReviewNavigationVisibility(false);return null;}
+    }catch(error){if(generation!==privateGeneration()||wallet!==String(walletPubkey||''))return null;state.capabilities=null;if(typeof setMaintainerServerGate==='function')setMaintainerServerGate(false,'unavailable');setAdminVisibility(false);setReviewNavigationVisibility(false);if(typeof window.osiV2SetMaintainerCapability==='function')window.osiV2SetMaintainerCapability(false);return null;}
   }
   function setAdminVisibility(allowed){
     var button=document.getElementById('admLockBtn')||document.getElementById('adminBtn')||document.getElementById('admin-btn');
