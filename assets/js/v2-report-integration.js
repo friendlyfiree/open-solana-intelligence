@@ -456,12 +456,33 @@
       return'<div class="osi-report-timeline-item"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' weight · '+esc(label(review.tier_snapshot))+sasAuthority(review)+'</span></div><p data-osi-user-content>'+esc(review.public_rationale)+'</p><small>'+esc(review.actor_role)+' · '+esc(review.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof recorded')+' · '+esc(dateText(review.created_at))+(review.is_active?' · active':' · superseded')+'</small></div>';
     }).join('')+'</div>';
   }
-  function publicEvidence(rows){
-    if(!rows||!rows.length)return'';
-    return'<div class="osi-report-public-evidence"><h4>Publishable evidence</h4>'+rows.map(function(item){
-      var value=item.kind==='url'?'<a href="'+esc(item.ref)+'" target="_blank" rel="noopener">'+esc(item.ref)+'</a>':'<span>'+esc(item.ref)+'</span>';
-      return'<div><b>#'+esc(item.ordinal)+' '+esc(label(item.kind))+'</b>'+value+'</div>';
-    }).join('')+'</div>';
+  // Structured public evidence. The published wallets, transaction signatures
+  // and source links are the substance of a Report, so they render as labelled
+  // monospace sections with copy and explorer controls, not as one flat list.
+  // The shared renderer is reused so a Case and a Report present an address the
+  // same way; the local fallback keeps this file standalone.
+  function structuredReferences(row){
+    if(typeof window.osiV2EvidenceSectionsHtml==='function'){
+      return window.osiV2EvidenceSectionsHtml({
+        evidence:row&&row.evidence||[],
+        evidence_sections:row&&row.evidence_sections||null
+      });
+    }
+    var rows=(row&&row.evidence)||[];
+    if(!rows.length)return'';
+    return'<ul class="osi-ref-list">'+rows.map(function(item){
+      var link=String(item.link_url||'');
+      var safe=/^https:\/\/[^\s"'<>]+$/.test(link)?link:'';
+      return'<li class="osi-ref-item"><div class="osi-ref-value mono" data-osi-user-content title="'+esc(item.ref)+'">'+esc(item.ref)+'</div>'
+        +'<div class="osi-ref-meta">'+esc('#'+String(item.ordinal||'')+' '+label(item.kind))+'</div>'
+        +(safe?'<div class="osi-ref-actions"><a class="osi-ref-link" href="'+esc(safe)+'" target="_blank" rel="noopener noreferrer">Open</a></div>':'')
+        +'</li>';
+    }).join('')+'</ul>';
+  }
+  function publicEvidence(row){
+    var html=structuredReferences(row);
+    if(!html)return'';
+    return'<div class="osi-report-public-evidence"><h4>'+esc(t('Evidence and Sources'))+'</h4>'+html+'</div>';
   }
   function publicationChannelHtml(proof){
     proof=proof||{};var channel=String(proof.decision_channel||'');if(!channel)return'';
@@ -509,7 +530,7 @@
       var summary=row.content_public_safe
         ? '<div class="osi-report-public-body"><h4>'+esc(t('Published finding'))+'</h4>'+publicProse(row.content_public_safe)+'</div>'
         : '<p class="osi-report-public-body" role="note"><b>No public-safe summary was provided.</b> Publication metadata, public evidence and proof remain available. The restricted Report body is not public.</p>';
-      var content=summary+publicEvidence(row.evidence);
+      var content=summary+publicEvidence(row);
       var proof=publicationChannelHtml(row.publication_proof)+(row.publication_proof&&row.publication_proof.tx_sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(row.publication_proof.tx_sig)+'" target="_blank" rel="noopener">Verify REPORT_PUBLISHED on Solscan ↗</a>':'');
       var support=row.state==='published'?'<button class="osi-report-action" type="button" onclick="osiV2SupportReportAuthor(\''+esc(row.version_public_ref)+'\')">Support author with SOL</button>':'';
       // An explicit label keeps this read-only disclosure control from reading
@@ -624,9 +645,21 @@
     return'<section class="osi-case-section"><div class="osi-report-action-row"><div><h3>'+esc(mode==='authorized'?t('Reports'):t('Published Reports'))+'</h3><div class="osi-report-action-copy" id="osi-report-action-copy">'+esc(mode==='authorized'?'Loading public and restricted authorized Report projections...':'Checking exact submission prerequisites...')+'</div></div><button class="osi-report-action" id="osi-report-submit-action" type="button" disabled onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button></div><div id="osi-public-reports" aria-live="polite" aria-busy="true"><div class="osi-v2-skeleton"></div></div></section>';
   }
 
-  function evidenceHtml(items){
-    if(!items||!items.length)return'';
-    return'<div class="osi-report-evidence-list">'+items.map(function(item){return'<div class="osi-report-evidence-item"><span>#'+esc(item.ordinal)+'</span><span>'+esc(label(item.kind))+'</span><span>'+esc(item.ref)+'</span></div>';}).join('')+'</div>';
+  // Review-stage manifest for My Reports and the analyst/maintainer queue. It
+  // uses the same structured renderer as the public surface, so a reviewer reads
+  // the exact addresses, signatures and links a published Report will carry.
+  function evidenceHtml(items,sections){
+    var html=structuredReferences({evidence:items||[],evidence_sections:sections||null});
+    if(!html)return'';
+    return'<div class="osi-report-evidence-list"><h5>'+esc(t('Evidence and Sources'))+'</h5>'+html+'</div>';
+  }
+  // Long-form Report text keeps its paragraphs in the review surfaces too. A
+  // 100,000-character narrative in one paragraph element is unreadable and
+  // reads as if the content were lost.
+  function reportProseBlock(heading,value){
+    var body=publicProse(value);
+    if(!body)return'';
+    return'<div class="osi-report-version-body"><h5>'+esc(t(heading))+'</h5>'+body+'</div>';
   }
   function proofHtml(proof){
     if(!proof)return'<span>Proof unavailable</span>';
@@ -749,7 +782,7 @@
       ? 'Full maintainers may inspect restricted material. They do not cast analyst weight; any cold-start publication uses the separate maintainer bootstrap channel below.'
       : 'Review controls are unavailable for this wallet or version.';
     var standardReason=capability.standard_publication_reason_code||'Standard analyst quorum is not ready for publication.';
-    var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+readyBanner(version,canPublishStandard,standardReady,standardReason)+rejectBanner(version,canAnalyst,mine)+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="2000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="4000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
+    var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+readyBanner(version,canPublishStandard,standardReady,standardReason)+rejectBanner(version,canAnalyst,mine)+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="10000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="10000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
     var prerequisite=capability.maintainer_bootstrap_reason_code||report.bootstrap_prerequisite||'The current server-computed bootstrap tier is not satisfied.';
     var bootstrap='<section class="osi-report-bootstrap"><h4>Maintainer bootstrap publication</h4><p>This is not independent analyst quorum. The receipt is permanently labeled <span class="mono">decision_channel=maintainer_bootstrap</span>.</p><div class="osi-report-card-meta">'+esc(bootstrapRequirement(capability))+'</div><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'maintainer_bootstrap\')"'+(canBootstrap?'':' disabled title="'+esc(prerequisite)+'"')+'>Publish via maintainer bootstrap</button>'+(canBootstrap?'':'<p>'+esc(prerequisite)+'</p>')+'</section>';
     return publicationRecoveryHtml(version.version_ref)+rejectionRecoveryHtml(version.version_ref)+analyst+(mode==='queue'&&(report.access==='maintainer'||canBootstrap||capability.decision_channel==='maintainer_bootstrap')?bootstrap:'')+'<div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div>'+reviewHistoryHtml(version,true);
@@ -922,7 +955,7 @@
     var versions=(report.versions||[]).slice().sort(function(a,b){return Number(b.version_no)-Number(a.version_no);});
     var current=versions.find(function(version){return version.version_ref===report.current_version_ref;})||versions[0]||{};
     var revision=mode==='mine'&&report.revision_eligible?'<button class="osi-report-action" type="button" onclick="osiV2OpenReportForm(\''+esc(report.case_public_ref)+'\')">Create revision</button>':'';
-    return'<article class="osi-report-card" data-report-ref="'+esc(report.report_public_ref)+'" tabindex="-1"><div class="osi-report-card-head"><div><div class="osi-report-card-kicker"><span>'+esc(report.case_public_ref)+'</span><span>'+esc(report.report_public_ref)+'</span></div><h3>Exact version '+esc(report.current_version_no)+'</h3><div class="osi-report-card-meta">'+(mode==='queue'?'Author '+esc(short(report.author_wallet))+' · ':'')+'Submitted '+esc(dateText(current.submitted_at))+' · '+esc(report.current_version_ref)+'</div></div><span class="osi-report-state" data-report-lifecycle="'+esc(current.lifecycle_state)+'">'+esc(reportLifecycleLabel(current.lifecycle_state,current))+'</span></div><div class="osi-report-card-head"><div class="osi-report-card-meta">'+esc(reportNextStep(report,current))+'</div>'+revision+'</div><details'+(mode==='queue'?' open':'')+'><summary>Version history ('+versions.length+')</summary>'+versions.map(function(version){return'<section class="osi-report-version" data-report-version-ref="'+esc(version.version_ref)+'" tabindex="-1"><div class="osi-report-version-head"><div><div class="osi-report-version-ref">'+esc(version.version_ref)+' · version '+esc(version.version_no)+'</div><small>'+esc(reportLifecycleLabel(version.lifecycle_state,version))+' · '+esc(dateText(version.submitted_at))+'</small></div><span class="mono">sha256 '+esc(short(version.evidence_snapshot_hash))+'</span></div><p data-osi-user-content>'+esc(version.body_private)+'</p>'+(version.content_public_safe?'<p data-osi-user-content><b>Public-safe summary:</b> '+esc(version.content_public_safe)+'</p>':'')+evidenceHtml(version.evidence)+proofHtml(version.proof)+(mode==='queue'?reviewControls(report,version,mode):reviewHistoryHtml(version,false))+'</section>';}).join('')+'</details></article>';
+    return'<article class="osi-report-card" data-report-ref="'+esc(report.report_public_ref)+'" tabindex="-1"><div class="osi-report-card-head"><div><div class="osi-report-card-kicker"><span>'+esc(report.case_public_ref)+'</span><span>'+esc(report.report_public_ref)+'</span></div><h3>Exact version '+esc(report.current_version_no)+'</h3><div class="osi-report-card-meta">'+(mode==='queue'?'Author '+esc(short(report.author_wallet))+' · ':'')+'Submitted '+esc(dateText(current.submitted_at))+' · '+esc(report.current_version_ref)+'</div></div><span class="osi-report-state" data-report-lifecycle="'+esc(current.lifecycle_state)+'">'+esc(reportLifecycleLabel(current.lifecycle_state,current))+'</span></div><div class="osi-report-card-head"><div class="osi-report-card-meta">'+esc(reportNextStep(report,current))+'</div>'+revision+'</div><details'+(mode==='queue'?' open':'')+'><summary>Version history ('+versions.length+')</summary>'+versions.map(function(version){return'<section class="osi-report-version" data-report-version-ref="'+esc(version.version_ref)+'" tabindex="-1"><div class="osi-report-version-head"><div><div class="osi-report-version-ref">'+esc(version.version_ref)+' · version '+esc(version.version_no)+'</div><small>'+esc(reportLifecycleLabel(version.lifecycle_state,version))+' · '+esc(dateText(version.submitted_at))+'</small></div><span class="mono">sha256 '+esc(short(version.evidence_snapshot_hash))+'</span></div>'+reportProseBlock('Restricted narrative',version.body_private)+reportProseBlock('Public-safe summary',version.content_public_safe)+evidenceHtml(version.evidence,version.evidence_sections)+proofHtml(version.proof)+(mode==='queue'?reviewControls(report,version,mode):reviewHistoryHtml(version,false))+'</section>';}).join('')+'</details></article>';
   }
   function setWorkspaceCopy(mode,count){
     var eyebrow=document.getElementById('fo-eyebrow'),title=document.getElementById('fo-title'),sub=document.getElementById('fo-sub'),counter=document.getElementById('fo-count');

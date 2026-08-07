@@ -264,10 +264,16 @@ ok('governance mutations require their exact My Reviews task even from a direct 
     && app.includes("if(!requireActiveReviewTask('challenge_admissibility',ref))return;")
     && app.includes("if(!requireActiveReviewTask('challenge_adjudication',ref))return;")
     && app.includes('Direct Case views are read-only.'));
+// The Case summary and the restricted detail now render through caseProse, and
+// every structured reference through referenceRow. Both still escape each text
+// chunk and still mark it data-osi-user-content, so automatic translation and
+// stored XSS are excluded on the exact path the content now takes.
 ok('Case-authored titles, summaries, evidence, and rationale opt out of automatic translation',
   app.includes("<b data-osi-user-content>'+esc(item.title)")
-    && app.includes("<p data-osi-user-content>'+esc(item.summary)")
-    && app.includes('class="osi-evidence-ref" data-osi-user-content')
+    && app.includes("caseProse(item.summary)")
+    && app.includes("caseProse(item.details_restricted)")
+    && /function caseProse\(value\)\{[\s\S]*?<p data-osi-user-content>[\s\S]*?return esc\(line\.trim\(\)\);/.test(app)
+    && app.includes('class="osi-ref-value mono" data-osi-user-content title="\'+esc(ref)+\'">\'+esc(ref)+\'</div>')
     && app.includes("<p data-osi-user-content>'+esc(row.public_rationale"));
 ok('all four native submissions retain actionable exact-reference receipts',
   index.includes('id="v2-case-receipt"')

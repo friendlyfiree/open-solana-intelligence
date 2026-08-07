@@ -8,6 +8,11 @@ import {
   validateWallet,
 } from "./osi-v2-proof-core.mjs";
 import { validateConfirmedMemoTransaction } from "./osi-v2-case-write-core.mjs";
+import {
+  evidenceLink,
+  normalizeEvidenceKind,
+  SOLANA_NETWORK_LABEL,
+} from "./osi-v2-case-read-core.mjs";
 import { canonicalOsi2Envelope } from "./osi-v2-event-registry.mjs";
 
 export const REPORT_EVENT_TYPE = "CASE_REPORT_VERSION_SUBMITTED";
@@ -30,6 +35,17 @@ export const REPORT_REVIEW_DECISIONS = new Set([
   "request_revision",
   "abstain",
 ]);
+// Long-form Report bounds. Single source of truth for the Edge validation
+// layer; each stays at or below the widened database CHECK bound in
+// 20260807090000_osi_v2_case_report_visibility_publication.sql. An over-length
+// field is refused with an exact error and is never silently truncated.
+export const REPORT_BODY_MIN = 80;
+export const REPORT_BODY_MAX = 100000;
+export const REPORT_SUMMARY_MAX = 10000;
+export const REPORT_RATIONALE_MIN = 10;
+export const REPORT_RATIONALE_MAX = 10000;
+export const REPORT_PRIVATE_NOTE_MAX = 10000;
+
 export const REPORT_REVISION_REASONS = new Set([
   "author_correction",
   "new_evidence",
@@ -186,9 +202,13 @@ export async function normalizeReportPayload(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new TypeError("report payload is invalid");
   }
-  const body_private = requireLength(input.body_private, "restricted narrative", 80, 100000);
+  const body_private = requireLength(
+    input.body_private, "restricted narrative", REPORT_BODY_MIN, REPORT_BODY_MAX,
+  );
   const summary = cleanText(input.content_public_safe);
-  if (summary.length > 4000) throw new TypeError("public-safe summary is invalid");
+  if (summary.length > REPORT_SUMMARY_MAX) {
+    throw new TypeError("public-safe summary is invalid");
+  }
   const content_public_safe = summary || null;
   const revisionReason = cleanText(input.revision_reason_code);
   if (revisionReason && !REPORT_REVISION_REASONS.has(revisionReason)) {
@@ -240,10 +260,11 @@ export function normalizeReportReview(input) {
   if (!/^[a-z][a-z0-9_:-]{0,95}$/.test(reason_code)) {
     throw new TypeError("review reason is invalid");
   }
-  if (public_rationale.length < 10 || public_rationale.length > 2000) {
+  if (public_rationale.length < REPORT_RATIONALE_MIN
+      || public_rationale.length > REPORT_RATIONALE_MAX) {
     throw new TypeError("public-safe rationale is invalid");
   }
-  if (privateNote.length > 4000) {
+  if (privateNote.length > REPORT_PRIVATE_NOTE_MAX) {
     throw new TypeError("private analyst note is invalid");
   }
   rejectUnsafeContent(public_rationale + "\n" + privateNote);
@@ -563,6 +584,40 @@ export function reportPublicationCapabilityDto(capability) {
   };
 }
 
+// One evidence reference, rendered the same way everywhere: normalized kind,
+// exact ref, the network the intake validator already proved, and a followable
+// explorer/source link only when the reference validates.
+export function reportEvidenceDto(item) {
+  const kind = normalizeEvidenceKind(item);
+  const ref = String(item?.ref ?? "");
+  const link = evidenceLink(kind, ref);
+  const dto = {
+    ordinal: Number(item?.ordinal ?? 0),
+    kind,
+    ref,
+    sha256: String(item?.sha256 ?? ""),
+  };
+  if (kind === "wallet" || kind === "onchain_tx") dto.network = SOLANA_NETWORK_LABEL;
+  if (link) dto.link_url = link;
+  return dto;
+}
+
+// The same manifest grouped into the exact sections a Report surface renders,
+// so an empty group is simply absent instead of producing an empty box.
+export function reportEvidenceSections(evidence = []) {
+  const rows = Array.isArray(evidence) ? evidence.map(reportEvidenceDto) : [];
+  const sections = {
+    wallets: rows.filter((row) => row.kind === "wallet"),
+    transactions: rows.filter((row) => row.kind === "onchain_tx"),
+    links: rows.filter((row) => row.kind === "url"),
+    other: rows.filter((row) => !["wallet", "onchain_tx", "url"].includes(row.kind)),
+  };
+  sections.networks = sections.wallets.length || sections.transactions.length
+    ? [SOLANA_NETWORK_LABEL]
+    : [];
+  return sections;
+}
+
 function exactVersionDto(
   version,
   evidence,
@@ -582,12 +637,8 @@ function exactVersionDto(
     revision_reason_code: version.revision_reason_code,
     supersedes_version_ref: version.supersedes_version_ref || null,
     submitted_at: version.created_at,
-    evidence: evidence.map((item) => ({
-      ordinal: item.ordinal,
-      kind: item.kind,
-      ref: item.ref,
-      sha256: item.sha256,
-    })),
+    evidence: evidence.map(reportEvidenceDto),
+    evidence_sections: reportEvidenceSections(evidence),
     proof: safeReceipt(receipt),
     reviews: reviews.map((review) => ({
       review_public_ref: review.public_ref,
@@ -698,6 +749,15 @@ export function publicReportGovernanceDto(report) {
     throw new TypeError("public Report projection is invalid");
   }
   const timeline = Array.isArray(report.reviews) ? report.reviews : [];
+  // Publication promotes the exact reviewed manifest to public-safe, so this
+  // filter now passes the references the author actually submitted instead of
+  // silently emptying the section. It still refuses anything a publication
+  // transition did not approve.
+  const publicEvidence = Array.isArray(report.evidence)
+    ? report.evidence.filter(
+      (item) => item.is_public === true && item.moderation_state === "approved",
+    )
+    : [];
   return {
     report_public_ref: String(report.report_public_ref),
     version_public_ref: String(report.version_public_ref),
@@ -706,15 +766,8 @@ export function publicReportGovernanceDto(report) {
     content_public_safe: report.content_public_safe == null
       ? null
       : String(report.content_public_safe),
-    evidence: Array.isArray(report.evidence)
-      ? report.evidence.filter((item) => item.is_public === true && item.moderation_state === "approved")
-        .map((item) => ({
-          ordinal: Number(item.ordinal),
-          kind: String(item.kind),
-          ref: String(item.ref),
-          sha256: String(item.sha256),
-        }))
-      : [],
+    evidence: publicEvidence.map(reportEvidenceDto),
+    evidence_sections: reportEvidenceSections(publicEvidence),
     quorum: {
       risk_tier: String(report.quorum?.risk_tier || "standard"),
       approve_count: Number(report.quorum?.approve_count || 0),

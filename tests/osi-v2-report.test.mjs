@@ -693,9 +693,27 @@ ok("Report form provides exact prerequisite and transaction states",
   uiSource.includes("Preparing the exact Case, version, evidence manifest")
     && uiSource.includes("Approve the exact CASE_REPORT_VERSION_SUBMITTED Memo")
     && uiSource.includes("Confirming mainnet, signer, exact Memo"));
+// The restricted narrative and the public-safe summary now render through
+// reportProseBlock -> publicProse, which preserves paragraphs for long-form
+// research. The escaping invariant is unchanged and is asserted on the exact
+// path the content now takes: every text chunk goes through esc() and only the
+// paragraph structure is markup.
 ok("untrusted Report content is escaped before innerHTML rendering",
-  uiSource.includes("<p data-osi-user-content>'+esc(version.body_private)+'</p>")
+  uiSource.includes("reportProseBlock('Restricted narrative',version.body_private)")
+    && uiSource.includes("reportProseBlock('Public-safe summary',version.content_public_safe)")
+    && uiSource.includes("function reportProseBlock(heading,value){")
+    && uiSource.includes("var body=publicProse(value);")
+    && /function publicProse\(value\)\{[\s\S]*?return esc\(line\.trim\(\)\);/.test(uiSource)
     && uiSource.includes("esc(item.ref)"));
+// Structured references are the substance of a published Report, so the
+// renderer must emit the exact untruncated value in the copy target, the title
+// and the link, and it must refuse any href that is not a validated https URL.
+ok("published Report references render structurally with escaped exact values",
+  uiSource.includes("function structuredReferences(row)")
+    && uiSource.includes("window.osiV2EvidenceSectionsHtml")
+    && uiSource.includes("evidence_sections:row&&row.evidence_sections||null")
+    && uiSource.includes('var safe=/^https:\\/\\/[^\\s"\'<>]+$/.test(link)?link:\'\';')
+    && uiSource.includes("title=\"'+esc(item.ref)+'\">'+esc(item.ref)+'</div>"));
 const publicRowsSlice = uiSource.slice(
   uiSource.indexOf("function publishedRows("),
   uiSource.indexOf("async function publicReports", uiSource.indexOf("function publishedRows(")),

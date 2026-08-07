@@ -23,6 +23,15 @@ export const CASE_WRITE_PURPOSES = new Set([
   "CASE_APPEAL_SUBMITTED",
 ]);
 
+// Long-form intake bounds. These are the single source of truth for the Edge
+// validation layer and must stay at or below the widened database CHECK bounds
+// in 20260807090000_osi_v2_case_report_visibility_publication.sql. Content is
+// never trimmed to fit: an over-length field is refused with an exact error.
+export const CASE_TITLE_MAX = 160;
+export const CASE_SUMMARY_MIN = 10;
+export const CASE_SUMMARY_MAX = 10000;
+export const CASE_DETAILS_MAX = 25000;
+
 export const REVIEW_DECISIONS = new Set(["approve_open", "reject", "needs_more"]);
 export const REVIEW_REASON_CODES = new Set([
   "public_scope_clear",
@@ -95,12 +104,16 @@ export function normalizeCasePayload(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new TypeError("case payload is invalid");
   }
-  const title = requireLength(input.title, "title", 3, 160);
+  const title = requireLength(input.title, "title", 3, CASE_TITLE_MAX);
   const category = cleanText(input.category) || "other";
   if (!CASE_CATEGORIES.has(category)) throw new TypeError("category is invalid");
-  const summary_public = requireLength(input.summary_public, "public summary", 10, 2000);
+  const summary_public = requireLength(
+    input.summary_public, "public summary", 10, CASE_SUMMARY_MAX,
+  );
   const details_restricted = cleanText(input.details_restricted);
-  if (details_restricted.length > 12000) throw new TypeError("restricted details is invalid");
+  if (details_restricted.length > CASE_DETAILS_MAX) {
+    throw new TypeError("restricted details is invalid");
+  }
   rejectProhibitedContent(title + "\n" + summary_public + "\n" + details_restricted);
 
   let reward_intent_lamports = null;

@@ -164,3 +164,15 @@
   .osi-report-public-head{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
   .osi-report-public-toggle{align-self:flex-start}
 }
+
+/* Published and review-stage Report sections. The structured reference list is
+   shared with the Case drawer (assets/css/v2-case-integration.css), so an
+   address reads identically in both places; only the surrounding headings and
+   the long-form body blocks are Report specific. */
+.osi-report-public-evidence{display:grid;gap:8px;margin:14px 0 0;min-width:0}
+.osi-report-public-evidence>h4{margin:0;color:var(--ink);font-size:13px;font-weight:600;letter-spacing:.02em}
+.osi-report-evidence-list{display:grid;gap:8px;margin:12px 0 0;min-width:0}
+.osi-report-evidence-list>h5{margin:0;color:var(--ink);font-size:12.5px;font-weight:600;letter-spacing:.02em}
+.osi-report-version-body{display:grid;gap:8px;margin:12px 0 0;min-width:0}
+.osi-report-version-body>h5{margin:0;color:var(--ink);font-size:12.5px;font-weight:600;letter-spacing:.02em}
+.osi-report-version-body p{margin:0;color:var(--ink-dim);font-size:13.5px;line-height:1.7;overflow-wrap:anywhere}

@@ -10,6 +10,14 @@ import { validateWallet } from "./osi-v2-proof-core.mjs";
 import { validateConfirmedMemoTransaction } from "./osi-v2-case-write-core.mjs";
 import { canonicalOsi2Envelope } from "./osi-v2-event-registry.mjs";
 
+// Long-form Wire bounds. Kept in lockstep with the widened database CHECK
+// constraints and validators in
+// 20260807090000_osi_v2_case_report_visibility_publication.sql. Over-length
+// input is refused with an exact error; nothing is truncated.
+export const WIRE_SUMMARY_MAX = 10000;
+export const WIRE_BODY_MAX = 100000;
+export const WIRE_LONG_TEXT_MAX = 10000;
+
 export const WIRE_EVENT_TYPE = "WIRE_REPORT_VERSION_SUBMITTED";
 export const WIRE_PUBLICATION_EVENT_TYPE = "WIRE_REPORT_PUBLISHED";
 export const WIRE_REVIEW_EVENT_TYPES = new Set([
@@ -92,10 +100,10 @@ export async function normalizeWirePayload(input) {
     throw new TypeError("wire payload is invalid");
   }
   const title_public_safe = requireLength(input.title_public_safe, "Wire title", 3, 160);
-  const content_public_safe = requireLength(input.content_public_safe, "Wire summary", 10, 4000);
+  const content_public_safe = requireLength(input.content_public_safe, "Wire summary", 10, WIRE_SUMMARY_MAX);
   const body_private = requireLength(input.body_private, "Wire analysis", 20, 100000);
   const uncertainties_private = cleanText(input.uncertainties_private);
-  if (uncertainties_private.length > 4000) {
+  if (uncertainties_private.length > WIRE_LONG_TEXT_MAX) {
     throw new TypeError("Wire uncertainties is invalid");
   }
   const revisionReason = cleanText(input.revision_reason_code);
@@ -148,10 +156,10 @@ export function normalizeWireReview(input) {
   if (!/^[a-z][a-z0-9_:-]{0,95}$/.test(reason_code)) {
     throw new TypeError("Wire review reason is invalid");
   }
-  if (public_rationale.length < 10 || public_rationale.length > 2000) {
+  if (public_rationale.length < 10 || public_rationale.length > WIRE_LONG_TEXT_MAX) {
     throw new TypeError("Wire public-safe rationale is invalid");
   }
-  if (privateNote.length > 4000) throw new TypeError("Wire private analyst note is invalid");
+  if (privateNote.length > WIRE_LONG_TEXT_MAX) throw new TypeError("Wire private analyst note is invalid");
   rejectUnsafeContent(public_rationale + "\n" + privateNote);
   return {
     version_public_ref, decision, reason_code, public_rationale,
@@ -247,9 +255,9 @@ export function normalizeWireGovernancePayload(action, input) {
     const public_safe_summary = cleanText(input.public_safe_summary);
     const evidence_ordinal = Number(input.evidence_ordinal);
     const evidence_sha256 = cleanText(input.evidence_sha256);
-    const restricted_detail = optionalText(input.restricted_detail, "restricted_detail", 8000);
+    const restricted_detail = optionalText(input.restricted_detail, "restricted_detail", WIRE_LONG_TEXT_MAX);
     if (!/^[a-z][a-z0-9_:-]{0,95}$/.test(reason_code)
-        || public_safe_summary.length < 20 || public_safe_summary.length > 2000
+        || public_safe_summary.length < 20 || public_safe_summary.length > WIRE_LONG_TEXT_MAX
         || !Number.isInteger(evidence_ordinal) || evidence_ordinal < 1 || evidence_ordinal > 12
         || !HASH.test(evidence_sha256)) throw new TypeError("Wire challenge payload is invalid");
     rejectUnsafeContent(public_safe_summary + "\n" + (restricted_detail || ""));
@@ -269,10 +277,10 @@ export function normalizeWireGovernancePayload(action, input) {
     const decision = cleanText(input.decision);
     const reason_code = cleanText(input.reason_code);
     const public_rationale = cleanText(input.public_rationale);
-    const private_note = optionalText(input.private_note, "private_note", 4000);
+    const private_note = optionalText(input.private_note, "private_note", WIRE_LONG_TEXT_MAX);
     if (!new Set(["accept", "reject"]).has(decision)
         || !/^[a-z][a-z0-9_:-]{0,95}$/.test(reason_code)
-        || public_rationale.length < 10 || public_rationale.length > 2000) {
+        || public_rationale.length < 10 || public_rationale.length > WIRE_LONG_TEXT_MAX) {
       throw new TypeError("Wire challenge review payload is invalid");
     }
     rejectUnsafeContent(public_rationale + "\n" + (private_note || ""));

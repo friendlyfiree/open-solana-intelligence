@@ -39,7 +39,7 @@ select throws_ok(
     )
   $test$,
   '23514',
-  'Wire summary must contain between 10 and 4000 trimmed characters',
+  'Wire summary must contain between 10 and 10000 trimmed characters',
   'database still rejects a Wire summary below the approved minimum'
 );
 
@@ -57,11 +57,11 @@ select throws_ok(
 select throws_ok(
   $test$
     select osi_private.osi_v2_validate_wire_content(
-      'abc', repeat('s', 10), repeat('a', 20), repeat('u', 4001), null, false
+      'abc', repeat('s', 10), repeat('a', 20), repeat('u', 10001), null, false
     )
   $test$,
   '23514',
-  'Wire uncertainties must be empty or contain at most 4000 trimmed characters',
+  'Wire uncertainties must be empty or contain at most 10000 trimmed characters',
   'optional Wire uncertainties remain bounded'
 );
 
