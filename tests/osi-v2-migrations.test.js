@@ -46,7 +46,7 @@ const expectedFiles = [
   '20260802180000_osi_v2_case_initial_rejection_appeal.sql',
   '20260805090000_osi_v2_maintainer_profile.sql',
   '20260807090000_osi_v2_case_report_visibility_publication.sql',
-  '20260807150000_osi_v2_cold_start_weight_gate_calibration.sql',
+  '20260807154829_osi_v2_cold_start_weight_gate_calibration.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -1360,7 +1360,7 @@ ok(
 // the count gate is untouched, so the migration must move exactly the weight
 // keys, must refuse to leave the count gate anywhere but the P3 floor of two,
 // and must not reach the outcomes that were never in scope.
-const weightCalibration = sqlByFile['20260807150000_osi_v2_cold_start_weight_gate_calibration.sql'];
+const weightCalibration = sqlByFile['20260807154829_osi_v2_cold_start_weight_gate_calibration.sql'];
 ok(
   'the calibration moves exactly the two standard weight gates',
   /update public\.osi_config[\s\S]*?set value = '1\.00'[\s\S]*?where key in \(\s*'OSI_V2_REPORT_STANDARD_MIN_WEIGHT',\s*'OSI_V2_WIRE_STANDARD_MIN_WEIGHT'\s*\)/i
@@ -1398,7 +1398,7 @@ ok(
   'the weight-gate change carries its written product-owner sign-off',
   /### D21/.test(weightGateSignoff)
   && /OSI_V2_REPORT_STANDARD_MIN_WEIGHT/.test(weightGateSignoff)
-  && /20260807150000_osi_v2_cold_start_weight_gate_calibration\.sql/.test(weightGateSignoff)
+  && /20260807154829_osi_v2_cold_start_weight_gate_calibration\.sql/.test(weightGateSignoff)
   && /[Rr]estore condition/.test(weightGateSignoff),
 );
 

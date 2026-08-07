@@ -143,7 +143,7 @@ The rule at the foot of this document requires a written product-owner sign-off 
 
 **The measurement.** Weight is bounded `[0.50, 3.00]` and every analyst starts at the 0.50 probationary floor, climbing only as validated contributions accumulate (`OSI_V2_VOTING_REPUTATION_MODEL.md §3`). The standard weight gate of `2.00` therefore encodes an assumption: that a roster has already built reputation. Measured against the live roster, that assumption did not hold. All three live analysts sit at the floor, so the standard gate needed **four unanimous approvers** — meaning the entire analyst network in complete agreement could not publish a standard Case Report or Wire Report. The observable effect was that routine publication had to travel the D17 maintainer bootstrap channel, which exists to be exceptional.
 
-**The decision.** `OSI_V2_REPORT_STANDARD_MIN_WEIGHT` and `OSI_V2_WIRE_STANDARD_MIN_WEIGHT` move `2.00 → 1.00`, applied by `20260807150000_osi_v2_cold_start_weight_gate_calibration.sql`. Two independent analysts at the probationary floor now satisfy both gates, so ordinary publication travels the ordinary path and is labelled as the analyst-quorum outcome it is.
+**The decision.** `OSI_V2_REPORT_STANDARD_MIN_WEIGHT` and `OSI_V2_WIRE_STANDARD_MIN_WEIGHT` move `2.00 → 1.00`, applied by `20260807154829_osi_v2_cold_start_weight_gate_calibration.sql`. Two independent analysts at the probationary floor now satisfy both gates, so ordinary publication travels the ordinary path and is labelled as the analyst-quorum outcome it is.
 
 **What was deliberately not changed, and why.**
 
