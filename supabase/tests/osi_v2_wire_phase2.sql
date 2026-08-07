@@ -10,9 +10,13 @@ select is(
   (select value from public.osi_config where key='OSI_V2_WIRE_STANDARD_MIN_COUNT'),
   '2', 'normal Wire publication requires two independent analysts'
 );
+-- D21 calibrated this from the 2.00 design default down to the 1.00 floor of
+-- the range the quorum function accepts, because every live analyst is at the
+-- 0.50 probationary weight floor and 2.00 needed four unanimous approvers. The
+-- count gate above is the constitutional half and did not move.
 select is(
   (select value from public.osi_config where key='OSI_V2_WIRE_STANDARD_MIN_WEIGHT'),
-  '2.00', 'normal Wire publication requires weight 2.00'
+  '1.00', 'normal Wire publication requires weight 1.00 under the D21 cold-start calibration'
 );
 select is(
   (select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED'),
@@ -238,7 +242,11 @@ select lives_ok($test$
     'wire-normal-review-a-0001','WIRE_PRIVATE_NOTE_SENTINEL'
   )
 $test$,'first exact-version Wire review commits');
+-- This analyst already clears the weight gate on their own; publication is
+-- refused purely on the independent count. Asserting the surplus rather than a
+-- fixed threshold keeps the claim true under any legitimate weight tuning.
 select ok((select approve_count=1 and approve_weight=1.50 and not approve_ready
+  and approve_weight >= required_weight and approve_count < required_count
   from osi_private.osi_v2_wire_quorum((select version_id from wire_normal))),
   'one analyst cannot satisfy the normal Wire count gate');
 select lives_ok($test$
@@ -248,7 +256,8 @@ select lives_ok($test$
   )
 $test$,'second independent exact-version Wire review commits');
 select ok((select approve_count=2 and approve_weight=3.00 and approve_ready
-  and required_count=2 and required_weight=2.00
+  and required_count=2
+  and approve_count >= required_count and approve_weight >= required_weight
   from osi_private.osi_v2_wire_quorum((select version_id from wire_normal))),
   'two independent analysts and weight 3.00 satisfy both normal gates');
 select ok((select count(*)=2 and bool_and(decision_channel='standard')

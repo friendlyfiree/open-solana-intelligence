@@ -17,7 +17,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(51);
 
 -- ---------------------------------------------------------------------------
 -- Privilege boundary for the new capability projection.
@@ -288,8 +288,10 @@ update public.osi_config set value='true'
 update public.osi_config set value='0'
  where key in ('OSI_V2_REPORT_COOLDOWN_SECONDS','OSI_V2_REPORT_REVIEW_COOLDOWN_SECONDS');
 
--- Report publication needs the full standard quorum: two independent analysts
--- and total counted weight 2.00. One analyst can never publish alone.
+-- Report publication needs the full standard quorum. These two analysts carry
+-- weight 1.00 each, so this fixture clears the weight gate under either the
+-- 2.00 design default or the D21 calibrated 1.00. What it always proves is the
+-- half that never moves: one analyst can never publish alone.
 insert into public.analyst_profiles(wallet,status,tier_code,verified,approved,weight_cached)
 values
   ('22222222222222222222222222222233','probationary_analyst','probationary',true,true,1.00),
@@ -388,6 +390,55 @@ select ok(
      from public.case_report_versions
     where id=(select version_id from report_prepared)),
   'the restricted narrative is retained privately and is never rewritten by publication');
+
+-- ---------------------------------------------------------------------------
+-- D21 cold-start weight-gate calibration.
+--
+-- The standard weight gate moved 2.00 -> 1.00 so two analysts at the 0.50
+-- probationary floor can publish. The whole safety of that change rests on the
+-- count gate being untouched and unreachable from configuration, so that is
+-- what these assertions prove: weight can be tuned, the P3 floor cannot.
+-- ---------------------------------------------------------------------------
+select is(
+  (select value from public.osi_config where key='OSI_V2_REPORT_STANDARD_MIN_WEIGHT'),
+  '1.00', 'the standard Report weight gate runs at the D21 calibrated 1.00');
+select is(
+  (select value from public.osi_config where key='OSI_V2_WIRE_STANDARD_MIN_WEIGHT'),
+  '1.00', 'the standard Wire weight gate runs at the D21 calibrated 1.00');
+select is(
+  (select value from public.osi_config where key='OSI_V2_REPORT_STANDARD_MIN_ANALYSTS'),
+  '2', 'the standard Report count gate stays at the P3 floor of two analysts');
+
+-- The gate the quorum function actually applies, not just the stored string.
+select is(
+  (select required_weight from osi_private.osi_v2_report_quorum(
+     (select version_id from report_prepared))),
+  1.00::numeric, 'the quorum function applies the calibrated 1.00 weight gate');
+select is(
+  (select required_count from osi_private.osi_v2_report_quorum(
+     (select version_id from report_prepared))),
+  2, 'the quorum function still demands two independent analysts');
+
+-- A single analyst can never become sufficient by configuration. Lowering the
+-- count gate below two is refused outright rather than quietly accepted, so no
+-- operator can turn the weight calibration into a solo-publication path.
+update public.osi_config set value='1' where key='OSI_V2_REPORT_STANDARD_MIN_ANALYSTS';
+select throws_ok(
+  $test$select * from osi_private.osi_v2_report_quorum(
+    (select version_id from report_prepared))$test$,
+  '55000', 'Report quorum configuration is absent or invalid',
+  'a count gate below two independent analysts is refused, not honoured');
+update public.osi_config set value='2' where key='OSI_V2_REPORT_STANDARD_MIN_ANALYSTS';
+
+-- 1.00 is the floor of the accepted weight range, so the calibration cannot be
+-- pushed further down without the same fail-closed refusal.
+update public.osi_config set value='0.50' where key='OSI_V2_REPORT_STANDARD_MIN_WEIGHT';
+select throws_ok(
+  $test$select * from osi_private.osi_v2_report_quorum(
+    (select version_id from report_prepared))$test$,
+  '55000', 'Report quorum configuration is absent or invalid',
+  'a weight gate below 1.00 is refused, so 1.00 is a real floor');
+update public.osi_config set value='1.00' where key='OSI_V2_REPORT_STANDARD_MIN_WEIGHT';
 
 select * from finish();
 rollback;

@@ -46,6 +46,7 @@ const expectedFiles = [
   '20260802180000_osi_v2_case_initial_rejection_appeal.sql',
   '20260805090000_osi_v2_maintainer_profile.sql',
   '20260807090000_osi_v2_case_report_visibility_publication.sql',
+  '20260807150000_osi_v2_cold_start_weight_gate_calibration.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -1352,6 +1353,53 @@ ok(
     .test(maintainerProfile)
   && !/grant[^;]*on table public\.maintainer_profile[^;]*to[^;]*\b(anon|authenticated)\b/i
     .test(maintainerProfile),
+);
+
+// D21 tuned the standard weight gate down for a roster where every analyst is
+// still at the 0.50 probationary floor. The tuning is only defensible because
+// the count gate is untouched, so the migration must move exactly the weight
+// keys, must refuse to leave the count gate anywhere but the P3 floor of two,
+// and must not reach the outcomes that were never in scope.
+const weightCalibration = sqlByFile['20260807150000_osi_v2_cold_start_weight_gate_calibration.sql'];
+ok(
+  'the calibration moves exactly the two standard weight gates',
+  /update public\.osi_config[\s\S]*?set value = '1\.00'[\s\S]*?where key in \(\s*'OSI_V2_REPORT_STANDARD_MIN_WEIGHT',\s*'OSI_V2_WIRE_STANDARD_MIN_WEIGHT'\s*\)/i
+    .test(weightCalibration),
+);
+ok(
+  'the calibration only replaces the untuned 2.00 default, never a deliberate value',
+  /and value = '2\.00'/.test(weightCalibration),
+);
+ok(
+  'the calibration fails closed if either count gate leaves the P3 floor of two',
+  /report_count is distinct from 2 or wire_count is distinct from 2/.test(weightCalibration)
+  && /Standard count gate must remain at the P3 floor/.test(weightCalibration),
+);
+ok(
+  'the calibration never touches an adversarial, terminal or high-risk threshold',
+  ![
+    'OSI_V2_REPORT_HIGH_MIN_WEIGHT', 'OSI_V2_CASE_REJECT_MIN_WEIGHT',
+    'OSI_V2_CHALLENGE_MIN_WEIGHT', 'OSI_V2_CHALLENGE_MIN_COUNT',
+    'OSI_V2_RESOLUTION_STANDARD_MIN_WEIGHT', 'OSI_V2_RESOLUTION_HIGH_MIN_WEIGHT',
+    'OSI_V2_AI_PACK_MIN_WEIGHT', 'OSI_V2_SEAL_MIN_WEIGHT',
+  ].some((key) => new RegExp('set value[^;]*' + key, 'i').test(weightCalibration)
+    || new RegExp(key + "[^;]*set value", 'i').test(weightCalibration)),
+);
+ok(
+  'the calibration leaves the bootstrap channel and its labelling alone',
+  !/OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED/.test(weightCalibration)
+  && !/decision_channel/.test(weightCalibration.replace(/^\s*--.*$/gm, '')),
+);
+// A threshold change is exactly the kind of thing the decisions document says
+// may never happen silently, so the written sign-off has to exist.
+const weightGateSignoff = fs.readFileSync(
+  path.join(root, 'docs/OSI_V2_OPEN_DECISIONS.md'), 'utf8');
+ok(
+  'the weight-gate change carries its written product-owner sign-off',
+  /### D21/.test(weightGateSignoff)
+  && /OSI_V2_REPORT_STANDARD_MIN_WEIGHT/.test(weightGateSignoff)
+  && /20260807150000_osi_v2_cold_start_weight_gate_calibration\.sql/.test(weightGateSignoff)
+  && /[Rr]estore condition/.test(weightGateSignoff),
 );
 
 const identifiers = [

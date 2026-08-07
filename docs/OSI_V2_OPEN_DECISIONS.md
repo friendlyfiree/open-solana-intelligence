@@ -135,6 +135,29 @@ Promotion is enabled only when both `OSI_V2_WIRE_WRITES_ENABLED` and `OSI_V2_CAS
 
 Phase 2 cutover applies its additive migration and deploys exactly `osi-v2-case-read`, `osi-v2-wire`, and `osi-v2-payment`. The workflow snapshots every existing config flag and public SAS key plus V1 counts, verifies flag-off public/privacy regressions, and only then enables the dedicated Wire flag. Failure disables only `OSI_V2_WIRE_WRITES_ENABLED`; immutable content and receipts remain for a forward fix. Wire authors broadcast submission Memos, quorum analysts or the full maintainer broadcast publication Memos, eligible promoters broadcast promotion Memos, and supporters broadcast payment transactions. The named gateways are the trusted server actors that verify each class-A Memo and create its receipt.
 
+### D21
+
+**Cold-start calibration of the standard publication weight gate — product-owner sign-off, 2026-08-07.**
+
+The rule at the foot of this document requires a written product-owner sign-off before any D5 threshold number changes. This entry is that sign-off, and it records what was decided and why so a reader can check the reasoning rather than take the number on trust.
+
+**The measurement.** Weight is bounded `[0.50, 3.00]` and every analyst starts at the 0.50 probationary floor, climbing only as validated contributions accumulate (`OSI_V2_VOTING_REPUTATION_MODEL.md §3`). The standard weight gate of `2.00` therefore encodes an assumption: that a roster has already built reputation. Measured against the live roster, that assumption did not hold. All three live analysts sit at the floor, so the standard gate needed **four unanimous approvers** — meaning the entire analyst network in complete agreement could not publish a standard Case Report or Wire Report. The observable effect was that routine publication had to travel the D17 maintainer bootstrap channel, which exists to be exceptional.
+
+**The decision.** `OSI_V2_REPORT_STANDARD_MIN_WEIGHT` and `OSI_V2_WIRE_STANDARD_MIN_WEIGHT` move `2.00 → 1.00`, applied by `20260807150000_osi_v2_cold_start_weight_gate_calibration.sql`. Two independent analysts at the probationary floor now satisfy both gates, so ordinary publication travels the ordinary path and is labelled as the analyst-quorum outcome it is.
+
+**What was deliberately not changed, and why.**
+
+| | |
+| --- | --- |
+| Both standard count gates | stay at **2**. This is P3's guarantee and the reason the change is a calibration rather than an amendment. Every quorum function independently refuses a configured count below 2, so the floor is not reachable from configuration at all; the migration asserts it and fails closed if it ever moves. |
+| High-risk publication | stays at 3 analysts / weight 4.00. |
+| Rejection, challenge, resolution, AI-Pack, seal | untouched. No adversarial or terminal outcome gets cheaper — only the ordinary publish path does. |
+| The D17 bootstrap channel | untouched. It stays available, stays double-gated, and every receipt it produces still carries `decision_channel='maintainer_bootstrap'`. The point of this calibration is that it should be needed less often, not that it goes away. |
+
+**What was refused.** The alternative considered was granting the maintainer an analyst-equivalent vote presented as an ordinary analyst vote. That is refused and stays refused: P3 marks the prohibition on presenting anything as independent analyst consensus that was not **absolute**. A maintainer may still hold analyst weight, but only by the route correction #6 already allows — the same wallet being separately analyst-eligible through the normal application, reviewed by the existing analysts, with weight server-derived from contribution thresholds and never granted by maintainer preference.
+
+**Restore condition.** This calibrates for a floor-weight roster; it is not a permanent loosening. The standard gate returns toward `2.00` once the live roster carries real earned weight — concretely, once at least four eligible analysts hold weight above the 0.50 floor, at which point `2.00` is reachable without unanimity. Unlike the D17 tier this is a written decision rather than an automatic flip, because it depends on the weight distribution rather than on a headcount the server can read on its own. Reverting is a one-line config change with no schema effect.
+
 ---
 
 ## Remaining deferred feature flags
