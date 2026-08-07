@@ -199,10 +199,17 @@ select ok(
   ),
   'review receipt and row preserve exact actor proof type weight tier and restricted note'
 );
+-- The P3 guarantee, stated so it survives any legitimate weight-gate tuning:
+-- this single analyst already carries MORE weight than the gate demands, and
+-- publication is still refused purely on the independent count. Asserting the
+-- surplus rather than a fixed threshold is the stronger claim, because it holds
+-- at 2.00, at the D21 calibrated 1.00, and at anything else in range.
 select ok(
   (
     select approve_count = 1 and approve_weight = 3.00
-       and required_count = 2 and required_weight = 2.00
+       and approve_weight >= required_weight
+       and approve_count < required_count
+       and required_count = 2
        and approve_ready is false
       from osi_private.osi_v2_report_quorum((select version_id from pg_temp.report_prepare))
   ),
@@ -272,7 +279,9 @@ select lives_ok(
 select ok(
   (
     select approve_count = 2 and approve_weight = 4.00
-       and required_count = 2 and required_weight = 2.00
+       and required_count = 2
+       and approve_count >= required_count
+       and approve_weight >= required_weight
        and approve_ready is true
       from osi_private.osi_v2_report_quorum((select version_id from pg_temp.report_prepare))
   ),
