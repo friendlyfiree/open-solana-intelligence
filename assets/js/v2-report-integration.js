@@ -1022,7 +1022,11 @@
     // in-flight render can land on top of the Report workspace.
     if(typeof window.osiV2CancelFieldListRender==='function')window.osiV2CancelFieldListRender();
     if(typeof window.osiSetFieldOfficeNav==='function')window.osiSetFieldOfficeNav(mode==='queue'?'review':'reports');
-    if(typeof window.osiV2SetFieldReviewChrome==='function')window.osiV2SetFieldReviewChrome(false);
+    // Neither Report surface is the public Case list, so the Case search box,
+    // stage filter, sort control and "Case ID / Title / Stage / …" head row are
+    // hidden. They used to stay on screen above "My Reports is a private
+    // workspace", offering a filter that could not change anything below it.
+    if(typeof window.osiV2SetFieldReviewChrome==='function')window.osiV2SetFieldReviewChrome(true);
     var host=document.getElementById('field-cases');if(host)host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';
     if(!walletPubkey&&options.authorize!==true){
       setWorkspaceCopy(mode,0);
