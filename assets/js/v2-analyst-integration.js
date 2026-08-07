@@ -8,7 +8,7 @@
   // who this browser is. This module has no capability fetch of its own, and an
   // earlier version read `state.capabilities` here, a key nothing in this file
   // ever set, so the operator's own edit control could never appear.
-  var state={profiles:[],profilesPromise:null,profileIntent:'',profileReturnFocus:null,workspace:null,workspaceWallet:'',workspaceTab:'profile',queue:[],busy:false,returnFocus:null,receipt:null,maintainerAccess:false};
+  var state={profiles:[],profilesPromise:null,profileIntent:'',profileReturnFocus:null,workspace:null,workspaceWallet:'',workspaceTab:'profile',queue:[],busy:false,returnFocus:null,receipt:null,maintainerAccess:false,maintainerProfile:null};
 
   function esc(value){
     return String(value==null?'':value).replace(/[&<>"']/g,function(char){
@@ -180,73 +180,41 @@
   //
   // Absent until a profile is published. An operator who has not written one
   // gets no card, not a placeholder.
-  function maintainerLinks(profile){
-    var rows=(profile.links_public||[]).filter(function(link){
-      return link&&typeof link.url==='string'&&/^https:\/\//.test(link.url);
-    });
-    if(!rows.length)return '';
-    return '<ul class="osi-maintainer-links">'+rows.map(function(link){
-      var label=String(link.label||'').trim()||link.url.replace(/^https:\/\//,'');
-      return '<li><a data-osi-user-content href="'+esc(link.url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>';
-    }).join('')+'</ul>';
+  // The maintainer used to render as a full-width block above the roster with
+  // its own layout, its own headings and its own facts grid. Nothing else on
+  // the page looked like it, so the one record a reader most needs to place in
+  // context was the one record that read as foreign to it. It is now a roster
+  // peer: the same row shape as an analyst, opening the same profile modal,
+  // marked MAINTAINER rather than given a separate visual language. The
+  // separation that actually matters is a governance fact, not a layout, and
+  // the modal states it in the same facts row every analyst uses.
+  function maintainerRow(profile){
+    var name=String(profile.display_name||'').trim()||short(profile.wallet);
+    var expertise=(profile.expertise_public||[]).filter(function(v){return typeof v==='string'&&v;})
+      .map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
+    return '<button class="osi-analyst-row osi-analyst-row-maintainer" type="button" data-maintainer-wallet="'+esc(profile.wallet)+'">'
+      +'<span class="osi-analyst-person">'+avatar({avatar_url:profile.avatar_url,wallet:profile.wallet,display_name:name},38)
+      +'<span><b data-osi-user-content>'+esc(name)+'</b><em class="mono">'+esc(short(profile.wallet))+'</em></span></span>'
+      +'<span><span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span></span>'
+      +'<span class="osi-expertise-list">'+(expertise||'<em>'+esc(t('Not listed'))+'</em>')+'</span>'
+      +'<span class="mono">'+String((profile.contributions||[]).length)+'</span>'
+      +'<span class="mono osi-weight osi-weight-none">'+esc(t('None'))+'</span>'
+      +'<span class="mono">'+String((profile.proof_history||[]).length)+'</span></button>';
   }
   function renderMaintainerProfile(profile){
     var host=document.getElementById('osi-maintainer-profile');
     if(!host)return;
+    state.maintainerProfile=profile&&profile.wallet?profile:null;
     if(!profile||!profile.wallet){host.hidden=true;host.innerHTML='';return;}
-    var name=String(profile.display_name||'').trim();
-    var bio=String(profile.bio||'').trim();
-    var expertise=(profile.expertise_public||[]).filter(function(v){return typeof v==='string'&&v;});
-    // The same helper the roster uses, so an avatar this deployment owns is
-    // rendered and anything else degrades to the generated identicon instead of
-    // a broken image. An off-site URL would be blocked by the page's CSP, so
-    // drawing it would only ever produce an empty frame.
-    var portrait=avatar({avatar_url:profile.avatar_url,wallet:profile.wallet,display_name:name},56);
-    var proofUrl=safeHttps(profile.proof_of_work_url);
-    // Deliberately parallel to the analyst facts row, and every cell reads
-    // "None". The separation this record exists to state is easier to believe
-    // as three measured fields than as a sentence at the bottom of a card.
-    var facts=[
-      [t('Analyst standing'),t('None')],
-      [t('Review weight'),t('None')],
-      [t('Quorum vote'),t('None')]
-    ].map(function(row){
-      return '<div><span>'+esc(row[0])+'</span><b>'+esc(row[1])+'</b></div>';
-    }).join('');
     host.hidden=false;
     host.innerHTML=
       '<h3 id="osi-maintainer-profile-title" class="osi-maintainer-kicker">'+esc(t('Maintainer'))+'</h3>'
-      +'<article class="osi-maintainer-card">'
-      +'<header class="osi-maintainer-head">'
-      +'<span class="osi-maintainer-portrait">'+portrait+'</span>'
-      +'<div class="osi-maintainer-ident">'
-      +'<div class="osi-maintainer-nameline">'
-      +(name?'<b class="osi-maintainer-name" data-osi-user-content>'+esc(name)+'</b>':'')
-      +'<span class="osi-maintainer-role">'+esc(t('Maintainer'))+'</span>'
-      +'</div>'
-      +'<span class="osi-maintainer-wallet mono">'+esc(profile.wallet)+'</span>'
-      +'</div></header>'
-      +'<div class="osi-maintainer-facts">'+facts+'</div>'
-      // Two columns, matching the paired panels the rest of this page uses. In
-      // one column the prose runs to a readable measure and leaves half the
-      // card empty beside it, and the card ends up taller than the whole
-      // roster it sits above.
-      +'<div class="osi-maintainer-body">'
-      +(bio?'<p class="osi-maintainer-bio" data-osi-user-content>'+esc(bio)+'</p>':'<span></span>')
-      +'<div class="osi-maintainer-side">'
-      +(expertise.length?'<section class="osi-maintainer-section"><h4>'+esc(t('Expertise'))+'</h4>'
-        +'<ul class="osi-maintainer-expertise">'+expertise.map(function(item){
-          return '<li>'+esc(label(item))+'</li>';
-        }).join('')+'</ul></section>':'')
-      +(maintainerLinks(profile)?'<section class="osi-maintainer-section"><h4>'+esc(t('Safe public links'))+'</h4>'
-        +maintainerLinks(profile)+'</section>':'')
-      +(proofUrl?'<div class="osi-maintainer-actions"><a class="osi-maintainer-proof" href="'+esc(proofUrl)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a></div>':'')
-      +'</div></div>'
-      // The row above already states what the maintainer does not hold. This
-      // answers the question that leaves: what they do. Repeating the three
-      // "None" values here would read as insistence rather than disclosure.
-      +'<p class="osi-maintainer-notice">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. What gets published is decided by independent analyst quorum.'))+'</p>'
-      +'</article>';
+      +'<div class="osi-maintainer-rows">'+maintainerRow(profile)+'</div>'
+      // One line, not a card. It answers what the maintainer does; the modal
+      // carries the three governance facts stating what they do not hold.
+      +'<p class="osi-maintainer-notice">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. What gets published is decided by independent analyst quorum.'))+'</p>';
+    var row=host.querySelector('[data-maintainer-wallet]');
+    if(row)row.addEventListener('click',function(){openPublicProfile(row.dataset.maintainerWallet);});
   }
   async function loadMaintainerProfile(){
     var host=document.getElementById('osi-maintainer-profile');
@@ -414,6 +382,14 @@
     var body=document.getElementById('ap-modal-body'),modal=document.getElementById('ap-modal');if(!body||!modal)return;
     modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';body.setAttribute('aria-busy','true');body.innerHTML='<div class="osi-activation-loading" role="status">'+esc(t('Loading the selected analyst profile...'))+'</div>';
     if(options.preserveFocus!==true)setTimeout(function(){var close=modal.querySelector('.ap-modal-x');if(close)close.focus();},0);
+    // The maintainer is not in the analyst directory and never will be, so it
+    // is resolved from its own record. Everything after this point is the same
+    // path an analyst takes: same modal, same sections, same escaping.
+    var maintainer=state.maintainerProfile;
+    if(maintainer&&String(maintainer.wallet)===wallet){
+      renderProfileModal(body,maintainerModalProfile(maintainer),{maintainer:true});
+      return;
+    }
     var profile=state.profiles.find(function(row){return String(row.wallet)===wallet;});
     if(!profile){
       try{await loadPublicProfiles({throwOnError:true});}catch(error){
@@ -428,15 +404,69 @@
       body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),t('This wallet is not in the current verified analyst directory.'))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
       var missingRetry=body.querySelector('[data-profile-retry]');if(missingRetry)missingRetry.addEventListener('click',function(){openPublicProfile(wallet,{preserveReturnFocus:true});});return;
     }
+    renderProfileModal(body,profile,{maintainer:false});
+  }
+
+  // The maintainer record uses the *_public field names of its own endpoint.
+  // Mapping it onto the analyst profile shape here is what lets one renderer
+  // serve both, so the two can never drift into different presentations of the
+  // same facts.
+  function maintainerModalProfile(profile){
+    return {
+      wallet:profile.wallet,
+      handle:'',
+      display_name:profile.display_name||'',
+      bio:profile.bio||'',
+      status:'maintainer',
+      tier_code:'',
+      weight:0,
+      expertise:profile.expertise_public||[],
+      links:(profile.links_public||[]).slice(),
+      contributions:profile.contributions||[],
+      proof_history:profile.proof_history||[],
+      proof_of_work_url:profile.proof_of_work_url||'',
+    };
+  }
+
+  // One renderer for every public profile the page can open. An analyst and the
+  // maintainer differ in exactly two places: the badge, and the facts row that
+  // states governance standing. Everything else - expertise, safe links,
+  // voluntary support, contributions, proof history - is identical, because the
+  // guarantees behind them are identical.
+  function renderProfileModal(body,profile,options){
+    options=options||{};
+    var isMaintainer=options.maintainer===true;
     var links=(profile.links||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label||url)+'</a>':'';}).join('');
+    var proofOfWork=safeHttps(profile.proof_of_work_url);
+    if(proofOfWork)links+='<a href="'+esc(proofOfWork)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a>';
     // A public reference is the thing a reader looks the work up by, so it is
     // printed whole. Only opaque internal ids are shortened.
     var contributions=(profile.contributions||[]).map(function(row){var subject=String(row.subject_id||'');return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b><span data-osi-user-content>'+esc(label(row.subject_type))+' / '+esc(/^OSI-/.test(subject)?subject:short(subject))+'</span></div><time>'+esc(dateText(row.created_at))+'</time></div>';}).join('');
-    var proofs=(profile.proof_history||[]).map(publicProof).join(''),identity=profile.handle?'@'+profile.handle:short(profile.wallet),displayName=profile.display_name||profile.handle||short(profile.wallet);
+    var proofs=(profile.proof_history||[]).map(publicProof).join('');
+    var identity=profile.handle?'@'+profile.handle:short(profile.wallet);
+    var displayName=profile.display_name||profile.handle||short(profile.wallet);
+    // The maintainer holds no analyst standing, no review weight and no quorum
+    // vote. Stating that in the same three cells an analyst uses for status,
+    // weight and tier makes the difference legible at a glance instead of
+    // leaving a reader to infer it from an absence.
+    var facts=isMaintainer
+      ? '<div><span>'+esc(t('Analyst standing'))+'</span><b>'+esc(t('None'))+'</b></div>'
+        +'<div><span>'+esc(t('Review weight'))+'</span><b>'+esc(t('None'))+'</b></div>'
+        +'<div><span>'+esc(t('Quorum vote'))+'</span><b>'+esc(t('None'))+'</b></div>'
+      : '<div><span>'+esc(t('Status'))+'</span>'+statusBadge(profile.status)+'</div>'
+        +'<div><span>'+esc(t('Server-derived weight'))+'</span><b>'+Number(profile.weight||0).toFixed(2)+'</b></div>'
+        +'<div><span>'+esc(t('Tier'))+'</span><b>'+esc(label(profile.tier_code))+'</b></div>';
+    var badge=isMaintainer
+      ? '<span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span>'
+      : sasSlot(profile.wallet,profile.status);
+    var role=isMaintainer
+      ? '<p class="osi-profile-role-note">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. What gets published is decided by independent analyst quorum.'))+'</p>'
+      : '';
+    var expertise=(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
     body.removeAttribute('aria-busy');
-    body.innerHTML='<div class="osi-public-profile"><header>'+avatar(profile,64)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(displayName)+sasSlot(profile.wallet,profile.status)+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
-      +'<div class="osi-profile-facts"><div><span>'+esc(t('Status'))+'</span>'+statusBadge(profile.status)+'</div><div><span>'+esc(t('Server-derived weight'))+'</span><b>'+Number(profile.weight||0).toFixed(2)+'</b></div><div><span>'+esc(t('Tier'))+'</span><b>'+esc(label(profile.tier_code))+'</b></div></div>'
-      +'<section><h4>'+esc(t('Expertise'))+'</h4><div class="osi-tag-list">'+(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section>'
+    body.innerHTML='<div class="osi-public-profile'+(isMaintainer?' osi-public-profile-maintainer':'')+'"><header>'+avatar(profile,64)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(displayName)+badge+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
+      +'<div class="osi-profile-facts">'+facts+'</div>'+role
+      +(expertise?'<section><h4>'+esc(t('Expertise'))+'</h4><div class="osi-tag-list">'+expertise+'</div></section>':'')
       +(links?'<section><h4>'+esc(t('Safe public links'))+'</h4><div class="osi-safe-links">'+links+'</div></section>':'')
       +'<section><h4>'+esc(t('Voluntary support'))+'</h4><p>'+esc(t('Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.'))+'</p><button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">'+esc(t('Support with SOL via Phantom or Solana Pay'))+'</button></section>'
       +'<section><h4>'+esc(t('Public contributions'))+'</h4>'+(contributions||empty(t('No public contributions recorded'),t('Contribution history appears after attributable public work.')))+'</section>'

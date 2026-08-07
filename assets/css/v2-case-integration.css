@@ -10,11 +10,21 @@
 #field-view .fo-eyebrow,.osi-v2-head,#field-view .fo-sel-l,#field-view .fo-count{font-size:11px}
 #field-view .fo-cta{background:var(--acc);border-color:var(--acc);color:#090b12;min-height:42px}
 
-.osi-v2-head,.osi-v2-row{grid-template-columns:130px minmax(250px,1fr) 124px 132px 76px 150px 30px!important}
+/* Column budget. The registry card is about 966px wide inside its shell, and
+   the old track list spent 892px of that on fixed columns, which left the title
+   pinned at its 250px minimum with every title and summary truncated after a
+   few words. Category, review count and proof are short monospace labels and do
+   not need the widths they had; the Case reference does, because a reference
+   that breaks in the middle of its own token is unreadable and unusable for
+   search. The reference track is `auto` so an unusually long reference grows the
+   column instead of wrapping, and the flexible title track absorbs the rest. */
+.osi-v2-head,.osi-v2-row{grid-template-columns:minmax(152px,auto) minmax(220px,1fr) 132px 78px 52px 124px 24px!important}
 .osi-v2-row{display:grid;width:100%;align-items:center;gap:12px;min-height:74px;padding:13px 16px;background:rgba(12,17,29,.72);border:1px solid var(--line);border-top:0;font:inherit;text-align:left;cursor:pointer;transition:border-color .18s,background .18s,transform .18s}
 .osi-v2-row:first-child{border-top:1px solid var(--line)}
 .osi-v2-row:hover,.osi-v2-row:focus-visible{background:var(--bg-raised);border-color:var(--acc-line);outline:0;transform:translateX(2px)}
-.osi-v2-id{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--acc)}
+/* A Case reference is an identifier. It never breaks mid-token: the column
+   grows for it instead. */
+.osi-v2-id{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--acc);white-space:nowrap}
 .osi-v2-title{min-width:0}
 .osi-v2-title b{display:block;color:var(--ink);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .osi-v2-title span{display:block;color:var(--ink-faint);font-size:12px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -232,15 +242,28 @@ body.osi-case-open{overflow:hidden}
 
 @media(max-width:1180px){
   .osi-v2-head{display:none!important}
-  .osi-v2-row{grid-template-columns:110px 1fr 110px!important}
+  /* The reference keeps a track wide enough for a full 16-character public ref
+     at this size; 110px cut it and forced the same mid-token break. */
+  .osi-v2-row{grid-template-columns:minmax(150px,auto) minmax(0,1fr) auto 24px!important}
   .osi-v2-row>*:nth-child(4),.osi-v2-row>*:nth-child(5),.osi-v2-row>*:nth-child(6){display:none}
   .osi-v2-arrow{display:block!important}
 }
 @media(max-width:640px){
-  .osi-v2-row{grid-template-columns:1fr auto!important;gap:7px}
-  .osi-v2-id{grid-column:1}
-  .osi-v2-title{grid-column:1}
-  .osi-v2-stage{grid-column:2;grid-row:1/3}
+  /* One column. The stage badge used to sit beside the title in an `auto`
+     track, so a long stage name such as PUBLIC INVESTIGATION took the width the
+     title needed and every row truncated to a few characters at a different
+     point, purely because the badges differ in length. Stacking it puts every
+     row on the same measure and lets a title use two full lines. */
+  .osi-v2-row{grid-template-columns:minmax(0,1fr)!important;gap:6px;align-items:start}
+  /* Reference, then lifecycle stage, then the title and its supplementary
+     chips. Explicit rows because the stage is a sibling of the title in the
+     DOM and would otherwise land after the reward chip, where a lifecycle
+     state reads as an afterthought. */
+  .osi-v2-id{grid-column:1;grid-row:1}
+  .osi-v2-stage{grid-column:1;grid-row:2;justify-self:start}
+  .osi-v2-title{grid-column:1;grid-row:3}
+  .osi-v2-title b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-clamp:2}
+  .osi-v2-title>span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-clamp:2}
   .osi-v2-arrow{display:none!important}
   .osi-case-form{padding:22px 17px}
   .osi-case-form .fo-grid2{grid-template-columns:1fr}
@@ -351,3 +374,13 @@ body.osi-case-open{overflow:hidden}
   .osi-ref-item{padding:10px}
   .osi-ref-actions .osi-ref-copy,.osi-ref-actions .osi-ref-link{flex:1 1 auto;min-height:40px}
 }
+
+/* Attributed reviewer identity. Constitution section 8 requires a public
+   governance decision to name the analyst's public profile as well as their
+   wallet, so the handle leads and the shortened wallet follows it; the full
+   address is always in the title attribute. When the directory has the wallet
+   the whole identity is a control that opens that analyst's public profile. */
+.osi-review-actor{display:inline-flex;align-items:baseline;gap:7px;border:0;background:transparent;padding:0;color:inherit;font:inherit;text-align:left}
+.osi-review-actor-link{cursor:pointer;text-decoration:underline;text-decoration-color:rgba(139,150,184,.45);text-underline-offset:3px}
+.osi-review-actor-link:hover,.osi-review-actor-link:focus-visible{color:var(--cyan);text-decoration-color:var(--cyan);outline:0}
+.osi-review-wallet{color:var(--ink-faint);font-size:11.5px;font-weight:500}

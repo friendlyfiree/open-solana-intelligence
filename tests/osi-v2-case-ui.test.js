@@ -275,6 +275,25 @@ ok('Case-authored titles, summaries, evidence, and rationale opt out of automati
     && /function caseProse\(value\)\{[\s\S]*?<p data-osi-user-content>[\s\S]*?return esc\(line\.trim\(\)\);/.test(app)
     && app.includes('class="osi-ref-value mono" data-osi-user-content title="\'+esc(ref)+\'">\'+esc(ref)+\'</div>')
     && app.includes("<p data-osi-user-content>'+esc(row.public_rationale"));
+// Constitution section 8: a public governance decision is publicly attributed,
+// and attribution is the analyst's public profile as well as their wallet. The
+// list used to print a shortened wallet alone, so a reader could see that
+// someone decided but never who, and had no route to their other work.
+ok('a public initial review names the analyst profile, not only a shortened wallet',
+  app.includes('function reviewerIdentity(wallet)')
+    && app.includes('window.VERIFIED_ANALYSTS&&window.VERIFIED_ANALYSTS[address]')
+    && app.includes("directory.handle?'@'+directory.handle:directory.name")
+    && app.includes('data-analyst-profile="\'+esc(address)+\'"')
+    && app.includes('reviewerIdentity(row.reviewer_wallet)'));
+ok('the full reviewer wallet is never lost to the shortened display',
+  app.includes('title="\'+esc(address)+\'"'));
+ok('an attributed reviewer opens the public analyst profile',
+  app.includes("event.target.closest('[data-analyst-profile]')")
+    && app.includes("window.openAnalystProfile(wallet)"));
+ok('a wallet absent from the public directory is stated, never invented',
+  app.includes("if(!directory)return '<span class=\"osi-review-actor\"")
+    && css.includes('.osi-review-actor{')
+    && css.includes('.osi-review-actor-link{'));
 ok('all four native submissions retain actionable exact-reference receipts',
   index.includes('id="v2-case-receipt"')
     && index.includes('id="osi-report-receipt"')

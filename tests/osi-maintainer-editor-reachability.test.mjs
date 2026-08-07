@@ -152,19 +152,50 @@ const edge = read("supabase/functions/osi-v2-analyst/index.ts");
 // Every class the card emits must actually be styled. An unstyled class is not
 // a crash and not a test failure anywhere else; it is just a card that renders
 // as unformatted prose, which is exactly how this one shipped.
-const emitted = new Set(
-  [...withoutComments(analyst).matchAll(/class="(osi-maintainer-[a-z-]+)"/g)].map((m) => m[1]),
+// The maintainer surface now renders as a peer of the analyst roster: the same
+// row grid, the same profile modal, marked MAINTAINER rather than given its own
+// layout language. That means it emits reused roster classes as well as its own
+// few, so the check widens to every class either surface emits. This is a
+// stronger invariant than the previous maintainer-prefixed-only version: a
+// reused class that lost its rule would now fail here too.
+const maintainerSurface = withoutComments(analyst).slice(
+  withoutComments(analyst).indexOf("function maintainerRow("),
 );
-ok("the card emits maintainer classes at all", emitted.size >= 8, String(emitted.size));
-const unstyled = [...emitted].filter((name) => !new RegExp("\\." + name + "[^a-z-]").test(css));
-ok("every maintainer class the card emits has a style rule", unstyled.length === 0, unstyled.join(", "));
+const emitted = new Set(
+  [...maintainerSurface.matchAll(/class="((?:osi|lb)-[a-z0-9 -]+)"/g)]
+    .flatMap((m) => m[1].split(/\s+/))
+    .filter((name) => /^(?:osi|lb)-[a-z0-9-]+$/.test(name)),
+);
+ok("the maintainer surface emits styled classes at all", emitted.size >= 6, String(emitted.size));
+const allCss = ["assets/css/v2-activation.css", "assets/css/v2-shell.css", "assets/css/30-views.css",
+  "assets/css/50-late-components.css", "assets/css/70-intelligence-redesign.css",
+  "assets/css/60-final-polish.css", "assets/css/20-sections.css"]
+  .map((file) => { try { return read(file); } catch { return ""; } }).join("\n");
+const unstyled = [...emitted].filter((name) => !new RegExp("\\." + name + "[^a-z0-9-]").test(allCss));
+ok("every class the maintainer surface emits has a style rule", unstyled.length === 0, unstyled.join(", "));
+// The badge that marks the maintainer apart must itself be styled, or the one
+// distinction this surface exists to draw renders as plain text.
+ok("the maintainer badge has its own rule", /\.osi-status\.maintainer\{/.test(css));
+// Opening the maintainer must go through the same modal an analyst row opens.
+ok("the maintainer row opens the shared public profile modal",
+  /data-maintainer-wallet/.test(analyst)
+  && /openPublicProfile\(row\.dataset\.maintainerWallet\)/.test(analyst)
+  && /function renderProfileModal\(body,profile,options\)/.test(analyst)
+  && /renderProfileModal\(body,maintainerModalProfile\(maintainer\),\{maintainer:true\}\)/.test(analyst)
+  && /renderProfileModal\(body,profile,\{maintainer:false\}\)/.test(analyst));
+// The governance separation is the substance of the distinction and must
+// survive the move into the shared modal.
+ok("the shared modal still states that the maintainer holds no analyst standing",
+  /t\('Analyst standing'\)[\s\S]{0,120}t\('None'\)/.test(analyst)
+  && /t\('Review weight'\)[\s\S]{0,120}t\('None'\)/.test(analyst)
+  && /t\('Quorum vote'\)[\s\S]{0,120}t\('None'\)/.test(analyst));
 
 // The page's CSP only permits images from this project's storage, so an
 // off-site avatar is accepted by the server and then blocked by the browser.
 // Going through the shared helper means an unowned URL degrades to the
 // generated identicon instead of rendering an empty frame.
 ok("the portrait goes through the shared avatar helper, not a raw img tag",
-  /var portrait=avatar\(\{avatar_url:profile\.avatar_url/.test(analyst)
+  /avatar\(\{avatar_url:profile\.avatar_url,wallet:profile\.wallet,display_name:name\},38\)/.test(analyst)
   && !/<img class="osi-maintainer-avatar"/.test(analyst));
 ok("the editor takes an uploaded file rather than a remote image URL",
   /type="file" accept="image\/png,image\/jpeg" data-mp-avatar-file/.test(analyst)
@@ -187,17 +218,18 @@ ok("the server uploads the maintainer image through the owned bucket",
 ok("the submitted avatar object never reaches the normalizer",
   /delete submitted\.avatar;/.test(edge));
 
-// Two columns on wide screens. In one column the prose leaves half the card
-// empty and the card grows taller than the roster it introduces.
-ok("the card body is a two-column grid that collapses on narrow screens",
-  /\.osi-maintainer-body\{display:grid;grid-template-columns:minmax\(0,1\.55fr\) minmax\(0,1fr\)/.test(css)
-  && /@media \(max-width:900px\)\{\.osi-maintainer-body\{grid-template-columns:1fr/.test(css));
-// The facts row is the scannable statement of the separation; the footer says
-// what the role does instead of repeating it a third time.
-ok("the facts row states the three absences and the footer adds what the role does",
-  /t\('Analyst standing'\),t\('None'\)/.test(analyst)
-  && /t\('Review weight'\),t\('None'\)/.test(analyst)
-  && /t\('Quorum vote'\),t\('None'\)/.test(analyst)
-  && /schema migrations, function rollouts and configuration/.test(analyst));
+// The maintainer row inherits the roster grid rather than defining a second
+// layout. That is what makes it line up with the table below it at every
+// breakpoint, including the narrow one where the roster drops columns.
+ok("the maintainer row reuses the analyst roster grid at every breakpoint",
+  /#analysts \.osi-analyst-head,#analysts \.osi-analyst-row\{display:grid/.test(css)
+  && /@media[^{]*\{[\s\S]*?#analysts \.osi-analyst-row\{grid-template-columns:minmax\(0,1fr\) auto 70px/.test(css)
+  && /class="osi-analyst-row osi-analyst-row-maintainer"/.test(analyst));
+// The role footer says what the maintainer does; the modal facts row says what
+// they do not hold. Neither repeats the other.
+ok("the surface says what the role does and the modal says what it does not hold",
+  /schema migrations, function rollouts and configuration/.test(analyst)
+  && /osi-profile-role-note/.test(analyst)
+  && /\.osi-profile-role-note\{/.test(css));
 
 process.stdout.write(`Maintainer editor reachability: ${passed} passed\n`);
