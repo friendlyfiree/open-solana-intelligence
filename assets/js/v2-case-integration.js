@@ -130,6 +130,15 @@
   // Copy buttons are delegated once so every re-render keeps working without
   // rebinding, and the exact value travels in the data attribute rather than in
   // an inline handler.
+  // An attributed reviewer opens their public analyst profile, so a governance
+  // decision leads to the record of who made it. Delegated once, so every
+  // re-render keeps working.
+  document.addEventListener('click',function(event){
+    var actor=event.target&&event.target.closest?event.target.closest('[data-analyst-profile]'):null;
+    if(!actor)return;
+    var wallet=actor.getAttribute('data-analyst-profile')||'';
+    if(wallet&&typeof window.openAnalystProfile==='function')window.openAnalystProfile(wallet);
+  });
   document.addEventListener('click',function(event){
     var button=event.target&&event.target.closest?event.target.closest('[data-osi-copy]'):null;
     if(!button)return;
@@ -1149,14 +1158,27 @@
       // authorized projection first whenever a private read session already
       // exists. It never prompts for a wallet, and the server still decides what
       // the caller is allowed to see.
-      var authorized=await authorizedCaseRead(ref);
+      // Both reads start at once rather than one after the other. Awaiting the
+      // authorized read first added its full round trip to the wait before the
+      // public read even began, which is exactly the delay a reader notices
+      // when the evidence sections arrive late. A visitor with no wallet or no
+      // live session resolves the authorized attempt locally with no request at
+      // all, so this costs an extra call only for an actor who may be entitled
+      // to more than the anonymous projection.
+      var needsPublic=!cached||state.mode==='public';
+      var authorizedPending=authorizedCaseRead(ref);
+      var publicPending=needsPublic
+        ? publicRead({op:'get_public_case',public_ref:ref}).catch(function(error){return {error:error};})
+        : null;
+      var authorized=await authorizedPending;
       if(drawerToken!==state.drawerLoadToken)return null;
       if(authorized&&authorized.case){
         item=authorized.case;
         state.currentActorRole=String(authorized.actor_role||'');
-      }else if(!cached||state.mode==='public'){
-        var result=await publicRead({op:'get_public_case',public_ref:ref});
+      }else if(needsPublic){
+        var result=await publicPending;
         if(drawerToken!==state.drawerLoadToken)return null;
+        if(result&&result.error)throw result.error;
         item=result.case;
         state.currentActorRole='public';
       }
@@ -1305,9 +1327,26 @@
       +'<span>'+esc(t('Approval authorizes public investigation only. It is not a truth, guilt or recovery decision.'))+'</span>'
       +anchor+'</div>';
   }
+  // Constitution §8: a public governance decision is publicly attributed, and
+  // attribution means the analyst's public profile as well as their wallet. The
+  // list used to print a shortened wallet and nothing else, so a reader could
+  // see that someone decided but not who, and had no way to reach the record of
+  // their other work. The handle comes from the public analyst directory the
+  // Analyst Network already publishes; when it is not loaded the wallet still
+  // stands on its own, and nothing is invented for a wallet that is not in it.
+  function reviewerIdentity(wallet){
+    var address=String(wallet||'');
+    var directory=window.VERIFIED_ANALYSTS&&window.VERIFIED_ANALYSTS[address];
+    var handle=directory&&(directory.handle?'@'+directory.handle:directory.name)||'';
+    var label=handle?esc(handle)+' <span class="osi-review-wallet mono">'+esc(short(address))+'</span>'
+      :'<span class="osi-review-wallet mono">'+esc(short(address))+'</span>';
+    if(!directory)return '<span class="osi-review-actor" title="'+esc(address)+'">'+label+'</span>';
+    return '<button class="osi-review-actor osi-review-actor-link" type="button" title="'+esc(address)
+      +'" data-analyst-profile="'+esc(address)+'">'+label+'</button>';
+  }
   function reviews(item){
     var rows=item.reviews||[],cycle=reviewCycleStartedAt(item);
-    var list=rows.length?'<div class="osi-list">'+rows.map(function(row){var prior=new Date(row.created_at).getTime()<=cycle;return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,row.reviewer_role)+' &middot; '+esc(label(row.decision))+'</b><span class="osi-proof-label">'+esc(prior?'Previous review cycle':row.proof_label)+'</span></div><p>'+esc(label(row.reviewer_role))+' &middot; weight '+esc(row.weight)+(prior?'':sasAuthority(row))+' &middot; '+esc(dateText(row.created_at))+'</p>'+(row.reason_code?'<p>Reason code: '+esc(row.reason_code)+'</p>':'')+'</div>';}).join('')+'</div>':'<div class="osi-v2-empty"><b>Awaiting initial review</b><span>No eligible reviewer has recorded a decision yet.</span></div>';
+    var list=rows.length?'<div class="osi-list">'+rows.map(function(row){var prior=new Date(row.created_at).getTime()<=cycle;return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+reviewerIdentity(row.reviewer_wallet)+sasSlot(row.reviewer_wallet,row.reviewer_role)+' &middot; '+esc(label(row.decision))+'</b><span class="osi-proof-label">'+esc(prior?'Previous review cycle':row.proof_label)+'</span></div><p>'+esc(label(row.reviewer_role))+' &middot; weight '+esc(row.weight)+(prior?'':sasAuthority(row))+' &middot; '+esc(dateText(row.created_at))+'</p>'+(row.reason_code?'<p>Reason code: '+esc(row.reason_code)+'</p>':'')+'</div>';}).join('')+'</div>':'<div class="osi-v2-empty"><b>Awaiting initial review</b><span>No eligible reviewer has recorded a decision yet.</span></div>';
     return '<section class="osi-case-section"><h3>Initial reviews</h3>'+openingOutcome(item)+list+'<div id="osi-review-compose"></div></section>';
   }
   function publishedCandidates(item){

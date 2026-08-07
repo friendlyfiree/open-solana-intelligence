@@ -61,13 +61,35 @@ const REQUIRED_RELATIONS = [
   "analyst_profiles",
   "osi_config",
 ];
+// A relation counts as read whether it is queried directly or resolved through
+// a PostgREST foreign-key embed. Embedding is what removes a dependent round
+// trip; the invariant this guards is that the relation still reaches the DTO,
+// not which of the two shapes fetches it.
 for (const relation of REQUIRED_RELATIONS) {
   ok(
     "graph still reads " + relation,
-    graph.includes('admin.from("' + relation + '")'),
+    graph.includes('admin.from("' + relation + '")')
+      || graph.includes(relation + "(")
+      || graph.includes(relation + " + \")"),
     "relation missing from loadCaseGraph",
   );
 }
+// The evidence manifest is the substance of a Case detail view, so its
+// assembly is pinned explicitly rather than left implied by the read above.
+ok(
+  "the evidence manifest is still assembled per Case",
+  /evidenceByCase\[String\(link\.case_id\)\] \?\?= \[\]/.test(graph)
+    && graph.includes("link.evidence_items"),
+  "evidence links no longer produce a per-Case manifest",
+);
+// Evidence used to cost two dependent round trips. Embedding it into the link
+// read is what collapsed that, and a later edit must not undo it silently.
+ok(
+  "evidence resolves in one round trip rather than two",
+  graph.includes('.select("case_id,evidence_item_id,evidence_items(" + EVIDENCE_COLS + ")")')
+    && !/admin\.from\("evidence_items"\)/.test(graph),
+  "evidence_items was split back into a second dependent read",
+);
 
 // 2. The three review families keep their SAS authority label. A weight shown
 //    without it would not say why a vote counted or did not.

@@ -10,6 +10,10 @@ import {
   validateWallet,
 } from "../_shared/osi-v2-proof-core.mjs";
 import { canonicalOsi2Envelope } from "../_shared/osi-v2-event-registry.mjs";
+import {
+  containsProhibitedPersonalData,
+  maskTechnicalTokens,
+} from "../_shared/osi-v2-content-safety-core.mjs";
 
 export const AI_PACK_GENERATION_EVENT = "PACK_SUBMITTED";
 export const AI_PACK_REVIEW_EVENTS = new Set([
@@ -119,7 +123,16 @@ const REVIEW_REF = /^OSI-APR-[0-9A-F]{16}$/;
 const SECRET_LABEL = /\b(?:seed phrase|recovery phrase|mnemonic|private key|secret key|keypair bytes?|api key|access token|bearer token|password dump|client secret)\b/i;
 const SECRET_VALUE = /(?:\bsk-(?:ant|proj|live)-[A-Za-z0-9_-]{12,}\b|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b|\[(?:\s*(?:25[0-5]|2[0-4]\d|1?\d?\d)\s*,){31,63}\s*(?:25[0-5]|2[0-4]\d|1?\d?\d)\s*\])/i;
 const ILLEGAL_ACCESS = /\b(?:stolen credentials?|credential dump|malware payload|exploit kit|unauthori[sz]ed access|session hijack|phishing kit|password cracking|credential stuffing)\b/i;
-const PERSONAL_DATA = /(?:\b\d{3}-\d{2}-\d{4}\b|\b(?:\d[ -]*?){13,19}\b|\b\+?\d[\d ()-]{8,}\d\b|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|\b(?:date of birth|home address|private phone|passport number|national id)\b)/i;
+// Personal data that is not a card or a national identity number: an email
+// address, a genuine telephone number, and the explicit vocabulary. The card
+// and national-identity screens live in osi-v2-content-safety-core.mjs and run
+// on technically-masked text, so a lamports amount, a slot number, a base58
+// signature or an 0x hash is no longer mistaken for personal data.
+//
+// The telephone pattern requires a leading + or an internal separator and caps
+// the digit count at 15 (E.164). The previous form matched any run of ten or
+// more digits, which refused every raw token amount and every block height.
+const PERSONAL_CONTACT = /(?:\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?<![\d.,])(?:\+\d{1,3}[ ()-]?)?(?:\d{2,4}[ ()-]){2,4}\d{2,4}(?![\d.,])|\b(?:date of birth|home address|private phone|passport number|national id)\b)/i;
 const HEADLINE_SCORE = /(?:\b(?:overall|aggregate)\s+(?:score|confidence)\b|\b(?:accuracy|truth|guilt|legal[- ]?certainty|fraud)\s+(?:score|rating|probability|percentage)\b|\b(?:probability|likelihood)\s+of\s+(?:guilt|fraud|criminality)\b)/i;
 const STRONG_VERDICT = /(?:\b(?:confirmed|proven|definitive(?:ly)?|established|committed)\b.{0,48}\b(?:scam(?:mer)?|fraud(?:ulent)?|theft|thief|criminal|guilt|guilty)\b|\b(?:scam(?:mer)?|fraud(?:ulent)?|theft|thief|criminal|guilt|guilty)\b.{0,48}\b(?:confirmed|proven|definitive(?:ly)?|established)\b)/i;
 const URL_TOKEN_KEY = /(?:access[-_]?token|api[-_]?key|apikey|auth|authorization|code|credential|key|password|secret|sig|signature|token)/i;
@@ -183,7 +196,8 @@ export function assertSafeText(value: unknown, name = "content"): string {
   if (ILLEGAL_ACCESS.test(result)) {
     throw new TypeError(name + "_prohibited_illegal_access");
   }
-  if (PERSONAL_DATA.test(result)) {
+  if (PERSONAL_CONTACT.test(maskTechnicalTokens(result))
+      || containsProhibitedPersonalData(result)) {
     throw new TypeError(name + "_prohibited_personal_data");
   }
   return result;

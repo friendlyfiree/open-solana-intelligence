@@ -198,7 +198,14 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
       "OSI_V2_CHALLENGE_MIN_COUNT", "OSI_V2_CHALLENGE_MIN_WEIGHT",
       "OSI_V2_SEAL_MIN_COUNT", "OSI_V2_SEAL_MIN_WEIGHT",
     ]),
-    admin.from("case_evidence_links").select("case_id,evidence_item_id")
+    // The evidence manifest is the substance of a Case detail view, and it used
+    // to cost two dependent round trips: the links in wave 1, then the items in
+    // wave 2. Embedding the item through its foreign key collapses that into
+    // one, so wallets, transactions and sources are resolved a full round trip
+    // earlier. Same rows, same columns, same authorization: the DTO builders
+    // are untouched.
+    admin.from("case_evidence_links")
+      .select("case_id,evidence_item_id,evidence_items(" + EVIDENCE_COLS + ")")
       .in("case_id", caseIds).limit(400),
     admin.from("case_initial_reviews").select(REVIEW_COLS)
       .in("case_id", caseIds).order("created_at", { ascending: true }).limit(400),
@@ -214,7 +221,6 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
   const resolutionIds = (resolutions ?? []).map((row) => String(row.id));
   const winningVersionIds = (resolutions ?? [])
     .map((row) => String(row.winning_report_version_id ?? "")).filter(Boolean);
-  const evidenceIds = (links ?? []).map((link) => String(link.evidence_item_id));
 
   // Wave 2: everything that needs a wave 1 result and nothing later.
   let versionsQuery = admin.from("case_report_versions").select(VERSION_COLS);
@@ -228,7 +234,6 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     { data: winningVersions },
     { data: resolutionReviews },
     { data: challenges },
-    { data: evidenceRows },
   ] = await Promise.all([
     reportIds.length
       ? versionsQuery.order("version_no", { ascending: true }).limit(400)
@@ -254,10 +259,6 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
       ? admin.from("challenges_v2").select(CHALLENGE_COLS)
         .in("resolution_id", resolutionIds).order("created_at", { ascending: true }).limit(500)
       : Promise.resolve({ data: [] }),
-    evidenceIds.length
-      ? admin.from("evidence_items").select(EVIDENCE_COLS)
-        .in("id", evidenceIds).order("created_at", { ascending: true }).limit(400)
-      : Promise.resolve({ data: [] }),
   ]);
   for (const version of versions ?? []) {
     const key = String(version.report_id);
@@ -265,9 +266,25 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
   }
   const challengeIds = (challenges ?? []).map((row) => String(row.id));
 
-  // Wave 3: the two lookups that need a wave 2 result.
+  // Wave 3: everything that needs a wave 2 result and nothing later. The
+  // receipt read used to sit in its own fourth wave, but every id it needs is
+  // known here, so it runs alongside the other two instead of after them. That
+  // is one fewer sequential round trip on the Case detail path, which is the
+  // path a shared #case/ link lands on.
   const reviewerWallets = [...new Set((reportReviews ?? []).map((row) => String(row.reviewer_wallet)))];
-  const [{ data: reviewerProfiles }, { data: challengeReviews }] = await Promise.all([
+  const receiptTargetIds = [
+    ...publicRefs,
+    ...caseIds,
+    ...Object.values(versionsByReport).flat().map((version) => String(version.id)),
+    ...resolutionIds,
+    ...challengeIds,
+    ...[...(payments ?? []), ...(supports ?? [])].map((row) => String(row.id)),
+  ];
+  const [
+    { data: reviewerProfiles },
+    { data: challengeReviews },
+    { data: receipts },
+  ] = await Promise.all([
     reviewerWallets.length
       ? admin.from("analyst_profiles")
         .select("wallet,status,verified,approved,weight_cached").in("wallet", reviewerWallets).limit(1000)
@@ -275,6 +292,10 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     challengeIds.length
       ? admin.from("challenge_reviews").select(CHALLENGE_REVIEW_COLS)
         .in("challenge_id", challengeIds).order("created_at", { ascending: true }).limit(1500)
+      : Promise.resolve({ data: [] }),
+    receiptTargetIds.length
+      ? admin.from("event_receipts").select(RECEIPT_COLS)
+        .in("target_id", receiptTargetIds).order("occurred_at", { ascending: true }).limit(400)
       : Promise.resolve({ data: [] }),
   ]);
   const eligibleReviewerWallets = new Set((reviewerProfiles ?? []).filter((row) => (
@@ -325,7 +346,6 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
 
   // Case-targeted receipts key on public_ref; report-version receipts on the
   // version uuid. Both are folded into the owning Case's proof log.
-  const versionIds = Object.values(versionsByReport).flat().map((v) => String(v.id));
   const versionCaseRef: Record<string, string> = {};
   for (const [reportId, versions] of Object.entries(versionsByReport)) {
     const report = (reports ?? []).find((r) => String(r.id) === reportId);
@@ -333,7 +353,6 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     if (!caseRow) continue;
     for (const version of versions) versionCaseRef[String(version.id)] = String(caseRow.public_ref);
   }
-  const paymentIds = [...(payments ?? []), ...(supports ?? [])].map((row) => String(row.id));
   const paymentCaseRef: Record<string, string> = {};
   for (const caseRow of caseRows) {
     const money = moneyByCase[String(caseRow.id)] ?? {};
@@ -341,14 +360,9 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
       paymentCaseRef[String(row.id)] = String(caseRow.public_ref);
     }
   }
-  const targetIds = [...publicRefs, ...caseIds, ...versionIds, ...resolutionIds, ...challengeIds, ...paymentIds];
-  // Wave 4: the receipt read and the three SAS authority labels are
-  // independent of one another, so they run together.
-  const [{ data: receipts }] = await Promise.all([
-    targetIds.length
-      ? admin.from("event_receipts").select(RECEIPT_COLS)
-        .in("target_id", targetIds).order("occurred_at", { ascending: true }).limit(400)
-      : Promise.resolve({ data: [] }),
+  // Wave 4: the three SAS authority labels, which need the review rows above and
+  // are independent of one another.
+  await Promise.all([
     attachReviewAuthority(admin, "resolution", resolutionReviews ?? []),
     attachReviewAuthority(admin, "challenge", challengeReviews ?? []),
     attachReviewAuthority(admin, "case_initial", reviews ?? []),
@@ -375,10 +389,18 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     }
   }
 
-  const evidence: Row[] = evidenceRows ?? [];
-  for (const link of links ?? []) {
-    const item = evidence.find((entry) => String(entry.id) === String(link.evidence_item_id));
-    if (item) (evidenceByCase[String(link.case_id)] ??= []).push(item);
+  // Each link already carries its embedded item, so the manifest is assembled
+  // without a second read. Ordering stays creation order, as before.
+  // The embedded select widens the row type, so it is narrowed back to the Row
+  // shape the rest of this module uses.
+  for (const link of (links ?? []) as unknown as Row[]) {
+    const item = link.evidence_items as Row | null;
+    if (item && item.id != null) (evidenceByCase[String(link.case_id)] ??= []).push(item);
+  }
+  for (const rows of Object.values(evidenceByCase)) {
+    rows.sort((left, right) => (
+      Date.parse(String(left.created_at ?? "")) - Date.parse(String(right.created_at ?? ""))
+    ));
   }
   const receiptById: Record<string, Row> = {};
   for (const rows of Object.values(receiptsByCaseTarget)) {
@@ -1415,10 +1437,22 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(400, { ok: false, error: "bad_json" });
   }
 
-  // Deterministic DB-clock maintenance. This is service-only and clients
-  // cannot choose the deadline, timestamp or terminal state.
-  await admin.rpc("osi_v2_expire_due_challenges", { p_limit: 25 });
+  // Deterministic DB-clock maintenance. This is service-only and clients cannot
+  // choose the deadline, timestamp or terminal state.
+  //
+  // It used to be awaited before the handler started, which put a full database
+  // round trip in front of every read including the anonymous Case detail path.
+  // It now runs alongside the handler and is still awaited before the response
+  // is returned, so it is never skipped and a failure never fails a read. The
+  // only difference is ordering: a read that races the sweep can still show a
+  // challenge whose deadline has just passed, exactly as any read one moment
+  // earlier would have. Admissibility and review deadlines are measured in days,
+  // and the terminal state itself is decided by the database function, never by
+  // the order of these two calls.
+  const maintenance = admin.rpc("osi_v2_expire_due_challenges", { p_limit: 25 })
+    .then(() => undefined, () => undefined);
 
+  const respond = async (): Promise<Response> => {
   switch (body.op) {
     case "list_public_cases":
       return await listPublicCases();
@@ -1443,4 +1477,8 @@ serve(async (req: Request): Promise<Response> => {
     default:
       return jsonResponse(400, { ok: false, error: "bad_op" });
   }
+  };
+  const response = await respond();
+  await maintenance;
+  return response;
 });

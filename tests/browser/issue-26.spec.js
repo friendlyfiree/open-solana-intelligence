@@ -1010,6 +1010,23 @@ async function installFixtureNetwork(page, options = {}) {
       else if (body.op === 'commit_activation') {
         applicationActivated = true;
         response = { ok: true, analyst: { wallet: ROLE_WALLETS.analyst_candidate, tier: 'probationary', weight: .5 } };
+      } else if (body.op === 'get_maintainer_profile') {
+        response = options.noMaintainerProfile
+          ? { ok: true, profile: null }
+          : {
+            ok: true,
+            profile: {
+              wallet: ROLE_WALLETS.maintainer,
+              display_name: 'Deployment maintainer fixture',
+              bio: 'Operates this deployment and holds no analyst standing.',
+              expertise_public: ['blockchain_forensics', 'attribution'],
+              links_public: [{ label: 'Source', url: 'https://example.org/source' }],
+              proof_of_work_url: 'https://example.org/proof',
+              avatar_url: null,
+              contributions: [],
+              proof_history: [],
+            },
+          };
       }
     } else if (endpoint === 'osi-v2-payment') {
       if (body.op === 'capabilities') response = {
@@ -2847,6 +2864,82 @@ test('the Case drawer marks its tab strip when the tabs overflow', async ({ page
 // only one that is also a link to the explanation, so it used to inherit the
 // plain underlined link treatment: the single state meaning "review authority
 // is verified on chain" was the one that read as a broken link.
+// The maintainer used to render above the roster as a full-width block with its
+// own layout, headings and facts grid. Nothing else on the page looked like it,
+// so the one record a reader most needs to place in context read as foreign to
+// the roster it introduces. It is now a peer row that opens the same profile
+// modal an analyst row opens, marked MAINTAINER rather than given a separate
+// visual language, and the modal still states the governance separation.
+test('the maintainer reads as a roster peer and opens the shared profile modal', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  const row = page.locator('#osi-maintainer-profile [data-maintainer-wallet]');
+  await expect(row).toBeVisible();
+
+  // Same row component as the roster, so the columns line up with the table.
+  await expect(row).toHaveClass(/osi-analyst-row/);
+  const analystRow = page.locator('#lb-body .osi-analyst-row').first();
+  const [maintainerBox, analystBox] = await Promise.all([
+    row.boundingBox(), analystRow.boundingBox(),
+  ]);
+  expect(Math.abs(maintainerBox.x - analystBox.x)).toBeLessThanOrEqual(2);
+  expect(Math.abs(maintainerBox.width - analystBox.width)).toBeLessThanOrEqual(2);
+
+  // Marked as the maintainer, and never as an analyst status.
+  await expect(row.locator('.osi-status.maintainer')).toHaveText(/maintainer/i);
+  await expect(row.locator('.osi-status.probationary_analyst')).toHaveCount(0);
+
+  await row.click();
+  const modal = page.locator('#ap-modal');
+  await expect(modal).toHaveClass(/open/);
+  const body = page.locator('#ap-modal-body');
+  await expect(body.locator('.osi-public-profile-maintainer')).toBeVisible();
+  await expect(body).toContainText('Deployment maintainer fixture');
+  // The governance separation survives the move into the shared modal.
+  await expect(body.locator('.osi-profile-facts')).toContainText('Analyst standing');
+  await expect(body.locator('.osi-profile-facts')).toContainText('Review weight');
+  await expect(body.locator('.osi-profile-facts')).toContainText('Quorum vote');
+  await expect(body.locator('.osi-profile-facts')).not.toContainText(/Server-derived weight/);
+  await expect(body.locator('.osi-profile-role-note')).toContainText('independent analyst quorum');
+  // The same sections an analyst profile carries.
+  await expect(body).toContainText('Expertise');
+  await expect(body).toContainText('Safe public links');
+  await expect(body).toContainText('Proof history');
+  expectCleanRuntime(page);
+});
+
+test('the maintainer row and its modal fit desktop and 390px without overflow', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  const row = page.locator('#osi-maintainer-profile [data-maintainer-wallet]');
+  await expect(row).toBeVisible();
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(row).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth
+      - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+  }
+  await row.click();
+  await expect(page.locator('#ap-modal-body .osi-public-profile-maintainer')).toBeVisible();
+  const overflowInModal = await page.evaluate(() => document.documentElement.scrollWidth
+    - document.documentElement.clientWidth);
+  expect(overflowInModal).toBeLessThanOrEqual(1);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  expectCleanRuntime(page);
+});
+
+// A public visitor with no published maintainer profile must see nothing at
+// all, not an empty frame pretending a record exists.
+test('no published maintainer profile renders no maintainer row', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet', noMaintainerProfile: true });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await expect(page.locator('#lb-body .osi-analyst-row').first()).toBeVisible();
+  await expect(page.locator('#osi-maintainer-profile [data-maintainer-wallet]')).toHaveCount(0);
+  await expect(page.locator('#osi-maintainer-profile')).toBeHidden();
+  expectCleanRuntime(page);
+});
+
 test('the verified SAS badge reads as a badge, not as a bare underlined link', async ({ page }) => {
   await ready(page, { role: 'ordinary_wallet' });
   await page.evaluate(() => window.osiNavigate('analysts'));
