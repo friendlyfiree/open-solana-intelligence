@@ -2940,6 +2940,60 @@ test('no published maintainer profile renders no maintainer row', async ({ page 
   expectCleanRuntime(page);
 });
 
+// The Field Office toolbar and head row describe the public Case list: search
+// Cases, filter by Case stage, sort Cases, and label the Case columns. The
+// Report workspace renders into the same host but is not a Case list, so those
+// controls used to sit above "My Reports is a private workspace" offering a
+// stage filter that could not change a single thing below it.
+test('the Report workspace does not carry the public Case list controls', async ({ page }) => {
+  await ready(page);
+  const toolbar = page.locator('#field-view .fo-toolbar');
+  const head = page.locator('#field-view .fq-head');
+
+  await page.evaluate(() => window.osiNavigate('field'));
+  await expect(toolbar).toBeVisible();
+  await expect(head).toBeVisible();
+
+  await page.evaluate(() => window.osiV2OpenMyReports());
+  await expect(page.locator('#field-cases')).not.toHaveClass(/osi-v2-skeleton/);
+  await expect(toolbar).toBeHidden();
+  await expect(head).toBeHidden();
+
+  // Returning to the Case list restores exactly what it owns.
+  await page.evaluate(() => window.fieldMine(false));
+  await expect(toolbar).toBeVisible();
+  await expect(head).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// Resolutions and Challenges filter the same public Case list by stage, but
+// they had no rail identity: clicking Challenges left "Cases" carrying the
+// current marker while the list below was filtered to challenges, so two rail
+// items read as current at once and neither told the reader where they were.
+test('exactly one Field Office rail item is current, and it matches the stage shown', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.osiNavigate('field'));
+  const current = page.locator('#field-view .fo-rail [data-fo-nav][aria-current="true"]');
+
+  await expect(current).toHaveCount(1);
+  await expect(current).toHaveAttribute('data-fo-nav', 'cases');
+
+  await page.evaluate(() => window.osiNavigateFieldStage('challenge_active'));
+  await expect(current).toHaveCount(1);
+  await expect(current).toHaveAttribute('data-fo-nav', 'challenges');
+  await expect(page.getByLabel('Filter by status')).toHaveValue('challenge_active');
+
+  await page.evaluate(() => window.osiNavigateFieldStage('resolution_selection'));
+  await expect(current).toHaveCount(1);
+  await expect(current).toHaveAttribute('data-fo-nav', 'resolutions');
+
+  // Setting the stage from the dropdown marks the same item as the rail does.
+  await page.getByLabel('Filter by status').selectOption('all');
+  await expect(current).toHaveCount(1);
+  await expect(current).toHaveAttribute('data-fo-nav', 'cases');
+  expectCleanRuntime(page);
+});
+
 test('the verified SAS badge reads as a badge, not as a bare underlined link', async ({ page }) => {
   await ready(page, { role: 'ordinary_wallet' });
   await page.evaluate(() => window.osiNavigate('analysts'));

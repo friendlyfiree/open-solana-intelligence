@@ -476,6 +476,11 @@
     ['challenge_adjudication','Challenge adjudication','case'],
     ['seal_reviews','Seal reviews','case']
   ];
+  // The Field Office toolbar searches, filters and sorts the public Case list,
+  // and the head row labels that list's columns. Both belong to the Case list
+  // and to nothing else. A surface that renders something other than Cases
+  // into #field-cases (the review queue, the Report workspace) passes true, so
+  // the Case controls are not left standing above content they cannot act on.
   function setReviewChrome(active){
     var toolbar=document.querySelector('#field-view .fo-toolbar'),head=document.querySelector('#field-view .fq-head');
     if(toolbar)toolbar.hidden=active;if(head)head.hidden=active;
@@ -814,7 +819,7 @@
   }
   async function loadPublicCases(){
     var token=++state.loadToken;
-    state.locked=null;setFieldRailActive('cases');
+    state.locked=null;setFieldRailActive(railKeyForStage(state.stage));
     state.mode='public';state.actorRole='public';state.page=1;setFieldCopy('public');setReviewChrome(false);setLoading();
     try{
       var result=await publicRead({op:'list_public_cases'});
@@ -2325,7 +2330,21 @@
   window.fieldCloseForm=fieldCloseFormV2;
   window.fieldMine=function(mine){return mine?openSignedCollection('mine'):loadPublicCases();};
   window.fieldSearch=function(value){state.query=String(value||'');state.page=1;drawCases();};
-  window.fieldFilter=function(value){state.stage=String(value||'all');state.page=1;drawCases();};
+  // Resolutions and Challenges are stage filters over the same public Case
+  // list, so the rail marker follows the stage rather than the click that set
+  // it. Both entry points then agree: the rail says the same thing whether the
+  // reader used the rail item or the status dropdown, and only one item is
+  // ever marked current.
+  function railKeyForStage(stage){
+    if(stage==='resolution_selection')return 'resolutions';
+    if(stage==='challenge_active')return 'challenges';
+    return 'cases';
+  }
+  function markStageRail(){
+    if(state.mode!=='public')return;
+    setFieldRailActive(railKeyForStage(state.stage));
+  }
+  window.fieldFilter=function(value){state.stage=String(value||'all');state.page=1;markStageRail();drawCases();};
   // Offered by the filtered-empty state so a stage filter or search term is
   // never a dead end.
   window.osiV2ClearCaseFilters=function(){
@@ -2337,6 +2356,7 @@
     document.querySelectorAll('#field-view .fo-fil').forEach(function(button){
       button.classList.toggle('active',button.dataset.f==='all');
     });
+    markStageRail();
     drawCases();
   };
   window.fieldSort=function(value){state.sort=String(value||'newest');drawCases();};

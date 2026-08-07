@@ -567,8 +567,8 @@
   <div class="fr-g mono">Field Office</div>
   <button class="fr-i active" id="fr-fieldoffice" type="button" data-fo-nav="cases" onclick="fieldMine(false)"><span class="fr-index" aria-hidden="true">01</span>Cases</button>
   <button class="fr-i" type="button" data-fo-nav="reports" onclick="osiV2OpenMyReports()"><span class="fr-index" aria-hidden="true">02</span>My Reports</button>
-  <button class="fr-i" type="button" onclick="osiNavigateFieldStage('resolution_selection')"><span class="fr-index" aria-hidden="true">03</span>Resolutions</button>
-  <button class="fr-i" type="button" onclick="osiNavigateFieldStage('challenge_active')"><span class="fr-index" aria-hidden="true">04</span>Challenges</button>
+  <button class="fr-i" type="button" data-fo-nav="resolutions" onclick="osiNavigateFieldStage('resolution_selection')"><span class="fr-index" aria-hidden="true">03</span>Resolutions</button>
+  <button class="fr-i" type="button" data-fo-nav="challenges" onclick="osiNavigateFieldStage('challenge_active')"><span class="fr-index" aria-hidden="true">04</span>Challenges</button>
   <button class="fr-i field-review-nav" type="button" data-fo-nav="review" onclick="osiV2OpenReviewQueue()" hidden><span class="fr-index" aria-hidden="true">05</span>Review Queue</button>
   <div class="fr-context-note">Published Reports are inside their public Case detail. My Reports is your own private workspace. Public lists never reveal unpublished Report existence or private Case details.</div>
 </aside>
@@ -576,8 +576,8 @@
     <div class="vsub" aria-label="Field Office sections">
       <button class="vsub-b active" type="button" data-fo-nav="cases" onclick="fieldMine(false)">Cases</button>
       <button class="vsub-b" type="button" data-fo-nav="reports" onclick="osiV2OpenMyReports()">My Reports</button>
-      <button class="vsub-b" type="button" onclick="osiNavigateFieldStage('resolution_selection')">Resolutions</button>
-      <button class="vsub-b" type="button" onclick="osiNavigateFieldStage('challenge_active')">Challenges</button>
+      <button class="vsub-b" type="button" data-fo-nav="resolutions" onclick="osiNavigateFieldStage('resolution_selection')">Resolutions</button>
+      <button class="vsub-b" type="button" data-fo-nav="challenges" onclick="osiNavigateFieldStage('challenge_active')">Challenges</button>
       <button class="vsub-b field-review-nav" type="button" data-fo-nav="review" onclick="osiV2OpenReviewQueue()" hidden>Review Queue</button>
     </div>
         <div class="fo-hero">
