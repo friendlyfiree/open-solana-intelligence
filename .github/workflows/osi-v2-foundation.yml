@@ -90,23 +90,48 @@ jobs:
           echo "All ${#suites[@]} Node suites passed."
 
       - name: Deno type checks
+        # These checks resolve remote dependencies from a third-party registry,
+        # so a registry outage fails the check for a reason that has nothing to
+        # do with the code under review. That is exactly what happened on
+        # PR #133, where esm.sh answered 522 for `@solana/kit` and turned an
+        # otherwise green pull request red. The production workflows already
+        # solved this with a bounded retry; the pull-request gate did not have
+        # it, which is the only reason a CDN blip could block a merge.
+        #
+        # The retry is bounded and never masks a real type error: a genuine
+        # failure fails identically on all three attempts and the step still
+        # exits non-zero.
         run: |
-          deno check supabase/functions/_shared/osi-v2-sas-core.mjs
-          deno check supabase/functions/_shared/osi-v2-sas-onchain.ts
-          deno check supabase/functions/_shared/osi-v2-sas-sdk.ts
-          deno check supabase/functions/_shared/osi-v2-sas-issuer.ts
-          deno check supabase/functions/osi-v2-case-read/index.ts
-          deno check supabase/functions/osi-v2-case-write/index.ts
-          deno check supabase/functions/osi-v2-analyst/index.ts
-          deno check supabase/functions/osi-v2-report-read/index.ts
-          deno check supabase/functions/osi-v2-report-write/index.ts
-          deno check supabase/functions/osi-v2-governance-write/index.ts
-          deno check supabase/functions/osi-v2-payment/index.ts
-          deno check supabase/functions/osi-v2-proof/index.ts
-          deno check supabase/functions/osi-v2-wire/index.ts
-          deno check supabase/functions/osi-v2-ai-pack/index.ts
-          deno check supabase/functions/_shared/osi-v2-read-session-core.mjs
-          deno check supabase/functions/_shared/osi-v2-wire-core.mjs
+          set -euo pipefail
+          deno_check_with_retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              if deno check "$@"; then return 0; fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "::error::Deno check failed after ${attempt} attempts."
+                return 1
+              fi
+              echo "::warning::Deno dependency fetch/check failed; retrying (${attempt}/3)."
+              sleep "$((attempt * 5))"
+            done
+          }
+          deno_check_with_retry \
+            supabase/functions/_shared/osi-v2-sas-core.mjs \
+            supabase/functions/_shared/osi-v2-sas-onchain.ts \
+            supabase/functions/_shared/osi-v2-sas-sdk.ts \
+            supabase/functions/_shared/osi-v2-sas-issuer.ts \
+            supabase/functions/osi-v2-case-read/index.ts \
+            supabase/functions/osi-v2-case-write/index.ts \
+            supabase/functions/osi-v2-analyst/index.ts \
+            supabase/functions/osi-v2-report-read/index.ts \
+            supabase/functions/osi-v2-report-write/index.ts \
+            supabase/functions/osi-v2-governance-write/index.ts \
+            supabase/functions/osi-v2-payment/index.ts \
+            supabase/functions/osi-v2-proof/index.ts \
+            supabase/functions/osi-v2-wire/index.ts \
+            supabase/functions/osi-v2-ai-pack/index.ts \
+            supabase/functions/_shared/osi-v2-read-session-core.mjs \
+            supabase/functions/_shared/osi-v2-wire-core.mjs
 
       - name: Chromium UI contracts
         run: |
