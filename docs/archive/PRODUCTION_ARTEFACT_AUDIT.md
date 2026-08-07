@@ -71,17 +71,44 @@ The listed drift is what the deployed bundle differs by, not a guess from dates.
 | `osi-ai-pack` | 2026-07-26 | legacy V1 surface, superseded by `osi-v2-ai-pack` |
 | `osi-analyst-intake` | 2026-07-26 | legacy V1 surface, superseded by `osi-v2-analyst` |
 
-`osi-v2-proof` was checked for behavioural drift rather than assumed. Its one
-meaningful surface is the set of class-B purposes it will issue a nonce for.
-The deployed copy hardcodes that set; the repository derives it from the central
-event registry. **Both sets contain exactly the same 28 purposes**, so the
-deployed issuer accepts and refuses exactly what the current source would. The
-`osi-v2-sas-core.mjs` drift is the addition of `reconcileLiveAction`, which
-`osi-v2-proof` does not call.
+`osi-v2-proof` was checked for behavioural drift rather than assumed. It has two
+meaningful surfaces, and both were executed rather than read.
 
-So `osi-v2-proof` is stale but not wrong. Redeploying it is hygiene, not a fix,
-and it is deliberately excluded from the Case-visibility rollout so that slice
-deploys exactly what it changed.
+*The set of class-B purposes it will issue a nonce for.* The deployed copy
+hardcodes that set; the repository derives it from the central event registry.
+**Both sets contain exactly the same 28 purposes**, so the deployed issuer
+accepts and refuses exactly what the current source would.
+
+*The canonical message a client signs.* This one matters more than it looks: the
+issuer builds the string, and a different function — `osi-v2-case-write`,
+`osi-v2-report-write`, `osi-v2-governance-write` — rebuilds it to verify the
+signature. If the two disagreed by a single byte, every Stage-5 write would fail
+verification. The deployed copy joins the ten fields literally; the repository
+delegates to `canonicalOsi2Envelope(..., "v2_expiring_minimal")`. Both were
+imported into the same process and run against the same binding:
+
+```
+OSI2|2|CASE_INITIAL_REVIEW_CAST|t=case|id=…|a=…|n=…|h=…|ts=…|exp=…
+```
+
+**Byte-identical.** The refactor preserved the wire format exactly, which is why
+production has kept anchoring Memos across the drift.
+
+The `osi-v2-sas-core.mjs` drift is the addition of `reconcileLiveAction`, which
+`osi-v2-proof` does not call. The `osi-v2-sas-onchain.ts` drift is real and does
+change behaviour — `attachReviewAuthority` became fail-closed (an unresolved
+review is now explicitly `counted:false, state:"authority_unavailable"` instead
+of silently unlabelled) and `sasReviewAuthority` now chunks past 400 ids instead
+of truncating. But `osi-v2-proof` imports only `publicVerify` from that module.
+The only two functions that call the changed helpers are `osi-v2-case-read` and
+`osi-v2-report-read`, and both were redeployed on 2026-08-07, so the fail-closed
+version is what production actually runs.
+
+So `osi-v2-proof` is stale but not wrong. Redeploying it is hygiene, not a fix.
+It is deliberately excluded from the Case-visibility rollout so that slice
+deploys exactly what it changed, and it is left alone here rather than churned
+through a new workflow for a change that has been demonstrated to be a no-op on
+the one path that carries every wallet signature on the platform.
 
 ## Finding 3 — migration history
 
@@ -94,3 +121,27 @@ Additionally, `pg_get_functiondef` was hashed for all nine functions that
 migration replaces and compared against a database built from zero on the same
 chain. **All nine matched byte for byte**, so production carries no manual
 schema edit and no drift from the recorded history.
+
+## Re-audit after the Case-visibility rollout
+
+Repeated 2026-08-07 after workflow run `31181908839` applied the migration and
+redeployed eight functions, to answer one question directly: *is anything
+written in this repository not actually running in production?*
+
+**Schema: nothing pending.** All 35 migrations are applied. The chain in
+production is exactly the chain here, in exactly this order, with nothing extra.
+
+**Functions: every slug in this repository is deployed.** Twelve function
+directories exist here and all twelve are ACTIVE in production. Comparing
+deployed bundles file by file against the source:
+
+| Slug | Deployed source vs repository |
+| --- | --- |
+| the eight in the rollout | redeployed from this commit on 2026-08-07 |
+| `osi-v2-payment` | **all four files byte-identical** |
+| `osi-v2-proof` | three shared cores stale — see Finding 2, proven a no-op |
+| `osi-ai-pack`, `osi-analyst-intake` | legacy V1 read-only shims, unchanged in this repository since 2026-07-22 and deployed after that |
+
+So the answer is no: no behaviour written here is missing from production. The
+divergence runs the other way — Finding 1, a function running in production with
+no source here at all.
