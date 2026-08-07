@@ -11,7 +11,7 @@
   var PAYMENT_RECOVERY_KEY = 'osi:v2:payment-recovery:1';
   var PAYMENT_RECOVERY_PREFIX = 'osi:v2:payment-recovery:2:';
   var state = {
-    cases: [], mode: 'public', locked: null, actorRole: 'public', query: '', stage: 'open_public',
+    cases: [], mode: 'public', locked: null, actorRole: 'public', currentActorRole: '', query: '', stage: 'open_public',
     sort: 'newest', page: 1, loadToken: 0, drawerLoadToken: 0, current: null, tab: 'overview',
     capabilities: null, caseIdempotency: '', reviewBusy: false, reviewTasks: {},
     reviewLanes: {}, reviewUpdatedAt: null, reviewLoadToken: 0, caseReceipt: null,
@@ -48,6 +48,151 @@
     if(navigator.clipboard&&typeof navigator.clipboard.writeText==='function')return navigator.clipboard.writeText(value).then(function(){return true;}).catch(function(){return fallbackCopyText(value);});
     return fallbackCopyText(value);
   }
+  // ---------------------------------------------------------------------
+  // Structured reference rendering.
+  //
+  // Addresses, transaction signatures and links are the substance of an OSI
+  // record, not decoration. They render in their own labelled sections, in
+  // monospace, truncated for layout but never for the clipboard: the full exact
+  // value is always what gets copied and what a screen reader announces.
+  // ---------------------------------------------------------------------
+  var EVIDENCE_SECTION_ORDER=[
+    ['wallets','Wallet Addresses'],
+    ['transactions','Transactions'],
+    ['links','Evidence and Sources'],
+    ['other','Additional References']
+  ];
+  // Older projections carry only the flat evidence array. Grouping the same way
+  // the server does keeps a pre-upgrade response readable instead of empty.
+  function evidenceSectionsOf(item){
+    if(item&&item.evidence_sections&&typeof item.evidence_sections==='object')return item.evidence_sections;
+    var rows=(item&&item.evidence)||[];
+    var kindOf=function(row){
+      var kind=String(row&&row.kind||'').trim();
+      if(kind==='wallet'||kind==='onchain_tx'||kind==='url')return kind;
+      var ref=String(row&&row.ref||'').trim();
+      if(/^https:\/\//i.test(ref))return'url';
+      if(/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(ref))return'onchain_tx';
+      if(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(ref))return'wallet';
+      return kind||'other';
+    };
+    var pick=function(kind){return rows.filter(function(row){return kindOf(row)===kind;});};
+    var sections={
+      wallets:pick('wallet'),transactions:pick('onchain_tx'),links:pick('url'),
+      other:rows.filter(function(row){return['wallet','onchain_tx','url'].indexOf(kindOf(row))<0;})
+    };
+    sections.networks=sections.wallets.length||sections.transactions.length?['Solana mainnet-beta']:[];
+    return sections;
+  }
+  function safeExternalUrl(value){
+    var url=String(value||'');
+    return /^https:\/\/[^\s"'<>]+$/.test(url)?url:'';
+  }
+  // One reference row. The visible text is elided so a 88-character signature
+  // cannot push the drawer sideways on a phone; the title, the copy button and
+  // the link all carry the exact untruncated value.
+  function referenceRow(row){
+    var ref=String(row&&row.ref||'');
+    var link=safeExternalUrl(row&&row.link_url);
+    var meta=[];
+    if(row&&row.network)meta.push(String(row.network));
+    if(row&&row.sha256)meta.push('sha256 '+short(String(row.sha256)));
+    if(row&&row.ordinal)meta.unshift('#'+String(row.ordinal));
+    return'<li class="osi-ref-item">'
+      +'<div class="osi-ref-value mono" data-osi-user-content title="'+esc(ref)+'">'+esc(ref)+'</div>'
+      +(meta.length?'<div class="osi-ref-meta">'+esc(meta.join(' · '))+'</div>':'')
+      +'<div class="osi-ref-actions">'
+      +'<button class="osi-ref-copy" type="button" data-osi-copy="'+esc(ref)+'">'+esc(t('Copy'))+'</button>'
+      +(link?'<a class="osi-ref-link" href="'+esc(link)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Open'))+'</a>':'')
+      +'</div></li>';
+  }
+  // Empty groups produce no markup at all, so a Case with only links never
+  // shows an empty "Wallet Addresses" box.
+  function evidenceSectionsHtml(item,options){
+    options=options||{};
+    var sections=evidenceSectionsOf(item);
+    var blocks=EVIDENCE_SECTION_ORDER.map(function(entry){
+      var rows=sections[entry[0]]||[];
+      if(!rows.length)return'';
+      return'<section class="osi-ref-group"><h4>'+esc(t(entry[1]))+' <span class="osi-ref-count">'+rows.length+'</span></h4>'
+        +'<ul class="osi-ref-list">'+rows.map(referenceRow).join('')+'</ul></section>';
+    }).filter(Boolean);
+    var networks=sections.networks||[];
+    if(networks.length){
+      blocks.unshift('<section class="osi-ref-group"><h4>'+esc(t('Networks'))+'</h4><ul class="osi-ref-list plain">'
+        +networks.map(function(network){return'<li class="osi-ref-item"><div class="osi-ref-value mono">'+esc(network)+'</div></li>';}).join('')
+        +'</ul></section>');
+    }
+    if(!blocks.length)return options.emptyHtml||'';
+    return'<div class="osi-ref-sections">'+blocks.join('')+'</div>';
+  }
+  window.osiV2EvidenceSectionsHtml=evidenceSectionsHtml;
+  // Copy buttons are delegated once so every re-render keeps working without
+  // rebinding, and the exact value travels in the data attribute rather than in
+  // an inline handler.
+  document.addEventListener('click',function(event){
+    var button=event.target&&event.target.closest?event.target.closest('[data-osi-copy]'):null;
+    if(!button)return;
+    var value=button.getAttribute('data-osi-copy')||'';
+    var original=button.textContent;
+    copyText(value).then(function(copied){
+      button.textContent=copied?t('Copied'):t('Select to copy');
+      setTimeout(function(){button.textContent=original;},1600);
+    });
+  });
+  // ---------------------------------------------------------------------
+  // Long-form field counters.
+  //
+  // A raised maxlength is still a silent truncation the moment someone pastes
+  // a finished research note into it: the browser keeps the prefix and drops
+  // the rest with no message at all. The counter states the exact remaining
+  // budget, and an over-length paste is refused outright with the exact
+  // numbers rather than quietly clipped, so nothing a contributor wrote can
+  // disappear between the clipboard and the request.
+  // ---------------------------------------------------------------------
+  function counterNodes(){
+    return Array.prototype.slice.call(document.querySelectorAll('[data-osi-counter-for]'));
+  }
+  function paintCounter(node,field){
+    var limit=Number(field.getAttribute('maxlength')||0);
+    var used=String(field.value||'').length;
+    if(!limit){node.textContent='';return;}
+    node.textContent=t('{used} of {limit} characters',{used:used.toLocaleString(),limit:limit.toLocaleString()});
+    node.classList.toggle('near-limit',used>=limit*0.9);
+  }
+  function bindLongFormCounters(){
+    counterNodes().forEach(function(node){
+      if(node.getAttribute('data-osi-counter-bound')==='true')return;
+      var field=document.getElementById(node.getAttribute('data-osi-counter-for')||'');
+      if(!field)return;
+      node.setAttribute('data-osi-counter-bound','true');
+      var repaint=function(){paintCounter(node,field);};
+      field.addEventListener('input',repaint);
+      field.addEventListener('paste',function(event){
+        var limit=Number(field.getAttribute('maxlength')||0);
+        if(!limit||!event.clipboardData)return;
+        var pasted=String(event.clipboardData.getData('text')||'');
+        var selected=Math.abs(Number(field.selectionEnd||0)-Number(field.selectionStart||0));
+        var next=String(field.value||'').length-selected+pasted.length;
+        if(next<=limit)return;
+        event.preventDefault();
+        node.textContent=t(
+          'Not inserted. That paste would make this field {next} characters and the limit is {limit}. Shorten it or split it across the structured sections; nothing was truncated.',
+          {next:next.toLocaleString(),limit:limit.toLocaleString()}
+        );
+        node.classList.add('over-limit');
+        setTimeout(function(){node.classList.remove('over-limit');repaint();},6000);
+      });
+      repaint();
+    });
+  }
+  window.osiV2BindLongFormCounters=bindLongFormCounters;
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',bindLongFormCounters);
+  }else{
+    bindLongFormCounters();
+  }
+
   function clearSubmissionReceipt(hostId){
     delete state.submissionReceipts[hostId];
     var host=document.getElementById(hostId);if(!host)return;
@@ -958,6 +1103,23 @@
     var retry=content.querySelector('[data-case-retry]');
     if(retry)retry.addEventListener('click',function(){openCase(publicRef,null,{fromRoute:true});});
   }
+  // Best-effort authorized Case detail. It is attempted only when a wallet is
+  // connected and a live read session already carries the case:detail scope, so
+  // it can never open a wallet prompt for a visitor who just clicked a public
+  // Case. Any failure resolves to null and the caller falls back to the
+  // anonymous projection.
+  async function authorizedCaseRead(ref){
+    if(!walletPubkey||!isCaseRef(ref))return null;
+    if(typeof window.osiV2ReadSession!=='function')return null;
+    try{
+      var session=await window.osiV2ReadSession(['case:detail'],{allowUnlock:false});
+      if(!session||!session.token)return null;
+      var generation=privateGeneration();
+      var result=await api(READ_URL,{op:'get_authorized_case',wallet:session.wallet,read_session:session.token,case_ref:ref});
+      assertPrivateGeneration(generation);
+      return result&&result.case?result:null;
+    }catch(_){return null;}
+  }
   async function openCase(publicRef,reviewTask,options){
     options=options||{};
     var ref=String(publicRef||'');
@@ -978,10 +1140,25 @@
     },30);
     var item=cached;
     try{
-      if(!cached||state.mode==='public'){
+      // The drawer used to read only the anonymous projection whenever the row
+      // was not already cached, or whenever Field Office was in public mode.
+      // That meant an owner, an eligible analyst or a full maintainer opening a
+      // Case from Field Office, Public Records or a shared #case/ link saw the
+      // public DTO and none of the fields they are entitled to: no restricted
+      // detail, no private evidence manifest, no unpublished Report. Ask for the
+      // authorized projection first whenever a private read session already
+      // exists. It never prompts for a wallet, and the server still decides what
+      // the caller is allowed to see.
+      var authorized=await authorizedCaseRead(ref);
+      if(drawerToken!==state.drawerLoadToken)return null;
+      if(authorized&&authorized.case){
+        item=authorized.case;
+        state.currentActorRole=String(authorized.actor_role||'');
+      }else if(!cached||state.mode==='public'){
         var result=await publicRead({op:'get_public_case',public_ref:ref});
         if(drawerToken!==state.drawerLoadToken)return null;
         item=result.case;
+        state.currentActorRole='public';
       }
       state.current=item;
       var capabilitiesRefreshed=false;
@@ -1055,19 +1232,49 @@
     });
   }
   function emptySection(title,text){return'<section class="osi-case-section"><h3>'+esc(title)+'</h3><div class="osi-v2-empty"><b>Nothing recorded</b><span>'+esc(text)+'</span></div></section>';}
+  // Long intake prose keeps its paragraphs. Every chunk is escaped; only the
+  // structure is markup.
+  function caseProse(value){
+    var text=String(value==null?'':value).replace(/\r\n?/g,'\n').trim();
+    if(!text)return'';
+    return text.split(/\n{2,}/).map(function(block){
+      return'<p data-osi-user-content>'+block.split('\n').map(function(line){
+        return esc(line.trim());
+      }).join('<br>')+'</p>';
+    }).join('');
+  }
   function overview(item){
-    var restricted=item.details_restricted?'<div class="osi-case-note"><b>Restricted intake detail</b><br><span data-osi-user-content>'+esc(item.details_restricted)+'</span></div>':'';
+    var summary=item.summary?'<div class="osi-case-block"><h4>'+esc(t('Summary'))+'</h4>'+caseProse(item.summary)+'</div>':'';
+    // details_restricted is only ever present on an authorized projection. The
+    // anonymous DTO does not carry the field at all, so this cannot leak.
+    var restricted=item.details_restricted
+      ?'<div class="osi-case-block restricted"><h4>'+esc(t('Description'))+' <span class="osi-restricted-chip">'+esc(t('Restricted'))+'</span></h4>'+caseProse(item.details_restricted)
+        +'<p class="osi-case-note">'+esc(t('Visible to the Case owner, an eligible analyst and a full maintainer. It is never returned by the anonymous API.'))+'</p></div>'
+      :'';
+    var references=evidenceSectionsHtml(item);
+    var referenceBlock=references?'<div class="osi-case-block"><h4>'+esc(t('Structured References'))+'</h4>'+references+'</div>':'';
+    var reward=item.reward_intent_lamports
+      ?'<div class="osi-case-block"><h4>'+esc(t('Additional Details'))+'</h4><dl class="osi-detail-grid"><div><dt>'+esc(t('Reward intent'))+'</dt><dd class="mono">'+esc(String(item.reward_intent_lamports))+' lamports</dd></div></dl>'
+        +'<p class="osi-case-note">'+esc(t('Reward intent is non-binding display intent only. It is not a pledge, transfer, escrow or payment.'))+'</p></div>'
+      :'';
     var cycle=reviewCycleStartedAt(item);
     var active=(item.reviews||[]).filter(function(review){return review.is_active===true&&new Date(review.created_at).getTime()>cycle;});
     var initial=active.length?'<div class="osi-governance-mini"><b>Initial review</b><span>'+active.length+' active attributable '+(active.length===1?'review':'reviews')+'</span></div>':'';
-    return '<section class="osi-case-section"><h3>Case overview</h3><div class="osi-case-meta"><div><span>Reference</span><b>'+esc(item.public_ref)+'</b></div><div><span>Created</span><b>'+esc(dateText(item.created_at))+'</b></div><div><span>Stage</span><b>'+esc(stageLabel(item.stage,item))+'</b></div><div><span>Visibility</span><b>'+esc(label(item.visibility))+'</b></div></div><p data-osi-user-content>'+esc(item.summary)+'</p><div class="osi-governance-mini"><b>Exact next step</b><span>'+esc(nextStepText(item))+'</span></div>'+initial+restricted+'<div class="osi-case-note">OSI records attributable, human-reviewed and challengeable process. It does not determine guilt, legal certainty, truth, custody, recovery, or guaranteed payment.</div></section>';
+    return '<section class="osi-case-section"><h3>Case overview</h3><div class="osi-case-meta"><div><span>Reference</span><b>'+esc(item.public_ref)+'</b></div><div><span>Created</span><b>'+esc(dateText(item.created_at))+'</b></div><div><span>Stage</span><b>'+esc(stageLabel(item.stage,item))+'</b></div><div><span>Visibility</span><b>'+esc(label(item.visibility))+'</b></div></div>'
+      +summary+'<div class="osi-governance-mini"><b>Exact next step</b><span>'+esc(nextStepText(item))+'</span></div>'+initial+restricted+referenceBlock+reward
+      +'<div class="osi-case-note">OSI records attributable, human-reviewed and challengeable process. It does not determine guilt, legal certainty, truth, custody, recovery, or guaranteed payment.</div></section>';
   }
   function evidence(item){
-    var rows=item.evidence||[];if(!rows.length)return emptySection('Evidence','No evidence reference is public in this projection. Private pending evidence never leaks through the anonymous API.');
-    return '<section class="osi-case-section"><h3>Evidence</h3><div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(label(row.kind))+'</b><span class="mono">sha256 '+esc(short(row.sha256))+'</span></div><div class="osi-evidence-ref" data-osi-user-content>'+esc(row.ref)+'</div></div>';}).join('')+'</div><div class="osi-case-note">A reference is evidence material, not automatic proof of a claim. Public items require their own moderation state.</div></section>';
+    var html=evidenceSectionsHtml(item);
+    if(!html)return emptySection('Evidence','No evidence reference is public in this projection. Private pending evidence never leaks through the anonymous API.');
+    var pending=String(item.visibility||'')!=='public'
+      ?'<div class="osi-case-note">'+esc(t('This manifest is private intake evidence. It becomes public only through the confirmed CASE_OPENED transition.'))+'</div>'
+      :'';
+    return '<section class="osi-case-section"><h3>'+esc(t('Evidence and Sources'))+'</h3>'+html+pending
+      +'<div class="osi-case-note">A reference is evidence material, not automatic proof of a claim. Public items require their own moderation state.</div></section>';
   }
   function reports(item){
-    if(typeof window.osiReportRenderSection==='function')return window.osiReportRenderSection(item,{mode:state.mode,actorRole:state.actorRole,capabilities:state.capabilities||{}});
+    if(typeof window.osiReportRenderSection==='function')return window.osiReportRenderSection(item,{mode:state.mode,actorRole:state.currentActorRole||state.actorRole,capabilities:state.capabilities||{}});
     var rows=item.reports||[];if(!rows.length)return emptySection('Reports','Report data is temporarily unavailable.');
     return '<section class="osi-case-section"><h3>Reports</h3><div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><b>'+esc(label(row.status))+'</b><p>'+(row.published?'Published exact version':'No published version')+'</p></div>';}).join('')+'</div></section>';
   }
@@ -1131,7 +1338,7 @@
     var selectionConflict=activeTaskConflict('resolution_selection');
     var sealConflict=activeTaskConflict('seal_reviews');
     var selectionForm=caps.resolution_lifecycle_writes_enabled===true&&caps.analyst_eligible===true&&selectionTask&&!selectionConflict&&(!row||row.state==='selection_open')
-      ? '<div class="osi-governance-compose"><h4>Resolution selection review</h4><label>Exact published version<select id="osi-resolution-version">'+candidateOptions+'</select></label><label>Decision<select id="osi-resolution-decision"><option value="select">Select as primary</option><option value="object">Object</option><option value="abstain">Abstain</option></select></label><label>Public rationale<textarea id="osi-resolution-rationale" maxlength="2000" placeholder="Explain the process-based selection in public-safe language."></textarea></label><label>Restricted analyst note<textarea id="osi-resolution-note" maxlength="4000" placeholder="Optional. Never returned in the public DTO."></textarea></label><button class="osi-action primary" type="button" onclick="osiV2GovernanceResolutionReview()">Sign and record review</button></div>'
+      ? '<div class="osi-governance-compose"><h4>Resolution selection review</h4><label>Exact published version<select id="osi-resolution-version">'+candidateOptions+'</select></label><label>Decision<select id="osi-resolution-decision"><option value="select">Select as primary</option><option value="object">Object</option><option value="abstain">Abstain</option></select></label><label>Public rationale<textarea id="osi-resolution-rationale" maxlength="10000" placeholder="Explain the process-based selection in public-safe language."></textarea></label><label>Restricted analyst note<textarea id="osi-resolution-note" maxlength="10000" placeholder="Optional. Never returned in the public DTO."></textarea></label><button class="osi-action primary" type="button" onclick="osiV2GovernanceResolutionReview()">Sign and record review</button></div>'
       : '';
     var leader=quorum.leader_version_ref;
     var finalize=row&&row.state==='selection_open'&&caps.maintainer_access===true&&leader&&!quorum.tie_unresolved&&selectionTask&&!selectionConflict
@@ -1169,7 +1376,7 @@
     if(!resolution||resolution.state==='selection_open')return emptySection('Challenges','Challenge intake opens only after an exact primary Report version is Memo-anchored.');
     var opens=new Date(resolution.challenge_window_opens_at).getTime();var closes=new Date(resolution.challenge_window_closes_at).getTime();var active=Date.now()>=opens&&Date.now()<closes&&resolution.state==='in_challenge_window';
     var submit=active&&walletPubkey&&caps.resolution_lifecycle_writes_enabled===true
-      ? '<div class="osi-governance-compose"><h4>Submit a challenge</h4><label>Public-safe summary<textarea id="osi-challenge-summary" maxlength="2000" placeholder="Describe the challenge without restricted material."></textarea></label><label>Existing evidence item ID<input id="osi-challenge-evidence" inputmode="text" placeholder="00000000-0000-0000-0000-000000000000"></label><label>Restricted detail<textarea id="osi-challenge-detail" maxlength="8000" placeholder="Optional restricted context."></textarea></label><button class="osi-action primary" type="button" onclick="osiV2GovernanceSubmitChallenge()">Sign and submit challenge</button></div>'
+      ? '<div class="osi-governance-compose"><h4>Submit a challenge</h4><label>Public-safe summary<textarea id="osi-challenge-summary" minlength="20" maxlength="10000" placeholder="Describe the challenge without restricted material."></textarea></label><label>Existing evidence item ID<input id="osi-challenge-evidence" inputmode="text" placeholder="00000000-0000-0000-0000-000000000000"></label><label>Restricted detail<textarea id="osi-challenge-detail" maxlength="10000" placeholder="Optional restricted context."></textarea></label><button class="osi-action primary" type="button" onclick="osiV2GovernanceSubmitChallenge()">Sign and submit challenge</button></div>'
       : '<div class="osi-state-message"><b>Challenge intake '+(active?'requires a connected wallet':'is closed')+'</b><span>Submission alone does not block sealing. Only admitted open or under-review challenges block.</span></div>';
     var list=rows.length?'<div class="osi-challenge-list">'+rows.map(function(row){
       var controls='';var route=caps.analyst_eligible?'analyst':'maintainer';var q=row.outcome_quorum||{};
@@ -1239,7 +1446,39 @@
     var retry=document.getElementById('osi-ai-pack-script-retry');
     if(retry)retry.addEventListener('click',function(){window.location.reload();});
   }
+  // Exact reason text for a control the server says this wallet may not use.
+  // A disabled control has to name its unmet prerequisite; it must never sit
+  // there inert.
+  var OPENING_REASON_TEXT={
+    case_writes_disabled:'Case writes are safely disabled while rollout checks are incomplete.',
+    case_not_in_initial_review:'This Case is not in private initial review, so there is no public-open transition to anchor.',
+    case_owner_conflict:'A Case owner cannot review or open their own Case.',
+    not_eligible_reviewer:'This wallet is not an eligible analyst and does not hold full maintainer access.',
+    no_active_approve_open_review:'Record an approve-open review from this wallet first.',
+    approval_not_counted:'This wallet’s approval is not counted. Its Solana Attestation credential did not verify.',
+    analyst_open_quorum_not_ready:'The analyst opening threshold is not met yet: at least one counted analyst and total weight 0.50.',
+    maintainer_open_path_not_ready:'The full maintainer opening path is not active for this Case.',
+    rejection_quorum_ready:'An independent analyst rejection quorum is ready, so public opening is blocked.',
+    open_path_unavailable:'No authorized opening path is available to this wallet for this Case.'
+  };
+  function openingReasonText(code){
+    return OPENING_REASON_TEXT[String(code||'')]||t('This publication path is not available to this wallet yet.');
+  }
+  // The server-derived opening capability is authoritative when present. It is
+  // computed by osi_v2_case_opening_capabilities(), the read-only mirror of the
+  // same gate the write path enforces, so it is SAS-aware in exactly the way the
+  // old client-side weight arithmetic below was not. The legacy derivation stays
+  // only as a fallback for a projection served before the capability RPC exists.
+  function openingCapability(item){
+    var capability=item&&item.opening_capability;
+    return capability&&typeof capability==='object'?capability:null;
+  }
   function activeOpeningRoute(item){
+    var capability=openingCapability(item);
+    if(capability){
+      if(capability.can_anchor_public_open!==true)return'';
+      return capability.decision_channel==='maintainer_bootstrap'?'maintainer':'analyst';
+    }
     var wallet=String(walletPubkey||'');var caps=state.capabilities||{};
     var cycle=reviewCycleStartedAt(item);
     var rejects=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.reviewer_role==='analyst'&&row.decision==='reject'&&new Date(row.created_at).getTime()>cycle;});
@@ -1263,18 +1502,45 @@
       &&reviews.reduce(function(sum,row){return sum+Number(row.weight||0);},0)>=2
       &&!(approvals.length>=1&&approvals.reduce(function(sum,row){return sum+Number(row.weight||0);},0)>=0.5);
   }
+  // A Case shows the review surface when the server says this wallet has a real
+  // initial-review or public-open capability on it, or when the reader is in the
+  // review queue looking at a private intake. Mode alone is no longer the gate.
+  function reviewSurfaceAvailable(item){
+    if(String(item&&item.visibility||'')!=='private')return false;
+    var capability=openingCapability(item);
+    if(capability){
+      return capability.can_cast_initial_review===true
+        ||capability.can_anchor_public_open===true
+        ||(capability.actor_is_eligible_analyst===true||capability.actor_is_full_maintainer===true);
+    }
+    return state.mode==='review';
+  }
   function renderActions(){
     var host=document.getElementById('osi-case-actions');var item=state.current;if(!host||!item)return;
     if(item.stage==='initial_rejected'&&state.mode==='mine'){
       host.innerHTML='<span class="osi-action-help">The rejection is retained with its Memo proof. Appeal only with a new evidence reference; the original submission is never rewritten.</span><button class="osi-action primary" type="button" onclick="osiV2ComposeCaseAppeal()">Appeal with new evidence</button>';
-    }else if(state.mode==='review'&&item.visibility==='private'){
+    }else if(reviewSurfaceAvailable(item)){
+      // Review and publication controls follow the server-derived capability,
+      // not the surface the reader happened to arrive from. An eligible analyst
+      // who opens the same Case from a shared link now sees the same authorized
+      // actions the review queue offers, and a wallet the write path would
+      // refuse sees a disabled control that names the exact prerequisite.
+      var capability=openingCapability(item);
       var openingRoute=activeOpeningRoute(item);
       var rejectionReady=activeRejectionReady(item);
       var conflicted=activeTaskConflict('initial_open');
+      var canReview=capability?capability.can_cast_initial_review===true:!conflicted;
+      var reviewReason=capability&&capability.initial_review_reason_code
+        ?openingReasonText(capability.initial_review_reason_code):conflictMessage();
+      var openBlocked=!openingRoute&&capability&&capability.public_open_reason_code
+        &&['case_owner_conflict','case_not_in_initial_review'].indexOf(capability.public_open_reason_code)<0;
       host.innerHTML='<span class="osi-action-help">'+esc(conflicted?conflictMessage():'Reviews use signMessage. Public opening requires either the analyst threshold or a full double-gated maintainer approval, then a separate confirmed Solana Memo. It authorizes public investigation only; it does not determine truth or guilt.')+'</span>'
-        +(conflicted?'<button class="osi-action" type="button" disabled title="'+esc(conflictMessage())+'">'+esc(t('Review unavailable'))+'</button>':'<button class="osi-action" type="button" onclick="osiV2ComposeReview()">Record review</button>')
-        +(openingRoute&&!conflicted?'<button class="osi-action primary" type="button" onclick="osiV2AnchorOpen()">Anchor public open</button>':'')
-        +(rejectionReady&&!conflicted?'<button class="osi-action" type="button" onclick="osiV2AnchorCaseRejection()">Anchor normal rejection</button>':'');
+        +(canReview&&!conflicted?'<button class="osi-action" type="button" onclick="osiV2ComposeReview()">Record review</button>':'<button class="osi-action" type="button" disabled title="'+esc(reviewReason)+'">'+esc(t('Review unavailable'))+'</button>')
+        +(openingRoute&&!conflicted
+          ?'<button class="osi-action primary" type="button" onclick="osiV2AnchorOpen()">Anchor public open</button>'
+          :(openBlocked?'<button class="osi-action" type="button" disabled title="'+esc(openingReasonText(capability.public_open_reason_code))+'">'+esc(t('Anchor public open'))+'</button>':''))
+        +(rejectionReady&&!conflicted?'<button class="osi-action" type="button" onclick="osiV2AnchorCaseRejection()">Anchor normal rejection</button>':'')
+        +(openBlocked?'<span class="osi-action-help">'+esc(openingReasonText(capability.public_open_reason_code))+'</span>':'');
     }else if(item.visibility==='private'){
       host.innerHTML='<span class="osi-action-help">Private and awaiting an eligible analyst or full maintainer review. Case owners cannot self-review.</span><button class="osi-action" disabled title="Requires an eligible analyst or full maintainer">Awaiting review</button>';
     }else{
@@ -2096,7 +2362,7 @@
   function clearPrivateCaseCache(reason){
     if(reason==='expiry'||reason==='explicit_refresh')saveCaseDraft();
     state.loadToken+=1;state.reviewLoadToken+=1;state.drawerLoadToken+=1;state.locked=null;
-    if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.reviewLanes={};state.reviewUpdatedAt=null;state.current=null;state.activeReviewTask=null;state.actorRole='public';state.mode='public';}
+    if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.reviewLanes={};state.reviewUpdatedAt=null;state.current=null;state.activeReviewTask=null;state.actorRole='public';state.currentActorRole='';state.mode='public';}
     state.capabilities=null;state.reviewBusy=false;state.governanceBusy=false;state.paymentBusy=false;state.caseReceipt=null;state.caseIdempotency='';clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
     clearSubmissionReceipt('v2-case-receipt');
     var form=document.getElementById('field-form');if(form)form.reset();

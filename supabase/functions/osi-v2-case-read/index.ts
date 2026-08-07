@@ -871,6 +871,32 @@ async function listMyCases(req: Request, body: Row): Promise<Response> {
   });
 }
 
+// Server-derived Case opening capability, keyed by Case id. This is the exact
+// read-only mirror of the osi_v2_prepare_case_open_outcome gate, so a review
+// surface never has to re-derive counted quorum from raw review weights (which
+// are not SAS-aware and therefore disagreed with the write path in both
+// directions). A capability read failure is not fatal: the map stays empty, the
+// DTO omits opening_capability, and the write path remains the only authority.
+async function caseOpeningCapabilities(
+  wallet: string,
+  caseIds: string[],
+  maintainerAccess: boolean,
+): Promise<Record<string, Row>> {
+  const capabilities: Record<string, Row> = {};
+  if (!caseIds.length) return capabilities;
+  const { data, error } = await admin.rpc("osi_v2_case_opening_capabilities", {
+    p_actor_wallet: wallet,
+    p_case_ids: caseIds,
+    p_maintainer_auth_uuid: maintainerAccess ? MAINTAINER_AUTH_UUID : null,
+  });
+  if (error) return capabilities;
+  for (const row of data ?? []) {
+    const key = String(row.case_id ?? "");
+    if (key) capabilities[key] = row;
+  }
+  return capabilities;
+}
+
 async function isVerifiedAnalyst(wallet: string): Promise<boolean> {
   const { data } = await admin.from("analyst_profiles")
     .select("wallet,status,verified,approved,weight_cached")
@@ -1060,12 +1086,21 @@ async function listReviewableCases(req: Request, body: Row): Promise<Response> {
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   const caseRows = data ?? [];
   const graph = await loadCaseGraph(caseRows);
+  const openingCapabilities = await caseOpeningCapabilities(
+    wallet,
+    caseRows.map((caseRow) => String(caseRow.id)),
+    maintainerAccess,
+  );
   const caseDtos = caseRows.map((caseRow) => authorizedCaseDto(
     caseRow,
     graph.reportsByCase[String(caseRow.id)] ?? [],
     graph.versionsByReport,
     graph.receiptsByCaseTarget[String(caseRow.public_ref)] ?? [],
-    { kind: actorKind, wallet },
+    {
+      kind: actorKind,
+      wallet,
+      opening_capability: openingCapabilities[String(caseRow.id)] ?? null,
+    },
     graph.evidenceByCase[String(caseRow.id)] ?? [],
     graph.reviewsByCase[String(caseRow.id)] ?? [],
     graph.governanceByCase[String(caseRow.id)] ?? {},
@@ -1207,6 +1242,13 @@ async function getAuthorizedCase(req: Request, body: Row): Promise<Response> {
       ),
     });
   }
+  const openingCapabilities = actorKind === "analyst" || actorKind === "maintainer"
+    ? await caseOpeningCapabilities(
+      proof.actor.wallet,
+      [String(caseRow.id)],
+      actorKind === "maintainer",
+    )
+    : {};
   return jsonResponse(200, {
     ok: true,
     actor_role: actorKind,
@@ -1215,7 +1257,11 @@ async function getAuthorizedCase(req: Request, body: Row): Promise<Response> {
       reports,
       graph.versionsByReport,
       receipts,
-      { kind: actorKind, wallet: proof.actor.wallet },
+      {
+        kind: actorKind,
+        wallet: proof.actor.wallet,
+        opening_capability: openingCapabilities[String(caseRow.id)] ?? null,
+      },
       graph.evidenceByCase[String(caseRow.id)] ?? [],
       graph.reviewsByCase[String(caseRow.id)] ?? [],
       graph.governanceByCase[String(caseRow.id)] ?? {},

@@ -331,13 +331,137 @@ function moneyDto(money = {}, includePending = false) {
   };
 }
 
+// Every wallet and transaction reference OSI accepts is validated as a Solana
+// mainnet base58 pubkey or signature at intake, so naming the network here
+// reports what the validator already proved. It is never inferred from text.
+export const SOLANA_NETWORK_LABEL = "Solana mainnet-beta";
+const EVIDENCE_WALLET_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const EVIDENCE_TX_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{64,96}$/;
+
+// Older Case and Report rows were written before the structured intake sections
+// existed, and some carry an untyped or missing kind. Normalizing on read means
+// those records keep rendering instead of collapsing into an unlabeled blob;
+// nothing is rewritten in the database.
+export function normalizeEvidenceKind(evidence) {
+  const kind = String(evidence?.kind ?? "").trim();
+  if (kind === "wallet" || kind === "onchain_tx" || kind === "url") return kind;
+  const ref = String(evidence?.ref ?? "").trim();
+  if (/^https:\/\//i.test(ref)) return "url";
+  if (EVIDENCE_TX_PATTERN.test(ref)) return "onchain_tx";
+  if (EVIDENCE_WALLET_PATTERN.test(ref)) return "wallet";
+  return kind || "other";
+}
+
+// A public-safe explorer or source link for one evidence reference. Only an
+// exact validated Solana address/signature earns a Solscan link, and only an
+// https URL is echoed back as a followable source; anything else gets null so
+// no surface can render an unvalidated href.
+export function evidenceLink(kind, ref) {
+  const value = String(ref ?? "").trim();
+  if (kind === "wallet" && EVIDENCE_WALLET_PATTERN.test(value)) {
+    return "https://solscan.io/account/" + value;
+  }
+  if (kind === "onchain_tx" && EVIDENCE_TX_PATTERN.test(value)) {
+    return "https://solscan.io/tx/" + value;
+  }
+  if (kind === "url") {
+    let parsed;
+    try { parsed = new URL(value); } catch { return null; }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) return null;
+    return parsed.toString();
+  }
+  return null;
+}
+
 function publicEvidenceDto(evidence) {
-  return {
-    kind: String(evidence.kind ?? ""),
-    ref: String(evidence.ref ?? ""),
+  const kind = normalizeEvidenceKind(evidence);
+  const ref = String(evidence.ref ?? "");
+  const link = evidenceLink(kind, ref);
+  const dto = {
+    kind,
+    ref,
     sha256: String(evidence.sha256 ?? ""),
   };
+  if (kind === "wallet" || kind === "onchain_tx") dto.network = SOLANA_NETWORK_LABEL;
+  if (link) dto.link_url = link;
+  return dto;
 }
+
+// The same manifest, grouped into the exact sections the Case and Report
+// surfaces render. Grouping happens once, on the server, so every client shows
+// the same sections in the same order and an empty group is simply absent.
+export function evidenceSections(evidence = []) {
+  const rows = Array.isArray(evidence) ? evidence.map(publicEvidenceDto) : [];
+  const sections = {
+    wallets: rows.filter((row) => row.kind === "wallet"),
+    transactions: rows.filter((row) => row.kind === "onchain_tx"),
+    links: rows.filter((row) => row.kind === "url"),
+    other: rows.filter((row) => !["wallet", "onchain_tx", "url"].includes(row.kind)),
+  };
+  sections.networks = sections.wallets.length || sections.transactions.length
+    ? [SOLANA_NETWORK_LABEL]
+    : [];
+  return sections;
+}
+
+// Server-derived answer to "may this exact wallet act on this exact Case".
+// Null whenever the projection could not be computed, so a client falls back to
+// showing nothing rather than to inventing an authority claim.
+export function caseOpeningCapabilityDto(capability) {
+  if (!capability || typeof capability !== "object") return null;
+  const channel = capability.decision_channel === "maintainer_bootstrap"
+    ? "maintainer_bootstrap"
+    : capability.decision_channel === "standard"
+    ? "standard"
+    : null;
+  return {
+    actor_is_eligible_analyst: capability.actor_is_eligible_analyst === true,
+    actor_is_full_maintainer: capability.actor_is_full_maintainer === true,
+    actor_is_case_owner: capability.actor_is_case_owner === true,
+    can_cast_initial_review: capability.can_cast_initial_review === true,
+    initial_review_reason_code: capability.initial_review_reason_code || null,
+    can_anchor_public_open: capability.can_anchor_public_open === true,
+    public_open_reason_code: capability.public_open_reason_code || null,
+    decision_channel: channel,
+    actor_active_decision: capability.actor_active_decision || null,
+    analyst_quorum_ready: capability.analyst_quorum_ready === true,
+    maintainer_path_ready: capability.maintainer_path_ready === true,
+    analyst_approve_count: Number(capability.analyst_approve_count || 0),
+    analyst_approve_weight: Number(capability.analyst_approve_weight || 0),
+    required_analyst_count: Number(capability.required_analyst_count || 0),
+    required_analyst_weight: Number(capability.required_analyst_weight || 0),
+    reject_ready: capability.reject_ready === true,
+    reject_count: Number(capability.reject_count || 0),
+    reject_weight: Number(capability.reject_weight || 0),
+    case_writes_enabled: capability.case_writes_enabled === true,
+    sas_enforcement_enabled: capability.sas_enforcement_enabled === true,
+  };
+}
+
+// Exact reason a publication control is unavailable. A disabled control must
+// name its unmet prerequisite rather than sit there inert.
+export const CASE_OPENING_REASON_TEXT = Object.freeze({
+  case_writes_disabled:
+    "Case writes are safely disabled while rollout checks are incomplete.",
+  case_not_in_initial_review:
+    "This Case is not in private initial review, so there is no public-open transition to anchor.",
+  case_owner_conflict:
+    "A Case owner cannot review or open their own Case.",
+  not_eligible_reviewer:
+    "This wallet is not an eligible analyst and does not hold full maintainer access.",
+  no_active_approve_open_review:
+    "Record an approve-open review from this wallet first.",
+  approval_not_counted:
+    "This wallet's approval is not counted. Its Solana Attestation credential did not verify.",
+  analyst_open_quorum_not_ready:
+    "The analyst opening threshold is not met yet: at least one counted analyst and total weight 0.50.",
+  maintainer_open_path_not_ready:
+    "The full maintainer opening path is not active for this Case.",
+  rejection_quorum_ready:
+    "An independent analyst rejection quorum is ready, so public opening is blocked.",
+  open_path_unavailable:
+    "No authorized opening path is available to this wallet for this Case.",
+});
 
 // D19 public-safe review authority label. Null unless the SAS credential gate is
 // actually deciding, so no surface can claim an authority check that is not on.
@@ -464,6 +588,8 @@ export function publicCaseDto(
       .filter((value) => value != null)
       .map(String),
   );
+  const publicEvidence = evidence
+    .filter((item) => item.is_public === true && item.moderation_state === "approved");
   return {
     public_ref: String(caseRow.public_ref ?? ""),
     title: String(caseRow.title ?? ""),
@@ -474,9 +600,8 @@ export function publicCaseDto(
     risk_tier: String(caseRow.risk_tier ?? ""),
     created_at: isoOrNull(caseRow.created_at),
     sealed_at: isoOrNull(caseRow.sealed_at),
-    evidence: evidence
-      .filter((item) => item.is_public === true && item.moderation_state === "approved")
-      .map(publicEvidenceDto),
+    evidence: publicEvidence.map(publicEvidenceDto),
+    evidence_sections: evidenceSections(publicEvidence),
     reviews: reviews.filter((review) => review.is_active === true)
       .map((review) => reviewDto(review, false)),
     reports: reports.filter((report) => report.current_published_version_id != null)
@@ -593,6 +718,10 @@ export function authorizedCaseDto(
         ? null : Number(caseRow.reward_intent_lamports),
     }),
     evidence: evidence.map(publicEvidenceDto),
+    evidence_sections: evidenceSections(evidence),
+    ...(actor.opening_capability
+      ? { opening_capability: caseOpeningCapabilityDto(actor.opening_capability) }
+      : {}),
     reviews: reviews.map((review) => reviewDto(review, includeRestrictedReviewFields)),
     reports: visibleReports.map((report) => ({
       public_ref: String(report.public_ref ?? ""),

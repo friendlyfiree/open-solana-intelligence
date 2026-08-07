@@ -16,6 +16,13 @@ const WIRE_VERSION_REF = /^OSI-WV-[0-9A-F]{16}$/;
 const TARGET_ID = /^[0-9a-f-]{36}$/i;
 const IDEMPOTENCY = /^[A-Za-z0-9._:-]{16,128}$/;
 
+// Long-form governance bounds. Kept in lockstep with the widened database
+// CHECK constraints and payload validators in
+// 20260807090000_osi_v2_case_report_visibility_publication.sql. Over-length
+// input is refused with an exact error; nothing is truncated.
+export const GOVERNANCE_RATIONALE_MAX = 10000;
+export const GOVERNANCE_LONG_TEXT_MAX = 10000;
+
 export const GOVERNANCE_ACTIONS = new Set([
   "resolution_review", "resolution_finalize", "challenge_submit",
   "challenge_admit", "challenge_review", "challenge_withdraw",
@@ -89,15 +96,15 @@ export function normalizeGovernancePayload(action, input) {
       report_version_ref: text(input.report_version_ref, "report_version_ref", 23, 23, VERSION_REF),
       decision,
       reason_code: text(input.reason_code, "reason_code", 1, 96, /^[a-z][a-z0-9_:-]{0,95}$/),
-      public_rationale: text(input.public_rationale, "public_rationale", 10, 2000),
-      private_note: optionalText(input.private_note, "private_note", 4000),
+      public_rationale: text(input.public_rationale, "public_rationale", 10, GOVERNANCE_RATIONALE_MAX),
+      private_note: optionalText(input.private_note, "private_note", GOVERNANCE_LONG_TEXT_MAX),
     };
   }
   if (action === "challenge_submit") {
     return {
       reason_code: text(input.reason_code, "reason_code", 1, 96, /^[a-z][a-z0-9_:-]{0,95}$/),
-      public_safe_summary: text(input.public_safe_summary, "public_safe_summary", 20, 2000),
-      restricted_detail: optionalText(input.restricted_detail, "restricted_detail", 8000),
+      public_safe_summary: text(input.public_safe_summary, "public_safe_summary", 20, GOVERNANCE_LONG_TEXT_MAX),
+      restricted_detail: optionalText(input.restricted_detail, "restricted_detail", GOVERNANCE_LONG_TEXT_MAX),
       evidence_item_id: text(input.evidence_item_id, "evidence_item_id", 36, 36, UUID),
     };
   }
@@ -118,8 +125,8 @@ export function normalizeGovernancePayload(action, input) {
     return {
       decision,
       reason_code: text(input.reason_code, "reason_code", 1, 96, /^[a-z][a-z0-9_:-]{0,95}$/),
-      public_rationale: text(input.public_rationale, "public_rationale", 10, 2000),
-      private_note: optionalText(input.private_note, "private_note", 4000),
+      public_rationale: text(input.public_rationale, "public_rationale", 10, GOVERNANCE_RATIONALE_MAX),
+      private_note: optionalText(input.private_note, "private_note", GOVERNANCE_LONG_TEXT_MAX),
     };
   }
   if (action === "resolution_finalize") {

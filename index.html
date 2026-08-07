@@ -647,8 +647,8 @@
         <label class="osi-field"><span>Category <small>(optional)</small></span><select id="v2-case-category" class="fo-in"><option value="">Not specified</option><option value="wallet_drain">Wallet drain</option><option value="token_risk">Token risk</option><option value="protocol_incident">Protocol incident</option><option value="social_engineering">Social engineering</option><option value="market_manipulation">Market manipulation</option><option value="other">Other</option></select></label>
         <label class="osi-field"><span>Neutral title</span><input id="v2-case-title" class="fo-in" type="text" minlength="3" maxlength="160" required placeholder="Unexpected transfer pattern for review"></label>
       </div>
-      <label class="osi-field"><span>Public summary</span><textarea id="v2-case-summary" class="fo-in fo-ta" minlength="10" maxlength="2000" required placeholder="A neutral, public-safe description. Do not name private people or assert guilt."></textarea><small>Visible only after analyst approval and the confirmed CASE_OPENED Memo.</small></label>
-      <label class="osi-field"><span>Restricted details <small>(optional)</small></span><textarea id="v2-case-details" class="fo-in fo-ta" maxlength="12000" placeholder="Optional context for the owner and authorized reviewers. Never include a seed phrase, private key, private messages, or prohibited personal data."></textarea><small>Private by default. Never returned by the anonymous API.</small></label>
+      <label class="osi-field"><span>Public summary</span><textarea id="v2-case-summary" class="fo-in fo-ta" minlength="10" maxlength="10000" required placeholder="A neutral, public-safe description. Do not name private people or assert guilt."></textarea><small>10 to 10,000 characters. Visible only after analyst approval and the confirmed CASE_OPENED Memo.</small><small class="osi-char-counter" data-osi-counter-for="v2-case-summary" aria-live="polite"></small></label>
+      <label class="osi-field"><span>Restricted details <small>(optional)</small></span><textarea id="v2-case-details" class="fo-in fo-ta" maxlength="25000" placeholder="Optional context for the owner and authorized reviewers. Never include a seed phrase, private key, private messages, or prohibited personal data."></textarea><small>Up to 25,000 characters. Private by default. Never returned by the anonymous API.</small><small class="osi-char-counter" data-osi-counter-for="v2-case-details" aria-live="polite"></small></label>
       <fieldset class="osi-evidence-set"><legend>Structured evidence references</legend><div class="fo-grid2"><label class="osi-field"><span>Wallet addresses</span><textarea id="v2-case-wallets" class="fo-in" rows="3" placeholder="One Solana address per line"></textarea></label><label class="osi-field"><span>Transaction signatures</span><textarea id="v2-case-transactions" class="fo-in" rows="3" placeholder="One Solana signature per line"></textarea></label></div><label class="osi-field"><span>HTTPS evidence links</span><textarea id="v2-case-urls" class="fo-in" rows="2" placeholder="One public HTTPS URL per line"></textarea></label></fieldset>
       <label class="osi-field osi-reward-field"><span>Optional reward intent in SOL</span><input id="v2-case-reward" class="fo-in" type="number" step="0.000000001" min="0" max="1000000" placeholder="0"><small>This records non-binding intent only. It is not a pledge, transfer, escrow, or payment.</small></label>
       <label class="osi-case-confirm"><input id="v2-case-confirm" type="checkbox" required><span>I confirm this submission contains no seed phrase, private key, illegal-access material, doxxing, or unsupported guilt claim.</span></label>
@@ -675,10 +675,10 @@
     <div class="osi-report-context" id="osi-report-context" aria-live="polite"></div>
     <label class="fo-label" for="osi-report-narrative">Restricted Report narrative <span aria-hidden="true">*</span></label>
     <textarea id="osi-report-narrative" rows="9" minlength="80" maxlength="100000" required aria-describedby="osi-report-narrative-help"></textarea>
-    <span class="fo-hint" id="osi-report-narrative-help">80 to 100,000 characters. Explain the trace, limits, and uncertainty. This body is never published and is never returned by the anonymous API.</span>
+    <span class="fo-hint osi-char-counter" data-osi-counter-for="osi-report-narrative" aria-live="polite"></span><span class="fo-hint" id="osi-report-narrative-help">80 to 100,000 characters. Explain the trace, limits, and uncertainty. This body is never published and is never returned by the anonymous API.</span>
     <label class="fo-label" for="osi-report-summary">Public-safe summary</label>
-    <textarea id="osi-report-summary" rows="5" maxlength="4000" aria-describedby="osi-report-summary-help"></textarea>
-    <span class="fo-hint" id="osi-report-summary-help">40 to 4,000 characters. <b>This is the only part of your Report that the public can ever read.</b> The restricted narrative above is never published. Write a neutral, public-safe account with no private personal data and no guilt claim.</span>
+    <textarea id="osi-report-summary" rows="5" maxlength="10000" aria-describedby="osi-report-summary-help"></textarea>
+    <span class="fo-hint osi-char-counter" data-osi-counter-for="osi-report-summary" aria-live="polite"></span><span class="fo-hint" id="osi-report-summary-help">Up to 10,000 characters. <b>This is the only part of your Report that the public can ever read.</b> The restricted narrative above is never published. Write a neutral, public-safe account with no private personal data and no guilt claim.</span>
     <label class="osi-report-nosummary" for="osi-report-no-summary">
       <input id="osi-report-no-summary" type="checkbox">
       <span>This Report has no public-safe summary. If it is published it will show publication proof and public evidence, but no readable finding. I am choosing that deliberately.</span>
@@ -728,12 +728,12 @@
     <label class="fo-label" for="osi-wire-title">Public-safe title <span aria-hidden="true">*</span></label>
     <input class="wire-in" id="osi-wire-title" type="text" minlength="3" maxlength="160" required placeholder="Treasury movement pattern for independent review">
     <label class="fo-label" for="osi-wire-summary">Public-safe summary (auto-drafted, editable) <span aria-hidden="true">*</span></label>
-    <textarea id="osi-wire-summary" rows="3" minlength="10" maxlength="4000" required></textarea>
+    <textarea id="osi-wire-summary" rows="3" minlength="10" maxlength="10000" required></textarea>
     <span class="fo-hint">Drafted locally from the analysis until you edit it. The title and summary remain private until publication.</span>
     <label class="fo-label" for="osi-wire-analysis">Detailed analysis <span aria-hidden="true">*</span></label>
     <textarea id="osi-wire-analysis" rows="9" minlength="20" maxlength="100000" required></textarea>
     <label class="fo-label" for="osi-wire-uncertainties">Uncertainties and limits (optional)</label>
-    <textarea id="osi-wire-uncertainties" rows="4" maxlength="4000"></textarea>
+    <textarea id="osi-wire-uncertainties" rows="4" maxlength="10000"></textarea>
     <fieldset class="osi-report-evidence">
       <legend>Structured evidence references (optional)</legend>
       <label class="fo-label" for="osi-wire-wallets">Wallet addresses</label>

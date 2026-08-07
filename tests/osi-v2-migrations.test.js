@@ -45,6 +45,7 @@ const expectedFiles = [
   '20260802102728_osi_v2_report_rejection_transition.sql',
   '20260802180000_osi_v2_case_initial_rejection_appeal.sql',
   '20260805090000_osi_v2_maintainer_profile.sql',
+  '20260807090000_osi_v2_case_report_visibility_publication.sql',
 ];
 
 const sqlByFile = Object.fromEntries(

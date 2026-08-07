@@ -78,11 +78,11 @@ Your wallet address is your identity on OSI. It is attribution, not identity ver
 
 ## 4. Case owners: running an investigation request
 
-**Opening.** Fill the Case form in the Field Office: a category, a neutral title, a public-safe summary, and a restricted detail section for sensitive specifics. Structured evidence references (wallets, transactions, HTTPS sources) are validated at intake. You may attach an optional, non-binding reward intent. Signing the CASE_SUBMITTED Memo creates the Case, private by default.
+**Opening.** Fill the Case form in the Field Office: a category, a neutral title, a public-safe summary (up to 10,000 characters), and a restricted detail section for sensitive specifics (up to 25,000 characters). Structured evidence references (wallets, transactions, HTTPS sources) are validated at intake. You may attach an optional, non-binding reward intent. Signing the CASE_SUBMITTED Memo creates the Case, private by default. Nothing you type is ever trimmed to fit: a field past its limit is refused with the exact numbers so you can shorten or split it yourself.
 
-**While private.** Only you, eligible analysts, and the maintainer can see it. You can read your own Case any time through My Cases with a single 5-minute session signature.
+**While private.** Only you, eligible analysts, and the maintainer can see it, and they see all of it: the public-safe summary, the restricted detail, and every wallet, transaction and source reference you entered. You can read your own Case any time through My Cases with a single 5-minute session signature.
 
-**Opening to the public** requires an approval you cannot give yourself: either one eligible analyst with weight at or above 0.50, or the double-authenticated maintainer, records approve_open, and the approver anchors the CASE_OPENED Memo. Opening a Case never means the claim is true; it means the question deserves public investigation.
+**Opening to the public** requires an approval you cannot give yourself: either one eligible analyst with weight at or above 0.50, or the double-authenticated maintainer, records approve_open, and the approver anchors the CASE_OPENED Memo. That same transition makes the structured reference manifest the approver reviewed public-safe, so the wallets, transactions and sources appear on the public Case alongside your public-safe summary. Your restricted detail stays restricted and is never part of an anonymous response. Opening a Case never means the claim is true; it means the question deserves public investigation.
 
 **What you control after opening:**
 
@@ -103,6 +103,8 @@ Any connected wallet can author a Report on a public Case that is accepting subm
 - Unpublished versions are private to you, eligible analysts, and the maintainer. Their existence is not even visible publicly.
 - Publication is never yours to decide: it requires at least 2 independent analysts with combined weight at or above 2.00 (3 and 4.00 for high-risk Cases), finalized by a REPORT_PUBLISHED Memo. You can never review your own version; the database itself rejects it.
 - Published versions are permanent. A correction is a new version; the record of what you published earlier never disappears.
+- Publication makes the exact evidence manifest the analysts approved public-safe alongside your public-safe summary, so readers see the wallets, transaction signatures and sources your finding rests on. Your restricted narrative is never published and is never returned by the anonymous API.
+- The restricted narrative accepts up to 100,000 characters and the public-safe summary up to 10,000, with a live counter on both. Over-length input is refused with the exact numbers rather than silently trimmed.
 
 If your version is selected as a Case's winning Report, two things happen: you become the payable reward recipient after sealing, and your wallet automatically becomes an analyst candidate (see section 8, Path B).
 
