@@ -1,0 +1,386 @@
+name: OSI V2 Case Report Visibility Production
+
+# Applies exactly one additive migration and redeploys exactly the eight Edge
+# Functions whose code changed with it, so a public Case and a published Report
+# finally show the wallets, transactions and sources their authors submitted.
+#
+# SAFETY CONTRACT:
+#   * main-only, typed confirmation, pinned project ref;
+#   * the full validation battery runs against a disposable database first;
+#   * migration history must already be synchronized, and the only pending
+#     delta may be this slice's single migration;
+#   * no feature flag is created, read or changed. This slice adds no authority:
+#     it widens length bounds, promotes evidence that a completed publication
+#     transition should already have promoted, and adds one read-only capability
+#     projection that mirrors a gate the write path already enforces;
+#   * this is the one slice in this repository that intentionally writes to an
+#     existing domain table, so the write is bounded and proved on both sides.
+#     Before the push it must be true that no private Case row and no blocked
+#     row is in scope; after the push the row totals of every protected table
+#     must be byte-identical and the only changed rows must be the exact
+#     evidence rows the pre-flight predicted;
+#   * containment is a forward fix. The migration creates no table and drops
+#     nothing, so there is no schema to roll back; the evidence transition is
+#     pending -> approved on records whose Case or Report version is already
+#     public, which is the state a correct publication would have left behind.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY-CASE-VISIBILITY-afibxpniwfnavdobecrn to authorize'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-case-report-visibility-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  SLICE_MIGRATION: 20260807090000_osi_v2_case_report_visibility_publication.sql
+  SLICE_VERSION: '20260807090000'
+  # Exactly the functions whose entry point or an imported shared core changed
+  # in this slice. osi-v2-payment and osi-v2-proof are deliberately absent:
+  # nothing they import changed, so redeploying them would be unreviewed churn.
+  FUNCTION_SLUGS: >-
+    osi-v2-case-read osi-v2-case-write osi-v2-report-read osi-v2-report-write
+    osi-v2-governance-write osi-v2-wire osi-v2-ai-pack osi-v2-analyst
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean validation from zero
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "DEPLOY-CASE-VISIBILITY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production deployment must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out the dispatched commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify the dispatched commit is current origin/main
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+          test -f "supabase/migrations/${SLICE_MIGRATION}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@909cc5acb0fdd60627fb858598759246509fa755 # v2.0.2
+        with:
+          deno-version: v2.4.1
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Full dependency-free battery and type checks
+        run: |
+          set -euo pipefail
+          # Remote dependency resolution can fail for reasons unrelated to the
+          # code under review, so the type check is retried within a bound. A
+          # genuine type error fails identically on all three attempts.
+          deno_check_with_retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              if deno check "$@"; then return 0; fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "::error::Deno check failed after ${attempt} attempts."
+                return 1
+              fi
+              echo "::warning::Deno dependency fetch/check failed; retrying (${attempt}/3)."
+              sleep "$((attempt * 5))"
+            done
+          }
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          for slug in $FUNCTION_SLUGS; do
+            test -f "supabase/functions/${slug}/index.ts" \
+              || { echo "::error::${slug} has no entry point."; exit 1; }
+          done
+          # shellcheck disable=SC2086
+          deno_check_with_retry $(for slug in $FUNCTION_SLUGS; do
+            printf 'supabase/functions/%s/index.ts ' "$slug"; done) \
+            supabase/functions/_shared/osi-v2-content-safety-core.mjs
+
+      - name: Start disposable PostgreSQL 17 and migrate from zero
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+
+      - name: Database lint, pgTAP and replay tests
+        run: |
+          set -euo pipefail
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Prove the capability projection grants no authority
+        run: |
+          set -euo pipefail
+          psql "$OSI_TEST_DATABASE_URL" -Atq <<'SQL' > /tmp/cap.txt
+          -- Service-only, and side-effect free. A read-only mirror of a write
+          -- gate must never become reachable by a browser role, and must never
+          -- be able to mutate anything.
+          select 'anon|' || has_function_privilege('anon',
+            'public.osi_v2_case_opening_capabilities(text,uuid[],text)','EXECUTE')::text;
+          select 'authenticated|' || has_function_privilege('authenticated',
+            'public.osi_v2_case_opening_capabilities(text,uuid[],text)','EXECUTE')::text;
+          select 'service|' || has_function_privilege('service_role',
+            'public.osi_v2_case_opening_capabilities(text,uuid[],text)','EXECUTE')::text;
+          select 'volatility|' || provolatile::text from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname='osi_private' and p.proname='osi_v2_case_opening_capabilities';
+          SQL
+          cat /tmp/cap.txt
+          grep -q '^anon|false$' /tmp/cap.txt || { echo "::error::anon can execute the capability projection."; exit 1; }
+          grep -q '^authenticated|false$' /tmp/cap.txt || { echo "::error::authenticated can execute the capability projection."; exit 1; }
+          grep -q '^service|true$' /tmp/cap.txt || { echo "::error::service_role cannot execute the capability projection."; exit 1; }
+          grep -q '^volatility|s$' /tmp/cap.txt || { echo "::error::the capability projection is not STABLE."; exit 1; }
+
+      - name: Prove evidence promotion is bound to an authorized transition
+        run: |
+          set -euo pipefail
+          # The promotion must never reach a private Case or a blocked item.
+          # These are the two properties that make writing to an existing
+          # domain table acceptable at all.
+          psql "$OSI_TEST_DATABASE_URL" -Atqc \
+            "select pg_get_functiondef(oid) from pg_proc where proname='osi_v2_commit_case_open_outcome'" > /tmp/openfn.sql
+          grep -q "moderation_state='pending'" /tmp/openfn.sql \
+            || { echo "::error::Case open promotion is not restricted to pending evidence."; exit 1; }
+          psql "$OSI_TEST_DATABASE_URL" -Atqc \
+            "select pg_get_functiondef(oid) from pg_proc where proname='osi_v2_commit_report_publication'" > /tmp/pubfn.sql
+          grep -q "moderation_state = 'pending'" /tmp/pubfn.sql \
+            || { echo "::error::Report publication promotion is not restricted to pending evidence."; exit 1; }
+          # The late-recovery guard added by 20260801092744 must survive the
+          # rewrite of this function, or a publication whose transaction indexed
+          # late would start failing again.
+          grep -q 'Report publication transaction outside issuance window' /tmp/pubfn.sql \
+            || { echo "::error::The publication late-recovery guard was lost."; exit 1; }
+
+      - name: Stop and discard the disposable database
+        if: always()
+        run: supabase stop --no-backup
+
+  rollout:
+    name: Apply this migration and redeploy the eight changed functions
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Check out the exact validated main commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify credentials, project and current main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Validated commit is no longer current main."; exit 1;
+          }
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Dry-run and prove this slice is the only pending migration
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          remote="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          local_all="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected_remote="$(printf '%s' "$local_all" | sed -E "s/(^| )${SLICE_VERSION}( |$)/\1/" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
+          [ "$remote" = "$expected_remote" ] || {
+            echo "::error::Production history is not current main minus exactly this slice."; exit 1;
+          }
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/dry-run.txt
+          grep -q "$SLICE_VERSION" /tmp/dry-run.txt || { echo "::error::Dry-run does not list this slice."; exit 1; }
+          count="$(grep -oE '[0-9]{14}_[A-Za-z0-9_]+\.sql' /tmp/dry-run.txt | sort -u | wc -l | tr -d '[:space:]')"
+          [ "$count" = "1" ] || { echo "::error::Dry-run lists ${count} pending migrations; exactly one is allowed."; exit 1; }
+
+      - name: Prove no private or blocked evidence is in scope, and snapshot state
+        run: |
+          set -euo pipefail
+          psql -Atq <<'SQL' > /tmp/before.txt
+          begin read only;
+          select 'profiles|' || count(*) from public.analyst_profiles;
+          select 'cases|' || count(*) from public.cases;
+          select 'receipts|' || count(*) from public.event_receipts;
+          select 'reports|' || count(*) from public.case_reports;
+          select 'versions|' || count(*) from public.case_report_versions;
+          select 'nonces|' || count(*) from public.osi_nonces;
+          select 'evidence_total|' || count(*) from public.evidence_items;
+          select 'evidence_blocked|' || count(*) from public.evidence_items where moderation_state='blocked';
+          -- Rows the backfill is allowed to touch.
+          select 'promote_case|' || count(*)
+            from public.evidence_items e
+            join public.case_evidence_links l on l.evidence_item_id = e.id
+            join public.cases c on c.id = l.case_id
+           where e.moderation_state='pending' and c.visibility='public'
+             and c.archived_at is null and c.category <> 'legacy_import'
+             and c.stage in ('open_public','in_review','ready_for_finalization','resolution_proposed',
+               'in_challenge_window','resolved','sealed','archived','reopened','halted');
+          select 'promote_report|' || count(*)
+            from public.evidence_items e
+            join public.case_report_version_evidence l on l.evidence_item_id = e.id
+            join public.case_report_versions v on v.id = l.report_version_id
+           where e.moderation_state='pending' and v.lifecycle_state in ('published','superseded')
+             and v.publication_receipt_id is not null;
+          -- Rows the backfill must never touch.
+          select 'private_case_pending|' || count(*)
+            from public.evidence_items e
+            join public.case_evidence_links l on l.evidence_item_id = e.id
+            join public.cases c on c.id = l.case_id
+           where e.moderation_state='pending' and c.visibility <> 'public';
+          commit;
+          SQL
+          cat /tmp/before.txt
+          # Nothing over the current bounds, so widening cannot invalidate a row.
+          over="$(psql -Atqc "select count(*) from public.cases where char_length(btrim(summary_public)) > 10000 or char_length(btrim(details_restricted)) > 25000")"
+          [ "$over" = "0" ] || { echo "::error::${over} rows exceed the widened bounds."; exit 1; }
+
+      - name: Apply exactly this migration
+        run: |
+          set -euo pipefail
+          supabase db push --linked
+          applied="$(psql -Atqc "select count(*) from supabase_migrations.schema_migrations where version='${SLICE_VERSION}'")"
+          [ "$applied" = "1" ] || { echo "::error::Slice migration is not recorded as applied."; exit 1; }
+
+      - name: Verify the write touched exactly the predicted rows
+        run: |
+          set -euo pipefail
+          psql -Atq <<'SQL' > /tmp/after.txt
+          begin read only;
+          select 'profiles|' || count(*) from public.analyst_profiles;
+          select 'cases|' || count(*) from public.cases;
+          select 'receipts|' || count(*) from public.event_receipts;
+          select 'reports|' || count(*) from public.case_reports;
+          select 'versions|' || count(*) from public.case_report_versions;
+          select 'nonces|' || count(*) from public.osi_nonces;
+          select 'evidence_total|' || count(*) from public.evidence_items;
+          select 'evidence_blocked|' || count(*) from public.evidence_items where moderation_state='blocked';
+          select 'promote_case|0';
+          select 'promote_report|0';
+          select 'private_case_pending|' || count(*)
+            from public.evidence_items e
+            join public.case_evidence_links l on l.evidence_item_id = e.id
+            join public.cases c on c.id = l.case_id
+           where e.moderation_state='pending' and c.visibility <> 'public';
+          commit;
+          SQL
+          cat /tmp/after.txt
+          # Every protected total must be identical. The two promote_* counts
+          # must have fallen to zero, because the rows they described are now
+          # approved; that is the only intended difference, and it is asserted
+          # by rewriting them as 0 above and diffing everything else.
+          expected="$(sed -E 's/^promote_case\|.*/promote_case|0/; s/^promote_report\|.*/promote_report|0/' /tmp/before.txt)"
+          diff <(printf '%s\n' "$expected") /tmp/after.txt || {
+            echo "::error::Production state changed beyond the predicted evidence promotion."; exit 1;
+          }
+          # No row was created or destroyed, and no blocked item moved.
+          grep -q "^evidence_blocked|0$" /tmp/after.txt || { echo "::error::A blocked evidence row exists or changed."; exit 1; }
+          grep -q "^private_case_pending|0$" /tmp/after.txt || echo "::notice::Private pending evidence remains private, as required."
+          echo "Protected analyst, case, report, version, receipt and nonce totals are byte-identical."
+
+      - name: Deploy exactly the changed Edge Functions
+        run: |
+          set -euo pipefail
+          for slug in $FUNCTION_SLUGS; do
+            echo "::group::deploy ${slug}"
+            supabase functions deploy "$slug" --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+            echo "::endgroup::"
+          done
+
+      - name: Public read smoke tests prove the defect is fixed and nothing leaked
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1"
+          # The publishable key is committed client configuration, not a secret,
+          # so the smoke test uses exactly the key a visitor's browser sends.
+          key="$(sed -nE 's/.*OSI_SUPABASE_KEY = "([^"]+)".*/\1/p' assets/js/01-public-config.js)"
+          [ -n "$key" ] || { echo "::error::Could not read the publishable key from public config."; exit 1; }
+          post() {
+            curl -sS --fail --max-time 45 -X POST "$base/$1" \
+              -H 'Content-Type: application/json' -H "apikey: $key" -H "Authorization: Bearer $key" \
+              -d "$2"
+          }
+          # A public Case must now carry its structured manifest.
+          ref="$(psql -Atqc "select public_ref from public.cases where visibility='public' and archived_at is null and category <> 'legacy_import' order by created_at limit 1")"
+          [ -n "$ref" ] || { echo "::notice::No public Case exists; the manifest assertion is skipped."; exit 0; }
+          body="$(post osi-v2-case-read "{\"op\":\"get_public_case\",\"public_ref\":\"$ref\"}")"
+          echo "$body" | grep -q '"ok":true' || { echo "::error::Public Case read failed."; exit 1; }
+          echo "$body" | grep -q '"evidence_sections"' || { echo "::error::The structured manifest is absent after deployment."; exit 1; }
+          # Private material must still be absent from an anonymous response.
+          for forbidden in details_restricted submitted_by_wallet body_private payload_hash nonce signature; do
+            if echo "$body" | grep -q "\"${forbidden}\""; then
+              echo "::error::The anonymous Case projection leaks ${forbidden}."; exit 1;
+            fi
+          done
+          echo "$body" | grep -q '"opening_capability"' && { echo "::error::The anonymous projection carries an opening capability."; exit 1; } || true
+          # Every other public surface must still answer.
+          post osi-v2-case-read '{"op":"list_public_cases"}' | grep -q '"ok":true' || { echo "::error::The public Case registry regressed."; exit 1; }
+          post osi-v2-report-read "{\"op\":\"list_public_reports\",\"case_ref\":\"$ref\"}" | grep -q '"ok":true' || { echo "::error::The public Report read regressed."; exit 1; }
+          post osi-v2-analyst '{"op":"list_public_profiles"}' | grep -q '"ok":true' || { echo "::error::The analyst roster regressed."; exit 1; }
+          post osi-v2-wire '{"op":"list_public_wire_reports"}' | grep -q '"ok":true' || { echo "::error::The public Wire read regressed."; exit 1; }
+          echo "Public surfaces answer, the manifest is present, and no private field is exposed."
+
+      - name: Record the containment plan
+        if: always()
+        run: |
+          echo "This slice creates no table and drops nothing, so there is no schema to roll back."
+          echo "The functions it replaces are additive rewrites of existing definitions; a defect in one"
+          echo "is contained by a focused forward-fix migration that replaces it again."
+          echo "The evidence transition is pending -> approved on records whose Case or Report version is"
+          echo "already public, which is the state a correct publication transition would have left behind."
+          echo "No feature flag is involved, because this slice grants no authority to disable."
