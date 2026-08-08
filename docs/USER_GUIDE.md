@@ -53,12 +53,10 @@ No wallet needed. You can:
 - Read published Wire Reports and published Case Report versions, including their evidence manifests with direct Solscan links.
 - See every reviewer's public identity, decision, and voting-weight snapshot on public outcomes. OSI does not anonymize public governance.
 - Open the Proof Log and verify any Memo-anchored event yourself on Solana.
-- View analyst public profiles: handle, expertise, tier, current weight, and a verified work record. Each row of that record names one public Case, Report or Wire Report the wallet worked on, what it did there, the stage that record reached, and a direct link to the mainnet transaction where the act was anchored. An outcome says where the process reached, never that a finding is true.
-- Open any profile at its own address and print it. `#analyst/<handle>` and `#maintainer` are shareable links carrying a public identifier and nothing else, and the page prints or saves as a PDF with its verification links intact, so a track record can be attached to an application without asking anyone to trust a screenshot.
-- Read the maintainer's own work record on the same terms. The operator files Cases and Reports like anyone else, and those acts are published by the same rule. Operating the deployment is not a contribution and is never counted as one.
+- View analyst public profiles: handle, expertise, tier, current weight, and contribution history.
 - Verify any wallet's analyst credential directly against Solana (see section 9), without trusting OSI at all.
 
-What you can never see: private Cases, unpublished Reports and their existence, restricted evidence, analyst private notes, or anyone's personal data. That holds on a work record too: an analyst's signed work on a Case that is still private, or on a Report that was never published, is counted in a total and deliberately not named, because naming it would announce that the private record exists. If a screen is empty, it is honestly empty; OSI never invents activity.
+What you can never see: private Cases, unpublished Reports and their existence, restricted evidence, analyst private notes, or anyone's personal data. If a screen is empty, it is honestly empty; OSI never invents activity.
 
 ## 3. Connected wallets: your first actions
 

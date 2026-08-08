@@ -125,17 +125,9 @@
     rows.forEach(function(row){profiles[String(row.wallet)]={handle:row.handle,name:row.display_name,avatar_url:trustedAvatar(row.avatar_url),status:row.status,tier_code:row.tier_code,weight:Number(row.weight||0)};weights[String(row.wallet)]=Number(row.weight||0);});
     window.VERIFIED_ANALYSTS=profiles;window.ANALYST_WEIGHT=weights;
   }
-  // The roster's work column and the profile's summary must never disagree, so
-  // both read the record's own count. A response from before the record existed
-  // falls back to the contribution list rather than showing a blank column.
-  function publicWorkCount(profile){
-    var summary=profile&&profile.record&&profile.record.summary;
-    if(summary&&typeof summary.public_entries==='number')return summary.public_entries;
-    return ((profile&&profile.contributions)||[]).length;
-  }
   function publicRow(profile){
     var expertise=(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
-    var contributions=publicWorkCount(profile);
+    var contributions=(profile.contributions||[]).length;
     var proofs=(profile.proof_history||[]).length;
     var identity=profile.handle?'@'+profile.handle:short(profile.wallet);
     return '<button class="osi-analyst-row" type="button" data-analyst-wallet="'+esc(profile.wallet)+'">'
@@ -205,7 +197,7 @@
       +'<span><b data-osi-user-content>'+esc(name)+'</b><em class="mono">'+esc(short(profile.wallet))+'</em></span></span>'
       +'<span><span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span></span>'
       +'<span class="osi-expertise-list">'+(expertise||'<em>'+esc(t('Not listed'))+'</em>')+'</span>'
-      +'<span class="mono">'+String(publicWorkCount(profile))+'</span>'
+      +'<span class="mono">'+String((profile.contributions||[]).length)+'</span>'
       +'<span class="mono osi-weight osi-weight-none">'+esc(t('None'))+'</span>'
       +'<span class="mono">'+String((profile.proof_history||[]).length)+'</span></button>';
   }
@@ -382,133 +374,6 @@
     var payment=row.payment_proof&&row.event_type==='SUPPORT_PAYMENT_CONFIRMED'?'<span>'+esc(solFromLamports(row.payment_proof.recipient_amount_lamports))+' SOL / '+esc(row.payment_proof.recipient_amount_lamports)+' lamports / '+esc(label(row.payment_proof.finality))+'</span>':'';
     return '<div class="osi-history-row"><div><b>'+esc(label(row.event_type))+'</b><span>'+esc(row.payment_proof?'SOL transfer verified on Solana':proofLabel(row.proof_type))+' / actor '+esc(label(row.actor_role))+'</span>'+payment+'</div><time>'+esc(dateText(row.occurred_at))+'</time>'+tx+'</div>';
   }
-  // ---------------------------------------------------------------------------
-  // The verified work record: the part of a profile that is a track record
-  // rather than a self-description.
-  //
-  // Every row here is the intersection of two facts the reader can check
-  // separately: a receipt this wallet signed, and the current public state of
-  // the subject it points at. So a row is never a claim about whether the
-  // analysis was right. It says a wallet did an exact thing to an exact record
-  // that anyone can open, and where the chain proof for it is.
-  // ---------------------------------------------------------------------------
-
-  // Neutral, and deliberately so. An outcome describes where the process
-  // reached, never whether a conclusion is true. "Sealed" means the challenge
-  // window closed, not that the finding is correct.
-  var OUTCOME_LABELS={
-    sealed:'Sealed record',
-    resolved:'Resolved',
-    in_challenge_window:'In challenge window',
-    resolution_proposed:'Resolution proposed',
-    in_review:'In review',
-    open:'Open investigation',
-    halted:'Halted',
-    archived:'Archived',
-    published:'Published'
-  };
-  var ROLE_LABELS={
-    author:'Author',
-    submitter:'Submitted by this wallet',
-    reviewer:'Reviewer',
-    proposer:'Proposed the resolution',
-    challenger:'Challenger'
-  };
-  function recordEntryHref(entry){
-    // A Report is read inside its Case, so both point at the one canonical
-    // shareable Case route. A Wire Report has no public per-record route yet,
-    // so it gets no link rather than a broken one.
-    var ref=String(entry&&entry.case_ref||'');
-    return /^OSI-[0-9A-Z]{6,20}$/.test(ref)?'#case/'+encodeURIComponent(ref):'';
-  }
-  function recordAct(act){
-    var tx=act.proof_type==='solana_memo'&&/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(act.tx_sig||''))
-      ?'<a class="osi-cv-act-proof" href="https://solscan.io/tx/'+encodeURIComponent(act.tx_sig)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verify on Solana'))+'</a>'
-      :'<span class="osi-cv-act-proof osi-cv-act-offchain">'+esc(t('Wallet-signed, server-verified'))+'</span>';
-    return '<li><span class="osi-cv-act-name">'+esc(label(act.event_type))+'</span>'
-      +'<time>'+esc(dateText(act.occurred_at))+'</time>'+tx+'</li>';
-  }
-  function recordEntry(entry){
-    var href=recordEntryHref(entry);
-    var ref=String(entry.public_ref||'');
-    var reference=href
-      ?'<a class="osi-cv-ref mono" href="'+esc(href)+'">'+esc(ref)+'</a>'
-      :'<span class="osi-cv-ref mono">'+esc(ref)+'</span>';
-    var outcome=String(entry.outcome||'');
-    var title=String(entry.title||'').trim();
-    return '<li class="osi-cv-entry">'
-      +'<div class="osi-cv-entry-head">'+reference
-      +'<span class="osi-cv-outcome" data-outcome="'+esc(outcome)+'">'+esc(t(OUTCOME_LABELS[outcome]||label(outcome)))+'</span></div>'
-      +(title?'<b class="osi-cv-title" data-osi-user-content>'+esc(title)+'</b>':'')
-      +'<span class="osi-cv-role">'+esc(t(ROLE_LABELS[String(entry.role||'')]||label(entry.role)))
-      +' / '+esc(t(label(entry.subject_type)))+'</span>'
-      +'<ul class="osi-cv-acts">'+(entry.acts||[]).map(recordAct).join('')+'</ul></li>';
-  }
-  function recordSummary(summary){
-    if(!summary)return '';
-    var cells=[
-      ['Public records',summary.public_entries],
-      ['Cases',summary.cases],
-      ['Sealed',summary.cases_sealed],
-      ['Reports published',summary.reports_published],
-      ['Wire published',summary.wire_reports_published],
-      ['Reviews cast',summary.reviews],
-      ['Memo-anchored acts',summary.memo_anchored_acts]
-    ];
-    return '<div class="osi-cv-summary">'+cells.map(function(cell){
-      return '<div><span>'+esc(t(cell[0]))+'</span><b class="mono">'+esc(String(Number(cell[1]||0)))+'</b></div>';
-    }).join('')+'</div>';
-  }
-  function recordSection(record){
-    record=record||{};
-    var entries=Array.isArray(record.entries)?record.entries:[];
-    var unlisted=Array.isArray(record.unlisted)?record.unlisted:[];
-    var unlistedTotal=unlisted.reduce(function(sum,row){return sum+Number(row.count||0);},0);
-    // Work whose subject is not public is stated as a number and never as a
-    // reference. Hiding it would understate the record; naming it would
-    // announce a private Case. The count is the honest middle.
-    var footnote=unlistedTotal
-      ?'<p class="osi-cv-unlisted">'+esc(unlistedTotal===1
-        ?t('One further signed act is on a subject that is not public yet. It is counted here and deliberately not named.')
-        :t('{count} further signed acts are on subjects that are not public yet. They are counted here and deliberately not named.',{count:unlistedTotal}))+'</p>'
-      :'';
-    var body=entries.length
-      ?recordSummary(record.summary)+'<ol class="osi-cv-entries">'+entries.map(recordEntry).join('')+'</ol>'
-      :empty(t('No public record yet'),t('Work appears here once the Case, Report or Wire Report it belongs to is public.'));
-    return '<section class="osi-cv-record"><h4>'+esc(t('Verified work record'))+'</h4>'
-      +'<p class="osi-cv-note">'+esc(t('Each row is a signed act on a record anyone can open. An outcome states where the process reached, never that a finding is true.'))+'</p>'
-      +body+footnote+'</section>';
-  }
-
-  // Exactly one of these ever renders.
-  //
-  // The record supersedes the old contribution list: it is the same work with
-  // the outcome and the chain proof attached. But a response that predates the
-  // record still carries contributions, and that is not hypothetical - the
-  // page deploys from main while the gateway deploys through its own reviewed
-  // workflow, so there is a real window where a new page reads an old
-  // gateway. Falling back keeps that window showing an analyst's real work
-  // instead of an empty panel, and any other consumer of this projection keeps
-  // working too.
-  //
-  // They are never shown together. Two lists of one thing that group it
-  // differently is how a page stops being believable.
-  function workSection(profile){
-    if(profile&&profile.record&&typeof profile.record==='object')return recordSection(profile.record);
-    var rows=(profile&&profile.contributions||[]).map(function(row){
-      var subject=String(row.subject_id||'');
-      return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b>'
-        +'<span data-osi-user-content>'+esc(label(row.subject_type))+' / '
-        // A public reference is what a reader looks the work up by, so it is
-        // printed whole. Only an opaque internal id is shortened.
-        +esc(/^OSI-/.test(subject)?subject:short(subject))+'</span></div>'
-        +'<time>'+esc(dateText(row.created_at))+'</time></div>';
-    }).join('');
-    return '<section><h4>'+esc(t('Public contributions'))+'</h4>'
-      +(rows||empty(t('No public contributions recorded'),t('Contribution history appears after attributable public work.')))
-      +'</section>';
-  }
-
   async function openPublicProfile(wallet,options){
     options=options||{};
     wallet=String(wallet||'');if(!wallet)return;
@@ -522,7 +387,6 @@
     // path an analyst takes: same modal, same sections, same escaping.
     var maintainer=state.maintainerProfile;
     if(maintainer&&String(maintainer.wallet)===wallet){
-      adoptProfileRoute('maintainer');
       renderProfileModal(body,maintainerModalProfile(maintainer),{maintainer:true});
       return;
     }
@@ -540,11 +404,6 @@
       body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),t('This wallet is not in the current verified analyst directory.'))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
       var missingRetry=body.querySelector('[data-profile-retry]');if(missingRetry)missingRetry.addEventListener('click',function(){openPublicProfile(wallet,{preserveReturnFocus:true});});return;
     }
-    // A profile with no public handle has no shareable address, so the page
-    // keeps the address it was already on rather than inventing one that would
-    // put a wallet in the URL.
-    var handle=String(profile.handle||'').toLowerCase();
-    if(/^[a-z0-9_]{2,32}$/.test(handle))adoptProfileRoute('analyst/'+handle);
     renderProfileModal(body,profile,{maintainer:false});
   }
 
@@ -565,7 +424,6 @@
       links:(profile.links_public||[]).slice(),
       contributions:profile.contributions||[],
       proof_history:profile.proof_history||[],
-      record:profile.record||null,
       proof_of_work_url:profile.proof_of_work_url||'',
     };
   }
@@ -583,6 +441,7 @@
     if(proofOfWork)links+='<a href="'+esc(proofOfWork)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a>';
     // A public reference is the thing a reader looks the work up by, so it is
     // printed whole. Only opaque internal ids are shortened.
+    var contributions=(profile.contributions||[]).map(function(row){var subject=String(row.subject_id||'');return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b><span data-osi-user-content>'+esc(label(row.subject_type))+' / '+esc(/^OSI-/.test(subject)?subject:short(subject))+'</span></div><time>'+esc(dateText(row.created_at))+'</time></div>';}).join('');
     var proofs=(profile.proof_history||[]).map(publicProof).join('');
     var identity=profile.handle?'@'+profile.handle:short(profile.wallet);
     var displayName=profile.display_name||profile.handle||short(profile.wallet);
@@ -604,63 +463,14 @@
       ? '<p class="osi-profile-role-note">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. What gets published is decided by independent analyst quorum.'))+'</p>'
       : '';
     var expertise=(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
-    // The shareable address for this exact profile, so the page a reader lands
-    // on is the page they can send on. A profile with no public handle keeps
-    // the wallet as its address; the maintainer has its own single route.
-    var route=profileRoute(profile,isMaintainer);
-    // Printing needs no address. Two of the three live analysts have never set
-    // a public handle, and gating the whole row on a permalink took their
-    // save-as-PDF away for a reason that has nothing to do with printing.
-    // The address is what a handle buys; the document is not.
-    var shareRow='<div class="osi-cv-share">'
-      +(route
-        ?'<a class="osi-cv-permalink mono" href="'+esc(route)+'" data-cv-permalink>'+esc(route)+'</a>'
-          +'<button class="osi-action" type="button" data-cv-copy>'+esc(t('Copy link'))+'</button>'
-        // Stated rather than left as a silent absence, and it names the exact
-        // unmet prerequisite the way every other unavailable control here does.
-        :'<span class="osi-cv-no-permalink">'+esc(t('This profile has no public handle, so it has no shareable address. A wallet is never used as one.'))+'</span>')
-      +'<button class="osi-action" type="button" data-cv-print>'+esc(t('Print or save as PDF'))+'</button>'
-      +'</div>';
     body.removeAttribute('aria-busy');
     body.innerHTML='<div class="osi-public-profile'+(isMaintainer?' osi-public-profile-maintainer':'')+'"><header>'+avatar(profile,64)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(displayName)+badge+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
-      +'<div class="osi-profile-facts">'+facts+'</div>'+role+shareRow
+      +'<div class="osi-profile-facts">'+facts+'</div>'+role
       +(expertise?'<section><h4>'+esc(t('Expertise'))+'</h4><div class="osi-tag-list">'+expertise+'</div></section>':'')
       +(links?'<section><h4>'+esc(t('Safe public links'))+'</h4><div class="osi-safe-links">'+links+'</div></section>':'')
-      +workSection(profile)
-      +'<section class="osi-cv-hide-in-print"><h4>'+esc(t('Voluntary support'))+'</h4><p>'+esc(t('Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.'))+'</p><button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">'+esc(t('Support with SOL via Phantom or Solana Pay'))+'</button></section>'
-      // Proof history stays because it carries what the work record deliberately
-      // leaves out: receipts with no public subject at all, such as the
-      // credential grant itself. The old "Public contributions" section is gone
-      // because the work record is the same facts with the outcome attached, and
-      // two lists of one thing that count it differently is how a page stops
-      // being believable.
+      +'<section><h4>'+esc(t('Voluntary support'))+'</h4><p>'+esc(t('Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.'))+'</p><button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">'+esc(t('Support with SOL via Phantom or Solana Pay'))+'</button></section>'
+      +'<section><h4>'+esc(t('Public contributions'))+'</h4>'+(contributions||empty(t('No public contributions recorded'),t('Contribution history appears after attributable public work.')))+'</section>'
       +'<section><h4>'+esc(t('Proof history'))+'</h4>'+(proofs||empty(t('No public proof recorded'),t('Verified receipts will appear here.')))+'</section></div>';
-    bindShareControls(body,route);
-  }
-
-  // A CV that cannot be sent is not a CV. These are the two things a reader
-  // does with one: copy its address, or put it in a document.
-  function profileRoute(profile,isMaintainer){
-    var origin=String(window.location.origin||'')+String(window.location.pathname||'');
-    if(isMaintainer)return origin+'#maintainer';
-    var handle=String(profile&&profile.handle||'').toLowerCase();
-    return /^[a-z0-9_]{2,32}$/.test(handle)?origin+'#analyst/'+handle:'';
-  }
-  function bindShareControls(body,route){
-    var copy=route?body.querySelector('[data-cv-copy]'):null,print=body.querySelector('[data-cv-print]');
-    // osiCopyText resolves false rather than rejecting when both the clipboard
-    // API and the execCommand fallback are refused, so the result is checked
-    // instead of assumed: a copy button that silently does nothing is worse
-    // than one that says it failed.
-    if(copy)copy.addEventListener('click',function(){
-      var report=function(copied){
-        showToast(copied?t('Profile link copied.'):t('Copy failed. Select the link and copy it manually.'));
-      };
-      if(typeof window.osiCopyText==='function')Promise.resolve(window.osiCopyText(route)).then(report,function(){report(false);});
-      else if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(route).then(function(){report(true);},function(){report(false);});
-      else report(false);
-    });
-    if(print)print.addEventListener('click',function(){window.print();});
   }
 
   function latestApplication(){return state.workspace&&state.workspace.applications&&state.workspace.applications[0]||null;}
@@ -911,108 +721,7 @@
   }
 
   var legacyCloseProfile=window.closeAnalystProfile;
-  window.closeAnalystProfile=function(){var returnFocus=state.profileReturnFocus;state.profileIntent='';state.profileReturnFocus=null;var modal=document.getElementById('ap-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}document.body.style.overflow='';clearProfileRoute();if(typeof legacyCloseProfile==='function'&&legacyCloseProfile!==window.closeAnalystProfile)legacyCloseProfile();if(returnFocus&&document.contains(returnFocus)&&typeof returnFocus.focus==='function')setTimeout(function(){returnFocus.focus();},0);};
-
-  // ---------------------------------------------------------------------------
-  // Shareable profile addresses.
-  //
-  // #analyst/<handle> and #maintainer are canonical public routes in the same
-  // sense #case/<public_ref> is: they carry a public identifier and nothing
-  // else. No wallet, no token, no nonce. A profile opened from the roster
-  // adopts its address so the thing on screen is the thing that can be sent,
-  // and a cold load of that address resolves the one profile it names rather
-  // than downloading the whole roster to find it.
-  // ---------------------------------------------------------------------------
-
-  function analystRouteHandle(hash){
-    var match=/^analyst\/([A-Za-z0-9_]{2,32})$/.exec(String(hash||''));
-    return match?match[1].toLowerCase():'';
-  }
-  function profileRouteOpen(){
-    var hash=String(window.location.hash||'').replace(/^#/,'');
-    return hash==='maintainer'||!!analystRouteHandle(hash);
-  }
-  function adoptProfileRoute(hash){
-    if(String(window.location.hash||'').replace(/^#/,'')===hash)return;
-    // replaceState, not push: opening a profile is a deeper address inside the
-    // page the reader is already on, and Back should return them to that page
-    // rather than walking back through every profile they glanced at.
-    try{window.history.replaceState({osiProfile:hash},'','#'+hash);}catch(_){}
-  }
-  // Releasing the address cannot go through osiSyncRouteForView: that function
-  // now refuses to touch a profile route, which is exactly what makes the
-  // address survive a view change, and would make it survive the close too.
-  // The hash is set here directly to the view the reader is actually on.
-  var VIEW_HASHES={registry:'home',field:'field-office',wire:'wire',records:'public-records',analysts:'analyst-network',prooflog:'proof-log',methodology:'about',identity:'identity',workspace:'workspace',admin:'admin'};
-  function clearProfileRoute(){
-    if(!profileRouteOpen())return;
-    var view=document.body&&document.body.dataset?String(document.body.dataset.view||''):'';
-    var target=VIEW_HASHES[view]||'analyst-network';
-    try{window.history.replaceState({osiView:view||'analysts'},'','#'+target);}catch(_){}
-  }
-  // The one-profile read. Used when a handle is addressed directly, so a
-  // shared link does not depend on the full roster being loadable.
-  async function openProfileByHandle(handle){
-    handle=String(handle||'').toLowerCase();
-    if(!/^[a-z0-9_]{2,32}$/.test(handle))return null;
-    var known=state.profiles.find(function(row){return String(row.handle||'').toLowerCase()===handle;});
-    if(known)return openPublicProfile(known.wallet,{route:'analyst/'+handle});
-    var body=document.getElementById('ap-modal-body'),modal=document.getElementById('ap-modal');
-    if(!body||!modal)return null;
-    state.profileIntent='handle:'+handle;
-    modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
-    body.setAttribute('aria-busy','true');
-    body.innerHTML='<div class="osi-activation-loading" role="status">'+esc(t('Loading the selected analyst profile...'))+'</div>';
-    setTimeout(function(){var close=modal.querySelector('.ap-modal-x');if(close)close.focus();},0);
-    try{
-      var request={op:'get_public_profile',handle:handle};
-      var result=typeof window.osiPublicRead==='function'
-        ? await window.osiPublicRead('osi-v2-analyst',request)
-        : await api(request);
-      if(state.profileIntent!=='handle:'+handle)return null;
-      var profile=result&&result.analyst;
-      if(!profile||!profile.wallet)throw new Error('profile_not_found');
-      // Cached so the roster and the modal agree, and so a second open of the
-      // same handle does not repeat the read.
-      if(!state.profiles.some(function(row){return String(row.wallet)===String(profile.wallet);}))state.profiles.push(profile);
-      adoptProfileRoute('analyst/'+handle);
-      renderProfileModal(body,profile,{maintainer:false});
-      return profile;
-    }catch(error){
-      if(state.profileIntent!=='handle:'+handle)return null;
-      body.removeAttribute('aria-busy');
-      body.innerHTML=empty(t('Analyst profile unavailable'),userError(error))
-        +'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
-      var retry=body.querySelector('[data-profile-retry]');
-      if(retry)retry.addEventListener('click',function(){openProfileByHandle(handle);});
-      return null;
-    }
-  }
-  function routeProfileFromLocation(){
-    var hash=String(window.location.hash||'').replace(/^#/,'');
-    if(hash==='maintainer'){
-      var maintainer=state.maintainerProfile;
-      if(maintainer&&maintainer.wallet)return openPublicProfile(maintainer.wallet,{route:'maintainer'});
-      return loadMaintainerProfile().then(function(profile){
-        if(profile&&profile.wallet&&String(window.location.hash||'').replace(/^#/,'')==='maintainer'){
-          return openPublicProfile(profile.wallet,{route:'maintainer'});
-        }
-        return null;
-      });
-    }
-    var handle=analystRouteHandle(hash);
-    if(handle)return openProfileByHandle(handle);
-    // Navigating away from a profile address closes the profile it addressed,
-    // so Back does what a reader expects instead of leaving a stale panel open.
-    var modal=document.getElementById('ap-modal');
-    if(modal&&modal.classList.contains('open')&&state.profileIntent)window.closeAnalystProfile();
-    return null;
-  }
-  window.addEventListener('popstate',routeProfileFromLocation);
-  window.addEventListener('hashchange',routeProfileFromLocation);
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',routeProfileFromLocation,{once:true});
-  else setTimeout(routeProfileFromLocation,0);
-  window.osiOpenAnalystByHandle=openProfileByHandle;
+  window.closeAnalystProfile=function(){var returnFocus=state.profileReturnFocus;state.profileIntent='';state.profileReturnFocus=null;var modal=document.getElementById('ap-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}document.body.style.overflow='';if(typeof legacyCloseProfile==='function'&&legacyCloseProfile!==window.closeAnalystProfile)legacyCloseProfile();if(returnFocus&&document.contains(returnFocus)&&typeof returnFocus.focus==='function')setTimeout(function(){returnFocus.focus();},0);};
   window.loadAnalysts=loadPublicProfiles;
   window.renderAnalysts=renderPublicProfiles;
   window.renderLeaderboard=renderPublicProfiles;
