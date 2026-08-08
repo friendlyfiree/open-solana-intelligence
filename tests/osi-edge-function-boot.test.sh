@@ -44,7 +44,20 @@ BENIGN='bufferutil|utf-8-validate|Download|Check file|^Listening'
 failed=0
 checked=0
 
-for entry in supabase/functions/*/index.ts; do
+# Finding nothing is a failure of this gate, not a pass. Without this the
+# unmatched glob is carried through literally, deno fails on a path that is not
+# a file, and the run reports BOOT FAIL for a function named "*" - a real
+# failure message about an imaginary defect, which is worse than either a clean
+# pass or an honest error.
+shopt -s nullglob
+entries=(supabase/functions/*/index.ts)
+if [ "${#entries[@]}" -eq 0 ]; then
+  printf 'BOOT GATE ERROR: no Edge Functions found under %s/supabase/functions.\n' "$root"
+  printf 'The gate proved nothing. Run it from the repository, not from a copy.\n'
+  exit 1
+fi
+
+for entry in "${entries[@]}"; do
   slug="$(basename "$(dirname "$entry")")"
   checked=$((checked + 1))
   log="$(mktemp)"
