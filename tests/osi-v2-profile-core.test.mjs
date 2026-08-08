@@ -82,5 +82,13 @@ ok("active analyst canonical handles cannot be cleared by the identity mirror",
   && edge.includes("active_analyst_handle_required"));
 ok("cross-table handle guard exists on both identity tables", migration.includes("wallet_profiles_handle_guard")
   && migration.includes("analyst_profiles_wallet_handle_guard"));
+ok("profile trigger helpers are not browser-executable but remain service-reachable",
+  ["osi_v2_guard_profile_handle()", "osi_v2_guard_wallet_profile_update()"].every((signature) =>
+    migration.includes(`revoke all on function osi_private.${signature} from public,anon,authenticated`)
+    && migration.includes(`grant execute on function osi_private.${signature} to service_role`)));
+ok("nonce rate-limit and idempotency queries qualify osi_nonces columns",
+  migration.includes("select n.* into existing")
+  && migration.includes("where n.idempotency_key=p_idempotency_key")
+  && migration.includes("n.issued_at>issued-pg_catalog.make_interval"));
 
 console.log(`passed ${passed}`);

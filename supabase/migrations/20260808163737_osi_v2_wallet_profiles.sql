@@ -189,7 +189,10 @@ begin
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('osi2-profile-idempotency:' || p_idempotency_key,0));
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('osi2-profile-wallet:' || p_actor_wallet,0));
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('osi2-profile-fingerprint:' || p_request_fingerprint_hash,0));
-  select * into existing from public.osi_nonces where idempotency_key=p_idempotency_key for update;
+  select n.* into existing
+    from public.osi_nonces as n
+   where n.idempotency_key=p_idempotency_key
+   for update;
   if found then
     if existing.purpose<>p_purpose or existing.actor_wallet<>p_actor_wallet or existing.payload_hash<>p_payload_hash or existing.target_type<>'profile' then
       raise exception 'Idempotency key is bound to another exact profile action' using errcode='23514';
@@ -209,8 +212,8 @@ begin
   if ttl not between 30 and 300 or window_s not between 60 and 3600 or wallet_max not between 1 and 100 or fingerprint_max not between 1 and 200 then
     raise exception 'Profile nonce security configuration is absent or invalid' using errcode='55000';
   end if;
-  if (select count(*) from public.osi_nonces where actor_wallet=p_actor_wallet and issued_at>issued-pg_catalog.make_interval(secs=>window_s)) >= wallet_max
-    or (select count(*) from public.osi_nonces where request_fingerprint_hash=p_request_fingerprint_hash and issued_at>issued-pg_catalog.make_interval(secs=>window_s)) >= fingerprint_max then
+  if (select count(*) from public.osi_nonces as n where n.actor_wallet=p_actor_wallet and n.issued_at>issued-pg_catalog.make_interval(secs=>window_s)) >= wallet_max
+    or (select count(*) from public.osi_nonces as n where n.request_fingerprint_hash=p_request_fingerprint_hash and n.issued_at>issued-pg_catalog.make_interval(secs=>window_s)) >= fingerprint_max then
     raise exception 'Profile nonce rate limit exceeded' using errcode='P0001';
   end if;
   insert into public.osi_nonces(nonce,purpose,actor_wallet,target_type,target_id,payload_hash,idempotency_key,issued_at,expires_at,request_fingerprint_hash,profile_target_revision)
@@ -289,6 +292,8 @@ language sql set search_path='' as $$ select * from osi_private.osi_v2_commit_wa
 revoke all on function osi_private.osi_v2_profile_writes_enabled() from public,anon,authenticated;
 revoke all on function osi_private.osi_v2_profile_ref(uuid) from public,anon,authenticated;
 revoke all on function osi_private.osi_v2_profile_avatar_url_valid(text,text,text) from public,anon,authenticated;
+revoke all on function osi_private.osi_v2_guard_profile_handle() from public,anon,authenticated;
+revoke all on function osi_private.osi_v2_guard_wallet_profile_update() from public,anon,authenticated;
 revoke all on function osi_private.osi_v2_issue_profile_nonce(text,text,text,text,text,text,text) from public,anon,authenticated;
 revoke all on function osi_private.osi_v2_commit_wallet_profile_update(text,text,text,text,text,text,text,boolean,text,text,text,text) from public,anon,authenticated;
 revoke all on function public.osi_v2_issue_profile_nonce(text,text,text,text,text,text,text) from public,anon,authenticated;
@@ -296,6 +301,8 @@ revoke all on function public.osi_v2_commit_wallet_profile_update(text,text,text
 grant execute on function osi_private.osi_v2_profile_writes_enabled() to service_role;
 grant execute on function osi_private.osi_v2_profile_ref(uuid) to service_role;
 grant execute on function osi_private.osi_v2_profile_avatar_url_valid(text,text,text) to service_role;
+grant execute on function osi_private.osi_v2_guard_profile_handle() to service_role;
+grant execute on function osi_private.osi_v2_guard_wallet_profile_update() to service_role;
 grant execute on function osi_private.osi_v2_issue_profile_nonce(text,text,text,text,text,text,text) to service_role;
 grant execute on function osi_private.osi_v2_commit_wallet_profile_update(text,text,text,text,text,text,text,boolean,text,text,text,text) to service_role;
 grant execute on function public.osi_v2_issue_profile_nonce(text,text,text,text,text,text,text) to service_role;
