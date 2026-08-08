@@ -125,9 +125,17 @@
     rows.forEach(function(row){profiles[String(row.wallet)]={handle:row.handle,name:row.display_name,avatar_url:trustedAvatar(row.avatar_url),status:row.status,tier_code:row.tier_code,weight:Number(row.weight||0)};weights[String(row.wallet)]=Number(row.weight||0);});
     window.VERIFIED_ANALYSTS=profiles;window.ANALYST_WEIGHT=weights;
   }
+  // The roster's work column and the profile's summary must never disagree, so
+  // both read the record's own count. A response from before the record existed
+  // falls back to the contribution list rather than showing a blank column.
+  function publicWorkCount(profile){
+    var summary=profile&&profile.record&&profile.record.summary;
+    if(summary&&typeof summary.public_entries==='number')return summary.public_entries;
+    return ((profile&&profile.contributions)||[]).length;
+  }
   function publicRow(profile){
     var expertise=(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
-    var contributions=(profile.contributions||[]).length;
+    var contributions=publicWorkCount(profile);
     var proofs=(profile.proof_history||[]).length;
     var identity=profile.handle?'@'+profile.handle:short(profile.wallet);
     return '<button class="osi-analyst-row" type="button" data-analyst-wallet="'+esc(profile.wallet)+'">'
@@ -197,7 +205,7 @@
       +'<span><b data-osi-user-content>'+esc(name)+'</b><em class="mono">'+esc(short(profile.wallet))+'</em></span></span>'
       +'<span><span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span></span>'
       +'<span class="osi-expertise-list">'+(expertise||'<em>'+esc(t('Not listed'))+'</em>')+'</span>'
-      +'<span class="mono">'+String((profile.contributions||[]).length)+'</span>'
+      +'<span class="mono">'+String(publicWorkCount(profile))+'</span>'
       +'<span class="mono osi-weight osi-weight-none">'+esc(t('None'))+'</span>'
       +'<span class="mono">'+String((profile.proof_history||[]).length)+'</span></button>';
   }
@@ -460,7 +468,9 @@
     // reference. Hiding it would understate the record; naming it would
     // announce a private Case. The count is the honest middle.
     var footnote=unlistedTotal
-      ?'<p class="osi-cv-unlisted">'+esc(t('{count} further signed acts are on subjects that are not public yet. They are counted here and deliberately not named.',{count:unlistedTotal}))+'</p>'
+      ?'<p class="osi-cv-unlisted">'+esc(unlistedTotal===1
+        ?t('One further signed act is on a subject that is not public yet. It is counted here and deliberately not named.')
+        :t('{count} further signed acts are on subjects that are not public yet. They are counted here and deliberately not named.',{count:unlistedTotal}))+'</p>'
       :'';
     var body=entries.length
       ?recordSummary(record.summary)+'<ol class="osi-cv-entries">'+entries.map(recordEntry).join('')+'</ol>'
@@ -544,7 +554,6 @@
     if(proofOfWork)links+='<a href="'+esc(proofOfWork)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a>';
     // A public reference is the thing a reader looks the work up by, so it is
     // printed whole. Only opaque internal ids are shortened.
-    var contributions=(profile.contributions||[]).map(function(row){var subject=String(row.subject_id||'');return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b><span data-osi-user-content>'+esc(label(row.subject_type))+' / '+esc(/^OSI-/.test(subject)?subject:short(subject))+'</span></div><time>'+esc(dateText(row.created_at))+'</time></div>';}).join('');
     var proofs=(profile.proof_history||[]).map(publicProof).join('');
     var identity=profile.handle?'@'+profile.handle:short(profile.wallet);
     var displayName=profile.display_name||profile.handle||short(profile.wallet);
@@ -584,7 +593,12 @@
       +(links?'<section><h4>'+esc(t('Safe public links'))+'</h4><div class="osi-safe-links">'+links+'</div></section>':'')
       +recordSection(profile.record)
       +'<section class="osi-cv-hide-in-print"><h4>'+esc(t('Voluntary support'))+'</h4><p>'+esc(t('Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.'))+'</p><button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">'+esc(t('Support with SOL via Phantom or Solana Pay'))+'</button></section>'
-      +'<section><h4>'+esc(t('Public contributions'))+'</h4>'+(contributions||empty(t('No public contributions recorded'),t('Contribution history appears after attributable public work.')))+'</section>'
+      // Proof history stays because it carries what the work record deliberately
+      // leaves out: receipts with no public subject at all, such as the
+      // credential grant itself. The old "Public contributions" section is gone
+      // because the work record is the same facts with the outcome attached, and
+      // two lists of one thing that count it differently is how a page stops
+      // being believable.
       +'<section><h4>'+esc(t('Proof history'))+'</h4>'+(proofs||empty(t('No public proof recorded'),t('Verified receipts will appear here.')))+'</section></div>';
     bindShareControls(body,route);
   }
@@ -890,11 +904,16 @@
     // rather than walking back through every profile they glanced at.
     try{window.history.replaceState({osiProfile:hash},'','#'+hash);}catch(_){}
   }
+  // Releasing the address cannot go through osiSyncRouteForView: that function
+  // now refuses to touch a profile route, which is exactly what makes the
+  // address survive a view change, and would make it survive the close too.
+  // The hash is set here directly to the view the reader is actually on.
+  var VIEW_HASHES={registry:'home',field:'field-office',wire:'wire',records:'public-records',analysts:'analyst-network',prooflog:'proof-log',methodology:'about',identity:'identity',workspace:'workspace',admin:'admin'};
   function clearProfileRoute(){
     if(!profileRouteOpen())return;
-    var view=document.body&&document.body.dataset?document.body.dataset.view:'';
-    if(typeof window.osiSyncRouteForView==='function')window.osiSyncRouteForView(view||'analysts');
-    else try{window.history.replaceState({},'','#analyst-network');}catch(_){}
+    var view=document.body&&document.body.dataset?String(document.body.dataset.view||''):'';
+    var target=VIEW_HASHES[view]||'analyst-network';
+    try{window.history.replaceState({osiView:view||'analysts'},'','#'+target);}catch(_){}
   }
   // The one-profile read. Used when a handle is addressed directly, so a
   // shared link does not depend on the full roster being loadable.

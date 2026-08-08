@@ -115,7 +115,7 @@ export function normalizeMaintainerProfile(input) {
 // opening a Case, publishing a Report, activating an analyst - are already
 // excluded upstream by ANALYST_CONTRIBUTION_KINDS, so running the maintainer
 // through the same builder cannot turn an act of authority into a credential.
-export function publicMaintainerProfile(row, record = null) {
+export function publicMaintainerProfile(row, record = null, proofHistory = []) {
   if (!row || typeof row !== "object") return null;
   const wallet = typeof row.wallet === "string" ? row.wallet.trim() : "";
   if (!WALLET_PATTERN.test(wallet)) return null;
@@ -123,6 +123,9 @@ export function publicMaintainerProfile(row, record = null) {
     record: record && typeof record === "object"
       ? record
       : { entries: [], summary: null, unlisted: [] },
+    // Built by the analyst core's own publicProofHistory, so the operator's
+    // receipts are labelled and redacted by exactly the rule an analyst's are.
+    proof_history: Array.isArray(proofHistory) ? proofHistory : [],
     wallet,
     display_name: typeof row.display_name === "string" && row.display_name.trim() ? row.display_name.trim() : null,
     bio: typeof row.bio === "string" && row.bio.trim() ? row.bio.trim() : null,

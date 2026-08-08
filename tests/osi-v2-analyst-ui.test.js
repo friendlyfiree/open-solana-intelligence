@@ -171,10 +171,27 @@ ok(/function adoptProfileRoute[\s\S]*?window\.history\.replaceState/.test(analys
 ok(analyst.includes("op:'get_public_profile'"),
   'a shared profile link resolves one profile instead of requiring the whole roster');
 
+// #ap-modal sits inside <main>, not at body level, so isolating the print
+// sheet by hiding the body's direct children alone printed a blank page. The
+// visibility layer is the one that must hold at any DOM depth.
 ok(css.includes('@media print')
-  && css.includes('body>#ap-modal.open{display:block!important')
+  && css.includes('body *{visibility:hidden!important')
+  && css.includes('#ap-modal.open,#ap-modal.open *{visibility:visible!important}')
+  && css.includes('#main-content>#ap-modal.open{display:block!important}')
   && css.includes('.osi-cv-hide-in-print'),
   'the profile prints as a standalone document with its interactive controls removed');
+ok(!/@media print\{[^}]*body>#ap-modal/.test(css.replace(/\s+/g, '')),
+  'print isolation does not depend on the modal being a direct child of body');
+ok(!analyst.includes("t('Public contributions')")
+  && analyst.includes("function publicWorkCount(profile)")
+  && analyst.includes('String(publicWorkCount(profile))'),
+  'public work is counted once, by the record, on both the roster and the profile');
+ok(analyst.includes("unlistedTotal===1")
+  && analyst.includes("'One further signed act is on a subject that is not public yet. It is counted here and deliberately not named.'"),
+  'the unlisted footnote is grammatical at a count of one');
+ok(/function clearProfileRoute\(\)[\s\S]*?window\.history\.replaceState/.test(analyst)
+  && !/function clearProfileRoute\(\)[\s\S]*?osiSyncRouteForView/.test(analyst),
+  'closing a profile releases its address directly, since the route sync now refuses to touch one');
 ok(css.includes(".osi-cv-act-proof[href]::after{content:' (' attr(href) ')'"),
   'a printed record keeps its verification links readable on paper');
 

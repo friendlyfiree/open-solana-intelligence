@@ -602,6 +602,49 @@ function summarize(entries) {
   return summary;
 }
 
+/**
+ * The public proof history for one wallet. Shared by the analyst and the
+ * maintainer projections so the two are computed by one rule rather than by two
+ * that can drift; the operator's receipts are receipts like anyone else's.
+ *
+ * @param {Array<Record<string,any>>} receipts
+ * @param {Map<string,any>} subjects output of indexPublicSubjects
+ */
+export function publicProofHistory(receipts = [], subjects = new Map()) {
+  const index = subjects instanceof Map ? subjects : new Map(Object.entries(subjects ?? {}));
+  return receipts.map((row) => {
+    const ref = String(row.public_ref ?? "");
+    const result = {
+      event_type: String(row.event_type ?? ""),
+      actor_wallet: String(row.actor_wallet ?? ""),
+      actor_role: String(row.actor_role ?? ""),
+      decision: row.decision == null ? null : String(row.decision),
+      proof_type: String(row.proof_type ?? ""),
+      tx_sig: row.proof_type === "solana_memo" ? String(row.tx_sig ?? "") : null,
+      occurred_at: row.occurred_at ?? null,
+      // Only a reference the reader can open is published. A receipt on a
+      // still-private subject keeps its proof and loses its pointer.
+      public_ref: index.has(ref) ? ref : null,
+      subject_type: index.has(ref) ? String(index.get(ref).subject_type) : null,
+    };
+    if (row.event_type === "SUPPORT_PAYMENT_CONFIRMED"
+        && row.proof_type === "solana_memo"
+        && /^[1-9][0-9]*$/.test(String(row.recipient_amount_lamports ?? ""))) {
+      result.memo = String(row.memo_ref ?? "");
+      result.payment_proof = {
+        recipient_amount_lamports: String(row.recipient_amount_lamports),
+        total_lamports: String(row.payment_total_lamports ?? ""),
+        target_public_ref: String(row.payment_target_public_ref ?? ""),
+        finality: String(row.payment_finality ?? ""),
+        slot: String(row.payment_slot ?? ""),
+        block_time: row.payment_block_time ?? null,
+        server_verified: true,
+      };
+    }
+    return result;
+  });
+}
+
 export function publicAnalystDto(profile, contributions = [], receipts = [], subjects = new Map()) {
   const index = subjects instanceof Map ? subjects : new Map(Object.entries(subjects ?? {}));
   // A stored contribution is still only publishable if its subject resolves.
@@ -632,36 +675,6 @@ export function publicAnalystDto(profile, contributions = [], receipts = [], sub
       ? stored
       : deriveAnalystContributions(wallet, receipts).filter((row) => index.has(String(row.subject_id ?? ""))),
     record,
-    proof_history: receipts.map((row) => {
-      const ref = String(row.public_ref ?? "");
-      const result = {
-        event_type: String(row.event_type ?? ""),
-        actor_wallet: String(row.actor_wallet ?? ""),
-        actor_role: String(row.actor_role ?? ""),
-        decision: row.decision == null ? null : String(row.decision),
-        proof_type: String(row.proof_type ?? ""),
-        tx_sig: row.proof_type === "solana_memo" ? String(row.tx_sig ?? "") : null,
-        occurred_at: row.occurred_at ?? null,
-        // Only a reference the reader can open is published. A receipt on a
-        // still-private subject keeps its proof and loses its pointer.
-        public_ref: index.has(ref) ? ref : null,
-        subject_type: index.has(ref) ? String(index.get(ref).subject_type) : null,
-      };
-      if (row.event_type === "SUPPORT_PAYMENT_CONFIRMED"
-          && row.proof_type === "solana_memo"
-          && /^[1-9][0-9]*$/.test(String(row.recipient_amount_lamports ?? ""))) {
-        result.memo = String(row.memo_ref ?? "");
-        result.payment_proof = {
-          recipient_amount_lamports: String(row.recipient_amount_lamports),
-          total_lamports: String(row.payment_total_lamports ?? ""),
-          target_public_ref: String(row.payment_target_public_ref ?? ""),
-          finality: String(row.payment_finality ?? ""),
-          slot: String(row.payment_slot ?? ""),
-          block_time: row.payment_block_time ?? null,
-          server_verified: true,
-        };
-      }
-      return result;
-    }),
+    proof_history: publicProofHistory(receipts, index),
   };
 }

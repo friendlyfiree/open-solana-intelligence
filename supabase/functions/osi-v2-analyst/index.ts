@@ -34,6 +34,7 @@ import {
   normalizeApplicationPayload,
   normalizeApplicationReview,
   publicAnalystDto,
+  publicProofHistory,
 } from "../_shared/osi-v2-analyst-core.mjs";
 import {
   maintainerGate,
@@ -897,12 +898,12 @@ async function getMaintainerProfile(): Promise<Response> {
   // so the maintainer's page published an empty history next to a wallet that
   // had really filed Cases and Reports.
   const graph = await profileGraph([row as Row]);
-  const record = buildPublicWorkRecord(
-    String(row.wallet ?? ""),
-    graph.receipts[String(row.wallet)] ?? [],
-    graph.subjects,
-  );
-  return jsonResponse(200, { ok: true, profile: publicMaintainerProfile(row, record) });
+  const receipts = graph.receipts[String(row.wallet)] ?? [];
+  const record = buildPublicWorkRecord(String(row.wallet ?? ""), receipts, graph.subjects);
+  return jsonResponse(200, {
+    ok: true,
+    profile: publicMaintainerProfile(row, record, publicProofHistory(receipts, graph.subjects)),
+  });
 }
 
 // One analyst by handle, for the shareable public profile route. Same

@@ -579,6 +579,7 @@
     'No public record yet': 'Henüz public kayıt yok',
     'Work appears here once the Case, Report or Wire Report it belongs to is public.': 'Çalışma, ait olduğu Vaka, Rapor veya Wire Raporu public olduğunda burada görünür.',
     '{count} further signed acts are on subjects that are not public yet. They are counted here and deliberately not named.': 'İmzalanmış {count} işlem daha, henüz public olmayan konular üzerinde. Burada sayılıyor ve bilerek isimlendirilmiyor.',
+    'One further signed act is on a subject that is not public yet. It is counted here and deliberately not named.': 'İmzalanmış bir işlem daha, henüz public olmayan bir konu üzerinde. Burada sayılıyor ve bilerek isimlendirilmiyor.',
     'Verify on Solana': 'Solana üzerinde doğrula',
     'Wallet-signed, server-verified': 'Cüzdanla imzalı, sunucu tarafından doğrulanmış',
     'Print or save as PDF': 'Yazdır veya PDF olarak kaydet',
