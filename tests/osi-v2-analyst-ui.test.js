@@ -190,10 +190,16 @@ ok(css.includes('@media print')
   'the profile prints as a standalone document with its interactive controls removed');
 ok(!/@media print\{[^}]*body>#ap-modal/.test(css.replace(/\s+/g, '')),
   'print isolation does not depend on the modal being a direct child of body');
-ok(!analyst.includes("t('Public contributions')")
-  && analyst.includes("function publicWorkCount(profile)")
+ok(analyst.includes("function publicWorkCount(profile)")
   && analyst.includes('String(publicWorkCount(profile))'),
   'public work is counted once, by the record, on both the roster and the profile');
+// The page deploys from main while the gateway deploys through its own
+// workflow, so a new page will read an old gateway for a window. Exactly one
+// of the two lists renders, and the older shape still shows real work.
+ok(/function workSection\(profile\)\{\s*if\(profile&&profile\.record&&typeof profile\.record==='object'\)return recordSection\(profile\.record\);/.test(analyst)
+  && analyst.includes("+workSection(profile)")
+  && (analyst.match(/recordSection\(/g) || []).length === 2,
+  'the work record supersedes the contribution list, and a response without a record still shows real work');
 ok(analyst.includes("unlistedTotal===1")
   && analyst.includes("'One further signed act is on a subject that is not public yet. It is counted here and deliberately not named.'"),
   'the unlisted footnote is grammatical at a count of one');

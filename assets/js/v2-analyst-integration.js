@@ -480,6 +480,35 @@
       +body+footnote+'</section>';
   }
 
+  // Exactly one of these ever renders.
+  //
+  // The record supersedes the old contribution list: it is the same work with
+  // the outcome and the chain proof attached. But a response that predates the
+  // record still carries contributions, and that is not hypothetical - the
+  // page deploys from main while the gateway deploys through its own reviewed
+  // workflow, so there is a real window where a new page reads an old
+  // gateway. Falling back keeps that window showing an analyst's real work
+  // instead of an empty panel, and any other consumer of this projection keeps
+  // working too.
+  //
+  // They are never shown together. Two lists of one thing that group it
+  // differently is how a page stops being believable.
+  function workSection(profile){
+    if(profile&&profile.record&&typeof profile.record==='object')return recordSection(profile.record);
+    var rows=(profile&&profile.contributions||[]).map(function(row){
+      var subject=String(row.subject_id||'');
+      return '<div class="osi-history-row"><div><b>'+esc(label(row.kind))+'</b>'
+        +'<span data-osi-user-content>'+esc(label(row.subject_type))+' / '
+        // A public reference is what a reader looks the work up by, so it is
+        // printed whole. Only an opaque internal id is shortened.
+        +esc(/^OSI-/.test(subject)?subject:short(subject))+'</span></div>'
+        +'<time>'+esc(dateText(row.created_at))+'</time></div>';
+    }).join('');
+    return '<section><h4>'+esc(t('Public contributions'))+'</h4>'
+      +(rows||empty(t('No public contributions recorded'),t('Contribution history appears after attributable public work.')))
+      +'</section>';
+  }
+
   async function openPublicProfile(wallet,options){
     options=options||{};
     wallet=String(wallet||'');if(!wallet)return;
@@ -597,7 +626,7 @@
       +'<div class="osi-profile-facts">'+facts+'</div>'+role+shareRow
       +(expertise?'<section><h4>'+esc(t('Expertise'))+'</h4><div class="osi-tag-list">'+expertise+'</div></section>':'')
       +(links?'<section><h4>'+esc(t('Safe public links'))+'</h4><div class="osi-safe-links">'+links+'</div></section>':'')
-      +recordSection(profile.record)
+      +workSection(profile)
       +'<section class="osi-cv-hide-in-print"><h4>'+esc(t('Voluntary support'))+'</h4><p>'+esc(t('Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.'))+'</p><button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">'+esc(t('Support with SOL via Phantom or Solana Pay'))+'</button></section>'
       // Proof history stays because it carries what the work record deliberately
       // leaves out: receipts with no public subject at all, such as the
