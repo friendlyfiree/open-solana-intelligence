@@ -26,15 +26,12 @@ import {
 } from "../_shared/osi-v2-case-read-core.mjs";
 import {
   analystProbationPayload,
-  buildPublicWorkRecord,
   canonicalAnalystEventMessage,
   exactAnalystEventMessage,
-  indexPublicSubjects,
   inspectProfileImage,
   normalizeApplicationPayload,
   normalizeApplicationReview,
   publicAnalystDto,
-  publicProofHistory,
 } from "../_shared/osi-v2-analyst-core.mjs";
 import {
   maintainerGate,
@@ -771,109 +768,7 @@ async function profileGraph(profiles: Row[]) {
       });
     }
   }
-  const subjects = await publicSubjectIndex(Object.values(receipts).flat());
-  return { contributions, receipts, subjects };
-}
-
-// The public state of every subject these receipts point at, so the profile can
-// say how the work ended and can refuse to name anything a reader cannot open.
-//
-// Read with service role and then narrowed by indexPublicSubjects, rather than
-// filtered in SQL, because the public test is a product rule that belongs in one
-// tested place next to the rule it mirrors.
-async function publicSubjectIndex(rows: Row[]) {
-  const refs = [...new Set(rows.map((row) => String(row.public_ref ?? "")).filter(Boolean))];
-  if (!refs.length) return indexPublicSubjects({});
-  // A legacy import carries the same OSI- shape with a longer body. It is
-  // matched here and refused by indexPublicSubjects on its category, so the
-  // decision about what is public stays in exactly one tested place.
-  const caseRefs = refs.filter((ref) => /^OSI-[0-9A-F]{12,20}$/.test(ref));
-  const reportRefs = refs.filter((ref) => /^OSI-RPT-[0-9A-F]{12}$/.test(ref));
-  const wireRefs = refs.filter((ref) => /^OSI-WR-[0-9A-F]{12}$/.test(ref));
-  // A review names the exact version it judged, so these resolve to their
-  // parent header before the parent's own publication test decides anything.
-  const reportVersionRefs = refs.filter((ref) => /^OSI-RV-[0-9A-F]{16}$/.test(ref));
-  const wireVersionRefs = refs.filter((ref) => /^OSI-WV-[0-9A-F]{16}$/.test(ref));
-  const [{ data: reportVersions }, { data: wireVersions }] = await Promise.all([
-    reportVersionRefs.length
-      ? admin.from("case_report_versions").select("version_ref,report_id")
-        .in("version_ref", reportVersionRefs).limit(400)
-      : Promise.resolve({ data: [] as Row[] }),
-    wireVersionRefs.length
-      ? admin.from("wire_report_versions").select("version_ref,wire_report_id")
-        .in("version_ref", wireVersionRefs).limit(400)
-      : Promise.resolve({ data: [] as Row[] }),
-  ]);
-  const reportIds = [...new Set((reportVersions ?? []).map((row) => String(row.report_id)))];
-  const wireIds = [...new Set((wireVersions ?? []).map((row) => String(row.wire_report_id)))];
-  const [{ data: cases }, { data: reportsByRef }, { data: reportsById }, { data: wiresByRef }, { data: wiresById }] =
-    await Promise.all([
-      caseRefs.length
-        ? admin.from("cases")
-          .select("id,public_ref,title,stage,visibility,category,archived_at,sealed_at,updated_at")
-          .in("public_ref", caseRefs).limit(400)
-        : Promise.resolve({ data: [] as Row[] }),
-      reportRefs.length
-        ? admin.from("case_reports")
-          .select("id,public_ref,case_id,status,current_published_version_id,updated_at")
-          .in("public_ref", reportRefs).limit(400)
-        : Promise.resolve({ data: [] as Row[] }),
-      reportIds.length
-        ? admin.from("case_reports")
-          .select("id,public_ref,case_id,status,current_published_version_id,updated_at")
-          .in("id", reportIds).limit(400)
-        : Promise.resolve({ data: [] as Row[] }),
-      wireRefs.length
-        ? admin.from("wire_reports")
-          .select("id,public_ref,status,current_published_version_id,updated_at")
-          .in("public_ref", wireRefs).limit(400)
-        : Promise.resolve({ data: [] as Row[] }),
-      wireIds.length
-        ? admin.from("wire_reports")
-          .select("id,public_ref,status,current_published_version_id,updated_at")
-          .in("id", wireIds).limit(400)
-        : Promise.resolve({ data: [] as Row[] }),
-    ]);
-  const reports = dedupeById([...(reportsByRef ?? []), ...(reportsById ?? [])]);
-  const wires = dedupeById([...(wiresByRef ?? []), ...(wiresById ?? [])]);
-  // A reviewed Report belongs to a Case the receipts may never mention, so its
-  // parent is loaded too. Without it a published Report resolves to no public
-  // parent and the reviewer's work disappears.
-  const parentCaseIds = [...new Set(reports.map((row) => String(row.case_id)).filter(Boolean))];
-  const knownCaseIds = new Set((cases ?? []).map((row) => String(row.id)));
-  const missingCaseIds = parentCaseIds.filter((id) => !knownCaseIds.has(id));
-  const { data: parentCases } = missingCaseIds.length
-    ? await admin.from("cases")
-      .select("id,public_ref,title,stage,visibility,category,archived_at,sealed_at,updated_at")
-      .in("id", missingCaseIds).limit(400)
-    : { data: [] as Row[] };
-  // A published Wire's public title lives on its published version, not on the
-  // header, so it is read only for the wires that are actually published.
-  const publishedWires = wires.filter((row) => row.current_published_version_id != null);
-  const publishedVersionIds = publishedWires.map((row) => String(row.current_published_version_id));
-  const { data: publishedWireVersions } = publishedVersionIds.length
-    ? await admin.from("wire_report_versions").select("id,title_public_safe")
-      .in("id", publishedVersionIds).limit(400)
-    : { data: [] as Row[] };
-  const titleByVersion = new Map(
-    (publishedWireVersions ?? []).map((row) => [String(row.id), String(row.title_public_safe ?? "")]),
-  );
-  return indexPublicSubjects({
-    cases: [...(cases ?? []), ...(parentCases ?? [])],
-    reports,
-    wires: publishedWires.map((row) => ({
-      ...row,
-      title: titleByVersion.get(String(row.current_published_version_id)) ?? "",
-    })),
-    reportVersions: reportVersions ?? [],
-    wireVersions: wireVersions ?? [],
-  });
-}
-
-function dedupeById(rows: Row[]): Row[] {
-  const byId = new Map<string, Row>();
-  for (const row of rows) byId.set(String(row.id), row);
-  return [...byId.values()];
+  return { contributions, receipts };
 }
 
 const PROFILE_COLS = "wallet,handle,display_name,bio,avatar_url,expertise_public,links_public,status,tier_code,weight_cached,created_at,updated_at";
@@ -891,51 +786,7 @@ async function getMaintainerProfile(): Promise<Response> {
   if (error) return jsonResponse(503, { ok: false, error: "maintainer_profile_unavailable" });
   // No row is an honest empty state, not an error: the deployment simply has
   // no published operator identity yet.
-  const row = data?.[0];
-  if (!row) return jsonResponse(200, { ok: true, profile: null });
-  // The operator's own public work, built by the same rule an analyst page
-  // uses. The interface asked for this record before the endpoint returned one,
-  // so the maintainer's page published an empty history next to a wallet that
-  // had really filed Cases and Reports.
-  const graph = await profileGraph([row as Row]);
-  const receipts = graph.receipts[String(row.wallet)] ?? [];
-  const record = buildPublicWorkRecord(String(row.wallet ?? ""), receipts, graph.subjects);
-  return jsonResponse(200, {
-    ok: true,
-    profile: publicMaintainerProfile(row, record, publicProofHistory(receipts, graph.subjects)),
-  });
-}
-
-// One analyst by handle, for the shareable public profile route. Same
-// projection listPublicProfiles uses, same eligibility filter, one row: a page
-// addressed by handle should not have to download the whole roster to render.
-async function getPublicProfile(body: Row): Promise<Response> {
-  // Handles are stored lowercase by normalizeApplicationPayload, which is the
-  // only path that writes one, so an exact match is correct and avoids giving a
-  // handle's underscores their LIKE meaning.
-  const handle = safeText(body.handle).toLowerCase();
-  if (!/^[a-z0-9_]{2,32}$/.test(handle)) {
-    return jsonResponse(400, { ok: false, error: "bad_handle" });
-  }
-  const { data, error } = await admin.from("analyst_profiles").select(PROFILE_COLS)
-    .in("status", PUBLIC_PROFILE_STATUSES).eq("verified", true).eq("approved", true)
-    .eq("handle", handle).limit(1);
-  if (error) return jsonResponse(503, { ok: false, error: "public_profiles_unavailable" });
-  const profile = data?.[0];
-  // An unknown handle and a handle whose profile is not publicly eligible are
-  // one answer on purpose. Distinguishing them would turn this endpoint into a
-  // way to enumerate pending or revoked analysts.
-  if (!profile) return jsonResponse(404, { ok: false, error: "profile_not_found" });
-  const graph = await profileGraph([profile]);
-  return jsonResponse(200, {
-    ok: true,
-    analyst: publicAnalystDto(
-      profile,
-      graph.contributions[String(profile.wallet)] ?? [],
-      graph.receipts[String(profile.wallet)] ?? [],
-      graph.subjects,
-    ),
-  });
+  return jsonResponse(200, { ok: true, profile: publicMaintainerProfile(data?.[0]) });
 }
 
 async function saveMaintainerProfile(req: Request, body: Row): Promise<Response> {
@@ -991,10 +842,7 @@ async function listPublicProfiles(): Promise<Response> {
   return jsonResponse(200, {
     ok: true,
     analysts: (data ?? []).map((profile) => publicAnalystDto(
-      profile,
-      graph.contributions[String(profile.wallet)] ?? [],
-      graph.receipts[String(profile.wallet)] ?? [],
-      graph.subjects,
+      profile, graph.contributions[String(profile.wallet)] ?? [], graph.receipts[String(profile.wallet)] ?? [],
     )),
   });
 }
@@ -1178,7 +1026,6 @@ serve(async (req: Request): Promise<Response> => {
 
   switch (body.op) {
     case "list_public_profiles": return await listPublicProfiles();
-    case "get_public_profile": return await getPublicProfile(body);
     case "get_maintainer_profile": return await getMaintainerProfile();
     case "save_maintainer_profile": return await saveMaintainerProfile(req, body);
     case "issue_read_challenge": return await issueReadChallenge(req, body);
