@@ -52,6 +52,7 @@ Concretely, three things in this repository are reusable by other Solana teams t
 | Analyst onboarding with on-chain SAS credentials and public verifier | Live |
 | SAS credential enforcement in governance weight | Live |
 | Shared private read session (30-minute inactivity window, 8-hour absolute lifetime) | Live |
+| Owner-controlled wallet profiles and explicit public Case attribution | Live |
 | Bootstrap governance (transparent, self-decaying cold-start mode) | Live |
 | Maintainer-only AI Pack: private evidence-bound operational drafts | Live, private |
 | Public AI Pack review, approval, and discovery | Not launched |

@@ -65,7 +65,7 @@ Operational flag and dormant-surface classification:
 - The frontend is static HTML, modular CSS, and classic JavaScript.
 - The repository has no package-manager manifest or frontend build step.
 - Supabase PostgreSQL and Edge Functions provide the backend.
-- Production migration history was observed additive through `20260808153040_remove_private_wire_fields_from_public_rpc.sql` after the successful Wire privacy rollout on 2026-08-08. The repository also contains the later additive wallet-profile migration `20260808163737_osi_v2_wallet_profiles.sql`; it is not production-live until its dedicated reviewed workflow proves the exact one-file delta. Every production delivery must re-read both histories and accept only its exact reviewed delta.
+- Production migration history was observed additive through `20260808163737_osi_v2_wallet_profiles.sql` after the successful wallet-profile rollout on 2026-08-08. That reviewed workflow proved the exact one-file delta, deployed only `osi-v2-profile` and `osi-v2-case-read`, and enabled only `OSI_V2_PROFILE_WRITES_ENABLED`. Every production delivery must re-read both histories and accept only its exact reviewed delta.
 - The deployed V2 slices cover schema, integrity guards, default deny, Stage-5 proofs, legacy materialization, complete Case initial review including normal rejection and owner appeal, Report/Wire lifecycles, governance, native SOL payments, read sessions, SAS issuance/enforcement, and AI Pack foundations.
 - Production Case, Report, Wire, analyst, governance, proof, payment, and read functions are reachable behind their dedicated gates.
 - The mature production shell responds successfully.
@@ -278,7 +278,7 @@ Operational flag and dormant-surface classification:
 - Owner writes bind a single-use nonce to the profile UUID and exact current revision, consume it in the same transaction as the receipt and profile revision, and are disabled by default with `OSI_V2_PROFILE_WRITES_ENABLED=false`.
 - Existing analyst identity remains an owner-only fallback until a wallet profile is created. Only identity fields mirror to an existing analyst record; authority fields are outside the profile contract.
 - Avatar replacement/removal advances the profile reference but retains older immutable content-addressed objects; Storage deletion is not atomic with the receipt transaction. The UI slice must disclose that a previously shared public avatar URL may remain reachable. A retention cleanup job is deferred rather than hidden in the owner write.
-- Public profile and Case-attribution UI/read integration ship in this reviewed slice. They must not be described as production-live before the dedicated migration/function workflow, frontend deployment and role/privacy smoke verification all pass.
+- Public profile and Case-attribution UI/read integration are production-live. The dedicated migration/function workflow, Vercel deployment and independent role/privacy smoke all passed on 2026-08-08; the smoke observed zero profile backfill and therefore neutral `Community submitter` fallbacks for the three existing public Cases.
 
 - Soak the server-bound Solana Pay single-recipient path; retain Phantom for atomic multi-recipient support.
 - Keep broad V2 write/proof/schema flags false while dedicated production slices remain independently gated.
