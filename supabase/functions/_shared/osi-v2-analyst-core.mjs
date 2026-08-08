@@ -406,7 +406,13 @@ const ROLE_RANK = Object.freeze({ author: 4, submitter: 3, proposer: 2, challeng
  * regression suite. The caller supplies rows already read with service role;
  * this function decides what a public reader is allowed to be told about them.
  *
- * @param {{cases?:Array<Record<string,any>>, reports?:Array<Record<string,any>>, wires?:Array<Record<string,any>>}} rows
+ * @param {{
+ *   cases?:Array<Record<string,any>>,
+ *   reports?:Array<Record<string,any>>,
+ *   wires?:Array<Record<string,any>>,
+ *   reportVersions?:Array<Record<string,any>>,
+ *   wireVersions?:Array<Record<string,any>>
+ * }} rows
  * @returns {Map<string,{public_ref:string,subject_type:string,title:string,outcome:string,outcome_at:any,case_ref:string}>}
  */
 export function indexPublicSubjects(rows = {}) {

@@ -115,6 +115,11 @@ export function normalizeMaintainerProfile(input) {
 // opening a Case, publishing a Report, activating an analyst - are already
 // excluded upstream by ANALYST_CONTRIBUTION_KINDS, so running the maintainer
 // through the same builder cannot turn an act of authority into a credential.
+/**
+ * @param {Record<string,any>|null|undefined} row
+ * @param {{entries:Array<Record<string,any>>,summary:Record<string,any>|null,unlisted:Array<Record<string,any>>}|null} [record]
+ * @param {Array<Record<string,any>>} [proofHistory]
+ */
 export function publicMaintainerProfile(row, record = null, proofHistory = []) {
   if (!row || typeof row !== "object") return null;
   const wallet = typeof row.wallet === "string" ? row.wallet.trim() : "";
