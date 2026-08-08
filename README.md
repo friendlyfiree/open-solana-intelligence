@@ -61,7 +61,7 @@ Concretely, three things in this repository are reusable by other Solana teams t
 
 The platform is deployed and open for its first Cases. The network is at its honest cold start.
 
-As of 2026-08-04: **2 public Cases, 1 published Case Report, 0 published Wire Reports, 2 probationary analysts, 0 seals, 0 publications through an independent analyst quorum.** The single published Report went out through the transparently labeled maintainer bootstrap channel, which is visible on chain as `r=maintainer` in its `REPORT_PUBLISHED` memo.
+As of 2026-08-08: **3 public Cases, 1 published Case Report, 0 published Wire Reports, 3 probationary analysts, 0 seals, 0 publications through an independent analyst quorum, and 0 Cases opened by an independent analyst.** The single published Report went out through the transparently labeled maintainer bootstrap channel, which is visible on chain as `r=maintainer` in its `REPORT_PUBLISHED` memo. All three Cases were opened on the full-maintainer approve-open path, and each of those receipts records `actor_role='maintainer'`.
 
 That is stated up front rather than buried, because a project whose product is verifiable public record does not get to describe its own adoption in adjectives. The full breakdown, including what would have to change for those numbers to mean something, is in [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md), and every figure in it is reproducible from the public endpoints in [docs/VERIFY.md](docs/VERIFY.md).
 
