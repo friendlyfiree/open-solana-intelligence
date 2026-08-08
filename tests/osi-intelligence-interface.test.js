@@ -9,6 +9,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const index = read('index.html');
 const baseCss = read('assets/css/00-theme-base.css');
 const css = read('assets/css/70-intelligence-redesign.css');
+const sectionsCss = read('assets/css/20-sections.css');
 const shell = read('assets/js/94-navigation-shell.js');
 const signal = read('assets/js/95-signal-interactions.js');
 const routeStyles = read('assets/js/02-route-styles.js');
@@ -110,6 +111,14 @@ for (const state of ['WALLET_SIGNED', 'REVIEW_QUORUM', 'CHALLENGE_WINDOW', 'MEMO
 ok(css.includes('@media (prefers-reduced-motion: reduce)'), 'reduced-motion behavior is defined');
 ok(css.includes('@media (max-width: 390px)'), '390px mobile layout is explicitly covered');
 ok(/@media \(max-width: 980px\)[\s\S]*?\.fb-btn\s*\{\s*display:\s*none !important/.test(css), 'mobile and tablet content are not obscured by the duplicate floating Feedback control');
+ok(/@media \(max-width: 980px\)[\s\S]*?\.osi-platform-menu\s*\{[\s\S]*?max-height:\s*none;[\s\S]*?overflow-y:\s*visible/.test(css), 'mobile Platform navigation uses the drawer scroll instead of a nested scrollbar');
+ok(/\.ap-modal-x\{[^}]*width:44px;[^}]*height:44px/.test(sectionsCss), 'analyst profile close control preserves a 44px touch target');
+ok(/\.cr-copy\{[^}]*min-width:40px;[^}]*min-height:40px/.test(sectionsCss)
+  && /#prooflog \.plc-copy\{[^}]*min-width:40px;[^}]*min-height:40px/.test(sectionsCss),
+  'public record and Proof Log copy controls preserve 40px touch targets');
+ok(index.includes('<button type="button" onclick="copyContact(event)" aria-label="Copy feedback contact email">Feedback</button>')
+  && index.includes('<button class="fb-btn" type="button" onclick="copyContact(event)" aria-label="Copy feedback contact email"'),
+  'Feedback copy actions use button semantics and identify their effect');
 ok(/\.osi-brand\s*\{[\s\S]*?min-height:\s*44px/.test(css)
   && /\.osi-language-control\s*\{[\s\S]*?min-height:\s*44px/.test(css)
   && /\.osi-language-control select\s*\{[\s\S]*?min-height:\s*44px/.test(css)

@@ -110,7 +110,7 @@ ok(`every table the guide tells a reader to probe actually exists (${denyTables.
   && (undeclared.length === 0
     || assert.fail(`the guide names tables that are not in the schema: ${undeclared.join(", ")}`)));
 
-// The frozen V1 tables answer 200 with an empty array. Putting one of them in a
+// The frozen V1 tables retain compatibility reads. Putting one of them in a
 // list captioned "expect 401 on all of these" would manufacture a false
 // failure in the reader's terminal.
 const V1_LEGACY_TABLES = ["reports", "analysts", "profiles", "vouches", "requests", "bounty_boosts", "config"];
@@ -120,6 +120,9 @@ ok("the default-deny loop contains no frozen V1 table that would answer 200",
 ok("the guide warns about the V1 tables that do answer 200, rather than leaving them to surprise a reader",
   V1_LEGACY_TABLES.every((name) => new RegExp(`\`${name}\``).test(verifyGuide))
   && /looks like a failure and is not/i.test(verifyGuide));
+ok("the guide records the non-empty legacy config exception instead of claiming every V1 table is empty",
+  /`config` retained two non-secret compatibility rows/.test(verifyGuide)
+  && !/they hold no rows/.test(verifyGuide));
 
 // 3. The track record's counts equal the evidence listed under them.
 const proofOfWork = read("docs/PROOF_OF_WORK.md");
@@ -148,6 +151,38 @@ ok("the Turkish README carries the same network statement",
   && readmeTr.includes("docs/NETWORK_STATUS.md"));
 ok("network status records the bootstrap channel rather than hiding it",
   /maintainer_bootstrap/.test(read("docs/NETWORK_STATUS.md")));
+const networkStatus = read("docs/NETWORK_STATUS.md");
+ok("the dated public network snapshot matches the reproduced 2026-08-08 counts",
+  networkStatus.includes("**Observed:** 2026-08-08")
+  && /\| Public Cases \| 3 \|/.test(networkStatus)
+  && /\| Published Case Reports \| 1 \|/.test(networkStatus)
+  && /\| Published Wire Reports \| 0 \|/.test(networkStatus)
+  && /\| Analysts with an active profile \| 3 \|/.test(networkStatus)
+  && /All three live analysts/.test(networkStatus));
+ok("both READMEs carry the current bounded private-read session lifetime",
+  /30-minute inactivity window, 8-hour absolute lifetime/.test(readme)
+  && /30 dakika hareketsizlik, 8 saat mutlak ömür/.test(readmeTr)
+  && !/one signature per 5 minutes/.test(readme)
+  && !/5 dakikada bir imza/.test(readmeTr));
+
+// 4b. Public proof copy must preserve the transport boundary. A wallet
+// signature is attributable proof, but it is not a mainnet transaction.
+const userGuide = read("docs/USER_GUIDE.md");
+const securityPolicy = read("SECURITY.md");
+ok("the README opening distinguishes wallet signatures from Memo anchoring",
+  /Actor-authored writes are wallet-signed and server-verified/.test(readme)
+  && /public governance outcomes are anchored to Solana mainnet/.test(readme)
+  && !/Every meaningful action[^\n]+anchored to Solana mainnet/.test(readme));
+ok("the public work guide never invents a chain link for a wallet-signed review",
+  /wallet-signed reviews remain explicitly off-chain/.test(userGuide)
+  && /carry no invented block-explorer link/.test(userGuide));
+ok("continuity copy distinguishes durable governance proof from record storage",
+  /The governance proof/.test(securityPolicy)
+  && /a Memo is provenance, not a content backup/.test(securityPolicy)
+  && /Public record bodies still depend on the deployed database/.test(readme));
+ok("the V2 blueprint index describes the running implementation rather than a design-only stage",
+  /accepted constitutional and technical baseline for the\s+running V2 system/.test(read("docs/OSI_V2_README.md"))
+  && !/Nothing here is implemented/.test(read("docs/OSI_V2_README.md")));
 
 // 5. The two entry points stay reachable from each other.
 ok("English and Turkish entry points cross-link",

@@ -262,7 +262,10 @@
   }
   function dateText(value){
     var date=new Date(value||'');
-    return isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+    var selected=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'
+      ?window.OSI_I18N.getLocale():(typeof document!=='undefined'&&document.documentElement?document.documentElement.lang:'');
+    var locale=String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US';
+    return isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short'});
   }
   function countdownText(value){
     var end=new Date(value||'').getTime();if(!Number.isFinite(end))return'Window unavailable';

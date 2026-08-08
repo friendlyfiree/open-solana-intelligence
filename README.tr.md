@@ -2,7 +2,7 @@
 
 **Solana ekosistemi için açık, cüzdan imzalı, toplulukça incelenen bir istihbarat masası.**
 
-OSI, kamuya açık zincir üstü ve açık kaynak delilleri; kime ait olduğu belli, itiraz edilebilir ve doğrulanabilir olay kayıtlarına dönüştürür. Anlamlı her eylem gerçek bir cüzdanla imzalanır, bağımsız analistlerce incelenir, Solana mainnet'e çapalanır ve herkes tarafından kalıcı olarak denetlenebilir.
+OSI, kamuya açık zincir üstü ve açık kaynak delilleri; kime ait olduğu belli, itiraz edilebilir ve doğrulanabilir olay kayıtlarına dönüştürür. Kullanıcı eylemleri cüzdanla imzalanıp sunucuda doğrulanır; kamusal yönetişim sonuçları Solana mainnet'e çapalanır. Standart yayımlama yolu bağımsız analist yeter sayısıdır; anayasal olarak sınırlı soğuk başlangıç sonuçları ise kalıcı biçimde sürdürücü başlangıcı olarak etiketlenir.
 
 **Canlı:** https://open-solana-intel.vercel.app
 **Kendin doğrula:** [docs/VERIFY.md](docs/VERIFY.md) · **Gerçek ağ büyüklüğü:** [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) · **Bunu kim geliştiriyor:** [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md)
@@ -51,17 +51,17 @@ Somut olarak, bu depoda üç şey OSI'den bağımsız şekilde bugün diğer Sol
 | The Wire: bağımsız istihbarat yayımlama şeridi | Canlı |
 | Zincir üstü SAS kimlik bilgisi ve kamusal doğrulayıcı ile analist kaydı | Canlı |
 | Yönetişim ağırlığında SAS kimlik bilgisi zorunluluğu | Canlı |
-| Paylaşımlı gizli okuma oturumu (5 dakikada bir imza) | Canlı |
+| Paylaşımlı gizli okuma oturumu (30 dakika hareketsizlik, 8 saat mutlak ömür) | Canlı |
 | Başlangıç (bootstrap) yönetişimi: şeffaf, kendi kendini söndüren soğuk başlangıç modu | Canlı |
 | Yalnızca sürdürücüye açık AI Pack: delile bağlı özel operasyonel taslaklar | Canlı, özel |
 | Kamusal AI Pack incelemesi, onayı ve keşfi | Başlatılmadı |
-| Memo çapalı kamusal kayıt bağlantıları | Geliştirme aşamasında |
+| Memo çapalı tarafsız kamusal kayıt referansları | Canlı |
 
 ## Ağın gerçekte nerede olduğu
 
 Platform yayında ve ilk vakalarına açık. Ağ ise dürüst bir soğuk başlangıçta.
 
-2026-08-04 itibarıyla: **2 kamuya açık Vaka, 1 yayımlanmış Vaka Raporu, 0 yayımlanmış Wire Raporu, 2 deneme süreli analist, 0 mühür, bağımsız analist yeter sayısı ile 0 yayımlama.** Yayımlanmış tek Rapor, şeffaf şekilde etiketlenmiş sürdürücü başlangıç kanalından çıktı; bu, `REPORT_PUBLISHED` memo'sunda `r=maintainer` olarak zincir üstünde görülebiliyor.
+2026-08-08 itibarıyla: **3 kamuya açık Vaka, 1 yayımlanmış Vaka Raporu, 0 yayımlanmış Wire Raporu, 3 deneme süreli analist, 0 mühür, bağımsız analist yeter sayısı ile 0 yayımlama.** Yayımlanmış tek Rapor, şeffaf şekilde etiketlenmiş sürdürücü başlangıç kanalından çıktı; bu, `REPORT_PUBLISHED` memo'sunda `r=maintainer` olarak zincir üstünde görülebiliyor.
 
 Bu bilgi gizlenmek yerine en başta veriliyor, çünkü ürünü doğrulanabilir kamusal kayıt olan bir proje kendi benimsenmesini sıfatlarla anlatamaz. Tam döküm ve bu sayıların anlam kazanması için nelerin değişmesi gerektiği [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) içinde; oradaki her rakam [docs/VERIFY.md](docs/VERIFY.md) bölüm 5'teki kamusal uçlardan yeniden üretilebilir.
 
@@ -114,7 +114,7 @@ Yukarıdaki her ok, bir cüzdan imzası veya onaylanmış bir Solana Memo işlem
 
 **Field Office** soruşturma önceliklidir. Bir Vaka, bir soru veya olayla başlar, genelde bir sahibi vardır, isteğe bağlı bir ödül taahhüdü taşır ve mühürlenmiş, itiraz edilebilir bir kamusal kayıtla biter.
 
-**The Wire** bulgu önceliklidir. Bağlı herhangi bir cüzdan bağımsız istihbarat yayımlayabilir: cüzdan kümeleri, fon akışı analizleri, hazine araştırması, kamusal iddiaların doğrulanması. Mağdur veya açık bir Vaka gerekmez. Wire Raporları da aynı değiştirilemez sürümleme ve bağımsız inceleme sürecinden geçer; yayımlanan bir bulgu, daha derin soruşturmayı hak ettiğinde tam bir Vakaya yükseltilebilir.
+**The Wire** bulgu önceliklidir. Bağlı herhangi bir cüzdan bağımsız istihbarat gönderebilir: cüzdan kümeleri, fon akışı analizleri, hazine araştırması, kamusal iddiaların doğrulanması. Mağdur veya açık bir Vaka gerekmez. Wire Raporları da aynı değiştirilemez sürümleme ve bağımsız inceleme sürecinden geçer; yayımlanan bir bulgu, daha derin soruşturmayı hak ettiğinde tam bir Vakaya yükseltilebilir.
 
 ## Kanıt modeli
 
@@ -129,7 +129,7 @@ OSI farklı delil türleri arasındaki çizgiyi asla bulanıklaştırmaz. Kanıt
 
 ## Analist ağı ve zincir üstü kimlik bilgileri
 
-Analistler yetkiyi kazanır, atanmaz. İki kayıt yolu vardır: kamusal süreçte incelenen doğrudan cüzdan imzalı başvuru ve bir cüzdanın raporunun çözülmüş bir Vakayı kazanmasıyla otomatik adaylık. Oy gücü 0,50 ile 3,00 arasında sınırlıdır ve yalnızca kabul edilen katkılar ile inceleme kalitesine dayalı, belgelenmiş bir kademe merdiveniyle artar. Hiçbir ödeme, bağış veya destek ağırlığı, sıralamayı veya yönetişimi etkilemez.
+Analist yetkisi kişinin kendi beyanıyla değil, incelenen ve kime ait olduğu belli bir süreçle kazanılır. İki kayıt yolu vardır: değiştirilemez sürüm geçmişi üzerinden incelenen doğrudan cüzdan imzalı başvuru ve bir cüzdanın raporunun çözülmüş bir Vakayı kazanmasıyla otomatik adaylık. Oy gücü 0,50 ile 3,00 arasında sınırlıdır ve yalnızca kabul edilen katkılar ile inceleme kalitesine dayalı, belgelenmiş bir kademe merdiveniyle artar. Hiçbir ödeme, bağış veya destek ağırlığı, sıralamayı veya yönetişimi etkilemez.
 
 Aktif her analist mainnet üzerinde gerçek ve geri alınabilir bir **Solana Attestation Service (SAS)** kimlik bilgisi taşır; aktivasyonda otomatik verilir, rütbe düşümünde geri alınır. Kendi cüzdanı olmayanlar dahil herkes, bir cüzdanın analist konumunu OSI veritabanına güvenmeden doğrudan Solana'ya karşı doğrulayabilir:
 
@@ -170,7 +170,7 @@ PostgreSQL (Supabase)
 
 Temel özellikler:
 
-- **Her yerde varsayılan reddetme.** Tarayıcılar hiçbir ayrıcalıklı veritabanı erişimi tutmaz. İstemciden erişilebilir her tabloda zorunlu satır düzeyi güvenlik ve sıfır anonim politika vardır; tüm değişiklikler cüzdan kanıtlarının arkasındaki servis RPC'lerinden akar. Bunu dışarıdan test edebilirsiniz: [docs/VERIFY.md](docs/VERIFY.md) bölüm 6.
+- **V2 genelinde varsayılan reddetme.** Tarayıcılar hiçbir ayrıcalıklı veritabanı erişimi tutmaz. İstemciden erişilebilir her V2 alan tablosunda zorunlu satır düzeyi güvenlik ve sıfır anonim politika vardır; V2 değişiklikleri cüzdan kanıtlarının arkasındaki servis RPC'lerinden akar. Dondurulmuş V1 uyumluluk tabloları [docs/VERIFY.md](docs/VERIFY.md) bölüm 6'da ayrıca açıklanır.
 - **Yapısal değiştirilemezlik.** Yayımlanmış sürümler, incelemeler ve makbuzlar yalnızca eklenir. Düzeltmeler yeni sürüm yaratır; geçmiş asla yeniden yazılmaz. Bu, gelenek değil veritabanı tetikleyicileriyle zorlanır: sürdürücü bile mühürlü bir kaydı silemez veya sessizce değiştiremez.
 - **Kapalı başarısızlık (fail-closed) bayrakları.** Her yetenek, eksik veya bozuk bir değeri kapalı sayan kendi bayrağının arkasında yayına girer.
 - **Dürüst arayüz.** Görünen her kontrol gerçek ve yetkili bir uca karşılık gelir. Devre dışı özellikler karşılanmamış ön koşulunu açıkça yazar. Boş durumlar asla aktivite uydurmaz.
@@ -181,9 +181,9 @@ OSI, bağımsız bir zincir üstü istihbarat analisti olan **Aksusarya** taraf�
 
 Doğrulanabilir kayıt [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md) içinde: 54 ödül ödemesi işlemi, 26 ücretli istihbarat raporu satışı, 8 isimli pazar yeri araştırma ilanı ve Superteam Earn üzerinde Solana odaklı soruşturma gönderimleri. Her biri kamuya açık bir işleme veya ilana çözümleniyor.
 
-OSI, [AGENTS.md](AGENTS.md) içindeki açık sözleşme altında yapay zekâ desteğiyle geliştiriliyor ve bu sözleşme, buradaki her şeyle aynı nedenle kamuya açık. Bu yaklaşım iddiayla savunulmuyor; sistemin verdiği her garantinin bağımsız olarak kontrol edilebilir olmasıyla savunuluyor. Ayrıntı için [AGENTS.md](AGENTS.md) bölüm 12.
+OSI, [AGENTS.md](AGENTS.md) içindeki açık sözleşme altında yapay zekâ desteğiyle geliştiriliyor ve bu sözleşme, buradaki her şeyle aynı nedenle kamuya açık. Bu yaklaşım iddiayla değil denetlenebilir kanıtla savunuluyor: mainnet'e çapalandığı söylenen her sonuç bir işleme, zincir dışı iddialar ise kamusal API, makbuz veya teste çözümleniyor. Ayrıntı için [AGENTS.md](AGENTS.md) bölüm 15.
 
-**Bus factor şu anda bir ve bu retorik değil gerçek bir risk.** Hasarı sınırlayan şey, önemli hiçbir şeyin bu sürdürücünün ulaşılabilir kalmasına bağlı olmaması: kod MIT ve açık, şema ile her migration kamuya açık, [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) eksiksiz bir yeniden kurulum yolu, analist kimlik bilgileri bu veritabanında değil Solana üzerinde yaşıyor ve başlangıç ayrıcalığı sürdürücünün iyi niyetiyle değil otomatik bir merdivenle sona eriyor. Sürdürücü devamlılığı [SECURITY.md](SECURITY.md) içinde ele alınıyor.
+**Bus factor şu anda bir ve bu retorik değil gerçek bir risk.** Kod, şema, migration'lar ve yeniden kurulum yolu kamuya açık; analist kimlik bilgileri Solana üzerinde doğrulanabilir kalıyor ve başlangıç ayrıcalığı sürdürücünün iyi niyetiyle değil otomatik bir merdivenle sona eriyor. Kalıcı dış depolama yayına girene kadar kamusal kayıt gövdeleri çalışan veritabanına bağlıdır; dolayısıyla risk sınırlanmıştır ama ortadan kalkmamıştır. Sürdürücü devamlılığı [SECURITY.md](SECURITY.md) içinde ele alınıyor.
 
 ## Bir kayıt sizi isimle anıyorsa
 

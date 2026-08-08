@@ -9,6 +9,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const proofSource = read('assets/js/44-prooflog-deck.js');
 const recordsSource = read('assets/js/84-public-records.js');
 const index = read('index.html');
+const i18nSource = read('assets/js/03-i18n.js');
 const TX = '2'.repeat(88);
 const CASE_REF = 'OSI-A1B2C3D4E5F6';
 
@@ -127,6 +128,35 @@ ok('Proof Log reads native public DTO receipts before the legacy projection',
     && proofSource.includes('window.osiV2ListPublicWireReports()')
     && proofSource.includes("proof_source:'native_public_dto'")
     && proofSource.includes("proof_source:'legacy_public_projection'"));
+for (const eventType of [
+  'CASE_OPENED',
+  'CASE_INITIAL_REVIEW_CAST',
+  'REPORT_PUBLISHED',
+  'WIRE_REPORT_PUBLISHED',
+  'SUPPORT_PAYMENT_CONFIRMED',
+]) {
+  ok('Proof Log displays the exact registry event type ' + eventType,
+    proof.plMemo({ event_type: eventType }).tag === eventType);
+}
+ok('Proof Log reference cards use exact registry event examples',
+  ['CASE_OPENED', 'CASE_REPORT_VERSION_SUBMITTED', 'WIRE_REPORT_PUBLISHED',
+    'CASE_INITIAL_REVIEW_CAST', 'CHALLENGE_SUBMITTED', 'RECORD_SEALED',
+    'SUPPORT_PAYMENT_CONFIRMED'].every((eventType) => proofSource.includes("['" + eventType + "'")));
+ok('retired Proof Log aliases are absent',
+  !/OSI_(?:CASE_OPENED|REVIEW_SIGNED|REPORT_PUBLISHED|WIRE_PUBLISHED|SUPPORT_SIGNAL)/.test(proofSource));
+
+const accessibleProofCard = proof.plTimelineCard({
+  event_type: 'CASE_OPENED',
+  proof_source: 'native_public_dto',
+  label: 'Memo-anchored on Solana',
+  actor_wallet: '1'.repeat(32),
+  tx_sig: TX,
+  item_id: CASE_REF,
+  created_at: '2026-08-08T12:00:00Z',
+});
+ok('Proof Log copy controls name the wallet and transaction target',
+  accessibleProofCard.includes('aria-label="Copy wallet address ')
+    && accessibleProofCard.includes('aria-label="Copy transaction signature '));
 
 const proofDash = { innerHTML: '' };
 proof.document.getElementById = (id) => id === 'pl-dash' ? proofDash : null;
@@ -302,6 +332,17 @@ ok('Proof Log copy distinguishes wallet, Memo, transfer, system, and legacy proo
   index.includes('How proof labels work')
     && index.includes('It is not on-chain.')
     && index.includes('System or legacy'));
+ok('Public Records explains standard seal quorum and separately labeled cold-start finalization',
+  index.includes('The standard path requires analyst seal quorum and both maintainer gates. An eligible cold-start finalization is labeled separately.'));
+ok('About describes both explicit quorum and clearly labeled cold-start review',
+  index.includes('reviewed through explicit quorum or a clearly labeled cold-start process'));
+ok('truthful cold-start copy remains localized in Turkish',
+  i18nSource.includes('Uygun bir soğuk başlangıç sonuçlandırması ayrıca etiketlenir.')
+    && i18nSource.includes('açıkça etiketlenmiş bir soğuk başlangıç süreciyle incelenir.'));
+ok('Public Records copy includes open public Cases without calling them sealed outcomes',
+  index.includes('Public Cases and governed findings')
+    && index.includes('Public Cases, reviewed Case outcomes, and published Wire findings with their exact lifecycle and proof status.')
+    && !index.includes('<span>Reviewed and sealed outcomes</span>'));
 
 console.log((fail ? 'FAILED: ' + fail : 'OK') +
   ' (' + pass + ' assertions passed, ' + fail + ' failed)');

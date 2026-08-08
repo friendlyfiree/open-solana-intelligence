@@ -47,6 +47,7 @@ const expectedFiles = [
   '20260805090000_osi_v2_maintainer_profile.sql',
   '20260807090000_osi_v2_case_report_visibility_publication.sql',
   '20260807154829_osi_v2_cold_start_weight_gate_calibration.sql',
+  '20260808153040_remove_private_wire_fields_from_public_rpc.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -86,6 +87,8 @@ const reportNullablePublicSummary =
   sqlByFile['20260801120700_report_nullable_public_summary.sql'] || '';
 const caseInitialRejectionAppeal =
   sqlByFile['20260802180000_osi_v2_case_initial_rejection_appeal.sql'] || '';
+const wirePublicProjection =
+  sqlByFile['20260808153040_remove_private_wire_fields_from_public_rpc.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -1400,6 +1403,25 @@ ok(
   && /OSI_V2_REPORT_STANDARD_MIN_WEIGHT/.test(weightGateSignoff)
   && /20260807154829_osi_v2_cold_start_weight_gate_calibration\.sql/.test(weightGateSignoff)
   && /[Rr]estore condition/.test(weightGateSignoff),
+);
+
+ok(
+  'published Wire SQL returns an explicit public-safe top-level allowlist',
+  /create or replace function public\.osi_v2_get_public_wire_report/i
+    .test(wirePublicProjection)
+  && /jsonb_build_object\([\s\S]*'summary'[\s\S]*'version_public_ref'/i
+    .test(wirePublicProjection)
+  && !/'analysis'\s*,\s*source\.report|\buncertainties\b\s*',\s*source\.report/i
+    .test(wirePublicProjection),
+);
+ok(
+  'published Wire SQL keeps the gateway service-only and preserves not-found null',
+  /case when source\.report is null then null else jsonb_build_object/i
+    .test(wirePublicProjection)
+  && /revoke all privileges on function public\.osi_v2_get_public_wire_report\(text\)[\s\S]*from public, anon, authenticated/i
+    .test(wirePublicProjection)
+  && /grant execute on function public\.osi_v2_get_public_wire_report\(text\)[\s\S]*to service_role/i
+    .test(wirePublicProjection),
 );
 
 const identifiers = [

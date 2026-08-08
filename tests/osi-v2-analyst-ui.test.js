@@ -97,6 +97,12 @@ ok(analyst.includes('aria-label="Analyst workspace sections"')
   && analyst.includes('aria-controls="osi-workspace-panel-profile"')
   && analyst.includes("['ArrowLeft','ArrowRight','Home','End']"),
   'native analyst tabs use roving focus, controlled panels, and complete arrow-key navigation');
+ok(analyst.includes("function analystLocale()")
+  && analyst.includes("date.toLocaleString(analystLocale()")
+  && identity.includes("function osiIdentityLocale()")
+  && (identity.match(/toLocaleDateString\(osiIdentityLocale\(\)\)/g) || []).length === 2
+  && !analyst.includes("toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})"),
+  'analyst profile dates follow the selected OSI language instead of the browser locale');
 ok(analyst.includes('aria-label="Related private work"')
   && analyst.includes('osiV2OpenMyCases()')
   && analyst.includes('osiV2OpenMyReports()')
@@ -121,6 +127,9 @@ ok(walletWorkspace.includes('Profile and privacy settings require a dedicated se
   'settings state truthfully reports the unavailable server-authorized mutation');
 ok(analyst.includes('permitted') === false || !analyst.includes('abstain_available:true'), 'UI never invents an abstain transition');
 ok(analyst.includes('Abstain is unavailable'), 'Operations Center explains the canonical abstain limitation');
+ok(analyst.includes('Standard publication uses independent analyst quorum; constitutionally limited cold-start outcomes are labelled maintainer bootstrap.')
+  && !analyst.includes('What gets published is decided by independent analyst quorum.'),
+  'maintainer profile copy distinguishes the standard quorum path from labelled D17 cold-start finalization');
 ok(!maintainer.includes('Approve / Reject disabled: Requires hardened backend'), 'obsolete analyst placeholder control is removed');
 ok(!maintainer.includes('Seal Record disabled: Requires hardened backend review'), 'obsolete sealing placeholder control is removed');
 ok(!identity.includes('(m.stats.reports||0)*10'), 'legacy profile no longer calculates hardcoded REP');

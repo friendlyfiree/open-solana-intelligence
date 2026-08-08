@@ -1,6 +1,11 @@
 # OSI V2 — Architecture Blueprint (index)
 
-**Design-and-documentation only.** These documents define the constitutional and technical contract for the next version of Open Solana Intelligence. **No production code, `index.html`, CSS, Edge Function, SQL, or Supabase state is changed by this stage.** Nothing here is implemented; implementation begins only after the entity model, state machines, permissions, voting model, AI Pack trust model, memo spec, and migration plan agree with each other and the decision register is signed off.
+These documents are the accepted constitutional and technical baseline for the
+running V2 system. Most core slices are implemented and independently gated in
+production; roadmap items and intentionally disabled surfaces are classified in
+[OSI_PRODUCTION_FEATURE_STATUS.md](./OSI_PRODUCTION_FEATURE_STATUS.md). Historical
+revision notes below explain how the blueprint was accepted and do not describe
+the current implementation status.
 
 **Revision note:** this set was revised after product-owner and security review. Key locked decisions now baked in across all documents: the **hybrid signature model** (individual analyst decisions are `signMessage` + server-verified receipts; public governance outcomes are Solana Memo anchored — D15), the **Stage-5 write gate** (`OSI_V2_WRITES_ENABLED` stays false until replay protection and receipt authenticity are verified — D14), **typed FK-backed review tables** (not one polymorphic `reviews` table), **Report/Wire versioning** (immutable versions, mutable headers), and **public analyst attribution** (D16). See `OSI_V2_OPEN_DECISIONS.md` for the full D1–D16 register.
 

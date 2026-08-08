@@ -190,6 +190,56 @@ ok("Phase 1 DTO never invents public or governance controls",
     && dto.review_mutations_enabled === undefined
     && dto.publication_enabled === undefined);
 
+const publicDto = core.publicWireReportDto({
+  analysis: "restricted body must not cross the public boundary",
+  author: { display_name: "Analyst", handle: "analyst", wallet: WALLET, auth_uuid: "private" },
+  challenge_state: null,
+  challenges: [{
+    challenge_public_ref: "OSI-CHL-A1B2C3D4E5F60718",
+    challenger_wallet: OTHER,
+    public_safe_summary: "Public challenge summary",
+    restricted_detail: "private challenge detail",
+    reviews: [{
+      public_rationale: "Public rationale",
+      private_note: "restricted review note",
+      reviewer: { wallet: OTHER, auth_uuid: "private" },
+    }],
+  }],
+  evidence: [{ ordinal: 1, kind: "wallet", ref: WALLET, sha256: "f".repeat(64), id: "private" }],
+  is_current_published: true,
+  proof_log: [{
+    event_type: "SUPPORT_PAYMENT_CONFIRMED",
+    proof_type: "solana_memo",
+    payment_proof: {
+      recipient_manifest: [{ wallet: OTHER, amount_lamports: "1000", private_note: "private" }],
+    },
+    internal_id: "private",
+  }],
+  publication: { proof_type: "solana_memo", private_note: "private" },
+  reviews: [{ public_rationale: "Public rationale", private_note: "private" }],
+  summary: "Public-safe summary",
+  support: [],
+  title: "Public-safe title",
+  uncertainties: "restricted uncertainties must not cross the public boundary",
+  version_no: 1,
+  version_public_ref: binding.version_public_ref,
+  wire_report_public_ref: "OSI-WR-A1B2C3D4E5F6",
+});
+ok("public Wire DTO is an explicit allowlist that strips restricted body and nested private fields",
+  publicDto.title === "Public-safe title"
+    && publicDto.summary === "Public-safe summary"
+    && publicDto.analysis === undefined
+    && publicDto.uncertainties === undefined
+    && publicDto.author.auth_uuid === undefined
+    && publicDto.evidence[0].id === undefined
+    && publicDto.reviews[0].private_note === undefined
+    && publicDto.challenges[0].restricted_detail === undefined
+    && publicDto.challenges[0].reviews[0].private_note === undefined
+    && publicDto.proof_log[0].internal_id === undefined
+    && publicDto.proof_log[0].payment_proof.recipient_manifest[0].wallet === OTHER
+    && publicDto.proof_log[0].payment_proof.recipient_manifest[0].private_note === undefined
+    && publicDto.publication.private_note === undefined);
+
 const review = core.normalizeWireReview({
   version_public_ref: binding.version_public_ref,
   decision: "approve",
@@ -307,12 +357,20 @@ const queueGateway = gateway.slice(
   gateway.indexOf("async function listWireReviewQueue("),
   gateway.indexOf("function wireGovernanceBinding("),
 );
-ok("JSONB list and detail RPC results preserve their exact response shapes",
+ok("JSONB list and restricted queue RPC results preserve their exact response shapes while public detail is sanitized",
   publicListGateway.includes("const reports = data;")
     && publicListGateway.includes("Array.isArray(reports)")
-    && publicDetailGateway.includes("const report = data;")
+    && publicDetailGateway.includes("publicWireReportDto(data)")
     && queueGateway.includes("const reports = data;")
     && !gateway.includes("scalarJson"));
+ok("public Wire UI never renders the restricted analysis or uncertainties fields",
+  !wireUi.slice(wireUi.indexOf("function overviewTab("), wireUi.indexOf("function evidenceTab(")).includes("item.analysis")
+    && !wireUi.slice(wireUi.indexOf("function overviewTab("), wireUi.indexOf("function evidenceTab(")).includes("item.uncertainties")
+    && wireUi.includes("Restricted analysis and uncertainties remain private"));
+ok("Wire dates follow the selected product locale instead of the browser locale",
+  wireUi.includes("window.OSI_I18N")
+    && wireUi.includes("'tr-TR':'en-US'")
+    && wireUi.includes("date.toLocaleString(locale,"));
 ok("private Wire reads require the dedicated shared session scopes",
   gateway.includes("READ_SESSION_SCOPES.WIRE_MINE")
     && gateway.includes("READ_SESSION_SCOPES.WIRE_QUEUE")

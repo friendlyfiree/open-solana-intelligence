@@ -81,6 +81,11 @@ for (const section of [
 ok('browser calls dedicated read and write functions',
   app.includes('/functions/v1/osi-v2-case-read') &&
   app.includes('/functions/v1/osi-v2-case-write'));
+ok('Case timestamps follow the selected product locale instead of the browser locale',
+  app.includes("window.OSI_I18N.getLocale()")
+    && app.includes("==='tr'?'tr-TR':'en-US'")
+    && app.includes("date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short'})")
+    && !app.includes("date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})"));
 ok('AI Pack browser calls only its dedicated trusted gateway',
   aiPackIntegration.includes('/functions/v1/osi-v2-ai-pack')
     && !/supa(?:Post|Patch|Delete)|\.from\(/.test(aiPackIntegration));

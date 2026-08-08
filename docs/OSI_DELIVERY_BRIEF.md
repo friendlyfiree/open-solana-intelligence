@@ -65,7 +65,7 @@ Operational flag and dormant-surface classification:
 - The frontend is static HTML, modular CSS, and classic JavaScript.
 - The repository has no package-manager manifest or frontend build step.
 - Supabase PostgreSQL and Edge Functions provide the backend.
-- Production migration history is additive through `20260802180000_osi_v2_case_initial_rejection_appeal.sql`. Local and production histories were verified synchronized after the task-scoped recovery; every later production delivery must still re-read the live migration list and accept only its exact reviewed history.
+- Production migration history was observed additive through `20260807154829_osi_v2_cold_start_weight_gate_calibration.sql` on 2026-08-08. The repository also contains the later additive migration `20260808153040_remove_private_wire_fields_from_public_rpc.sql`, which was not present in the production migration list at that observation time. Every production delivery must re-read both histories and accept only its exact reviewed delta.
 - The deployed V2 slices cover schema, integrity guards, default deny, Stage-5 proofs, legacy materialization, complete Case initial review including normal rejection and owner appeal, Report/Wire lifecycles, governance, native SOL payments, read sessions, SAS issuance/enforcement, and AI Pack foundations.
 - Production Case, Report, Wire, analyst, governance, proof, payment, and read functions are reachable behind their dedicated gates.
 - The mature production shell responds successfully.
@@ -280,7 +280,7 @@ Operational flag and dormant-surface classification:
 - Retire legacy writes only after soak, reconciliation, and explicit cutover approval.
 - Permanent external storage remains an unfinished roadmap item, not a Live claim.
 
-## 11. Production operation rules
+## 12. Production operation rules
 
 - Start from verified current `main` on a dedicated `codex/` task branch.
 - Never commit directly to `main`.

@@ -2220,8 +2220,24 @@ footer > .wrap {
   gap: 13px 24px;
 }
 
-.osi-global-footer .links a {
+.osi-global-footer .links a,
+.osi-global-footer .links button {
   color: var(--ink-dim);
+}
+
+.osi-global-footer .links button {
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+
+.osi-global-footer .links button:hover {
+  color: var(--sol);
 }
 
 .fb-btn {
@@ -2860,8 +2876,8 @@ footer > .wrap {
 
 @media (max-width: 980px) {
   .osi-platform-menu {
-    max-height: min(68svh, 620px);
-    overflow-y: auto;
+    max-height: none;
+    overflow-y: visible;
     transform: none;
     animation: osi-mobile-menu-enter 170ms var(--ease-out);
   }

@@ -18,7 +18,11 @@
   function short(value){value=String(value||'');return value.length>18?value.slice(0,8)+'...'+value.slice(-6):value;}
   function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();});}
   function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
-  function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});}
+  function analystLocale(){
+    var locale=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():document.documentElement.lang;
+    return String(locale||'en').toLowerCase().indexOf('tr')===0?'tr-TR':'en-US';
+  }
+  function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(analystLocale(),{dateStyle:'medium',timeStyle:'short'});}
   function randomKey(prefix){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return prefix+':'+id.replace(/[^A-Za-z0-9.-]/g,'');}
   function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
   function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
@@ -220,7 +224,7 @@
       +'<div class="osi-maintainer-rows">'+maintainerRow(profile)+'</div>'
       // One line, not a card. It answers what the maintainer does; the modal
       // carries the three governance facts stating what they do not hold.
-      +'<p class="osi-maintainer-notice">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. What gets published is decided by independent analyst quorum.'))+'</p>';
+      +'<p class="osi-maintainer-notice">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. Standard publication uses independent analyst quorum; constitutionally limited cold-start outcomes are labelled maintainer bootstrap.'))+'</p>';
     var row=host.querySelector('[data-maintainer-wallet]');
     if(row)row.addEventListener('click',function(){openPublicProfile(row.dataset.maintainerWallet);});
   }
@@ -601,7 +605,7 @@
       ? '<span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span>'
       : sasSlot(profile.wallet,profile.status);
     var role=isMaintainer
-      ? '<p class="osi-profile-role-note">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. What gets published is decided by independent analyst quorum.'))+'</p>'
+      ? '<p class="osi-profile-role-note">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. Standard publication uses independent analyst quorum; constitutionally limited cold-start outcomes are labelled maintainer bootstrap.'))+'</p>'
       : '';
     var expertise=(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
     // The shareable address for this exact profile, so the page a reader lands

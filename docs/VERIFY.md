@@ -168,13 +168,17 @@ exposing rows.
 
 **One result that looks like a failure and is not.** A handful of frozen V1
 tables (`reports`, `analysts`, `profiles`, `vouches`, `requests`,
-`bounty_boosts`, `config`) still answer `200` with an empty array. They are the
-pre-V2 surface, they hold no rows, and their write policies were revoked in
+`bounty_boosts`, `config`) still answer `200` because their compatibility read
+policies remain. At the 2026-08-08 check, the first six returned an empty array
+and `config` retained two non-secret compatibility rows. Their write policies
+were revoked in
 `20260727170000_osi_v1_legacy_policy_hardening.sql` and
-`20260727173000_osi_v1_legacy_counter_readonly.sql`. Nothing in the shipped
-application reads or writes them. They are named here rather than left for you
-to trip over, because a verification page that hides its own awkward results is
-not a verification page.
+`20260727173000_osi_v1_legacy_counter_readonly.sql`. Legacy helper modules remain
+in the static bundle for `legacy.html` compatibility, but the V2 claims in this
+guide are reproduced only through the dedicated read functions in section 5,
+not from these rows. They are named here rather than left for you to trip over,
+because a verification page that hides its own awkward results is not a
+verification page.
 
 Note that `reports` is a V1 table and is **not** the V2 report store. The V2
 equivalents are `case_reports` and `case_report_versions`, both of which are in

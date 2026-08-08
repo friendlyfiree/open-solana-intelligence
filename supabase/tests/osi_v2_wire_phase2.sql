@@ -4,7 +4,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(69);
+select plan(70);
 
 select is(
   (select value from public.osi_config where key='OSI_V2_WIRE_STANDARD_MIN_COUNT'),
@@ -355,10 +355,16 @@ select ok((select jsonb_path_exists(
   '$[*] ? (@.version_public_ref == $ref)',
   jsonb_build_object('ref',(select version_public_ref from wire_normal))
 )), 'public Wire list contains the exact governed version');
-select ok((select public.osi_v2_get_public_wire_report(
-  (select version_public_ref from wire_normal)
-)->>'analysis' like 'The detailed Wire analysis%'),
-  'exact published detail exposes the reviewed analysis through its allowlist');
+select ok((select not (
+  public.osi_v2_get_public_wire_report(
+    (select version_public_ref from wire_normal)
+  ) ?| array['analysis','uncertainties']
+)), 'public Wire detail excludes restricted analysis and uncertainty notes');
+select is(
+  public.osi_v2_get_public_wire_report('OSI-WV-0000000000000000'),
+  null::jsonb,
+  'public Wire detail preserves the null not-found contract'
+);
 select ok((select position('WIRE_PRIVATE_NOTE_SENTINEL' in
   public.osi_v2_get_public_wire_report(
     (select version_public_ref from wire_normal)

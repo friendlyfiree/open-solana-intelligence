@@ -2,7 +2,7 @@
 
 **An open, wallet-signed, community-reviewed intelligence desk for the Solana ecosystem.**
 
-OSI turns public on-chain and open-source evidence into attributable, challengeable, verifiable incident records. Every meaningful action is signed by a real wallet, reviewed by independent analysts, anchored to Solana mainnet, and permanently auditable by anyone.
+OSI turns public on-chain and open-source evidence into attributable, challengeable, verifiable incident records. Actor-authored writes are wallet-signed and server-verified; public governance outcomes are anchored to Solana mainnet. Independent analyst quorum is the standard publication path, while constitutionally limited cold-start outcomes are permanently labeled as maintainer bootstrap.
 
 **Live:** https://open-solana-intel.vercel.app
 **Verify it yourself:** [docs/VERIFY.md](docs/VERIFY.md) · **Real network size:** [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) · **Who builds this:** [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md)
@@ -51,17 +51,17 @@ Concretely, three things in this repository are reusable by other Solana teams t
 | The Wire: standalone intelligence publication lane | Live |
 | Analyst onboarding with on-chain SAS credentials and public verifier | Live |
 | SAS credential enforcement in governance weight | Live |
-| Shared private read session (one signature per 5 minutes) | Live |
+| Shared private read session (30-minute inactivity window, 8-hour absolute lifetime) | Live |
 | Bootstrap governance (transparent, self-decaying cold-start mode) | Live |
 | Maintainer-only AI Pack: private evidence-bound operational drafts | Live, private |
 | Public AI Pack review, approval, and discovery | Not launched |
-| Memo-anchored public record links | In active development |
+| Memo-anchored neutral public record references | Live |
 
 ## Where the network actually is
 
 The platform is deployed and open for its first Cases. The network is at its honest cold start.
 
-As of 2026-08-04: **2 public Cases, 1 published Case Report, 0 published Wire Reports, 2 probationary analysts, 0 seals, 0 publications through an independent analyst quorum.** The single published Report went out through the transparently labeled maintainer bootstrap channel, which is visible on chain as `r=maintainer` in its `REPORT_PUBLISHED` memo.
+As of 2026-08-08: **3 public Cases, 1 published Case Report, 0 published Wire Reports, 3 probationary analysts, 0 seals, 0 publications through an independent analyst quorum.** The single published Report went out through the transparently labeled maintainer bootstrap channel, which is visible on chain as `r=maintainer` in its `REPORT_PUBLISHED` memo.
 
 That is stated up front rather than buried, because a project whose product is verifiable public record does not get to describe its own adoption in adjectives. The full breakdown, including what would have to change for those numbers to mean something, is in [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md), and every figure in it is reproducible from the public endpoints in [docs/VERIFY.md](docs/VERIFY.md).
 
@@ -75,7 +75,7 @@ OSI is deliberate about what belongs on chain. Fast, private review and discussi
 - **Payments are non-custodial and RPC-verified.** Rewards and support are direct wallet-to-wallet SOL transfers through the System Program. A payment is labeled confirmed only after finalized mainnet verification of exact payer, recipients, lamports, and memo. OSI never holds funds.
 - **Analyst authority is a portable on-chain credential.** Every active analyst holds a real Solana Attestation Service credential that any third party can verify directly against the chain, with no dependence on OSI's database. An analyst's standing survives even if OSI does not.
 
-SAS is also a hard gate on governance weight: an analyst review contributes zero count and zero weight unless the exact live credential state is valid or a fresh trusted verification record proves it. We are still deepening the public reference carried by governance Memos so a transaction can lead directly to its verifiable record. See **In active development** below.
+SAS is also a hard gate on governance weight: an analyst review contributes zero count and zero weight unless the exact live credential state is valid or a fresh trusted verification record proves it. Governance Memos carry a neutral public reference such as `OSI-...`; the identifier is resolvable through the public read API and contains no subject name or Case narrative.
 
 ## Verify it yourself
 
@@ -114,7 +114,7 @@ Every arrow above is backed by a wallet signature or a confirmed Solana Memo tra
 
 **Field Office** is investigation-first. A Case starts with a question or an incident, usually with an owner, optionally with a pledged reward, and ends in a sealed, challengeable public record.
 
-**The Wire** is finding-first. Any connected wallet can publish standalone intelligence: wallet clusters, fund-flow analyses, treasury research, verification of public claims. No victim or open Case is required. Wire Reports go through the same immutable versioning and independent review before publication, and a published finding can be promoted into a full Case when it deserves deeper investigation.
+**The Wire** is finding-first. Any connected wallet can submit standalone intelligence: wallet clusters, fund-flow analyses, treasury research, verification of public claims. No victim or open Case is required. Wire Reports go through the same immutable versioning and independent review before publication, and a published finding can be promoted into a full Case when it deserves deeper investigation.
 
 ## The proof model
 
@@ -129,7 +129,7 @@ Every signed write is protected by a five-stage replay defense: a cryptographica
 
 ## Analyst network and on-chain credentials
 
-Analysts earn authority, they are not appointed. Two onboarding paths exist: a direct wallet-signed application reviewed in public process, and automatic candidacy earned when a wallet's report wins a resolved Case. Voting power is bounded between 0.50 and 3.00 and grows only through a documented tier ladder based on accepted contributions and review quality. No payment, donation, or support ever influences weight, ranking, or governance.
+Analyst authority is earned through a reviewed, attributable process rather than self-asserted. Two onboarding paths exist: a direct wallet-signed application reviewed through immutable version history, and automatic candidacy earned when a wallet's report wins a resolved Case. Voting power is bounded between 0.50 and 3.00 and grows only through a documented tier ladder based on accepted contributions and review quality. No payment, donation, or support ever influences weight, ranking, or governance.
 
 Every active analyst holds a real, revocable **Solana Attestation Service (SAS)** credential on mainnet, issued automatically at activation and revoked on demotion. Anyone, including third-party applications and reviewers with no wallet of their own, can verify a wallet's analyst status directly against Solana without trusting OSI's database, through the public verifier on the About page or against the chain directly:
 
@@ -178,7 +178,7 @@ PostgreSQL (Supabase)
 
 Key properties:
 
-- **Default deny everywhere.** Browsers hold no privileged database access. Every client-reachable table has forced row level security with zero anonymous policies; all mutations flow through service-only RPCs behind wallet proofs. You can test this from outside in [docs/VERIFY.md](docs/VERIFY.md) section 6.
+- **Default deny across V2.** Browsers hold no privileged database access. Every client-reachable V2 domain table has forced row level security with zero anonymous policies; V2 mutations flow through service-only RPCs behind wallet proofs. The frozen V1 compatibility tables are documented separately in [docs/VERIFY.md](docs/VERIFY.md) section 6.
 - **Immutability by construction.** Published versions, reviews, and receipts are append-only. Corrections create new versions; history is never rewritten. This is enforced by database triggers, not convention: even the maintainer cannot delete or silently alter a sealed record or a Case's provenance.
 - **Fail-closed feature flags.** Every capability ships behind a dedicated flag that treats a missing or malformed value as off.
 - **Honest UI.** Every visible control maps to a real authorized endpoint. Disabled features state their exact unmet prerequisite. Empty states never invent activity.
@@ -191,16 +191,15 @@ OSI is built and maintained by **Aksusarya**, an independent on-chain intelligen
 
 The verifiable record is in [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md): 54 bounty payout transactions, 26 paid intelligence report sales, 8 named marketplace research listings, and Solana-focused investigative submissions on Superteam Earn, every one of them resolving to a public transaction or listing.
 
-OSI is engineered with AI assistance under the explicit contract in [AGENTS.md](AGENTS.md), which is public for the same reason everything else here is. That approach is not defended by assertion. It is defended by the fact that every guarantee this system makes is independently checkable: the code is MIT and public, the authorization boundaries are covered by pgTAP suites that run against a database built from zero, the governance and payment decision cores are tested as shipped, and every production claim resolves to a mainnet transaction a stranger can pull without asking permission. See [AGENTS.md](AGENTS.md) section 12.
+OSI is engineered with AI assistance under the explicit contract in [AGENTS.md](AGENTS.md), which is public for the same reason everything else here is. That approach is not defended by assertion. It is defended by checkable evidence: the code is MIT and public, authorization boundaries are covered by pgTAP suites against a database built from zero, the governance and payment decision cores are tested as shipped, and every claim of mainnet anchoring resolves to a transaction a stranger can inspect. Off-chain claims remain distinguishable and are checked through public APIs, receipts, and tests. See [AGENTS.md](AGENTS.md) section 15.
 
-**Bus factor is currently one, and that is a real risk rather than a rhetorical one.** What limits the damage is that nothing important depends on this maintainer staying reachable: the code is MIT, the schema and every migration are public, [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) is a complete rebuild path, analyst credentials live on Solana rather than in this database, and the bootstrap privilege expires on an automatic ladder rather than on the maintainer's goodwill. Maintainer continuity is addressed in [SECURITY.md](SECURITY.md).
+**Bus factor is currently one, and that is a real risk rather than a rhetorical one.** The code, schema, migrations, and rebuild path are public; analyst credentials remain verifiable on Solana; and bootstrap privilege expires on an automatic ladder rather than the maintainer's goodwill. Public record bodies still depend on the deployed database until permanent external storage launches, so this risk is bounded but not eliminated. Maintainer continuity is addressed in [SECURITY.md](SECURITY.md).
 
 ## In active development
 
 These are the current build priorities. Each deepens the role Solana already plays rather than adding misleading surface:
 
 - **Governed AI Pack review and publication.** Private maintainer generation is live. Public release remains intentionally absent until independent SAS-valid analysts can review exact immutable versions, meet both count and weight gates, and exclude the creator. Bootstrap governance will never substitute for this quorum.
-- **Memo-anchored public record links.** Every public governance Memo is being extended to carry a neutral, resolvable public reference, so a single Solana transaction leads anyone directly from the chain to the exact verifiable record without trusting OSI's database. The reference is a non-narrative identifier only; no subject name or case content ever enters a Memo.
 - **Durable public record.** Sealed Cases mirrored to permanent content-addressed storage (Arweave), paid in SOL, with the content hash anchored by Memo, so the public record outlives any single database.
 
 ## Repository structure
