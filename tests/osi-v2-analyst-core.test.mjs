@@ -233,19 +233,130 @@ ok(!derived.some((row) => row.subject_type === "challenge"),
 ok(derived.every((row) => /^OSI-/.test(row.subject_id)),
 "derived contributions publish the reader-facing reference, never an internal id");
 
+// The subject index a public reader is allowed to be told about. Everything the
+// record and the filtered contribution list publish must resolve through it.
+const publicSubjects = core.indexPublicSubjects({
+  cases: [
+    { id: "case-1", public_ref: "OSI-BFD6490F5270", title: "Treasury outflow", stage: "sealed", visibility: "public", sealed_at: "2026-08-04T00:00:00Z" },
+    { id: "case-2", public_ref: "OSI-00CB089E5105", title: "Drainer cluster", stage: "open_public", visibility: "public", updated_at: "2026-07-30T00:00:00Z" },
+    { id: "case-3", public_ref: "OSI-PRIVATE00001", title: "Still private", stage: "initial_review", visibility: "private" },
+    { id: "case-4", public_ref: "OSI-LEGACY0000000001", title: "Legacy", stage: "open_public", visibility: "public", category: "legacy_import" },
+    { id: "case-5", public_ref: "OSI-ARCHIVED00001", title: "Archived", stage: "open_public", visibility: "public", archived_at: "2026-08-01T00:00:00Z" },
+  ],
+  reports: [
+    { id: "report-1", public_ref: "OSI-RPT-AAAAAAAAAAAA", case_id: "case-1", current_published_version_id: "rv-1", updated_at: "2026-08-02T00:00:00Z" },
+    { id: "report-2", public_ref: "OSI-RPT-BBBBBBBBBBBB", case_id: "case-1", current_published_version_id: null },
+    { id: "report-3", public_ref: "OSI-RPT-CCCCCCCCCCCC", case_id: "case-3", current_published_version_id: "rv-9" },
+  ],
+  wires: [
+    { id: "wire-1", public_ref: "OSI-WR-DDDDDDDDDDDD", title: "Sniper wallets", current_published_version_id: "wv-1", updated_at: "2026-07-28T00:00:00Z" },
+    { id: "wire-2", public_ref: "OSI-WR-EEEEEEEEEEEE", title: "Unpublished", current_published_version_id: null },
+  ],
+  reportVersions: [
+    { version_ref: "OSI-RV-7998E263D19C0000", report_id: "report-1" },
+    { version_ref: "OSI-RV-UNPUBLISHED00000", report_id: "report-2" },
+  ],
+  wireVersions: [
+    { version_ref: "OSI-WV-FB0E72AC4878", wire_report_id: "wire-1" },
+  ],
+});
+ok(publicSubjects.get("OSI-BFD6490F5270").outcome === "sealed"
+  && publicSubjects.get("OSI-00CB089E5105").outcome === "open",
+"a public Case carries the outcome its own stage states");
+ok(!publicSubjects.has("OSI-PRIVATE00001") && !publicSubjects.has("OSI-LEGACY0000000001")
+  && !publicSubjects.has("OSI-ARCHIVED00001"),
+"a private, legacy or archived Case is never publicly resolvable");
+ok(publicSubjects.get("OSI-RPT-AAAAAAAAAAAA").case_ref === "OSI-BFD6490F5270"
+  && publicSubjects.get("OSI-RPT-AAAAAAAAAAAA").outcome === "published",
+"a published Report resolves to its public parent Case");
+ok(!publicSubjects.has("OSI-RPT-BBBBBBBBBBBB"),
+"an unpublished Report's existence is never announced by a contributor's profile");
+ok(!publicSubjects.has("OSI-RPT-CCCCCCCCCCCC"),
+"a published Report on a still-private Case stays unresolvable");
+ok(!publicSubjects.has("OSI-WR-EEEEEEEEEEEE"),
+"an unpublished Wire Report's existence and author stay private");
+ok(publicSubjects.get("OSI-RV-7998E263D19C0000")?.public_ref === "OSI-RPT-AAAAAAAAAAAA"
+  && publicSubjects.get("OSI-WV-FB0E72AC4878")?.public_ref === "OSI-WR-DDDDDDDDDDDD",
+"a review's exact version reference resolves to the header it judged");
+ok(!publicSubjects.has("OSI-RV-UNPUBLISHED00000"),
+"a version of an unpublished Report inherits its parent's privacy, not a public alias");
+
+const recordReceipts = [
+  { event_type: "CASE_SUBMITTED", target_type: "case", public_ref: "OSI-BFD6490F5270", actor_wallet: wallet, server_verified: true, proof_type: "solana_memo", tx_sig: "a".repeat(64), occurred_at: "2026-07-26T13:30:08Z" },
+  { event_type: "CASE_REPORT_VERSION_SUBMITTED", target_type: "report_version", public_ref: "OSI-RV-7998E263D19C0000", actor_wallet: wallet, server_verified: true, proof_type: "solana_memo", tx_sig: "b".repeat(64), occurred_at: "2026-08-01T09:02:46Z" },
+  { event_type: "WIRE_REPORT_REVIEW_CAST", target_type: "wire_version", public_ref: "OSI-WV-FB0E72AC4878", actor_wallet: wallet, server_verified: true, proof_type: "wallet_signed_server_verified", occurred_at: "2026-07-26T20:37:47Z" },
+  { event_type: "WIRE_REPORT_REVIEW_REVISED", target_type: "wire_version", public_ref: "OSI-WV-FB0E72AC4878", actor_wallet: wallet, server_verified: true, proof_type: "wallet_signed_server_verified", occurred_at: "2026-07-27T16:31:21Z" },
+  { event_type: "CASE_REPORT_REVIEW_CAST", target_type: "report_version", public_ref: "OSI-RV-UNPUBLISHED00000", actor_wallet: wallet, server_verified: true, proof_type: "wallet_signed_server_verified", occurred_at: "2026-07-20T00:00:00Z" },
+  { event_type: "CASE_SUBMITTED", target_type: "case", public_ref: "OSI-PRIVATE00001", actor_wallet: wallet, server_verified: true, proof_type: "solana_memo", tx_sig: "c".repeat(64), occurred_at: "2026-08-05T00:00:00Z" },
+  { event_type: "REPORT_PUBLISHED", target_type: "report_version", public_ref: "OSI-RV-7998E263D19C0000", actor_wallet: wallet, server_verified: true, proof_type: "solana_memo", tx_sig: "d".repeat(64), occurred_at: "2026-08-02T00:00:00Z" },
+];
+const record = core.buildPublicWorkRecord(wallet, recordReceipts, publicSubjects);
+ok(record.entries.length === 3, "the record lists exactly the publicly resolvable subjects the wallet worked on");
+ok(!record.entries.some((entry) => entry.public_ref === "OSI-PRIVATE00001"),
+"a Case that is still private is never named in a public record");
+ok(record.unlisted.some((row) => row.kind === "case_submitted" && row.count === 1)
+  && record.unlisted.some((row) => row.kind === "case_report_review" && row.count === 1),
+"work on an unresolvable subject is counted honestly instead of being named or dropped");
+const reportEntry = record.entries.find((entry) => entry.public_ref === "OSI-RPT-AAAAAAAAAAAA");
+ok(reportEntry.role === "author" && reportEntry.acts.length === 1,
+"authorship outranks review on the same subject and an operator publication is not the author's act");
+ok(reportEntry.acts[0].tx_sig === "b".repeat(64) && reportEntry.anchored === true,
+"an authored version carries the exact mainnet transaction that anchored it");
+const wireEntry = record.entries.find((entry) => entry.public_ref === "OSI-WR-DDDDDDDDDDDD");
+ok(wireEntry.role === "reviewer" && wireEntry.acts.length === 2 && wireEntry.anchored === false,
+"a wallet-signed review is recorded as review work and is never labelled on-chain");
+ok(record.summary.cases === 1 && record.summary.cases_sealed === 1
+  && record.summary.reports_published === 1 && record.summary.wire_reports_published === 1,
+"the summary counts exactly the entries listed beneath it");
+ok(record.summary.memo_anchored_acts === 2 && record.summary.reviews === 2,
+"the summary separates memo-anchored acts from wallet-signed reviews");
+ok(core.buildPublicWorkRecord(wallet, recordReceipts, new Map()).entries.length === 0,
+"an unavailable subject index publishes nothing rather than falling open");
+
 const derivedDto = core.publicAnalystDto({
   wallet, handle: "chain_sleuth", display_name: "Chain Sleuth", bio: "Public bio",
   expertise_public: [], links_public: [], status: "verified_analyst", tier_code: "verified", weight_cached: 1,
-}, [], contributionReceipts);
-ok(derivedDto.contributions.length === 3, "an analyst with no stored contribution rows still publishes their real public work");
+}, [], contributionReceipts, publicSubjects);
+ok(derivedDto.contributions.length === 3,
+"an analyst with no stored contribution rows still publishes their real public work");
+const privateDerivedDto = core.publicAnalystDto({
+  wallet, handle: "chain_sleuth", display_name: "Chain Sleuth", bio: "Public bio",
+  expertise_public: [], links_public: [], status: "verified_analyst", tier_code: "verified", weight_cached: 1,
+}, [], [
+  ...contributionReceipts,
+  { event_type: "CASE_SUBMITTED", target_type: "case", public_ref: "OSI-PRIVATE00001", actor_wallet: wallet, server_verified: true, occurred_at: "2026-08-06T00:00:00Z" },
+], publicSubjects);
+ok(privateDerivedDto.contributions.length === 3
+  && !privateDerivedDto.contributions.some((row) => row.subject_id === "OSI-PRIVATE00001"),
+"a contribution to a still-private Case is withheld from the public list rather than published");
 const storedDto = core.publicAnalystDto({
   wallet, handle: "chain_sleuth", display_name: "Chain Sleuth", bio: "Public bio",
   expertise_public: [], links_public: [], status: "verified_analyst", tier_code: "verified", weight_cached: 1,
-}, [{ kind: "case_report_review", subject_type: "report_version", subject_id: "OSI-RV-STORED00000", created_at: "2026-07-01T00:00:00Z" }], contributionReceipts);
-ok(storedDto.contributions.length === 1 && storedDto.contributions[0].subject_id === "OSI-RV-STORED00000",
-"the stored contribution table stays authoritative wherever it has rows");
+}, [
+  { kind: "case_report_review", subject_type: "report_version", subject_id: "OSI-RV-7998E263D19C0000", created_at: "2026-07-01T00:00:00Z" },
+  { kind: "case_submitted", subject_type: "case", subject_id: "OSI-PRIVATE00001", created_at: "2026-07-02T00:00:00Z" },
+], contributionReceipts, publicSubjects);
+ok(storedDto.contributions.length === 1 && storedDto.contributions[0].subject_id === "OSI-RV-7998E263D19C0000",
+"the stored contribution table stays authoritative but still cannot name a private subject");
+const leakDto = core.publicAnalystDto({
+  wallet, handle: "chain_sleuth", display_name: "Chain Sleuth", bio: "Public bio",
+  expertise_public: [], links_public: [], status: "verified_analyst", tier_code: "verified", weight_cached: 1,
+}, [], recordReceipts, publicSubjects);
+ok(leakDto.proof_history.every((row) => row.public_ref === null || publicSubjects.has(row.public_ref)),
+"proof history keeps every receipt but only points at references a reader can open");
+ok(leakDto.proof_history.some((row) => row.event_type === "CASE_SUBMITTED" && row.public_ref === null),
+"a receipt on a private subject keeps its proof and loses its pointer");
 ok(edge.includes("target_type,public_ref,actor_wallet"),
 "the analyst gateway reads the subject reference its public contributions are derived from");
+ok(edge.includes("indexPublicSubjects") && edge.includes("buildPublicWorkRecord")
+  && edge.includes('case "get_public_profile"'),
+"the gateway builds the public record and exposes the shareable single-profile route");
+
+// The public-stage rule lives in two files so the analyst function does not
+// bundle the Case read core. It may never drift.
+const { PUBLIC_CASE_STAGES } = await import("../supabase/functions/_shared/osi-v2-case-read-core.mjs");
+ok([...PUBLIC_CASE_STAGES].sort().join(",") === [...core.PUBLIC_SUBJECT_CASE_STAGES].sort().join(","),
+"the analyst record mirrors the exact public Case stages the Case read core enforces");
 // A typo in the map would silently drop a whole class of contribution forever,
 // so every key has to be an event the registry actually issues.
 const { osi2EventClass } = await import("../supabase/functions/_shared/osi-v2-event-registry.mjs");

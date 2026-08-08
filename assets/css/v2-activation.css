@@ -260,3 +260,94 @@
 .osi-maintainer-editor input:focus-visible,.osi-maintainer-editor textarea:focus-visible{border-color:var(--sol)}
 .osi-maintainer-editor-actions{display:flex;gap:8px;flex-wrap:wrap}
 .osi-maintainer-editor-status{margin:0;font-size:12px;color:var(--ink-dim);min-height:1em}
+
+/* ---------------------------------------------------------------------------
+   Verified work record: the CV surface of a public profile.
+
+   Every row states a signed act on a record the reader can open, so the styling
+   job is legibility and hierarchy, not persuasion. No progress bars, no scores,
+   no badge that could read as a rating of whether an analysis was correct.
+   Outcome is always carried by its own word as well as its colour, because
+   colour alone is not a label.
+   --------------------------------------------------------------------------- */
+.osi-cv-share{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.osi-cv-permalink{flex:1 1 240px;min-width:0;padding:9px 11px;border:1px solid var(--osi-border);border-radius:var(--osi-radius-sm);color:var(--cyan);font:600 11px 'JetBrains Mono',monospace;text-decoration:none;word-break:break-all}
+.osi-cv-permalink:hover,.osi-cv-permalink:focus-visible{border-color:var(--cyan)}
+.osi-cv-no-permalink{flex:1 1 240px;min-width:0;font-size:11.5px;line-height:1.5;color:var(--ink-faint)}
+.osi-cv-record{gap:14px}
+.osi-cv-note{margin:0;font-size:11.5px;line-height:1.6;color:var(--ink-faint)}
+/* Labels wrap at narrow cell widths, so the cells are stretched to equal height
+   and the numbers pushed to the bottom. Without that a two-line label drops its
+   own number below the rest of the row and the summary stops reading as a row. */
+.osi-cv-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));align-items:stretch;border:1px solid var(--osi-border);border-radius:var(--osi-radius-md);overflow:hidden}
+.osi-cv-summary>div{display:flex;flex-direction:column;justify-content:space-between;gap:6px;padding:11px 13px;border-right:1px solid var(--osi-border);border-bottom:1px solid var(--osi-border)}
+.osi-cv-summary>div>span{font:500 10.5px 'JetBrains Mono',monospace;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em}
+.osi-cv-summary b{font:700 16px 'JetBrains Mono',monospace;color:var(--ink)}
+.osi-cv-entries{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none}
+.osi-cv-entry{display:flex;flex-direction:column;gap:7px;padding:14px 0;border-bottom:1px solid var(--osi-border)}
+.osi-cv-entry:last-child{border-bottom:0}
+.osi-cv-entry-head{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
+.osi-cv-ref{color:var(--cyan);font:700 11.5px 'JetBrains Mono',monospace;text-decoration:none}
+a.osi-cv-ref:hover,a.osi-cv-ref:focus-visible{text-decoration:underline}
+.osi-cv-outcome{padding:3px 8px;border:1px solid var(--osi-border);border-radius:999px;font:600 10.5px 'JetBrains Mono',monospace;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em}
+/* A sealed record is the only state that reads as finished, so it is the only
+   one that gets the Solana identity colour. Everything else stays neutral: an
+   open investigation is not a lesser record, it is an unfinished one.
+   Borders are mixed from the badge's own colour rather than hardcoded, because
+   the accent tokens are re-pointed by the interface redesign and a literal
+   value here would drift away from whatever the theme is actually using. */
+.osi-cv-outcome[data-outcome=sealed]{color:var(--sol);border-color:color-mix(in srgb,var(--sol) 42%,transparent)}
+.osi-cv-outcome[data-outcome=published],.osi-cv-outcome[data-outcome=resolved]{color:var(--cyan);border-color:color-mix(in srgb,var(--cyan) 36%,transparent)}
+.osi-cv-title{font-size:13.5px;line-height:1.45;color:var(--ink)}
+.osi-cv-role{font:500 11px 'JetBrains Mono',monospace;color:var(--ink-faint)}
+.osi-cv-acts{display:flex;flex-direction:column;gap:5px;margin:3px 0 0;padding:0;list-style:none}
+.osi-cv-acts li{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.osi-cv-act-name{font:600 11px 'JetBrains Mono',monospace;color:var(--ink-dim)}
+.osi-cv-acts time{font:400 11px 'JetBrains Mono',monospace;color:var(--ink-faint)}
+.osi-cv-act-proof{font:600 11px 'JetBrains Mono',monospace;color:var(--cyan);text-decoration:none}
+a.osi-cv-act-proof:hover,a.osi-cv-act-proof:focus-visible{text-decoration:underline}
+/* A wallet signature is real proof and is not a transaction. It never borrows
+   the colour the product reserves for a link that resolves on chain. */
+.osi-cv-act-offchain{color:var(--ink-faint)}
+.osi-cv-unlisted{margin:0;font-size:11.5px;line-height:1.6;color:var(--ink-faint)}
+
+/* Print and save-as-PDF: the actual way a track record gets attached to a grant
+   application or a job application. Everything except the open profile is
+   hidden and the sheet is inverted to ink on paper. Links keep their href in
+   printed text so a paper copy stays verifiable.
+
+   Isolation is by visibility rather than by hiding the body's direct children:
+   #ap-modal lives inside <main>, not at body level, so a display rule aimed at
+   a body child matches nothing and prints a blank page. visibility inherits,
+   so hiding everything and re-showing the modal subtree works at any depth. */
+@media print{
+  /* The modal card carries no padding once it is unwrapped, so the sheet's own
+     margin is what keeps a right-aligned proof link off the paper edge. */
+  @page{margin:14mm}
+  html,body{background:#fff!important;color:#111!important;overflow:visible!important;height:auto!important}
+  /* Two layers on purpose. Visibility isolates the profile at any DOM depth and
+     is the rule that must not fail. The display rules below it collapse the
+     page's own height so the sheet ends with the record instead of trailing
+     blank pages; they name the one chain the modal actually sits in, and if
+     that chain ever moves the visibility layer still prints the right thing. */
+  body *{visibility:hidden!important;background:none!important;box-shadow:none!important}
+  body>*{display:none!important}
+  body>#main-content{display:block!important;padding:0!important;margin:0!important}
+  #main-content>*{display:none!important}
+  #main-content>#ap-modal.open{display:block!important}
+  #ap-modal.open,#ap-modal.open *{visibility:visible!important}
+  /* position:fixed content can print on the first page only, so the open card
+     is lifted to the top of the document flow and allowed to run over pages. */
+  #ap-modal.open{position:absolute!important;top:0!important;left:0!important;right:auto!important;bottom:auto!important;display:block!important;width:100%!important;padding:0!important;opacity:1!important;background:#fff!important;transition:none!important}
+  #ap-modal.open .ap-modal-bg,#ap-modal.open .ap-modal-x,.osi-cv-hide-in-print,.osi-cv-share button{display:none!important;visibility:hidden!important}
+  #ap-modal.open .ap-modal-card{position:static!important;width:auto!important;max-width:none!important;max-height:none!important;overflow:visible!important;border:0!important;box-shadow:none!important;background:#fff!important;padding:0!important;transform:none!important}
+  #ap-modal.open .ap-modal-body{overflow:visible!important;max-height:none!important;padding:0!important}
+  .osi-public-profile,.osi-public-profile *{color:#111!important;background:none!important;box-shadow:none!important}
+  .osi-public-profile h3,.osi-cv-summary b,.osi-cv-title,.osi-profile-facts b{color:#000!important}
+  .osi-cv-ref,.osi-cv-act-proof,.osi-safe-links a,.osi-cv-permalink{color:#0b4f6c!important}
+  .osi-public-profile>header,.osi-cv-entry,.osi-profile-facts,.osi-profile-facts>div,.osi-cv-summary,.osi-cv-summary>div,.osi-cv-permalink,.osi-cv-outcome{border-color:#999!important}
+  .osi-cv-act-proof[href]::after{content:' (' attr(href) ')';font-weight:400;color:#444!important;word-break:break-all}
+  .osi-cv-permalink{border:0!important;padding-left:0!important}
+  .osi-cv-entry,.osi-history-row{break-inside:avoid;page-break-inside:avoid}
+  .osi-cv-record h4,.osi-public-profile h4{break-after:avoid;page-break-after:avoid}
+}
