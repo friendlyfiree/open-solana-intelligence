@@ -120,4 +120,38 @@ refuses("a wallet that is not base58 is refused",
     && !("weight_cached" in normalized) && !("approved" in normalized) && !("verified" in normalized));
 }
 
+// The operator does public work too, and it is evidenced exactly the way an
+// analyst's is. What must never follow from that is analyst standing.
+{
+  const analystCore = await import("../supabase/functions/_shared/osi-v2-analyst-core.mjs");
+  const subjects = analystCore.indexPublicSubjects({
+    cases: [{ id: "c1", public_ref: "OSI-BFD6490F5270", title: "Treasury outflow", stage: "sealed", visibility: "public", sealed_at: "2026-08-04T00:00:00Z" }],
+  });
+  const receipts = [
+    { event_type: "CASE_SUBMITTED", target_type: "case", public_ref: "OSI-BFD6490F5270", actor_wallet: WALLET, actor_role: "owner", decision: "submit", server_verified: true, proof_type: "solana_memo", tx_sig: "a".repeat(64), occurred_at: "2026-07-26T00:00:00Z" },
+    // An operator decision. Real, receipted, and never a credential.
+    { event_type: "CASE_OPENED", target_type: "case", public_ref: "OSI-BFD6490F5270", actor_wallet: WALLET, actor_role: "maintainer", decision: "open", server_verified: true, proof_type: "solana_memo", tx_sig: "b".repeat(64), occurred_at: "2026-07-27T00:00:00Z" },
+  ];
+  const record = analystCore.buildPublicWorkRecord(WALLET, receipts, subjects);
+  const projected = publicMaintainerProfile(
+    { wallet: WALLET, display_name: "Aksusarya" },
+    record,
+    analystCore.publicProofHistory(receipts, subjects),
+  );
+  ok("the maintainer profile carries the same public work record an analyst page publishes",
+    projected.record.summary.public_entries === 1 && projected.record.entries[0].public_ref === "OSI-BFD6490F5270");
+  ok("an operator decision is receipted but never counted as the operator's contribution",
+    projected.record.entries[0].acts.length === 1
+    && projected.record.entries[0].acts[0].event_type === "CASE_SUBMITTED");
+  ok("the maintainer proof history keeps every receipt, including the operator decisions",
+    projected.proof_history.length === 2
+    && projected.proof_history.some((row) => row.event_type === "CASE_OPENED"));
+  ok("carrying a work record still confers no analyst standing, weight or vote",
+    projected.is_analyst === false && projected.review_weight === 0
+    && !("status" in projected) && !("tier_code" in projected) && !("weight" in projected));
+  ok("an absent record projects to an empty one rather than to undefined",
+    publicMaintainerProfile({ wallet: WALLET }).record.entries.length === 0
+    && publicMaintainerProfile({ wallet: WALLET }).proof_history.length === 0);
+}
+
 process.stdout.write(`Maintainer profile core: ${passed} passed\n`);

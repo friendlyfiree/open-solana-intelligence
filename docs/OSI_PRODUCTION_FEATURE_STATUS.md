@@ -107,6 +107,46 @@ A derived contribution is only ever the analyst's own attributable public work:
   internal id, and a receipt with no public reference is omitted rather than
   published as something a reader cannot look up.
 
+## Public work record
+
+The public profile publishes a work record rather than a bare contribution
+list. Each row is the intersection of two independently public facts: a receipt
+the wallet signed, and the current public state of the subject that receipt
+points at. A row therefore states what the wallet did, to which record a reader
+can open, what stage that record reached, and where its mainnet transaction is.
+
+An outcome is a process state, never a verdict on whether an analysis was
+correct, and the surface says so in its own copy.
+
+Publishability is decided by whether the subject resolves for a public reader,
+using the same test the Case read core enforces:
+
+- A private Case, an unpublished Report, an unpublished Wire Report, a
+  published Report whose parent Case is still private, a legacy import and an
+  archived Case are all unresolvable and are never named.
+- A review references the exact immutable version it judged, so `OSI-RV-*` and
+  `OSI-WV-*` resolve through their parent header and inherit that header's
+  publication test unchanged.
+- Work on an unresolvable subject is counted in an unlisted total and never
+  named, so the record stays truthful without announcing that a private subject
+  exists. The stored `analyst_contributions` table stays authoritative where it
+  has rows but does not get to name an unresolvable subject either.
+- A receipt on an unresolvable subject keeps its proof in the proof history and
+  loses its public reference.
+- An unavailable subject index publishes an empty record rather than falling
+  open.
+
+The maintainer profile publishes the same record, built by the same code. That
+confers no analyst standing: operator decisions are excluded upstream by the
+contribution-kind map, and the record carries no status, tier, weight or vote.
+
+The roster's work column and the profile summary both read the record's own
+count, so the two can never disagree.
+
+`#analyst/<handle>` and `#maintainer` are canonical public profile routes,
+carrying a public identifier and nothing else. A profile with no public handle
+has no shareable address rather than a wallet-bearing one.
+
 ## SAS display contract
 
 Every authority surface uses the public verifier result or a fresh trusted

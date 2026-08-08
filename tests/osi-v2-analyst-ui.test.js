@@ -135,4 +135,78 @@ ok(css.includes('.osi-application-steps')
   'fast application guidance, progressive disclosure and mobile actions have dedicated styling');
 ok(!analyst.includes('\u2014') && !css.includes('\u2014'), 'new visible analyst UI introduces no em dash');
 
+// \u2500\u2500 Verified work record: the CV surface \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// A track record that a reader cannot open, cannot send and cannot attach to
+// an application is a list, not a credential. These are the four properties
+// that make it one, plus the two honesty rules it must never break.
+ok(analyst.includes('function recordSection(record)')
+  && analyst.includes('recordSection(profile.record)'),
+  'both the analyst and the maintainer profile render the same verified work record');
+ok(analyst.includes("'Each row is a signed act on a record anyone can open. An outcome states where the process reached, never that a finding is true.'"),
+  'the record states in its own copy that an outcome is a process state, not a verdict');
+ok(/function recordEntryHref\(entry\)[\s\S]*?\/\^OSI-\[0-9A-Z\]\{6,20\}\$\/\.test\(ref\)/.test(analyst)
+  && analyst.includes("'#case/'+encodeURIComponent(ref)"),
+  'a record row links only to a validated public Case reference');
+ok(analyst.includes("esc(t(OUTCOME_LABELS[outcome]||label(outcome)))")
+  && analyst.includes("'<b class=\"osi-cv-title\" data-osi-user-content>'+esc(title)"),
+  'record titles and outcomes are escaped and marked as user content');
+ok(analyst.includes("osi-cv-act-offchain")
+  && /function recordAct\(act\)[\s\S]*?act\.proof_type==='solana_memo'/.test(analyst),
+  'only a Memo receipt gets a chain link; a wallet signature is labelled as what it is');
+ok(analyst.includes("'{count} further signed acts are on subjects that are not public yet. They are counted here and deliberately not named.'"),
+  'work on a private subject is counted in the record and never named');
+
+// A profile address is public or it does not exist. A wallet in a URL would
+// make the shareable link an identifier the reader never chose to publish.
+ok(/function profileRoute\(profile,isMaintainer\)[\s\S]*?\/\^\[a-z0-9_\]\{2,32\}\$\/\.test\(handle\)\?origin\+'#analyst\/'\+handle:''/.test(analyst),
+  'a profile with no public handle gets no shareable address rather than a wallet URL');
+// Most of the live roster has never set a handle. Printing is the part of a CV
+// that does not need an address, and it must not be lost with the address.
+ok(analyst.includes("'This profile has no public handle, so it has no shareable address. A wallet is never used as one.'")
+  && /var shareRow='<div class="osi-cv-share">'\s*\+\(route/.test(analyst)
+  && /:'<span class="osi-cv-no-permalink">[\s\S]*?\)\s*\+'<button class="osi-action" type="button" data-cv-print>/.test(analyst),
+  'a handle-less profile keeps save-as-PDF and states the exact reason it has no link');
+ok(analyst.includes("var copy=route?body.querySelector('[data-cv-copy]'):null"),
+  'the copy handler is not bound to a control that was never rendered');
+ok(analyst.includes("function analystRouteHandle(hash)")
+  && analyst.includes("function adoptProfileRoute(hash)")
+  && analyst.includes("function clearProfileRoute()")
+  && analyst.includes("window.addEventListener('popstate',routeProfileFromLocation)"),
+  'opening a profile adopts its address, closing it releases the address, and Back works');
+ok(/function adoptProfileRoute[\s\S]*?window\.history\.replaceState/.test(analyst)
+  && !/function adoptProfileRoute[\s\S]*?window\.history\.pushState/.test(analyst),
+  'a profile address replaces rather than stacking a history entry per profile glanced at');
+ok(analyst.includes("op:'get_public_profile'"),
+  'a shared profile link resolves one profile instead of requiring the whole roster');
+
+// #ap-modal sits inside <main>, not at body level, so isolating the print
+// sheet by hiding the body's direct children alone printed a blank page. The
+// visibility layer is the one that must hold at any DOM depth.
+ok(css.includes('@media print')
+  && css.includes('body *{visibility:hidden!important')
+  && css.includes('#ap-modal.open,#ap-modal.open *{visibility:visible!important}')
+  && css.includes('#main-content>#ap-modal.open{display:block!important}')
+  && css.includes('.osi-cv-hide-in-print'),
+  'the profile prints as a standalone document with its interactive controls removed');
+ok(!/@media print\{[^}]*body>#ap-modal/.test(css.replace(/\s+/g, '')),
+  'print isolation does not depend on the modal being a direct child of body');
+ok(analyst.includes("function publicWorkCount(profile)")
+  && analyst.includes('String(publicWorkCount(profile))'),
+  'public work is counted once, by the record, on both the roster and the profile');
+// The page deploys from main while the gateway deploys through its own
+// workflow, so a new page will read an old gateway for a window. Exactly one
+// of the two lists renders, and the older shape still shows real work.
+ok(/function workSection\(profile\)\{\s*if\(profile&&profile\.record&&typeof profile\.record==='object'\)return recordSection\(profile\.record\);/.test(analyst)
+  && analyst.includes("+workSection(profile)")
+  && (analyst.match(/recordSection\(/g) || []).length === 2,
+  'the work record supersedes the contribution list, and a response without a record still shows real work');
+ok(analyst.includes("unlistedTotal===1")
+  && analyst.includes("'One further signed act is on a subject that is not public yet. It is counted here and deliberately not named.'"),
+  'the unlisted footnote is grammatical at a count of one');
+ok(/function clearProfileRoute\(\)[\s\S]*?window\.history\.replaceState/.test(analyst)
+  && !/function clearProfileRoute\(\)[\s\S]*?osiSyncRouteForView/.test(analyst),
+  'closing a profile releases its address directly, since the route sync now refuses to touch one');
+ok(css.includes(".osi-cv-act-proof[href]::after{content:' (' attr(href) ')'"),
+  'a printed record keeps its verification links readable on paper');
+
 console.log('1..' + assertions);
