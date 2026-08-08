@@ -273,6 +273,7 @@
 .osi-cv-share{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .osi-cv-permalink{flex:1 1 240px;min-width:0;padding:9px 11px;border:1px solid var(--osi-border);border-radius:var(--osi-radius-sm);color:var(--cyan);font:600 11px 'JetBrains Mono',monospace;text-decoration:none;word-break:break-all}
 .osi-cv-permalink:hover,.osi-cv-permalink:focus-visible{border-color:var(--cyan)}
+.osi-cv-no-permalink{flex:1 1 240px;min-width:0;font-size:11.5px;line-height:1.5;color:var(--ink-faint)}
 .osi-cv-record{gap:14px}
 .osi-cv-note{margin:0;font-size:11.5px;line-height:1.6;color:var(--ink-faint)}
 /* Labels wrap at narrow cell widths, so the cells are stretched to equal height

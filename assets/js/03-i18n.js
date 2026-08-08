@@ -583,6 +583,7 @@
     'Verify on Solana': 'Solana üzerinde doğrula',
     'Wallet-signed, server-verified': 'Cüzdanla imzalı, sunucu tarafından doğrulanmış',
     'Print or save as PDF': 'Yazdır veya PDF olarak kaydet',
+    'This profile has no public handle, so it has no shareable address. A wallet is never used as one.': 'Bu profilin public bir kullanıcı adı yok, bu yüzden paylaşılabilir bir adresi de yok. Cüzdan adresi asla adres olarak kullanılmaz.',
     'Profile link copied.': 'Profil bağlantısı kopyalandı.',
     'Copy failed. Select the link and copy it manually.': 'Kopyalama başarısız. Bağlantıyı seçip elle kopyalayın.',
     'Public records': 'Public kayıtlar',

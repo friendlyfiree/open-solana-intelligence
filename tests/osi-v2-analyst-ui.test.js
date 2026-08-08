@@ -160,6 +160,14 @@ ok(analyst.includes("'{count} further signed acts are on subjects that are not p
 // make the shareable link an identifier the reader never chose to publish.
 ok(/function profileRoute\(profile,isMaintainer\)[\s\S]*?\/\^\[a-z0-9_\]\{2,32\}\$\/\.test\(handle\)\?origin\+'#analyst\/'\+handle:''/.test(analyst),
   'a profile with no public handle gets no shareable address rather than a wallet URL');
+// Most of the live roster has never set a handle. Printing is the part of a CV
+// that does not need an address, and it must not be lost with the address.
+ok(analyst.includes("'This profile has no public handle, so it has no shareable address. A wallet is never used as one.'")
+  && /var shareRow='<div class="osi-cv-share">'\s*\+\(route/.test(analyst)
+  && /:'<span class="osi-cv-no-permalink">[\s\S]*?\)\s*\+'<button class="osi-action" type="button" data-cv-print>/.test(analyst),
+  'a handle-less profile keeps save-as-PDF and states the exact reason it has no link');
+ok(analyst.includes("var copy=route?body.querySelector('[data-cv-copy]'):null"),
+  'the copy handler is not bound to a control that was never rendered');
 ok(analyst.includes("function analystRouteHandle(hash)")
   && analyst.includes("function adoptProfileRoute(hash)")
   && analyst.includes("function clearProfileRoute()")

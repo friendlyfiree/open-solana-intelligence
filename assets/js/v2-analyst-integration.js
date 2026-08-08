@@ -579,13 +579,19 @@
     // on is the page they can send on. A profile with no public handle keeps
     // the wallet as its address; the maintainer has its own single route.
     var route=profileRoute(profile,isMaintainer);
-    var shareRow=route
-      ?'<div class="osi-cv-share">'
-        +'<a class="osi-cv-permalink mono" href="'+esc(route)+'" data-cv-permalink>'+esc(route)+'</a>'
-        +'<button class="osi-action" type="button" data-cv-copy>'+esc(t('Copy link'))+'</button>'
-        +'<button class="osi-action" type="button" data-cv-print>'+esc(t('Print or save as PDF'))+'</button>'
-        +'</div>'
-      :'';
+    // Printing needs no address. Two of the three live analysts have never set
+    // a public handle, and gating the whole row on a permalink took their
+    // save-as-PDF away for a reason that has nothing to do with printing.
+    // The address is what a handle buys; the document is not.
+    var shareRow='<div class="osi-cv-share">'
+      +(route
+        ?'<a class="osi-cv-permalink mono" href="'+esc(route)+'" data-cv-permalink>'+esc(route)+'</a>'
+          +'<button class="osi-action" type="button" data-cv-copy>'+esc(t('Copy link'))+'</button>'
+        // Stated rather than left as a silent absence, and it names the exact
+        // unmet prerequisite the way every other unavailable control here does.
+        :'<span class="osi-cv-no-permalink">'+esc(t('This profile has no public handle, so it has no shareable address. A wallet is never used as one.'))+'</span>')
+      +'<button class="osi-action" type="button" data-cv-print>'+esc(t('Print or save as PDF'))+'</button>'
+      +'</div>';
     body.removeAttribute('aria-busy');
     body.innerHTML='<div class="osi-public-profile'+(isMaintainer?' osi-public-profile-maintainer':'')+'"><header>'+avatar(profile,64)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(displayName)+badge+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
       +'<div class="osi-profile-facts">'+facts+'</div>'+role+shareRow
@@ -612,7 +618,7 @@
     return /^[a-z0-9_]{2,32}$/.test(handle)?origin+'#analyst/'+handle:'';
   }
   function bindShareControls(body,route){
-    var copy=body.querySelector('[data-cv-copy]'),print=body.querySelector('[data-cv-print]');
+    var copy=route?body.querySelector('[data-cv-copy]'):null,print=body.querySelector('[data-cv-print]');
     // osiCopyText resolves false rather than rejecting when both the clipboard
     // API and the execCommand fallback are refused, so the result is checked
     // instead of assumed: a copy button that silently does nothing is worse
