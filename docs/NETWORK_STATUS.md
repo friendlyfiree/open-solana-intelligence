@@ -19,6 +19,8 @@ dashboard.
 | Published Wire Reports | 0 |
 | Analysts with an active profile | 3 |
 | Analysts above probationary tier | 0 |
+| Public openings through an independent analyst approval | 0 |
+| Public openings through the full-maintainer approve-open path | 3 |
 | Publications through independent analyst quorum | 0 |
 | Publications through the labeled maintainer bootstrap channel | 1 |
 | Confirmed reward payments | 0 |
@@ -45,6 +47,17 @@ labels it as a maintainer bootstrap decision rather than analyst consensus.
 This is the designed behaviour of the cold-start path, not a workaround, but it
 means the governance thesis at the centre of this project is implemented,
 tested, and still unproven in production.
+
+**No Case has been opened by an analyst either.** All three public Cases were
+opened on the full-maintainer approve-open path, which the model permits as an
+independent initial-open route at analyst weight zero. Each of those receipts
+records `actor_role='maintainer'`, so the Proof Log does not present any of them
+as an analyst decision. Note the channel they carry, because it is the one
+number on this page a reader could misread: a maintainer approve-open records
+`decision_channel='standard'`, not `maintainer_bootstrap`, since it is a
+modelled route rather than the cold-start substitution the bootstrap channel
+names. The role field is what distinguishes it, and the count above is stated
+separately so nobody has to work that out from a channel label.
 
 **The one support transfer is not adoption.** It is 100,000 lamports sent by
 the maintainer wallet to a report author to exercise the payment path end to
