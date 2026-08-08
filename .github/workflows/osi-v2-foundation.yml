@@ -133,6 +133,15 @@ jobs:
             supabase/functions/_shared/osi-v2-read-session-core.mjs \
             supabase/functions/_shared/osi-v2-wire-core.mjs
 
+      # `deno check` type-checks a module graph; it never evaluates one. On
+      # 2026-08-08 esm.sh began resolving a transitive `ws` build whose module
+      # evaluation throws, so deploying unchanged, previously working source
+      # stopped booting and the gateway answered every request with 500
+      # WORKER_ERROR. Every gate above was green throughout, because nothing in
+      # CI had ever started a function. This step asks the question they cannot.
+      - name: Edge Functions boot
+        run: bash tests/osi-edge-function-boot.test.sh
+
       - name: Chromium UI contracts
         run: |
           npm install --no-save --no-package-lock @playwright/test@1.55.0 http-server@14.1.1

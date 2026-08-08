@@ -73,6 +73,11 @@ jobs:
           set -euo pipefail
           for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
           deno check "supabase/functions/${FUNCTION_SLUG}/index.ts"
+          # Type-checking a graph is not evaluating it. A function that checks
+          # cleanly can still throw on evaluation, and the Edge Runtime answers
+          # every request to such a function with 500 WORKER_ERROR. Prove it
+          # starts before this workflow is allowed to put it in front of users.
+          bash tests/osi-edge-function-boot.test.sh
 
       - name: Start disposable PostgreSQL 17 and migrate from zero
         run: |
@@ -180,6 +185,30 @@ jobs:
         run: |
           set -euo pipefail
           supabase functions deploy "$FUNCTION_SLUG" --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Wait for the new deployment to answer
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/${FUNCTION_SLUG}"
+          # The smoke tests below used to run in the same second the deploy step
+          # finished, so a deployment that had not finished coming up could be
+          # read as a behavioural failure and disable a flag over a healthy
+          # rollout. Readiness is established here, separately, using an
+          # operation that touches no table: the dispatch default. A function
+          # that is serving answers it 400; one that cannot boot answers 500.
+          for attempt in $(seq 1 20); do
+            code="$(curl -sS --max-time 20 -o /tmp/ready.json -w '%{http_code}' \
+              -X POST "$base" -H 'Content-Type: application/json' \
+              -d '{"op":"osi_deployment_readiness_probe"}' || echo 000)"
+            if [ "$code" = "400" ]; then
+              echo "Deployment answering after ${attempt} attempt(s)."
+              exit 0
+            fi
+            echo "Attempt ${attempt}: HTTP ${code}; waiting."
+            sleep 6
+          done
+          echo "::error::The deployed function never answered a dispatch-default request. It cannot boot; see the boot gate in validation."
+          exit 1
 
       - name: Public privacy and deny-by-default smoke tests
         run: |
