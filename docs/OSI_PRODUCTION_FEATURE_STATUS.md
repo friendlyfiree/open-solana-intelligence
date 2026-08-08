@@ -2,7 +2,7 @@
 
 Public gate values re-verified: 2026-08-08
 
-Latest production migration observed: `20260807154829_osi_v2_cold_start_weight_gate_calibration`
+Latest production migration observed: `20260808163737_osi_v2_wallet_profiles`
 Project: `afibxpniwfnavdobecrn`  
 Web: `https://open-solana-intel.vercel.app`
 
@@ -22,6 +22,7 @@ malformed, or unavailable values always fail closed.
 | `OSI_V2_PAYMENT_WRITES_ENABLED` | `true` | Reward pledges/payments and voluntary support |
 | `OSI_V2_SOLANA_PAY_ENABLED` | `true` | Secondary Solana Pay choice for one exact recipient |
 | `OSI_V2_READ_SESSION_ENABLED` | `true` | Scoped private-read sessions with a 30-minute inactivity window and eight-hour absolute lifetime |
+| `OSI_V2_PROFILE_WRITES_ENABLED` | `true` | Owner-controlled wallet profiles; public visibility and public Case attribution remain separate explicit choices |
 | `OSI_V2_WIRE_WRITES_ENABLED` | `true` | Wire intake, review, publication, and support |
 | `OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED` | `true` | Server-derived issuance/revocation lifecycle |
 | `OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED` | `true` | Invalid/unavailable credentials carry zero quorum authority |
@@ -36,6 +37,13 @@ analyst. The Case remains private. Its owner may appeal only with newly appended
 private evidence and one wallet signature; the original intake, rejection proof,
 and earlier reviews remain immutable and earlier reviews do not count in the new
 review cycle.
+
+Wallet profiles are private by default and use the shared signed-write proof
+boundary. Anonymous Case responses expose no submitter wallet. They include the
+four-field `submitter_profile` projection only when the owner has both published
+the profile and separately enabled public Case attribution. Active analyst
+identity fields continue to mirror to the separate public analyst profile;
+analyst status, tier, review weight, expertise and links remain server-derived.
 
 ## Every intentionally false production flag
 
