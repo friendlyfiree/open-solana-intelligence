@@ -320,6 +320,9 @@ a.osi-cv-act-proof:hover,a.osi-cv-act-proof:focus-visible{text-decoration:underl
    a body child matches nothing and prints a blank page. visibility inherits,
    so hiding everything and re-showing the modal subtree works at any depth. */
 @media print{
+  /* The modal card carries no padding once it is unwrapped, so the sheet's own
+     margin is what keeps a right-aligned proof link off the paper edge. */
+  @page{margin:14mm}
   html,body{background:#fff!important;color:#111!important;overflow:visible!important;height:auto!important}
   /* Two layers on purpose. Visibility isolates the profile at any DOM depth and
      is the rule that must not fail. The display rules below it collapse the
