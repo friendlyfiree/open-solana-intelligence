@@ -891,11 +891,14 @@
       ]);
       assertPrivateGeneration(generation);if(wallet!==String(walletPubkey||''))throw new Error('private_session_changed');
       var aiPackCapabilities={ai_pack_writes_enabled:false,ai_pack_review_writes_enabled:false,can_generate:false,generation_prerequisite:'AI Pack capabilities are safely unavailable.'};
-      try{aiPackCapabilities=await api(AI_PACK_URL,{
-        op:'capabilities',
-        wallet:wallet,
-        case_ref:state.current&&state.current.public_ref||undefined
-      });}catch(aiPackError){}
+      var aiPackCaseRef=String(state.current&&state.current.public_ref||'');
+      if(aiPackCaseRef){
+        try{aiPackCapabilities=await api(AI_PACK_URL,{
+          op:'capabilities',
+          wallet:wallet,
+          case_ref:aiPackCaseRef
+        });}catch(aiPackError){}
+      }
       assertPrivateGeneration(generation);if(wallet!==String(walletPubkey||''))throw new Error('private_session_changed');
       state.capabilities=Object.assign({},results[0],results[1],results[2],aiPackCapabilities);
       restorePaymentPending(wallet);
@@ -1093,7 +1096,7 @@
     if(titleNode)titleNode.textContent=item&&item.title?item.title:t('Opening Case detail');
     if(!stateNode)return;
     stateNode.innerHTML=item
-      ?'<span class="osi-chip '+esc(item.visibility)+'">'+esc(label(item.visibility))+'</span><span class="osi-chip">'+esc(stageLabel(item.stage,item))+'</span><span class="osi-chip">'+esc(label(item.category))+'</span>'
+      ?'<span class="osi-chip '+esc(item.visibility)+'">'+esc(t(label(item.visibility)))+'</span><span class="osi-chip">'+esc(t(stageLabel(item.stage,item)))+'</span><span class="osi-chip">'+esc(t(label(item.category)))+'</span>'
       :'<span class="osi-chip">'+esc(t('Loading'))+'</span>';
   }
   // The drawer is revealed before any network call so a Case row click always
@@ -1246,7 +1249,7 @@
       var active=tab[0]===state.tab;
       return'<button class="osi-case-tab '+(active?'active':'')+'" id="osi-case-tab-'+tab[0]+
         '" type="button" role="tab" aria-controls="osi-case-content" aria-selected="'+active+
-        '" tabindex="'+(active?'0':'-1')+'" data-tab="'+tab[0]+'">'+esc(tab[1])+'</button>';
+        '" tabindex="'+(active?'0':'-1')+'" data-tab="'+tab[0]+'">'+esc(t(tab[1]))+'</button>';
     }).join('');
     var selected=host.querySelector('[aria-selected="true"]');if(selected&&typeof selected.scrollIntoView==='function')selected.scrollIntoView({block:'nearest',inline:'nearest'});
     syncTabOverflow(host);
@@ -1261,7 +1264,7 @@
       });
     });
   }
-  function emptySection(title,text){return'<section class="osi-case-section"><h3>'+esc(title)+'</h3><div class="osi-v2-empty"><b>Nothing recorded</b><span>'+esc(text)+'</span></div></section>';}
+  function emptySection(title,text){return'<section class="osi-case-section"><h3>'+esc(t(title))+'</h3><div class="osi-v2-empty"><b>'+esc(t('Nothing recorded'))+'</b><span>'+esc(t(text))+'</span></div></section>';}
   // Long intake prose keeps its paragraphs. Every chunk is escaped; only the
   // structure is markup.
   function caseProse(value){
@@ -1289,10 +1292,11 @@
       :'';
     var cycle=reviewCycleStartedAt(item);
     var active=(item.reviews||[]).filter(function(review){return review.is_active===true&&new Date(review.created_at).getTime()>cycle;});
-    var initial=active.length?'<div class="osi-governance-mini"><b>Initial review</b><span>'+active.length+' active attributable '+(active.length===1?'review':'reviews')+'</span></div>':'';
-    return '<section class="osi-case-section"><h3>Case overview</h3><div class="osi-case-meta"><div><span>Reference</span><b>'+esc(item.public_ref)+'</b></div><div><span>Created</span><b>'+esc(dateText(item.created_at))+'</b></div><div><span>Stage</span><b>'+esc(stageLabel(item.stage,item))+'</b></div><div><span>Visibility</span><b>'+esc(label(item.visibility))+'</b></div></div>'
-      +summary+'<div class="osi-governance-mini"><b>Exact next step</b><span>'+esc(nextStepText(item))+'</span></div>'+initial+restricted+referenceBlock+reward
-      +'<div class="osi-case-note">OSI records attributable, human-reviewed and challengeable process. It does not determine guilt, legal certainty, truth, custody, recovery, or guaranteed payment.</div></section>';
+    var initialKey=active.length===1?'{count} active attributable review':'{count} active attributable reviews';
+    var initial=active.length?'<div class="osi-governance-mini"><b>'+esc(t('Initial review'))+'</b><span>'+esc(t(initialKey,{count:active.length}))+'</span></div>':'';
+    return '<section class="osi-case-section"><h3>'+esc(t('Case overview'))+'</h3><div class="osi-case-meta"><div><span>'+esc(t('Reference'))+'</span><b>'+esc(item.public_ref)+'</b></div><div><span>'+esc(t('Created'))+'</span><b>'+esc(dateText(item.created_at))+'</b></div><div><span>'+esc(t('Stage'))+'</span><b>'+esc(t(stageLabel(item.stage,item)))+'</b></div><div><span>'+esc(t('Visibility'))+'</span><b>'+esc(t(label(item.visibility)))+'</b></div></div>'
+      +summary+'<div class="osi-governance-mini"><b>'+esc(t('Exact next step'))+'</b><span>'+esc(t(nextStepText(item)))+'</span></div>'+initial+restricted+referenceBlock+reward
+      +'<div class="osi-case-note">'+esc(t('OSI records attributable, human-reviewed and challengeable process. It does not determine guilt, legal certainty, truth, custody, recovery, or guaranteed payment.'))+'</div></section>';
   }
   function evidence(item){
     var html=evidenceSectionsHtml(item);
@@ -1301,12 +1305,12 @@
       ?'<div class="osi-case-note">'+esc(t('This manifest is private intake evidence. It becomes public only through the confirmed CASE_OPENED transition.'))+'</div>'
       :'';
     return '<section class="osi-case-section"><h3>'+esc(t('Evidence and Sources'))+'</h3>'+html+pending
-      +'<div class="osi-case-note">A reference is evidence material, not automatic proof of a claim. Public items require their own moderation state.</div></section>';
+      +'<div class="osi-case-note">'+esc(t('A reference is evidence material, not automatic proof of a claim. Public items require their own moderation state.'))+'</div></section>';
   }
   function reports(item){
     if(typeof window.osiReportRenderSection==='function')return window.osiReportRenderSection(item,{mode:state.mode,actorRole:state.currentActorRole||state.actorRole,capabilities:state.capabilities||{}});
     var rows=item.reports||[];if(!rows.length)return emptySection('Reports','Report data is temporarily unavailable.');
-    return '<section class="osi-case-section"><h3>Reports</h3><div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><b>'+esc(label(row.status))+'</b><p>'+(row.published?'Published exact version':'No published version')+'</p></div>';}).join('')+'</div></section>';
+    return '<section class="osi-case-section"><h3>'+esc(t('Reports'))+'</h3><div class="osi-list">'+rows.map(function(row){return'<div class="osi-list-item"><b>'+esc(t(label(row.status)))+'</b><p>'+esc(t(row.published?'Published exact version':'No published version'))+'</p></div>';}).join('')+'</div></section>';
   }
   // The approval that moved a Case from private intake to public investigation
   // is a first-class public fact. Say who approved it, in what role, and which
@@ -1597,10 +1601,10 @@
       // expensive form.
       var intakeOpen=['open_public','in_review','reopened'].indexOf(String(item.stage||''))>=0;
       var intakeHelp=intakeOpen
-        ? 'Contribute findings to this public investigation. Reports remain private until reviewed publication.'
-        : 'This Case is past Report intake at stage '+stageLabel(item.stage,item)+'. Its record stays readable and its proof stays verifiable.';
+        ? t('Contribute findings to this public investigation. Reports remain private until reviewed publication.')
+        : t('This Case is past Report intake at stage {stage}. Its record stays readable and its proof stays verifiable.',{stage:t(stageLabel(item.stage,item))});
       var submit=intakeOpen
-        ? '<button class="osi-action primary" type="button" onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button>'
+        ? '<button class="osi-action primary" type="button" onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">'+esc(t('Submit Report'))+'</button>'
         : '<button class="osi-action" type="button" disabled title="'+esc(t('Report intake is open only while a Case is in public investigation, under Report review, or reopened.'))+'">'+esc(t('Report intake closed'))+'</button>';
       // The four Inspect buttons that used to sit here only switched tabs, and
       // the tab bar they duplicated is always on screen directly above, with a
@@ -1611,7 +1615,7 @@
       var reportCount=(item.reports||[]).length;
       var reportsAuthorized=!!(state.capabilities&&(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true));
       var reportsLabel=(reportsAuthorized?t('Reports'):t('Published Reports'))+' ('+reportCount+')';
-      host.innerHTML='<span class="osi-action-help">'+esc(t(intakeHelp))+'</span>'+submit
+      host.innerHTML='<span class="osi-action-help">'+esc(intakeHelp)+'</span>'+submit
         +'<button class="osi-action" type="button" onclick="osiV2ShowTab(\'reports\')">'+esc(reportsLabel)+'</button>';
     }
   }

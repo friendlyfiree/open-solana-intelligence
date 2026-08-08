@@ -364,16 +364,35 @@ function crPaint(){
   }
 }
 function crCopyFallback(text, done){
+  var ta=null;
   try{
-    var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
     document.body.appendChild(ta); ta.focus(); ta.select();
-    document.execCommand('copy'); document.body.removeChild(ta); done();
-  }catch(e){ showToast('Could not copy automatically \u00b7 tx: '+text); }
+    var copied=document.execCommand('copy'); document.body.removeChild(ta); ta=null;
+    if(!copied) throw new Error('copy_command_failed');
+    done();
+  }catch(e){
+    if(ta&&ta.parentNode)ta.parentNode.removeChild(ta);
+    showToast(crT('Could not copy automatically. Select the transaction signature and copy it manually.'));
+  }
 }
-function crCopyTx(hash){
+function crCopyButtonSuccess(button,signature){
+  if(!button)return;
+  var compact=String(signature).slice(0,5)+'...'+String(signature).slice(-5);
+  if(button.__crCopyReset)clearTimeout(button.__crCopyReset);
+  button.textContent=crT('Copied');
+  button.setAttribute('aria-label',crT('Transaction signature copied {signature}',{signature:compact}));
+  button.__crCopyReset=setTimeout(function(){
+    if(!document.contains(button))return;
+    button.textContent=crT('Copy');
+    button.setAttribute('aria-label',crT('Copy transaction signature {signature}',{signature:compact}));
+    button.__crCopyReset=null;
+  },1500);
+}
+function crCopyTx(hash,button){
   if(!hash) return;
   var full=String(hash);
-  var done=function(){ showToast('Transaction signature copied.'); };
+  var done=function(){ crCopyButtonSuccess(button,full); showToast(crT('Transaction signature copied.')); };
   if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(full).then(done).catch(function(){ crCopyFallback(full, done); }); }
   else{ crCopyFallback(full, done); }
 }
@@ -448,7 +467,8 @@ function crCard(r, packs){
   var wallet = r.wallet ? '<div class="cr-wallet mono">'+escapeHtml(crShort(r.wallet))+'</div>' : '';
   var cls = 'cr-card' + (crIsNativeSealed(r) ? ' sealed' : '') + (challenged ? ' challenged' : '');
   var displayedSig=txSig||legacyTxSig;
-  var copyBtn = displayedSig ? ('<button class="cr-copy" type="button" title="Copy transaction signature" onclick="event.stopPropagation();crCopyTx(&quot;'+crAttr(displayedSig)+'&quot;)">Copy</button>') : '';
+  var displayedSigShort=displayedSig?(String(displayedSig).slice(0,5)+'...'+String(displayedSig).slice(-5)):'';
+  var copyBtn = displayedSig ? ('<button class="cr-copy" type="button" title="'+crAttr(crT('Copy transaction signature'))+'" aria-label="'+crAttr(crT('Copy transaction signature {signature}',{signature:displayedSigShort}))+'" onclick="event.stopPropagation();crCopyTx(&quot;'+crAttr(displayedSig)+'&quot;,this)">'+escapeHtml(crT('Copy'))+'</button>') : '';
   var verifyBtn = txSig ? ('<button class="cr-btn outline" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(txSig)+'&quot;)">Verify on Solana</button>') : (legacyTxSig?'<button class="cr-btn outline" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(legacyTxSig)+'&quot;)">Inspect transaction</button>':'');
   var evValue = evCount ? String(evCount) : '<span class="cr-meta-v na">Evidence not indexed</span>';
   var evSub = evCount ? ('Public reference' + (evCount===1?'':'s')) : 'No indexed evidence count';

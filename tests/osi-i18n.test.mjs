@@ -90,6 +90,23 @@ ok('Turkish covers persistent receipts, unified queue recovery, and connected Ph
 ok('optional Report evidence copy is non-contradictory in both locales',
   i18n.includes("'Evidence references are recommended and can strengthen review. Add up to 12 total references when useful. Blank lines are ignored.'")
     && !i18n.includes('Add at least one and no more than 12 total references.'));
+ok('Turkish covers Case drawer system chrome and Public Records copy feedback',
+  [
+    "'Overview': 'Genel Bakış'",
+    "'Initial Review': 'İlk İnceleme'",
+    "'Created': 'Oluşturuldu'",
+    "'Summary': 'Özet'",
+    "'Submit Report': 'Rapor Gönder'",
+    "'Copy transaction signature {signature}': '{signature} işlem imzasını kopyala'",
+    "'Copied': 'Kopyalandı'",
+  ].every((marker) => i18n.includes(marker)));
+ok('Case drawer localizes generated chrome while preserving submitted content',
+  caseUi.includes('esc(t(tab[1]))')
+    && caseUi.includes("esc(t('Case overview'))")
+    && caseUi.includes("esc(t('Created'))")
+    && caseUi.includes("esc(t('Submit Report'))")
+    && caseUi.includes('caseProse(item.summary)')
+    && caseUi.includes('data-osi-user-content'));
 ok('dynamic system copy uses the locale API while user-authored content opts out',
   caseUi.includes("t('One queue, eight server-authorized lanes. Errors never become empty results.')")
     && reportUi.includes('data-osi-user-content')

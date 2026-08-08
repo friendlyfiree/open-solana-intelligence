@@ -17,6 +17,7 @@ const walletWorkspace = read('assets/js/60-wallet-workspace.js');
 const supportTransfer = read('assets/js/70-support-transfer.js');
 const amountDialog = read('assets/js/72-amount-dialog.js');
 const favicon = read('assets/favicon.svg');
+const vercel = JSON.parse(read('vercel.json'));
 const records = read('assets/js/84-public-records.js');
 const cases = read('assets/js/v2-case-integration.js');
 const safety = read('assets/js/20-safety-consensus.js');
@@ -128,6 +129,9 @@ ok(/\.osi-brand\s*\{[\s\S]*?min-height:\s*44px/.test(css)
 ok(!/transition\s*:\s*all/i.test(css), 'redesign avoids transition-all');
 ok(!/#ff7a3d|#ff5a1f|#f97316|#ea580c/i.test(css), 'redesign introduces no orange or red-orange primary color');
 ok(favicon.includes('#08090d') && favicon.includes('#ff4d5f') && favicon.includes('#f5f0e8'), 'favicon follows the red signal and platinum identity');
+ok(vercel.redirects.some((redirect) => redirect.source === '/favicon.ico'
+  && redirect.destination === '/assets/favicon.svg'
+  && redirect.permanent === true), 'the conventional favicon path resolves to the existing OSI icon');
 ok(css.includes(':focus-visible') && css.includes('outline: 2px solid'), 'visible keyboard focus is preserved');
 ok(/\.osi-hero-lede\s*\{[\s\S]*?font-size:\s*clamp\(16px,\s*1\.25vw,\s*18px\)/.test(css), 'hero body copy preserves a comfortable reading size');
 ok(shell.includes("document.documentElement.classList.add('nav-open')") && shell.includes("document.documentElement.classList.remove('nav-open')"), 'mobile drawer locks and releases the document root');
@@ -156,6 +160,14 @@ ok(legacyRefA !== legacyRefB && /^OSI-[A-Z0-9]{6}-[A-F0-9]{8}$/.test(legacyRefA)
 ok(records.includes("return '<article class=\"'+cls+'\" data-cid=\"'+crAttr(r.id)+'\">'") && !records.includes('role="button" tabindex="0" onclick="openCaseRecord'), 'public record cards avoid nested interactive controls');
 ok(index.includes('id="cr-drawer" aria-hidden="true" hidden') && index.includes('aria-modal="true" aria-labelledby="cr-drawer-title"'), 'public record drawer starts hidden and exposes modal semantics');
 ok(records.includes("event.key==='Escape'") && records.includes('crDrawerReturnFocus') && records.includes("event.key!=='Tab'"), 'public record drawer closes on Escape, traps focus and restores the trigger');
+ok(records.includes("crT('Copy transaction signature {signature}',{signature:displayedSigShort})")
+  && records.includes('crCopyTx(&quot;\'+crAttr(displayedSig)+\'&quot;,this)')
+  && records.includes("button.textContent=crT('Copied')")
+  && records.includes("crT('Transaction signature copied {signature}',{signature:compact})"),
+  'public record copy controls identify their target and expose confirmed copy feedback');
+ok(records.includes("if(!copied) throw new Error('copy_command_failed')")
+  && records.includes("crT('Could not copy automatically. Select the transaction signature and copy it manually.')"),
+  'public record copy fallback never reports success when the browser copy command fails');
 ok(records.includes('Imported test material') && records.includes('Treat certainty claims as unverified.'), 'legacy test and certainty language is visibly qualified');
 ok(!index.includes('Recently updated</option>'), 'unsupported recently-updated sort is not exposed');
 ok(!safety.includes('setTimeout(welcomeShow, 800)'), 'first load no longer forces an unsolicited briefing modal');
