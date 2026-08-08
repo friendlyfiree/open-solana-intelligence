@@ -49,7 +49,16 @@ matches(/list_public_wire_reports/, "anonymous Wire list is smoked");
 matches(/get_public_wire_report/, "anonymous Wire detail is smoked when data exists");
 matches(/forbidden=\{"analysis","uncertainties","body_private","uncertainties_private"\}/, "nested restricted fields are denied");
 matches(/restricted_keys\|0/, "database response is checked for restricted keys");
-matches(/OSI_V2_WIRE_WRITES_ENABLED/, "containment names only the Wire write flag");
+matches(/if: \$\{\{ failure\(\) \}\}/, "a rollout failure triggers containment");
+matches(/update public\.osi_config[\s\S]*where key='OSI_V2_WIRE_WRITES_ENABLED'/, "containment disables only the Wire write flag");
+matches(/Wire writes could not be confirmed disabled/, "containment verifies the flag is false");
+const smokeIndex = workflow.indexOf("Anonymous smoke proves the Edge boundary stays public-safe");
+const containmentIndex = workflow.indexOf("Fail closed after any rollout or smoke failure");
+assert.ok(smokeIndex > 0 && containmentIndex > smokeIndex, "containment follows the deployment smoke");
+passed += 1;
+const configUpdates = workflow.match(/update public\.osi_config/g) ?? [];
+assert.equal(configUpdates.length, 1, "only one scoped configuration update exists");
+passed += 1;
 excludes(/supabase secrets (?:set|unset)|SUPABASE_DB_PASSWORD=.*echo/i, "secrets are not changed or printed");
 
 const uses = [...workflow.matchAll(/uses:\s+\S+@(\S+)/g)].map((match) => match[1]);
@@ -78,7 +87,7 @@ for (let index = 0; index < lines.length; index += 1) {
 const bash = process.platform === "win32"
   ? String.raw`C:\Program Files\Git\bin\bash.exe`
   : "bash";
-assert.ok(runBlocks.length >= 12, "all multiline shell steps are discovered");
+assert.ok(runBlocks.length >= 13, "all multiline shell steps are discovered");
 for (const [index, script] of runBlocks.entries()) {
   const syntax = spawnSync(bash, ["-n"], { input: script, encoding: "utf8" });
   assert.equal(syntax.status, 0, `run block ${index + 1} is valid Bash: ${syntax.stderr}`);

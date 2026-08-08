@@ -271,6 +271,32 @@ jobs:
           walk(body)
           '
 
+      - name: Fail closed after any rollout or smoke failure
+        if: ${{ failure() }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PGHOST:-}" ] || [ -z "${PGUSER:-}" ]; then
+            echo "No production database session was established; this job could not have changed Wire availability."
+            exit 0
+          fi
+          wire_flag="$(psql -v ON_ERROR_STOP=1 -Atqc "select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED'")"
+          if [ -z "$wire_flag" ]; then
+            echo "Wire write flag is absent; writes remain fail closed."
+            exit 0
+          fi
+          if [ "$wire_flag" = "false" ]; then
+            echo "Wire writes were already disabled."
+            exit 0
+          fi
+          psql -v ON_ERROR_STOP=1 -Atq -c "
+            update public.osi_config
+               set value='false', updated_at=statement_timestamp()
+             where key='OSI_V2_WIRE_WRITES_ENABLED';"
+          [ "$(psql -v ON_ERROR_STOP=1 -Atqc "select value from public.osi_config where key='OSI_V2_WIRE_WRITES_ENABLED'")" = "false" ] || {
+            echo "::error::Wire writes could not be confirmed disabled."; exit 1;
+          }
+          echo "Wire writes were disabled. Immutable records remain retained for a reviewed forward fix."
+
       - name: Record containment plan
         if: always()
         run: |
