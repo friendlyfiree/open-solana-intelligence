@@ -1,0 +1,279 @@
+name: OSI V2 Wire Privacy Production
+
+# Removes restricted Wire analysis and uncertainty notes from the anonymous
+# projection, then deploys only the Edge Function that consumes that RPC.
+#
+# SAFETY CONTRACT:
+#   * workflow_dispatch only, current main only, typed confirmation and pinned
+#     production project ref;
+#   * the full local validation battery runs before any production mutation;
+#   * production history must be current main minus exactly this migration and
+#     `supabase db push --dry-run` must list exactly that one file;
+#   * migration-first rollout fails closed even while the old Edge version is
+#     still live, and the Edge deployment is limited to osi-v2-wire;
+#   * no table data, secret or feature flag is changed. Rollback is a focused
+#     forward fix; if publication must be contained, disable only Wire writes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY-WIRE-PRIVACY-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-v2-wire-privacy-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  SLICE_MIGRATION: 20260808153040_remove_private_wire_fields_from_public_rpc.sql
+  SLICE_VERSION: "20260808153040"
+  FUNCTION_SLUG: osi-v2-wire
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Clean privacy validation from zero
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "DEPLOY-WIRE-PRIVACY-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || {
+            echo "::error::Production deployment must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out the dispatched commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify current main and exact slice files
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+          test -f "supabase/migrations/${SLICE_MIGRATION}"
+          test -f "supabase/functions/${FUNCTION_SLUG}/index.ts"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@909cc5acb0fdd60627fb858598759246509fa755 # v2.0.2
+        with:
+          deno-version: v2.4.1
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.113.0
+
+      - name: Full dependency-free battery and type check
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+          deno check "supabase/functions/${FUNCTION_SLUG}/index.ts"
+
+      - name: Start disposable PostgreSQL 17 and migrate from zero
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+
+      - name: Database lint, pgTAP and replay tests
+        run: |
+          set -euo pipefail
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Prove the public projection is least privilege
+        run: |
+          set -euo pipefail
+          psql "$OSI_TEST_DATABASE_URL" -Atq <<'SQL' > /tmp/wire-contract.txt
+          begin read only;
+          select 'anon|' || has_function_privilege('anon',
+            'public.osi_v2_get_public_wire_report(text)','EXECUTE')::text;
+          select 'authenticated|' || has_function_privilege('authenticated',
+            'public.osi_v2_get_public_wire_report(text)','EXECUTE')::text;
+          select 'service|' || has_function_privilege('service_role',
+            'public.osi_v2_get_public_wire_report(text)','EXECUTE')::text;
+          select 'not_found_null|' || (public.osi_v2_get_public_wire_report(
+            'OSI-WV-0000000000000000') is null)::text;
+          commit;
+          SQL
+          cat /tmp/wire-contract.txt
+          grep -q '^anon|false$' /tmp/wire-contract.txt
+          grep -q '^authenticated|false$' /tmp/wire-contract.txt
+          grep -q '^service|true$' /tmp/wire-contract.txt
+          grep -q '^not_found_null|true$' /tmp/wire-contract.txt
+          definition="$(psql "$OSI_TEST_DATABASE_URL" -Atqc "select pg_get_functiondef('public.osi_v2_get_public_wire_report(text)'::regprocedure)")"
+          ! grep -Eq "'analysis'|'uncertainties'|body_private|uncertainties_private" <<< "$definition" || {
+            echo "::error::Restricted Wire fields remain in the public wrapper."; exit 1;
+          }
+
+      - name: Stop and discard the disposable database
+        if: always()
+        run: supabase stop --no-backup
+
+  rollout:
+    name: Apply one migration and deploy one function
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Check out the exact validated main commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify credentials, project and current main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Validated commit is no longer current main."; exit 1;
+          }
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.113.0
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Dry-run and prove this is the only pending migration
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          remote="$(psql -Atqc "select coalesce(string_agg(version, ' ' order by version), '') from supabase_migrations.schema_migrations")"
+          local_all="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected_remote="$(printf '%s' "$local_all" | sed -E "s/(^| )${SLICE_VERSION}( |$)/\1/" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
+          [ "$remote" = "$expected_remote" ] || {
+            echo "::error::Production history is not current main minus exactly this slice."; exit 1;
+          }
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/dry-run.txt
+          grep -q "$SLICE_MIGRATION" /tmp/dry-run.txt || { echo "::error::Dry-run does not list this slice."; exit 1; }
+          count="$(grep -oE '[0-9]{14}_[A-Za-z0-9_]+\.sql' /tmp/dry-run.txt | sort -u | wc -l | tr -d '[:space:]')"
+          [ "$count" = "1" ] || { echo "::error::Dry-run lists ${count} pending migrations; exactly one is allowed."; exit 1; }
+
+      - name: Apply exactly the privacy migration
+        run: |
+          set -euo pipefail
+          supabase db push --linked
+          applied="$(psql -Atqc "select count(*) from supabase_migrations.schema_migrations where version='${SLICE_VERSION}'")"
+          [ "$applied" = "1" ] || { echo "::error::Privacy migration is not recorded as applied."; exit 1; }
+
+      - name: Verify the production database boundary
+        run: |
+          set -euo pipefail
+          psql -Atq <<'SQL' > /tmp/production-wire-contract.txt
+          begin read only;
+          select 'anon|' || has_function_privilege('anon',
+            'public.osi_v2_get_public_wire_report(text)','EXECUTE')::text;
+          select 'authenticated|' || has_function_privilege('authenticated',
+            'public.osi_v2_get_public_wire_report(text)','EXECUTE')::text;
+          select 'service|' || has_function_privilege('service_role',
+            'public.osi_v2_get_public_wire_report(text)','EXECUTE')::text;
+          select 'restricted_keys|' || count(*)
+            from public.wire_report_versions as version
+           where version.lifecycle_state in ('published','superseded')
+             and (public.osi_v2_get_public_wire_report(version.version_ref) ?| array['analysis','uncertainties','body_private','uncertainties_private']);
+          commit;
+          SQL
+          cat /tmp/production-wire-contract.txt
+          grep -q '^anon|false$' /tmp/production-wire-contract.txt
+          grep -q '^authenticated|false$' /tmp/production-wire-contract.txt
+          grep -q '^service|true$' /tmp/production-wire-contract.txt
+          grep -q '^restricted_keys|0$' /tmp/production-wire-contract.txt
+
+      - name: Deploy exactly osi-v2-wire
+        run: |
+          set -euo pipefail
+          supabase functions deploy "$FUNCTION_SLUG" --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Anonymous smoke proves the Edge boundary stays public-safe
+        run: |
+          set -euo pipefail
+          base="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/${FUNCTION_SLUG}"
+          key="$(sed -nE 's/.*OSI_SUPABASE_KEY = "([^"]+)".*/\1/p' assets/js/01-public-config.js)"
+          [ -n "$key" ] || { echo "::error::Could not read the publishable key."; exit 1; }
+          post() {
+            curl -sS --fail --max-time 45 -X POST "$base" \
+              -H 'Content-Type: application/json' -H "apikey: $key" -H "Authorization: Bearer $key" \
+              -d "$1"
+          }
+          list="$(post '{"op":"list_public_wire_reports","limit":40}')"
+          printf '%s' "$list" | python3 -c '
+          import json, sys
+          body=json.load(sys.stdin)
+          assert body.get("ok") is True and isinstance(body.get("reports"), list)
+          '
+          version_ref="$(printf '%s' "$list" | python3 -c '
+          import json, sys
+          reports=json.load(sys.stdin).get("reports", [])
+          print((reports[0].get("version_public_ref") or "") if reports else "")
+          ')"
+          if [ -z "$version_ref" ]; then
+            echo "::notice::No published Wire report exists; list and database-boundary smoke passed."
+            exit 0
+          fi
+          detail="$(post "{\"op\":\"get_public_wire_report\",\"version_public_ref\":\"${version_ref}\"}")"
+          printf '%s' "$detail" | python3 -c '
+          import json, sys
+          body=json.load(sys.stdin)
+          assert body.get("ok") is True and isinstance(body.get("report"), dict)
+          forbidden={"analysis","uncertainties","body_private","uncertainties_private"}
+          def walk(value):
+              if isinstance(value, dict):
+                  assert forbidden.isdisjoint(value.keys()), f"restricted keys: {forbidden & value.keys()}"
+                  for child in value.values(): walk(child)
+              elif isinstance(value, list):
+                  for child in value: walk(child)
+          walk(body)
+          '
+
+      - name: Record containment plan
+        if: always()
+        run: |
+          echo "The additive public wrapper remains installed; rollback is a least-privilege forward fix."
+          echo "If publication must be contained, disable only OSI_V2_WIRE_WRITES_ENABLED."
+          echo "No table data, secret, unrelated Function or feature flag is changed by this workflow."
