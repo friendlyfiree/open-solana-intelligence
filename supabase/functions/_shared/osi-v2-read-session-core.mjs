@@ -20,6 +20,7 @@ export const READ_SESSION_SCOPES = Object.freeze({
   WIRE_MINE: "wire:mine",
   WIRE_QUEUE: "wire:queue",
   AIPACK_DETAIL: "aipack:detail",
+  PROFILE_SELF: "profile:self",
   ANALYST_WORKSPACE: "analyst:workspace",
   ANALYST_MAINTAINER: "analyst:maintainer",
 });

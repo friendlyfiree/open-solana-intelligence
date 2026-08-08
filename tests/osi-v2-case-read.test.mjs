@@ -247,6 +247,39 @@ ok("public DTO exposes the server-derived Case risk tier",
   pub.risk_tier === caseRow.risk_tier);
 ok("public DTO keeps the exact legacy label",
   pub.proof_log[0].label === "Legacy / not server-verified");
+ok("public Case without a consented submitter profile exposes an explicit null fallback",
+  pub.submitter_profile === null);
+
+const consentingSubmitterProfile = {
+  id: "99999999-9999-4999-8999-999999999999",
+  public_ref: "OSI-PRF-A1B2C3D4E5F60718",
+  wallet: OWNER,
+  handle: "case_owner",
+  display_name: "Case Owner",
+  bio: "MUST_NOT_ENTER_CASE_DTO",
+  avatar_url: "https://example.test/avatar.png",
+  visibility: "public",
+  attribute_public_cases: true,
+};
+const attributedPublicCase = core.publicCaseDto(
+  caseRow, [], {}, [], [], [], {}, {}, consentingSubmitterProfile,
+);
+ok("public Case attribution exposes only the four consented identity fields",
+  JSON.stringify(attributedPublicCase.submitter_profile) === JSON.stringify({
+    public_ref: consentingSubmitterProfile.public_ref,
+    handle: consentingSubmitterProfile.handle,
+    display_name: consentingSubmitterProfile.display_name,
+    avatar_url: consentingSubmitterProfile.avatar_url,
+  })
+    && !JSON.stringify(attributedPublicCase).includes(OWNER)
+    && !JSON.stringify(attributedPublicCase).includes(consentingSubmitterProfile.id)
+    && !JSON.stringify(attributedPublicCase).includes(consentingSubmitterProfile.bio)
+    && core.collectForbiddenKeys(attributedPublicCase).size === 0);
+ok("private, non-consenting, absent and malformed submitter profiles fail closed to null",
+  core.publicCaseSubmitterProfileDto({ ...consentingSubmitterProfile, visibility: "private" }) === null
+    && core.publicCaseSubmitterProfileDto({ ...consentingSubmitterProfile, attribute_public_cases: false }) === null
+    && core.publicCaseSubmitterProfileDto({ ...consentingSubmitterProfile, public_ref: "bad-ref" }) === null
+    && core.publicCaseSubmitterProfileDto(null) === null);
 
 const publishedHeader = {
   ...report,
@@ -499,6 +532,18 @@ ok("Edge derives exact Report-author Case access server-side",
   /actorKind: "owner" \| "report_author" \| "analyst" \| "maintainer"/.test(fnSource)
     && /from\("case_reports"\)\.select\("id"\)/.test(fnSource)
     && /\.eq\("case_id", caseRow\.id\)\.eq\("author_wallet", proof\.actor\.wallet\)/.test(fnSource));
+const publicProfileLoader = fnSource.slice(
+  fnSource.indexOf("async function loadPublicCaseSubmitterProfiles("),
+  fnSource.indexOf("async function loadCaseGraph("),
+);
+ok("public Case list and detail use one batch, consent-filtered service profile lookup",
+  (fnSource.match(/from\("wallet_profiles"\)/g) || []).length === 1
+    && publicProfileLoader.includes('.in("wallet", wallets)')
+    && publicProfileLoader.includes('.eq("visibility", "public")')
+    && publicProfileLoader.includes('.eq("attribute_public_cases", true)')
+    && !publicProfileLoader.includes('from("analyst_profiles")')
+    && (fnSource.match(/loadPublicCaseSubmitterProfiles\(caseRows\)/g) || []).length === 1
+    && (fnSource.match(/loadPublicCaseSubmitterProfiles\(\[caseRow\]\)/g) || []).length === 1);
 const authorizedCaseHandler = fnSource.slice(
   fnSource.indexOf("async function getAuthorizedCase("),
   fnSource.indexOf("// Maintainer double-gate.", fnSource.indexOf("async function getAuthorizedCase(")),

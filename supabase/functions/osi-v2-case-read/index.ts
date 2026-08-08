@@ -149,8 +149,24 @@ const CHALLENGE_COLS =
   "id,resolution_id,public_ref,challenger_wallet,reason_code,state,public_safe_summary,restricted_detail,admissibility_ttl_at,review_deadline_at,terminal_at,submitted_receipt_id,opened_receipt_id,resolved_receipt_id,created_at";
 const CHALLENGE_REVIEW_COLS =
   "id,challenge_id,phase,public_ref,reviewer_wallet,decision,weight,tier_snapshot,public_rationale,private_note,is_active,event_receipt_id,created_at";
+const PUBLIC_CASE_PROFILE_COLS =
+  "wallet,public_ref,handle,display_name,avatar_url,visibility,attribute_public_cases";
 
 type Row = Record<string, unknown>;
+
+async function loadPublicCaseSubmitterProfiles(caseRows: Row[]): Promise<Record<string, Row>> {
+  const wallets = [...new Set(caseRows.filter(isCasePublic)
+    .map((caseRow) => safeText(caseRow.submitted_by_wallet))
+    .filter(Boolean))];
+  if (!wallets.length) return {};
+  const { data, error } = await admin.from("wallet_profiles")
+    .select(PUBLIC_CASE_PROFILE_COLS)
+    .in("wallet", wallets)
+    .eq("visibility", "public")
+    .eq("attribute_public_cases", true);
+  if (error) return {};
+  return Object.fromEntries((data ?? []).map((profile) => [String(profile.wallet), profile]));
+}
 
 async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
   const caseIds = caseRows.map((c) => String(c.id));
@@ -526,7 +542,10 @@ async function listPublicCases(): Promise<Response> {
     .limit(PUBLIC_LIST_LIMIT);
   if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
   const caseRows = (data ?? []).filter(isCasePublic);
-  const graph = await loadCaseGraph(caseRows, true);
+  const [graph, submitterProfiles] = await Promise.all([
+    loadCaseGraph(caseRows, true),
+    loadPublicCaseSubmitterProfiles(caseRows),
+  ]);
   return jsonResponse(200, {
     ok: true,
     cases: caseRows.map((caseRow) => publicCaseDto(
@@ -538,6 +557,7 @@ async function listPublicCases(): Promise<Response> {
       graph.reviewsByCase[String(caseRow.id)] ?? [],
       graph.governanceByCase[String(caseRow.id)] ?? {},
       graph.moneyByCase[String(caseRow.id)] ?? {},
+      submitterProfiles[safeText(caseRow.submitted_by_wallet)] ?? {},
     )),
   });
 }
@@ -556,7 +576,10 @@ async function getPublicCase(body: Row): Promise<Response> {
   if (!caseRow || !isCasePublic(caseRow)) {
     return jsonResponse(404, { ok: false, error: "not_found_or_private" });
   }
-  const graph = await loadCaseGraph([caseRow], true);
+  const [graph, submitterProfiles] = await Promise.all([
+    loadCaseGraph([caseRow], true),
+    loadPublicCaseSubmitterProfiles([caseRow]),
+  ]);
   return jsonResponse(200, {
     ok: true,
     case: publicCaseDto(
@@ -568,6 +591,7 @@ async function getPublicCase(body: Row): Promise<Response> {
       graph.reviewsByCase[String(caseRow.id)] ?? [],
       graph.governanceByCase[String(caseRow.id)] ?? {},
       graph.moneyByCase[String(caseRow.id)] ?? {},
+      submitterProfiles[safeText(caseRow.submitted_by_wallet)] ?? {},
     ),
   });
 }
@@ -744,6 +768,7 @@ async function createReadSession(req: Request, body: Row): Promise<Response> {
     READ_SESSION_SCOPES.REPORT_MINE,
     READ_SESSION_SCOPES.WIRE_MINE,
     READ_SESSION_SCOPES.AIPACK_DETAIL,
+    READ_SESSION_SCOPES.PROFILE_SELF,
     READ_SESSION_SCOPES.ANALYST_WORKSPACE,
   ];
   if (analyst || maintainer) {
@@ -812,6 +837,7 @@ async function renewReadSession(req: Request, body: Row): Promise<Response> {
     READ_SESSION_SCOPES.REPORT_MINE,
     READ_SESSION_SCOPES.WIRE_MINE,
     READ_SESSION_SCOPES.AIPACK_DETAIL,
+    READ_SESSION_SCOPES.PROFILE_SELF,
     READ_SESSION_SCOPES.ANALYST_WORKSPACE,
   ]);
   if (analyst || maintainer) {

@@ -57,6 +57,18 @@ const aiPackScoped = await verifyReadSessionToken({
 });
 ok("shared token carries the read-only AI Pack detail scope",
   READ_SESSION_SCOPES.AIPACK_DETAIL === "aipack:detail" && aiPackScoped.ok);
+const profileScoped = await verifyReadSessionToken({
+  token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet,
+  requiredScope: READ_SESSION_SCOPES.PROFILE_SELF, nowSeconds: now + 1,
+});
+ok("ordinary wallet session carries the dedicated owner-profile scope",
+  READ_SESSION_SCOPES.PROFILE_SELF === "profile:self" && profileScoped.ok);
+const wrongProfileWallet = await verifyReadSessionToken({
+  token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet: otherWallet,
+  requiredScope: READ_SESSION_SCOPES.PROFILE_SELF, nowSeconds: now + 1,
+});
+ok("owner-profile scope remains bound to the exact wallet",
+  !wrongProfileWallet.ok && wrongProfileWallet.reason === "read_session_wrong_wallet");
 const withoutAiPack = await issueReadSessionToken({
   secret, issuer, audience: origin, allowedOrigin: origin, wallet,
   scopes: [READ_SESSION_SCOPES.CASE_DETAIL],
@@ -139,16 +151,19 @@ const reportRead = readFileSync(new URL("../supabase/functions/osi-v2-report-rea
 const analyst = readFileSync(new URL("../supabase/functions/osi-v2-analyst/index.ts", import.meta.url), "utf8");
 const wire = readFileSync(new URL("../supabase/functions/osi-v2-wire/index.ts", import.meta.url), "utf8");
 const aiPack = readFileSync(new URL("../supabase/functions/osi-v2-ai-pack/index.ts", import.meta.url), "utf8");
-ok("all five private-read isolates verify the same stateless token core",
-  [caseRead, reportRead, analyst, wire, aiPack].every((source) => source.includes("verifyReadSessionToken")));
+const profile = readFileSync(new URL("../supabase/functions/osi-v2-profile/index.ts", import.meta.url), "utf8");
+ok("all six private-read isolates verify the same stateless token core",
+  [caseRead, reportRead, analyst, wire, aiPack, profile].every((source) => source.includes("verifyReadSessionToken")));
 ok("only the Case read gateway can mint a session after consuming a durable proof",
   caseRead.includes("issueReadSessionToken")
     && caseRead.includes('verifySignedRead(body, "CASE_READ_MY_CASES"')
     && caseRead.includes("READ_SESSION_SCOPES.AIPACK_DETAIL")
+    && caseRead.includes("READ_SESSION_SCOPES.PROFILE_SELF")
     && !reportRead.includes("issueReadSessionToken")
     && !analyst.includes("issueReadSessionToken")
     && !wire.includes("issueReadSessionToken")
-    && !aiPack.includes("issueReadSessionToken"));
+    && !aiPack.includes("issueReadSessionToken")
+    && !profile.includes("issueReadSessionToken"));
 ok("silent renewal requires a still-valid scoped token and cannot add authority",
   caseRead.includes("renewReadSession")
     && caseRead.includes("verifyReadSessionToken")

@@ -29,6 +29,7 @@ const escapeHtml = loadFn('assets/js/50-core-supabase.js', 'escapeHtml');
 const escapeV2Case = loadFn('assets/js/v2-case-integration.js', 'esc');
 const escapeV2Wire = loadFn('assets/js/v2-wire-integration.js', 'esc');
 const escapeV2AiPack = loadFn('assets/js/v2-ai-pack-integration.js', 'esc');
+const escapeV2Profile = loadFn('assets/js/v2-profile-integration.js', 'esc');
 
 let pass = 0, fail = 0;
 const ok = (n, c, extra) => { if (c) { pass++; } else { fail++; console.log('FAIL ' + n + (extra ? ' :: ' + extra : '')); } };
@@ -89,6 +90,10 @@ ok('AI Pack model output escapes all HTML-significant characters',
   escapeV2AiPack('<img src=x onerror="alert(3)">\'&') ===
     '&lt;img src=x onerror=&quot;alert(3)&quot;&gt;&#39;&amp;',
   escapeV2AiPack('<img src=x onerror="alert(3)">\'&'));
+ok('wallet profile and public profile rendering escape all HTML-significant characters',
+  escapeV2Profile('<img src=x onerror="alert(4)">\'&') ===
+    '&lt;img src=x onerror=&quot;alert(4)&quot;&gt;&#39;&amp;',
+  escapeV2Profile('<img src=x onerror="alert(4)">\'&'));
 
 console.log((fail ? 'FAILED: ' + fail : 'OK') + ' (' + pass + ' assertions passed, ' + fail + ' failed)');
 process.exit(fail ? 1 : 0);

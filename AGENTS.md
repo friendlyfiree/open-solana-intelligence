@@ -131,7 +131,7 @@ Feature flags must fail closed when absent, malformed or unavailable.
 
 ## 6. Data model invariants
 
-- The blueprint defines 32 V2 domain tables. Infrastructure tables such as
+- The blueprint defines 33 V2 domain tables. Infrastructure tables such as
   nonce and migration-control tables are additional and must be labeled as
   infrastructure, not silently counted as domain entities.
 - Create V2 additively. Do not rename, drop or destructively repurpose V1

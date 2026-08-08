@@ -32,7 +32,7 @@ function ok(name, condition) {
   passed += 1;
 }
 
-ok("canonical registry has 28 class-B purposes", CLASS_B_PURPOSES.size === 28);
+ok("canonical registry has 29 class-B purposes", CLASS_B_PURPOSES.size === 29);
 ok(
   "canonical registry includes the three reward pledge mutations",
   ["REWARD_PLEDGE_CREATED", "REWARD_PLEDGE_REVISED", "REWARD_PLEDGE_WITHDRAWN"]

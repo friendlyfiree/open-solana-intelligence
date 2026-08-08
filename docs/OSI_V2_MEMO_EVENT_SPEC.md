@@ -4,7 +4,7 @@
 
 The executable registry is
 `supabase/functions/_shared/osi-v2-event-registry.mjs`, version
-`2026-07-28.1`. It is the single source for the 70 event names, their one proof
+`2026-08-08.1`. It is the single source for the 71 event names, their one proof
 class, allowed target types, allowed actor roles, field ordering, canonical
 assembly, and historical parsing. Case, Report, Wire, payment, Analyst,
 generic proof, and AI Pack emitters call its canonical assembler. Database
@@ -66,7 +66,7 @@ created and a server-verified receipt is written instead.
 |---|---|---|
 | `ver` | grammar version | integer, starts `1` |
 | `event_type` | see registry §4 | canonical UPPER_SNAKE |
-| `t` target_type | `case`/`report_version`/`wire_version`/`resolution`/`challenge`/`pack_version`/`pack_owner_feedback`/`analyst`/`application_version`/`reward`/`support`/`config` | enum |
+| `t` target_type | `case`/`report_version`/`wire_version`/`resolution`/`challenge`/`pack_version`/`pack_owner_feedback`/`analyst`/`application_version`/`reward`/`support`/`config`/`profile` | enum |
 | `id` target_ref | Public Memo profiles use a short public ref/version ref and never narrative. The private Class-B v2 profile may bind an internal typed id. | profile-bound, ≤ 256 chars |
 | `a` actor_wallet | signer base58 | – |
 | `r` actor_role | `owner`/`analyst`/`senior`/`maintainer`/`service`/`wallet` | enum |
@@ -125,6 +125,7 @@ Each canonical event has **exactly one** class (A / B / Sys) — no `A or Sys`, 
 | **AI Pack rejection (outcome)** | A | solana_memo | ✅ `AI_PACK_REJECTED` (single proof class — correction #7) |
 | AI Pack attach / supersede / stale | Sys | system_event | ❌ `PACK_ATTACHED`/`PACK_SUPERSEDED`/`PACK_STALE` |
 | Owner status proof read | B | wallet_signed_server_verified | ❌ `OWNER_STATUS_PROOF` |
+| Wallet profile create/update | B | wallet_signed_server_verified | ❌ `WALLET_PROFILE_UPDATED` |
 | Reward pledge create/revise/withdraw | B | wallet_signed_server_verified | ❌ `REWARD_PLEDGE_CREATED` / `_REVISED` / `_WITHDRAWN` (intent; no SOL transfer) |
 | Finalized reward payment | A | solana_memo + exact System Program transfer | ✅ `REWARD_PAYMENT_CONFIRMED` |
 | Finalized voluntary support | A | solana_memo + exact System Program transfer(s) | ✅ `SUPPORT_PAYMENT_CONFIRMED` |
@@ -132,8 +133,8 @@ Each canonical event has **exactly one** class (A / B / Sys) — no `A or Sys`, 
 
 ## 4. Canonical event-type registry (`OSI2`)
 
-**Server-verified signMessage receipts (class B) — 28:**
-`CASE_INITIAL_REVIEW_CAST, CASE_INITIAL_REVIEW_REVISED, CASE_WITHDRAWN, CASE_APPEAL_SUBMITTED, CASE_REPORT_REVIEW_CAST, CASE_REPORT_REVIEW_REVISED, WIRE_REPORT_REVIEW_CAST, WIRE_REPORT_REVIEW_REVISED, RESOLUTION_REVIEW_CAST, RESOLUTION_REVIEW_REVISED, CHALLENGE_SUBMITTED, CHALLENGE_ADMISSIBILITY_ACCEPTED, CHALLENGE_ADMISSIBILITY_REJECTED, CHALLENGE_REVIEW_CAST, CHALLENGE_REVIEW_REVISED, CHALLENGE_WITHDRAWN, CHALLENGE_BAD_FAITH_REVIEW_CAST, CHALLENGE_BAD_FAITH_REVIEW_REVISED, AI_PACK_REVIEW_CAST, AI_PACK_REVIEW_REVISED, AI_PACK_OWNER_FEEDBACK_SUBMITTED, ANALYST_APPLICATION_VERSION_SUBMITTED, ANALYST_APPLICATION_REVIEW_CAST, ANALYST_APPLICATION_REVIEW_REVISED, OWNER_STATUS_PROOF, REWARD_PLEDGE_CREATED, REWARD_PLEDGE_REVISED, REWARD_PLEDGE_WITHDRAWN`
+**Server-verified signMessage receipts (class B) — 29:**
+`CASE_INITIAL_REVIEW_CAST, CASE_INITIAL_REVIEW_REVISED, CASE_WITHDRAWN, CASE_APPEAL_SUBMITTED, CASE_REPORT_REVIEW_CAST, CASE_REPORT_REVIEW_REVISED, WIRE_REPORT_REVIEW_CAST, WIRE_REPORT_REVIEW_REVISED, RESOLUTION_REVIEW_CAST, RESOLUTION_REVIEW_REVISED, CHALLENGE_SUBMITTED, CHALLENGE_ADMISSIBILITY_ACCEPTED, CHALLENGE_ADMISSIBILITY_REJECTED, CHALLENGE_REVIEW_CAST, CHALLENGE_REVIEW_REVISED, CHALLENGE_WITHDRAWN, CHALLENGE_BAD_FAITH_REVIEW_CAST, CHALLENGE_BAD_FAITH_REVIEW_REVISED, AI_PACK_REVIEW_CAST, AI_PACK_REVIEW_REVISED, AI_PACK_OWNER_FEEDBACK_SUBMITTED, ANALYST_APPLICATION_VERSION_SUBMITTED, ANALYST_APPLICATION_REVIEW_CAST, ANALYST_APPLICATION_REVIEW_REVISED, OWNER_STATUS_PROOF, REWARD_PLEDGE_CREATED, REWARD_PLEDGE_REVISED, REWARD_PLEDGE_WITHDRAWN, WALLET_PROFILE_UPDATED`
 
 **Solana-Memo-anchored outcomes (class A) — 34:**
 `CASE_SUBMITTED, CASE_OPENED, CASE_SAFETY_BLOCKED, CASE_SAFETY_LIFTED, CASE_INITIAL_REVIEW_REJECTED, CASE_RESUMED, CASE_REPORT_VERSION_SUBMITTED, REPORT_PUBLISHED, REPORT_REJECTED, WIRE_REPORT_VERSION_SUBMITTED, WIRE_REPORT_PUBLISHED, WIRE_PROMOTED, RESOLUTION_PROPOSED, REPORT_SELECTED_WINNING, CHALLENGE_ACCEPTED, CHALLENGE_REJECTED, CHALLENGE_BAD_FAITH_CONFIRMED, CHALLENGE_BAD_FAITH_DISMISSED, CASE_RESOLVED, CASE_REOPENED, RECORD_SEALED, CASE_HALTED, ANALYST_PROBATION, ANALYST_SENIOR, ANALYST_VERIFIED, ANALYST_REVOKED, AI_PACK_APPROVED, AI_PACK_REJECTED, REWARD_PLEDGED, REWARD_PAID, SUPPORT_SENT, REWARD_PAYMENT_CONFIRMED, SUPPORT_PAYMENT_CONFIRMED, CONFIG_CHANGED`
@@ -143,7 +144,7 @@ The current executable resolution slice emits exactly one class-A finalization a
 **System events (class Sys) — 8:**
 `CASE_QUORUM_READY, CHALLENGE_EXPIRED, PACK_SUBMITTED, PACK_ATTACHED, PACK_SUPERSEDED, PACK_STALE, REWARD_ASSIGNED, ANALYST_CANDIDATE`
 
-**Registry total: 28 + 34 + 8 = 70 canonical events.** Each has **exactly one** class. `REWARD_PLEDGED`, `REWARD_PAID`, and `SUPPORT_SENT` remain Class A only for historical transport/parser compatibility and are retired for new native money writes. New pledge writes use the three Class B pledge events; new finalized transfer writes use `REWARD_PAYMENT_CONFIRMED` or `SUPPORT_PAYMENT_CONFIRMED`. A Class A payment receipt is valid only when the trusted server verified both the canonical Memo and the exact finalized System Program transfer manifest. Other notable single-class rules remain unchanged: `PACK_ATTACHED` is **Sys**; `CHALLENGE_EXPIRED` is the single `Sys` timeout; `CASE_SAFETY_BLOCKED` and `CASE_INITIAL_REVIEW_REJECTED` are never interchangeable.
+**Registry total: 29 + 34 + 8 = 71 canonical events.** Each has **exactly one** class. `REWARD_PLEDGED`, `REWARD_PAID`, and `SUPPORT_SENT` remain Class A only for historical transport/parser compatibility and are retired for new native money writes. New pledge writes use the three Class B pledge events; new finalized transfer writes use `REWARD_PAYMENT_CONFIRMED` or `SUPPORT_PAYMENT_CONFIRMED`. A Class A payment receipt is valid only when the trusted server verified both the canonical Memo and the exact finalized System Program transfer manifest. Other notable single-class rules remain unchanged: `PACK_ATTACHED` is **Sys**; `CHALLENGE_EXPIRED` is the single `Sys` timeout; `CASE_SAFETY_BLOCKED` and `CASE_INITIAL_REVIEW_REJECTED` are never interchangeable.
 
 ## 5. Migration from current grammars
 Native production emitters use the canonical OSI2 grammars above. Historical parsers still recognize three legacy grammars for attribution: (a) `OSI1|<TYPE>|case=|report=|actor=|role=|ts=`; (b) `OSI1|SUPPORT_SENT|from=|to=|amount=|ts=`; (c) `OSI_ANALYST_VOUCH|…`, `OSI_CHALLENGE_FILED|…`, `OSI_CASE_BACKED|…`. The OSI1 support emitter is confined to `legacy.html` and is unreachable from the primary application.

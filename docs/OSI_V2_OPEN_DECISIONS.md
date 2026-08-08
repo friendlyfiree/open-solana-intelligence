@@ -48,7 +48,7 @@ The Wire has **no rewards**. A Wire Report must first be **promoted to a Case** 
 Any connected wallet may **submit**, but **only an admissible challenge (`open`/`under_review`) pauses sealing** (correction #5). Targets are **real typed FKs** (exactly-one-of `case_id`/`case_report_version_id`/`wire_report_version_id`/`ai_pack_version_id`/`resolution_id`, CHECK-enforced); evidence is an **`evidence_items` FK** (a URL is first inserted as an `evidence_items` row, `kind='url'`). Rate limit + one-active-per-(wallet,target) + cooldown. **No stuck states** (correction #6): `submitted`/`admissibility_review` carry an `admissibility_ttl_at`, `open`/`under_review` a `review_deadline_at`; a timeout emits `CHALLENGE_EXPIRED` (Sys) and releases the sealing pause. Withdrawal (`CHALLENGE_WITHDRAWN`) is allowed in any non-terminal state but **never after a final accepted/rejected outcome**. No auto-penalty for honestly rejected/expired challenges; bad-faith needs a separate explicit determination. *Sec medium (spam) · UX medium.*
 
 ### D12 — Ancillary legacy tables — **RESOLVED (migration policy)**
-Retire/archive `bounty_boosts` after preserving history (with D9); fold `profiles` into `analyst_profiles` only where identity mapping is reliable; inventory `requests`/`request_votes`; migrate only records with a clear V2 meaning; preserve uncertain records in read-only legacy/archive views; never invent mappings. *Mig medium.*
+Retire/archive `bounty_boosts` after preserving history (with D9); do not import legacy `profiles` into owner-controlled `wallet_profiles` because ownership and publication consent cannot be inferred; inventory `requests`/`request_votes`; migrate only records with a clear V2 meaning; preserve uncertain records in read-only legacy/archive views; never invent mappings. *Mig medium.*
 
 ### D13 — Reward attribution — **RESOLVED**
 One primary winning Report version → one reward recipient initially. Supporting contributors receive **attribution only**; no automatic split payment in the first implementation. *Sec low · UX medium.*
@@ -160,6 +160,10 @@ The rule at the foot of this document requires a written product-owner sign-off 
 
 ---
 
+### D22 — Owner-controlled wallet profiles — **RESOLVED (2026-08-08, product-owner task)**
+
+Add `wallet_profiles` as the 33rd domain table and `WALLET_PROFILE_UPDATED` as the 71st event (Class B). Creation and every edit are owner-wallet-signed, nonce-bound to the exact current revision, transactional with an immutable receipt, and gated by `OSI_V2_PROFILE_WRITES_ENABLED=false` by default. Public visibility and public-Case attribution are separate explicit choices. Ordinary profile identity never carries analyst status, tier, weight, SAS credential state, or maintainer authority. Existing analyst identity is a read-only private fallback until the owner creates a wallet profile; there is no backfill or data import. *Sec high · Privacy high · UX high.*
+
 ## Remaining deferred feature flags
 - `OSI_V2_WRITES_ENABLED` — default **false** until Stage-5 write-gate work is verified (D14).
 - `OSI_V2_FALLBACK_GOVERNANCE` — default **false** first release (D3).
@@ -167,6 +171,7 @@ The rule at the foot of this document requires a written product-owner sign-off 
 - `OSI_V2_SAS_CREDENTIAL_ISSUANCE_ENABLED` — **live-capable**; default `true` once Step 0 pubkeys exist, fail-closed no-op when they are absent (D19).
 - `OSI_V2_SAS_CREDENTIAL_ENFORCEMENT_ENABLED` — default **false**; when off the five quorum functions are byte-for-byte behaviorally identical to `main`; prospective-only when later enabled (D19).
 - `OSI_V2_WIRE_WRITES_ENABLED` — default **false**; dedicated fail-closed gate for native Wire intake and Phase 2 review/publication/challenge/promotion paths (D20/D20b). Wire support additionally requires the payment flag; promotion additionally requires the Case flag.
+- `OSI_V2_PROFILE_WRITES_ENABLED` — default **false**; dedicated fail-closed gate for exact-revision wallet profile creation and editing (D22).
 - Per-surface `OSI_V2_UI` flags for staged rollout.
 
 ## Implementation details requiring measurement

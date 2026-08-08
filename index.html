@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="./assets/css/00-theme-base.css">
 <link rel="stylesheet" href="./assets/css/v2-case-integration.css" media="print" fetchpriority="low" data-osi-route-style>
 <link rel="stylesheet" href="./assets/css/v2-report-integration.css" media="print" fetchpriority="low" data-osi-route-style>
+<link rel="stylesheet" href="./assets/css/v2-profile-integration.css" media="print" fetchpriority="low" data-osi-route-style>
 <link rel="stylesheet" href="./assets/css/10-shell-hero.css" media="print" fetchpriority="low" data-osi-route-style>
 <link rel="stylesheet" href="./assets/css/20-sections.css" media="print" fetchpriority="low" data-osi-route-style>
 <link rel="stylesheet" href="./assets/css/30-views.css" media="print" fetchpriority="low" data-osi-route-style>
@@ -32,6 +33,7 @@
 <noscript>
   <link rel="stylesheet" href="./assets/css/v2-case-integration.css">
   <link rel="stylesheet" href="./assets/css/v2-report-integration.css">
+  <link rel="stylesheet" href="./assets/css/v2-profile-integration.css">
   <link rel="stylesheet" href="./assets/css/10-shell-hero.css">
   <link rel="stylesheet" href="./assets/css/20-sections.css">
   <link rel="stylesheet" href="./assets/css/30-views.css">
@@ -105,10 +107,10 @@
         <button class="wb-mi" type="button" role="menuitem" data-action-contract="report" data-endpoint="osi-v2-report-read:list_my_reports" onclick="osiRunLiveAction('report');closeWalletMenu();">My Reports</button>
         <button class="wb-mi" type="button" role="menuitem" data-action-contract="wire" data-endpoint="osi-v2-wire:list_my_wire_reports" onclick="osiV2OpenMyWireReports();closeWalletMenu();">My Wire Reports</button>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button>
+        <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyProfile();closeWalletMenu();">My Profile</button>
         <div class="wb-menu-rule"></div>
         <div class="wb-menu-label">Analyst</div>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">Unified Review Queue</button>
-        <button class="wb-mi" type="button" role="menuitem" onclick="osiAnalystOpenWorkspace('profile');closeWalletMenu();">My Analyst Profile</button>
         <button class="wb-mi" type="button" role="menuitem" data-action-contract="analyst" data-endpoint="osi-v2-analyst:my_workspace" onclick="osiRunLiveAction('analyst');closeWalletMenu();">Applications</button>
         <div class="wb-menu-rule"></div>
         <button class="wb-mi" id="maintainerAccessMenu" style="display:none" type="button" role="menuitem" data-action-contract="operations" data-endpoint="osi-v2-case-read:maintainer_case_overview" onclick="osiRunLiveAction('operations');closeWalletMenu();">Maintainer Sign In <span class="osi-menu-lock" id="maintainerAccessBadge">2 gates</span></button>
@@ -1180,6 +1182,7 @@
 <script defer src="./assets/js/73-solana-pay.js"></script>
 <script defer src="./assets/js/74-community-cases.js"></script>
 <script defer src="./assets/js/84-public-records.js"></script>
+<script defer src="./assets/js/v2-profile-integration.js"></script>
 <script defer src="./assets/js/v2-ai-pack-integration.js"></script>
 <script defer src="./assets/js/v2-case-integration.js"></script>
 <script defer src="./assets/js/v2-report-integration.js"></script>

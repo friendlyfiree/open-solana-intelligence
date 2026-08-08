@@ -444,6 +444,9 @@ verify_jwt = false
 [functions.osi-v2-analyst]
 verify_jwt = false
 
+[functions.osi-v2-profile]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

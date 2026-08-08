@@ -74,7 +74,19 @@
 
 Submission alone never pauses sealing; only `open`/`under_review` do. No non-terminal state is stuck — each has a TTL/escalation path. **The challenger is excluded from admissibility, merit review, and bad-faith review of their own challenge.** Honest rejection/withdrawal/expiry carries **no automatic penalty**; a penalty follows only a **confirmed** bad-faith quorum.
 
-## 5. Analyst application & lifecycle
+## 5. Wallet profile
+
+| Operation | anon | wallet owner | analyst | maintainer | Enforcement | Proof |
+|---|---|---|---|---|---|---|
+| View explicitly public profile | ✅ | ✅ | ✅ | ✅ | EF least-privilege projection; service-only table | – |
+| View own private profile | – | ✅ | own only | own only | EF exact-wallet read session, dedicated `profile:self` scope | – |
+| Create/update identity fields | – | ✅ own | own identity only | own identity only | EF Ed25519 + exact-revision nonce + transactional RPC | Sig `WALLET_PROFILE_UPDATED` |
+| Change analyst status/tier/weight through profile | ❌ | ❌ | ❌ | ❌ | fields absent from profile contract; analyst lifecycle remains separate | – |
+| Edit another wallet's profile | ❌ | ❌ | ❌ | ❌ | actor wallet is server-derived from verified signature | – |
+
+Publishing and Case attribution are separate owner choices. A maintainer has no profile-edit override; maintainer authority remains double-gated and analyst authority remains derived only from `analyst_profiles` plus SAS enforcement where enabled.
+
+## 6. Analyst application & lifecycle
 
 | Operation | self | analyst | senior | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
@@ -87,7 +99,7 @@ Submission alone never pauses sealing; only `open`/`under_review` do. No non-ter
 | Revoke | – | – | – | ✅ | EF maintainer | Memo `ANALYST_REVOKED` |
 | **Self-verify** | ❌ | ❌ | ❌ | ❌ | impossible by design | – |
 
-## 6. AI Pack
+## 7. AI Pack
 
 | Operation | owner | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|
@@ -100,7 +112,7 @@ Submission alone never pauses sealing; only `open`/`under_review` do. No non-ter
 | Approve version (outcome) | ❌ | quorum (≠creator) | ✅ **maintainer required** | EF ≥2 indep **+ Σweight ≥2.50 + maintainer**, creator excluded | Memo `AI_PACK_APPROVED` |
 | Reject version (outcome) | ❌ | quorum (≠creator) | (analyst only) | EF ≥2 indep **+ Σweight ≥2.50** (**no maintainer gate**), creator excluded | Memo `AI_PACK_REJECTED` (class A) |
 
-## 7. Reward & Support
+## 8. Reward & Support
 
 | Operation | owner | wallet | analyst | maintainer | Enforcement | Proof |
 |---|---|---|---|---|---|---|
@@ -108,20 +120,20 @@ Submission alone never pauses sealing; only `open`/`under_review` do. No non-ter
 | Send partial/full reward to winner | ✅ exact Case owner, sealed only | – | – | no special power | EF derives exact winning version author; Phantom System Program tx; trusted RPC finality; confirmed sum ≤ frozen pledge | `REWARD_PAYMENT_CONFIRMED` |
 | Voluntary support published author / eligible analyst / counted reviewer | – | ✅ | ✅ | ✅ only when separately eligible as recipient | EF derives recipient; rejects self-support; 1–4 same-context recipients; trusted RPC finality; **no ranking/discovery/reputation/governance effect** | `SUPPORT_PAYMENT_CONFIRMED` |
 
-## 8. Public analyst attribution (correction #14 / D16)
+## 9. Public analyst attribution (correction #14 / D16)
 For any **public** governance decision (public Cases, published Reports/Wire Reports, approved AI Packs, resolutions, completed challenges), the public view shows for each participating analyst, full initial-open maintainer, or D17 bootstrap maintainer: **role, public profile/handle where applicable, wallet, decision, weight snapshot used where applicable (a maintainer action is never analyst weight), timestamp, proof type** (`solana_memo` / `wallet_signed_server_verified` / `system_event`), and a public-safe receipt/tx reference. A D17 outcome additionally shows `decision_channel='maintainer_bootstrap'` and an explicit notice that it is not independent analyst consensus. Restricted always: private notes, private evidence, moderation reason detail, sensitive reason text. Pre-open/private queue shows **counts only**.
 
-## 9. The two half-maintainer roles
+## 10. The two half-maintainer roles
 
 | Operation | `adm_wallet_only` | `adm_auth_only` | Reason |
 |---|---|---|---|
 | Any maintainer mutation | ❌ | ❌ | `resolveMaintainerAccess` needs **wallet AND auth**; RLS restricts writes to the maintainer auth UUID |
 | Ops Center | locked | locked | double-gate |
 
-## 10. Service role
+## 11. Service role
 `service` (Edge Function service-role key) is the only writer for publication, review tallies, resolution finalization, pack storage, reputation snapshots, and **all `event_receipts` inserts** (server-only Proof Log write — closes the current anon-writable gap). Never in client code. RLS denies anon/user writes to these.
 
-## 11. Enforcement summary
+## 12. Enforcement summary
 Signature-verified identity for all owner/analyst actions (ed25519, purpose+target+payload-hash bound, **server-issued single-use nonce persisted/consumed in `osi_nonces`**, freshness). Analyst authorization = server `analyst_profiles` lookup. Maintainer = double-gate + auth-UUID RLS. Quorum/weight computed server-side. Pending privacy = RLS default-deny + owner-proof Edge path. No support-based ranking anywhere.
 
 **Counted-review eligibility (correction #6 — applies to every counted Report / Wire / resolution / challenge / AI-Pack / application review):**
