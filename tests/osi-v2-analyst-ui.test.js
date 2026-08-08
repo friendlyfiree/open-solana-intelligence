@@ -135,4 +135,47 @@ ok(css.includes('.osi-application-steps')
   'fast application guidance, progressive disclosure and mobile actions have dedicated styling');
 ok(!analyst.includes('\u2014') && !css.includes('\u2014'), 'new visible analyst UI introduces no em dash');
 
+// \u2500\u2500 Verified work record: the CV surface \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// A track record that a reader cannot open, cannot send and cannot attach to
+// an application is a list, not a credential. These are the four properties
+// that make it one, plus the two honesty rules it must never break.
+ok(analyst.includes('function recordSection(record)')
+  && analyst.includes('recordSection(profile.record)'),
+  'both the analyst and the maintainer profile render the same verified work record');
+ok(analyst.includes("'Each row is a signed act on a record anyone can open. An outcome states where the process reached, never that a finding is true.'"),
+  'the record states in its own copy that an outcome is a process state, not a verdict');
+ok(/function recordEntryHref\(entry\)[\s\S]*?\/\^OSI-\[0-9A-Z\]\{6,20\}\$\/\.test\(ref\)/.test(analyst)
+  && analyst.includes("'#case/'+encodeURIComponent(ref)"),
+  'a record row links only to a validated public Case reference');
+ok(analyst.includes("esc(t(OUTCOME_LABELS[outcome]||label(outcome)))")
+  && analyst.includes("'<b class=\"osi-cv-title\" data-osi-user-content>'+esc(title)"),
+  'record titles and outcomes are escaped and marked as user content');
+ok(analyst.includes("osi-cv-act-offchain")
+  && /function recordAct\(act\)[\s\S]*?act\.proof_type==='solana_memo'/.test(analyst),
+  'only a Memo receipt gets a chain link; a wallet signature is labelled as what it is');
+ok(analyst.includes("'{count} further signed acts are on subjects that are not public yet. They are counted here and deliberately not named.'"),
+  'work on a private subject is counted in the record and never named');
+
+// A profile address is public or it does not exist. A wallet in a URL would
+// make the shareable link an identifier the reader never chose to publish.
+ok(/function profileRoute\(profile,isMaintainer\)[\s\S]*?\/\^\[a-z0-9_\]\{2,32\}\$\/\.test\(handle\)\?origin\+'#analyst\/'\+handle:''/.test(analyst),
+  'a profile with no public handle gets no shareable address rather than a wallet URL');
+ok(analyst.includes("function analystRouteHandle(hash)")
+  && analyst.includes("function adoptProfileRoute(hash)")
+  && analyst.includes("function clearProfileRoute()")
+  && analyst.includes("window.addEventListener('popstate',routeProfileFromLocation)"),
+  'opening a profile adopts its address, closing it releases the address, and Back works');
+ok(/function adoptProfileRoute[\s\S]*?window\.history\.replaceState/.test(analyst)
+  && !/function adoptProfileRoute[\s\S]*?window\.history\.pushState/.test(analyst),
+  'a profile address replaces rather than stacking a history entry per profile glanced at');
+ok(analyst.includes("op:'get_public_profile'"),
+  'a shared profile link resolves one profile instead of requiring the whole roster');
+
+ok(css.includes('@media print')
+  && css.includes('body>#ap-modal.open{display:block!important')
+  && css.includes('.osi-cv-hide-in-print'),
+  'the profile prints as a standalone document with its interactive controls removed');
+ok(css.includes(".osi-cv-act-proof[href]::after{content:' (' attr(href) ')'"),
+  'a printed record keeps its verification links readable on paper');
+
 console.log('1..' + assertions);

@@ -85,8 +85,9 @@
     var target = viewHashes[view] ? view : 'registry';
     var hash = window.location.hash.replace(/^#/, '');
     // A Case route is a deeper address inside the Field Office, not a view
-    // hash. Flattening it would drop the shareable Case reference.
-    if (caseRouteRef(hash)) return;
+    // hash. Flattening it would drop the shareable Case reference. A profile
+    // route is the same kind of deeper address inside the analyst network.
+    if (caseRouteRef(hash) || profileRoute(hash)) return;
     if (hashViews[hash] === target) return;
     try {
       window.history.replaceState({ osiView: target }, '', '#' + viewHashes[target]);
@@ -523,6 +524,15 @@
     return match ? match[1] : '';
   }
 
+  // #analyst/<handle> and #maintainer address one public profile. The analyst
+  // integration owns opening them; the shell only has to know they are real
+  // addresses so it neither flattens them into a view hash nor treats them as
+  // an unknown fragment. Both carry a public identifier and nothing else.
+  function profileRoute(hash) {
+    hash = String(hash || '');
+    return hash === 'maintainer' || /^analyst\/[A-Za-z0-9_]{2,32}$/.test(hash);
+  }
+
   function closeCaseRoute() {
     if (typeof window.osiV2CloseCaseFromRoute === 'function') window.osiV2CloseCaseFromRoute();
   }
@@ -544,6 +554,14 @@
       return;
     }
     closeCaseRoute();
+    // A profile address puts the reader in the analyst network, so closing the
+    // profile leaves them on the page it belongs to instead of on the home
+    // view they never asked for. Opening the profile itself is the analyst
+    // integration's job.
+    if (profileRoute(hash)) {
+      navigate('analysts', { history: true, focus: false, preserveScroll: true });
+      return;
+    }
     if (hashViews[hash]) navigate(hashViews[hash], { history: true, focus: false });
     else if (!hash) navigate('registry', { history: true, focus: false });
     else syncActiveNavigation(document.body.dataset.view || 'registry');

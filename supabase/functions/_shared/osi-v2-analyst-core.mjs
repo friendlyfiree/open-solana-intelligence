@@ -332,15 +332,292 @@ export function deriveAnalystContributions(wallet, receipts = []) {
     String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")));
 }
 
-export function publicAnalystDto(profile, contributions = [], receipts = []) {
-  const stored = contributions.map((row) => ({
-    kind: String(row.kind ?? ""),
-    subject_type: String(row.subject_type ?? ""),
-    subject_id: String(row.subject_id ?? ""),
-    created_at: row.created_at ?? null,
-  }));
+// ---------------------------------------------------------------------------
+// Public work record (the analyst and maintainer CV).
+// ---------------------------------------------------------------------------
+//
+// A contribution list that names `OSI-...` references is only a track record if
+// a reader can open them. Two separate reasons that has not been true:
+//
+//   1. A receipt exists from the moment work is signed, but the Case, Report or
+//      Wire it belongs to is private until governance opens or publishes it. So
+//      the profile could name a subject that the reader is then refused, and
+//      publishing the reference announced that a still-private subject exists
+//      and who filed it. Neither is acceptable on a public page.
+//   2. Nothing said how the work *ended*. "Submitted a report" is an activity
+//      log. "Authored the published report on a sealed Case, here is the memo
+//      transaction" is a credential.
+//
+// So the record is built from the intersection of two independently public
+// facts: the analyst's own server-verified receipts, and the current public
+// state of the subject those receipts point at. Work whose subject is not
+// publicly resolvable is never named; it is counted in `unlisted` instead, so
+// the summary stays truthful without publishing a reference nobody can check.
+
+// Must mirror PUBLIC_CASE_STAGES in osi-v2-case-read-core.mjs, which mirrors
+// cases_public_visibility_stage_check. Duplicated rather than imported so the
+// analyst function does not bundle the whole Case read core; a test asserts the
+// two sets are identical so they cannot drift apart silently.
+export const PUBLIC_SUBJECT_CASE_STAGES = Object.freeze([
+  "open_public",
+  "in_review",
+  "ready_for_finalization",
+  "resolution_proposed",
+  "in_challenge_window",
+  "resolved",
+  "sealed",
+  "archived",
+  "reopened",
+  "halted",
+]);
+
+// The outcome a reader actually wants to know, derived from the subject's own
+// public state. Never a judgement about whether the analysis was correct: an
+// outcome says the process reached a stage, not that a conclusion is true.
+const CASE_OUTCOME = Object.freeze({
+  sealed: "sealed",
+  resolved: "resolved",
+  in_challenge_window: "in_challenge_window",
+  resolution_proposed: "resolution_proposed",
+  ready_for_finalization: "in_review",
+  in_review: "in_review",
+  reopened: "in_review",
+  open_public: "open",
+  halted: "halted",
+  archived: "archived",
+});
+
+// What the wallet did on a subject, in descending order of standing. An author
+// who also reviewed elsewhere keeps the strongest role per subject.
+const ROLE_BY_EVENT = Object.freeze({
+  CASE_SUBMITTED: "submitter",
+  CASE_REPORT_VERSION_SUBMITTED: "author",
+  WIRE_REPORT_VERSION_SUBMITTED: "author",
+  RESOLUTION_PROPOSED: "proposer",
+  CHALLENGE_SUBMITTED: "challenger",
+});
+const ROLE_RANK = Object.freeze({ author: 4, submitter: 3, proposer: 2, challenger: 2, reviewer: 1 });
+
+/**
+ * Classify which of the subjects an analyst touched are publicly resolvable
+ * right now, and what their public outcome is.
+ *
+ * Pure and dependency-free so the same decision runs in production and in the
+ * regression suite. The caller supplies rows already read with service role;
+ * this function decides what a public reader is allowed to be told about them.
+ *
+ * @param {{cases?:Array<Record<string,any>>, reports?:Array<Record<string,any>>, wires?:Array<Record<string,any>>}} rows
+ * @returns {Map<string,{public_ref:string,subject_type:string,title:string,outcome:string,outcome_at:any,case_ref:string}>}
+ */
+export function indexPublicSubjects(rows = {}) {
+  const stages = new Set(PUBLIC_SUBJECT_CASE_STAGES);
+  const index = new Map();
+  const caseById = new Map();
+  const reportById = new Map();
+  const wireById = new Map();
+  for (const row of rows.cases ?? []) {
+    const ref = String(row?.public_ref ?? "");
+    if (!ref) continue;
+    // Exactly the public test the Case read core applies, restated here: a Case
+    // is public only when it says so and is standing in a stage that permits it.
+    // A legacy import or an archived row is out of every operational view.
+    const archived = row.archived_at != null && String(row.archived_at).trim() !== "";
+    if (archived || row.category === "legacy_import") continue;
+    if (String(row.visibility ?? "") !== "public") continue;
+    const stage = String(row.stage ?? "");
+    if (!stages.has(stage)) continue;
+    const entry = {
+      public_ref: ref,
+      subject_type: "case",
+      title: String(row.title ?? ""),
+      outcome: CASE_OUTCOME[stage] ?? "open",
+      outcome_at: row.sealed_at ?? row.updated_at ?? null,
+      case_ref: ref,
+    };
+    index.set(ref, entry);
+    if (row.id != null) caseById.set(String(row.id), entry);
+  }
+  for (const row of rows.reports ?? []) {
+    const ref = String(row?.public_ref ?? "");
+    if (!ref) continue;
+    // An unpublished Report's existence is private by contract, so only a
+    // Report with a published pointer is nameable, and only when its parent
+    // Case is itself public.
+    if (row.current_published_version_id == null) continue;
+    const parent = caseById.get(String(row.case_id ?? ""));
+    if (!parent) continue;
+    const entry = {
+      public_ref: ref,
+      subject_type: "case_report",
+      title: parent.title,
+      outcome: "published",
+      outcome_at: row.updated_at ?? null,
+      case_ref: parent.public_ref,
+    };
+    index.set(ref, entry);
+    if (row.id != null) reportById.set(String(row.id), entry);
+  }
+  for (const row of rows.wires ?? []) {
+    const ref = String(row?.public_ref ?? "");
+    if (!ref) continue;
+    if (row.current_published_version_id == null) continue;
+    const entry = {
+      public_ref: ref,
+      subject_type: "wire_report",
+      title: String(row.title ?? ""),
+      outcome: "published",
+      outcome_at: row.updated_at ?? null,
+      case_ref: "",
+    };
+    index.set(ref, entry);
+    if (row.id != null) wireById.set(String(row.id), entry);
+  }
+  // A review receipt points at the exact immutable version it judged, not at
+  // the header, so its reference is OSI-RV-/OSI-WV- rather than OSI-RPT-/OSI-WR-.
+  // Without this alias the single largest class of analyst work - reviewing -
+  // would resolve to nothing and vanish from every record.
+  //
+  // The alias resolves to the parent's entry, so it inherits the parent's
+  // publication test unchanged: reviewing a version of a Report that was never
+  // published still resolves to nothing, because naming it would announce that
+  // an unpublished Report exists.
+  for (const row of rows.reportVersions ?? []) {
+    const parent = reportById.get(String(row?.report_id ?? ""));
+    const ref = String(row?.version_ref ?? "");
+    if (parent && ref) index.set(ref, parent);
+  }
+  for (const row of rows.wireVersions ?? []) {
+    const parent = wireById.get(String(row?.wire_report_id ?? ""));
+    const ref = String(row?.version_ref ?? "");
+    if (parent && ref) index.set(ref, parent);
+  }
+  return index;
+}
+
+/**
+ * Build the public work record for one wallet.
+ *
+ * @param {string} wallet
+ * @param {Array<Record<string,any>>} receipts the wallet's own server-verified receipts
+ * @param {Map<string,any>} subjects output of indexPublicSubjects
+ */
+export function buildPublicWorkRecord(wallet, receipts = [], subjects = new Map()) {
+  const owner = String(wallet ?? "");
+  const index = subjects instanceof Map ? subjects : new Map(Object.entries(subjects ?? {}));
+  const entries = new Map();
+  const unlisted = new Map();
+  if (!owner) return { entries: [], summary: emptySummary(), unlisted: [] };
+  for (const row of receipts) {
+    if (!row || String(row.actor_wallet ?? "") !== owner) continue;
+    if (row.server_verified === false) continue;
+    const eventType = String(row.event_type ?? "");
+    const kind = ANALYST_CONTRIBUTION_KINDS[eventType];
+    if (!kind) continue;
+    const ref = String(row.public_ref ?? "");
+    const subject = ref ? index.get(ref) : null;
+    if (!subject) {
+      // Real work, but its subject is not something a reader can open. Counted,
+      // never named: a reference nobody can resolve is not evidence.
+      unlisted.set(kind, (unlisted.get(kind) ?? 0) + 1);
+      continue;
+    }
+    // Grouped by the subject's own reference, never by the receipt's. A review
+    // of version 2 and authorship of version 3 are one line about one Report,
+    // not two unrelated rows a reader has to reconcile.
+    const key = String(subject.public_ref ?? ref);
+    let entry = entries.get(key);
+    if (!entry) {
+      entry = { ...subject, role: "reviewer", acts: [] };
+      entries.set(key, entry);
+    }
+    const role = ROLE_BY_EVENT[eventType] ?? "reviewer";
+    if ((ROLE_RANK[role] ?? 0) > (ROLE_RANK[entry.role] ?? 0)) entry.role = role;
+    entry.acts.push({
+      event_type: eventType,
+      kind,
+      decision: row.decision == null ? null : String(row.decision),
+      proof_type: String(row.proof_type ?? ""),
+      // Only a Memo receipt has a transaction a reader can pull off mainnet. A
+      // wallet-signed receipt is real proof but it is not on chain, and the two
+      // are never blurred.
+      tx_sig: row.proof_type === "solana_memo" ? String(row.tx_sig ?? "") : null,
+      occurred_at: row.occurred_at ?? null,
+    });
+  }
+  const list = [...entries.values()];
+  for (const entry of list) {
+    entry.acts.sort((left, right) => String(right.occurred_at ?? "").localeCompare(String(left.occurred_at ?? "")));
+    entry.last_act_at = entry.acts[0]?.occurred_at ?? null;
+    entry.anchored = entry.acts.some((act) => act.proof_type === "solana_memo" && act.tx_sig);
+  }
+  list.sort((left, right) => String(right.last_act_at ?? "").localeCompare(String(left.last_act_at ?? "")));
   return {
-    wallet: String(profile.wallet ?? ""),
+    entries: list,
+    summary: summarize(list),
+    unlisted: [...unlisted.entries()]
+      .map(([kind, count]) => ({ kind, count }))
+      .sort((left, right) => right.count - left.count || left.kind.localeCompare(right.kind)),
+  };
+}
+
+function emptySummary() {
+  return {
+    public_entries: 0,
+    cases: 0,
+    reports_published: 0,
+    wire_reports_published: 0,
+    cases_sealed: 0,
+    cases_resolved: 0,
+    reviews: 0,
+    memo_anchored_acts: 0,
+    first_act_at: null,
+    last_act_at: null,
+  };
+}
+
+// Every number here is a count of rows already listed above it, so a reader can
+// check the summary against the record rather than take it on trust. These are
+// also the values a future on-chain analyst record would carry, which is why
+// they are computed in one dependency-free place instead of in the interface.
+function summarize(entries) {
+  const summary = emptySummary();
+  summary.public_entries = entries.length;
+  for (const entry of entries) {
+    if (entry.subject_type === "case") {
+      summary.cases += 1;
+      if (entry.outcome === "sealed") summary.cases_sealed += 1;
+      if (entry.outcome === "resolved") summary.cases_resolved += 1;
+    }
+    if (entry.subject_type === "case_report") summary.reports_published += 1;
+    if (entry.subject_type === "wire_report") summary.wire_reports_published += 1;
+    for (const act of entry.acts) {
+      if (/_REVIEW_(CAST|REVISED)$/.test(act.event_type)) summary.reviews += 1;
+      if (act.proof_type === "solana_memo" && act.tx_sig) summary.memo_anchored_acts += 1;
+      const at = String(act.occurred_at ?? "");
+      if (!at) continue;
+      if (!summary.first_act_at || at < summary.first_act_at) summary.first_act_at = at;
+      if (!summary.last_act_at || at > summary.last_act_at) summary.last_act_at = at;
+    }
+  }
+  return summary;
+}
+
+export function publicAnalystDto(profile, contributions = [], receipts = [], subjects = new Map()) {
+  const index = subjects instanceof Map ? subjects : new Map(Object.entries(subjects ?? {}));
+  // A stored contribution is still only publishable if its subject resolves.
+  // The authoritative table does not get to name a private Case either.
+  const stored = contributions
+    .filter((row) => index.has(String(row?.subject_id ?? "")))
+    .map((row) => ({
+      kind: String(row.kind ?? ""),
+      subject_type: String(row.subject_type ?? ""),
+      subject_id: String(row.subject_id ?? ""),
+      created_at: row.created_at ?? null,
+    }));
+  const wallet = String(profile.wallet ?? "");
+  const record = buildPublicWorkRecord(wallet, receipts, index);
+  return {
+    wallet,
     handle: String(profile.handle ?? ""),
     display_name: String(profile.display_name ?? ""),
     bio: String(profile.bio ?? ""),
@@ -350,10 +627,13 @@ export function publicAnalystDto(profile, contributions = [], receipts = []) {
     status: String(profile.status ?? ""),
     tier_code: String(profile.tier_code ?? ""),
     weight: Number(profile.weight_cached ?? 0),
+    active_since: profile.created_at ?? null,
     contributions: stored.length
       ? stored
-      : deriveAnalystContributions(String(profile.wallet ?? ""), receipts),
+      : deriveAnalystContributions(wallet, receipts).filter((row) => index.has(String(row.subject_id ?? ""))),
+    record,
     proof_history: receipts.map((row) => {
+      const ref = String(row.public_ref ?? "");
       const result = {
         event_type: String(row.event_type ?? ""),
         actor_wallet: String(row.actor_wallet ?? ""),
@@ -362,6 +642,10 @@ export function publicAnalystDto(profile, contributions = [], receipts = []) {
         proof_type: String(row.proof_type ?? ""),
         tx_sig: row.proof_type === "solana_memo" ? String(row.tx_sig ?? "") : null,
         occurred_at: row.occurred_at ?? null,
+        // Only a reference the reader can open is published. A receipt on a
+        // still-private subject keeps its proof and loses its pointer.
+        public_ref: index.has(ref) ? ref : null,
+        subject_type: index.has(ref) ? String(index.get(ref).subject_type) : null,
       };
       if (row.event_type === "SUPPORT_PAYMENT_CONFIRMED"
           && row.proof_type === "solana_memo"

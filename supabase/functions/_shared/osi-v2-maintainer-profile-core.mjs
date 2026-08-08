@@ -101,14 +101,28 @@ export function normalizeMaintainerProfile(input) {
 }
 
 // What anyone may read. Every field here is content the maintainer typed about
-// themselves. The record carries no status, no tier and no weight, because
-// there is none to carry: presenting an empty weight would invite the reading
-// that a filled one could exist.
-export function publicMaintainerProfile(row) {
+// themselves, plus the same public work record an analyst page publishes.
+//
+// The operator does public work too: they submit Cases, file Reports and open
+// findings on The Wire, and every one of those acts carries the same wallet
+// signature and the same mainnet memo an analyst's does. Publishing the record
+// is therefore not a privilege being extended to the maintainer, it is the same
+// evidence rule applied to the same class of act.
+//
+// What stays absent is analyst standing. The record carries no status, no tier
+// and no weight, because there is none to carry: presenting an empty weight
+// would invite the reading that a filled one could exist. Operator decisions -
+// opening a Case, publishing a Report, activating an analyst - are already
+// excluded upstream by ANALYST_CONTRIBUTION_KINDS, so running the maintainer
+// through the same builder cannot turn an act of authority into a credential.
+export function publicMaintainerProfile(row, record = null) {
   if (!row || typeof row !== "object") return null;
   const wallet = typeof row.wallet === "string" ? row.wallet.trim() : "";
   if (!WALLET_PATTERN.test(wallet)) return null;
   return {
+    record: record && typeof record === "object"
+      ? record
+      : { entries: [], summary: null, unlisted: [] },
     wallet,
     display_name: typeof row.display_name === "string" && row.display_name.trim() ? row.display_name.trim() : null,
     bio: typeof row.bio === "string" && row.bio.trim() ? row.bio.trim() : null,
