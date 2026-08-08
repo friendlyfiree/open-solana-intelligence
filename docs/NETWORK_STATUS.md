@@ -4,7 +4,7 @@ What is actually in the production network, stated plainly, with the exact
 queries that produce it. This page exists because a platform whose product is
 verifiable public record cannot describe its own adoption in adjectives.
 
-**Observed:** 2026-08-04
+**Observed:** 2026-08-08
 **How to reproduce:** every number below comes from the public endpoints in
 [docs/VERIFY.md](VERIFY.md) section 5. Nothing here is read from an internal
 dashboard.
@@ -13,20 +13,24 @@ dashboard.
 
 | Measure | Value |
 |---|---|
-| Public Cases | 2 |
+| Public Cases | 3 |
 | Cases sealed | 0 |
 | Published Case Reports | 1 |
 | Published Wire Reports | 0 |
-| Analysts with an active profile | 2 |
+| Analysts with an active profile | 3 |
 | Analysts above probationary tier | 0 |
+| Public openings through an independent analyst approval | 0 |
+| Public openings through the full-maintainer approve-open path | 3 |
 | Publications through independent analyst quorum | 0 |
 | Publications through the labeled maintainer bootstrap channel | 1 |
 | Confirmed reward payments | 0 |
 | Confirmed voluntary support transfers | 1, for 100,000 lamports |
 | Resolutions, challenges, and seals | 0 |
 
-Both live analysts hold the `probationary` tier at review weight `0.50`, and
-both hold a live `OSI_VERIFIED_ANALYST` credential on Solana mainnet.
+All three live analysts hold the `probationary` tier at review weight `0.50`,
+and all three hold a live `OSI_VERIFIED_ANALYST` credential on Solana mainnet.
+Only one of the three has published a handle; a profile without one is
+addressed by wallet and has no shareable profile link.
 
 ## What that means, without softening it
 
@@ -44,6 +48,17 @@ labels it as a maintainer bootstrap decision rather than analyst consensus.
 This is the designed behaviour of the cold-start path, not a workaround, but it
 means the governance thesis at the centre of this project is implemented,
 tested, and still unproven in production.
+
+**No Case has been opened by an analyst either.** All three public Cases were
+opened on the full-maintainer approve-open path, which the model permits as an
+independent initial-open route at analyst weight zero. Each of those receipts
+records `actor_role='maintainer'`, so the Proof Log does not present any of
+them as an analyst decision. Note the channel they carry, because it is the one
+number on this page a reader could misread: a maintainer approve-open records
+`decision_channel='standard'`, not `maintainer_bootstrap`, since it is a
+modelled route rather than the cold-start substitution the bootstrap channel
+names. The role field is what distinguishes it, and the count above is stated
+separately here so nobody has to work that out from a channel label.
 
 **The one support transfer is not adoption.** It is 100,000 lamports sent by
 the maintainer wallet to a report author to exercise the payment path end to
