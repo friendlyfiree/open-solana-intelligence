@@ -61,7 +61,7 @@ Somut olarak, bu depoda üç şey OSI'den bağımsız şekilde bugün diğer Sol
 
 Platform yayında ve ilk vakalarına açık. Ağ ise dürüst bir soğuk başlangıçta.
 
-2026-08-04 itibarıyla: **2 kamuya açık Vaka, 1 yayımlanmış Vaka Raporu, 0 yayımlanmış Wire Raporu, 2 deneme süreli analist, 0 mühür, bağımsız analist yeter sayısı ile 0 yayımlama.** Yayımlanmış tek Rapor, şeffaf şekilde etiketlenmiş sürdürücü başlangıç kanalından çıktı; bu, `REPORT_PUBLISHED` memo'sunda `r=maintainer` olarak zincir üstünde görülebiliyor.
+2026-08-08 itibarıyla: **3 kamuya açık Vaka, 1 yayımlanmış Vaka Raporu, 0 yayımlanmış Wire Raporu, 3 deneme süreli analist, 0 mühür, bağımsız analist yeter sayısı ile 0 yayımlama ve bağımsız bir analist tarafından açılmış 0 Vaka.** Yayımlanmış tek Rapor, şeffaf şekilde etiketlenmiş sürdürücü başlangıç kanalından çıktı; bu, `REPORT_PUBLISHED` memo'sunda `r=maintainer` olarak zincir üstünde görülebiliyor. Üç Vakanın üçü de tam-sürdürücü onay-açma yolundan açıldı ve bu makbuzların her biri `actor_role='maintainer'` kaydediyor.
 
 Bu bilgi gizlenmek yerine en başta veriliyor, çünkü ürünü doğrulanabilir kamusal kayıt olan bir proje kendi benimsenmesini sıfatlarla anlatamaz. Tam döküm ve bu sayıların anlam kazanması için nelerin değişmesi gerektiği [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) içinde; oradaki her rakam [docs/VERIFY.md](docs/VERIFY.md) bölüm 5'teki kamusal uçlardan yeniden üretilebilir.
 
