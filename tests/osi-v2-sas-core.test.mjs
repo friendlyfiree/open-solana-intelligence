@@ -261,8 +261,18 @@ ok("read glue never returns a raw error in a public reason (neutral rpc_unavaila
   /rpc_unavailable/.test(glue) && /rawError/.test(glue));
 ok("SDK shim carries @ts-nocheck and statically imports the pinned SDK URLs",
   /^\/\/ @ts-nocheck/.test(shim)
-    && /from "https:\/\/esm\.sh\/@solana\/kit@5"/.test(shim)
-    && /from "https:\/\/esm\.sh\/sas-lib@1\.0\.10"/.test(shim));
+    && /from "https:\/\/esm\.sh\/@solana\/kit@5\?deps=ws@8\.18\.0"/.test(shim)
+    && /from "https:\/\/esm\.sh\/sas-lib@1\.0\.10\?deps=ws@8\.18\.0"/.test(shim));
+// The transitive `ws` pin is what keeps this function able to boot. Dropping it
+// lets esm.sh resolve the newest release, and ws@8.21.3's denonext build throws
+// while evaluating, which takes the whole gateway down with WORKER_ERROR on
+// every request. This is not hypothetical: it happened in production on
+// 2026-08-08, and redeploying the previous known-good source reproduced it,
+// which is how the fault was traced out of this repository.
+ok("every remote SDK import in the shim pins the transitive ws build",
+  shim.match(/https:\/\/esm\.sh\/[^"]+/g).every((url) => url.includes("deps=ws@8.18.0")));
+ok("the shim records why the pin exists, so it is not tidied away later",
+  /ws@8\.21\.3/.test(shim) && /node:url/.test(shim) && /load-bearing/.test(shim));
 ok("issuer imports the SDK from the static shim (not a dynamic import)",
   /from "\.\/osi-v2-sas-sdk\.ts"/.test(issuer) && !/computedImport|import\(/.test(issuer));
 ok("analyst imports issuance from the issuer module",
