@@ -68,6 +68,17 @@ test('translates dynamic interface labels and leaves opted-out user content unto
     analyst.setAttribute('aria-label', 'Analyst profile');
     analyst.innerHTML = '<span>Server-derived weight</span><em>Probationary</em><h4>Public contributions</h4><b>No public contributions recorded</b><button>Support analyst with SOL</button>';
     document.body.appendChild(analyst);
+
+    const caseChrome = document.createElement('section');
+    caseChrome.id = 'dynamic-case-chrome';
+    caseChrome.innerHTML = '<button>Overview</button><span>Initial Review</span><b>Created</b><h3>Summary</h3><button>Submit Report</button>';
+    document.body.appendChild(caseChrome);
+
+    const caseUserContent = document.createElement('p');
+    caseUserContent.id = 'dynamic-case-user-content';
+    caseUserContent.dataset.osiUserContent = '';
+    caseUserContent.textContent = 'Overview';
+    document.body.appendChild(caseUserContent);
   });
 
   await expect(page.locator('#dynamic-ui-copy')).toHaveText('Cüzdanı Bağla');
@@ -82,6 +93,12 @@ test('translates dynamic interface labels and leaves opted-out user content unto
   await expect(page.locator('#dynamic-analyst-profile-copy h4')).toHaveText('Kamusal katkılar');
   await expect(page.locator('#dynamic-analyst-profile-copy b')).toHaveText('Kaydedilmiş kamusal katkı yok');
   await expect(page.locator('#dynamic-analyst-profile-copy button')).toHaveText('Analisti SOL ile destekle');
+  await expect(page.locator('#dynamic-case-chrome button').first()).toHaveText('Genel Bakış');
+  await expect(page.locator('#dynamic-case-chrome span')).toHaveText('İlk İnceleme');
+  await expect(page.locator('#dynamic-case-chrome b')).toHaveText('Oluşturuldu');
+  await expect(page.locator('#dynamic-case-chrome h3')).toHaveText('Özet');
+  await expect(page.locator('#dynamic-case-chrome button').last()).toHaveText('Rapor Gönder');
+  await expect(page.locator('#dynamic-case-user-content')).toHaveText('Overview');
 });
 
 test('keeps the language control visible at supported viewport widths', async ({ page }) => {

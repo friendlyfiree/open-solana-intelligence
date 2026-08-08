@@ -46,7 +46,10 @@ ok('preview document is retired behind a permanent root redirect',
     && /"destination"\s*:\s*"\/"/.test(read('vercel.json'))
     && /"permanent"\s*:\s*true/.test(read('vercel.json')));
 ok('primary app provides a local favicon without a network 404',
-  index.includes('./assets/favicon.svg') && fs.existsSync(path.join(root, 'assets/favicon.svg')));
+  index.includes('./assets/favicon.svg')
+    && fs.existsSync(path.join(root, 'assets/favicon.svg'))
+    && /"source"\s*:\s*"\/favicon\.ico"/.test(read('vercel.json'))
+    && /"destination"\s*:\s*"\/assets\/favicon\.svg"/.test(read('vercel.json')));
 ok('primary navigation keeps Field Office and The Wire',
   index.includes('data-view="field"') && index.includes('data-view="wire"'));
 ok('My Cases is in the wallet menu',
@@ -86,6 +89,14 @@ ok('Case timestamps follow the selected product locale instead of the browser lo
     && app.includes("==='tr'?'tr-TR':'en-US'")
     && app.includes("date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short'})")
     && !app.includes("date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})"));
+ok('Case drawer localizes generated labels without translating author content',
+  app.includes('esc(t(tab[1]))')
+    && app.includes("esc(t('Case overview'))")
+    && app.includes("esc(t('Created'))")
+    && app.includes("esc(t('Summary'))")
+    && app.includes("esc(t('Submit Report'))")
+    && app.includes('caseProse(item.summary)')
+    && app.includes('data-osi-user-content'));
 ok('AI Pack browser calls only its dedicated trusted gateway',
   aiPackIntegration.includes('/functions/v1/osi-v2-ai-pack')
     && !/supa(?:Post|Patch|Delete)|\.from\(/.test(aiPackIntegration));
@@ -93,6 +104,11 @@ ok('AI Pack generation is Case-specific and fails closed on the server capabilit
   aiPackIntegration.includes("op:'capabilities'")
     && aiPackIntegration.includes('case_ref:ref')
     && aiPackIntegration.includes('!reason&&caps.can_generate===true'));
+ok('global capability refresh skips AI Pack until an exact Case is active',
+  app.includes("var aiPackCaseRef=String(state.current&&state.current.public_ref||'')")
+    && app.includes('if(aiPackCaseRef){')
+    && app.includes('case_ref:aiPackCaseRef')
+    && !app.includes('case_ref:state.current&&state.current.public_ref||undefined'));
 ok('AI Pack tab appears only for the exact full-maintainer private mode',
   app.includes("state.capabilities.maintainer_access===true")
     && app.includes("state.capabilities.ai_pack_access_mode==='maintainer_only'")

@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/favicon.ico",
+      "destination": "/assets/favicon.svg",
+      "permanent": true
+    },
+    {
       "source": "/v2-preview.html",
       "destination": "/",
       "permanent": true
