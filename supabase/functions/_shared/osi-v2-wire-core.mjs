@@ -360,6 +360,150 @@ function safeReceipt(receipt) {
   };
 }
 
+function nullableText(value) {
+  return value === null || value === undefined ? null : String(value);
+}
+
+function publicIdentity(value) {
+  const row = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    display_name: nullableText(row.display_name),
+    handle: nullableText(row.handle),
+    wallet: nullableText(row.wallet),
+  };
+}
+
+function publicEvidence(value) {
+  const rows = Array.isArray(value) ? value : [];
+  return rows.map((row) => ({
+    ordinal: Number(row?.ordinal || 0),
+    kind: String(row?.kind || ""),
+    ref: String(row?.ref || ""),
+    sha256: String(row?.sha256 || ""),
+  }));
+}
+
+function publicPaymentProof(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return {
+    block_time: value.block_time ?? null,
+    cluster: nullableText(value.cluster),
+    finality: nullableText(value.finality),
+    memo_verified: value.memo_verified === true,
+    payer_wallet: nullableText(value.payer_wallet),
+    recipient_manifest: Array.isArray(value.recipient_manifest)
+      ? value.recipient_manifest.map((item) => ({
+        amount_lamports: nullableText(item?.amount_lamports),
+        wallet: nullableText(item?.wallet),
+      }))
+      : [],
+    slot: nullableText(value.slot),
+    system_program_transfers_verified: value.system_program_transfers_verified === true,
+    total_lamports: nullableText(value.total_lamports),
+  };
+}
+
+function publicReview(value) {
+  const row = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    active: row.active === true,
+    actor_role: nullableText(row.actor_role),
+    created_at: row.created_at || null,
+    decision: nullableText(row.decision),
+    proof_type: nullableText(row.proof_type),
+    public_rationale: nullableText(row.public_rationale),
+    reason_code: nullableText(row.reason_code),
+    receipt_id: nullableText(row.receipt_id),
+    review_public_ref: nullableText(row.review_public_ref),
+    reviewer: publicIdentity(row.reviewer),
+    tier_snapshot: nullableText(row.tier_snapshot),
+    weight: Number(row.weight || 0),
+  };
+}
+
+function publicProof(value) {
+  const row = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    actor_role: nullableText(row.actor_role),
+    actor_wallet: nullableText(row.actor_wallet),
+    decision: nullableText(row.decision),
+    decision_channel: nullableText(row.decision_channel),
+    event_type: nullableText(row.event_type),
+    label: nullableText(row.label),
+    occurred_at: row.occurred_at || null,
+    payment_proof: publicPaymentProof(row.payment_proof),
+    proof_type: nullableText(row.proof_type),
+    public_ref: nullableText(row.public_ref),
+    reason_code: nullableText(row.reason_code),
+    receipt_id: nullableText(row.receipt_id),
+    tx_sig: nullableText(row.tx_sig),
+    weight: row.weight === null || row.weight === undefined ? null : Number(row.weight),
+  };
+}
+
+// The database RPC is service-only, so the Edge boundary must still construct
+// an explicit public DTO. In particular, Wire body_private and
+// uncertainties_private mirror Case Report privacy and are never public merely
+// because the exact version reached publication.
+export function publicWireReportDto(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || !WIRE_REPORT_REF.test(String(value.wire_report_public_ref || ""))
+      || !WIRE_VERSION_REF.test(String(value.version_public_ref || ""))) {
+    throw new TypeError("Public Wire projection is invalid");
+  }
+  const challenges = Array.isArray(value.challenges) ? value.challenges : [];
+  const support = Array.isArray(value.support) ? value.support : [];
+  const publication = value.publication && typeof value.publication === "object"
+    && !Array.isArray(value.publication) ? value.publication : {};
+  return {
+    author: publicIdentity(value.author),
+    challenge_state: nullableText(value.challenge_state),
+    challenges: challenges.map((challenge) => ({
+      admitted_by_wallet: nullableText(challenge?.admitted_by_wallet),
+      challenge_public_ref: nullableText(challenge?.challenge_public_ref),
+      challenger_wallet: nullableText(challenge?.challenger_wallet),
+      created_at: challenge?.created_at || null,
+      public_safe_summary: nullableText(challenge?.public_safe_summary),
+      reason_code: nullableText(challenge?.reason_code),
+      reviews: (Array.isArray(challenge?.reviews) ? challenge.reviews : []).map(publicReview),
+      state: nullableText(challenge?.state),
+      terminal_at: challenge?.terminal_at || null,
+    })),
+    contested_at: value.contested_at || null,
+    evidence: publicEvidence(value.evidence),
+    is_current_published: value.is_current_published === true,
+    promoted: value.promoted === true,
+    promoted_case_public_ref: nullableText(value.promoted_case_public_ref),
+    proof_log: (Array.isArray(value.proof_log) ? value.proof_log : []).map(publicProof),
+    publication: {
+      actor_role: nullableText(publication.actor_role),
+      actor_wallet: nullableText(publication.actor_wallet),
+      decision_channel: nullableText(publication.decision_channel),
+      occurred_at: publication.occurred_at || null,
+      proof_type: nullableText(publication.proof_type),
+      receipt_id: nullableText(publication.receipt_id),
+      tx_sig: nullableText(publication.tx_sig),
+    },
+    published_at: value.published_at || null,
+    reviews: (Array.isArray(value.reviews) ? value.reviews : []).map(publicReview),
+    summary: String(value.summary || ""),
+    support: support.map((item) => ({
+      amount_lamports: nullableText(item?.amount_lamports),
+      confirmed_at: item?.confirmed_at || null,
+      from_wallet: nullableText(item?.from_wallet),
+      label: nullableText(item?.label),
+      payment_proof: publicPaymentProof(item?.payment_proof),
+      proof_type: nullableText(item?.proof_type),
+      receipt_id: nullableText(item?.receipt_id),
+      tx_sig: nullableText(item?.tx_sig),
+    })),
+    title: String(value.title || ""),
+    version_no: Number(value.version_no || 0),
+    version_public_ref: String(value.version_public_ref),
+    wire_report_public_ref: String(value.wire_report_public_ref),
+  };
+}
+
 export function authorizedWireReportDto(
   report,
   versions,

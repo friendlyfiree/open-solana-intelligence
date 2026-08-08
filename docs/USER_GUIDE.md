@@ -41,7 +41,7 @@ The complete handbook for every role on Open Solana Intelligence: what you can d
 
 **The maintainer** is the operator of last resort with strictly bounded powers that automatically shrink as the analyst network grows.
 
-**Everything is signed.** Individual decisions use wallet signatures verified by the server. Public outcomes are anchored to Solana mainnet with Memo transactions anyone can check on a block explorer.
+**Every actor-authored write is signed.** Individual decisions use wallet signatures verified by the server. Public governance outcomes are anchored to Solana mainnet with Memo transactions anyone can check on a block explorer. Server-generated system events are labeled separately and are never presented as wallet or on-chain proof.
 
 ---
 
@@ -53,7 +53,7 @@ No wallet needed. You can:
 - Read published Wire Reports and published Case Report versions, including their evidence manifests with direct Solscan links.
 - See every reviewer's public identity, decision, and voting-weight snapshot on public outcomes. OSI does not anonymize public governance.
 - Open the Proof Log and verify any Memo-anchored event yourself on Solana.
-- View analyst public profiles: handle, expertise, tier, current weight, and a verified work record. Each row of that record names one public Case, Report or Wire Report the wallet worked on, what it did there, the stage that record reached, and a direct link to the mainnet transaction where the act was anchored. An outcome says where the process reached, never that a finding is true.
+- View analyst public profiles: handle, expertise, tier, current weight, and a verified work record. Each row names one public Case, Report or Wire Report the wallet worked on, what it did there, the stage that record reached, and its exact proof. Memo-anchored acts link to mainnet; wallet-signed reviews remain explicitly off-chain and carry no invented block-explorer link. An outcome says where the process reached, never that a finding is true.
 - Open any profile at its own address and print it. `#analyst/<handle>` and `#maintainer` are shareable links carrying a public identifier and nothing else, and the page prints or saves as a PDF with its verification links intact, so a track record can be attached to an application without asking anyone to trust a screenshot.
 - Read the maintainer's own work record on the same terms. The operator files Cases and Reports like anyone else, and those acts are published by the same rule. Operating the deployment is not a contribution and is never counted as one.
 - Verify any wallet's analyst credential directly against Solana (see section 9), without trusting OSI at all.
@@ -139,7 +139,7 @@ Every counted review is wallet-signed and server-verified, targets one exact imm
 
 **Becoming an analyst has two doors:**
 
-**Path A, application.** Submit a wallet-signed application with a unique X-linked handle, a short public bio, and the signed safety declaration. Display name, avatar, expertise, public links, motivation, detailed experience, and proof-of-work URLs are optional; a reviewer can request a later immutable revision when more detail is needed. Applications are immutable and versioned like everything else. Review happens in process; the applicant can never approve or activate themselves. Approval never grants a chosen tier: activation is anchored by an ANALYST_PROBATION Memo and always starts at probationary tier with weight exactly 0.50.
+**Path A, application.** Submit a wallet-signed application with a short public bio and the signed safety declaration. A unique OSI handle and a separate X identity are optional, as are display name, avatar, expertise, public links, motivation, detailed experience, and proof-of-work URLs; a reviewer can request a later immutable revision when more detail is needed. Applications are immutable and versioned like everything else. Review happens in process; the applicant can never approve or activate themselves. Approval never grants a chosen tier: activation is anchored by an ANALYST_PROBATION Memo and always starts at probationary tier with weight exactly 0.50.
 
 **Path B, contribution.** When your Report version is selected as a Case's winner through real quorum, your wallet is automatically promoted from contributor to analyst candidate. Candidacy is a door, not a badge: full activation still goes through the same reviewed application gate as Path A.
 
@@ -195,7 +195,7 @@ The maintainer is the operator of last resort, not an authority over truth. Unde
 - Approve an AI Pack without its analyst quorum.
 - Assign tiers or weight by preference, edit history, or touch user funds.
 
-**Bootstrap mode and how maintainer power decays.** A young network has too few analysts to reach quorum, so a transparent cold-start mode exists. While active, the maintainer may advance three outcome types (Report publication, Wire publication, winner selection, and sealing) without full analyst quorum. Two safeguards make this honest:
+**Bootstrap mode and how maintainer power decays.** A young network has too few analysts to reach quorum, so a transparent cold-start mode exists. While active, the maintainer may advance four outcome types (Report publication, Wire publication, winner selection, and sealing) without full analyst quorum. Two safeguards make this honest:
 
 1. Every bootstrap decision is permanently recorded on a distinct maintainer_bootstrap channel, visible in the Proof Log and on every public surface. It is never displayed as analyst consensus.
 2. The mode dismantles itself in code, based on a live count of activated analysts:

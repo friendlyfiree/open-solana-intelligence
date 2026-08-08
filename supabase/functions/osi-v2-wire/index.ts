@@ -22,6 +22,7 @@ import {
   normalizeWireGovernancePayload,
   normalizeWirePayload,
   normalizeWireReview,
+  publicWireReportDto,
   validateConfirmedWireTransaction,
   validateWireGovernanceBinding,
   validateWireGovernanceTargetRef,
@@ -551,10 +552,12 @@ async function getPublicWireReport(body: Row): Promise<Response> {
     p_version_ref: versionRef,
   });
   if (error) return jsonResponse(503, { ok: false, error: "wire_public_read_unavailable" });
-  const report = data;
-  if (!report || typeof report !== "object" || Array.isArray(report)) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
     return jsonResponse(404, { ok: false, error: "wire_report_not_available" });
   }
+  let report: Row;
+  try { report = publicWireReportDto(data) as Row; }
+  catch { return jsonResponse(503, { ok: false, error: "wire_public_read_unavailable" }); }
   return jsonResponse(200, { ok: true, report, public_projection: true });
 }
 

@@ -78,7 +78,7 @@
       <button class="osi-nav-link osi-platform-trigger" id="platform-menu-trigger" type="button" aria-expanded="false" aria-controls="platform-menu">Platform <span aria-hidden="true">&#8964;</span></button>
       <div class="osi-platform-menu" id="platform-menu" hidden>
         <div class="osi-platform-group"><p>Investigations</p><button type="button" data-action-contract="case" data-endpoint="osi-v2-case-write:actor_capabilities" onclick="osiRunLiveAction('case')"><strong>Open a Case</strong><span>Start private, wallet-signed intake</span></button><button type="button" onclick="osiNavigate('field')"><strong>Field Office</strong><span>Open and follow Cases</span></button><button type="button" onclick="osiNavigate('wire')"><strong>The Wire</strong><span>Read standalone intelligence</span></button></div>
-        <div class="osi-platform-group"><p>Public record</p><button type="button" onclick="osiNavigate('records')"><strong>Public Records</strong><span>Reviewed and sealed outcomes</span></button><button type="button" data-action-contract="proof" data-endpoint="onchain_events:public_projection" onclick="osiRunLiveAction('proof')"><strong>Proof Log</strong><span>Verify signatures, Memos and transfers</span></button></div>
+        <div class="osi-platform-group"><p>Public record</p><button type="button" onclick="osiNavigate('records')"><strong>Public Records</strong><span>Public Cases and governed findings</span></button><button type="button" data-action-contract="proof" data-endpoint="onchain_events:public_projection" onclick="osiRunLiveAction('proof')"><strong>Proof Log</strong><span>Verify signatures, Memos and transfers</span></button></div>
         <div class="osi-platform-group"><p>Governance</p><button type="button" data-action-contract="review" data-endpoint="osi-v2-case-read:list_reviewable_cases" onclick="osiRunLiveAction('review')"><strong>Review Queue</strong><span>Open authorized review tasks</span></button><button type="button" data-action-contract="governance" data-endpoint="osi-v2-governance-write:prepare" onclick="osiRunLiveAction('governance')"><strong>Resolution lifecycle</strong><span>Resolve, challenge and seal</span></button><button type="button" data-action-contract="money" data-endpoint="osi-v2-payment:capabilities" onclick="osiRunLiveAction('money')"><strong>Reward &amp; support</strong><span>Eligible sealed Case actions</span></button></div>
         <div class="osi-platform-group"><p>Workspaces</p><button type="button" onclick="osiNavigate('workspace')"><strong>My OSI</strong><span>Open wallet-linked work</span></button><button type="button" onclick="osiNavigate('analysts')"><strong>Analyst Network</strong><span>Inspect attributable public work</span></button></div>
       </div>
@@ -274,7 +274,7 @@
       <div class="cr-hero-copy">
         <div class="cr-kicker mono">OSI &gt; Public Records</div>
         <h1 class="cr-title">Public Records</h1>
-        <p class="cr-sub">Reviewed Case outcomes and published Wire findings with public evidence, attributable review, and proof-log verification.</p>
+        <p class="cr-sub">Public Cases, reviewed Case outcomes, and published Wire findings with their exact lifecycle and proof status.</p>
         <div class="cr-chips" aria-label="Public record trust anchors">
           <span>Reviewed records</span>
           <span>Public evidence</span>
@@ -340,7 +340,7 @@
             <div><span>1</span><b>Evidence submitted</b><em>Public case material is filed for review.</em></div>
             <div><span>2</span><b>Weighted analyst quorum</b><em>Eligible analysts select one exact Report version.</em></div>
             <div><span>3</span><b>Challenge window</b><em>New material can challenge the selected version for seven days.</em></div>
-            <div><span>4</span><b>Process seal</b><em>Analyst seal quorum and both maintainer gates finalize the process record.</em></div>
+            <div><span>4</span><b>Process seal</b><em>The standard path requires analyst seal quorum and both maintainer gates. An eligible cold-start finalization is labeled separately.</em></div>
             <div><span>5</span><b>Public archive</b><em>The result remains attributable and challenge history stays visible.</em></div>
           </div>
         </div>
@@ -911,7 +911,7 @@
       <div class="osi-about-copy">
         <p class="osi-kicker"><span aria-hidden="true"></span>About OSI</p>
         <h1 id="osi-about-title">Public intelligence with an auditable boundary.</h1>
-        <p>OSI organizes public Solana incident evidence into attributable, independently reviewed, and challengeable records. It proves who acted, what version they acted on, and which proof was verified. It does not decide automatic truth, guilt, or legal certainty.</p>
+        <p>OSI organizes public Solana incident evidence into attributable and challengeable records, reviewed through explicit quorum or a clearly labeled cold-start process. It proves who acted, what version they acted on, and which proof was verified. It does not decide automatic truth, guilt, or legal certainty.</p>
         <div class="osi-about-actions">
           <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a Case</button>
           <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('prooflog')">Inspect Proof Standards</button>
@@ -1113,17 +1113,17 @@
         <a href="#public-records" onclick="osiNavigate('records');return false;">Public Records</a>
         <a href="#proof-log" onclick="osiNavigate('prooflog');return false;">Proof Log</a>
         <a href="#about" onclick="osiNavigate('methodology');return false;">About</a>
-        <a href="#" onclick="copyContact(event)">Feedback</a>
+        <button type="button" onclick="copyContact(event)" aria-label="Copy feedback contact email">Feedback</button>
       </div>
     </div>
   </div>
 </footer>
 
 <!-- floating feedback button, opens an email to the maintainer -->
-<a class="fb-btn" href="#" onclick="copyContact(event)" title="Copy contact email">
+<button class="fb-btn" type="button" onclick="copyContact(event)" aria-label="Copy feedback contact email" title="Copy contact email">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
   <span>Feedback</span>
-</a>
+</button>
 
 <!-- Live case + analyst data comes from Supabase; data.js holds only seed/example content -->
 <div class="modal-overlay" id="apply-modal" onclick="if(event.target===this)closeApplyModal()">

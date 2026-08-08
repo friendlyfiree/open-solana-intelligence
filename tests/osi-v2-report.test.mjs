@@ -21,6 +21,19 @@ function ok(name, condition, detail = "") {
   fail += 1;
   console.error("FAIL " + name + (detail ? " :: " + detail : ""));
 }
+const reportUiSource = readFileSync(join(root, "assets/js/v2-report-integration.js"), "utf8");
+ok("Report timestamps follow the selected product locale instead of the browser locale",
+  reportUiSource.includes("window.OSI_I18N.getLocale()")
+    && reportUiSource.includes("==='tr'?'tr-TR':'en-US'")
+    && reportUiSource.includes("date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short'})")
+    && !reportUiSource.includes("toLocaleString(undefined"));
+ok("the Case Reports tab exposes an honest accessible loading state until the exact public projection resolves",
+  reportUiSource.includes("function reportLoadingState(mode)")
+    && reportUiSource.includes("Loading published Reports...")
+    && reportUiSource.includes("role=\"status\" aria-live=\"polite\"")
+    && reportUiSource.includes("aria-hidden=\"true\"")
+    && reportUiSource.includes("host.innerHTML=reportLoadingState('public')")
+    && reportUiSource.includes("aria-busy=\"true\">'+reportLoadingState(mode)"));
 async function rejects(name, fn, pattern) {
   try { await fn(); ok(name, false, "did not reject"); }
   catch (error) { ok(name, pattern.test(String(error?.message ?? error)), String(error)); }

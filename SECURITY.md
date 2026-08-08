@@ -59,7 +59,8 @@ disclosure timeline you are holding to alone is not a disclosure timeline. You
 are asked to allow a reasonable fix window; you are not asked to sit on a live
 vulnerability indefinitely because a single inbox went quiet.
 
-What is deliberately not dependent on the maintainer being reachable:
+What is deliberately recoverable or independently verifiable without the
+maintainer being reachable:
 
 - **The code and schema.** MIT licensed, fully public, including every migration.
   [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) is a complete rebuild path from an
@@ -67,14 +68,18 @@ What is deliberately not dependent on the maintainer being reachable:
 - **Analyst standing.** Credentials live in the Solana Attestation Service on
   mainnet, not in this database. They remain verifiable by anyone if this
   deployment disappears entirely. See [docs/VERIFY.md](docs/VERIFY.md).
-- **The public record.** Governance outcomes are confirmed mainnet Memo
-  transactions. They survive the database, the host, and the maintainer.
+- **The governance proof.** Public governance outcomes are confirmed mainnet
+  Memo transactions. Their actor, event, public reference, payload hash, and
+  timestamp survive the database, the host, and the maintainer. The full public
+  record body still depends on the deployed database until permanent external
+  storage launches; a Memo is provenance, not a content backup.
 - **The cold-start privilege.** Bootstrap governance retires on a ladder the
   server computes from the live analyst count. It does not require the
   maintainer to voluntarily give anything up on schedule.
 
-Any change that makes one of those four properties depend on the maintainer
-personally is treated as a security regression, not a convenience trade.
+Any change that makes one of those four stated guarantees depend more heavily
+on the maintainer personally is treated as a security regression, not a
+convenience trade.
 
 ## Design documents
 

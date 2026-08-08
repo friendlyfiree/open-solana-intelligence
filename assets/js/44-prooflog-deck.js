@@ -95,64 +95,69 @@ function plGroup(ev){
 }
 function plMemo(ev){
   var exact={
-    case_submitted:{tag:'OSI_CASE_SUBMITTED',title:'Case Submitted',cls:'case'},
-    case_opened:{tag:'OSI_CASE_OPENED',title:'Case Opened',cls:'case'},
-    case_initial_review_cast:{tag:'OSI_REVIEW_SIGNED',title:'Initial Review Cast',cls:'review'},
-    case_initial_review_revised:{tag:'OSI_REVIEW_SIGNED',title:'Initial Review Revised',cls:'review'},
-    case_initial_review_rejected:{tag:'OSI_CASE_REJECTED',title:'Initial Review Rejected',cls:'review'},
-    case_appeal_submitted:{tag:'OSI_CASE_APPEAL',title:'Owner Appeal Submitted',cls:'case'},
-    case_withdrawn:{tag:'OSI_CASE_WITHDRAWN',title:'Case Withdrawn',cls:'case'},
-    case_resumed:{tag:'OSI_CASE_RESUMED',title:'Case Resumed',cls:'case'},
-    case_reopened:{tag:'OSI_CASE_REOPENED',title:'Case Reopened',cls:'case'},
-    case_resolved:{tag:'OSI_CASE_RESOLVED',title:'Case Resolved',cls:'seal'},
-    case_report_version_submitted:{tag:'OSI_REPORT_SUBMITTED',title:'Report Version Submitted',cls:'report'},
-    case_report_review_cast:{tag:'OSI_REPORT_REVIEW',title:'Report Review Cast',cls:'review'},
-    case_report_review_revised:{tag:'OSI_REPORT_REVIEW',title:'Report Review Revised',cls:'review'},
-    report_published:{tag:'OSI_REPORT_PUBLISHED',title:'Report Published',cls:'report'},
-    report_rejected:{tag:'OSI_REPORT_REJECTED',title:'Report Rejected',cls:'review'},
-    report_selected_winning:{tag:'OSI_REPORT_SELECTED',title:'Winning Report Selected',cls:'report'},
-    resolution_proposed:{tag:'OSI_RESOLUTION_PROPOSED',title:'Resolution Proposed',cls:'seal'},
-    resolution_review_cast:{tag:'OSI_RESOLUTION_REVIEW',title:'Resolution Review Cast',cls:'review'},
-    resolution_review_revised:{tag:'OSI_RESOLUTION_REVIEW',title:'Resolution Review Revised',cls:'review'},
-    record_sealed:{tag:'OSI_RECORD_SEALED',title:'Record Sealed',cls:'seal'},
-    reward_pledge_created:{tag:'OSI_REWARD_PLEDGED',title:'Reward Pledged',cls:'support'},
-    reward_pledge_revised:{tag:'OSI_REWARD_PLEDGED',title:'Reward Pledge Revised',cls:'support'},
-    reward_pledge_withdrawn:{tag:'OSI_REWARD_WITHDRAWN',title:'Reward Pledge Withdrawn',cls:'support'},
-    reward_payment_confirmed:{tag:'OSI_REWARD_CONFIRMED',title:'Reward Transfer Confirmed',cls:'support'},
-    analyst_application_version_submitted:{tag:'OSI_ANALYST_APPLIED',title:'Analyst Application Submitted',cls:'other'},
-    analyst_application_review_cast:{tag:'OSI_ANALYST_REVIEW',title:'Application Review Cast',cls:'review'},
-    analyst_application_review_revised:{tag:'OSI_ANALYST_REVIEW',title:'Application Review Revised',cls:'review'},
-    analyst_probation:{tag:'OSI_ANALYST_PROBATION',title:'Analyst Probation Activated',cls:'other'},
-    analyst_verified:{tag:'OSI_ANALYST_VERIFIED',title:'Analyst Verified',cls:'other'},
-    analyst_senior:{tag:'OSI_ANALYST_SENIOR',title:'Senior Analyst Activated',cls:'other'},
-    analyst_revoked:{tag:'OSI_ANALYST_REVOKED',title:'Analyst Authority Revoked',cls:'other'},
-    wire_report_version_submitted:{tag:'OSI_WIRE_SUBMITTED',title:'Wire Version Submitted',cls:'report'},
-    wire_report_review_cast:{tag:'OSI_WIRE_REVIEW',title:'Wire Review Cast',cls:'review'},
-    wire_report_review_revised:{tag:'OSI_WIRE_REVIEW',title:'Wire Review Revised',cls:'review'},
-    wire_report_published:{tag:'OSI_WIRE_PUBLISHED',title:'Wire Report Published',cls:'report'},
-    wire_promoted:{tag:'OSI_WIRE_PROMOTED',title:'Wire Promoted to Case',cls:'case'},
-    support_payment_confirmed:{tag:'OSI_SUPPORT_CONFIRMED',title:'Support Transfer Confirmed',cls:'support'},
-    challenge_submitted:{tag:'OSI_CHALLENGE_SUBMITTED',title:'Challenge Submitted',cls:'challenge'},
-    challenge_admissibility_accepted:{tag:'OSI_CHALLENGE_ADMITTED',title:'Challenge Admitted',cls:'challenge'},
-    challenge_admissibility_rejected:{tag:'OSI_CHALLENGE_REJECTED',title:'Challenge Not Admitted',cls:'challenge'},
-    challenge_review_cast:{tag:'OSI_CHALLENGE_REVIEW',title:'Challenge Review Cast',cls:'challenge'},
-    challenge_review_revised:{tag:'OSI_CHALLENGE_REVIEW',title:'Challenge Review Revised',cls:'challenge'},
-    challenge_accepted:{tag:'OSI_CHALLENGE_ACCEPTED',title:'Challenge Accepted',cls:'challenge'},
-    challenge_rejected:{tag:'OSI_CHALLENGE_REJECTED',title:'Challenge Rejected',cls:'challenge'},
-    challenge_withdrawn:{tag:'OSI_CHALLENGE_WITHDRAWN',title:'Challenge Withdrawn',cls:'challenge'}
+    case_submitted:{tag:'CASE_SUBMITTED',title:'Case Submitted',cls:'case'},
+    case_opened:{tag:'CASE_OPENED',title:'Case Opened',cls:'case'},
+    case_initial_review_cast:{tag:'CASE_INITIAL_REVIEW_CAST',title:'Initial Review Cast',cls:'review'},
+    case_initial_review_revised:{tag:'CASE_INITIAL_REVIEW_REVISED',title:'Initial Review Revised',cls:'review'},
+    case_initial_review_rejected:{tag:'CASE_INITIAL_REVIEW_REJECTED',title:'Initial Review Rejected',cls:'review'},
+    case_appeal_submitted:{tag:'CASE_APPEAL_SUBMITTED',title:'Owner Appeal Submitted',cls:'case'},
+    case_withdrawn:{tag:'CASE_WITHDRAWN',title:'Case Withdrawn',cls:'case'},
+    case_resumed:{tag:'CASE_RESUMED',title:'Case Resumed',cls:'case'},
+    case_reopened:{tag:'CASE_REOPENED',title:'Case Reopened',cls:'case'},
+    case_resolved:{tag:'CASE_RESOLVED',title:'Case Resolved',cls:'seal'},
+    case_report_version_submitted:{tag:'CASE_REPORT_VERSION_SUBMITTED',title:'Report Version Submitted',cls:'report'},
+    case_report_review_cast:{tag:'CASE_REPORT_REVIEW_CAST',title:'Report Review Cast',cls:'review'},
+    case_report_review_revised:{tag:'CASE_REPORT_REVIEW_REVISED',title:'Report Review Revised',cls:'review'},
+    report_published:{tag:'REPORT_PUBLISHED',title:'Report Published',cls:'report'},
+    report_rejected:{tag:'REPORT_REJECTED',title:'Report Rejected',cls:'review'},
+    report_selected_winning:{tag:'REPORT_SELECTED_WINNING',title:'Winning Report Selected',cls:'report'},
+    resolution_proposed:{tag:'RESOLUTION_PROPOSED',title:'Resolution Proposed',cls:'seal'},
+    resolution_review_cast:{tag:'RESOLUTION_REVIEW_CAST',title:'Resolution Review Cast',cls:'review'},
+    resolution_review_revised:{tag:'RESOLUTION_REVIEW_REVISED',title:'Resolution Review Revised',cls:'review'},
+    record_sealed:{tag:'RECORD_SEALED',title:'Record Sealed',cls:'seal'},
+    reward_pledge_created:{tag:'REWARD_PLEDGE_CREATED',title:'Reward Pledged',cls:'support'},
+    reward_pledge_revised:{tag:'REWARD_PLEDGE_REVISED',title:'Reward Pledge Revised',cls:'support'},
+    reward_pledge_withdrawn:{tag:'REWARD_PLEDGE_WITHDRAWN',title:'Reward Pledge Withdrawn',cls:'support'},
+    reward_payment_confirmed:{tag:'REWARD_PAYMENT_CONFIRMED',title:'Reward Transfer Confirmed',cls:'support'},
+    analyst_application_version_submitted:{tag:'ANALYST_APPLICATION_VERSION_SUBMITTED',title:'Analyst Application Submitted',cls:'other'},
+    analyst_application_review_cast:{tag:'ANALYST_APPLICATION_REVIEW_CAST',title:'Application Review Cast',cls:'review'},
+    analyst_application_review_revised:{tag:'ANALYST_APPLICATION_REVIEW_REVISED',title:'Application Review Revised',cls:'review'},
+    analyst_probation:{tag:'ANALYST_PROBATION',title:'Analyst Probation Activated',cls:'other'},
+    analyst_verified:{tag:'ANALYST_VERIFIED',title:'Analyst Verified',cls:'other'},
+    analyst_senior:{tag:'ANALYST_SENIOR',title:'Senior Analyst Activated',cls:'other'},
+    analyst_revoked:{tag:'ANALYST_REVOKED',title:'Analyst Authority Revoked',cls:'other'},
+    wire_report_version_submitted:{tag:'WIRE_REPORT_VERSION_SUBMITTED',title:'Wire Version Submitted',cls:'report'},
+    wire_report_review_cast:{tag:'WIRE_REPORT_REVIEW_CAST',title:'Wire Review Cast',cls:'review'},
+    wire_report_review_revised:{tag:'WIRE_REPORT_REVIEW_REVISED',title:'Wire Review Revised',cls:'review'},
+    wire_report_published:{tag:'WIRE_REPORT_PUBLISHED',title:'Wire Report Published',cls:'report'},
+    wire_promoted:{tag:'WIRE_PROMOTED',title:'Wire Promoted to Case',cls:'case'},
+    support_payment_confirmed:{tag:'SUPPORT_PAYMENT_CONFIRMED',title:'Support Transfer Confirmed',cls:'support'},
+    challenge_submitted:{tag:'CHALLENGE_SUBMITTED',title:'Challenge Submitted',cls:'challenge'},
+    challenge_admissibility_accepted:{tag:'CHALLENGE_ADMISSIBILITY_ACCEPTED',title:'Challenge Admitted',cls:'challenge'},
+    challenge_admissibility_rejected:{tag:'CHALLENGE_ADMISSIBILITY_REJECTED',title:'Challenge Not Admitted',cls:'challenge'},
+    challenge_review_cast:{tag:'CHALLENGE_REVIEW_CAST',title:'Challenge Review Cast',cls:'challenge'},
+    challenge_review_revised:{tag:'CHALLENGE_REVIEW_REVISED',title:'Challenge Review Revised',cls:'challenge'},
+    challenge_accepted:{tag:'CHALLENGE_ACCEPTED',title:'Challenge Accepted',cls:'challenge'},
+    challenge_rejected:{tag:'CHALLENGE_REJECTED',title:'Challenge Rejected',cls:'challenge'},
+    challenge_withdrawn:{tag:'CHALLENGE_WITHDRAWN',title:'Challenge Withdrawn',cls:'challenge'}
   };
   var eventType=String(ev&&ev.event_type||'').toLowerCase();
   if(exact[eventType]) return exact[eventType];
   var map = {
-    case:      { tag:'OSI_CASE_OPENED',      title:'Case Opened',      cls:'case' },
-    report:    { tag:'OSI_REPORT_SUBMITTED', title:'Report Submitted', cls:'report' },
-    vote:      { tag:'OSI_REVIEW_SIGNED',    title:'Analyst Review',   cls:'review' },
-    challenge: { tag:'OSI_CHALLENGE_FILED',  title:'Challenge Filed',  cls:'challenge' },
-    support:   { tag:'OSI_SUPPORT_SIGNAL',   title:'Support Signal',   cls:'support' },
-    seal:      { tag:'OSI_RECORD_SEALED',    title:'Record Sealed',    cls:'seal' },
-    other:     { tag:'OSI_SIGNED_ACTION',    title:'Signed Action',    cls:'other' }
+    case:      { title:'Case Opened',      cls:'case' },
+    report:    { title:'Report Submitted', cls:'report' },
+    vote:      { title:'Analyst Review',   cls:'review' },
+    challenge: { title:'Challenge Filed',  cls:'challenge' },
+    support:   { title:'Support Signal',   cls:'support' },
+    seal:      { title:'Record Sealed',    cls:'seal' },
+    other:     { title:'Signed Action',    cls:'other' }
   };
-  return map[plGroup(ev)] || map.other;
+  var fallback=map[plGroup(ev)] || map.other;
+  return {
+    tag:eventType ? eventType.toUpperCase() : 'SIGNED_ACTION',
+    title:fallback.title,
+    cls:fallback.cls
+  };
 }
 function plCleanLabel(ev){
   // A native public receipt carries its proof label in `label`, and that value
@@ -317,19 +322,19 @@ function plTimelineCard(ev){
   var sig=proof.tx_sig||proof.legacy_tx_sig||'';
   var wallet = ev.actor_wallet ? String(ev.actor_wallet) : '';
   var walletCell = wallet
-    ? '<span class="plc-wallet-id" title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'+plSasSlot(ev)
+    ? '<span class="plc-wallet-id" title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet address" aria-label="Copy wallet address '+escapeHtml(raShortW(wallet))+'" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'+plSasSlot(ev)
     : '<span>Wallet unavailable</span>';
   var label = plCleanLabel(ev);
   var when = plFullDate(ev.created_at);
   var ago = plAgo(ev.created_at);
   var txHtml = sig
-    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy signature" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
+    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy transaction signature" aria-label="Copy transaction signature '+escapeHtml(plShortSig(sig))+'" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
     : '<span class="plc-no-tx">No transaction link</span>';
   return '<div class="plc type-'+m.cls+'" data-g="'+plGroup(ev)+'">'
     + '<span class="plc-dot" aria-hidden="true"></span>'
     + '<div class="plc-body">'
       + '<div class="plc-head">'
-        + '<div><span class="plc-badge">'+m.tag+'</span></div>'
+        + '<div><span class="plc-badge">'+escapeHtml(m.tag)+'</span></div>'
         + '<div><div class="plc-title">'+m.title+plChannelChip(ev)+'</div><div class="plc-ref">'+(label?(escapeHtml(label)+' - '):'')+plReferenceHtml(ev)+'</div></div>'
         + '<div class="plc-time">'+(ago?escapeHtml(ago):'Timestamp unavailable')+(when?('<br>'+escapeHtml(when)):'')+'</div>'
       + '</div>'
@@ -368,13 +373,13 @@ function plDashRender(){
 function plSchemaRender(){
   var host=document.getElementById('pl-schema'); if(!host) return;
   var rows=[
-    ['OSI_CASE_OPENED','cy'],
-    ['OSI_REPORT_SUBMITTED','vio'],
-    ['OSI_WIRE_PUBLISHED','vio'],
-    ['OSI_REVIEW_SIGNED','vio'],
-    ['OSI_CHALLENGE_FILED','warn'],
-    ['OSI_RECORD_SEALED','ok'],
-    ['OSI_SUPPORT_SIGNAL','ok']
+    ['CASE_OPENED','cy'],
+    ['CASE_REPORT_VERSION_SUBMITTED','vio'],
+    ['WIRE_REPORT_PUBLISHED','vio'],
+    ['CASE_INITIAL_REVIEW_CAST','vio'],
+    ['CHALLENGE_SUBMITTED','warn'],
+    ['RECORD_SEALED','ok'],
+    ['SUPPORT_PAYMENT_CONFIRMED','ok']
   ];
   host.innerHTML = rows.map(function(r){ return '<div class="pl-sc"><code class="mono '+r[1]+'">'+r[0]+'</code></div>'; }).join('');
 }

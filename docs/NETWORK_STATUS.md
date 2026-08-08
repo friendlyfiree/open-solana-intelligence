@@ -4,7 +4,7 @@ What is actually in the production network, stated plainly, with the exact
 queries that produce it. This page exists because a platform whose product is
 verifiable public record cannot describe its own adoption in adjectives.
 
-**Observed:** 2026-08-04
+**Observed:** 2026-08-08
 **How to reproduce:** every number below comes from the public endpoints in
 [docs/VERIFY.md](VERIFY.md) section 5. Nothing here is read from an internal
 dashboard.
@@ -13,11 +13,11 @@ dashboard.
 
 | Measure | Value |
 |---|---|
-| Public Cases | 2 |
+| Public Cases | 3 |
 | Cases sealed | 0 |
 | Published Case Reports | 1 |
 | Published Wire Reports | 0 |
-| Analysts with an active profile | 2 |
+| Analysts with an active profile | 3 |
 | Analysts above probationary tier | 0 |
 | Publications through independent analyst quorum | 0 |
 | Publications through the labeled maintainer bootstrap channel | 1 |
@@ -25,8 +25,9 @@ dashboard.
 | Confirmed voluntary support transfers | 1, for 100,000 lamports |
 | Resolutions, challenges, and seals | 0 |
 
-Both live analysts hold the `probationary` tier at review weight `0.50`, and
-both hold a live `OSI_VERIFIED_ANALYST` credential on Solana mainnet.
+All three live analysts hold the `probationary` tier at review weight `0.50`,
+and the public verifier returned `valid` for all three
+`OSI_VERIFIED_ANALYST` credentials on Solana mainnet at the observation time.
 
 ## What that means, without softening it
 

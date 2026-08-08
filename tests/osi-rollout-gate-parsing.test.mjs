@@ -36,6 +36,9 @@ function ok(name, condition, detail) {
 }
 
 const scratch = mkdtempSync(path.join(tmpdir(), "osi-gate-"));
+const bashExecutable = process.platform === "win32"
+  ? "C:\\Program Files\\Git\\bin\\bash.exe"
+  : "bash";
 
 // The counting expression exactly as the workflow runs it.
 const countMatch = workflow.match(/count="\$\(([^\n]*?)\)"\n/);
@@ -45,8 +48,9 @@ const countExpression = countMatch[1];
 function countFor(text) {
   const file = path.join(scratch, `dry-run-${Math.random().toString(36).slice(2)}.txt`);
   writeFileSync(file, text);
-  const script = countExpression.replaceAll("/tmp/dry-run.txt", file);
-  return execFileSync("bash", ["-o", "pipefail", "-c", `printf '%s' "$(${script})"`], {
+  const shellFile = file.replaceAll("\\", "/").replaceAll("'", "'\"'\"'");
+  const script = countExpression.replaceAll("/tmp/dry-run.txt", `'${shellFile}'`);
+  return execFileSync(bashExecutable, ["-o", "pipefail", "-c", `printf '%s' "$(${script})"`], {
     encoding: "utf8",
   }).trim();
 }

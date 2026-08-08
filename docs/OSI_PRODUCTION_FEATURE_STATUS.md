@@ -1,6 +1,8 @@
 # OSI production feature and gate status
 
-Verified baseline: 2026-08-02  
+Public gate values re-verified: 2026-08-08
+
+Latest production migration observed: `20260807154829_osi_v2_cold_start_weight_gate_calibration`
 Project: `afibxpniwfnavdobecrn`  
 Web: `https://open-solana-intel.vercel.app`
 
@@ -110,10 +112,12 @@ A derived contribution is only ever the analyst's own attributable public work:
 ## Public work record
 
 The public profile publishes a work record rather than a bare contribution
-list. Each row is the intersection of two independently public facts: a receipt
-the wallet signed, and the current public state of the subject that receipt
-points at. A row therefore states what the wallet did, to which record a reader
-can open, what stage that record reached, and where its mainnet transaction is.
+list. Each row is the intersection of two independently public facts: an exact
+receipt attributable to the wallet, and the current public state of the subject
+that receipt points at. A row therefore states what the wallet did, which record
+a reader can open, what stage that record reached, and what kind of proof exists.
+Memo-anchored acts link to their mainnet transaction. Wallet-signed reviews keep
+their server-verified receipt label and never receive an invented chain link.
 
 An outcome is a process state, never a verdict on whether an analysis was
 correct, and the surface says so in its own copy.

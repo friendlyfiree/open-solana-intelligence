@@ -82,7 +82,7 @@
   function short(value){value=String(value||'');return value.length>18?value.slice(0,8)+'...'+value.slice(-6):value;}
   function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();});}
   function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
-  function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});}
+  function dateText(value){var date=new Date(value||''),selected=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():(typeof document!=='undefined'&&document.documentElement?document.documentElement.lang:''),locale=String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US';return isNaN(date.getTime())?'Not recorded':date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short'});}
   function randomKey(){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return'report:'+id.replace(/[^A-Za-z0-9.-]/g,'');}
   // Both quorum outcomes anchor a Memo, so both need the same bounded browser
   // recovery record: a sent transaction whose commit failed must never turn
@@ -571,11 +571,18 @@
       });
     });
   }
+  function reportLoadingState(mode){
+    var copy=mode==='authorized'
+      ?'Loading published and authorized Report projections...'
+      :'Loading published Reports...';
+    return'<div class="osi-report-loading" role="status" aria-live="polite"><b>'+esc(copy)+'</b><span>Checking the exact published-version pointer and public evidence manifest.</span></div><div class="osi-v2-skeleton" aria-hidden="true"></div><div class="osi-v2-skeleton" aria-hidden="true"></div>';
+  }
   async function refreshPublicReports(item,token,host){
     var caseRef=String(item&&item.public_ref||'');
     host=host||document.getElementById('osi-public-reports');
     if(!host||!sectionIsCurrent(token,caseRef,host))return;
     host.setAttribute('aria-busy','true');
+    host.innerHTML=reportLoadingState('public');
     try{
       var result=await api(READ_URL,{op:'list_public_reports',case_ref:caseRef});
       if(!sectionIsCurrent(token,caseRef,host))return;
@@ -591,7 +598,7 @@
     var generation=privateGeneration();
     var caseRef=String(item&&item.public_ref||'');
     host=host||document.getElementById('osi-public-reports');
-    if(!host||!sectionIsCurrent(token,caseRef,host))return;host.setAttribute('aria-busy','true');
+    if(!host||!sectionIsCurrent(token,caseRef,host))return;host.setAttribute('aria-busy','true');host.innerHTML=reportLoadingState('authorized');
     var results=await Promise.allSettled([
       api(READ_URL,{op:'list_public_reports',case_ref:caseRef}),
       loadReviewQueueData()
@@ -642,7 +649,7 @@
     var mode=authorized&&!ownerConflict?'authorized':'public';
     var renderToken=++state.sectionLoadToken;state.sectionContext=item;state.sectionMode=mode;
     setTimeout(function(){reloadSection(item,mode,renderToken);},0);
-    return'<section class="osi-case-section"><div class="osi-report-action-row"><div><h3>'+esc(mode==='authorized'?t('Reports'):t('Published Reports'))+'</h3><div class="osi-report-action-copy" id="osi-report-action-copy">'+esc(mode==='authorized'?'Loading public and restricted authorized Report projections...':'Checking exact submission prerequisites...')+'</div></div><button class="osi-report-action" id="osi-report-submit-action" type="button" disabled onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button></div><div id="osi-public-reports" aria-live="polite" aria-busy="true"><div class="osi-v2-skeleton"></div></div></section>';
+    return'<section class="osi-case-section"><div class="osi-report-action-row"><div><h3>'+esc(mode==='authorized'?t('Reports'):t('Published Reports'))+'</h3><div class="osi-report-action-copy" id="osi-report-action-copy">'+esc(mode==='authorized'?'Loading public and restricted authorized Report projections...':'Checking exact submission prerequisites...')+'</div></div><button class="osi-report-action" id="osi-report-submit-action" type="button" disabled onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button></div><div id="osi-public-reports" aria-live="polite" aria-busy="true">'+reportLoadingState(mode)+'</div></section>';
   }
 
   // Review-stage manifest for My Reports and the analyst/maintainer queue. It
@@ -691,7 +698,7 @@
     }
     var candidates=state.recoveryCandidates[versionRef]||[];
     if(candidates.length){
-      return'<section class="osi-report-recovery" data-publication-recovery="'+esc(versionRef)+'"><h4>Recover an existing transaction</h4><p>Use one transaction already sent for this exact prepared proof. Recovery does not open Phantom or create another transaction.</p>'+candidates.map(function(candidate,index){return'<div class="osi-report-recovery-candidate"><div><b>Prepared proof '+esc(index+1)+'</b><span>Issued '+esc(new Date(Number(candidate.issued_at)*1000).toLocaleString())+'; original window ended '+esc(new Date(Number(candidate.expires_at)*1000).toLocaleString())+'</span></div><label for="osi-report-recovery-tx-'+esc(index)+'-'+esc(versionRef)+'">Existing Solana transaction signature</label><input id="osi-report-recovery-tx-'+esc(index)+'-'+esc(versionRef)+'" autocomplete="off" inputmode="text" maxlength="96" pattern="[1-9A-HJ-NP-Za-km-z]{64,96}" aria-describedby="osi-report-recovery-help-'+esc(index)+'-'+esc(versionRef)+'"><small id="osi-report-recovery-help-'+esc(index)+'-'+esc(versionRef)+'">The server accepts it only if signer, Memo, target, nonce, payload hash and block time match this prepared proof.</small><button class="osi-report-publish" type="button" onclick="osiV2RecoverExistingReportPublication(\''+esc(versionRef)+'\','+index+')">Recover with existing transaction</button></div>';}).join('')+'</section>';
+      return'<section class="osi-report-recovery" data-publication-recovery="'+esc(versionRef)+'"><h4>Recover an existing transaction</h4><p>Use one transaction already sent for this exact prepared proof. Recovery does not open Phantom or create another transaction.</p>'+candidates.map(function(candidate,index){return'<div class="osi-report-recovery-candidate"><div><b>Prepared proof '+esc(index+1)+'</b><span>Issued '+esc(dateText(Number(candidate.issued_at)*1000))+'; original window ended '+esc(dateText(Number(candidate.expires_at)*1000))+'</span></div><label for="osi-report-recovery-tx-'+esc(index)+'-'+esc(versionRef)+'">Existing Solana transaction signature</label><input id="osi-report-recovery-tx-'+esc(index)+'-'+esc(versionRef)+'" autocomplete="off" inputmode="text" maxlength="96" pattern="[1-9A-HJ-NP-Za-km-z]{64,96}" aria-describedby="osi-report-recovery-help-'+esc(index)+'-'+esc(versionRef)+'"><small id="osi-report-recovery-help-'+esc(index)+'-'+esc(versionRef)+'">The server accepts it only if signer, Memo, target, nonce, payload hash and block time match this prepared proof.</small><button class="osi-report-publish" type="button" onclick="osiV2RecoverExistingReportPublication(\''+esc(versionRef)+'\','+index+')">Recover with existing transaction</button></div>';}).join('')+'</section>';
     }
     if(state.recoveryErrors[versionRef])return'<div class="osi-report-recovery-error">Recoverable transaction lookup failed: '+esc(state.recoveryErrors[versionRef])+'</div>';
     return'';
