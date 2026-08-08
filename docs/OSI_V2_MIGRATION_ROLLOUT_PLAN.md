@@ -20,7 +20,7 @@
 | `osi_config` | governance config | reuse |
 | `bounty_boosts`, `request_votes`, `requests`, `profiles` | ancillary/legacy | evaluate for retirement (D12) |
 
-## 2. Target tables (the authoritative 32)
+## 2. Target tables (the authoritative 33)
 
 Per `OSI_V2_DOMAIN_MODEL.md §1`, grouped exactly as there:
 
@@ -38,8 +38,8 @@ Per `OSI_V2_DOMAIN_MODEL.md §1`, grouped exactly as there:
 ### 2.1 Physical-name collision (v1 `challenges`)
 The v1 schema already has a `challenges` table with a different shape, and additive migration keeps it. To avoid a collision the **V2 challenge domain table is created under the physical name `challenges_v2`** and is referred to by its logical name `challenges` throughout the blueprint. (`osi_config` is the only intentional name reuse; no other V2 domain name collides with a v1 table.) A rename to `challenges` may happen only in the destructive-free far-future *after* v1 retirement, never during transition.
 
-### 2.2 Infrastructure tables (named, NOT among the 32 domain tables)
-Separately from the 32 domain tables, the physical model includes private, service-only infrastructure:
+### 2.2 Infrastructure tables (named, NOT among the 33 domain tables)
+Separately from the 33 domain tables, the physical model includes private, service-only infrastructure:
 - **`osi_nonces`** — Stage-5 replay/idempotency ledger (`OSI_V2_DOMAIN_MODEL.md §9`).
 - **`migration_crosswalk`** — durable old-id ↔ new-id map (V2 id, v1 id, entity kind, confidence, created_at); retained for dual-read and audit, never discarded.
 - **`migration_manual_queue`** — unclassifiable legacy rows (v1 ref, candidate kinds, reason, status `pending`/`resolved`) awaiting owner/maintainer categorization; nothing is auto-guessed.

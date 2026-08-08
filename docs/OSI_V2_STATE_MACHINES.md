@@ -224,6 +224,10 @@ Analyst lifecycle (`analyst_profiles.status`): `contributor → analyst_candidat
 
 Reputation eligibility is server-derived from documented contribution thresholds; human governance only confirms policy/abuse checks. **No self-verification.** Maintainer-absence fallback for promotions is designed (Voting Model §5) but disabled first release (`OSI_V2_FALLBACK_GOVERNANCE=false`).
 
+### 8.1 Wallet profile visibility and revision
+
+An ordinary wallet profile has `private` or `public` visibility and a monotonic revision. Creation is revision 1; every edit requires a nonce bound to the exact current revision and produces `WALLET_PROFILE_UPDATED` (B). Public→private is allowed without deleting history. Case submitter attribution is a separate consent bit and is effective only while the profile is public. No profile transition changes analyst or maintainer authority, and no legacy row is auto-imported.
+
 ## 9. Reward pledge & Payment
 Pledge: `pledged → assigned → paid | cancelled | expired`. Payment: `initiated → submitted → (confirmed | failed | timed_out)`. The UI derives `pledged`, `payment_ready`, `awaiting_finality`, `partially_fulfilled`, `fulfilled`, and `verification_failed` from these authoritative rows; it never accepts a client-claimed status.
 

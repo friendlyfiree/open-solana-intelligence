@@ -56,7 +56,7 @@ PostgreSQL (osi_private schema functions)
 
 ## Data model
 
-32 domain tables defined by the blueprint (Cases, Reports and versions, Wire Reports and versions, evidence and manifests, seven review tables, resolutions, challenges, analyst tables, AI Pack tables, money tables, receipts, config), plus infrastructure tables (nonce ledger, read nonces, SAS verification state, migration crosswalk). Key invariants, enforced by constraints and triggers:
+33 domain tables defined by the blueprint (Cases, Reports and versions, Wire Reports and versions, evidence and manifests, seven review tables, resolutions, challenges, wallet identity, analyst tables, AI Pack tables, money tables, receipts, config), plus infrastructure tables (nonce ledger, read nonces, SAS verification state, migration crosswalk). Key invariants, enforced by constraints and triggers:
 
 - Headers and immutable content versions are separate; `current_version_id` tracks the latest submission, `current_published_version_id` moves only through quorum publication.
 - A resolution binds permanently to its exact winning version.

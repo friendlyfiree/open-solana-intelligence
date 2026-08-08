@@ -2,15 +2,15 @@
 
 **Status:** Blueprint / design-only. No SQL is created or executed by this document. Types below are *proposed*; final DDL is produced only after `OSI_V2_OPEN_DECISIONS.md` is signed off and the Stage-5 write-gate work is complete.
 
-**Authoritative domain-table count: 32** (identical in `OSI_V2_README.md`, `OSI_V2_STATE_MACHINES.md`, `OSI_V2_MIGRATION_ROLLOUT_PLAN.md`, `OSI_V2_CURRENT_MAPPING_APPENDIX.md`, `OSI_V2_AI_PACK_TRUST_MODEL.md`, and the final report). Every one of the 32 is fully defined here — the blueprint models **every persistent domain action before SQL design begins**; no required domain entity is deferred "to implementation."
+**Authoritative domain-table count: 33** (identical in `OSI_V2_README.md`, `OSI_V2_STATE_MACHINES.md`, `OSI_V2_MIGRATION_ROLLOUT_PLAN.md`, `OSI_V2_CURRENT_MAPPING_APPENDIX.md`, `OSI_V2_AI_PACK_TRUST_MODEL.md`, and the final report). Every one of the 33 is fully defined here — the blueprint models **every persistent domain action before SQL design begins**; no required domain entity is deferred "to implementation."
 
-**Mandatory infrastructure tables are NOT hidden inside that count.** In addition to the 32 domain tables, the physical model **must** include named, private, service-only infrastructure tables that carry no domain data: the **Stage-5 security store `osi_nonces`** (§9, replay/idempotency ledger — a stateless nonce check is forbidden) and the **migration-only** `migration_crosswalk` + `migration_manual_queue` (`OSI_V2_MIGRATION_ROLLOUT_PLAN.md`). These are counted and named separately; the "32" refers to domain entities only and never conceals required security or migration infrastructure.
+**Mandatory infrastructure tables are NOT hidden inside that count.** In addition to the 33 domain tables, the physical model **must** include named, private, service-only infrastructure tables that carry no domain data: the **Stage-5 security store `osi_nonces`** (§9, replay/idempotency ledger — a stateless nonce check is forbidden) and the **migration-only** `migration_crosswalk` + `migration_manual_queue` (`OSI_V2_MIGRATION_ROLLOUT_PLAN.md`). These are counted and named separately; the "33" refers to domain entities only and never conceals required security or migration infrastructure.
 
 Conventions: `uuid` PK, **server-generated** (no client-supplied ids); `wallet` = base58 Solana pubkey; timestamps `timestamptz`; every table has `created_at`, mutable tables add `updated_at`. **Ownership is proven by wallet signature, never inferred from a stored wallet value.**
 
 ---
 
-## 1. Authoritative entity list (32)
+## 1. Authoritative entity list (33)
 
 | Group | Tables |
 |---|---|
@@ -19,11 +19,12 @@ Conventions: `uuid` PK, **server-generated** (no client-supplied ids); `wallet` 
 | Governance review tables — typed, real FKs (7) | `case_initial_reviews`, `case_report_reviews`, `wire_report_reviews`, `resolution_reviews`, `challenge_reviews`, `ai_pack_reviews`, `analyst_application_reviews` |
 | Resolution & challenge (2) | `case_resolutions`, `challenges` |
 | Analyst (5) | `analyst_applications`, `analyst_application_versions`, `analyst_profiles`, `analyst_contributions`, `analyst_reputation_snapshots` |
+| Wallet identity (1) | `wallet_profiles` |
 | AI Pack (3) | `ai_packs`, `ai_pack_versions`, `ai_pack_owner_feedback` |
 | Money (3) | `reward_pledges`, `reward_payments`, `support_events` |
 | Proof & config (2) | `event_receipts`, `osi_config` |
 
-Total = 5 + 5 + 7 + 2 + 5 + 3 + 3 + 2 = **32**. Three tables were promoted from prose to first-class entities in this revision: `analyst_application_versions` (immutable application content), `ai_pack_owner_feedback` (advisory, uncounted owner feedback), and `ai_pack_version_evidence` (per-layer evidence manifest).
+Total = 5 + 5 + 7 + 2 + 5 + 1 + 3 + 3 + 2 = **33**. `wallet_profiles` is the ordinary-wallet identity record; it is separate from analyst authority and maintainer identity. No legacy or analyst row is silently backfilled into it.
 
 ### 1.1 Typed reviews vs polymorphic timeline (design decision)
 The first release uses **seven typed, FK-backed review tables** — one per governance decision type — instead of a single polymorphic `reviews(target_type,target_id)` table. Rationale: each governance-critical decision row gets a **real foreign key** to its exact target (a `case_report_versions.id`, a `case_resolutions.id`, etc.), so referential integrity and cascade behavior are enforced by the database, not by triggers. The tables share a **common column contract** (§3.0) for consistent tooling, but never merge. **`event_receipts` remains target-polymorphic** because it is a timeline/receipt store, not the authoritative decision store — the typed review row is the source of truth; the receipt is its provenance record.
@@ -141,6 +142,11 @@ Governance-critical challenge targets are **real foreign keys**, not an untyped 
 
 ### `analyst_profiles`
 `wallet PK`, `handle`, `display_name`, `bio`, `avatar_url`, `status enum` (`contributor`/`analyst_candidate`/`probationary_analyst`/`verified_analyst`/`senior_analyst`/`revoked`), `verified bool`, `approved bool`, `weight_cached numeric(4,2)` (cache of latest snapshot; authoritative value in snapshots), `verified_by`, `verified_receipt_id`. Authorization truth = `verified AND approved AND status active`, checked server-side.
+
+### `wallet_profiles`
+`id uuid PK`, derived `public_ref`, unique `wallet`, current-unique lowercase `handle`, `display_name`, `bio`, validated content-addressed avatar fields, `visibility` (`private`/`public`), explicit `attribute_public_cases bool`, monotonic `revision`, write-once `first_published_at`, and `last_update_receipt_id`. The owner may update only these identity fields through an exact-revision Stage-5 signature (`WALLET_PROFILE_UPDATED`). Public reads expose only rows explicitly set to `public`; Case attribution additionally requires the separate consent bit. Analyst status, tier, weight, verification and maintainer authority never live here. For an existing analyst with no row, the owner UI may use analyst identity fields as a private fallback, but migration creates no row and grants no authority.
+
+Avatar objects use immutable content-addressed keys. Replacing or removing an avatar removes the current profile reference but deliberately does not delete an older object inside the database transaction: Storage deletion is not transactional with PostgreSQL, and deleting an immutable object could break historical receipts, cached public pages, or a forward-fix rollback. A previously disclosed public URL can therefore remain addressable. The profile UI must disclose that limitation before upload; any future retention cleanup is a separate, auditable server job and must never run from the client write path.
 
 ### `analyst_contributions` (append-only, immutable)
 `id`, `analyst_wallet`, `kind enum`, `subject_type`, `subject_id`, `quality_score numeric`, `signed_by_independent_count int`, `weight_delta_input numeric`, `event_receipt_id`. No UPDATE/DELETE (RLS + trigger). Index `(analyst_wallet,kind)`.
@@ -342,12 +348,13 @@ erDiagram
     text nonce PK
     text purpose
     text idempotency_key
+    int profile_target_revision "nullable; exact wallet-profile pre-update revision"
     timestamptz expires_at
     timestamptz consumed_at
   }
 ```
 
-*(`osi_config` is a standalone configuration entity — one of the 32 domain tables. `osi_nonces` is shown for completeness as the mandatory Stage-5 security-infrastructure table (§9); it is **not** among the 32 domain tables.)*
+*(`osi_config` is a standalone configuration entity — one of the 33 domain tables. `osi_nonces` is shown for completeness as the mandatory Stage-5 security-infrastructure table (§9); it is **not** among the 33 domain tables.)*
 
 ## 8. Source-of-truth rules
 - **Authorization** = server (signature + `analyst_profiles`/maintainer) + RLS. Never client state.
@@ -360,7 +367,7 @@ erDiagram
 - **AI Pack currency** = `ai_packs.current_version_id` + version `is_stale`.
 - **Proof authenticity** = `event_receipts.server_verified=true` (native V2) vs `false` (legacy import).
 
-## 9. Security & migration infrastructure tables (NOT among the 32 domain tables)
+## 9. Security & migration infrastructure tables (NOT among the 33 domain tables)
 These carry no domain data and are **private, service-role-only** (RLS default-deny to everyone else). They are named explicitly here so the security model is not hidden behind the domain count (correction #3 / #5).
 
 ### `osi_nonces`  *(Stage-5 replay/idempotency ledger — mandatory; a stateless nonce check is forbidden)*

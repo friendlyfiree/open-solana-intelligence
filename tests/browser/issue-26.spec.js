@@ -2163,7 +2163,7 @@ test('Home keeps a compact three-section product route with truthful live action
   await ready(page);
   await expect(page.locator('#global-nav > [data-global-view="registry"]')).toHaveText('Home');
   await expect(page.locator('#global-nav > .osi-nav-link', { hasText: 'How It Works' })).toHaveCount(0);
-  await expect(page.locator('link[data-osi-route-style][media="print"]')).toHaveCount(9);
+  await expect(page.locator('link[data-osi-route-style][media="print"]')).toHaveCount(10);
   await expect(page.locator('link[rel="stylesheet"]:not([media])')).toHaveCount(2);
   await expect(page.locator('main > section.osi-home')).toHaveCount(3);
   const wordCount = await page.locator('main > section.osi-home').evaluateAll((sections) =>
@@ -2183,7 +2183,7 @@ test('Home keeps a compact three-section product route with truthful live action
   }
   await page.evaluate(() => window.osiNavigate('field'));
   await page.waitForFunction(() => [...document.querySelectorAll('link[data-osi-route-style]')].every((link) => link.media === 'all' && link.sheet));
-  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
+  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(10);
   await expect(page.locator('#platform-menu-trigger')).toHaveAttribute('aria-current', 'page');
   await page.evaluate(() => window.osiNavigate('registry'));
   await expect(page.locator('#platform-menu-trigger')).not.toHaveAttribute('aria-current', 'page');
@@ -2201,14 +2201,14 @@ test('direct workspace routes activate their styles before rendering', async ({ 
   await page.goto('/#field-office');
   await page.waitForFunction(() => document.body.dataset.view === 'field' && [...document.querySelectorAll('link[data-osi-route-style]')].every((link) => link.media === 'all' && link.sheet));
   await expect(page.getByRole('heading', { name: 'The Field Office', level: 1 })).toBeVisible();
-  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
+  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(10);
 });
 
 test('canonical workspace navigation and support dialog preserve keyboard access', async ({ page }) => {
   await ready(page);
-  await expect(page.locator('link[data-osi-route-style][media="print"]')).toHaveCount(9);
+  await expect(page.locator('link[data-osi-route-style][media="print"]')).toHaveCount(10);
   await page.evaluate(() => window.showView('wire'));
-  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(9);
+  await expect(page.locator('link[data-osi-route-style][media="all"]')).toHaveCount(10);
   await expect(page.locator('body')).toHaveAttribute('data-view', 'wire');
 
   await page.evaluate(() => window.showView('registry'));

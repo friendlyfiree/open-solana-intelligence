@@ -22,7 +22,9 @@ function ok(value, message) {
 
 ok(html.includes('assets/js/v2-analyst-integration.js'), 'mature app loads native analyst integration');
 ok(html.includes('assets/css/v2-activation.css'), 'mature app loads shared activation foundation');
-ok(html.includes('My Analyst Profile') && html.includes('Applications'), 'My OSI exposes profile and application workspaces');
+ok(html.includes('osiV2OpenMyProfile()') && html.includes('>My Profile</button>')
+  && !html.includes('>My Analyst Profile</button>') && html.includes('Applications'),
+  'My OSI exposes one general owner profile while analyst applications remain separate');
 ok(html.includes('onsubmit="osiAnalystSubmit(event)"'), 'application form maps to the native submit operation');
 ok(html.includes('id="an-safety" type="checkbox" required')
   && html.includes('Describe your work (optional)')

@@ -11,6 +11,7 @@ const caseUi = read('assets/js/v2-case-integration.js');
 const reportUi = read('assets/js/v2-report-integration.js');
 const analystUi = read('assets/js/v2-analyst-integration.js');
 const wireUi = read('assets/js/v2-wire-integration.js');
+const profileUi = read('assets/js/v2-profile-integration.js');
 
 let passed = 0;
 function ok(name, value) {
@@ -112,5 +113,14 @@ ok('dynamic system copy uses the locale API while user-authored content opts out
     && reportUi.includes('data-osi-user-content')
     && analystUi.includes('data-osi-user-content')
     && wireUi.includes('data-osi-user-content'));
+ok('Turkish covers private/public profile and Case attribution decisions',
+  i18n.includes("'My Profile': 'Profilim'")
+    && i18n.includes("'Private': 'Gizli'")
+    && i18n.includes("'Attribute my current and future public Cases to this profile'")
+    && i18n.includes("'Community submitter': 'Topluluk göndereni'"));
+ok('profile user content is escaped and excluded from mutation translation',
+  profileUi.includes('data-osi-user-content')
+    && profileUi.includes('esc(profile.bio)')
+    && profileUi.includes("esc(t('Privacy and Case attribution'))"));
 
 console.log(`\n${passed} localization checks passed.`);

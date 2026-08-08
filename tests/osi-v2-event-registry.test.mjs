@@ -19,11 +19,11 @@ function ok(name, condition) {
 }
 
 const allEvents = Object.values(OSI2_EVENT_CLASSES).flat();
-ok("registry version is explicit", OSI2_EVENT_REGISTRY_VERSION === "2026-07-28.1");
-ok("registry has the accepted 70 events", allEvents.length === 70);
-ok("registry classes never overlap", new Set(allEvents).size === 70);
-ok("registry preserves 28 class-B events",
-  OSI2_EVENT_CLASSES.wallet_signed_server_verified.length === 28);
+ok("registry version is explicit", OSI2_EVENT_REGISTRY_VERSION === "2026-08-08.1");
+ok("registry has the accepted 71 events", allEvents.length === 71);
+ok("registry classes never overlap", new Set(allEvents).size === 71);
+ok("registry preserves 29 class-B events",
+  OSI2_EVENT_CLASSES.wallet_signed_server_verified.length === 29);
 ok("registry preserves 34 class-A events", OSI2_EVENT_CLASSES.solana_memo.length === 34);
 ok("registry preserves 8 system events", OSI2_EVENT_CLASSES.system_event.length === 8);
 const migrationSql = fs.readdirSync(new URL("../supabase/migrations/", import.meta.url))

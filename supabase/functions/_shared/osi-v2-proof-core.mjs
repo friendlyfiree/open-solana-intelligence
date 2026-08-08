@@ -17,6 +17,7 @@ const TARGET_TYPES = new Set([
   "reward",
   "support",
   "config",
+  "profile",
 ]);
 
 export const CLASS_B_PURPOSES = new Set(

@@ -73,7 +73,7 @@ ok('the route sync replaces instead of pushing, so it invents no history entry',
   /function syncRouteForView[\s\S]*?window\.history\.replaceState/.test(navigation)
     && !/function syncRouteForView[\s\S]*?window\.history\.pushState/.test(navigation.slice(navigation.indexOf('function syncRouteForView'), navigation.indexOf('function navigate'))));
 ok('a Case or profile route is never flattened into a view hash',
-  /function syncRouteForView[\s\S]*?if \(caseRouteRef\(hash\) \|\| profileRoute\(hash\)\) return;/.test(navigation));
+  /function syncRouteForView[\s\S]*?if \(caseRouteRef\(hash\) \|\| profileRoute\(hash\) \|\| walletProfileRoute\(hash\)\) return;/.test(navigation));
 ok('a profile address carries a public identifier and nothing else',
   /function profileRoute\(hash\)[\s\S]*?hash === 'maintainer' \|\| \/\^analyst\\\/\[A-Za-z0-9_\]\{2,32\}\$\/\.test\(hash\)/.test(navigation)
     && analystUi.includes("/^analyst\\/([A-Za-z0-9_]{2,32})$/")

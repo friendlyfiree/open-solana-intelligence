@@ -48,6 +48,7 @@ const expectedFiles = [
   '20260807090000_osi_v2_case_report_visibility_publication.sql',
   '20260807154829_osi_v2_cold_start_weight_gate_calibration.sql',
   '20260808153040_remove_private_wire_fields_from_public_rpc.sql',
+  '20260808163737_osi_v2_wallet_profiles.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -89,6 +90,8 @@ const caseInitialRejectionAppeal =
   sqlByFile['20260802180000_osi_v2_case_initial_rejection_appeal.sql'] || '';
 const wirePublicProjection =
   sqlByFile['20260808153040_remove_private_wire_fields_from_public_rpc.sql'] || '';
+const walletProfiles =
+  sqlByFile['20260808163737_osi_v2_wallet_profiles.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -317,6 +320,7 @@ const logicalDomainTables = [
   'analyst_profiles',
   'analyst_contributions',
   'analyst_reputation_snapshots',
+  'wallet_profiles',
   'ai_packs',
   'ai_pack_versions',
   'ai_pack_owner_feedback',
@@ -352,10 +356,10 @@ const createdTables = [...allSql.matchAll(
   /create\s+table(?:\s+if\s+not\s+exists)?\s+public\.([a-z0-9_]+)/gi,
 )].map((match) => match[1]).sort();
 
-ok('32 logical domain tables', logicalDomainTables.length === 32);
+ok('33 logical domain tables', logicalDomainTables.length === 33);
 ok('9 separate infrastructure tables', infraTables.length === 9);
 ok(
-  '41 expected physical tables represented',
+  '42 expected physical tables represented',
   JSON.stringify(createdTables) === JSON.stringify(expectedPhysicalTables),
   createdTables.join(', '),
 );
@@ -431,6 +435,10 @@ for (const table of expectedPhysicalTables.filter((name) => name !== 'osi_config
         && /alter table public\.maintainer_profile enable row level security/i.test(maintainerProfile)
         && /alter table public\.maintainer_profile force row level security/i.test(maintainerProfile)
         && /revoke all privileges on table public\.maintainer_profile from public, anon, authenticated/i.test(maintainerProfile))
+      || (table === 'wallet_profiles'
+        && /alter table public\.wallet_profiles enable row level security/i.test(walletProfiles)
+        && /alter table public\.wallet_profiles force row level security/i.test(walletProfiles)
+        && /revoke all on table public\.wallet_profiles from public, anon, authenticated/i.test(walletProfiles))
       || (table === 'osi_v2_ai_pack_generation_runs'
         && /alter table public\.osi_v2_ai_pack_generation_runs enable row level security/i.test(aiPackPhase1)
         && /alter table public\.osi_v2_ai_pack_generation_runs force row level security/i.test(aiPackPhase1)
@@ -477,14 +485,14 @@ for (const match of classMatches) {
     .map((event) => event[1]);
 }
 ok(
-  '28 class-B events',
-  (registry.wallet_signed_server_verified || []).length === 28,
+  '29 class-B events',
+  (registry.wallet_signed_server_verified || []).length === 29,
 );
 ok('34 class-A events', (registry.solana_memo || []).length === 34);
 ok('8 system events', (registry.system_event || []).length === 8);
 const allEvents = Object.values(registry).flat();
-ok('70 canonical events', allEvents.length === 70);
-ok('canonical event classes do not overlap', new Set(allEvents).size === 70);
+ok('71 canonical events', allEvents.length === 71);
+ok('canonical event classes do not overlap', new Set(allEvents).size === 71);
 ok('native payment migration starts only its dedicated flag false',
   /\('OSI_V2_PAYMENT_WRITES_ENABLED',\s*'false'/i.test(nativePayments)
     && !/\('OSI_V2_PAYMENT_WRITES_ENABLED',\s*'true'/i.test(nativePayments));

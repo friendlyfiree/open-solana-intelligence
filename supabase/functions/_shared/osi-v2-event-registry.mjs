@@ -12,7 +12,7 @@ const EVENT = /^[A-Z][A-Z0-9_]{1,95}$/;
 const TARGET_REF = /^[A-Za-z0-9._:-]{1,256}$/;
 const DECISION = /^[a-z][a-z0-9_]{0,63}$/;
 
-export const OSI2_EVENT_REGISTRY_VERSION = "2026-07-28.1";
+export const OSI2_EVENT_REGISTRY_VERSION = "2026-08-08.1";
 
 export const OSI2_EVENT_CLASSES = Object.freeze({
   wallet_signed_server_verified: Object.freeze([
@@ -27,7 +27,7 @@ export const OSI2_EVENT_CLASSES = Object.freeze({
     "AI_PACK_OWNER_FEEDBACK_SUBMITTED", "ANALYST_APPLICATION_VERSION_SUBMITTED",
     "ANALYST_APPLICATION_REVIEW_CAST", "ANALYST_APPLICATION_REVIEW_REVISED",
     "OWNER_STATUS_PROOF", "REWARD_PLEDGE_CREATED", "REWARD_PLEDGE_REVISED",
-    "REWARD_PLEDGE_WITHDRAWN",
+    "REWARD_PLEDGE_WITHDRAWN", "WALLET_PROFILE_UPDATED",
   ]),
   solana_memo: Object.freeze([
     "CASE_SUBMITTED", "CASE_OPENED", "CASE_SAFETY_BLOCKED", "CASE_SAFETY_LIFTED",
@@ -51,7 +51,7 @@ export const OSI2_EVENT_CLASSES = Object.freeze({
 export const OSI2_TARGET_TYPES = Object.freeze([
   "case", "report_version", "wire_version", "resolution", "challenge",
   "pack_version", "pack_owner_feedback", "analyst", "application_version",
-  "reward", "support", "config",
+  "reward", "support", "config", "profile",
 ]);
 
 export const OSI2_ACTOR_ROLES = Object.freeze([

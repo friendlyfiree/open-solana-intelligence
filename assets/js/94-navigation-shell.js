@@ -87,7 +87,7 @@
     // A Case route is a deeper address inside the Field Office, not a view
     // hash. Flattening it would drop the shareable Case reference. A profile
     // route is the same kind of deeper address inside the analyst network.
-    if (caseRouteRef(hash) || profileRoute(hash)) return;
+    if (caseRouteRef(hash) || profileRoute(hash) || walletProfileRoute(hash)) return;
     if (hashViews[hash] === target) return;
     try {
       window.history.replaceState({ osiView: target }, '', '#' + viewHashes[target]);
@@ -533,6 +533,13 @@
     return hash === 'maintainer' || /^analyst\/[A-Za-z0-9_]{2,32}$/.test(hash);
   }
 
+  // A wallet profile address carries only the opaque public profile reference
+  // or owner-selected public handle. It never contains the controlling wallet.
+  function walletProfileRoute(hash) {
+    var match = /^profile\/(OSI-PRF-[A-F0-9]{16}|[A-Za-z0-9_]{2,32})$/.exec(String(hash || ''));
+    return match ? match[1] : '';
+  }
+
   function closeCaseRoute() {
     if (typeof window.osiV2CloseCaseFromRoute === 'function') window.osiV2CloseCaseFromRoute();
   }
@@ -550,6 +557,15 @@
       if (typeof window.osiV2ActiveCaseRef === 'function' && window.osiV2ActiveCaseRef() === caseRef) return;
       window.setTimeout(function () {
         if (typeof window.osiV2OpenCaseFromRoute === 'function') window.osiV2OpenCaseFromRoute(caseRef);
+      }, 0);
+      return;
+    }
+    var walletProfileRef = walletProfileRoute(hash);
+    if (walletProfileRef) {
+      closeCaseRoute();
+      navigate('identity', { history: true, render: false, focus: false, preserveScroll: true });
+      window.setTimeout(function () {
+        if (typeof window.osiV2OpenPublicProfile === 'function') window.osiV2OpenPublicProfile(walletProfileRef, { history: true });
       }, 0);
       return;
     }

@@ -404,6 +404,23 @@ export function evidenceSections(evidence = []) {
   return sections;
 }
 
+// Case attribution is a narrower projection than the public profile page.
+// It is present only after both public-profile visibility and the separate
+// Case-attribution consent bit pass. Wallets, UUIDs, biography text and
+// authority fields never enter this DTO.
+export function publicCaseSubmitterProfileDto(profile) {
+  if (!profile || profile.visibility !== "public"
+      || profile.attribute_public_cases !== true) return null;
+  const publicRef = String(profile.public_ref ?? "");
+  if (!/^OSI-PRF-[A-F0-9]{16}$/.test(publicRef)) return null;
+  return {
+    public_ref: publicRef,
+    handle: profile.handle == null ? null : String(profile.handle),
+    display_name: profile.display_name == null ? null : String(profile.display_name),
+    avatar_url: profile.avatar_url == null ? null : String(profile.avatar_url),
+  };
+}
+
 // Server-derived answer to "may this exact wallet act on this exact Case".
 // Null whenever the projection could not be computed, so a client falls back to
 // showing nothing rather than to inventing an authority claim.
@@ -582,6 +599,7 @@ export function publicCaseDto(
   reviews = [],
   governance = {},
   money = {},
+  submitterProfile = {},
 ) {
   const publishedVersionIds = new Set(
     reports.map((report) => report.current_published_version_id)
@@ -598,6 +616,7 @@ export function publicCaseDto(
     stage: String(caseRow.stage ?? ""),
     visibility: String(caseRow.visibility ?? ""),
     risk_tier: String(caseRow.risk_tier ?? ""),
+    submitter_profile: publicCaseSubmitterProfileDto(submitterProfile),
     created_at: isoOrNull(caseRow.created_at),
     sealed_at: isoOrNull(caseRow.sealed_at),
     evidence: publicEvidence.map(publicEvidenceDto),

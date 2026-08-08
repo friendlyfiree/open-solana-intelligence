@@ -1,6 +1,6 @@
 # OSI V2 — Current → V2 Mapping Appendix
 
-**Status:** Blueprint / design-only. Maps every current function/table/UI element to its proposed V2 destination among the **authoritative 32 tables** (`OSI_V2_DOMAIN_MODEL.md §1`). **Ambiguities are flagged, never silently invented.** Line references are approximate (current `origin/main` `1491377`).
+**Status:** Blueprint / design-only. Maps every current function/table/UI element to its proposed V2 destination among the **authoritative 33 tables** (`OSI_V2_DOMAIN_MODEL.md §1`). **Ambiguities are flagged, never silently invented.** Line references are approximate (current `origin/main` `1491377`).
 
 ---
 
@@ -18,14 +18,14 @@
 | `onchain_events` | `event_receipts` (verbatim import; `proof_type='legacy_imported'`, `server_verified=false`) | high | keep legacy memo + version |
 | `analysts` | `analyst_profiles` | high | status from `verified`/`approved` |
 | `analysts` history | `analyst_contributions` | low | **⚠ conservative backfill only; no inflation** |
-| `osi_config` | `osi_config` | high | reuse (one of the 32) |
+| `osi_config` | `osi_config` | high | reuse (one of the 33) |
 | `bounty_boosts` | (retire, D9/D12) | — | **⚠ decision** |
 | `request_votes`, `requests` | (evaluate, D12) | — | **⚠ decision** |
-| `profiles` | fold into `analyst_profiles` | medium | **⚠ decision** |
+| `profiles` | no automatic import into `wallet_profiles` | low | privacy/ownership cannot be inferred; a wallet owner creates the V2 row through the signed profile flow |
 
-New V2 tables with **no v1 predecessor** (created additively, not mapped from legacy): `case_report_versions`, `wire_report_versions`, `evidence_items`, `case_evidence_links`, `case_report_version_evidence`, `wire_report_version_evidence`, `ai_pack_version_evidence`, `case_initial_reviews`, `resolution_reviews`, `challenge_reviews`, `ai_pack_reviews`, `analyst_application_reviews`, `case_resolutions`, `analyst_applications`, `analyst_application_versions`, `analyst_reputation_snapshots`, `ai_pack_owner_feedback`, `reward_pledges`, `reward_payments`, `support_events`. (Legacy `vouches` seeds only the two report-review tables; other typed reviews start empty.)
+New V2 tables with **no v1 predecessor** (created additively, not mapped from legacy): `wallet_profiles`, `case_report_versions`, `wire_report_versions`, `evidence_items`, `case_evidence_links`, `case_report_version_evidence`, `wire_report_version_evidence`, `ai_pack_version_evidence`, `case_initial_reviews`, `resolution_reviews`, `challenge_reviews`, `ai_pack_reviews`, `analyst_application_reviews`, `case_resolutions`, `analyst_applications`, `analyst_application_versions`, `analyst_reputation_snapshots`, `ai_pack_owner_feedback`, `reward_pledges`, `reward_payments`, `support_events`. (Legacy `vouches` seeds only the two report-review tables; other typed reviews start empty.)
 
-**Infrastructure tables (NOT among the 32 domain tables, no v1 predecessor):** `osi_nonces` (Stage-5 replay/idempotency), `migration_crosswalk`, `migration_manual_queue` — private, service-only (`OSI_V2_DOMAIN_MODEL.md §9`, `OSI_V2_MIGRATION_ROLLOUT_PLAN.md §2.2`).
+**Infrastructure tables (NOT among the 33 domain tables, no v1 predecessor):** `osi_nonces` (Stage-5 replay/idempotency), `migration_crosswalk`, `migration_manual_queue` — private, service-only (`OSI_V2_DOMAIN_MODEL.md §9`, `OSI_V2_MIGRATION_ROLLOUT_PLAN.md §2.2`).
 
 ## 2. Fields
 

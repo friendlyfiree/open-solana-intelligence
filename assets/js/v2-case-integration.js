@@ -88,6 +88,21 @@
     var url=String(value||'');
     return /^https:\/\/[^\s"'<>]+$/.test(url)?url:'';
   }
+  function submitterIdentity(item,interactive){
+    var profile=item&&item.submitter_profile&&typeof item.submitter_profile==='object'?item.submitter_profile:null;
+    var publicRef=profile&&/^OSI-PRF-[A-F0-9]{16}$/.test(String(profile.public_ref||''))?String(profile.public_ref):'';
+    var displayName=profile&&(String(profile.display_name||'').trim()||(profile.handle?'@'+String(profile.handle).trim():''));
+    var name=displayName||t('Community submitter');
+    var avatarUrl=String(profile&&profile.avatar_url||'');
+    var trustedPrefix=SUPABASE_URL+'/storage/v1/object/public/osi-profile-avatars/';
+    if(avatarUrl.indexOf(trustedPrefix)!==0)avatarUrl='';
+    var image=avatarUrl
+      ?'<img class="osi-case-submitter-avatar" src="'+esc(avatarUrl)+'" alt="" width="26" height="26">'
+      :'<span class="osi-case-submitter-avatar fallback" aria-hidden="true">'+esc((name.charAt(0)||'C').toUpperCase())+'</span>';
+    var body=image+'<span class="osi-case-submitter-copy"><small>'+esc(t('Case submitter'))+'</small><b data-osi-user-content>'+esc(name)+'</b></span>';
+    if(interactive&&publicRef)return'<button class="osi-case-submitter osi-case-submitter-detail" type="button" data-public-wallet-profile="'+esc(publicRef)+'" aria-label="'+esc(t('Open public profile for {name}',{name:name}))+'">'+body+'</button>';
+    return'<span class="osi-case-submitter'+(interactive?' osi-case-submitter-detail':'')+'">'+body+'</span>';
+  }
   // One reference row. The visible text is elided so a 88-character signature
   // cannot push the drawer sideways on a phone; the title, the copy button and
   // the link all carry the exact untruncated value.
@@ -138,6 +153,12 @@
     if(!actor)return;
     var wallet=actor.getAttribute('data-analyst-profile')||'';
     if(wallet&&typeof window.openAnalystProfile==='function')window.openAnalystProfile(wallet);
+  });
+  document.addEventListener('click',function(event){
+    var profile=event.target&&event.target.closest?event.target.closest('[data-public-wallet-profile]'):null;
+    if(!profile)return;
+    var publicRef=profile.getAttribute('data-public-wallet-profile')||'';
+    if(publicRef&&typeof window.osiV2OpenPublicProfile==='function')window.osiV2OpenPublicProfile(publicRef);
   });
   document.addEventListener('click',function(event){
     var button=event.target&&event.target.closest?event.target.closest('[data-osi-copy]'):null;
@@ -713,7 +734,7 @@
           +' ('+stageLabel(item.stage,item)+', '+(published?published+' '+t('published Reports'):t('no published Report'))+')';
         return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'" aria-label="'+esc(rowLabel)+'">'
           +'<span class="osi-v2-id">'+esc(item.public_ref)+'</span>'
-          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+(published?'<em class="osi-published-chip">'+esc(published+' '+(published===1?t('published Report'):t('published Reports')))+'</em>':'')+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
+          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+submitterIdentity(item,false)+(published?'<em class="osi-published-chip">'+esc(published+' '+(published===1?t('published Report'):t('published Reports')))+'</em>':'')+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
           +'<span class="osi-v2-stage '+stageClass(item)+'">'+esc(stageLabel(item.stage,item))+'</span>'
           +'<span class="osi-v2-category">'+esc(label(item.category))+'</span>'
           +'<span class="osi-v2-reviews">'+countActiveReviews(item)+'</span>'
@@ -1294,7 +1315,7 @@
     var active=(item.reviews||[]).filter(function(review){return review.is_active===true&&new Date(review.created_at).getTime()>cycle;});
     var initialKey=active.length===1?'{count} active attributable review':'{count} active attributable reviews';
     var initial=active.length?'<div class="osi-governance-mini"><b>'+esc(t('Initial review'))+'</b><span>'+esc(t(initialKey,{count:active.length}))+'</span></div>':'';
-    return '<section class="osi-case-section"><h3>'+esc(t('Case overview'))+'</h3><div class="osi-case-meta"><div><span>'+esc(t('Reference'))+'</span><b>'+esc(item.public_ref)+'</b></div><div><span>'+esc(t('Created'))+'</span><b>'+esc(dateText(item.created_at))+'</b></div><div><span>'+esc(t('Stage'))+'</span><b>'+esc(t(stageLabel(item.stage,item)))+'</b></div><div><span>'+esc(t('Visibility'))+'</span><b>'+esc(t(label(item.visibility)))+'</b></div></div>'
+    return '<section class="osi-case-section"><h3>'+esc(t('Case overview'))+'</h3>'+submitterIdentity(item,true)+'<div class="osi-case-meta"><div><span>'+esc(t('Reference'))+'</span><b>'+esc(item.public_ref)+'</b></div><div><span>'+esc(t('Created'))+'</span><b>'+esc(dateText(item.created_at))+'</b></div><div><span>'+esc(t('Stage'))+'</span><b>'+esc(t(stageLabel(item.stage,item)))+'</b></div><div><span>'+esc(t('Visibility'))+'</span><b>'+esc(t(label(item.visibility)))+'</b></div></div>'
       +summary+'<div class="osi-governance-mini"><b>'+esc(t('Exact next step'))+'</b><span>'+esc(t(nextStepText(item)))+'</span></div>'+initial+restricted+referenceBlock+reward
       +'<div class="osi-case-note">'+esc(t('OSI records attributable, human-reviewed and challengeable process. It does not determine guilt, legal certainty, truth, custody, recovery, or guaranteed payment.'))+'</div></section>';
   }
