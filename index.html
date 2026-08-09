@@ -419,7 +419,7 @@
         <div class="lb-card">
           <div class="fd-h mono">How to earn a seat</div>
           <div class="lb-steps">
-            <div class="lb-step"><span class="n">1</span><div><b>Create a wallet profile</b><span>Choose a unique handle and short public bio; expertise is optional.</span></div></div>
+            <div class="lb-step"><span class="n">1</span><div><b>Create a wallet profile</b><span>Choose a unique handle and short public bio; the handle is required and permanent, expertise is optional.</span></div></div>
             <div class="lb-step"><span class="n">2</span><div><b>Submit work evidence</b><span>Each application version is signed and immutable.</span></div></div>
             <div class="lb-step"><span class="n">3</span><div><b>Respond to revision requests</b><span>A revision preserves every prior version and decision.</span></div></div>
             <div class="lb-step"><span class="n">4</span><div><b>Activate probation</b><span>Approval plus ANALYST_PROBATION Memo derives weight 0.50.</span></div></div>
@@ -1059,7 +1059,7 @@
   <details class="osi-application-optional" id="analyst-optional-details">
     <summary><span><b>Add optional profile and work evidence</b><small>Handle, expertise, links, image and experience</small></span><i aria-hidden="true">+</i></summary>
     <div class="osi-application-optional-body">
-      <div class="osi-form-grid"><label><span>Public OSI handle (optional)</span><input id="an-handle" minlength="2" maxlength="32" pattern="[A-Za-z0-9_]{2,32}" spellcheck="false" autocomplete="off" placeholder="chain_sleuth"></label><label><span>Display name (optional)</span><input id="an-name" maxlength="80" autocomplete="name" placeholder="Chain Sleuth"></label></div>
+      <div class="osi-form-grid"><label><span>Public OSI handle</span><input id="an-handle" required minlength="2" maxlength="32" pattern="[A-Za-z0-9_]{2,32}" spellcheck="false" autocomplete="off" placeholder="chain_sleuth"><small>Required. This becomes your public address, osi.app/#analyst/your_handle, and it cannot be changed later.</small></label><label><span>Display name (optional)</span><input id="an-name" maxlength="80" autocomplete="name" placeholder="Chain Sleuth"></label></div>
       <label><span>X / Twitter handle (optional)</span><input id="an-x-handle" minlength="2" maxlength="16" pattern="@?[A-Za-z0-9_]{2,15}" spellcheck="false" autocomplete="off" placeholder="@chain_sleuth"><small>Your wallet remains the authoritative identity. Leave this blank if you do not want an X link on the public profile.</small></label>
       <fieldset class="osi-expertise"><legend>Expertise categories (optional)</legend><label><input type="checkbox" name="an-expertise" value="blockchain_forensics">Blockchain forensics</label><label><input type="checkbox" name="an-expertise" value="scam_analysis">Scam analysis</label><label><input type="checkbox" name="an-expertise" value="exploit_research">Exploit research</label><label><input type="checkbox" name="an-expertise" value="data_analysis">Data analysis</label><label><input type="checkbox" name="an-expertise" value="osint">OSINT</label><label><input type="checkbox" name="an-expertise" value="protocol_research">Protocol research</label></fieldset>
       <div class="osi-form-grid"><label><span>Other public link label (optional)</span><input id="an-link-label" maxlength="40" placeholder="Research archive"></label><label><span>Other public HTTPS link (optional)</span><input id="an-link-url" type="url" maxlength="300" placeholder="https://example.com/work"></label></div>

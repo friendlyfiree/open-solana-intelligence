@@ -64,9 +64,15 @@ export function normalizeApplicationPayload(value, avatar = null) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("application is invalid");
   }
-  const suppliedHandle = optionalText(value.handle, "handle");
-  const handle = suppliedHandle ? suppliedHandle.toLowerCase() : null;
-  if (handle && !/^[a-z0-9_]{2,32}$/.test(handle)) {
+  // A handle is required, and was not always. It is the only public address an
+  // analyst's own record has: `#analyst/<handle>` is the shareable route and
+  // `get_public_profile` looks a profile up by handle alone. An analyst who
+  // applied without one is listed and can be opened from the roster, but has no
+  // address to hand anybody — the verified work record has nowhere to live.
+  // Two of the first three analysts arrived that way, because this field asked
+  // and did not insist.
+  const handle = optionalText(value.handle, "handle").toLowerCase();
+  if (!/^[a-z0-9_]{2,32}$/.test(handle)) {
     throw new TypeError("handle is invalid");
   }
   const suppliedXHandle = optionalText(value.x_handle, "x_handle")
