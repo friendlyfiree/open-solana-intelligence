@@ -1341,6 +1341,10 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
       await expect(page.locator('#an-x-handle')).toHaveValue('');
       expect((await page.evaluate(() => window.__fixtureProviderCounts())).signMessage).toBe(signaturesBeforeOpen);
       await page.locator('#an-bio').fill('I investigate public Solana activity with reproducible evidence.');
+      // The smallest application still carries a handle. It is the only public
+      // address the analyst's own record ever gets, so an application without
+      // one produces an analyst whose verified work cannot be linked to.
+      await page.locator('#an-handle').fill('minimal_analyst');
       await page.locator('#an-safety').check();
       await page.locator('#osi-application-title').scrollIntoViewIfNeeded();
       await captureRepairEvidence(page, '06-minimal-analyst-application');

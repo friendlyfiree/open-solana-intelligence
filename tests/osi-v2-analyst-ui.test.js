@@ -31,10 +31,23 @@ ok(html.includes('id="an-safety" type="checkbox" required')
   && analyst.includes('safety_acknowledged:document.getElementById(\'an-safety\').checked===true'),
   'application keeps a signed safety acknowledgement while detailed experience is optional');
 ok(html.includes('Apply in about one minute')
-  && html.includes('This is the only written field required for a first application.')
   && html.includes('id="analyst-optional-details"')
   && html.includes('SIGN ONCE AND SUBMIT'),
   'first application exposes a one-minute minimal path and collapses optional evidence');
+// A required field inside a collapsed <details> cannot be submitted or even
+// reported: the browser refuses the submit and names a control it will not
+// scroll to, so the applicant presses the button and nothing happens. The
+// handle is required, so it belongs in the part of the form that is open.
+ok((() => {
+  const handle = html.indexOf('id="an-handle"');
+  const optional = html.lastIndexOf('id="analyst-optional-details"', handle);
+  const closed = html.lastIndexOf('</details>', handle);
+  return handle > 0 && !(optional > closed);
+})(), 'the required handle sits outside the collapsed optional block');
+ok(html.includes('<input id="an-handle" required')
+  && /an-handle[^>]*>\s*<small>Required\./.test(html)
+  && html.includes('Choose a handle and bio'),
+  'the handle field is required, says so, and the step strip names it');
 ok(html.includes('id="apx-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="osi-application-title"')
   && analyst.includes("modal.setAttribute('aria-hidden','false')")
   && analyst.includes("modal.setAttribute('aria-hidden','true')"),
