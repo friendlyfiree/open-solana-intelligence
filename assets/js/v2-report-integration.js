@@ -130,24 +130,62 @@
     return{purpose:purpose,route:route,versionRef:exactVersion,wallet:exactWallet,nonce:nonce,memo:memo,txSig:txSig,
       expiresAt:expiresAt,idempotencyKey:idempotencyKey,lastError:String(raw.lastError||''),updatedAt:Number(raw.updatedAt)||Date.now()};
   }
+  // A prepared outcome and a signed one are not the same kind of thing, and
+  // they must not be stored as if they were. Before the wallet signs there is
+  // nothing here but a nonce that expires on its own, so a tab-scoped record is
+  // right. The moment a transaction signature exists, this record is the only
+  // pointer back to a Memo that is already on mainnet and already paid for, and
+  // closing the tab must not destroy it. That is not hypothetical: an analyst
+  // published a Report on 2026-08-09, the Memo confirmed 66 seconds inside its
+  // window, the commit never fired, and the signature was unrecoverable because
+  // it lived in sessionStorage alone.
+  //
+  // `normalizePublicationPending` already draws this exact line, keeping a
+  // record with a signature past its expiry and dropping one without. Storage
+  // now follows the line the validation already drew.
+  function persistPublicationPending(normalized){
+    var key=publicationStorageKey(normalized.wallet,normalized.versionRef,normalized.purpose);
+    var body=JSON.stringify(normalized),stored=false;
+    try{sessionStorage.setItem(key,body);stored=true;}catch(_){}
+    if(!normalized.txSig){try{localStorage.removeItem(key);}catch(_){}return stored;}
+    try{localStorage.setItem(key,body);stored=true;}catch(_){}
+    return stored;
+  }
   function savePublicationPending(pending){
     if(!pending)return false;var normalized=normalizePublicationPending(pending,pending.wallet,pending.versionRef);if(!normalized)return false;
-    try{sessionStorage.setItem(publicationStorageKey(normalized.wallet,normalized.versionRef,normalized.purpose),JSON.stringify(normalized));return true;}catch(_){return false;}
+    return persistPublicationPending(normalized);
   }
   function removePublicationPending(wallet,versionRef,purpose){
-    try{sessionStorage.removeItem(publicationStorageKey(wallet,versionRef,purpose||'REPORT_PUBLISHED'));}catch(_){}
+    var key=publicationStorageKey(wallet,versionRef,purpose||'REPORT_PUBLISHED');
+    try{sessionStorage.removeItem(key);}catch(_){}
+    try{localStorage.removeItem(key);}catch(_){}
     if(!purpose||purpose==='REPORT_PUBLISHED')delete state.publicationPending[versionRef];
     else delete state.rejectionPending[versionRef];
   }
   function clearPublicationPendingForWallet(wallet){
-    try{for(var i=sessionStorage.length-1;i>=0;i--){var key=sessionStorage.key(i);if(key&&key.indexOf(PUBLICATION_PENDING_PREFIX+String(wallet||'')+':')===0)sessionStorage.removeItem(key);}}catch(_){}
+    var prefix=PUBLICATION_PENDING_PREFIX+String(wallet||'')+':';
+    [sessionStorage,localStorage].forEach(function(store){
+      try{for(var i=store.length-1;i>=0;i--){var key=store.key(i);if(key&&key.indexOf(prefix)===0)store.removeItem(key);}}catch(_){}
+    });
   }
   function loadPublicationPending(wallet,versionRef,purpose){
     purpose=purpose||'REPORT_PUBLISHED';
-    var key=publicationStorageKey(wallet,versionRef,purpose),raw=null;try{raw=JSON.parse(sessionStorage.getItem(key)||'null');}catch(_){}
+    var key=publicationStorageKey(wallet,versionRef,purpose),raw=null;
+    // The tab-scoped copy wins when both exist, because it is the one this tab
+    // has been updating. The durable copy is the fallback that survives a
+    // closed tab, and it only ever holds a record that carries a signature.
+    try{raw=JSON.parse(sessionStorage.getItem(key)||'null');}catch(_){}
+    if(!raw){try{raw=JSON.parse(localStorage.getItem(key)||'null');}catch(_){}}
     if(raw&&typeof raw==='object'&&!raw.purpose)raw.purpose=purpose;
     var normalized=normalizePublicationPending(raw,wallet,versionRef);
-    if(!normalized||normalized.purpose!==purpose){try{sessionStorage.removeItem(key);}catch(_){}return null;}
+    if(!normalized||normalized.purpose!==purpose){
+      try{sessionStorage.removeItem(key);}catch(_){}
+      try{localStorage.removeItem(key);}catch(_){}
+      return null;
+    }
+    // A record recovered from the durable copy is re-seeded into this tab so
+    // the rest of the flow, which reads the tab copy, sees it.
+    persistPublicationPending(normalized);
     return normalized;
   }
   function restorePublicationPending(reports,wallet){

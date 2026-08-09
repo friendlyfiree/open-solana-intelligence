@@ -741,6 +741,34 @@ ok("bootstrap publication remains visibly distinct after public or authorized re
     && uiSource.includes("It is not independent analyst quorum.")
     && uiSource.includes("publicationChannelHtml(row.publication_proof)")
     && uiSource.includes("publicationChannelHtml(proof)"));
+// ── A signed publication survives the tab ───────────────────────────────────
+// On 2026-08-09 an analyst signed a REPORT_PUBLISHED Memo that confirmed on
+// mainnet 66 seconds inside its window, the commit never fired, and the
+// signature became unrecoverable: the only pointer to it lived in
+// sessionStorage, and the standard route has no server-side recovery. The fee
+// was spent and the Report stayed unpublished. These pin the storage tier to
+// the line the validator already draws between prepared and signed.
+ok("a prepared outcome with no signature stays tab-scoped",
+  /if\(!normalized\.txSig\)\{try\{localStorage\.removeItem\(key\);\}catch\(_\)\{\}return stored;\}/
+    .test(reportUiSource));
+ok("a signed outcome is written to durable storage as well",
+  /function persistPublicationPending\(normalized\)[\s\S]{0,420}localStorage\.setItem\(key,body\)/
+    .test(reportUiSource));
+ok("a closed tab falls back to the durable copy instead of losing the signature",
+  /function loadPublicationPending[\s\S]{0,600}sessionStorage\.getItem\(key\)[\s\S]{0,240}localStorage\.getItem\(key\)/
+    .test(reportUiSource));
+ok("clearing a pending outcome clears both copies, never just one",
+  /function removePublicationPending[\s\S]{0,320}sessionStorage\.removeItem\(key\)[\s\S]{0,120}localStorage\.removeItem\(key\)/
+    .test(reportUiSource)
+    && /function clearPublicationPendingForWallet[\s\S]{0,320}\[sessionStorage,localStorage\]/
+      .test(reportUiSource));
+ok("the validator still refuses an unsigned record past its window, and keeps a signed one",
+  reportUiSource.includes("if(!txSig&&expiresAt<Math.floor(Date.now()/1000))return null;"));
+ok("a stored record still never carries anything beyond the on-chain artefact",
+  /return\{purpose:purpose,route:route,versionRef:exactVersion,wallet:exactWallet,nonce:nonce,memo:memo,txSig:txSig,/
+    .test(reportUiSource)
+    && !/normalizePublicationPending[\s\S]{0,1400}(read_session|private_note|body_private)/.test(reportUiSource));
+
 // ── Reviewer identity ───────────────────────────────────────────────────────
 // A handle is optional on an analyst profile and two of the three live
 // analysts have never set one, so a reviewer resolved by handle alone rendered
