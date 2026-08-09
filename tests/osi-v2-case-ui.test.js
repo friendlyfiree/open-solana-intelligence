@@ -285,6 +285,33 @@ ok('governance mutations require their exact My Reviews task even from a direct 
     && app.includes("if(!requireActiveReviewTask('challenge_admissibility',ref))return;")
     && app.includes("if(!requireActiveReviewTask('challenge_adjudication',ref))return;")
     && app.includes('Direct Case views are read-only.'));
+ok('Resolution controls keep standard quorum and D17 bootstrap visibly separate',
+  app.includes('Finalize standard quorum leader')
+    && app.includes('Maintainer bootstrap (D17)')
+    && app.includes('This channel is not an independent analyst quorum.')
+    && app.includes("osiV2GovernanceFinalizeResolution(\\'bootstrap\\')")
+    && app.includes("bootstrap?{report_version_ref:capability.report_version_ref}:{}"));
+ok('server-authorized standard finalization remains available when only counted review is conflicted',
+  app.includes('var standardFinalize=selectionStandard.can_finalize===true')
+    && !app.includes('var standardFinalize=selectionStandard.can_finalize===true&&!selectionConflict')
+    && app.includes('standard_quorum_tie_unresolved')
+    && app.includes('bootstrap_candidate_not_current'));
+ok('seal controls keep standard analyst quorum and D17 bootstrap separate',
+  app.includes('Memo-anchor standard process seal')
+    && app.includes('Memo-anchor seal via D17')
+    && app.includes("osiV2GovernanceFinalizeSeal(\\'bootstrap\\')"));
+ok('challenge intake uses a safe linked-evidence selector instead of a raw UUID field',
+  app.includes('<select id="osi-challenge-evidence">')
+    && app.includes('item.challenge_evidence||item.evidence||[]')
+    && app.includes("esc(evidence.challenge_evidence_id)")
+    && app.includes("esc(evidence.ref)")
+    && !app.includes('Existing evidence item ID')
+    && !app.includes('placeholder="00000000-0000-0000-0000-000000000000"'));
+ok('challenge intake fails closed when no eligible evidence exists and names the exact target',
+  app.includes('No public, approved evidence is linked to this Case or its winning Report version.')
+    && app.includes("Target: Resolution '+esc(resolution.public_ref)")
+    && app.includes("esc(resolution.winning_report_version_ref||'unavailable')")
+    && app.includes('and its bound winning Report version'));
 // The Case summary and the restricted detail now render through caseProse, and
 // every structured reference through referenceRow. Both still escape each text
 // chunk and still mark it data-osi-user-content, so automatic translation and

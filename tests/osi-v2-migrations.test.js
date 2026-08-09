@@ -49,6 +49,7 @@ const expectedFiles = [
   '20260807154829_osi_v2_cold_start_weight_gate_calibration.sql',
   '20260808153040_remove_private_wire_fields_from_public_rpc.sql',
   '20260808163737_osi_v2_wallet_profiles.sql',
+  '20260809091827_governance_bootstrap_challenge_controls.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -92,6 +93,8 @@ const wirePublicProjection =
   sqlByFile['20260808153040_remove_private_wire_fields_from_public_rpc.sql'] || '';
 const walletProfiles =
   sqlByFile['20260808163737_osi_v2_wallet_profiles.sql'] || '';
+const governanceBootstrapChallengeControls =
+  sqlByFile['20260809091827_governance_bootstrap_challenge_controls.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -1172,6 +1175,44 @@ ok(
   'bootstrap channel is structurally impossible for challenge and AI Pack receipts (D17)',
   /event_receipts_bootstrap_channel_scope_check[\s\S]*event_type in \(\s*'REPORT_PUBLISHED', 'REPORT_SELECTED_WINNING', 'RECORD_SEALED'\s*\)/i
     .test(bootstrapGovernance),
+);
+ok(
+  'target-specific Resolution/seal capability is service-only through both SECURITY INVOKER layers',
+  governanceBootstrapChallengeControls.includes("current_user not in ('postgres', 'service_role', 'supabase_admin')")
+    && /revoke all privileges on function\s+osi_private\.osi_v2_governance_finalize_capabilities\(text, uuid\[\], text\)\s+from public, anon, authenticated/i.test(governanceBootstrapChallengeControls)
+    && /revoke all privileges on function\s+public\.osi_v2_governance_finalize_capabilities\(text, uuid\[\], text\)\s+from public, anon, authenticated/i.test(governanceBootstrapChallengeControls)
+    && /grant execute on function\s+osi_private\.osi_v2_governance_finalize_capabilities\(text, uuid\[\], text\)\s+to service_role/i.test(governanceBootstrapChallengeControls)
+    && /grant execute on function\s+public\.osi_v2_governance_finalize_capabilities\(text, uuid\[\], text\)\s+to service_role/i.test(governanceBootstrapChallengeControls),
+);
+ok(
+  'governance capability keeps standard quorum and D17 bootstrap readiness separate',
+  governanceBootstrapChallengeControls.includes('standard_quorum_ready boolean')
+    && governanceBootstrapChallengeControls.includes('can_finalize_via_standard_quorum boolean')
+    && governanceBootstrapChallengeControls.includes('bootstrap_can_finalize boolean')
+    && governanceBootstrapChallengeControls.includes("bootstrap_reason_code := case")
+    && governanceBootstrapChallengeControls.includes("standard_quorum_tie_unresolved")
+    && governanceBootstrapChallengeControls.includes("standard_quorum_exists"),
+);
+ok(
+  'standard capability preserves an immutable superseded quorum leader while D17 stays current-published-only',
+  governanceBootstrapChallengeControls.includes('false as bootstrap_candidate')
+    && governanceBootstrapChallengeControls.includes('version.id = resolution_quorum.leader_version_id')
+    && governanceBootstrapChallengeControls.includes('candidate.bootstrap_candidate is true')
+    && governanceBootstrapChallengeControls.includes("bootstrap_candidate_not_current"),
+);
+ok(
+  'no-parent D17 capability names an exact current published version and detects maintainer conflicts',
+  governanceBootstrapChallengeControls.includes('coalesce(resolution_row.public_ref, target.public_ref)')
+    && governanceBootstrapChallengeControls.includes("version.lifecycle_state = 'published'")
+    && governanceBootstrapChallengeControls.includes('report.current_published_version_id')
+    && governanceBootstrapChallengeControls.includes('target.submitted_by_wallet = p_actor_wallet')
+    && governanceBootstrapChallengeControls.includes('candidate.author_wallet = p_actor_wallet')
+    && governanceBootstrapChallengeControls.includes('support.maintainer_conflicted'),
+);
+ok(
+  'governance capability migration is additive and side-effect-free',
+  !/drop\s+table|truncate\s+|drop\s+schema|delete\s+from|update\s+public\.|insert\s+into\s+public\./i.test(governanceBootstrapChallengeControls)
+    && /language plpgsql\s+stable\s+security invoker/i.test(governanceBootstrapChallengeControls),
 );
 ok(
   'Path B promotes only a real quorum-selected winning author, receipt-free (D18)',

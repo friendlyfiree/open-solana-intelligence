@@ -14,8 +14,14 @@ const PRIVATE_REF = 'OSI-C-PRIVATE000000001';
 const LEGACY_IMPORT_REF = 'OSI-C-LEGACYIMPORT001';
 const REPORT_REF = 'OSI-RPT-A1B2C3D4E5F6';
 const VERSION_REF = 'OSI-RV-A1B2C3D4E5F60718';
+const RESOLUTION_REPORT_REF = 'OSI-RPT-111111111111';
+const RESOLUTION_LEADER_VERSION_REF = 'OSI-RV-1111111111111111';
+const RESOLUTION_CURRENT_VERSION_REF = 'OSI-RV-1111111111111112';
+const NO_PARENT_REPORT_REF = 'OSI-RPT-333333333333';
+const NO_PARENT_VERSION_REF = 'OSI-RV-3333333333333333';
 const WIRE_REPORT_REF = 'OSI-WR-A1B2C3D4E5F6';
 const WIRE_VERSION_REF = 'OSI-WV-A1B2C3D4E5F60718';
+const CHALLENGE_EVIDENCE_ID = '88888888-8888-4888-8888-888888888888';
 const PRIVATE_SENTINEL = 'PRIVATE_FIXTURE_SENTINEL';
 const WIRE_PRIVATE_SENTINEL = 'WIRE_PRIVATE_FIXTURE_SENTINEL';
 const AI_RESTRICTED_SENTINEL = 'AI_RESTRICTED_FIXTURE_SENTINEL';
@@ -64,6 +70,10 @@ const richCase = {
   category: 'exploit', risk_tier: 'high', visibility: 'public', stage: 'in_challenge_window',
   created_at: iso(-9), submitted_by_wallet: WALLET,
   evidence: [{ kind: 'onchain_tx', ref: TX, sha256: 'a'.repeat(64) }],
+  challenge_evidence: [{
+    kind: 'onchain_tx', ref: TX, sha256: 'a'.repeat(64),
+    challenge_evidence_id: CHALLENGE_EVIDENCE_ID,
+  }],
   reviews,
   reports: [{
     public_ref: REPORT_REF,
@@ -124,12 +134,20 @@ const resolutionSelectionCase = {
   title: 'Resolution selection control fixture',
   stage: 'resolution_selection',
   submitted_by_wallet: OTHER,
+  reports: [{
+    public_ref: RESOLUTION_REPORT_REF,
+    current_version: { version_ref: RESOLUTION_CURRENT_VERSION_REF },
+    versions: [
+      { version_ref: RESOLUTION_LEADER_VERSION_REF, lifecycle_state: 'superseded' },
+      { version_ref: RESOLUTION_CURRENT_VERSION_REF, lifecycle_state: 'published' },
+    ],
+  }],
   governance: {
     resolution: {
       public_ref: 'OSI-RES-1111111111111111',
       state: 'selection_open',
       selection_quorum: {
-        leader_version_ref: VERSION_REF,
+        leader_version_ref: RESOLUTION_LEADER_VERSION_REF,
         leader_count: 3,
         leader_weight: 4.75,
         required_count: 3,
@@ -140,6 +158,22 @@ const resolutionSelectionCase = {
     },
     challenges: [],
   },
+  money: {},
+  proof_log: [],
+};
+
+const noParentBootstrapCase = {
+  ...richCase,
+  public_ref: 'OSI-C-3333333333333333',
+  title: 'No-parent D17 finalization fixture',
+  stage: 'open_public',
+  submitted_by_wallet: OTHER,
+  reports: [{
+    public_ref: NO_PARENT_REPORT_REF,
+    current_version: { version_ref: NO_PARENT_VERSION_REF },
+    versions: [{ version_ref: NO_PARENT_VERSION_REF, lifecycle_state: 'published' }],
+  }],
+  governance: {},
   money: {},
   proof_log: [],
 };
@@ -519,6 +553,8 @@ async function installFixtureNetwork(page, options = {}) {
       action: body.action || '',
       phase: body.payload && body.payload.phase || '',
       target: body.target_ref || body.version_public_ref || body.case_ref || '',
+      payloadEvidenceId: body.payload && body.payload.evidence_item_id || '',
+      payloadReportVersionRef: body.payload && body.payload.report_version_ref || '',
       evidenceCount: body.report && Array.isArray(body.report.evidence) ? body.report.evidence.length
         : body.wire && Array.isArray(body.wire.evidence) ? body.wire.evidence.length : null,
       route: body.route || '',
@@ -538,7 +574,8 @@ async function installFixtureNetwork(page, options = {}) {
         },
       } : richCase;
       const baseCases = publicCases.map((item) => item.public_ref === CASE_REF ? lifecycleRichCase : item);
-      const auditCases = roleAudit ? baseCases.concat(resolutionSelectionCase, sealReadyCase) : baseCases;
+      const auditCases = (roleAudit ? baseCases.concat(resolutionSelectionCase, sealReadyCase) : baseCases)
+        .concat(options.governanceBootstrapAudit ? [noParentBootstrapCase] : []);
       if (body.op === 'list_public_cases') {
         if (publicFailure) responseStatus = 503;
         response = publicFailure
@@ -572,6 +609,56 @@ async function installFixtureNetwork(page, options = {}) {
             created_at: iso(0),
           }),
         } : privateCase;
+        const standardResolutionCapability = maintainerAccess ? {
+          action: 'resolution_finalize',
+          target_public_ref: resolutionSelectionCase.governance.resolution.public_ref,
+          report_version_ref: RESOLUTION_LEADER_VERSION_REF,
+          standard: { quorum_ready: true, can_finalize: true },
+          bootstrap: {
+            enabled: true, active: true, tier: 'maintainer_only', eligible_analyst_count: 12,
+            required_support_count: 0, required_support_weight: 0,
+            actual_support_count: 0, actual_support_weight: 0,
+            actor_conflicted: false, can_finalize: false, reason_code: 'standard_quorum_ready',
+          },
+        } : null;
+        const standardSealCapability = maintainerAccess ? {
+          action: 'seal_finalize',
+          target_public_ref: sealReadyCase.governance.resolution.public_ref,
+          report_version_ref: VERSION_REF,
+          standard: { quorum_ready: true, can_finalize: true },
+          bootstrap: {
+            enabled: true, active: true, tier: 'maintainer_only', eligible_analyst_count: 12,
+            required_support_count: 0, required_support_weight: 0,
+            actual_support_count: 3, actual_support_weight: 4.75,
+            actor_conflicted: false, can_finalize: false, reason_code: 'standard_quorum_ready',
+          },
+        } : null;
+        const noParentBootstrapCapability = maintainerAccess ? {
+          action: 'resolution_finalize',
+          target_public_ref: noParentBootstrapCase.public_ref,
+          report_version_ref: NO_PARENT_VERSION_REF,
+          standard: { quorum_ready: false, can_finalize: false },
+          bootstrap: {
+            enabled: true, active: true, tier: 'maintainer_only', eligible_analyst_count: 12,
+            required_support_count: 0, required_support_weight: 0,
+            actual_support_count: 0, actual_support_weight: 0,
+            actor_conflicted: false, can_finalize: true, reason_code: 'ready',
+          },
+        } : null;
+        const reviewCases = [reviewedFixture, resolutionSelectionCase, sealReadyCase]
+          .concat(options.governanceBootstrapAudit ? [noParentBootstrapCase] : []);
+        const resolutionTasks = [{
+          target_kind: 'case', case_ref: resolutionSelectionCase.public_ref,
+          exact_target: RESOLUTION_LEADER_VERSION_REF, stage: 'resolution_selection',
+          next_action: 'Finalize the superseded exact version selected by the completed analyst quorum',
+          finalization_capability: standardResolutionCapability,
+        }].concat(options.governanceBootstrapAudit ? [{
+          target_kind: 'case', case_ref: noParentBootstrapCase.public_ref,
+          exact_target: NO_PARENT_VERSION_REF, stage: 'open_public',
+          next_action: 'Finalize exact published Report via maintainer bootstrap (not independent analyst quorum)',
+          next_action_code: 'finalize_resolution_via_maintainer_bootstrap',
+          finalization_capability: noParentBootstrapCapability,
+        }] : []);
         response = roleAudit && !(analystEligible || maintainerAccess)
           ? { ok: false, error: 'not_eligible_reviewer' }
           : options.reviewQueueEmpty ? {
@@ -589,17 +676,13 @@ async function installFixtureNetwork(page, options = {}) {
           : {
             ok: true,
             actor_role: maintainerAccess ? 'maintainer' : 'analyst',
-            cases: [reviewedFixture, resolutionSelectionCase, sealReadyCase],
+            cases: reviewCases,
             review_tasks: {
               initial_open: [{
                 target_kind: 'case', case_ref: PRIVATE_REF, exact_target: PRIVATE_REF,
                 stage: reviewedFixture.stage, next_action: 'Review private Case for public opening',
               }],
-              resolution_selection: [{
-                target_kind: 'case', case_ref: resolutionSelectionCase.public_ref,
-                exact_target: VERSION_REF, stage: 'resolution_selection',
-                next_action: 'Select an exact Report version',
-              }],
+              resolution_selection: resolutionTasks,
               challenge_admissibility: [{
                 target_kind: 'case', case_ref: CASE_REF,
                 exact_target: richCase.governance.challenges[0].public_ref, stage: 'admissibility_review',
@@ -615,6 +698,7 @@ async function installFixtureNetwork(page, options = {}) {
                 target_kind: 'case', case_ref: sealReadyCase.public_ref,
                 exact_target: sealReadyCase.public_ref, stage: 'resolved',
                 next_action: 'Review process seal',
+                finalization_capability: standardSealCapability,
               }],
             },
           };
@@ -1680,9 +1764,14 @@ test('launch readiness: verified analyst controls traverse Case, Wire, governanc
   await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), CASE_REF);
   await page.locator('[data-tab="challenges"]').click();
   await page.locator('#osi-challenge-summary').fill('The selected exact version needs additional independent transaction context.');
-  await page.locator('#osi-challenge-evidence').fill('88888888-8888-4888-8888-888888888888');
+  await expect(page.locator('select#osi-challenge-evidence')).toHaveCount(1);
+  await expect(page.locator('input#osi-challenge-evidence')).toHaveCount(0);
+  await page.locator('#osi-challenge-evidence').selectOption(CHALLENGE_EVIDENCE_ID);
   await page.getByRole('button', { name: 'Sign and submit challenge' }).click();
   await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'challenge_submit');
+  expect(page.__fixtureOps.some((entry) => entry.endpoint === 'osi-v2-governance-write'
+    && entry.op === 'prepare' && entry.action === 'challenge_submit'
+    && entry.payloadEvidenceId === CHALLENGE_EVIDENCE_ID)).toBe(true);
   await page.waitForTimeout(200);
   await page.evaluate(() => window.osiV2OpenReviewQueue());
   await page.locator('[data-review-lane="challenge_adjudication"]').click();
@@ -1718,13 +1807,18 @@ test('launch readiness: full maintainer controls review candidacy and finalize o
   await captureRepairEvidence(page, '07-maintainer-application-activated');
 
   await page.evaluate(() => window.osiV2OpenReviewQueue());
-  await page.locator('[data-review-lane="resolution_selection"]').click();
+  const supersededLeaderTask = page.locator(
+    `[data-review-lane="resolution_selection"][data-review-target="${RESOLUTION_LEADER_VERSION_REF}"]`,
+  );
+  await expect(supersededLeaderTask).toContainText('superseded exact version selected by the completed analyst quorum');
+  await supersededLeaderTask.click();
+  await expect(page.locator('#osi-case-content')).toContainText(RESOLUTION_LEADER_VERSION_REF);
   const resolutionQueueReloads = fixtureOperationCount(
     page,
     'osi-v2-case-read',
     'list_reviewable_cases',
   );
-  await page.getByRole('button', { name: 'Finalize server-derived leader' }).click();
+  await page.getByRole('button', { name: 'Finalize standard quorum leader' }).click();
   await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'resolution_finalize');
   await expect.poll(() => fixtureOperationCount(
     page,
@@ -1742,7 +1836,7 @@ test('launch readiness: full maintainer controls review candidacy and finalize o
     'osi-v2-case-read',
     'list_reviewable_cases',
   );
-  await page.getByRole('button', { name: 'Memo-anchor process seal' }).click();
+  await page.getByRole('button', { name: 'Memo-anchor standard process seal' }).click();
   await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'seal_finalize');
   await expect.poll(() => fixtureOperationCount(
     page,
@@ -1757,6 +1851,29 @@ test('launch readiness: full maintainer controls review candidacy and finalize o
   await expect(page.locator('#osi-ai-approve')).toHaveCount(0);
   await page.locator('#osi-ai-pack-generate').click();
   await expectFixtureOperation(page, 'osi-v2-ai-pack', 'commit_generation');
+  expectCleanRuntime(page);
+});
+
+test('no-parent D17 task finalizes one exact published version through the server-derived bootstrap channel', async ({ page }) => {
+  test.setTimeout(120_000);
+  await ready(page, { role: 'maintainer', lifecycle: true, governanceBootstrapAudit: true });
+  await page.evaluate((tx) => { window.castOnchainVote = async () => tx; }, TX);
+
+  await page.evaluate(() => window.osiV2OpenReviewQueue());
+  const task = page.locator(`.osi-review-task[data-case-ref="${noParentBootstrapCase.public_ref}"]`);
+  await expect(task).toContainText('Finalize exact published Report via maintainer bootstrap');
+  await task.click();
+  await expect(page.locator('#osi-case-ref')).toHaveText(noParentBootstrapCase.public_ref);
+  await expect(page.locator('#osi-case-content')).toContainText('Selection not started');
+  await expect(page.locator('#osi-case-content')).toContainText('This channel is not an independent analyst quorum.');
+  await page.getByRole('button', { name: 'Finalize exact version via D17' }).click();
+  await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'resolution_finalize');
+
+  const prepared = page.__fixtureOps.find((entry) => entry.endpoint === 'osi-v2-governance-write'
+    && entry.op === 'prepare' && entry.action === 'resolution_finalize'
+    && entry.target === noParentBootstrapCase.public_ref);
+  expect(prepared).toBeTruthy();
+  expect(prepared.payloadReportVersionRef).toBe(NO_PARENT_VERSION_REF);
   expectCleanRuntime(page);
 });
 
