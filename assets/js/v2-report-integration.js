@@ -580,7 +580,16 @@
       var summary=row.content_public_safe
         ? '<div class="osi-report-public-body"><h4>'+esc(t('Published finding'))+'</h4>'+publicProse(row.content_public_safe)+'</div>'
         : '<p class="osi-report-public-body" role="note"><b>No public-safe summary was provided.</b> Publication metadata, public evidence and proof remain available. The restricted Report body is not public.</p>';
-      var content=summary+publicEvidence(row);
+      // The reviewed analysis itself, when its author published it. This is the
+      // reasoning behind the finding above, and it is the reason a reader can
+      // check the work instead of taking the conclusion on trust. It is the
+      // exact text the approving analysts read, so it adds nothing the quorum
+      // did not review; the server sends it only for a published version whose
+      // author allowed it, and sends null otherwise.
+      var analysis=row.public_body
+        ? '<details class="osi-report-full" open><summary><b>'+esc(t('Full analysis'))+'</b><small>'+esc(t('The reviewed report, as approved'))+'</small></summary><div class="osi-report-public-body osi-report-full-body">'+publicProse(row.public_body)+'</div></details>'
+        : '';
+      var content=summary+analysis+publicEvidence(row);
       var proof=publicationChannelHtml(row.publication_proof)+(row.publication_proof&&row.publication_proof.tx_sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(row.publication_proof.tx_sig)+'" target="_blank" rel="noopener">Verify REPORT_PUBLISHED on Solscan ↗</a>':'');
       var support=row.state==='published'?'<button class="osi-report-action" type="button" onclick="osiV2SupportReportAuthor(\''+esc(row.version_public_ref)+'\')">Support author with SOL</button>':'';
       // An explicit label keeps this read-only disclosure control from reading

@@ -676,9 +676,22 @@ const publicReadSlice = readSource.slice(
   readSource.indexOf("async function listPublicReports("),
   readSource.indexOf("serve(async", readSource.indexOf("async function listPublicReports(")),
 );
-ok("anonymous Report reads use a projection that excludes the restricted body column",
+// This assertion used to be "the public projection never reads the body". The
+// body is now publishable, so the guarantee moves rather than disappears: the
+// anonymous path may read it, and must hand every copy to the one function that
+// decides whether it may leave. Nothing here may reach a response by any other
+// route, and the query that feeds it must still be pinned to the published
+// pointer, which the assertion below this one holds.
+ok("anonymous Report reads pass the body only through the projection that gates it",
   publicReadSlice.includes("PUBLIC_VERSION_COLS")
-    && !publicReadSlice.includes("body_private"));
+    && publicReadSlice.includes("publicReportGovernanceDto(")
+    && publicReadSlice.split("\n").filter((line) => line.includes("body_private")).length === 1
+    && publicReadSlice.includes("body_private: version.body_private,")
+    && publicReadSlice.includes("body_is_public: version.body_is_public,")
+    && !/jsonResponse\([^)]*body_private/.test(publicReadSlice));
+ok("only a published version whose author allowed it can carry the body out",
+  /public_body:\s*report\.body_is_public === true && report\.body_private != null/
+    .test(readFileSync(join(root, "supabase/functions/_shared/osi-v2-report-core.mjs"), "utf8")));
 ok("public Report visibility follows only the exact published pointer",
   readSource.includes('.not("current_published_version_id", "is", null)')
     && readSource.includes("String(header.current_published_version_id) === String(version.id)")
@@ -741,6 +754,52 @@ ok("bootstrap publication remains visibly distinct after public or authorized re
     && uiSource.includes("It is not independent analyst quorum.")
     && uiSource.includes("publicationChannelHtml(row.publication_proof)")
     && uiSource.includes("publicationChannelHtml(proof)"));
+// ── The published analysis is public ────────────────────────────────────────
+// Publishing a conclusion while withholding the reasoning is the opposite of
+// what this projection exists for. The first Report to clear an analyst quorum
+// carried 10,651 characters of traced, sourced analysis and showed the public
+// 607 of them. Publication is the gate; the author's flag is the choice.
+const publishedBase = {
+  report_public_ref: "OSI-RPT-B7D4E9F4A3D1",
+  version_public_ref: "OSI-RV-84E1DCA675CA4480",
+  version_no: 1,
+  lifecycle_state: "published",
+  content_public_safe: "A traced fund movement path is published for review.",
+  body_private: "1. Subject and Scope\n\nThe reviewed analysis, in full.",
+  evidence: [],
+  reviews: [],
+};
+ok("a published version whose author allowed it carries the full analysis", (() => {
+  const dto = core.publicReportGovernanceDto({ ...publishedBase, body_is_public: true });
+  return dto.public_body === publishedBase.body_private;
+})());
+ok("a published version whose author held the analysis back carries none of it", (() => {
+  const dto = core.publicReportGovernanceDto({ ...publishedBase, body_is_public: false });
+  return dto.public_body === null && dto.content_public_safe !== null;
+})());
+ok("publication itself is still the gate an unpublished version cannot pass", (() => {
+  for (const state of ["draft", "submitted", "in_review", "rejected", "superseded"]) {
+    let refused = false;
+    try {
+      core.publicReportGovernanceDto({ ...publishedBase, lifecycle_state: state, body_is_public: true });
+    } catch { refused = true; }
+    if (!refused) return false;
+  }
+  return true;
+})());
+ok("the public read gateway selects and forwards both halves of that decision", (() => {
+  const edge = readFileSync(join(root, "supabase/functions/osi-v2-report-read/index.ts"), "utf8");
+  const cols = edge.match(/const PUBLIC_VERSION_COLS =\s*\n?\s*"([^"]+)"/);
+  return Boolean(cols)
+    && cols[1].includes("body_private") && cols[1].includes("body_is_public")
+    && edge.includes("body_private: version.body_private,")
+    && edge.includes("body_is_public: version.body_is_public,");
+})());
+ok("the published analysis renders as prose, escaped, and never as raw markup",
+  reportUiSource.includes("row.public_body")
+    && /public_body[\s\S]{0,320}publicProse\(row\.public_body\)/.test(reportUiSource)
+    && reportUiSource.includes("osi-report-full"));
+
 // ── A signed publication survives the tab ───────────────────────────────────
 // On 2026-08-09 an analyst signed a REPORT_PUBLISHED Memo that confirmed on
 // mainnet 66 seconds inside its window, the commit never fired, and the

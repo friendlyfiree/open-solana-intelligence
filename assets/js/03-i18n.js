@@ -931,6 +931,8 @@
     'published Reports': 'yayımlanmış Rapor',
     'no published Report': 'yayımlanmış Rapor yok',
     'Published Reports': 'Yayımlanmış Raporlar',
+    'Full analysis': 'Raporun tamamı',
+    'The reviewed report, as approved': 'İncelenen rapor, onaylandığı hâliyle',
     'Reports': 'Raporlar',
     'Proof detail for': 'Kanıt detayı:',
     'Report detail': 'Rapor detayı',
