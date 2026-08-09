@@ -104,6 +104,7 @@ export function isReadSessionFeatureEnabled(value) {
   return value === "true";
 }
 
+// Issuance is strict: a scope this build does not recognise is never minted.
 function normalizedScopes(scopes) {
   if (!Array.isArray(scopes)) throw new TypeError("bad_scopes");
   const result = [...new Set(scopes.map((scope) => String(scope)))].sort();
@@ -111,6 +112,27 @@ function normalizedScopes(scopes) {
     throw new TypeError("bad_scopes");
   }
   return result;
+}
+
+// Verification is deliberately tolerant of a scope it does not know, and that
+// asymmetry is the point. This list is shared by nine independently deployed
+// isolates, so a newly added scope reaches the issuer minutes to hours before
+// it reaches every verifier. A verifier that rejected the whole token over one
+// unfamiliar entry would refuse every lane it serves for the length of that
+// window, to a wallet holding a perfectly valid session. That is not a
+// hypothetical: adding `profile:self` took the Review Queue's report, analyst
+// and wire lanes down exactly this way, reported as a tampered token.
+//
+// Nothing is loosened in the authorization decision. The required scope must
+// still be one this build recognises and must still be present in the token,
+// so a token carrying only unrecognised scopes is refused as wrong_scope. A
+// malformed `scp` — absent, not an array, or empty — is still tampering,
+// because issuance cannot produce it.
+function recognizedScopes(scopes) {
+  if (!Array.isArray(scopes) || !scopes.length) throw new TypeError("bad_scopes");
+  return [...new Set(scopes.map((scope) => String(scope)))]
+    .filter((scope) => ALLOWED_SCOPES.has(scope))
+    .sort();
 }
 
 async function hmac(secret, input) {
@@ -233,7 +255,7 @@ export async function verifyReadSessionToken(input) {
     return { ok: false, status: 403, reason: "read_session_tampered" };
   }
   let scopes;
-  try { scopes = normalizedScopes(payload.scp); }
+  try { scopes = recognizedScopes(payload.scp); }
   catch { return { ok: false, status: 403, reason: "read_session_tampered" }; }
   if (!ALLOWED_SCOPES.has(requiredScope) || !scopes.includes(requiredScope)) {
     return { ok: false, status: 403, reason: "read_session_wrong_scope" };
