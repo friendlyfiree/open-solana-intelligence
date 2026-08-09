@@ -740,6 +740,26 @@ export function publicReportGovernanceDto(report) {
     content_public_safe: report.content_public_safe == null
       ? null
       : String(report.content_public_safe),
+    // The reviewed analysis, not a second summary. Publishing a conclusion and
+    // withholding the reasoning that reached it is the opposite of what this
+    // projection exists for, and the analysts who approved this version read
+    // this exact text before approving it, so nothing here escaped review.
+    //
+    // Two gates, and both are load-bearing. `publicReportGovernanceDto` is only
+    // reachable for a published version — the guard above throws otherwise —
+    // and the author's per-version flag must also allow it. An unpublished
+    // version has no public projection at all, whatever the flag says.
+    // A third gate, for honesty rather than privacy: an author who wrote the
+    // same text into both fields has one document, not two, and printing it
+    // twice under two headings would invent a distinction the author never
+    // made. One of the two published Reports is exactly that.
+    public_body: (() => {
+      if (report.body_is_public !== true || report.body_private == null) return null;
+      const body = String(report.body_private);
+      const summary = report.content_public_safe == null
+        ? "" : String(report.content_public_safe);
+      return body.trim() === summary.trim() ? null : body;
+    })(),
     evidence: publicEvidence.map(reportEvidenceDto),
     evidence_sections: reportEvidenceSections(publicEvidence),
     quorum: {

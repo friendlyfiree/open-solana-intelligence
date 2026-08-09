@@ -44,10 +44,11 @@ ok(application.profile.links[0].url === "https://x.com/chain_sleuth"
   && application.profile.links[1].url === "https://example.com/work",
 "an optional X identity receives its canonical link and optional link fragments are removed");
 const minimalApplication = core.normalizeApplicationPayload({
-  x_handle: "@signal_reader", bio: "Solana public-evidence researcher.",
+  handle: "signal_reader", x_handle: "@signal_reader",
+  bio: "Solana public-evidence researcher.",
   experience: "", expertise: [], links: [], safety_acknowledged: true,
 });
-ok(minimalApplication.profile.handle === null
+ok(minimalApplication.profile.handle === "signal_reader"
   && minimalApplication.application.x_handle === "signal_reader"
   && minimalApplication.profile.links[0].url === "https://x.com/signal_reader"
   && minimalApplication.profile.expertise.length === 0
@@ -56,7 +57,7 @@ ok(minimalApplication.profile.handle === null
   && minimalApplication.application.safety_acknowledged === true,
 "minimal application keeps optional X separate from the OSI public handle");
 const walletIdentityApplication = core.normalizeApplicationPayload({
-  handle: "   ",
+  handle: "wallet_researcher",
   x_handle: " ",
   display_name: "",
   bio: "Wallet-authenticated public-evidence researcher.",
@@ -68,12 +69,12 @@ const walletIdentityApplication = core.normalizeApplicationPayload({
   proof_urls: ["", "   "],
   safety_acknowledged: true,
 });
-ok(walletIdentityApplication.profile.handle === null
-  && walletIdentityApplication.profile.display_name === null
+ok(walletIdentityApplication.profile.handle === "wallet_researcher"
+  && walletIdentityApplication.profile.display_name === "wallet_researcher"
   && walletIdentityApplication.profile.links.length === 0
   && walletIdentityApplication.application.x_handle === null
   && walletIdentityApplication.application.proof_urls.length === 0,
-"wallet identity remains canonical when optional handle, X and blank link rows are omitted");
+"wallet identity remains canonical when optional X and blank link rows are omitted");
 const handleOnlyApplication = core.normalizeApplicationPayload({
   handle: "OSI_Researcher",
   x_handle: "",
@@ -84,11 +85,23 @@ const handleOnlyApplication = core.normalizeApplicationPayload({
 ok(handleOnlyApplication.profile.handle === "osi_researcher"
   && handleOnlyApplication.application.x_handle === null
   && handleOnlyApplication.profile.links.length === 0,
-"an optional OSI handle is independent from optional X identity");
+"the required OSI handle is independent from optional X identity");
 rejects(() => core.normalizeApplicationPayload({
-  x_handle: "@signal_reader", bio: "Solana public-evidence researcher.",
+  handle: "signal_reader", x_handle: "@signal_reader",
+  bio: "Solana public-evidence researcher.",
   experience: "", expertise: [], links: [],
 }), "application rejects a missing signed safety acknowledgement");
+// A handle is the only public address an analyst's own record has, so an
+// application without one produces an analyst who can never be linked to.
+for (const [missing, name] of [
+  [undefined, "omitted"], [null, "null"], ["", "empty"], ["   ", "blank"],
+]) {
+  rejects(() => core.normalizeApplicationPayload({
+    handle: missing, x_handle: "@signal_reader",
+    bio: "Solana public-evidence researcher.",
+    expertise: [], links: [], safety_acknowledged: true,
+  }), `application refuses an ${name} handle, which would leave the record unaddressable`);
+}
 rejects(() => core.normalizeApplicationPayload({
   x_handle: "x", handle: "x", display_name: "X", bio: "short", expertise: [], links: [],
   motivation: "short", experience: "short", proof_urls: [],

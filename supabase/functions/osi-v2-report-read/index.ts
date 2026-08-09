@@ -51,8 +51,12 @@ const REPORT_COLS =
   "id,case_id,author_wallet,current_version_id,current_published_version_id,status,public_ref,native_intake,created_at,updated_at";
 const VERSION_COLS =
   "id,report_id,version_no,version_ref,created_by_wallet,body_private,content_public_safe,evidence_snapshot_hash,supersedes_version_id,revision_reason_code,lifecycle_state,event_receipt_id,publication_receipt_id,publication_quorum_hash,published_at,created_at";
+// `body_private` is read here only to be projected when the version is
+// published and its author allowed it. publicReportGovernanceDto applies
+// both gates; this list never reaches an unpublished version, because the
+// query that uses it selects published ids alone.
 const PUBLIC_VERSION_COLS =
-  "id,report_id,version_no,version_ref,content_public_safe,lifecycle_state,publication_receipt_id,published_at";
+  "id,report_id,version_no,version_ref,content_public_safe,body_private,body_is_public,lifecycle_state,publication_receipt_id,published_at";
 const CASE_COLS = "id,public_ref,stage,visibility,risk_tier,submitted_by_wallet,category,archived_at";
 const EVIDENCE_COLS = "id,kind,ref,sha256,is_public,moderation_state";
 const RECEIPT_COLS =
@@ -718,6 +722,8 @@ async function listPublicReports(body: Row): Promise<Response> {
         version_no: version.version_no,
         lifecycle_state: version.lifecycle_state,
         content_public_safe: version.content_public_safe,
+        body_private: version.body_private,
+        body_is_public: version.body_is_public,
         evidence: evidenceByVersion.get(String(version.id)) ?? [],
         quorum: quorumFor(
           String(caseRow.risk_tier || "standard"), reviewRows,

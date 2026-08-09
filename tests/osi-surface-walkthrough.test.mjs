@@ -146,7 +146,7 @@ ok('Turkish covers the copy that walking the product in TR found untranslated',
     "'Sign in with the authority account'",
     "'Wire review queue locked'",
     "'Back to public Wire'",
-    "'Choose a unique handle and short public bio; expertise is optional.'",
+    "'Choose a unique handle and short public bio; the handle is required and permanent, expertise is optional.'",
     "'{count} analysts'",
     "'Showing {from}-{to} of {total} records'"].every((key) => i18n.includes(key)));
 
