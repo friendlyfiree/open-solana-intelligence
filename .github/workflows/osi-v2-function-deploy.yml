@@ -1,19 +1,41 @@
-name: OSI V2 Case-Read Function Deploy
+name: OSI V2 Read-Session Function Deploy
 
-# Manual-only deployment of the read-only osi-v2-case-read Edge Function to the
-# pinned production project, followed by an anonymous smoke test.
+# Manual-only deployment of every Edge Function that verifies the shared
+# read-session core, to the pinned production project, followed by an
+# anonymous smoke test.
+#
+# WHY THESE FUNCTIONS DEPLOY TOGETHER:
+#   `_shared/osi-v2-read-session-core.mjs` is one file compiled into several
+#   independently deployed isolates, so whenever it changes, production runs
+#   two versions of it at once until the last isolate is updated. On
+#   2026-08-09 that window took the Review Queue down: a scope was added to
+#   the core, the issuing isolate was deployed, and every isolate still on the
+#   previous build refused the tokens it was handed. Verification is now
+#   tolerant of a scope it does not recognise, so the failure cannot repeat in
+#   that form, but the underlying skew is a property of the deployment shape
+#   rather than of any one change. Deploying the consumers as one set is what
+#   actually closes it.
+#
+#   The set is derived from the imports at run time, not typed out here. A
+#   hand-maintained list is exactly what left `osi-v2-wire` two hours and
+#   `osi-ai-pack` thirteen days behind the issuer, with nothing anywhere
+#   reporting that they had drifted.
 #
 # SAFETY CONTRACT:
 #   * workflow_dispatch ONLY — no push / pull_request / schedule trigger.
 #   * Typed confirmation required; SUPABASE_PROJECT_ID must equal the pinned
 #     ref or the run aborts before any deploy.
-#   * Deploys EXACTLY one function (osi-v2-case-read) from the checked-out
-#     commit with the pinned CLI. No database migration, no db push, no other
-#     function, no Vercel action, no flag change.
+#   * Deploys ONLY functions that import the shared read-session core, from
+#     the checked-out commit with the pinned CLI. No database migration, no
+#     db push, no Vercel action, no flag change.
 #   * verify_jwt=false comes from supabase/config.toml and is passed
-#     explicitly: the function performs its own strict authorization
+#     explicitly: each function performs its own strict authorization
 #     (anonymous public-only reads, HMAC+Ed25519 signed reads, and a
 #     maintainer double-gate that validates its Supabase JWT in-function).
+#   * Every deployed function is then proved to have booted. `deno check`
+#     type-checks a module graph without ever evaluating one, so a function
+#     that throws on module evaluation passes every static gate and still
+#     answers 500 WORKER_ERROR to production. That happened on 2026-08-08.
 #   * Secrets are never printed.
 
 on:
@@ -33,12 +55,14 @@ concurrency:
 
 env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  # The one function whose public surface the detailed smoke test below reads.
+  # The full deploy set is derived from the imports, not from this value.
   FUNCTION_SLUG: osi-v2-case-read
-  FUNCTION_SLUGS: "osi-v2-case-read osi-v2-report-read"
+  SHARED_READ_SESSION_CORE: osi-v2-read-session-core.mjs
 
 jobs:
   deploy:
-    name: Deploy read-only functions and smoke test
+    name: Deploy the read-session functions and smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -56,6 +80,26 @@ jobs:
       - name: Check out repository at the dispatched ref
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Resolve every isolate that verifies the shared read-session core
+        run: |
+          set -euo pipefail
+          # Derived from the imports so a new consumer cannot be forgotten.
+          # Anchored on the shared core's filename: a function that verifies a
+          # read session must import it, and a function that does not import it
+          # has no read-session build to keep in step.
+          slugs="$(grep -rl "$SHARED_READ_SESSION_CORE" supabase/functions/*/index.ts \
+            | sed 's|^supabase/functions/||; s|/index\.ts$||' | sort | tr '\n' ' ')"
+          slugs="${slugs% }"
+          [ -n "$slugs" ] || { echo "::error::No function imports ${SHARED_READ_SESSION_CORE}; the grep is wrong, not the tree."; exit 1; }
+          count="$(printf '%s\n' $slugs | wc -l)"
+          # The issuer is the one function that must be in every such deploy:
+          # it mints the tokens the others verify. If it is absent the query
+          # found the wrong thing and deploying on that basis is not safe.
+          printf '%s\n' $slugs | grep -qx "$FUNCTION_SLUG" || {
+            echo "::error::${FUNCTION_SLUG} is not in the resolved set."; exit 1; }
+          echo "Deploying ${count} read-session isolates: ${slugs}"
+          echo "FUNCTION_SLUGS=${slugs}" >> "$GITHUB_ENV"
+
       - name: Verify secrets are present and the project ref is pinned
         run: |
           set -euo pipefail
@@ -70,7 +114,7 @@ jobs:
         with:
           version: 2.109.1
 
-      - name: Deploy exactly the read-only functions
+      - name: Deploy exactly the read-session functions
         run: |
           set -euo pipefail
           for slug in $FUNCTION_SLUGS; do
@@ -80,6 +124,48 @@ jobs:
               --no-verify-jwt \
               --use-api
           done
+
+      - name: Prove every deployed function booted
+        run: |
+          set -euo pipefail
+          # Two failures are being ruled out here, and they need each other.
+          #
+          # The first is a smoke test that runs in the same second the deploy
+          # returns, which can be answered by the version being replaced and so
+          # proves nothing about the one just shipped. Readiness is therefore
+          # polled rather than assumed, on the pattern the Analyst deploy
+          # already uses.
+          #
+          # The second is an isolate that throws while evaluating its module
+          # graph. `deno check` type-checks a module graph without ever
+          # evaluating one, so such a function passes every static gate and
+          # still answers 500 WORKER_ERROR to production. That is the
+          # 2026-08-08 outage. A booted isolate refuses an unknown op with a
+          # 4xx of its own choosing — the set spans at least 400 bad_op, 400
+          # bad_mode and 401 read_session_required — so the assertion is only
+          # that the answer is below 500, which is the narrowest claim that
+          # separates "the code ran" from "the code could not start".
+          failed=""
+          for slug in $FUNCTION_SLUGS; do
+            url="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/${slug}"
+            code=000
+            for attempt in $(seq 1 15); do
+              code="$(curl -sS --max-time 20 -o /tmp/boot.json -w '%{http_code}' -X POST "$url" \
+                -H 'Content-Type: application/json' \
+                -d '{"op":"osi_deployment_boot_probe"}' || echo 000)"
+              [ "$code" != "000" ] && [ "$code" -lt 500 ] && break
+              echo "  ${slug}: attempt ${attempt} answered ${code}; waiting."
+              sleep 6
+            done
+            printf '%-22s HTTP %s  ' "$slug" "$code"
+            head -c 200 /tmp/boot.json; echo
+            if [ "$code" = "000" ] || [ "$code" -ge 500 ]; then
+              echo "::error::${slug} did not boot (HTTP ${code})."
+              failed="${failed} ${slug}"
+            fi
+          done
+          [ -z "$failed" ] || { echo "::error::Functions that did not boot:${failed}"; exit 1; }
+          echo "Every deployed read-session isolate booted and answered."
 
       - name: Anonymous smoke test (public-only, deny-by-default)
         run: |
