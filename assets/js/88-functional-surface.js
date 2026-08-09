@@ -68,7 +68,37 @@
     var host=document.getElementById('osi-native-ops-overview');if(!host)return;
     host.replaceChildren(make('div','moc-loading',message||'Maintainer access locked.'));
   }
-  function renderNativeOperations(overview){
+  function renderAiPackOperations(host,status){
+    var section=make('section','osi-native-ai-packs');
+    section.appendChild(make('h4','','Private AI Pack Operations'));
+    if(!status||status.ok!==true){
+      section.appendChild(make('div','moc-loading','The protected AI Pack status endpoint is unavailable. Generation and reads remain fail-closed.'));
+      host.appendChild(section);return;
+    }
+    var summary=make('div','osi-native-metrics');
+    appendMetric(summary,'Private AI drafts',Number(status.private_draft_count||0));
+    appendMetric(summary,'Generation in progress',Number(status.in_progress_generation_count||0));
+    appendMetric(summary,'Provider',status.provider_configured===true?'configured':'blocked');
+    section.appendChild(summary);
+    var cases=Array.isArray(status.eligible_cases)?status.eligible_cases:[];
+    if(!cases.length){
+      section.appendChild(make('div','moc-loading','No public Case is currently eligible for a private maintainer draft.'));
+    }else{
+      var list=make('div','moc-feed');
+      cases.forEach(function(item){
+        var row=make('div','moc-feed-row');row.appendChild(make('i','moc-dot'));
+        var detail=make('div','');detail.appendChild(make('b','',String(item.public_ref||'Case unavailable')+' / '+String(item.title||'Untitled Case')));
+        detail.appendChild(make('span','',String(item.stage||'unknown')+' / '+(item.can_generate===true?'Private maintainer draft available.':String(item.generation_prerequisite||'Generation prerequisites are unavailable; action remains disabled.'))));
+        row.appendChild(detail);
+        var button=make('button','moc-action','Open AI Pack');button.type='button';button.disabled=item.can_generate!==true;
+        if(!button.disabled)button.addEventListener('click',function(){window.osiNavigate('field');window.osiV2OpenAiPack(String(item.public_ref||''));});
+        row.appendChild(button);list.appendChild(row);
+      });
+      section.appendChild(list);
+    }
+    host.appendChild(section);
+  }
+  function renderNativeOperations(overview,aiPackStatus){
     var host=document.getElementById('osi-native-ops-overview');if(!host)return;
     host.replaceChildren();
     var totals=overview&&overview.totals||{},flags=overview&&overview.flags||{};
@@ -87,13 +117,18 @@
     var reviews=make('button','moc-action','Open unified review queue');reviews.type='button';reviews.addEventListener('click',function(){window.osiV2OpenReviewQueue();});actions.appendChild(reviews);
     var applications=make('button','moc-action','Refresh analyst applications');applications.type='button';applications.addEventListener('click',function(){window.osiAnalystLoadMaintainerQueue();});actions.appendChild(applications);
     host.appendChild(actions);
+    renderAiPackOperations(host,aiPackStatus);
   }
   async function refreshNativeOperations(){
     var access=typeof window.resolveMaintainerAccess==='function'?window.resolveMaintainerAccess():{allowed:false};
     if(!access.allowed){clearNativeOperations(typeof window.maintainerAccessMessage==='function'?window.maintainerAccessMessage(access):'Both maintainer gates are required.');return null;}
     clearNativeOperations('Loading the server-derived native Case overview...');
     try{
-      var result=await window.osiV2LoadMaintainerOverview();renderNativeOperations(result&&result.overview||{});return result;
+      var result=await window.osiV2LoadMaintainerOverview();
+      var aiPackStatus=typeof window.admAiPackOperationsStatus==='function'
+        ?await window.admAiPackOperationsStatus(access.wallet)
+        :{ok:false,error:'ai_pack_operations_unavailable'};
+      renderNativeOperations(result&&result.overview||{},aiPackStatus);return result;
     }catch(error){clearNativeOperations('Native Case overview unavailable: '+String(error&&error.message||'request failed').replace(/_/g,' ')+'.');return null;}
   }
   window.osiNativeOpsRefresh=refreshNativeOperations;

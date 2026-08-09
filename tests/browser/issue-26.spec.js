@@ -522,6 +522,7 @@ async function installFixtureNetwork(page, options = {}) {
       evidenceCount: body.report && Array.isArray(body.report.evidence) ? body.report.evidence.length
         : body.wire && Array.isArray(body.wire.evidence) ? body.wire.evidence.length : null,
       route: body.route || '',
+      hasReadSession: typeof body.read_session === 'string' && body.read_session.length > 0,
     });
     let responseStatus = 200;
     let response = { ok: true };
@@ -814,17 +815,18 @@ async function installFixtureNetwork(page, options = {}) {
     } else if (endpoint === 'osi-v2-ai-pack') {
       if (body.op === 'capabilities') {
         const owner = body.case_ref === CASE_REF || body.case_ref === PRIVATE_REF;
+        const aiMaintainerAccess = maintainerAccess && typeof body.read_session === 'string' && body.read_session.length > 0;
         response = roleAudit ? {
           ok: true,
           ai_pack_access_mode: 'maintainer_only',
           ai_pack_writes_enabled: writesEnabled,
           ai_pack_review_writes_enabled: false,
           wallet_connected: connected,
-          viewer_role: maintainerAccess ? 'maintainer' : (analystEligible ? 'analyst' : (connected ? 'owner' : 'public')),
+          viewer_role: aiMaintainerAccess ? 'maintainer' : (analystEligible ? 'analyst' : (connected ? 'owner' : 'public')),
           analyst_eligible: analystEligible,
-          maintainer_access: maintainerAccess,
-          can_generate: maintainerAccess && writesEnabled,
-          generation_prerequisite: maintainerAccess
+          maintainer_access: aiMaintainerAccess,
+          can_generate: aiMaintainerAccess && writesEnabled,
+          generation_prerequisite: aiMaintainerAccess
             ? null
             : 'AI Pack is private and requires both maintainer gates.',
         } : {
@@ -840,23 +842,58 @@ async function installFixtureNetwork(page, options = {}) {
           generation_prerequisite: 'AI Pack is private and requires both maintainer gates.',
         };
       } else if (body.op === 'get_case_packs') {
-        const roleVersion = {
-          ...aiPackFixture.packs[0].versions[0],
-          can_review_exact_version: analystEligible,
-          review_prerequisite: analystEligible ? null : 'Only an independently eligible analyst may review this exact version.',
-          can_finalize: maintainerAccess,
-          finalize_prerequisite: maintainerAccess ? null : 'Full maintainer double-gate and analyst quorum are required.',
-          quorum: maintainerAccess
-            ? { approve_count: 2, approve_weight: 2.5, required_count: 2, required_weight: 2.5, ready: true }
-            : aiPackFixture.packs[0].versions[0].quorum,
-        };
-        response = roleAudit
-          ? { ok: true, viewer_role: maintainerAccess ? 'maintainer' : (analystEligible ? 'analyst' : 'owner'), packs: [{ ...aiPackFixture.packs[0], versions: [roleVersion] }] }
-          : { ok: true, ...aiPackFixture };
+        if (!body.read_session) {
+          responseStatus = 401;
+          response = { ok: false, error: 'read_session_required' };
+        } else {
+          const roleVersion = {
+            ...aiPackFixture.packs[0].versions[0],
+            can_review_exact_version: analystEligible,
+            review_prerequisite: analystEligible ? null : 'Only an independently eligible analyst may review this exact version.',
+            can_finalize: maintainerAccess,
+            finalize_prerequisite: maintainerAccess ? null : 'Full maintainer double-gate and analyst quorum are required.',
+            quorum: maintainerAccess
+              ? { approve_count: 2, approve_weight: 2.5, required_count: 2, required_weight: 2.5, ready: true }
+              : aiPackFixture.packs[0].versions[0].quorum,
+          };
+          response = roleAudit
+            ? { ok: true, viewer_role: maintainerAccess ? 'maintainer' : (analystEligible ? 'analyst' : 'owner'), packs: [{ ...aiPackFixture.packs[0], versions: [roleVersion] }] }
+            : { ok: true, ...aiPackFixture };
+        }
       } else if (body.op === 'list_public_case_packs') {
         response = { ok: true, viewer_role: 'public', packs: [] };
+      } else if (body.op === 'operations_status') {
+        if (!maintainerAccess || !body.read_session) {
+          responseStatus = 403;
+          response = { ok: false, error: 'maintainer_read_proof_required' };
+        } else response = {
+          ok: true,
+          access_mode: 'maintainer_only',
+          writes_enabled: true,
+          review_writes_enabled: false,
+          provider_configured: true,
+          private_draft_count: 1,
+          pack_count: 1,
+          in_progress_generation_count: 0,
+          eligible_cases: [{
+            public_ref: AI_CASE_REF,
+            title: aiCase.title,
+            stage: aiCase.stage,
+            can_generate: true,
+            generation_prerequisite: null,
+          }, {
+            public_ref: 'OSI-C-OWNERCONFLICT01',
+            title: 'Maintainer-owned Case conflict',
+            stage: 'open_public',
+            can_generate: false,
+            generation_prerequisite: 'A Case owner cannot generate an AI Pack for their own Case in maintainer-only mode.',
+          }],
+        };
       } else if (body.op === 'prepare_generation') {
-        if (lifecycle) response = { ok: true, nonce: 'ai-generation-nonce', message: 'OSI AI PACK generation fixture message' };
+        if (!body.read_session) {
+          responseStatus = 401;
+          response = { ok: false, error: 'read_session_required' };
+        } else if (lifecycle) response = { ok: true, nonce: 'ai-generation-nonce', message: 'OSI AI PACK generation fixture message' };
         else {
           await new Promise((resolve) => setTimeout(resolve, 180));
           response = {
@@ -2635,6 +2672,11 @@ test('AI Pack drawer preserves capability, keyboard, reduced-motion, and 390px c
   await expect(page.locator('#osi-ai-pack-generate')).toBeDisabled();
   await expect(page.locator('#osi-ai-pack-generation-status')).toContainText('Try again in 2 minutes.');
   await expect(page.locator('#osi-ai-pack-generate')).toBeEnabled();
+  expect(page.__fixtureOps.some((entry) => (
+    entry.endpoint === 'osi-v2-ai-pack'
+      && entry.op === 'prepare_generation'
+      && entry.hasReadSession === true
+  ))).toBe(true);
 
   await aiTab.focus();
   await aiTab.press('ArrowRight');
@@ -2681,6 +2723,24 @@ test('AI Pack drawer preserves capability, keyboard, reduced-motion, and 390px c
   await page.locator('#osi-case-drawer .osi-case-close').click();
   await expect(page.locator('#osi-case-drawer')).toBeHidden();
   await expect(opener).toBeFocused();
+  expectCleanRuntime(page);
+});
+
+test('AI Pack Operations status is proof-bound and owner-conflicted Cases fail closed', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.evaluate(() => window.osiNavigate('admin'));
+  await expect(page.locator('#admPanel')).toBeVisible();
+
+  const operations = page.locator('#osi-native-ops-overview');
+  await expect(operations).toContainText('Private AI Pack Operations');
+  const conflict = operations.locator('.moc-feed-row').filter({ hasText: 'Maintainer-owned Case conflict' });
+  await expect(conflict).toContainText('A Case owner cannot generate an AI Pack for their own Case');
+  await expect(conflict.getByRole('button', { name: 'Open AI Pack' })).toBeDisabled();
+  expect(page.__fixtureOps.some((entry) => (
+    entry.endpoint === 'osi-v2-ai-pack'
+      && entry.op === 'operations_status'
+      && entry.hasReadSession === true
+  ))).toBe(true);
   expectCleanRuntime(page);
 });
 

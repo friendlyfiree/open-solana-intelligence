@@ -7,6 +7,7 @@ import {
   AI_PACK_CONFIDENCE_COMPONENTS,
   AI_PACK_GENERATION_EVENT,
   GenerationExecutionError,
+  authorizeMaintainerRead,
   assertSafeText,
   authorizedCasePacksDto,
   buildLayerInputs,
@@ -195,6 +196,48 @@ test("approval Memo is the exact maintainer-bound class-A proof", () => {
   const memo = canonicalAiPackApprovalMemo(binding);
   assert.equal(memo, canonicalAiPackProof(binding));
   assert.throws(() => canonicalAiPackApprovalMemo(proof()), /approval_purpose_invalid/);
+});
+
+test("auth-only and forged admin-wallet claims never satisfy the private maintainer read gate", () => {
+  const forgedPublicAdminWallet = authorizeMaintainerRead({
+    wallet: WALLET,
+    // This models a valid maintainer JWT paired only with the publicly known
+    // configured wallet value. The missing wallet-bound read proof must still
+    // deny the request.
+    maintainer_ok: true,
+    read_proof_ok: false,
+    read_proof_reason: "read_session_required",
+  });
+  assert.deepEqual(forgedPublicAdminWallet, {
+    ok: false,
+    reason: "read_session_required",
+  });
+
+  const authOnly = authorizeMaintainerRead({
+    wallet: WALLET,
+    maintainer_ok: false,
+    maintainer_reason: "half_maintainer_auth_only",
+    read_proof_ok: true,
+    read_proof_wallet: WALLET,
+  });
+  assert.deepEqual(authOnly, {
+    ok: false,
+    reason: "half_maintainer_auth_only",
+  });
+
+  assert.deepEqual(authorizeMaintainerRead({
+    wallet: WALLET,
+    maintainer_ok: true,
+    read_proof_ok: true,
+    read_proof_wallet: OTHER_WALLET,
+  }), { ok: false, reason: "read_session_wallet_mismatch" });
+
+  assert.deepEqual(authorizeMaintainerRead({
+    wallet: WALLET,
+    maintainer_ok: true,
+    read_proof_ok: true,
+    read_proof_wallet: WALLET,
+  }), { ok: true, reason: null });
 });
 
 test("review and owner feedback normalization reject unsafe or invented authority", () => {
@@ -806,6 +849,17 @@ test("gateway statically preserves the service-only, fail-closed boundary", asyn
     assert.match(source, new RegExp('case "' + op + '"'));
   }
   assert.match(source, /READ_SESSION_SCOPES\.AIPACK_DETAIL/);
+  for (const functionName of ["capabilities", "prepareGeneration", "operationsStatus"]) {
+    const start = source.indexOf("async function " + functionName);
+    const end = source.indexOf("\nasync function ", start + 1);
+    const body = source.slice(start, end < 0 ? source.length : end);
+    assert.match(body, /verifyPrivateRead\(req, body\)/);
+    assert.match(body, /authorizeMaintainerRead/);
+  }
+  assert.match(source, /caseRow\?\.submitted_by_wallet === wallet/);
+  assert.match(source, /case_owner_conflict: caseOwnerConflict/);
+  assert.match(source, /\.select\("public_ref,title,stage,updated_at,submitted_by_wallet"\)/);
+  assert.match(source, /generation_prerequisite: canGenerate \? null : generationPrerequisite/);
   assert.match(source, /verifyEd25519Signature/);
   assert.match(source, /validateConfirmedMemoTransaction/);
   assert.match(source, /MAINNET_GENESIS_HASH/);

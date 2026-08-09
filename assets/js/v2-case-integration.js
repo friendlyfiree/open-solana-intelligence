@@ -914,11 +914,22 @@
       var aiPackCapabilities={ai_pack_writes_enabled:false,ai_pack_review_writes_enabled:false,can_generate:false,generation_prerequisite:'AI Pack capabilities are safely unavailable.'};
       var aiPackCaseRef=String(state.current&&state.current.public_ref||'');
       if(aiPackCaseRef){
-        try{aiPackCapabilities=await api(AI_PACK_URL,{
-          op:'capabilities',
-          wallet:wallet,
-          case_ref:aiPackCaseRef
-        });}catch(aiPackError){}
+        try{
+          var aiPackRequest={op:'capabilities',wallet:wallet,case_ref:aiPackCaseRef};
+          if(typeof window.osiV2ReadSession==='function'){
+            try{
+              var aiPackSession=await window.osiV2ReadSession(['aipack:detail'],{allowUnlock:false});
+              if(aiPackSession&&aiPackSession.wallet===wallet&&aiPackSession.token)aiPackRequest.read_session=aiPackSession.token;
+            }catch(aiPackSessionError){}
+          }
+          aiPackCapabilities=await api(AI_PACK_URL,aiPackRequest);
+          aiPackCapabilities.ai_pack_maintainer_access=aiPackCapabilities.maintainer_access===true;
+          delete aiPackCapabilities.wallet_connected;
+          delete aiPackCapabilities.viewer_role;
+          delete aiPackCapabilities.analyst_eligible;
+          delete aiPackCapabilities.maintainer_access;
+          delete aiPackCapabilities.maintainer_gate;
+        }catch(aiPackError){}
       }
       assertPrivateGeneration(generation);if(wallet!==String(walletPubkey||''))throw new Error('private_session_changed');
       state.capabilities=Object.assign({},results[0],results[1],results[2],aiPackCapabilities);

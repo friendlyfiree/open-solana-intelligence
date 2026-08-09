@@ -110,7 +110,7 @@
     return{slot:slot,idempotencyKey:current.idempotencyKey};
   }
   function clearOperation(slot){delete state.operationKeys[slot];}
-  async function exactWrite(prepareOp,commitOp,target,payload,generation,epoch,ref){
+  async function exactWrite(prepareOp,commitOp,target,payload,generation,epoch,ref,prepareAuthorization){
     var actor=wallet();
     if(!actor)throw new Error('wallet_required');
     assertActionCurrent(generation,actor,epoch,ref);
@@ -119,7 +119,7 @@
     try{
       prepared=await api(Object.assign({
         op:prepareOp,wallet:actor,idempotency_key:operation.idempotencyKey
-      },payload||{}));
+      },payload||{},prepareAuthorization||{}));
       assertActionCurrent(generation,actor,epoch,ref);
     }catch(error){
       if(generation===privateGeneration()&&actor===wallet()&&epoch===state.actionEpoch&&ref===caseRef()&&error&&error.retryWithNewIdempotencyKey)clearOperation(operation.slot);
@@ -179,6 +179,7 @@
       half_maintainer_wallet_only:'Maintainer finalization also requires the configured Supabase identity.',
       half_maintainer_auth_only:'Maintainer finalization also requires the configured admin wallet.',
       read_session_disabled_or_unavailable:'Private AI Pack layers are locked because read sessions are disabled or unavailable.',
+      read_session_required:'Refresh private access to continue with this AI Pack action.',
       read_session_wrong_scope:'Refresh private access for the AI Pack detail scope.',
       read_session_expired:'Refresh private access to view authorized AI Pack layers.',
       private_session_changed:'Private access changed while this action was running. Reopen the exact AI Pack task.',
@@ -534,9 +535,13 @@
       if(window.OSI_WALLET_READY)await window.OSI_WALLET_READY;
       if(!loadIsCurrent(token,ref))return;
       var caps=state.capabilities||{};
+      var session=null;
       if(wallet()){
         try{
-          var exactCaps=await api({op:'capabilities',wallet:wallet(),case_ref:ref});
+          session=await window.osiV2ReadSession(['aipack:detail'],{allowUnlock:true});
+          var sessionGeneration=privateGeneration();
+          var exactCaps=await api({op:'capabilities',wallet:session.wallet,case_ref:ref,read_session:session.token});
+          assertPrivateGeneration(sessionGeneration,session.wallet);
           if(!loadIsCurrent(token,ref))return;
           caps=mergeAiCapabilities(caps,exactCaps);
         }catch(capabilityError){
@@ -554,7 +559,7 @@
       var result;
       if(shouldUsePrivate(caps,ref)){
         try{
-          var session=await window.osiV2ReadSession(['aipack:detail'],{allowUnlock:true});
+          if(!session||session.wallet!==wallet()||!session.token)throw new Error('read_session_required');
           var sessionGeneration=privateGeneration();
           result=await api({op:'get_case_packs',case_ref:ref,wallet:session.wallet,read_session:session.token});
           assertPrivateGeneration(sessionGeneration,session.wallet);
@@ -592,8 +597,10 @@
     try{
       setStatus('generation','Preparing an exact single-use generation authorization...');
       var packType=document.getElementById('osi-ai-pack-type').value;
+      var session=await window.osiV2ReadSession(['aipack:detail'],{allowUnlock:true});
+      assertActionCurrent(generation,session.wallet,epoch,ref);
       setStatus('generation','Approve the wallet-signature request. This is not an on-chain transaction.');
-      await exactWrite('prepare_generation','commit_generation',ref,{case_ref:ref,pack_type:packType},generation,epoch,ref);
+      await exactWrite('prepare_generation','commit_generation',ref,{case_ref:ref,pack_type:packType},generation,epoch,ref,{read_session:session.token});
       assertActionCurrent(generation,null,epoch,ref);
       setStatus('generation','Maintainer-only immutable draft generated from approved evidence. It remains private and cannot be published in this mode.','success');
       endAction();
