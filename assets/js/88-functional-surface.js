@@ -76,7 +76,7 @@
       host.appendChild(section);return;
     }
     var summary=make('div','osi-native-metrics');
-    appendMetric(summary,'Private AI drafts',Number(status.private_draft_count||0));
+    appendMetric(summary,'AI Pack drafts',Number(status.private_draft_count||0));
     appendMetric(summary,'Generation in progress',Number(status.in_progress_generation_count||0));
     appendMetric(summary,'Provider',status.provider_configured===true?'configured':'blocked');
     section.appendChild(summary);
