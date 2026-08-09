@@ -147,6 +147,19 @@ ok(index.includes('id="pl-dash" role="region" aria-label="Proof Log summary" tab
 const about = index.slice(index.indexOf('<section class="sec osi-about"'), index.indexOf('<div class="fo-modal" id="apx-modal"'));
 ok(about.includes('Product boundary') && about.includes('Proof vocabulary') && about.includes('Protocol principles') && !/\babt-|\bab-/.test(about), 'About uses the shared design system without repeating the Home lifecycle card wall');
 ok(about.includes('Wallet-signed and server-verified. Never labeled on-chain.') && about.includes('Memo-anchored on Solana only after the exact transaction confirms.') && about.includes('Verified SOL'), 'About preserves distinct and truthful proof vocabulary');
+ok(about.includes('class="osi-about-record-model" aria-label="OSI public record contract"')
+  && ['Attributable input', 'Exact artifact', 'Independent review', 'Open disagreement'].every((label) => about.includes(label)),
+  'About hero explains the record contract instead of using the emblem as empty decoration');
+ok(about.includes('aria-label="Core OSI commitments"')
+  && about.includes('<dd>Public evidence</dd>')
+  && about.includes('<dd>Count and weight gates</dd>')
+  && about.includes('<dd>Challengeable record</dd>'),
+  'About makes source, review, and outcome boundaries scannable without invented metrics');
+ok(css.includes('--about-accent: var(--amber)')
+  && css.includes('#about-hero .osi-button-primary')
+  && css.includes('.osi-about-model-steps'),
+  'About uses the accepted amber identity for navigation while preserving the crimson signal as a boundary mark');
+ok(!about.includes('\u2014') && about.includes('Process, not verdict'), 'About copy stays concise and preserves the process-not-verdict boundary');
 ok(css.includes('.osi-about-hero') && css.includes('.osi-about-proof-grid') && css.includes('@keyframes osi-report-bind'), 'About and Report illustration have shared responsive visual styling');
 ok(index.includes('<form class="adm-card" onsubmit="event.preventDefault();admLogin()">') && index.includes('id="admMsg" role="status" aria-live="polite"'), 'maintainer sign-in is keyboard-submittable and reports status accessibly');
 ok(!/onclick="[^"]*showView\(/.test(index), 'visible document actions use canonical navigation instead of bypassing history state');

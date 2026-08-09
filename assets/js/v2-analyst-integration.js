@@ -577,8 +577,21 @@
   // One renderer for every public profile the page can open. An analyst and the
   // maintainer differ in exactly two places: the badge, and the facts row that
   // states governance standing. Everything else - expertise, safe links,
-  // voluntary support, contributions, proof history - is identical, because the
-  // guarantees behind them are identical.
+  // contributions and proof history - is identical, because the guarantees
+  // behind them are identical. Voluntary support is the deliberate exception:
+  // the payment gateway accepts an eligible analyst, not a maintainer profile
+  // with no separate analyst standing.
+  function supportSection(profile,isMaintainer){
+    var separatelyEligible=!isMaintainer||state.profiles.some(function(row){return String(row.wallet)===String(profile.wallet);});
+    if(!separatelyEligible)return '';
+    var isSelf=String(walletPubkey||'')===String(profile.wallet||'');
+    var supportCopy=esc(t('Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.'));
+    var action=isSelf
+      ?'<button class="osi-primary-action" type="button" disabled aria-describedby="osi-profile-support-copy osi-profile-support-reason">'+esc(t('Self-support unavailable'))+'</button>'
+        +'<p id="osi-profile-support-reason">'+esc(t('The connected wallet owns this analyst profile. The server rejects self-support.'))+'</p>'
+      :'<button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">'+esc(t('Support with SOL via Phantom or Solana Pay'))+'</button>';
+    return'<section class="osi-cv-hide-in-print"><h4>'+esc(t('Voluntary support'))+'</h4><p id="osi-profile-support-copy">'+supportCopy+'</p>'+action+'</section>';
+  }
   function renderProfileModal(body,profile,options){
     options=options||{};
     var isMaintainer=options.maintainer===true;
@@ -631,7 +644,7 @@
       +(expertise?'<section><h4>'+esc(t('Expertise'))+'</h4><div class="osi-tag-list">'+expertise+'</div></section>':'')
       +(links?'<section><h4>'+esc(t('Safe public links'))+'</h4><div class="osi-safe-links">'+links+'</div></section>':'')
       +workSection(profile)
-      +'<section class="osi-cv-hide-in-print"><h4>'+esc(t('Voluntary support'))+'</h4><p>'+esc(t('Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.'))+'</p><button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">'+esc(t('Support with SOL via Phantom or Solana Pay'))+'</button></section>'
+      +supportSection(profile,isMaintainer)
       // Proof history stays because it carries what the work record deliberately
       // leaves out: receipts with no public subject at all, such as the
       // credential grant itself. The old "Public contributions" section is gone

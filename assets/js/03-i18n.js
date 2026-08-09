@@ -808,6 +808,8 @@
     'Voluntary support': 'Gönüllü destek',
     'Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.': 'Yerel SOL’u Phantom veya Solana Pay ile doğrudan gönderin. Destek; ağırlığı, sıralamayı, uygunluğu veya yönetişimi değiştirmez.',
     'Support with SOL via Phantom or Solana Pay': 'Phantom veya Solana Pay ile SOL desteği gönder',
+    'Self-support unavailable': 'Kendi profilinize destek gönderemezsiniz',
+    'The connected wallet owns this analyst profile. The server rejects self-support.': 'Bağlı cüzdan bu analist profilinin sahibidir. Sunucu kişinin kendi profiline destek göndermesini reddeder.',
     'Use connected Phantom': 'Bağlı Phantom’u kullan',
     'Approve in connected Phantom': 'Bağlı Phantom’da onayla',
     'The transaction contains the exact Memo, recipient, amount, and single-use Solana Pay reference.': 'İşlem; kesin Memo’yu, alıcıyı, tutarı ve tek kullanımlık Solana Pay referansını içerir.',
