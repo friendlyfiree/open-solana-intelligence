@@ -437,6 +437,7 @@ async function loadReports(
     rows.push({
       ...review,
       reviewer_handle: profile?.handle ?? null,
+      reviewer_display_name: profile?.display_name ?? null,
       receipt: receiptById.get(String(review.event_receipt_id)) ?? null,
     });
     reviewsByVersion.set(key, rows);
@@ -656,7 +657,7 @@ async function listPublicReports(body: Row): Promise<Response> {
     const [profileResult, receiptResult] = await Promise.all([
       reviewerWallets.length
         ? admin.from("analyst_profiles")
-          .select("wallet,handle,status,tier_code,verified,approved,weight_cached")
+          .select("wallet,handle,display_name,status,tier_code,verified,approved,weight_cached")
           .in("wallet", reviewerWallets).limit(1000)
         : Promise.resolve({ data: [], error: null }),
       receiptIds.length
@@ -673,6 +674,7 @@ async function listPublicReports(body: Row): Promise<Response> {
       rows.push({
         ...review,
         reviewer_handle: profileByWallet.get(String(review.reviewer_wallet))?.handle ?? null,
+        reviewer_display_name: profileByWallet.get(String(review.reviewer_wallet))?.display_name ?? null,
         receipt: receiptById.get(String(review.event_receipt_id)) ?? null,
       });
       reviewsByVersion.set(key, rows);

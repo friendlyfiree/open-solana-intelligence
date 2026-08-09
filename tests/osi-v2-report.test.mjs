@@ -741,6 +741,56 @@ ok("bootstrap publication remains visibly distinct after public or authorized re
     && uiSource.includes("It is not independent analyst quorum.")
     && uiSource.includes("publicationChannelHtml(row.publication_proof)")
     && uiSource.includes("publicationChannelHtml(proof)"));
+// ── Reviewer identity ───────────────────────────────────────────────────────
+// A handle is optional on an analyst profile and two of the three live
+// analysts have never set one, so a reviewer resolved by handle alone rendered
+// as a shortened wallet on the Report surfaces while the Analyst Network
+// showed their name. These pin the one order both now use.
+ok("a reviewer with no handle is still carried by name through the authorized DTO", (() => {
+  const dto = core.authorizedReportDto(
+    {
+      case_public_ref: "OSI-E0F2D49EA78B",
+      report_public_ref: "OSI-RPT-B7D4E9F4A3D1",
+      author_wallet: "9KZXnfztWnBNJARVGyMoPuT7dF759bKuPwgdmgUVJQXb",
+      status: "active",
+      current_version_ref: "OSI-RV-84E1DCA675CA4480",
+    },
+    [{
+      id: "v1", version_ref: "OSI-RV-84E1DCA675CA4480", version_no: 1,
+      lifecycle_state: "in_review",
+      created_by_wallet: "9KZXnfztWnBNJARVGyMoPuT7dF759bKuPwgdmgUVJQXb",
+      evidence_snapshot_hash: "a".repeat(64), body_private: "body",
+    }],
+    new Map([["v1", []]]),
+    new Map(),
+    "analyst",
+    new Map([["v1", [
+      { public_ref: "OSI-RVW-9758F496558B4410", reviewer_wallet: "fceautvpTPgT3BV43SbCU6i9P1QhHz5PhKM96ZFgQ9v",
+        reviewer_handle: null, reviewer_display_name: "lilbagscientist",
+        decision: "approve", weight: 0.5, tier_snapshot: "probationary", is_active: true },
+      { public_ref: "OSI-RVW-79E56FCED14449E7", reviewer_wallet: "2awpjumkqhWywwbmDBixjo7cAnqD5fGfNGNv6MMTc4M7",
+        reviewer_handle: "nerissa", reviewer_display_name: "NerissaXBT",
+        decision: "approve", weight: 0.5, tier_snapshot: "probationary", is_active: true },
+    ]]]),
+  );
+  const reviews = dto.versions[0].reviews;
+  return reviews[0].reviewer_display_name === "lilbagscientist"
+    && reviews[0].reviewer_handle === null
+    && reviews[1].reviewer_display_name === "NerissaXBT";
+})());
+ok("the read gateway selects the display name it is asked to project", (() => {
+  const edge = readFileSync(join(root, "supabase/functions/osi-v2-report-read/index.ts"), "utf8");
+  const selects = edge.match(/\.select\("wallet,handle[^"]*"\)/g) || [];
+  return selects.length >= 2
+    && selects.every((select) => select.includes("display_name"))
+    && (edge.match(/reviewer_display_name:/g) || []).length >= 2;
+})());
+ok("both Report review surfaces resolve one reviewer through one helper",
+  uiSource.includes("function reviewerName(review)")
+    && /reviewerName[\s\S]{0,220}reviewer_display_name[\s\S]{0,120}reviewer_handle[\s\S]{0,120}short\(/.test(uiSource)
+    && (uiSource.match(/esc\(reviewerName\(review\)\)/g) || []).length === 2
+    && !uiSource.includes("review.reviewer_handle||short(review.reviewer_wallet)"));
+
 ok("legacy and preview pages never load the Report bundle",
   !readFileSync(join(root, "legacy.html"), "utf8").includes("v2-report-integration")
     && !existsSync(join(root, "v2-preview.html"))
