@@ -689,9 +689,23 @@ ok("anonymous Report reads pass the body only through the projection that gates 
     && publicReadSlice.includes("body_private: version.body_private,")
     && publicReadSlice.includes("body_is_public: version.body_is_public,")
     && !/jsonResponse\([^)]*body_private/.test(publicReadSlice));
-ok("only a published version whose author allowed it can carry the body out",
-  /public_body:\s*report\.body_is_public === true && report\.body_private != null/
-    .test(readFileSync(join(root, "supabase/functions/_shared/osi-v2-report-core.mjs"), "utf8")));
+ok("only a published version whose author allowed it can carry the body out", (() => {
+  const base = {
+    report_public_ref: "OSI-RPT-B7D4E9F4A3D1",
+    version_public_ref: "OSI-RV-84E1DCA675CA4480",
+    version_no: 1, lifecycle_state: "published",
+    content_public_safe: "A summary.", body_private: "A different, longer analysis.",
+    evidence: [], reviews: [],
+  };
+  // Every falsy or absent shape of the flag withholds it; only exact true releases it.
+  for (const flag of [false, null, undefined, 0, "", "true"]) {
+    if (core.publicReportGovernanceDto({ ...base, body_is_public: flag }).public_body !== null) {
+      return false;
+    }
+  }
+  return core.publicReportGovernanceDto({ ...base, body_is_public: true }).public_body
+    === base.body_private;
+})());
 ok("public Report visibility follows only the exact published pointer",
   readSource.includes('.not("current_published_version_id", "is", null)')
     && readSource.includes("String(header.current_published_version_id) === String(version.id)")
@@ -775,6 +789,14 @@ ok("a published version whose author allowed it carries the full analysis", (() 
 })());
 ok("a published version whose author held the analysis back carries none of it", (() => {
   const dto = core.publicReportGovernanceDto({ ...publishedBase, body_is_public: false });
+  return dto.public_body === null && dto.content_public_safe !== null;
+})());
+ok("a body the author also used as the summary is not printed a second time", (() => {
+  const same = "The same document, written once into both fields.";
+  const dto = core.publicReportGovernanceDto({
+    ...publishedBase, body_is_public: true,
+    body_private: same, content_public_safe: "  " + same + "\n",
+  });
   return dto.public_body === null && dto.content_public_safe !== null;
 })());
 ok("publication itself is still the gate an unpublished version cannot pass", (() => {
