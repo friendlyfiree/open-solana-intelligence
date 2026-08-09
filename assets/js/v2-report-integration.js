@@ -80,6 +80,18 @@
     });
   }
   function short(value){value=String(value||'');return value.length>18?value.slice(0,8)+'...'+value.slice(-6):value;}
+  // One reviewer, one name, wherever they appear. The Analyst Network has
+  // always resolved a person as display name, then handle, then a shortened
+  // wallet, but the Report review surfaces skipped display name entirely. A
+  // handle is optional on a profile and two of the three live analysts have
+  // never set one, so the same analyst read as a name on one page and as a hex
+  // fragment on another. Falling back in the roster's order fixes that without
+  // widening what is disclosed: both fields are already public profile fields.
+  function reviewerName(review){
+    return String(review&&review.reviewer_display_name||'').trim()
+      ||String(review&&review.reviewer_handle||'').trim()
+      ||short(review&&review.reviewer_wallet);
+  }
   function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();});}
   function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
   function dateText(value){var date=new Date(value||''),selected=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():(typeof document!=='undefined'&&document.documentElement?document.documentElement.lang:''),locale=String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US';return isNaN(date.getTime())?'Not recorded':date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short'});}
@@ -453,7 +465,7 @@
   function publicReviewTimeline(rows){
     if(!rows||!rows.length)return'';
     return'<div class="osi-report-timeline"><h4>Review timeline</h4>'+rows.map(function(review){
-      return'<div class="osi-report-timeline-item"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' weight · '+esc(label(review.tier_snapshot))+sasAuthority(review)+'</span></div><p data-osi-user-content>'+esc(review.public_rationale)+'</p><small>'+esc(review.actor_role)+' · '+esc(review.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof recorded')+' · '+esc(dateText(review.created_at))+(review.is_active?' · active':' · superseded')+'</small></div>';
+      return'<div class="osi-report-timeline-item"><div><b>'+esc(reviewerName(review))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' weight · '+esc(label(review.tier_snapshot))+sasAuthority(review)+'</span></div><p data-osi-user-content>'+esc(review.public_rationale)+'</p><small>'+esc(review.actor_role)+' · '+esc(review.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof recorded')+' · '+esc(dateText(review.created_at))+(review.is_active?' · active':' · superseded')+'</small></div>';
     }).join('')+'</div>';
   }
   // Structured public evidence. The published wallets, transaction signatures
@@ -712,7 +724,7 @@
     if(!reviews.length)return'<div class="osi-report-card-meta">No analyst reviews have been cast for this exact version.</div>';
     return'<div class="osi-report-review-history">'+reviews.map(function(review){
       var note=privateAccess&&review.private_note?'<p class="osi-report-private-note" data-osi-user-content><b>Restricted analyst note:</b> '+esc(review.private_note)+'</p>':'';
-      return'<div class="osi-report-review-row"><div><b>'+esc(review.reviewer_handle||short(review.reviewer_wallet))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' · '+esc(label(review.tier_snapshot))+(review.is_active?' · active':' · superseded')+sasAuthority(review)+'</span></div><p data-osi-user-content>'+esc(review.public_rationale||'No public-safe rationale recorded.')+'</p>'+note+'<small>'+esc(review.proof&&review.proof.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof unavailable')+' · '+esc(dateText(review.created_at))+'</small></div>';
+      return'<div class="osi-report-review-row"><div><b>'+esc(reviewerName(review))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' · '+esc(label(review.tier_snapshot))+(review.is_active?' · active':' · superseded')+sasAuthority(review)+'</span></div><p data-osi-user-content>'+esc(review.public_rationale||'No public-safe rationale recorded.')+'</p>'+note+'<small>'+esc(review.proof&&review.proof.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof unavailable')+' · '+esc(dateText(review.created_at))+'</small></div>';
     }).join('')+'</div>';
   }
   function publicationCapability(version){return version&&version.publication_capability||{};}

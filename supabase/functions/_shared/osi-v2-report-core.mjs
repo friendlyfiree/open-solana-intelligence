@@ -617,6 +617,7 @@ function exactVersionDto(
       review_public_ref: review.public_ref,
       reviewer_wallet: review.reviewer_wallet,
       reviewer_handle: review.reviewer_handle || null,
+      reviewer_display_name: review.reviewer_display_name || null,
       decision: review.decision,
       weight: Number(review.weight),
       tier_snapshot: review.tier_snapshot,
@@ -753,6 +754,8 @@ export function publicReportGovernanceDto(report) {
       review_public_ref: String(review.public_ref || ""),
       reviewer_wallet: String(review.reviewer_wallet || ""),
       reviewer_handle: review.reviewer_handle ? String(review.reviewer_handle) : null,
+      reviewer_display_name: review.reviewer_display_name
+        ? String(review.reviewer_display_name) : null,
       decision: String(review.decision || ""),
       weight: Number(review.weight || 0),
       tier_snapshot: String(review.tier_snapshot || ""),
