@@ -277,7 +277,7 @@
       <div class="cr-hero-copy">
         <div class="cr-kicker mono">OSI &gt; Public Records</div>
         <h1 class="cr-title">Public Records</h1>
-        <p class="cr-sub">Public Cases, reviewed Case outcomes, and published Wire findings with their exact lifecycle and proof status.</p>
+        <p class="cr-sub">Public Cases, exact current published Case Report versions, and published Wire findings with their lifecycle and proof status.</p>
         <div class="cr-chips" aria-label="Public record trust anchors">
           <span>Reviewed records</span>
           <span>Public evidence</span>
@@ -310,13 +310,13 @@
     <div class="cr-console">
       <div class="cr-maincol">
         <div class="cr-toolbar">
-          <div class="cr-search-wrap"><input class="cr-search" id="cr-search" type="search" aria-label="Search public records" placeholder="Search by Case or Wire ID, wallet, entity, title, or tx hash..." oninput="crSearch(this.value)"></div>
+          <div class="cr-search-wrap"><input class="cr-search" id="cr-search" type="search" aria-label="Search public records" placeholder="Search by Case, Report, or Wire ID, wallet, title, or tx hash..." oninput="crSearch(this.value)"></div>
           <div class="rf-tabs cr-fils" id="cr-fils">
-            <button class="rf-tab active" data-f="all" type="button" onclick="crFilter('all')">All</button>
-            <button class="rf-tab" data-f="reviewed" type="button" onclick="crFilter('reviewed')">Reviewed</button>
-            <button class="rf-tab" data-f="memo" type="button" onclick="crFilter('memo')">Memo-linked</button>
-            <button class="rf-tab" data-f="challenged" type="button" onclick="crFilter('challenged')">Challenged</button>
-            <button class="rf-tab" data-f="sealed" type="button" onclick="crFilter('sealed')">Sealed</button>
+            <button class="rf-tab active" data-f="all" type="button" aria-pressed="true" onclick="crFilter('all')">All</button>
+            <button class="rf-tab" data-f="reviewed" type="button" aria-pressed="false" onclick="crFilter('reviewed')">Reviewed</button>
+            <button class="rf-tab" data-f="memo" type="button" aria-pressed="false" onclick="crFilter('memo')">Memo-linked</button>
+            <button class="rf-tab" data-f="challenged" type="button" aria-pressed="false" onclick="crFilter('challenged')">Challenged</button>
+            <button class="rf-tab" data-f="sealed" type="button" aria-pressed="false" onclick="crFilter('sealed')">Sealed</button>
           </div>
           <label class="fo-sel"><span class="fo-sel-l mono">Sort</span>
             <select id="cr-sort-sel" onchange="crSortChange(this.value)" aria-label="Sort records">
@@ -326,7 +326,7 @@
             </select>
           </label>
         </div>
-        <div id="case-records"></div>
+        <div id="case-records" aria-busy="true"></div>
         <div class="fo-pager"><span class="fo-count mono" id="cr-count" aria-live="polite"></span><div class="fo-pnav" id="cr-pnav" role="navigation" aria-label="Record pages"></div></div>
         <div class="cr-disclaimer">
           <span>OSI records are informational only.</span>

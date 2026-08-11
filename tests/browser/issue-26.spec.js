@@ -5,7 +5,7 @@ const path = require('node:path');
 const WALLET = '11111111111111111111111111111111';
 const OTHER = '11111111111111111111111111111112';
 const TX = '2'.repeat(88);
-const CASE_REF = 'OSI-C-A1B2C3D4E5F60718';
+const CASE_REF = 'OSI-E1B2C3D4E5F60718';
 const AI_CASE_REF = 'OSI-A1B2C3D4E5F6';
 const AI_PACK_REF = 'OSI-AP-A1B2C3D4E5F6';
 const AI_VERSION_REF = 'OSI-APV-A1B2C3D4E5F60718';
@@ -46,6 +46,9 @@ const iso = (offsetDays) => new Date(now + offsetDays * 86_400_000).toISOString(
 const proofRows = [
   { event_type: 'CASE_REVIEWED', label: 'Wallet-signed and server-verified', actor_wallet: OTHER, actor_role: 'analyst', decision: 'approve', occurred_at: iso(-8) },
   { event_type: 'CASE_OPENED', label: 'Memo-anchored on Solana', actor_wallet: OTHER, actor_role: 'analyst', decision: 'open', occurred_at: iso(-7), tx_sig: TX, solscan_url: `https://solscan.io/tx/${TX}` },
+  { event_type: 'CASE_REPORT_REVIEW_CAST', public_ref: VERSION_REF, label: 'Wallet-signed and server-verified', actor_wallet: OTHER, actor_role: 'analyst', decision: 'approve', occurred_at: iso(-6) },
+  { event_type: 'CASE_REPORT_REVIEW_CAST', public_ref: VERSION_REF, label: 'Wallet-signed and server-verified', actor_wallet: ROLE_WALLETS.verified_analyst, actor_role: 'analyst', decision: 'approve', occurred_at: iso(-5) },
+  { event_type: 'REPORT_PUBLISHED', public_ref: VERSION_REF, label: 'Memo-anchored on Solana', actor_wallet: OTHER, actor_role: 'analyst', decision: 'publish', occurred_at: iso(-4), tx_sig: TX, solscan_url: `https://solscan.io/tx/${TX}` },
   {
     event_type: 'REWARD_PAYMENT_CONFIRMED', label: 'SOL transfer verified on Solana',
     actor_wallet: WALLET, actor_role: 'case_owner', decision: 'paid', occurred_at: iso(-1),
@@ -78,7 +81,9 @@ const richCase = {
   reviews,
   reports: [{
     public_ref: REPORT_REF,
-    current_version: { version_ref: VERSION_REF },
+    current_version: { version_ref: VERSION_REF, version_no: 1, lifecycle_state: 'published', published_at: iso(-4) },
+    content_public_safe: 'Public-safe Report summary for the exact current published version.',
+    published: true,
     versions: [{ version_ref: VERSION_REF, lifecycle_state: 'published' }],
   }],
   governance: {
@@ -119,14 +124,15 @@ const aiCase = {
   submitted_by_wallet: OTHER,
   governance: {},
   money: {},
+  reports: [],
   proof_log: [],
 };
 
 const publicCases = [
   richCase,
   aiCase,
-  { ...richCase, public_ref: 'OSI-C-PLEDGED00000001', title: 'Pledged reward state', stage: 'open_public', money: { reward: { status: 'pledged' } }, governance: {}, proof_log: [] },
-  { ...richCase, public_ref: 'OSI-C-FULFILLED000001', title: 'Fulfilled reward state', stage: 'sealed', money: { reward: { status: 'fulfilled' } }, governance: {}, proof_log: proofRows },
+  { ...richCase, public_ref: 'OSI-C-PLEDGED00000001', title: 'Pledged reward state', stage: 'open_public', money: { reward: { status: 'pledged' } }, governance: {}, reports: [], proof_log: [] },
+  { ...richCase, public_ref: 'OSI-C-FULFILLED000001', title: 'Fulfilled reward state', stage: 'sealed', money: { reward: { status: 'fulfilled' } }, governance: {}, reports: [], proof_log: proofRows },
 ];
 
 const resolutionSelectionCase = {
@@ -506,6 +512,7 @@ async function installFixtureNetwork(page, options = {}) {
   const lifecycle = options.lifecycle === true;
   const empty = options.empty === true;
   const publicFailure = options.publicFailure === true;
+  const caseReadFailureOnly = options.caseReadFailureOnly === true;
   const analystEligible = role === 'verified_analyst' || role === 'report_author';
   const reportReviewEligible = analystEligible || role === 'legacy';
   const maintainerAccess = role === 'maintainer';
@@ -560,6 +567,7 @@ async function installFixtureNetwork(page, options = {}) {
       evidenceCount: body.report && Array.isArray(body.report.evidence) ? body.report.evidence.length
         : body.wire && Array.isArray(body.wire.evidence) ? body.wire.evidence.length : null,
       route: body.route || '',
+      recipients: Array.isArray(body.recipients) ? body.recipients : null,
       hasReadSession: typeof body.read_session === 'string' && body.read_session.length > 0,
     });
     let responseStatus = 200;
@@ -580,8 +588,8 @@ async function installFixtureNetwork(page, options = {}) {
       const auditCases = (roleAudit ? baseCases.concat(resolutionSelectionCase, sealReadyCase) : baseCases)
         .concat(options.governanceBootstrapAudit ? [noParentBootstrapCase] : []);
       if (body.op === 'list_public_cases') {
-        if (publicFailure) responseStatus = 503;
-        response = publicFailure
+        if (publicFailure || caseReadFailureOnly) responseStatus = 503;
+        response = publicFailure || caseReadFailureOnly
           ? { ok: false, error: 'read_failed' }
           : { ok: true, cases: empty ? [] : (openedCase ? auditCases.concat(openedFixture) : auditCases) };
       }
@@ -1167,6 +1175,9 @@ async function installFixtureNetwork(page, options = {}) {
               avatar_url: null,
               contributions: [],
               proof_history: [],
+              support_eligible: options.staleMaintainerSupport !== true,
+              support_unavailable_reason: options.staleMaintainerSupport === true
+                ? 'maintainer_profile_not_current_admin' : null,
             },
           };
       }
@@ -1180,7 +1191,11 @@ async function installFixtureNetwork(page, options = {}) {
         solana_pay_reference_bound: true,
         solana_pay_finality: 'finalized',
       };
-      else if (body.op === 'prepare_payment') response = {
+      else if (body.op === 'prepare_payment') {
+        const maintainerSupport = body.recipients?.[0]?.target_type === 'maintainer';
+        const recipientWallet = maintainerSupport ? ROLE_WALLETS.maintainer : body.recipients[0].target_ref;
+        const targetPublicRef = maintainerSupport ? 'OSI-MAINTAINER' : 'OSI-AN-A1B2C3D4E5F60718';
+        response = {
         ok: true,
         payment_id: '77777777-7777-4777-8777-777777777777',
         payment_kind: 'support',
@@ -1188,12 +1203,12 @@ async function installFixtureNetwork(page, options = {}) {
         network: 'mainnet-beta',
         payer_wallet: body.wallet,
         actor_role: 'wallet',
-        target_public_ref: 'OSI-AN-A1B2C3D4E5F60718',
+        target_public_ref: targetPublicRef,
         recipient_manifest: [{
           ordinal: 0,
-          wallet: body.recipients[0].target_ref,
-          recipient_type: 'analyst',
-          target_ref: 'OSI-AN-A1B2C3D4E5F60718',
+          wallet: recipientWallet,
+          recipient_type: maintainerSupport ? 'maintainer' : 'analyst',
+          target_ref: targetPublicRef,
           amount_lamports: '100000000',
           amount_sol: '0.1',
         }],
@@ -1203,7 +1218,7 @@ async function installFixtureNetwork(page, options = {}) {
         total_sol: '0.1',
         nonce: 'solana-pay-browser-fixture-nonce-20260728',
         payload_hash: 'b'.repeat(64),
-        memo: `OSI2|1|SUPPORT_PAYMENT_CONFIRMED|t=support|id=OSI-AN-A1B2C3D4E5F60718|a=${body.wallet}|r=wallet|d=sent|n=solana-pay-browser-fixture-nonce-20260728|h=${'b'.repeat(64)}|ts=1785268800`,
+        memo: `OSI2|1|SUPPORT_PAYMENT_CONFIRMED|t=support|id=${targetPublicRef}|a=${body.wallet}|r=wallet|d=sent|n=solana-pay-browser-fixture-nonce-20260728|h=${'b'.repeat(64)}|ts=1785268800`,
         issued_at: iso(0),
         expires_at: iso(1),
         direct_wallet_to_wallet: true,
@@ -1215,7 +1230,8 @@ async function installFixtureNetwork(page, options = {}) {
           expires_at: iso(1),
           idempotent_replay: false,
         },
-      };
+        };
+      }
       else if (body.op === 'poll_solana_pay') response = {
         ok: true,
         state: 'awaiting_payment',
@@ -1277,7 +1293,7 @@ async function ready(page, options = {}) {
     const fixtureSriBlock = text.includes("Failed to find a valid digest in the 'integrity' attribute")
       && /https:\/\/(?:bundle\.run|unpkg\.com|cdn\.jsdelivr\.net)\//.test(text)
       && text.includes("OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb");
-    const expectedPublicFailure = options.publicFailure
+    const expectedPublicFailure = (options.publicFailure || options.caseReadFailureOnly)
       && message.type() === 'error'
       && /^Failed to load resource: the server responded with a status of 503 \(Service Unavailable\)$/.test(text);
     const expectedSessionExpiry = options.expireReportReviewOnce
@@ -1305,14 +1321,17 @@ async function ready(page, options = {}) {
     const expectedPublicationIndexingLag = options.publicationCommitIndexingLagOnce
       && response.status() === 409
       && response.url().includes('/functions/v1/osi-v2-report-write');
-    if (response.status() >= 400 && !(options.publicFailure && response.status() === 503 && response.url().includes('/functions/v1/')) && !expectedSessionExpiry && !expectedReviewQueueFailure && !expectedPublicationIndexingLag) {
+    const expectedCaseReadFailure = options.caseReadFailureOnly
+      && response.status() === 503
+      && response.url().includes('/functions/v1/osi-v2-case-read');
+    if (response.status() >= 400 && !(options.publicFailure && response.status() === 503 && response.url().includes('/functions/v1/')) && !expectedCaseReadFailure && !expectedSessionExpiry && !expectedReviewQueueFailure && !expectedPublicationIndexingLag) {
       page.__issue26Errors.push(`http: ${response.status()} ${response.url()}`);
     }
   });
   await installFixtureNetwork(page, options);
   await page.goto('/');
   await page.waitForFunction(() => typeof window.osiNavigate === 'function' && typeof window.osiV2OpenMyCases === 'function');
-  if (options.publicFailure) await expect(page.locator('#osi-home-live-state')).toContainText('Public Case index unavailable');
+  if (options.publicFailure || options.caseReadFailureOnly) await expect(page.locator('#osi-home-live-state')).toContainText('Public Case index unavailable');
   else if (options.empty) await expect(page.locator('#osi-home-live-state')).toContainText('No public Cases are listed');
   else await expect(page.locator('#osi-home-live-state')).toContainText('Reviewed transfer-path investigation');
   const role = options.role || 'legacy';
@@ -1646,7 +1665,8 @@ test('launch readiness: public empty states are explanatory and contain no raw s
   await page.evaluate(() => window.osiNavigate('analysts'));
   await expect(page.locator('#lb-body')).toContainText('No activated analysts yet');
   await page.evaluate(() => window.osiNavigate('records'));
-  await expect(page.locator('#case-records')).toContainText('No public records have been sealed yet');
+  await expect(page.locator('#case-records')).toContainText('No published or sealed records yet');
+  await expect(page.locator('#case-records').getByRole('button', { name: 'Browse public Cases' })).toBeVisible();
   await page.evaluate(() => window.osiNavigate('prooflog'));
   await expect(page.locator('#pl-body')).toContainText(/No proof events|No matching proof/i);
   expect(await page.locator('#main-content').innerText()).not.toMatch(/\b(?:undefined|NaN)\b/);
@@ -1666,7 +1686,21 @@ test('launch readiness: public read failures stay retryable, fail closed, and av
   });
   await expect(page.locator('#wire-cases')).toContainText('Live dispatches are temporarily unavailable');
   await expect(page.locator('#wire-cases').getByRole('button', { name: 'Retry live source' })).toBeVisible();
+  await page.evaluate(() => window.osiNavigate('records'));
+  await expect(page.locator('#case-records')).toContainText('Public records source unavailable');
+  await expect(page.locator('#case-records').getByRole('button', { name: 'Try again' })).toBeVisible();
   expect(await page.locator('#main-content').innerText()).not.toMatch(/read[_ ]failed|undefined|NaN/i);
+  expectCleanRuntime(page);
+});
+
+test('Public Records discloses a partial Case-registry outage while keeping verified sources visible', async ({ page }) => {
+  await ready(page, { role: 'anonymous', caseReadFailureOnly: true });
+  await page.evaluate(() => window.osiNavigate('records'));
+  const records = page.locator('#case-records');
+  await expect(records).toContainText('Some public record sources are temporarily unavailable');
+  await expect(records).toContainText('Published Wire governance fixture');
+  await expect(records.getByRole('button', { name: 'Retry all sources' })).toBeVisible();
+  await expect(records).not.toContainText('No published or sealed records yet');
   expectCleanRuntime(page);
 });
 
@@ -2461,8 +2495,9 @@ test('single-recipient analyst support renders exact Solana Pay QR and explicit 
   const analystRow = page.locator(`[data-analyst-wallet="${OTHER}"]`);
   await expect(analystRow).toBeVisible();
   await analystRow.click();
-  const supportButton = page.getByRole('button', { name: 'Support with SOL via Phantom or Solana Pay' });
+  const supportButton = page.getByRole('button', { name: 'Solana Pay QR' });
   await expect(supportButton).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pay with Phantom' })).toBeVisible();
 
   async function openSolanaPay() {
     await supportButton.click();
@@ -2473,8 +2508,8 @@ test('single-recipient analyst support renders exact Solana Pay QR and explicit 
     await expect(review).toContainText('Solana mainnet-beta');
     await expect(review).toContainText('0.1 SOL / 100000000 lamports');
     await expect(review).toContainText('no custody or escrow');
-    await expect(review.getByRole('button', { name: 'Open Phantom' })).toBeVisible();
-    await review.getByRole('button', { name: 'Show Solana Pay' }).click();
+    await expect(review.getByRole('button', { name: 'Pay with Phantom' })).toBeVisible();
+    await review.getByRole('button', { name: 'Solana Pay QR' }).click();
     await expect(page.locator('#osi-solana-pay')).toBeVisible();
   }
 
@@ -2534,7 +2569,7 @@ test('single-recipient analyst support renders exact Solana Pay QR and explicit 
   expectCleanRuntime(page);
 });
 
-test('profile support fails closed for self-support and a maintainer without analyst standing', async ({ page }) => {
+test('profile support rejects self-support and keeps maintainer support separately typed', async ({ page }) => {
   await ready(page, { role: 'report_author' });
   await page.evaluate(() => window.osiNavigate('analysts'));
 
@@ -2551,8 +2586,30 @@ test('profile support fails closed for self-support and a maintainer without ana
   await maintainerRow.click();
   const maintainerProfile = page.locator('#ap-modal-body');
   await expect(maintainerProfile.locator('.osi-public-profile-maintainer')).toBeVisible();
-  await expect(maintainerProfile.getByRole('button', { name: 'Support with SOL via Phantom or Solana Pay' })).toHaveCount(0);
+  await expect(maintainerProfile.getByRole('button', { name: 'Pay with Phantom' })).toBeVisible();
+  const maintainerQr = maintainerProfile.getByRole('button', { name: 'Solana Pay QR' });
+  await expect(maintainerQr).toBeVisible();
   await expect(maintainerProfile.getByRole('button', { name: 'Self-support unavailable' })).toHaveCount(0);
+  await maintainerQr.click();
+  await page.locator('#sol-ask-go').click();
+  await expect(page.locator('#osi-payment-review')).toContainText('OSI-MAINTAINER');
+  await expect(page.locator('#osi-payment-review')).toContainText('Maintainer');
+  await page.locator('#osi-payment-review').getByRole('button', { name: 'Cancel' }).click();
+  const prepare = page.__fixtureOps.findLast((entry) => entry.endpoint === 'osi-v2-payment' && entry.op === 'prepare_payment');
+  expect(prepare.recipients[0].target_type).toBe('maintainer');
+  expect(prepare.recipients[0].target_ref).toBe(ROLE_WALLETS.maintainer);
+  expect(prepare.recipients).toHaveLength(1);
+  expectCleanRuntime(page);
+});
+
+test('a stale maintainer profile keeps both support methods visible but disabled with the exact prerequisite', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet', staleMaintainerSupport: true });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator('#osi-maintainer-profile [data-maintainer-wallet]').click();
+  const profile = page.locator('#ap-modal-body');
+  await expect(profile.getByRole('button', { name: 'Pay with Phantom' })).toBeDisabled();
+  await expect(profile.getByRole('button', { name: 'Solana Pay QR' })).toBeDisabled();
+  await expect(profile).toContainText('not the current configured maintainer wallet');
   expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
   expectCleanRuntime(page);
 });
@@ -2603,6 +2660,7 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await page.evaluate(() => window.osiNavigate('records'));
   await expect(page.locator('#case-records')).toContainText(CASE_REF);
   await expect(page.locator('#case-records')).toContainText('Reviewed');
+  await expect(page.locator('#case-records')).toContainText('Published Case Report');
   // A record's headline verification is the record's own lifecycle proof. The
   // voluntary transfer is real and stays visible in the Case Proof Log and in
   // Rewards & Support, but it never becomes the record's proof claim: it would
@@ -2613,17 +2671,29 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await expect(publicRecordProof).not.toContainText('SOL transfer verified on Solana');
   await expect(publicRecordCard).toHaveJSProperty('tagName', 'ARTICLE');
   await expect(publicRecordCard).not.toHaveAttribute('role', 'button');
-  const publicRecordOpener = publicRecordCard.getByRole('button', { name: 'View Record' });
-  await publicRecordOpener.focus();
-  await publicRecordOpener.click();
-  const publicRecordDrawer = page.locator('#cr-drawer');
+  const publishedReportCard = page.locator(`[data-cid="${VERSION_REF}"]`);
+  const publishedReportOpener = publishedReportCard.getByRole('link', { name: 'Open published Report' });
+  await publishedReportOpener.click();
+  await expect(page).toHaveURL(new RegExp(`#case/${CASE_REF}$`));
+  const publicRecordDrawer = page.locator('#osi-case-drawer');
   await expect(publicRecordDrawer).toBeVisible();
-  await expect(publicRecordDrawer).toHaveAttribute('aria-hidden', 'false');
-  await expect(publicRecordDrawer.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
-  await expect(publicRecordDrawer.locator('.cr-drawer-x')).toBeFocused();
+  await expect(page.locator('[data-tab="reports"]')).toHaveClass(/active/);
+  await expect(page.locator('#osi-public-reports')).toContainText(VERSION_REF);
   await page.keyboard.press('Escape');
   await expect(publicRecordDrawer).toBeHidden();
-  await expect(publicRecordDrawer).toHaveAttribute('aria-hidden', 'true');
+  await expect(page).toHaveURL(/#public-records$/);
+  await expect(publishedReportOpener).toBeFocused();
+
+  const publicRecordOpener = publicRecordCard.getByRole('link', { name: 'Open Case' });
+  await publicRecordOpener.focus();
+  await publicRecordOpener.click();
+  await expect(page).toHaveURL(new RegExp(`#case/${CASE_REF}$`));
+  await expect(publicRecordDrawer).toBeVisible();
+  await expect(publicRecordDrawer).toContainText('Reviewed transfer-path investigation');
+  await expect(publicRecordDrawer.locator('.osi-case-close')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(publicRecordDrawer).toBeHidden();
+  await expect(page).toHaveURL(/#public-records$/);
   await expect(publicRecordOpener).toBeFocused();
   await publicRecordOpener.click();
   await expect(publicRecordDrawer).toBeVisible();
@@ -2837,9 +2907,9 @@ test('payment preparation fails before Phantom when durable recovery storage is 
   });
   await page.evaluate(() => window.osiNavigate('analysts'));
   await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
-  await page.getByRole('button', { name: 'Support with SOL via Phantom or Solana Pay' }).click();
+  await page.getByRole('button', { name: 'Pay with Phantom' }).click();
   await page.locator('#sol-ask-go').click();
-  await page.locator('#osi-payment-review').getByRole('button', { name: 'Open Phantom' }).click();
+  await page.locator('#osi-payment-review').getByRole('button', { name: 'Pay with Phantom' }).click();
   await expect(page.locator('#stw-toast')).toContainText('cannot durably save');
   expect((await page.evaluate(() => window.__fixtureProviderCounts())).transaction).toBe(0);
   expectCleanRuntime(page);

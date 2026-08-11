@@ -126,7 +126,7 @@ function normalizePaymentRequest(kind: string, body: Row): Row {
   return {
     recipients: body.recipients.map((entry: Row) => {
       const targetType = safeText(entry?.target_type);
-      if (!["report_author", "analyst", "counted_reviewer"].includes(targetType)) {
+      if (!["report_author", "analyst", "counted_reviewer", "maintainer"].includes(targetType)) {
         throw new TypeError("support target_type is invalid");
       }
       const value: Row = {
@@ -325,12 +325,28 @@ async function preparePayment(req: Request, body: Row): Promise<Response> {
   } catch (error) {
     return jsonResponse(400, { ok: false, error: errorMessage(error) });
   }
-  const { data, error } = await admin.rpc("osi_v2_prepare_payment", {
-    p_nonce: randomNonce(), p_payment_kind: kind, p_payer_wallet: wallet,
-    p_target_ref: targetRef, p_request: request,
-    p_idempotency_key: idempotency,
-    p_request_fingerprint_hash: await fingerprint(req),
-  });
+  const maintainerRecipients = kind === "support"
+    ? (request.recipients as Row[]).filter((entry) => entry.target_type === "maintainer")
+    : [];
+  if (maintainerRecipients.length > 0
+      && (maintainerRecipients.length !== 1 || (request.recipients as Row[]).length !== 1)) {
+    return jsonResponse(400, { ok: false, error: "maintainer_support_requires_one_recipient" });
+  }
+  const rpcCall = maintainerRecipients.length === 1
+    ? admin.rpc("osi_v2_prepare_maintainer_support", {
+      p_nonce: randomNonce(), p_payer_wallet: wallet,
+      p_target_wallet: targetRef,
+      p_amount_lamports: maintainerRecipients[0].amount_lamports,
+      p_idempotency_key: idempotency,
+      p_request_fingerprint_hash: await fingerprint(req),
+    })
+    : admin.rpc("osi_v2_prepare_payment", {
+      p_nonce: randomNonce(), p_payment_kind: kind, p_payer_wallet: wallet,
+      p_target_ref: targetRef, p_request: request,
+      p_idempotency_key: idempotency,
+      p_request_fingerprint_hash: await fingerprint(req),
+    });
+  const { data, error } = await rpcCall;
   if (error || !data?.[0]) return rpcFailure(error);
   const issued = data[0];
   const recipients = (issued.recipient_manifest ?? []).map((entry: Row) => ({

@@ -87,6 +87,12 @@ function crProofState(r){
 }
 function crStatus(r){
   var proof=crProofState(r);
+  if(r&&r.record_source==='native_case_report_dto'){
+    if(proof.verified!==true)return { txt:'Publication proof unavailable', cls:'cr-pending', detail:'The server exposes this exact published version, but its public publication receipt is unavailable.' };
+    if(r.publication_channel==='maintainer_bootstrap') return { txt:'Maintainer bootstrap', cls:'cr-reviewed', detail:'Exact current Report version published through the labeled cold-start path' };
+    if(r.publication_channel==='standard')return { txt:'Published', cls:'cr-reviewed', detail:'Exact current Report version published through governed review' };
+    return { txt:'Published', cls:'cr-reviewed', detail:'Exact current Report version has a verified publication receipt; its decision channel is not present in the public projection.' };
+  }
   if(r&&r.record_source==='native_wire_dto'){
     if(r.challenge_state==='challenge_upheld_under_re_review') return { txt:'Under re-review', cls:'cr-pending', detail:'Published Wire challenge upheld; exact version preserved' };
     if(r.is_current_published===false&&r.publication_channel==='maintainer_bootstrap') return { txt:'Superseded bootstrap', cls:'cr-reviewed', detail:'Prior immutable Wire publication via honestly labeled maintainer bootstrap; a later exact version is current' };
@@ -118,6 +124,7 @@ function crIsLegacyTestRecord(r){
   return /\b(?:demo|fixture|test record|for testing)\b/.test(text);
 }
 function crDate(v){ return v ? new Date(v).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''; }
+function crValidDate(v){return typeof v==='string'&&v.length<=40&&Number.isFinite(Date.parse(v));}
 function crTxSig(r){
   return crProofState(r).tx_sig||'';
 }
@@ -128,7 +135,7 @@ function crLegacyTxSig(r){
   return crValidTxSig(candidate)?candidate:'';
 }
 function crHasMemo(r){ var key=crProofState(r).key; return key==='memo'||key==='transfer'; }
-function crIsNativeReviewed(r){ var status=crStatus(r).txt; return status==='Reviewed'||status==='Sealed'||status==='Superseded'||status==='Superseded bootstrap'; }
+function crIsNativeReviewed(r){ var status=crStatus(r).txt; return status==='Published'||status==='Maintainer bootstrap'||status==='Reviewed'||status==='Sealed'||status==='Superseded'||status==='Superseded bootstrap'; }
 function crIsNativeSealed(r){ return crStatus(r).txt==='Sealed'; }
 function crChallengeCount(id){ return (window.__crChallengeCounts || {})[String(id)] || 0; }
 function crNativeProofRank(receipt){
@@ -173,6 +180,52 @@ function crNativeCaseRecord(item){
     native_seal_verified:!!sealReceipt,
     publication_proof:Object.assign({},strongest,{proof_source:'native_public_dto'})
   };
+}
+// Public Case reads already expose only each Report header's exact
+// current_published_version_id. Flatten that least-privilege projection into
+// first-class archive rows so a published finding is discoverable without
+// exposing an unpublished header, draft, correction, private body or internal
+// UUID. Every row keeps the parent Case reference as its canonical route.
+function crNativeCaseReportRecords(item){
+  item=item||{};
+  var caseRef=String(item.public_ref||'');
+  if(!/^OSI-[0-9A-Z]{6,20}$/.test(caseRef))return [];
+  var proofLog=Array.isArray(item.proof_log)?item.proof_log:[];
+  return (Array.isArray(item.reports)?item.reports:[]).filter(function(report){
+    var version=report&&report.current_version;
+    return report&&report.published===true&&version
+      && String(version.lifecycle_state||'')==='published'
+      && /^OSI-RPT-[0-9A-F]{12}$/.test(String(report.public_ref||''))
+      && /^OSI-RV-[0-9A-F]{16}$/.test(String(version.version_ref||''))
+      && crValidDate(version.published_at);
+  }).map(function(report){
+    var version=report.current_version;
+    var versionRef=String(version.version_ref);
+    var publication=proofLog.find(function(receipt){
+      return String(receipt&&receipt.event_type||'')==='REPORT_PUBLISHED'
+        && String(receipt&&receipt.public_ref||'')===versionRef;
+    })||null;
+    var reviewCount=proofLog.filter(function(receipt){
+      return String(receipt&&receipt.event_type||'')==='CASE_REPORT_REVIEW_CAST'
+        && String(receipt&&receipt.public_ref||'')===versionRef;
+    }).length;
+    return {
+      id:versionRef,
+      public_ref:String(report.public_ref||''),
+      report_public_ref:String(report.public_ref||''),
+      version_public_ref:versionRef,
+      case_public_ref:caseRef,
+      company:String(item.title||'Published Case Report'),
+      summary:String(report.content_public_safe||''),
+      category:String(item.category||''),
+      native_stage:String(item.stage||''),
+      created_at:version.published_at,
+      record_source:'native_case_report_dto',
+      native_review_count:reviewCount,
+      publication_channel:publication?String(publication.decision_channel||'unavailable'):'unavailable',
+      publication_proof:Object.assign({},publication||{}, {proof_source:'native_public_dto'})
+    };
+  });
 }
 function crNativeWireRecord(item){
   item=item||{};
@@ -220,15 +273,17 @@ function crAddLegacyChallenges(state,challenges){
 
 var crState = { filter:'all', q:'', sort:'newest', page:1 };
 var CR_PER = 6;
-function crEvidenceCount(r){ if(r&&(r.record_source==='native_public_dto'||r.record_source==='native_wire_dto')) return Number(r.native_evidence_count||0); return crCountTokens(r.tx) + crCountTokens(r.onchain) + crCountTokens(r.offchain); }
+function crEvidenceCount(r){ if(r&&(r.record_source==='native_public_dto'||r.record_source==='native_case_report_dto'||r.record_source==='native_wire_dto')) return Number(r.native_evidence_count||0); return crCountTokens(r.tx) + crCountTokens(r.onchain) + crCountTokens(r.offchain); }
 function crAnalystReviews(r){
-  if(r&&(r.record_source==='native_public_dto'||r.record_source==='native_wire_dto')) return Number(r.native_review_count||0);
+  if(r&&(r.record_source==='native_public_dto'||r.record_source==='native_case_report_dto'||r.record_source==='native_wire_dto')) return Number(r.native_review_count||0);
   if(window.__crVouchesLoaded !== true || typeof vouchTally !== 'function') return null;
   var t = vouchTally('report', String(r.id));
   return (t.approve||[]).length + (t.reject||[]).length;
 }
 async function renderCaseRecords(){
   var host = document.getElementById('case-records'); if(!host) return;
+  host.setAttribute('aria-busy','true');
+  host.innerHTML='<div class="cr-loading-card" aria-hidden="true"><span></span><span></span><span></span></div><div class="cr-loading-card" aria-hidden="true"><span></span><span></span><span></span></div><span class="sr-only">Loading public records</span>';
   var supabaseAvailable=typeof SUPA_ON!=='undefined'&&SUPA_ON;
   var nativeAvailable=typeof window.osiPublicApi==='function'||typeof window.osiV2ListPublicWireReports==='function';
   if(!supabaseAvailable&&!nativeAvailable){
@@ -238,12 +293,14 @@ async function renderCaseRecords(){
     crPaint(); return;
   }
   try{
-    var nativeReports=[],nativeWireReports=[],legacyReports=[],sourceFailures=0,sourceAttempts=0;
+    var nativeCases=[],nativeCaseReports=[],nativeWireReports=[],legacyReports=[],sourceFailures=0,sourceAttempts=0;
     if(typeof window.osiPublicApi==='function'){
       sourceAttempts++;
       try{
         var result=await window.osiPublicApi('osi-v2-case-read',{op:'list_public_cases'});
-        nativeReports=(Array.isArray(result&&result.cases)?result.cases:[]).map(crNativeCaseRecord);
+        var publicCases=Array.isArray(result&&result.cases)?result.cases:[];
+        nativeCases=publicCases.map(crNativeCaseRecord);
+        nativeCaseReports=publicCases.reduce(function(rows,item){return rows.concat(crNativeCaseReportRecords(item));},[]);
       }catch(_nativeError){ sourceFailures++; }
     }
     if(typeof window.osiV2ListPublicWireReports==='function'){
@@ -260,8 +317,8 @@ async function renderCaseRecords(){
         legacyReports=legacyReports.map(function(row){return Object.assign({},row,{record_source:'legacy_public_projection'});});
       }catch(_legacyError){ sourceFailures++; legacyReports=[]; }
     }
-    var nativeIds={};nativeReports.concat(nativeWireReports).forEach(function(row){nativeIds[String(row.id)]=true;});
-    var reports=nativeReports.concat(nativeWireReports,legacyReports.filter(function(row){return !nativeIds[String(row.id)];}));
+    var nativeIds={};nativeCases.concat(nativeCaseReports,nativeWireReports).forEach(function(row){nativeIds[String(row.id)]=true;});
+    var reports=nativeCases.concat(nativeCaseReports,nativeWireReports,legacyReports.filter(function(row){return !nativeIds[String(row.id)];}));
     var packs = [];
     if(reports.length){
       // Metadata only (no content). Full pack content is never anon-readable;
@@ -271,9 +328,9 @@ async function renderCaseRecords(){
     var byCase = {}; packs.forEach(function(p){ (byCase[p.case_ref] = byCase[p.case_ref] || []).push(p); });
     window.__crPacks = byCase;
     var recMap = {}; reports.forEach(function(r){ recMap[r.id] = r; });
-    window.__crRecords = recMap; window.__crList = reports; window.__crSourceState = reports.length ? 'loaded' : (sourceAttempts&&sourceFailures===sourceAttempts?'error':(sourceFailures?'error':'empty'));
+    window.__crRecords = recMap; window.__crList = reports; window.__crSourceState = reports.length ? (sourceFailures?'partial':'loaded') : (sourceAttempts&&sourceFailures===sourceAttempts?'error':(sourceFailures?'error':'empty'));
     if(supabaseAvailable){try{ await loadVouches(); window.__crVouchesLoaded = true; }catch(_e){ window.__crVouchesLoaded = false; }}else window.__crVouchesLoaded=false;
-    var challengeState=crNativeChallengeState(nativeReports);
+    var challengeState=crNativeChallengeState(nativeCases);
     nativeWireReports.forEach(function(row){var count=Number(row.native_challenge_count||0);if(count>0){challengeState.challenged[String(row.id)]=1;challengeState.counts[String(row.id)]=count;challengeState.total+=count;}});
     try{
       if(!supabaseAvailable)throw new Error('legacy source unavailable');
@@ -294,11 +351,18 @@ async function renderCaseRecords(){
 }
 function crFilter(f){
   crState.filter=f; crState.page=1;
-  document.querySelectorAll('#cr-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f===f); });
+  document.querySelectorAll('#cr-fils .rf-tab').forEach(function(b){var active=b.dataset.f===f;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false');});
   crPaint();
 }
 function crSearch(v){ crState.q=(v||'').trim().toLowerCase(); crState.page=1; crPaint(); }
 function crSortChange(v){ crState.sort=v; crPaint(); }
+function crResetFilters(){
+  crState={filter:'all',q:'',sort:'newest',page:1};
+  var search=document.getElementById('cr-search');if(search)search.value='';
+  var sort=document.getElementById('cr-sort-sel');if(sort)sort.value='newest';
+  document.querySelectorAll('#cr-fils .rf-tab').forEach(function(button){var active=button.dataset.f==='all';button.classList.toggle('active',active);button.setAttribute('aria-pressed',active?'true':'false');});
+  crPaint();
+}
 function crPage(p){
   crState.page=p|0; crPaint();
   var h=document.getElementById('case-records'); if(h){ try{ h.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
@@ -321,13 +385,14 @@ function crRenderStats(){
 }
 function crPaint(){
   var host = document.getElementById('case-records'); if(!host) return;
+  host.setAttribute('aria-busy','false');
   crRenderStats();
   var reports = (window.__crList || []).slice();
   var chSet = window.__crChallenged || {};
   var q = crState.q;
   if(q){
     reports = reports.filter(function(r){
-      var hay=[r.company,r.summary,r.wallet,r.id,r.public_ref,r.wire_report_public_ref,r.tx,r.onchain,osiCaseId(r.id)].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
+      var hay=[r.company,r.summary,r.wallet,r.id,r.public_ref,r.case_public_ref,r.report_public_ref,r.version_public_ref,r.wire_report_public_ref,r.tx,r.onchain,osiCaseId(r.id)].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
       return hay.indexOf(q)!==-1;
     });
   }
@@ -342,14 +407,17 @@ function crPaint(){
   if(crState.page>totalPages) crState.page=totalPages; if(crState.page<1) crState.page=1;
   var from=(crState.page-1)*CR_PER, page=reports.slice(from, from+CR_PER);
   var sourceState = window.__crSourceState || 'empty';
+  var partialHtml=sourceState==='partial'
+    ?'<div class="cr-source-warning" role="status"><div><b>'+escapeHtml(crT('Some public record sources are temporarily unavailable.'))+'</b><span>'+escapeHtml(crT('The records shown are verified results from the sources that answered. Published Reports may be incomplete until the Case registry recovers.'))+'</span></div><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Retry all sources'))+'</button></div>'
+    :'';
   var emptyHtml = (sourceState === 'error' || sourceState === 'unavailable')
-    ? '<div class="cr-noyet"><div class="cr-noyet-ic">SRC</div><b>Public records source unavailable.</b><span>Unable to load reviewed records right now.</span></div>'
-    : '<div class="cr-noyet"><div class="cr-noyet-ic">ARC</div><b>No public records have been sealed yet.</b><span>Reviewed OSI records will appear here after analyst review and publication.</span></div>';
-  host.innerHTML = page.length
+    ? '<div class="cr-noyet" role="alert"><div class="cr-noyet-ic">SRC</div><b>'+escapeHtml(crT('Public records source unavailable.'))+'</b><span>'+escapeHtml(crT('Unable to load reviewed records right now. Private or cached data is never used as a fallback.'))+'</span><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Try again'))+'</button></div>'
+    : '<div class="cr-noyet"><div class="cr-noyet-ic">ARC</div><b>'+escapeHtml(crT('No published or sealed records yet.'))+'</b><span>'+escapeHtml(crT('Exact published Report versions and governed public outcomes will appear here. Open investigations remain available in the Field Office.'))+'</span><button class="cr-btn outline" type="button" onclick="osiNavigate(&quot;field&quot;)">'+escapeHtml(crT('Browse public Cases'))+'</button></div>';
+  host.innerHTML = partialHtml+(page.length
     ? page.map(function(r){ return crCard(r, (window.__crPacks||{})[r.id] || []); }).join('')
     : ((window.__crList||[]).length
-        ? '<div class="fd-empty mono" style="grid-column:1/-1;padding:22px 4px">No public records match this search or filter.</div>'
-        : emptyHtml);
+        ? '<div class="cr-noyet"><div class="cr-noyet-ic">0</div><b>'+escapeHtml(crT('No records match these filters.'))+'</b><span>'+escapeHtml(crT('Clear the search and filters to return to the complete public archive.'))+'</span><button class="cr-btn outline" type="button" onclick="crResetFilters()">'+escapeHtml(crT('Clear filters'))+'</button></div>'
+        : emptyHtml));
   var cnt=document.getElementById('cr-count');
   if(cnt) cnt.textContent = reports.length ? crT(reports.length===1?'Showing {from}-{to} of {total} record':'Showing {from}-{to} of {total} records',{from:from+1,to:from+page.length,total:reports.length}) : '';
   var pn=document.getElementById('cr-pnav');
@@ -398,8 +466,27 @@ function crCopyTx(hash,button){
 }
 
 var crDrawerReturnFocus=null;
+function crOpenNativeCase(caseRef,tab){
+  var ref=String(caseRef||'');if(!/^OSI-[0-9A-Z]{6,20}$/.test(ref))return;
+  // Public Records owns the opener and must remain mounted while the shared
+  // Case drawer is open; otherwise closing it cannot restore keyboard focus.
+  // The direct Case hook accepts the same anonymous DTO and deliberately skips
+  // a route push for this overlay. Canonical hrefs remain available when JS is
+  // absent and when a reader explicitly opens the link in a new context.
+  if(typeof window.osiV2OpenCase==='function'){
+    Promise.resolve(window.osiV2OpenCase(ref,null,{returnHash:'#public-records'})).then(function(item){
+      if(item&&tab&&typeof window.osiV2ShowTab==='function')window.osiV2ShowTab(tab);
+    });
+    return;
+  }
+  if(typeof window.osiOpenPublicCase==='function')window.osiOpenPublicCase(ref);
+}
 function openCaseRecord(id){
   var r = (window.__crRecords||{})[id]; if(!r) return;
+  if(r.record_source==='native_public_dto'||r.record_source==='native_case_report_dto'){
+    crOpenNativeCase(String(r.case_public_ref||r.public_ref),r.record_source==='native_case_report_dto'?'reports':'overview');
+    return;
+  }
   if(r.record_source==='native_wire_dto'&&typeof window.osiV2OpenWireReport==='function'){
     window.osiV2OpenWireReport(String(r.id));
     return;
@@ -449,7 +536,8 @@ function crShort(v){
 function crCard(r, packs){
   var st = crStatus(r);
   var proof = crProofState(r);
-  var cid = r.public_ref ? String(r.public_ref) : osiCaseId(r.id);
+  var isCaseReport=r.record_source==='native_case_report_dto';
+  var cid = isCaseReport?String(r.version_public_ref||r.public_ref||''):(r.public_ref ? String(r.public_ref) : osiCaseId(r.id));
   var titleRaw = r.company || ('Case ' + String(r.id).slice(0,6));
   var title = escapeHtml(titleRaw);
   var date = crDate(r.created_at);
@@ -465,33 +553,38 @@ function crCard(r, packs){
   // omission is the rule. Only a wallet the projection genuinely publishes,
   // such as a Wire author, gets a line at all.
   var wallet = r.wallet ? '<div class="cr-wallet mono">'+escapeHtml(crShort(r.wallet))+'</div>' : '';
-  var cls = 'cr-card' + (crIsNativeSealed(r) ? ' sealed' : '') + (challenged ? ' challenged' : '');
+  var cls = 'cr-card' + (isCaseReport ? ' case-report' : '') + (crIsNativeSealed(r) ? ' sealed' : '') + (challenged ? ' challenged' : '');
   var displayedSig=txSig||legacyTxSig;
   var displayedSigShort=displayedSig?(String(displayedSig).slice(0,5)+'...'+String(displayedSig).slice(-5)):'';
   var copyBtn = displayedSig ? ('<button class="cr-copy" type="button" title="'+crAttr(crT('Copy transaction signature'))+'" aria-label="'+crAttr(crT('Copy transaction signature {signature}',{signature:displayedSigShort}))+'" onclick="event.stopPropagation();crCopyTx(&quot;'+crAttr(displayedSig)+'&quot;,this)">'+escapeHtml(crT('Copy'))+'</button>') : '';
   var verifyBtn = txSig ? ('<button class="cr-btn outline" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(txSig)+'&quot;)">Verify on Solana</button>') : (legacyTxSig?'<button class="cr-btn outline" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(legacyTxSig)+'&quot;)">Inspect transaction</button>':'');
-  var evValue = evCount ? String(evCount) : '<span class="cr-meta-v na">Evidence not indexed</span>';
-  var evSub = evCount ? ('Public reference' + (evCount===1?'':'s')) : 'No indexed evidence count';
+  var evValue = isCaseReport?'<span class="cr-meta-v na">Case detail</span>':(evCount ? String(evCount) : '<span class="cr-meta-v na">Evidence not indexed</span>');
+  var evSub = isCaseReport?'Exact public manifest':(evCount ? ('Public reference' + (evCount===1?'':'s')) : 'No indexed evidence count');
   var revValue = revCount==null ? '<span class="cr-meta-v na">Review data unavailable</span>' : String(revCount);
   var revSub = revCount==null ? 'Analyst tally unavailable' : ('Analyst review' + (revCount===1?'':'s'));
-  var chValue = challengeCount ? String(challengeCount) : '<span class="cr-meta-v na">No open challenges</span>';
-  var chSub = challengeCount ? ('Open challenge' + (challengeCount===1?'':'s')) : 'Challenge status clear';
+  var chValue = isCaseReport?'<span class="cr-meta-v na">Case detail</span>':(challengeCount ? String(challengeCount) : '<span class="cr-meta-v na">No open challenges</span>');
+  var chSub = isCaseReport?'Exact-version challenge path':(challengeCount ? ('Open challenge' + (challengeCount===1?'':'s')) : 'Challenge status clear');
   var recordDateLabel=proof.key==='legacy'?'Legacy record date ':'Published ';
   var isWire=r.record_source==='native_wire_dto';
-  var recordKind=isWire?'Wire Report':'Case';
+  var recordKind=isWire?'Wire Report':(isCaseReport?'Published Case Report':'Case');
+  var canonicalCaseRef=String(r.case_public_ref||(!isWire&&r.record_source==='native_public_dto'?r.public_ref:'')||'');
+  var canonicalLink=canonicalCaseRef&&/^OSI-[0-9A-Z]{6,20}$/.test(canonicalCaseRef)
+    ?'<a class="cr-btn primary" href="#case/'+crAttr(canonicalCaseRef)+'" onclick="event.stopPropagation();event.preventDefault();crOpenNativeCase(&quot;'+crAttr(canonicalCaseRef)+'&quot;,&quot;'+(isCaseReport?'reports':'overview')+'&quot;)">'+escapeHtml(crT(isCaseReport?'Open published Report':'Open Case'))+'</a>'
+    :'<button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)">'+escapeHtml(crT('View {kind}',{kind:isWire?'Wire Report':'Record'}))+'</button>';
   var proofDetail=proof.key==='legacy'
     ? (legacyTxSig?'Unverified transaction reference '+escapeHtml(String(legacyTxSig).slice(0,5)+'...'+String(legacyTxSig).slice(-5))+' '+copyBtn:'No native proof receipt')
     : (txSig?'Tx '+escapeHtml(String(txSig).slice(0,5)+'...'+String(txSig).slice(-5))+' '+copyBtn:'Server receipt; no on-chain transaction');
   return '<article class="'+cls+'" data-cid="'+crAttr(r.id)+'">'
     + '<div class="cr-card-main">'
-      + '<span class="cr-record-id">'+escapeHtml(cid)+(isWire?' | Wire Report':'')+'</span>'
+      + '<span class="cr-record-id">'+escapeHtml(cid)+(isWire?' | '+escapeHtml(crT('Wire Report')):(isCaseReport?' | '+escapeHtml(crT('Published Case Report')):''))+'</span>'
       + '<div class="cr-title">'+title+'</div>'
+      + (isCaseReport?'<div class="cr-record-parent mono">'+escapeHtml(crT('Parent Case'))+' '+escapeHtml(canonicalCaseRef)+' | '+escapeHtml(String(r.report_public_ref||''))+'</div>':'')
       + wallet
       + '<div class="cr-summary">'+escapeHtml(String(r.summary || 'No public summary provided.').slice(0,220))+'</div>'
       + '<div class="cr-date mono">'+(date ? (recordDateLabel+date) : 'Record date unavailable')+(updated ? (' <span class="sep">|</span> Updated '+updated) : '')+'</div>'
     + '</div>'
     + '<div class="cr-card-meta">'
-      + '<div class="cr-meta-cell"><div class="cr-meta-k">Status</div><div class="cr-meta-v"><span class="cr-status '+st.cls+'">'+st.txt+'</span></div><div class="cr-meta-sub">'+escapeHtml(st.detail||'Native lifecycle pending')+'</div></div>'
+      + '<div class="cr-meta-cell"><div class="cr-meta-k">Status</div><div class="cr-meta-v"><span class="cr-status '+st.cls+'">'+escapeHtml(crT(st.txt))+'</span></div><div class="cr-meta-sub">'+escapeHtml(crT(st.detail||'Native lifecycle pending'))+'</div></div>'
       + '<div class="cr-meta-cell"><div class="cr-meta-k">Evidence</div><div class="cr-meta-v">'+evValue+'</div><div class="cr-meta-sub">'+evSub+'</div></div>'
       + '<div class="cr-meta-cell"><div class="cr-meta-k">Reviews</div><div class="cr-meta-v">'+revValue+'</div><div class="cr-meta-sub">'+revSub+'</div></div>'
       + '<div class="cr-meta-cell"><div class="cr-meta-k">Challenges</div><div class="cr-meta-v '+(challengeCount?'warn':'')+'">'+chValue+'</div><div class="cr-meta-sub">'+chSub+'</div></div>'
@@ -500,8 +593,8 @@ function crCard(r, packs){
       + '<div><div class="cr-meta-k">Proof Log</div>' + (proof.verified
         ? '<div class="cr-proof-state ok">'+escapeHtml(proof.label)+'</div><div class="cr-meta-sub">'+proofDetail+'</div>'
         : '<div class="cr-proof-state mut">'+escapeHtml(proof.label)+'</div><div class="cr-meta-sub">'+proofDetail+'</div>') + '</div>'
-      + '<div class="cr-actions"><button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)">View '+(isWire?'Wire Report':'Record')+'</button>'+verifyBtn+'</div>'
-      + '<div class="cr-actions secondary"><button class="cr-btn chx" type="button" onclick="event.stopPropagation();osiNavigate(&quot;'+(isWire?'wire':'field')+'&quot;)">Open '+(isWire?'The Wire':'Case workspace')+'</button></div>'
+      + '<div class="cr-actions">'+canonicalLink+verifyBtn+'</div>'
+      + '<div class="cr-actions secondary">'+(isCaseReport?'<a class="cr-btn chx" href="#case/'+crAttr(canonicalCaseRef)+'" onclick="event.stopPropagation();event.preventDefault();crOpenNativeCase(&quot;'+crAttr(canonicalCaseRef)+'&quot;,&quot;overview&quot;)">'+escapeHtml(crT('Open parent Case'))+'</a>':'<button class="cr-btn chx" type="button" onclick="event.stopPropagation();osiNavigate(&quot;'+(isWire?'wire':'field')+'&quot;)">'+escapeHtml(crT(isWire?'Open The Wire':'Open Case workspace'))+'</button>')+'</div>'
     + '</div>'
   + '</article>';
 }

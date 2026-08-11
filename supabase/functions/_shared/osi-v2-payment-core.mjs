@@ -106,7 +106,7 @@ export function normalizeRecipientManifest(input, payerWallet) {
       recipient_type: requireText(
         entry.recipient_type,
         "recipient_type",
-        /^(report_author|analyst|counted_reviewer)$/,
+        /^(report_author|analyst|counted_reviewer|maintainer)$/,
         32,
       ),
       target_ref: requireText(entry.target_ref, "recipient_target_ref", PUBLIC_REF, 64),

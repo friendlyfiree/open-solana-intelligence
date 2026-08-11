@@ -253,6 +253,61 @@ const nativeSealed = records.crNativeCaseRecord({
 });
 ok('native sealed status requires the exact server-projected RECORD_SEALED Memo receipt',
   records.crStatus(nativeSealed).txt === 'Sealed' && records.crHasMemo(nativeSealed));
+const publishedCaseReports = records.crNativeCaseReportRecords({
+  public_ref: CASE_REF,
+  title: 'Published Case finding',
+  category: 'exploit',
+  stage: 'open_public',
+  reports: [{
+    public_ref: 'OSI-RPT-A1B2C3D4E5F6', published: true,
+    current_version: {
+      version_ref: 'OSI-RV-A1B2C3D4E5F60718', version_no: 2,
+      lifecycle_state: 'published', published_at: '2026-08-09T00:00:00Z',
+    },
+    content_public_safe: 'Exact current published summary.',
+    body_private: 'PRIVATE REPORT BODY MUST NOT RENDER',
+    versions: [{ version_ref: 'OSI-RV-OLDVERSION0001', lifecycle_state: 'superseded' }],
+  }, {
+    public_ref: 'OSI-RPT-PRIVATE000001', published: false,
+    current_version: {
+      version_ref: 'OSI-RV-PRIVATE00000001', lifecycle_state: 'in_review',
+      published_at: null,
+    },
+    content_public_safe: 'UNPUBLISHED EXISTENCE MUST NOT RENDER',
+  }, {
+    public_ref: 'OSI-RPT-invalid-ref', published: true,
+    current_version: {
+      version_ref: 'OSI-RV-INVALID00000001', lifecycle_state: 'published',
+      published_at: 'not-a-date',
+    },
+    content_public_safe: 'INVALID IDENTIFIER MUST NOT RENDER',
+  }],
+  proof_log: [
+    { event_type: 'CASE_REPORT_REVIEW_CAST', public_ref: 'OSI-RV-A1B2C3D4E5F60718', label: 'Wallet-signed & server-verified' },
+    { event_type: 'CASE_REPORT_REVIEW_CAST', public_ref: 'OSI-RV-A1B2C3D4E5F60718', label: 'Wallet-signed & server-verified' },
+    { event_type: 'REPORT_PUBLISHED', public_ref: 'OSI-RV-A1B2C3D4E5F60718', label: 'Memo-anchored on Solana', tx_sig: TX },
+  ],
+});
+ok('Public Records flattens only the exact current published Case Report version',
+  publishedCaseReports.length === 1
+    && publishedCaseReports[0].version_public_ref === 'OSI-RV-A1B2C3D4E5F60718'
+    && publishedCaseReports[0].summary === 'Exact current published summary.'
+    && records.crAnalystReviews(publishedCaseReports[0]) === 2
+    && records.crHasMemo(publishedCaseReports[0]));
+const publishedCaseReportCard = records.crCard(publishedCaseReports[0], []);
+ok('published Case Report card links to the canonical parent Case route',
+  publishedCaseReportCard.includes('Published Case Report')
+    && publishedCaseReportCard.includes('href="#case/' + CASE_REF + '"')
+    && publishedCaseReportCard.includes('Open published Report'));
+ok('published Case Report card never renders private, unpublished or superseded content',
+  !publishedCaseReportCard.includes('PRIVATE REPORT BODY MUST NOT RENDER')
+    && !publishedCaseReportCard.includes('UNPUBLISHED EXISTENCE MUST NOT RENDER')
+    && !publishedCaseReportCard.includes('OSI-RV-OLDVERSION0001')
+    && !publishedCaseReportCard.includes('INVALID IDENTIFIER MUST NOT RENDER'));
+const noPublicationProof = { ...publishedCaseReports[0], publication_proof: { proof_source: 'native_public_dto' }, publication_channel: 'unavailable' };
+ok('published Case Report never claims governed publication when its receipt is absent',
+  records.crStatus(noPublicationProof).txt === 'Publication proof unavailable'
+    && records.crIsNativeReviewed(noPublicationProof) === false);
 const nativeWire = records.crNativeWireRecord({
   version_public_ref: 'OSI-WV-A1B2C3D4E5F60718',
   wire_report_public_ref: 'OSI-WR-A1B2C3D4E5F6',
@@ -314,8 +369,20 @@ ok('Public Records reads the least-privilege native Case projection and keeps le
   recordsSource.includes("window.osiPublicApi('osi-v2-case-read',{op:'list_public_cases'})")
     && recordsSource.includes('window.osiV2ListPublicWireReports()')
     && recordsSource.includes("record_source:'native_public_dto'")
+    && recordsSource.includes("record_source:'native_case_report_dto'")
     && recordsSource.includes("record_source:'native_wire_dto'")
     && recordsSource.includes("record_source:'legacy_public_projection'"));
+ok('Public Records exposes loading, empty, filtered-empty and retryable error states',
+  recordsSource.includes("host.setAttribute('aria-busy','true')")
+    && recordsSource.includes('No published or sealed records yet.')
+    && recordsSource.includes('No records match these filters.')
+    && recordsSource.includes('onclick="renderCaseRecords()"')
+    && recordsSource.includes("crT('Try again')"));
+ok('Public Records discloses partial source failure instead of silently omitting published Reports',
+  recordsSource.includes("sourceFailures?'partial':'loaded'")
+    && recordsSource.includes("sourceState==='partial'")
+    && recordsSource.includes('Published Reports may be incomplete until the Case registry recovers.')
+    && recordsSource.includes("crT('Retry all sources')"));
 
 const stats = { innerHTML: '' };
 records.document.getElementById = (id) => id === 'cr-stats' ? stats : null;
@@ -341,7 +408,7 @@ ok('truthful cold-start copy remains localized in Turkish',
     && i18nSource.includes('açıkça etiketlenmiş bir soğuk başlangıç süreciyle incelenir.'));
 ok('Public Records copy includes open public Cases without calling them sealed outcomes',
   index.includes('Public Cases and governed findings')
-    && index.includes('Public Cases, reviewed Case outcomes, and published Wire findings with their exact lifecycle and proof status.')
+    && index.includes('Public Cases, exact current published Case Report versions, and published Wire findings with their lifecycle and proof status.')
     && !index.includes('<span>Reviewed and sealed outcomes</span>'));
 
 console.log((fail ? 'FAILED: ' + fail : 'OK') +

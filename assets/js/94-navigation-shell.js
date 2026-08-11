@@ -98,6 +98,10 @@
   function navigate(view, options) {
     var opts = options || {};
     var target = viewHashes[view] ? view : 'registry';
+    // A global view change owns the whole surface. Close any open Case drawer
+    // before replacing its underlying view, while allowing the canonical
+    // #case route parser to keep an already-open exact Case in place.
+    if (opts.keepCaseDrawer !== true) closeCaseRoute();
     if (target !== 'registry' && typeof window.osiActivateRouteStyles === 'function') {
       window.osiActivateRouteStyles();
     }
@@ -553,7 +557,7 @@
     }
     var caseRef = caseRouteRef(hash);
     if (caseRef) {
-      navigate('field', { history: true, focus: false, preserveScroll: true });
+      navigate('field', { history: true, focus: false, preserveScroll: true, keepCaseDrawer: true });
       if (typeof window.osiV2ActiveCaseRef === 'function' && window.osiV2ActiveCaseRef() === caseRef) return;
       window.setTimeout(function () {
         if (typeof window.osiV2OpenCaseFromRoute === 'function') window.osiV2OpenCaseFromRoute(caseRef);

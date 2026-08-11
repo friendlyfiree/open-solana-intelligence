@@ -1,8 +1,8 @@
 # OSI production feature and gate status
 
-Public gate values re-verified: 2026-08-08
+Public gate values re-verified: 2026-08-11
 
-Latest production migration observed: `20260808163737_osi_v2_wallet_profiles`
+Latest production migration observed: `20260811090354_maintainer_voluntary_support`
 Project: `afibxpniwfnavdobecrn`  
 Web: `https://open-solana-intel.vercel.app`
 
@@ -21,6 +21,7 @@ malformed, or unavailable values always fail closed.
 | `OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED` | `true` | Winner, challenge window, reopen, and seal |
 | `OSI_V2_PAYMENT_WRITES_ENABLED` | `true` | Reward pledges/payments and voluntary support |
 | `OSI_V2_SOLANA_PAY_ENABLED` | `true` | Secondary Solana Pay choice for one exact recipient |
+| `OSI_V2_MAINTAINER_SUPPORT_ENABLED` | `true` | Separately typed voluntary support to the exact current public maintainer profile; no analyst or governance effect |
 | `OSI_V2_READ_SESSION_ENABLED` | `true` | Scoped private-read sessions with a 30-minute inactivity window and eight-hour absolute lifetime |
 | `OSI_V2_PROFILE_WRITES_ENABLED` | `true` | Owner-controlled wallet profiles; public visibility and public Case attribution remain separate explicit choices |
 | `OSI_V2_WIRE_WRITES_ENABLED` | `true` | Wire intake, review, publication, and support |
@@ -78,6 +79,9 @@ verification, and atomic commit to the existing payment/support/receipt model.
 
 - Phantom remains available for every supported recipient manifest.
 - Solana Pay appears only for one exact server-derived recipient.
+- The public maintainer profile is a separate typed recipient. It must still
+  match the current configured admin wallet, cannot receive self-support, and
+  never acquires analyst standing, weight, ranking, or governance authority.
 - Desktop gets a local high-contrast QR and copy link.
 - Mobile gets an explicit compatible-wallet deep link and copy fallback.
 - The wallet is never opened automatically.

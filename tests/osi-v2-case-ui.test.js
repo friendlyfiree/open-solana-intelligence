@@ -212,7 +212,8 @@ ok('primary UI exposes only the server-bound single-recipient Solana Pay route',
     && solanaPay.includes("params.set('memo',exact.memo)")
     && app.includes("op:'poll_solana_pay'")
     && app.includes("method==='solana_pay'")
-    && app.includes('Atomic multi-recipient payment')
+    && app.includes('Solana Pay QR requires exactly one recipient')
+    && app.includes("t('Solana Pay QR')")
     && !index.includes('tip-pay-toggle'));
 ok('legacy direct payment entry points fail closed outside the archive',
   read('assets/js/70-support-transfer.js').includes("endsWith('/legacy.html')")

@@ -24,6 +24,8 @@ import {
 const edge = fs.readFileSync(new URL("../supabase/functions/osi-v2-payment/index.ts", import.meta.url), "utf8");
 const phase2 = fs.readFileSync(new URL("../supabase/migrations/20260718130000_osi_v2_wire_phase2.sql", import.meta.url), "utf8");
 const launchMigration = fs.readFileSync(new URL("../supabase/migrations/20260728170000_osi_v2_solana_pay_and_maintainer_ai_pack.sql", import.meta.url), "utf8");
+const solanaPayGuardMigration = fs.readFileSync(new URL("../supabase/migrations/20260811084040_solana_pay_nonce_binding_guard.sql", import.meta.url), "utf8");
+const maintainerSupportMigration = fs.readFileSync(new URL("../supabase/migrations/20260811090354_maintainer_voluntary_support.sql", import.meta.url), "utf8");
 const mainnetFixture = JSON.parse(fs.readFileSync(
   new URL("./fixtures/osi-v2-mainnet-support-payment.json", import.meta.url),
   "utf8",
@@ -233,6 +235,16 @@ ok("bounded server manifest preserves exact order and total", () => {
   const value = normalizeRecipientManifest(manifest, payer);
   assert.equal(value.total_lamports, "150000000");
   assert.deepEqual(value.manifest.map((row) => row.ordinal), [1, 2]);
+});
+ok("typed maintainer recipient is valid without becoming an analyst", () => {
+  const value = normalizeRecipientManifest([{
+    wallet: author,
+    amount_lamports: "100000000",
+    recipient_type: "maintainer",
+    target_ref: "OSI-MAINTAINER",
+  }], payer);
+  assert.equal(value.total_lamports, "100000000");
+  assert.equal(value.manifest[0].recipient_type, "maintainer");
 });
 ok("self-support is rejected", () => assert.throws(() => normalizeRecipientManifest([
   { ...manifest[0], wallet: payer },
@@ -528,6 +540,25 @@ ok("Solana Pay database binding is service-only, single-recipient and replay-saf
   assert.ok(launchMigration.includes("osi_nonces_solana_pay_reference_unique"));
   assert.ok(launchMigration.includes("from public, anon, authenticated"));
   assert.ok(launchMigration.includes("to service_role"));
+});
+ok("Solana Pay reference binding is the nonce guard's only additive exception", () => {
+  assert.ok(solanaPayGuardMigration.includes("old.purpose in ("));
+  assert.ok(solanaPayGuardMigration.includes("old.target_type in ('reward', 'support')"));
+  assert.ok(solanaPayGuardMigration.includes("not (old.binding_context ? 'solana_pay')"));
+  assert.ok(solanaPayGuardMigration.includes("new.binding_context = old.binding_context"));
+  assert.ok(solanaPayGuardMigration.includes("new.consumed_at is null"));
+  assert.ok(solanaPayGuardMigration.includes("old.expires_at > statement_timestamp()"));
+  assert.ok(solanaPayGuardMigration.includes("from public, anon, authenticated"));
+});
+ok("maintainer support derives the singleton configured wallet and reuses verified payment proof", () => {
+  assert.ok(edge.includes('"osi_v2_prepare_maintainer_support"'));
+  assert.ok(edge.includes('maintainer_support_requires_one_recipient'));
+  assert.ok(maintainerSupportMigration.includes("config.key = 'admin_wallet'"));
+  assert.ok(maintainerSupportMigration.includes('p_payer_wallet = maintainer_wallet'));
+  assert.ok(maintainerSupportMigration.includes("'recipient_type', 'maintainer'"));
+  assert.ok(maintainerSupportMigration.includes("'target_ref', 'OSI-MAINTAINER'"));
+  assert.ok(maintainerSupportMigration.includes("new.support_type := 'maintainer'"));
+  assert.ok(maintainerSupportMigration.includes("from public, anon, authenticated"));
 });
 ok("definitive parser failures persist an unpaid server-derived failure state", () => {
   assert.ok(edge.includes('admin.rpc("osi_v2_record_payment_failure"'));

@@ -1,0 +1,290 @@
+name: OSI Payment and Public Records Production
+
+# Main-only rollout of exactly two additive payment migrations and exactly the
+# two Edge Functions changed by this slice. The web app is deployed by the
+# existing Vercel Git integration; this workflow waits for the exact merged
+# assets before it reports success.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY-PAYMENT-RECORDS-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-payment-records-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  WEB_URL: https://open-solana-intel.vercel.app
+  NONCE_MIGRATION: 20260811084040_solana_pay_nonce_binding_guard.sql
+  SUPPORT_MIGRATION: 20260811090354_maintainer_voluntary_support.sql
+  NONCE_VERSION: "20260811084040"
+  SUPPORT_VERSION: "20260811090354"
+
+jobs:
+  validate:
+    name: Clean database, authorization, replay, and function validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "DEPLOY-PAYMENT-RECORDS-${EXPECTED_PROJECT_REF}" ]
+          [ "${GITHUB_REF}" = "refs/heads/main" ]
+
+      - name: Check out current main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove the dispatched commit is current origin/main
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          test -f "supabase/migrations/${NONCE_MIGRATION}"
+          test -f "supabase/migrations/${SUPPORT_MIGRATION}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Focused deterministic tests and type checks
+        run: |
+          set -euo pipefail
+          node tests/osi-v2-migrations.test.js
+          node tests/osi-v2-payment.test.mjs
+          node tests/osi-proof-public-truth.test.js
+          node tests/osi-v2-maintainer-profile.test.mjs
+          node tests/osi-v2-analyst-core.test.mjs
+          node tests/osi-v2-analyst-ui.test.js
+          node tests/osi-v2-case-ui.test.js
+          node tests/osi-i18n.test.mjs
+          node tests/xss-escaping.test.js
+          deno check supabase/functions/osi-v2-payment/index.ts supabase/functions/osi-v2-analyst/index.ts
+
+      - name: Fresh PostgreSQL 17 migration, lint, pgTAP, and replay tests
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Always discard the disposable database
+        if: always()
+        run: supabase stop --no-backup
+
+  deploy:
+    name: Apply exact migrations, deploy exact functions, and verify production
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+      MIGRATIONS_APPLIED: "false"
+      BACKEND_SMOKE_PASSED: "false"
+    steps:
+      - name: Check out current main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify credentials, project, confirmation, and current main
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.inputs.confirm }}" = "DEPLOY-PAYMENT-RECORDS-${EXPECTED_PROJECT_REF}" ]
+          [ "${GITHUB_REF}" = "refs/heads/main" ]
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ]
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ]
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Resolve pinned production pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys,json
+          data=json.load(sys.stdin); rows=data if isinstance(data,list) else [data]
+          row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
+          print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Prove production history is exact before this two-migration delta
+        run: |
+          set -euo pipefail
+          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' |
+            sort | sed -E 's/^([0-9]{14}).*/\1/' |
+            grep -v -E "^(${NONCE_VERSION}|${SUPPORT_VERSION})$" > /tmp/expected-before.txt
+          psql -v ON_ERROR_STOP=1 -Atq -c 'select version from supabase_migrations.schema_migrations order by version' > /tmp/remote-before.txt
+          diff -u /tmp/expected-before.txt /tmp/remote-before.txt
+
+      - name: Link and dry-run exactly the approved two migrations
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          supabase migration list --linked
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/payment-records-dry-run.txt
+          grep -q "$NONCE_MIGRATION" /tmp/payment-records-dry-run.txt
+          grep -q "$SUPPORT_MIGRATION" /tmp/payment-records-dry-run.txt
+          found="$(grep -oE '20260811084040_[A-Za-z0-9_]+\.sql|20260811090354_[A-Za-z0-9_]+\.sql' /tmp/payment-records-dry-run.txt | sort -u)"
+          expected="$(printf '%s\n%s' "$NONCE_MIGRATION" "$SUPPORT_MIGRATION" | sort)"
+          [ "$found" = "$expected" ]
+
+      - name: Snapshot immutable payment row counts and rollout plan
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL' > /tmp/payment-counts-before.txt
+          begin read only;
+          select 'support_events|' || count(*) from public.support_events;
+          select 'confirmed_support|' || count(*) from public.support_events where state='confirmed';
+          select 'consumed_nonces|' || count(*) from public.osi_nonces where consumed_at is not null;
+          commit;
+          SQL
+          printf '%s\n' \
+            'Rollback: set OSI_V2_MAINTAINER_SUPPORT_ENABLED=false for the new recipient type.' \
+            'Rollback: set OSI_V2_SOLANA_PAY_ENABLED=false for the QR reference path.' \
+            'Migrations are additive; preserve data and use a focused forward fix.'
+
+      - name: Apply exactly the dry-run-approved additive migrations
+        run: |
+          set -euo pipefail
+          supabase db push --linked --yes
+          [ "$(psql -Atq -c "select count(*) from supabase_migrations.schema_migrations where version in ('${NONCE_VERSION}','${SUPPORT_VERSION}')")" = '2' ]
+          echo 'MIGRATIONS_APPLIED=true' >> "$GITHUB_ENV"
+
+      - name: Verify production constraints, grants, flags, and unchanged rows
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL' > /tmp/payment-contract.txt
+          begin read only;
+          select 'guard|' || (pg_get_functiondef('public.osi_v2_guard_nonce_update()'::regprocedure) like '%solana_pay_binding_added%');
+          select 'prepare|' || (to_regprocedure('public.osi_v2_prepare_maintainer_support(text,text,text,bigint,text,text)') is not null);
+          select 'service_execute|' || has_function_privilege('service_role','public.osi_v2_prepare_maintainer_support(text,text,text,bigint,text,text)','execute');
+          select 'anon_execute|' || has_function_privilege('anon','public.osi_v2_prepare_maintainer_support(text,text,text,bigint,text,text)','execute');
+          select 'auth_execute|' || has_function_privilege('authenticated','public.osi_v2_prepare_maintainer_support(text,text,text,bigint,text,text)','execute');
+          select 'support_flag|' || value from public.osi_config where key='OSI_V2_MAINTAINER_SUPPORT_ENABLED';
+          select 'solana_pay_flag|' || value from public.osi_config where key='OSI_V2_SOLANA_PAY_ENABLED';
+          commit;
+          SQL
+          grep -qx 'guard|true' /tmp/payment-contract.txt
+          grep -qx 'prepare|true' /tmp/payment-contract.txt
+          grep -qx 'service_execute|true' /tmp/payment-contract.txt
+          grep -qx 'anon_execute|false' /tmp/payment-contract.txt
+          grep -qx 'auth_execute|false' /tmp/payment-contract.txt
+          grep -qx 'support_flag|false' /tmp/payment-contract.txt
+          grep -qx 'solana_pay_flag|true' /tmp/payment-contract.txt
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL' > /tmp/payment-counts-after.txt
+          begin read only;
+          select 'support_events|' || count(*) from public.support_events;
+          select 'confirmed_support|' || count(*) from public.support_events where state='confirmed';
+          select 'consumed_nonces|' || count(*) from public.osi_nonces where consumed_at is not null;
+          commit;
+          SQL
+          diff -u /tmp/payment-counts-before.txt /tmp/payment-counts-after.txt
+
+      - name: Deploy exactly the changed payment and analyst functions
+        run: |
+          set -euo pipefail
+          supabase functions deploy osi-v2-payment --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy osi-v2-analyst --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Enable only typed maintainer support and smoke the deployed backend
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='true',updated_at=statement_timestamp() where key='OSI_V2_MAINTAINER_SUPPORT_ENABLED' and value='false'"
+          [ "$(psql -Atq -c "select value from public.osi_config where key='OSI_V2_MAINTAINER_SUPPORT_ENABLED'")" = 'true' ]
+          payment="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-payment"
+          analyst="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-analyst"
+          for attempt in $(seq 1 15); do
+            body="$(curl -sS --max-time 20 -X POST "$payment" -H 'Content-Type: application/json' -d '{"op":"capabilities"}' || true)"
+            echo "$body" | grep -q '"ok":true' && echo "$body" | grep -q '"solana_pay_enabled":true' && break
+            [ "$attempt" -lt 15 ] || exit 1
+            sleep 6
+          done
+          profile="$(curl -sS --fail --max-time 30 -X POST "$analyst" -H 'Content-Type: application/json' -d '{"op":"get_maintainer_profile"}')"
+          echo "$profile" | grep -q '"ok":true'
+          echo "$profile" | grep -q '"support_eligible":true'
+          echo 'BACKEND_SMOKE_PASSED=true' >> "$GITHUB_ENV"
+
+      - name: Wait for the exact merged Vercel assets
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            records="$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "${WEB_URL}/assets/js/84-public-records.js?sha=${GITHUB_SHA}&attempt=${attempt}" || true)"
+            analyst="$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "${WEB_URL}/assets/js/v2-analyst-integration.js?sha=${GITHUB_SHA}&attempt=${attempt}" || true)"
+            case_ui="$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "${WEB_URL}/assets/js/v2-case-integration.js?sha=${GITHUB_SHA}&attempt=${attempt}" || true)"
+            if grep -q 'crNativeCaseReportRecords' <<< "$records" \
+              && grep -q 'osiV2SupportMaintainer' <<< "$analyst" \
+              && grep -q 'Solana Pay QR unavailable' <<< "$case_ui"; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo '::error::Vercel did not serve the exact merged Public Records and payment UI in time.'
+          exit 1
+
+      - name: Fail closed only if the backend rollout did not pass smoke
+        if: failure() && env.MIGRATIONS_APPLIED == 'true' && env.BACKEND_SMOKE_PASSED != 'true'
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='false',updated_at=statement_timestamp() where key in ('OSI_V2_MAINTAINER_SUPPORT_ENABLED','OSI_V2_SOLANA_PAY_ENABLED')"
+
+      - name: Write deployment receipt
+        if: always()
+        run: |
+          mkdir -p deployment-receipt
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "project=${EXPECTED_PROJECT_REF}"
+            echo "migrations=${NONCE_VERSION},${SUPPORT_VERSION}"
+            echo "functions=osi-v2-payment,osi-v2-analyst"
+            echo "migrations_applied=${MIGRATIONS_APPLIED}"
+            echo "backend_smoke_passed=${BACKEND_SMOKE_PASSED}"
+          } > deployment-receipt/payment-records.txt
+
+      - name: Upload deployment receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: osi-payment-records-production-${{ github.sha }}
+          path: deployment-receipt/payment-records.txt
+          retention-days: 30
