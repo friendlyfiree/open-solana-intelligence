@@ -138,7 +138,8 @@ const maintainer = await fixture({
 });
 ok('full maintainer gets the private workspace and exact capability refresh',
   maintainer.markup.includes('Maintainer-only AI Pack')
-    && maintainer.requests.filter((row) => row.op === 'capabilities').length === 1);
+    && maintainer.requests.filter((row) => row.op === 'capabilities').length === 1
+    && maintainer.requests.find((row) => row.op === 'capabilities').read_session === 'fixture-read-session');
 ok('full maintainer uses one scoped private read session and no public discovery endpoint',
   maintainer.readSessionCalls === 1
     && maintainer.requests.filter((row) => row.op === 'get_case_packs').length === 1
@@ -164,7 +165,8 @@ ok('maintainer-only copy describes a private artifact and rejects verdict author
 ok('retryable generation retains one exact operation and idempotency record',
   source.includes('function operationRecord(operation,target,payload)')
     && source.includes('state.operationKeys[slot]=current')
-    && source.includes("exactWrite('prepare_generation','commit_generation'"));
+    && source.includes("exactWrite('prepare_generation','commit_generation'")
+    && source.includes('{read_session:session.token}'));
 ok('private reads are constrained to the AI Pack detail read-session scope',
   source.includes("window.osiV2ReadSession(['aipack:detail']")
     && source.includes("caps.ai_pack_access_mode==='maintainer_only'")

@@ -2,6 +2,7 @@
 
 // ---- Maintainer moderation console (open with the lock icon, or the #admin URL) ----
 function admEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function admText(value){ return typeof window.osiT==='function' ? window.osiT(String(value)) : String(value); }
 function maintainerShortWallet(addr){
   addr = String(addr || '');
   return addr.length > 10 ? addr.slice(0,4) + '...' + addr.slice(-4) : addr;
@@ -423,7 +424,9 @@ function admAiPackHtml(model){
     +'<div class="moc-detail-row"><span>Generation runs in progress</span><b>'+admEsc(String(data.in_progress_generation_count||0))+'</b></div>'
     +'</div>'
     +(cases.length?'<div class="moc-feed">'+cases.map(function(item){
-      return '<div class="moc-feed-row"><i class="moc-dot"></i><div><b>'+admEsc(item.public_ref)+' / '+admEsc(admClip(item.title||'Untitled Case',72))+'</b><span>'+admEsc(item.stage||'unknown')+' / private maintainer draft only</span></div><button class="moc-action" type="button" onclick="osiNavigate(\'field\');osiV2OpenAiPack(\''+admEsc(item.public_ref)+'\')">Open AI Pack</button></div>';
+      var canGenerate=item.can_generate===true;
+      var prerequisite=admText(canGenerate?'Private maintainer draft available.':String(item.generation_prerequisite||'Generation prerequisites are unavailable; action remains disabled.'));
+      return '<div class="moc-feed-row"><i class="moc-dot"></i><div><b>'+admEsc(item.public_ref)+' / '+admEsc(admClip(item.title||admText('Untitled Case'),72))+'</b><span>'+admEsc(item.stage||'unknown')+' / '+admEsc(prerequisite)+'</span></div><button class="moc-action" type="button" onclick="osiNavigate(\'field\');osiV2OpenAiPack(\''+admEsc(item.public_ref)+'\')"'+(canGenerate?'':' disabled')+'>'+admEsc(admText('Open AI Pack'))+'</button></div>';
     }).join('')+'</div>':'<div class="moc-empty">No public Case is currently eligible for a private maintainer draft.</div>')
     +'</section>';
 }
@@ -500,6 +503,14 @@ async function admReconcileSas(analystWallet){
   if(typeof showToast==='function') showToast(message);
   await admRefresh();
 }
+async function admAiPackOperationsStatus(wallet){
+  if(typeof window.osiV2ReadSession!=='function')return {ok:false,error:'read_session_disabled_or_unavailable'};
+  try{
+    var session=await window.osiV2ReadSession(['aipack:detail'],{allowUnlock:true});
+    if(!session||session.wallet!==wallet||!session.token)return {ok:false,error:'read_session_wrong_wallet'};
+    return await admFunctionPost('osi-v2-ai-pack',{op:'operations_status',wallet:session.wallet,read_session:session.token});
+  }catch(error){return {ok:false,error:String(error&&error.message||'read_session_unavailable')};}
+}
 async function admRefresh(){
   var access = renderAdminAccess({clear:true});
   if(!access.allowed) return;
@@ -514,7 +525,7 @@ async function admRefresh(){
       admSafeGet('vouches?select=item_type,item_id,analyst,vote&limit=1000'),
       admSafeGet('onchain_events?select=event_type,actor_wallet,item_type,item_id,vote,label,tx_sig,created_at&order=created_at.desc&limit=80'),
       typeof osiV2LoadMaintainerOverview==='function' ? osiV2LoadMaintainerOverview().then(function(value){return{ok:true,overview:value.overview};}).catch(function(error){return{ok:false,error:error};}) : Promise.resolve({ok:false}),
-      admFunctionPost('osi-v2-ai-pack',{op:'operations_status',wallet:access.wallet}),
+      admAiPackOperationsStatus(access.wallet),
       admFunctionPost('osi-v2-analyst',{op:'sas_operations_status',wallet:access.wallet})
     ]);
     if(!resolveMaintainerAccess().allowed){ renderAdminAccess({clear:true}); return; }

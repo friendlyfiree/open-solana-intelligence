@@ -36,6 +36,7 @@ import {
   AI_PACK_OWNER_FEEDBACK_EVENT,
   AI_PACK_REVIEW_EVENTS,
   GenerationExecutionError,
+  authorizeMaintainerRead,
   authorizedCasePacksDto,
   canonicalAiPackApprovalMemo,
   executeReservedGeneration,
@@ -476,7 +477,7 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
   } catch {
     return jsonResponse(req, 400, { ok: false, error: "bad_capability_request" });
   }
-  const [caseResult, maintainer, flags] = await Promise.all([
+  const [caseResult, maintainerCandidate, flags] = await Promise.all([
     admin.from("cases")
       .select("id,public_ref,submitted_by_wallet,visibility,stage")
       .eq("public_ref", caseRef)
@@ -484,6 +485,17 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
     fullMaintainer(req, wallet),
     flagsAvailable(),
   ]);
+  const readProof = maintainerCandidate.ok
+    ? await verifyPrivateRead(req, body)
+    : { ok: false as const, reason: maintainerCandidate.reason };
+  const maintainer = authorizeMaintainerRead({
+    wallet,
+    maintainer_ok: maintainerCandidate.ok,
+    maintainer_reason: maintainerCandidate.reason,
+    read_proof_ok: readProof.ok,
+    read_proof_wallet: readProof.ok ? readProof.wallet : null,
+    read_proof_reason: readProof.ok ? null : readProof.reason,
+  });
   const caseRow = caseResult.data?.[0] ?? null;
   // Capabilities are not a private read. Do not reveal a private Case through
   // this unsigned operation.
@@ -497,10 +509,14 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
     "resolved",
     "reopened",
   ]).has(String(caseRow.stage));
+  const caseOwnerConflict = Boolean(
+    caseAvailable && maintainer.ok && caseRow?.submitted_by_wallet === wallet,
+  );
   const role = maintainer.ok ? "maintainer" : "public";
   const canGenerate = Boolean(
     caseAvailable && caseStageEligible && flags.writes
       && flags.accessMode === "maintainer_only" && maintainer.ok
+      && !caseOwnerConflict
       && ANTHROPIC_API_KEY.trim().length >= 20,
   );
   let prerequisite: string | null = null;
@@ -513,6 +529,8 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
     prerequisite = "This Case lifecycle stage is not eligible for AI Pack generation.";
   } else if (!maintainer.ok) {
     prerequisite = "Generation requires both the configured admin wallet and authorized Supabase maintainer session.";
+  } else if (caseOwnerConflict) {
+    prerequisite = "A Case owner cannot generate an AI Pack for their own Case in maintainer-only mode.";
   } else if (ANTHROPIC_API_KEY.trim().length < 20) {
     prerequisite = "AI Pack generation is temporarily unavailable.";
   }
@@ -527,6 +545,8 @@ async function capabilities(req: Request, body: Row): Promise<Response> {
     viewer_role: role,
     analyst_eligible: false,
     maintainer_access: maintainer.ok,
+    maintainer_gate: maintainer.ok ? "full" : maintainer.reason,
+    case_owner_conflict: caseOwnerConflict,
     can_generate: canGenerate,
     generation_prerequisite: canGenerate ? null : prerequisite,
   });
@@ -629,9 +649,20 @@ async function prepareGeneration(req: Request, body: Row): Promise<Response> {
   } catch {
     return jsonResponse(req, 400, { ok: false, error: "bad_generation_request" });
   }
+  const readProof = await verifyPrivateRead(req, body);
+  if (!readProof.ok) {
+    return jsonResponse(req, readProof.status, { ok: false, error: readProof.reason });
+  }
   const blocked = await requireWriteFlags(req);
   if (blocked) return blocked;
-  const maintainer = await fullMaintainer(req, wallet);
+  const maintainerCandidate = await fullMaintainer(req, readProof.wallet);
+  const maintainer = authorizeMaintainerRead({
+    wallet,
+    maintainer_ok: maintainerCandidate.ok,
+    maintainer_reason: maintainerCandidate.reason,
+    read_proof_ok: readProof.ok,
+    read_proof_wallet: readProof.wallet,
+  });
   if (!maintainer.ok) {
     return jsonResponse(req, 403, { ok: false, error: maintainer.reason });
   }
@@ -642,7 +673,7 @@ async function prepareGeneration(req: Request, body: Row): Promise<Response> {
     p_pack_type: packType,
     p_idempotency_key: idempotencyKey,
     p_request_fingerprint_hash: await fingerprint(req),
-    p_maintainer_auth_uuid: maintainer.auth_id,
+    p_maintainer_auth_uuid: maintainerCandidate.auth_id,
   });
   if (error) return rpcFailure(req, error, "ai_pack_generation_prepare_failed");
   const row = firstRow(data);
@@ -1233,14 +1264,25 @@ async function operationsStatus(req: Request, body: Row): Promise<Response> {
   } catch {
     return jsonResponse(req, 400, { ok: false, error: "bad_wallet" });
   }
-  const maintainer = await fullMaintainer(req, wallet);
+  const readProof = await verifyPrivateRead(req, body);
+  if (!readProof.ok) {
+    return jsonResponse(req, readProof.status, { ok: false, error: readProof.reason });
+  }
+  const maintainerCandidate = await fullMaintainer(req, readProof.wallet);
+  const maintainer = authorizeMaintainerRead({
+    wallet,
+    maintainer_ok: maintainerCandidate.ok,
+    maintainer_reason: maintainerCandidate.reason,
+    read_proof_ok: readProof.ok,
+    read_proof_wallet: readProof.wallet,
+  });
   if (!maintainer.ok) {
     return jsonResponse(req, 403, { ok: false, error: maintainer.reason });
   }
   const [flags, casesResult, packsResult, versionsResult, runsResult] = await Promise.all([
     flagsAvailable(),
     admin.from("cases")
-      .select("public_ref,title,stage,updated_at")
+      .select("public_ref,title,stage,updated_at,submitted_by_wallet")
       .eq("visibility", "public")
       .in("stage", [
         "open_public",
@@ -1264,16 +1306,40 @@ async function operationsStatus(req: Request, body: Row): Promise<Response> {
   if (casesResult.error || packsResult.error || versionsResult.error || runsResult.error) {
     return jsonResponse(req, 503, { ok: false, error: "ai_pack_operations_unavailable" });
   }
+  const providerConfigured = ANTHROPIC_API_KEY.trim().length >= 20;
+  const eligibleCases = (casesResult.data ?? []).map((row) => {
+    const caseOwnerConflict = row.submitted_by_wallet === wallet;
+    const canGenerate = Boolean(
+      !caseOwnerConflict && flags.writes
+        && flags.accessMode === "maintainer_only" && providerConfigured,
+    );
+    let generationPrerequisite: string | null = null;
+    if (caseOwnerConflict) {
+      generationPrerequisite = "A Case owner cannot generate an AI Pack for their own Case in maintainer-only mode.";
+    } else if (!flags.writes || flags.accessMode !== "maintainer_only") {
+      generationPrerequisite = "AI Pack generation is disabled until every required server rollout gate is enabled.";
+    } else if (!providerConfigured) {
+      generationPrerequisite = "AI Pack generation is temporarily unavailable.";
+    }
+    return {
+      public_ref: row.public_ref,
+      title: row.title,
+      stage: row.stage,
+      updated_at: row.updated_at,
+      can_generate: canGenerate,
+      generation_prerequisite: canGenerate ? null : generationPrerequisite,
+    };
+  });
   return jsonResponse(req, 200, {
     ok: true,
     access_mode: flags.accessMode,
     writes_enabled: flags.writes,
     review_writes_enabled: flags.review,
-    provider_configured: ANTHROPIC_API_KEY.trim().length >= 20,
+    provider_configured: providerConfigured,
     private_draft_count: Number(versionsResult.count ?? 0),
     pack_count: Number(packsResult.count ?? 0),
     in_progress_generation_count: Number(runsResult.count ?? 0),
-    eligible_cases: casesResult.data ?? [],
+    eligible_cases: eligibleCases,
     public_discovery_enabled: flags.accessMode !== "maintainer_only",
     owner_feedback_enabled: flags.review,
     analyst_review_enabled: flags.review,
