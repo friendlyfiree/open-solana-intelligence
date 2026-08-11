@@ -23,9 +23,9 @@ concurrency:
 env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
   CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
-  GOVERNANCE_VERSION: "20260809091827"
+  GOVERNANCE_VERSION: "20260811065353"
   REPORT_BODY_VERSION: "20260809195451"
-  GOVERNANCE_MIGRATION: 20260809091827_governance_bootstrap_challenge_controls.sql
+  GOVERNANCE_MIGRATION: 20260811065353_governance_bootstrap_challenge_controls.sql
   REPORT_BODY_MIGRATION: 20260809195451_osi_v2_published_report_body_is_public.sql
   OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 

@@ -15,7 +15,7 @@ has("scoped workflow name", /^name: OSI Trust Controls Production$/m);
 has("manual dispatch only", /^on:\n  workflow_dispatch:/m);
 has("exact project confirmation", /DEPLOY-TRUST-CONTROLS-afibxpniwfnavdobecrn/);
 has("current main only", /GITHUB_REF.*refs\/heads\/main/);
-has("governance migration pinned", /GOVERNANCE_MIGRATION: 20260809091827_governance_bootstrap_challenge_controls\.sql/);
+has("governance migration pinned", /GOVERNANCE_MIGRATION: 20260811065353_governance_bootstrap_challenge_controls\.sql/);
 has("Report body migration pinned to production history", /REPORT_BODY_MIGRATION: 20260809195451_osi_v2_published_report_body_is_public\.sql/);
 has("full Node battery", /for test in tests\/\*\.test\.js tests\/\*\.test\.mjs/);
 has("fresh database", /supabase db reset --local --no-seed/);
