@@ -101,6 +101,28 @@ ok('Turkish covers persistent receipts, unified queue recovery, and connected Ph
     && i18n.includes("'Finalized payment receipt': 'Kesinleşmiş ödeme makbuzu'")
     && i18n.includes("'Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.'")
     && i18n.includes("'Conflict: this exact governance action is unavailable to this wallet.'"));
+ok('Turkish covers Solana Pay duplicate-payment recovery and replacement confirmation',
+  [
+    "'Duplicate-payment protection':",
+    "'Check wallet activity before starting again':",
+    "'No verified receipt was found':",
+    "'No transaction signature was returned':",
+    "'Locally recovered request details':",
+    "'Unavailable in recovered request':",
+    "'Expired: verification incomplete':",
+    "'Expired: do not scan':",
+    "'This QR can no longer be used. Keep the reference for wallet-history verification.':",
+    "'Transaction signature':",
+    "'Verification window closed. Keep the reference and check wallet history before replacement.':",
+    "'This request expired without a verified OSI receipt. A delayed transfer may still exist. Keep this reference and check wallet history before replacing it.':",
+    "'Keep existing recovery record':",
+    "'I checked, start a new payment request':",
+    "'Reopening the active Solana Pay request. This prevents a duplicate payment.':",
+    "'The earlier request could not be checked. Retry the same request before preparing another payment.':",
+    "'Re-verifying the existing transaction signature. No new wallet request will open.':",
+  ].every((marker) => i18n.includes(marker))
+    && caseUi.includes("showToast(t('Reopening the active Solana Pay request. This prevents a duplicate payment.'))")
+    && caseUi.includes("esc(t('I checked, start a new payment request'))"));
 ok('Turkish covers D17 finalization, seal and evidence-bound challenge controls',
   [
     "'Finalize standard quorum leader':",

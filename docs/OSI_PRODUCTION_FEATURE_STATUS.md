@@ -96,6 +96,12 @@ verification, and atomic commit to the existing payment/support/receipt model.
 - The Phantom path stays recoverable after the single-use intent expires
   through `recover_payment`, which re-verifies the existing signature and
   never creates a second transfer.
+- A connected-Phantom submission of a single-recipient Solana Pay intent uses
+  the separate server-selected `recover_solana_pay` operation after reload.
+  That operation re-runs the exact read-only reference, Memo, recipient and
+  amount checks before writing Solana Pay verification metadata. Wire Solana
+  Pay stays on its existing strict reference-poll path because Wire recovery is
+  not a supported database transition.
 
 ## Public contribution contract
 

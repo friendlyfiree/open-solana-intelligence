@@ -162,7 +162,7 @@ ok('closing or invalidating a Case wipes AI Pack state and rendered drawer conte
     && aiPackIntegration.includes('root.replaceChildren()'));
 ok('browser calls the dedicated server-only native SOL gateway',
   app.includes('/functions/v1/osi-v2-payment') && app.includes("op:'prepare_payment'")
-    && app.includes("op:recovery?'recover_payment':'commit_payment'"));
+    && app.includes("pending.method==='solana_pay'?'recover_solana_pay':'recover_payment'"));
 ok('reward UI requires the server-derived sealed payment-ready state',
   app.includes('Pay sealed winner') && app.includes("'payment_ready','partially_fulfilled'")
     && app.includes('winning_report_author_wallet') && app.includes('Pledged, not escrowed'));

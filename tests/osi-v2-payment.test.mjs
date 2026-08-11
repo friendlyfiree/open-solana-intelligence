@@ -300,6 +300,13 @@ ok("Solana Pay rejects a writable reference", () => {
     tx, solanaPayIntent,
   ).reason, "solana_pay_reference_not_readonly");
 });
+ok("Solana Pay rejects a transfer with no bound reference account", () => {
+  const tx = rawSolanaPayTransaction();
+  tx.transaction.message.instructions[1].accounts = [0, 1];
+  assert.equal(validateSolanaPayReferenceTransaction(
+    tx, solanaPayIntent,
+  ).reason, "solana_pay_transfer_binding_mismatch");
+});
 ok("Solana Pay rejects wrong reference, amount and Memo order", () => {
   const wrongReference = rawSolanaPayTransaction();
   wrongReference.transaction.message.instructions[1].accounts[2] = 3;
@@ -533,6 +540,7 @@ ok("Solana Pay polling uses one bound reference and the same finalized commit pa
   assert.ok(edge.includes('}, false, "solana_pay")'));
   assert.ok(edge.includes('paymentMethod !== "solana_pay"'));
   assert.ok(edge.includes('solana_pay_reference_verified: paymentMethod === "solana_pay"'));
+  assert.ok(edge.includes('case "recover_solana_pay": return await commitPayment(body, true, "solana_pay")'));
 });
 ok("Solana Pay database binding is service-only, single-recipient and replay-safe", () => {
   assert.ok(launchMigration.includes("osi_v2_bind_payment_reference"));

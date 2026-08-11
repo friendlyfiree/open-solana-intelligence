@@ -409,7 +409,7 @@
       ,transaction_failed:'The Solana transaction failed. No confirmed payment was recorded.'
       ,solana_pay_disabled_or_unavailable:'Solana Pay is safely unavailable. Use the reviewed Phantom route for this exact intent.'
       ,unknown_solana_pay_reference:'This Solana Pay reference is unknown or does not belong to the connected payer.'
-      ,solana_pay_intent_expired:'The single-use Solana Pay request expired. No payment was recorded.'
+      ,solana_pay_intent_expired:'The single-use Solana Pay request expired before an OSI receipt was verified.'
       ,solana_pay_binding_invalid:'The finalized transaction did not contain the exact bound Solana Pay reference.'
       ,solana_pay_reference_not_readonly:'The Solana Pay reference was not attached as the required read-only non-signer account.'
       ,solana_pay_memo_position_invalid:'The canonical Memo was not immediately before the Solana Pay transfer.'
@@ -2029,6 +2029,60 @@
     }catch(error){throw new Error('payment_recovery_unavailable');}
     if(settings.expose!==false&&wallet===String(walletPubkey||'')){state.paymentPending=pending;state.paymentWallet=wallet;}
   }
+  function confirmPaymentReplacement(pending,reason){
+    return new Promise(function(resolve){
+      var old=document.getElementById('osi-payment-replacement');if(old)old.remove();
+      var prepared=pending&&pending.prepared||{},solanaPay=prepared.solana_pay||{};
+      var unavailable=t('Unavailable in recovered request');
+      var recipients=(prepared.recipient_manifest||[]).map(function(row){
+        var amount=row.amount_sol?String(row.amount_sol)+' SOL':row.amount_lamports?String(row.amount_lamports)+' lamports':unavailable;
+        return'<li><span class="mono">'+esc(row.wallet||unavailable)+'</span><b>'+esc(amount)+'</b></li>';
+      }).join('')||'<li><span>'+esc(t('Recipient details'))+'</span><b>'+esc(unavailable)+'</b></li>';
+      var total=prepared.total_sol?String(prepared.total_sol)+' SOL':prepared.total_lamports?String(prepared.total_lamports)+' lamports':unavailable;
+      var expiredSolanaPay=reason==='expired_solana_pay';
+      var warningTitle=t(expiredSolanaPay?'No verified receipt was found':'No transaction signature was returned');
+      var warningBody=t(expiredSolanaPay?'The earlier Solana Pay request expired, but an RPC delay can hide a transfer that was already approved. Check the payer wallet history before creating another request.':'The earlier wallet request did not return a transaction signature, but a wallet or browser interruption can hide a transfer that was submitted. Check the payer wallet history before creating another request.');
+      var modal=document.createElement('div');modal.id='osi-payment-replacement';modal.className='osi-payment-review';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-labelledby','osi-payment-replacement-title');
+      modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">'+esc(t('Duplicate-payment protection'))+'</span><h3 id="osi-payment-replacement-title">'+esc(t('Check wallet activity before starting again'))+'</h3><div class="osi-state-message warning"><b>'+esc(warningTitle)+'</b><span>'+esc(warningBody)+'</span></div><span class="osi-eyebrow">'+esc(t('Locally recovered request details'))+'</span><dl><div><dt>'+esc(t('Payer'))+'</dt><dd class="mono">'+esc(prepared.payer_wallet||pending&&pending.wallet||unavailable)+'</dd></div><div><dt>'+esc(t('Total'))+'</dt><dd>'+esc(total)+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd class="mono">'+esc(prepared.target_public_ref||unavailable)+'</dd></div><div><dt>'+esc(t('Reference'))+'</dt><dd class="mono">'+esc(solanaPay.reference||unavailable)+'</dd></div>'+(pending&&pending.txSig?'<div><dt>'+esc(t('Transaction signature'))+'</dt><dd class="mono">'+esc(pending.txSig)+'</dd></div>':'')+'<div><dt>'+esc(t('Expiry'))+'</dt><dd class="mono">'+esc(solanaPay.expires_at||prepared.expires_at||unavailable)+'</dd></div></dl><ul>'+recipients+'</ul><div class="osi-case-note">'+esc(t('These locally recovered request details help you compare wallet history; they are not proof that payment was or was not sent.'))+'</div><div class="osi-case-note">'+esc(t('Continue only if you verified that the earlier recipient and amount were not sent. OSI will never treat this confirmation as proof of payment.'))+'</div><div class="osi-payment-actions"><button class="osi-action" type="button" data-replacement-cancel>'+esc(t('Keep existing recovery record'))+'</button><button class="osi-action primary" type="button" data-replacement-confirm>'+esc(t('I checked, start a new payment request'))+'</button></div></div>';
+      document.body.appendChild(modal);var prior=document.activeElement,settled=false;
+      function finish(value,fromClear){if(settled)return;settled=true;document.removeEventListener('keydown',keyHandler,true);modal.remove();if(state.paymentCleanup===cancelFromClear)state.paymentCleanup=null;if(fromClear!==true&&prior&&document.contains(prior)&&prior.focus)prior.focus();resolve(value);}
+      function cancelFromClear(){finish(false,true);}
+      var previousCleanup=state.paymentCleanup;state.paymentCleanup=cancelFromClear;if(typeof previousCleanup==='function')previousCleanup(true);
+      var keyHandler=trapModalKeys(modal,function(){finish(false);});document.addEventListener('keydown',keyHandler,true);
+      modal.querySelector('[data-replacement-cancel]').addEventListener('click',function(){finish(false);});
+      modal.querySelector('[data-replacement-confirm]').addEventListener('click',function(){finish(true);});
+      modal.addEventListener('click',function(event){if(event.target===modal)finish(false);});
+      modal.querySelector('[data-replacement-cancel]').focus();
+    });
+  }
+  async function handleExistingPayment(preferredMethod){
+    if(!state.paymentPending)return false;
+    var pending=state.paymentPending;
+    if(preferredMethod==='solana_pay'&&pending.method==='solana_pay'&&pending.restored_from_storage!==true){
+      showToast(t('Reopening the active Solana Pay request. This prevents a duplicate payment.'));
+      retryPayment();return true;
+    }
+    if(pending.method==='solana_pay'&&pending.restored_from_storage===true){
+      if(pending.txSig&&pending.prepared&&pending.prepared.payment_kind!=='wire_support'){
+        showToast(t('Re-verifying the existing transaction signature. No new wallet request will open.'));
+        try{await verifyPreparedPayment(pending,true,privateGeneration());}
+        catch(error){paymentStatus(userError(error)+' '+t('The existing signature remains available for another verification attempt; do not send a replacement payment.'),'error');}
+        return true;
+      }
+      showToast(t('An earlier Solana Pay request is still active. Checking the same reference prevents a duplicate payment.'));
+      var outcome=await pollRestoredSolanaPay(pending,privateGeneration());
+      if(outcome==='expired'){
+        if(!await confirmPaymentReplacement(pending,'expired_solana_pay'))return true;
+        clearPaymentState({forgetRecovery:true,wallet:pending.wallet});return false;
+      }
+      if(outcome==='awaiting')showToast(t('The earlier request is still awaiting payment. Retry after it expires rather than creating a duplicate.'));
+      else if(outcome==='error')showToast(t('The earlier request could not be checked. Retry the same request before preparing another payment.'));
+      return true;
+    }
+    if(pending.txSig){showToast(t('Re-verifying the existing transaction signature. No new wallet request will open.'));retryPayment();return true;}
+    if(!await confirmPaymentReplacement(pending,'wallet_signature_missing'))return true;
+    clearPaymentState({forgetRecovery:true,wallet:pending.wallet});return false;
+  }
   function paymentStatus(text,kind){var node=document.getElementById('osi-payment-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
   function trapModalKeys(modal,onClose){
     return function(event){
@@ -2041,7 +2095,8 @@
       var nodes=Array.prototype.filter.call(modal.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])'),function(node){return node.offsetParent!==null;});
       if(!nodes.length){event.preventDefault();return;}
       var first=nodes[0],last=nodes[nodes.length-1];
-      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+      if(nodes.indexOf(document.activeElement)===-1){event.preventDefault();(event.shiftKey?last:first).focus();}
+      else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
     };
   }
@@ -2143,7 +2198,7 @@
     var recipient=prepared.recipient_manifest[0];var mobile=window.osiSolanaPay.isMobileDevice();
     var provider=typeof getProvider==='function'?getProvider():null;var connected=!!(provider&&provider.publicKey&&provider.isConnected!==false&&walletPubkey);
     var phantom=connected?'<button class="osi-action primary" type="button" data-solana-pay-phantom>'+esc(t('Use connected Phantom'))+'</button>':'';
-    modal.innerHTML='<div class="osi-payment-review-card osi-solana-pay-card"><span class="osi-eyebrow">'+esc(t('Single-use · mainnet-beta'))+'</span><h3 id="osi-solana-pay-title">'+esc(t('Pay with Solana Pay'))+'</h3><div class="osi-solana-pay-grid"><div class="osi-solana-pay-qr" data-solana-pay-qr></div><div><dl><div><dt>'+esc(t('Payer'))+'</dt><dd class="mono">'+esc(prepared.payer_wallet)+'</dd></div><div><dt>'+esc(t('Exact amount'))+'</dt><dd>'+esc(recipient.amount_sol)+' SOL / '+esc(recipient.amount_lamports)+' lamports</dd></div><div><dt>'+esc(t('Recipient'))+'</dt><dd class="mono">'+esc(recipient.wallet)+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div><div><dt>'+esc(t('Reference'))+'</dt><dd class="mono">'+esc(prepared.solana_pay.reference)+'</dd></div><div><dt>'+esc(t('Canonical Memo'))+'</dt><dd class="mono" data-solana-pay-memo>'+esc(prepared.memo)+'</dd></div></dl><p class="osi-solana-pay-timer mono" data-solana-pay-timer></p></div></div><div class="osi-state-message" data-solana-pay-state role="status" aria-live="polite"><b>'+esc(t('Ready'))+'</b><span>'+esc(t('Scan the QR code or explicitly open a compatible wallet. Verify the recipient, amount, network and Memo before approving.'))+'</span></div><div class="osi-payment-actions"><button class="osi-action" type="button" data-solana-pay-close>'+esc(t('Close'))+'</button>'+phantom+'<button class="osi-action" type="button" data-solana-pay-copy>'+esc(t('Copy link'))+'</button><button class="osi-action" type="button" data-solana-pay-copy-memo>'+esc(t('Copy Memo'))+'</button><button class="osi-action" type="button" data-solana-pay-retry>'+esc(t('Check payment'))+'</button><a class="osi-action" data-solana-pay-open href="'+esc(url)+'">'+esc(t(mobile?'Open compatible wallet':'Open compatible wallet app'))+'</a></div><div class="osi-case-note">'+esc(t('The connected Phantom button reuses this exact prepared intent. A QR, copied link, or deep link only offers it to a compatible wallet; OSI does not claim an app was detected. Nothing is marked paid until finalized server verification succeeds.'))+'</div></div>';
+    modal.innerHTML='<div class="osi-payment-review-card osi-solana-pay-card"><span class="osi-eyebrow">'+esc(t('Single-use · mainnet-beta'))+'</span><h3 id="osi-solana-pay-title">'+esc(t('Pay with Solana Pay'))+'</h3><div class="osi-solana-pay-grid"><div class="osi-solana-pay-qr" data-solana-pay-qr></div><div><dl><div><dt>'+esc(t('Payer'))+'</dt><dd class="mono">'+esc(prepared.payer_wallet)+'</dd></div><div><dt>'+esc(t('Purpose'))+'</dt><dd>'+esc(t(label(prepared.payment_kind)))+'</dd></div><div><dt>'+esc(t('Exact amount'))+'</dt><dd>'+esc(recipient.amount_sol)+' SOL / '+esc(recipient.amount_lamports)+' lamports</dd></div><div><dt>'+esc(t('Recipient'))+'</dt><dd class="mono">'+esc(recipient.wallet)+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div><div><dt>'+esc(t('Reference'))+'</dt><dd class="mono">'+esc(prepared.solana_pay.reference)+'</dd></div><div><dt>'+esc(t('Canonical Memo'))+'</dt><dd class="mono" data-solana-pay-memo>'+esc(prepared.memo)+'</dd></div></dl><p class="osi-solana-pay-timer mono" data-solana-pay-timer></p></div></div><div class="osi-state-message" data-solana-pay-state role="status" aria-live="polite"><b>'+esc(t('Ready'))+'</b><span>'+esc(t('Scan the QR code or explicitly open a compatible wallet. Verify the recipient, amount, network and Memo before approving.'))+'</span></div><div class="osi-payment-actions"><button class="osi-action" type="button" data-solana-pay-close>'+esc(t('Close'))+'</button>'+phantom+'<button class="osi-action" type="button" data-solana-pay-copy>'+esc(t('Copy link'))+'</button><button class="osi-action" type="button" data-solana-pay-copy-memo>'+esc(t('Copy Memo'))+'</button><button class="osi-action" type="button" data-solana-pay-retry>'+esc(t('Check payment'))+'</button><a class="osi-action" data-solana-pay-open href="'+esc(url)+'">'+esc(t(mobile?'Open compatible wallet':'Open compatible wallet app'))+'</a></div><div class="osi-case-note">'+esc(t('This direct mainnet transfer is irreversible. Native SOL goes directly to the server-derived recipient. OSI has no custody or escrow. The connected Phantom button reuses this exact prepared intent. A QR, copied link, or deep link only offers it to a compatible wallet; OSI does not claim an app was detected. Nothing is marked paid until finalized server verification succeeds.'))+'</div></div>';
     document.body.appendChild(modal);
     window.osiSolanaPay.renderQr(modal.querySelector('[data-solana-pay-qr]'),url);
     var prior=document.activeElement;var stopped=false;var polling=false;var timerId=0;var countdownId=0;
@@ -2171,7 +2226,7 @@
       catch(error){var memo=modal.querySelector('[data-solana-pay-memo]');if(memo){var range=document.createRange();range.selectNodeContents(memo);var selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);}setPayState(t('Copy unavailable'),t('The exact Memo is selected for manual copying.'),'warning');}
     });
     var phantomButton=modal.querySelector('[data-solana-pay-phantom]');if(phantomButton)phantomButton.addEventListener('click',async function(){
-      if(polling||stopped)return;phantomButton.disabled=true;phantomButton.setAttribute('aria-busy','true');
+      if(polling||stopped||pending.txSig)return;phantomButton.disabled=true;phantomButton.setAttribute('aria-busy','true');
       setPayState(t('Approve in connected Phantom'),t('The transaction contains the exact Memo, recipient, amount, and single-use Solana Pay reference.'),'');
       try{
         pending.txSig=await sendPreparedSolanaPay(prepared,pending.wallet,generation,function(signature){
@@ -2180,17 +2235,28 @@
         });assertPrivateGeneration(generation);persistPaymentPending(pending);
         setPayState(t('Transaction submitted'),t('Waiting for finalized server verification of this same reference.'),'success');await poll();
       }catch(error){if(generation===privateGeneration())setPayState(t('Phantom transfer not submitted'),userError(error),'warning');}
-      finally{if(generation===privateGeneration()){phantomButton.removeAttribute('aria-busy');if(!stopped)phantomButton.disabled=false;}}
+      finally{if(generation===privateGeneration()){phantomButton.removeAttribute('aria-busy');if(!stopped&&!pending.txSig)phantomButton.disabled=false;}}
     });
     function updateCountdown(){
       var expires=new Date(prepared.solana_pay.expires_at||prepared.expires_at).getTime();var left=expires-Date.now();
       if(!Number.isFinite(expires)||left<=0){timerNode.textContent=t('Intent expired');return false;}
       timerNode.textContent=t('Expires in {seconds} seconds',{seconds:Math.max(1,Math.ceil(left/1000))});return true;
     }
+    function preserveExpiredReference(message,terminal){
+      pending.restored_from_storage=true;pending.recovery_state='expired_unverified';persistPaymentPending(pending);
+      if(phantomButton)phantomButton.disabled=true;
+      var qrNode=modal.querySelector('[data-solana-pay-qr]');if(qrNode){qrNode.innerHTML='<div class="osi-state-message warning"><b>'+esc(t('Expired: do not scan'))+'</b><span>'+esc(t('This QR can no longer be used. Keep the reference for wallet-history verification.'))+'</span></div>';}
+      var copyLink=modal.querySelector('[data-solana-pay-copy]');if(copyLink){copyLink.disabled=true;copyLink.setAttribute('aria-disabled','true');}
+      var walletLink=modal.querySelector('[data-solana-pay-open]');if(walletLink){walletLink.removeAttribute('href');walletLink.setAttribute('aria-disabled','true');}
+      var retryButton=modal.querySelector('[data-solana-pay-retry]');if(terminal&&retryButton){retryButton.disabled=true;retryButton.setAttribute('aria-disabled','true');retryButton.title=t('Verification window closed. Keep the reference and check wallet history before replacement.');}
+      setPayState(t('Expired: verification incomplete'),message,'warning');
+      if(terminal){stopped=true;clearTimeout(timerId);clearInterval(countdownId);}
+    }
     async function poll(){
       if(stopped||polling)return;if(generation!==privateGeneration()){close(true);return;}polling=true;
-      if(!updateCountdown()){setPayState(t('Expired'),t('This bound request can no longer be used. No payment was recorded.'),'warning');stopped=true;document.removeEventListener('keydown',keyHandler,true);clearPaymentState({forgetRecovery:!pending.txSig,wallet:pending.wallet});return;}
-      setPayState(t('Verifying'),t('Checking finalized mainnet history for the exact single-use reference.'),'');
+      var locallyExpired=!updateCountdown();
+      if(phantomButton&&!pending.txSig)phantomButton.disabled=true;
+      setPayState(t(locallyExpired?'Final verification':'Verifying'),t('Checking finalized mainnet history for the exact single-use reference.'),'');
       try{
         var result=await api(PAYMENT_URL,{op:'poll_solana_pay',wallet:pending.wallet,reference:prepared.solana_pay.reference});
         assertPrivateGeneration(generation);
@@ -2202,20 +2268,23 @@
           assertPrivateGeneration(generation);
           return;
         }
-        setPayState(t('Awaiting payment'),t('No exact finalized transfer is recorded yet. Keep this single request; do not create a second payment.'),'warning');
+        if(locallyExpired)preserveExpiredReference(t('This request expired without a verified OSI receipt. A delayed transfer may still exist. Keep this reference and check wallet history before replacing it.'),false);
+        else setPayState(t('Awaiting payment'),t('No exact finalized transfer is recorded yet. Keep this single request; do not create a second payment.'),'warning');
       }catch(error){
         if(generation!==privateGeneration()){close(true);return;}
         if(error.status===410||String(error.message)==='solana_pay_intent_expired'){
-          setPayState(t('Expired'),t('The server-confirmed intent expired. No payment was recorded.'),'warning');stopped=true;document.removeEventListener('keydown',keyHandler,true);clearPaymentState({forgetRecovery:!pending.txSig,wallet:pending.wallet});return;
+          preserveExpiredReference(t('This request expired without a verified OSI receipt. A delayed transfer may still exist. Keep this reference and check wallet history before replacing it.'),true);return;
         }
-        setPayState(t('Verification unavailable'),userError(error)+' '+t('The request remains unpaid; retry this same reference.'),'warning');
+        if(locallyExpired)preserveExpiredReference(t('This request expired without a verified OSI receipt. A delayed transfer may still exist. Keep this reference and check wallet history before replacing it.'),false);
+        else setPayState(t('Verification unavailable'),userError(error)+' '+t('The request remains unpaid; retry this same reference.'),'warning');
       }finally{
-        polling=false;if(!stopped&&updateCountdown())timerId=setTimeout(poll,3500);
+        polling=false;if(phantomButton&&!stopped&&!pending.txSig&&!locallyExpired)phantomButton.disabled=false;if(!stopped&&updateCountdown())timerId=setTimeout(poll,3500);
       }
     }
     modal.querySelector('[data-solana-pay-retry]').addEventListener('click',poll);
     countdownId=setInterval(updateCountdown,1000);updateCountdown();
-    (phantomButton||modal.querySelector('[data-solana-pay-open]')).focus();
+    var payCard=modal.querySelector('.osi-payment-review-card');
+    if(payCard){payCard.setAttribute('tabindex','-1');modal.scrollTop=0;payCard.focus({preventScroll:true});}
     setPayState(t('Ready'),t('Use one compatible wallet. OSI will verify the exact finalized transfer automatically.'),'success');
     timerId=setTimeout(poll,1500);
   }
@@ -2285,7 +2354,8 @@
   async function verifyPreparedPayment(pending,recovery,generation,options){
     options=options||{};
     assertPrivateGeneration(generation);
-    var result=await api(PAYMENT_URL,{op:recovery?'recover_payment':'commit_payment',wallet:pending.wallet,nonce:pending.prepared.nonce,tx_sig:pending.txSig});
+    var recoveryOp=pending.method==='solana_pay'?'recover_solana_pay':'recover_payment';
+    var result=await api(PAYMENT_URL,{op:recovery?recoveryOp:'commit_payment',wallet:pending.wallet,nonce:pending.prepared.nonce,tx_sig:pending.txSig});
     assertPrivateGeneration(generation);
     if(result.state==='awaiting_finality'){
       persistPaymentPending(pending);
@@ -2323,18 +2393,20 @@
   }
   async function prepareAndSendPayment(kind,targetRef,recipients,amountSol,preferredMethod){
     if(state.paymentBusy)return;
-    if(state.paymentPending){paymentStatus('Finish or re-verify the existing wallet-bound payment before preparing another transfer. Do not pay twice.','warning');return;}
+    if(await handleExistingPayment(preferredMethod))return;
     var generation=privateGeneration();state.paymentBusy=true;
     try{
       var wallet=await ensureWallet();restorePaymentPending(wallet);
-      if(state.paymentPending){paymentStatus('Finish or re-verify the existing wallet-bound payment before preparing another transfer. Do not pay twice.','warning');return;}
+      if(await handleExistingPayment(preferredMethod))return;
       var caps=state.capabilities||await refreshCapabilities()||{};
       assertPrivateGeneration(generation);
       if(caps.payment_writes_enabled!==true)throw new Error('payment_writes_disabled');
       var body={op:'prepare_payment',payment_kind:kind,wallet:wallet,target_ref:targetRef,idempotency_key:randomKey('payment')};
       if(kind==='reward')body.amount_sol=amountSol;else body.recipients=recipients;
       paymentStatus('Deriving exact recipients and canonical Memo on the server...');
-      var prepared=await api(PAYMENT_URL,body);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);var method=await paymentReview(prepared,preferredMethod);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);if(!method){paymentStatus('Transfer cancelled before any wallet opened.');return;}
+      var prepared=await api(PAYMENT_URL,body);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);
+      var solanaPayReady=preferredMethod==='solana_pay'&&prepared.solana_pay&&prepared.solana_pay.enabled===true&&(prepared.recipient_manifest||[]).length===1;
+      var method=solanaPayReady?'solana_pay':await paymentReview(prepared,preferredMethod);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);if(!method){paymentStatus('Transfer cancelled before any wallet opened.');return;}
       var pending={wallet:wallet,caseRef:state.current&&state.current.public_ref||'',prepared:prepared,method:method,recovery_state:method==='solana_pay'?'prepared':'awaiting_wallet'};
       if(method==='solana_pay'){
         persistPaymentPending(pending);paymentStatus('Single-use Solana Pay request ready. It remains unpaid until exact finalized server verification.','warning');openSolanaPay(pending);return;
@@ -2399,6 +2471,7 @@
     return targetRef;
   }
   async function supportExternal(targetType,targetRef,reviewerWallet,preferredMethod){
+    if(await handleExistingPayment(preferredMethod))return;
     var generation=privateGeneration();
     var address=supportAddress(targetType,targetRef,reviewerWallet);
     var amount=await askSolAmount({
@@ -2461,23 +2534,25 @@
       if(result.paid===true&&result.receipt){
         clearPaymentState({forgetRecovery:true,wallet:pending.wallet});
         showToast(t('Finalized Solana Pay transfer verified. Receipt {receipt} is available in the Proof Log.',{receipt:result.receipt.id}));
-        showPaymentReceipt(result.receipt);return;
+        showPaymentReceipt(result.receipt);return 'paid';
       }
       paymentStatus('No exact finalized transfer is recorded yet. Keep this recovery record and do not prepare a replacement payment.','warning');
+      return 'awaiting';
     }catch(error){
       if(generation!==privateGeneration())return;
       if(error.status===410||['unknown_solana_pay_reference','solana_pay_intent_expired'].indexOf(String(error.message))>=0){
-        clearPaymentState({forgetRecovery:true,wallet:pending.wallet});
-        paymentStatus(userError(error)+' No wallet was opened from browser storage.','warning');return;
+        paymentStatus(userError(error)+' No wallet was opened from browser storage.','warning');return 'expired';
       }
       paymentStatus(userError(error)+' No wallet was opened; retry this same server check.','error');
+      return 'error';
     }
   }
   function retryPayment(){
     if(!state.paymentPending)return;
     var generation=privateGeneration();
     if(state.paymentPending.method==='solana_pay'&&state.paymentPending.restored_from_storage===true){
-      pollRestoredSolanaPay(state.paymentPending,generation);return;
+      if(state.paymentPending.txSig&&state.paymentPending.prepared&&state.paymentPending.prepared.payment_kind!=='wire_support'){verifyPreparedPayment(state.paymentPending,true,generation).catch(function(error){if(generation===privateGeneration())paymentStatus(userError(error)+' '+t('The existing signature remains available for another verification attempt; do not send a replacement payment.'),'error');});}
+      else pollRestoredSolanaPay(state.paymentPending,generation);return;
     }
     try{exactPaymentProvider(state.paymentPending.prepared,state.paymentPending.wallet,generation);}
     catch(error){clearPaymentState();paymentStatus(userError(error),'error');return;}
