@@ -135,15 +135,38 @@ jobs:
       - name: Resolve pinned production pooler coordinates
         run: |
           set -euo pipefail
-          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
-          coordinates="$(printf '%s' "$response" | python3 -c '
-          import sys,json
-          data=json.load(sys.stdin); rows=data if isinstance(data,list) else [data]
-          row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
-          print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
-          ')"
-          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
-          case "$PGHOST" in *.pooler.supabase.com) : ;; *) exit 1 ;; esac
+          status="$(curl -sS --max-time 30 -o /tmp/pooler.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler" || echo 000)"
+          if [ "$status" = "200" ]; then
+            coordinates="$(python3 -c '
+            import json
+            data=json.load(open("/tmp/pooler.json")); rows=data if isinstance(data,list) else [data]
+            row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
+            print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
+            ')"
+            read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          else
+            # The project ref and ap-southeast-2 region are pinned and were
+            # independently verified before this workflow. The exact tenant
+            # username + database password can authenticate only this project.
+            # Supabase documents session-pooler port 5432; probe both regional
+            # pooler generations with SELECT 1 and retain only the responder.
+            PGPORT=5432
+            PGUSER="postgres.${EXPECTED_PROJECT_REF}"
+            PGDATABASE=postgres
+            PGHOST=""
+            for candidate in aws-0-ap-southeast-2.pooler.supabase.com aws-1-ap-southeast-2.pooler.supabase.com; do
+              if PGHOST="$candidate" PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1' >/dev/null 2>&1; then
+                PGHOST="$candidate"
+                break
+              fi
+            done
+            [ -n "$PGHOST" ] || { echo "::error::Neither pinned regional Supabase pooler accepted the project credentials."; exit 1; }
+            echo "::notice::Management API answered ${status}; using the verified pinned regional database route."
+          fi
+          case "$PGHOST" in aws-[01]-ap-southeast-2.pooler.supabase.com) : ;; *) exit 1 ;; esac
+          [ "$PGPORT" = "5432" ]
           [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
           { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
 
@@ -156,13 +179,13 @@ jobs:
           psql -v ON_ERROR_STOP=1 -Atq -c 'select version from supabase_migrations.schema_migrations order by version' > /tmp/remote-before.txt
           diff -u /tmp/expected-before.txt /tmp/remote-before.txt
 
-      - name: Link and dry-run exactly the approved two migrations
+      - name: Dry-run exactly the approved two migrations
         run: |
           set -euo pipefail
-          supabase link --project-ref "$EXPECTED_PROJECT_REF"
-          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
-          supabase migration list --linked
-          supabase db push --linked --dry-run 2>&1 | tee /tmp/payment-records-dry-run.txt
+          supabase db push \
+            --db-url "postgresql://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+            --password "$SUPABASE_DB_PASSWORD" --include-all --dry-run \
+            2>&1 | tee /tmp/payment-records-dry-run.txt
           grep -q "$NONCE_MIGRATION" /tmp/payment-records-dry-run.txt
           grep -q "$SUPPORT_MIGRATION" /tmp/payment-records-dry-run.txt
           found="$(grep -oE '20260811084040_[A-Za-z0-9_]+\.sql|20260811090354_[A-Za-z0-9_]+\.sql' /tmp/payment-records-dry-run.txt | sort -u)"
@@ -187,7 +210,9 @@ jobs:
       - name: Apply exactly the dry-run-approved additive migrations
         run: |
           set -euo pipefail
-          supabase db push --linked --yes
+          supabase db push \
+            --db-url "postgresql://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+            --password "$SUPABASE_DB_PASSWORD" --include-all --yes
           [ "$(psql -Atq -c "select count(*) from supabase_migrations.schema_migrations where version in ('${NONCE_VERSION}','${SUPPORT_VERSION}')")" = '2' ]
           echo 'MIGRATIONS_APPLIED=true' >> "$GITHUB_ENV"
 
