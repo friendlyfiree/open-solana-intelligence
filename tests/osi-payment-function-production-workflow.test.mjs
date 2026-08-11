@@ -65,6 +65,12 @@ ok('compatible frontend is proven before the backend deploy begins',
   && workflow.indexOf('Prove the compatible frontend is already live')
     < workflow.indexOf('Deploy only osi-v2-payment'));
 
+ok('database routing uses only the verified pinned regional poolers',
+  workflow.includes('aws-0-ap-southeast-2.pooler.supabase.com aws-1-ap-southeast-2.pooler.supabase.com')
+  && workflow.includes("PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1'")
+  && !workflow.includes('/config/database/pooler')
+  && !workflow.includes('python3 -c'));
+
 ok('release deploy and backend smoke have bounded step budgets',
   /- name: Deploy only osi-v2-payment\n\s+timeout-minutes: 4/.test(workflow)
   && /- name: Smoke strict recovery operation\n\s+id: backend_smoke\n\s+timeout-minutes: 4/.test(workflow));
