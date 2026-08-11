@@ -255,6 +255,9 @@ const challengeEvidenceView = core.publicCaseDto(
   caseRow, [], {}, [], [
     { id: challengeEvidenceId, kind: "url", ref: "https://example.test/evidence",
       sha256: "a".repeat(64), is_public: true, moderation_state: "approved" },
+    { id: "66666666-6666-4666-8666-666666666666", kind: "wallet",
+      ref: OWNER, sha256: "e".repeat(64),
+      is_public: true, moderation_state: "approved" },
     { id: "33333333-3333-4333-8333-333333333333", kind: "url",
       ref: "https://example.test/private", sha256: "b".repeat(64),
       is_public: false, moderation_state: "approved" },
@@ -266,13 +269,21 @@ const challengeEvidenceView = core.publicCaseDto(
       moderation_state: "approved", case_evidence: false, challenge_eligible: true },
   ], [], {}, {}, {},
 );
-ok("challenge selector round-trips the exact id only on public approved Case evidence",
-  challengeEvidenceView.evidence.length === 1
-    && !Object.hasOwn(challengeEvidenceView.evidence[0], "challenge_evidence_id")
-    && !Object.hasOwn(challengeEvidenceView.evidence_sections.links[0], "challenge_evidence_id")
-    && challengeEvidenceView.challenge_evidence.length === 2
+ok("challenge selector round-trips the exact id only on the dedicated projection",
+  challengeEvidenceView.evidence.length === 2
+    && challengeEvidenceView.evidence.every(
+      (item) => !Object.hasOwn(item, "challenge_evidence_id"),
+    )
+    && Object.values(challengeEvidenceView.evidence_sections)
+      .filter(Array.isArray)
+      .flat()
+      .every((item) => typeof item !== "object"
+        || !Object.hasOwn(item, "challenge_evidence_id"))
+    && challengeEvidenceView.challenge_evidence.length === 3
     && challengeEvidenceView.challenge_evidence[0].challenge_evidence_id === challengeEvidenceId
     && challengeEvidenceView.challenge_evidence[1].challenge_evidence_id
+      === "66666666-6666-4666-8666-666666666666"
+    && challengeEvidenceView.challenge_evidence[2].challenge_evidence_id
       === "55555555-5555-4555-8555-555555555555"
     && !JSON.stringify(challengeEvidenceView).includes("33333333-3333-4333-8333-333333333333")
     && !JSON.stringify(challengeEvidenceView).includes("44444444-4444-4444-8444-444444444444"));

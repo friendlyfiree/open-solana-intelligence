@@ -49,8 +49,8 @@ const expectedFiles = [
   '20260807154829_osi_v2_cold_start_weight_gate_calibration.sql',
   '20260808153040_remove_private_wire_fields_from_public_rpc.sql',
   '20260808163737_osi_v2_wallet_profiles.sql',
-  '20260809091827_governance_bootstrap_challenge_controls.sql',
   '20260809195451_osi_v2_published_report_body_is_public.sql',
+  '20260811065353_governance_bootstrap_challenge_controls.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -95,7 +95,7 @@ const wirePublicProjection =
 const walletProfiles =
   sqlByFile['20260808163737_osi_v2_wallet_profiles.sql'] || '';
 const governanceBootstrapChallengeControls =
-  sqlByFile['20260809091827_governance_bootstrap_challenge_controls.sql'] || '';
+  sqlByFile['20260811065353_governance_bootstrap_challenge_controls.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );

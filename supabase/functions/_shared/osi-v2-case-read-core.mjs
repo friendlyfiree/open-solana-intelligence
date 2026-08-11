@@ -441,7 +441,9 @@ export function governanceFinalizeCapabilityDto(capability) {
 // surfaces render. Grouping happens once, on the server, so every client shows
 // the same sections in the same order and an empty group is simply absent.
 export function evidenceSections(evidence = []) {
-  const rows = Array.isArray(evidence) ? evidence.map(publicEvidenceDto) : [];
+  const rows = Array.isArray(evidence)
+    ? evidence.map((item) => publicEvidenceDto(item))
+    : [];
   const sections = {
     wallets: rows.filter((row) => row.kind === "wallet"),
     transactions: rows.filter((row) => row.kind === "onchain_tx"),
@@ -682,7 +684,7 @@ export function publicCaseDto(
     submitter_profile: publicCaseSubmitterProfileDto(submitterProfile),
     created_at: isoOrNull(caseRow.created_at),
     sealed_at: isoOrNull(caseRow.sealed_at),
-    evidence: publicEvidence.map(publicEvidenceDto),
+    evidence: publicEvidence.map((item) => publicEvidenceDto(item)),
     evidence_sections: evidenceSections(publicEvidence),
     challenge_evidence: challengeEvidenceDtos(evidence),
     reviews: reviews.filter((review) => review.is_active === true)
@@ -801,7 +803,7 @@ export function authorizedCaseDto(
       reward_intent_lamports: caseRow.reward_intent_lamports == null
         ? null : Number(caseRow.reward_intent_lamports),
     }),
-    evidence: directEvidence.map(publicEvidenceDto),
+    evidence: directEvidence.map((item) => publicEvidenceDto(item)),
     evidence_sections: evidenceSections(directEvidence),
     challenge_evidence: challengeEvidenceDtos(evidence),
     ...(actor.opening_capability
