@@ -101,6 +101,22 @@ ok('Turkish covers persistent receipts, unified queue recovery, and connected Ph
     && i18n.includes("'Finalized payment receipt': 'Kesinleşmiş ödeme makbuzu'")
     && i18n.includes("'Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.'")
     && i18n.includes("'Conflict: this exact governance action is unavailable to this wallet.'"));
+ok('Turkish covers D17 finalization, seal and evidence-bound challenge controls',
+  [
+    "'Finalize standard quorum leader':",
+    "'Maintainer bootstrap (D17)':",
+    "'Finalize exact version via D17':",
+    "'Memo-anchor standard process seal':",
+    "'Memo-anchor seal via D17':",
+    "'All server-derived D17 prerequisites are met.':",
+    "'Submit a challenge':",
+    "'Existing public evidence':",
+    "'Challenge submission unavailable':",
+    "'Select public, approved evidence linked to this Case or its winning Report version.':",
+  ].every((marker) => i18n.includes(marker))
+    && caseUi.includes("esc(t('Finalize standard quorum leader'))")
+    && caseUi.includes("esc(t('Submit a challenge'))")
+    && caseUi.includes("showToast(t('The server-derived seal prerequisite is no longer met. Refresh My Reviews.'))"));
 ok('optional Report evidence copy is non-contradictory in both locales',
   i18n.includes("'Evidence references are recommended and can strengthen review. Add up to 12 total references when useful. Blank lines are ignored.'")
     && !i18n.includes('Add at least one and no more than 12 total references.'));

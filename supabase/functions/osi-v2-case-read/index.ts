@@ -40,6 +40,7 @@ import {
   buildChallenge,
   canActorReadCase,
   challengeSigningInput,
+  governanceFinalizeCapabilityDto,
   isCasePublic,
   maintainerOverviewDto,
   parseChallenge,
@@ -237,6 +238,11 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
   const resolutionIds = (resolutions ?? []).map((row) => String(row.id));
   const winningVersionIds = (resolutions ?? [])
     .map((row) => String(row.winning_report_version_id ?? "")).filter(Boolean);
+  const caseIdByWinningVersion: Record<string, string> = {};
+  for (const resolution of resolutions ?? []) {
+    const versionId = String(resolution.winning_report_version_id ?? "");
+    if (versionId) caseIdByWinningVersion[versionId] = String(resolution.case_id);
+  }
 
   // Wave 2: everything that needs a wave 1 result and nothing later.
   let versionsQuery = admin.from("case_report_versions").select(VERSION_COLS);
@@ -250,6 +256,7 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     { data: winningVersions },
     { data: resolutionReviews },
     { data: challenges },
+    { data: winningEvidenceLinks },
   ] = await Promise.all([
     reportIds.length
       ? versionsQuery.order("version_no", { ascending: true }).limit(400)
@@ -274,6 +281,11 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
     resolutionIds.length
       ? admin.from("challenges_v2").select(CHALLENGE_COLS)
         .in("resolution_id", resolutionIds).order("created_at", { ascending: true }).limit(500)
+      : Promise.resolve({ data: [] }),
+    winningVersionIds.length
+      ? admin.from("case_report_version_evidence")
+        .select("report_version_id,evidence_item_id,evidence_items(" + EVIDENCE_COLS + ")")
+        .in("report_version_id", winningVersionIds).limit(400)
       : Promise.resolve({ data: [] }),
   ]);
   for (const version of versions ?? []) {
@@ -411,7 +423,22 @@ async function loadCaseGraph(caseRows: Row[], publicOnly = false) {
   // shape the rest of this module uses.
   for (const link of (links ?? []) as unknown as Row[]) {
     const item = link.evidence_items as Row | null;
-    if (item && item.id != null) (evidenceByCase[String(link.case_id)] ??= []).push(item);
+    if (item && item.id != null) (evidenceByCase[String(link.case_id)] ??= []).push({
+      ...item, case_evidence: true, challenge_eligible: true,
+    });
+  }
+  // Challenge submission also accepts evidence already bound to the exact
+  // winning Report version. Keep those selectors in a dedicated DTO list;
+  // they do not silently become Case-evidence rows in the ordinary Evidence
+  // tab. Duplicate evidence keeps the stronger direct-Case marker.
+  for (const link of (winningEvidenceLinks ?? []) as unknown as Row[]) {
+    const item = link.evidence_items as Row | null;
+    const caseId = caseIdByWinningVersion[String(link.report_version_id ?? "")];
+    if (!caseId || !item || item.id == null) continue;
+    const rows = (evidenceByCase[caseId] ??= []);
+    if (!rows.some((row) => String(row.id) === String(item.id))) {
+      rows.push({ ...item, case_evidence: false, challenge_eligible: true });
+    }
   }
   for (const rows of Object.values(evidenceByCase)) {
     rows.sort((left, right) => (
@@ -891,7 +918,6 @@ async function renewReadSession(req: Request, body: Row): Promise<Response> {
 // ---------------------------------------------------------------------------
 
 async function listMyCases(req: Request, body: Row): Promise<Response> {
-  const wallet = safeText(body.wallet);
   const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_MINE);
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
 
@@ -945,6 +971,29 @@ async function caseOpeningCapabilities(
   return capabilities;
 }
 
+async function governanceFinalizeCapabilities(
+  wallet: string,
+  caseIds: string[],
+  maintainerAccess: boolean,
+): Promise<Record<string, Row[]>> {
+  const capabilities: Record<string, Row[]> = {};
+  if (!maintainerAccess || !caseIds.length) return capabilities;
+  const { data, error } = await admin.rpc("osi_v2_governance_finalize_capabilities", {
+    p_actor_wallet: wallet,
+    p_case_ids: caseIds,
+    p_maintainer_auth_uuid: MAINTAINER_AUTH_UUID,
+  });
+  if (error) throw new Error("governance_finalize_capability_unavailable");
+  for (const row of data ?? []) {
+    const caseId = String(row.case_id ?? "");
+    const caseRef = String(row.case_public_ref ?? "");
+    const dto = governanceFinalizeCapabilityDto(row);
+    if (caseId && dto) (capabilities[caseId] ??= []).push(dto);
+    if (caseRef && dto) (capabilities[caseRef] ??= []).push(dto);
+  }
+  return capabilities;
+}
+
 async function isVerifiedAnalyst(wallet: string): Promise<boolean> {
   const { data } = await admin.from("analyst_profiles")
     .select("wallet,status,verified,approved,weight_cached")
@@ -960,6 +1009,7 @@ function buildReviewTasks(
   reportVotesByVersion: Record<string, Row>,
   actorCapabilities: { analyst: boolean; maintainer: boolean },
   reportCapabilitiesByVersion: Record<string, Row>,
+  finalizeCapabilitiesByCase: Record<string, Row[]>,
 ) {
   const groups: Record<string, Row[]> = {
     report_publication: [], resolution_selection: [], challenge_admissibility: [],
@@ -1030,9 +1080,56 @@ function buildReviewTasks(
     }
     const governance = caseItem.governance && typeof caseItem.governance === "object"
       ? caseItem.governance as Row : {};
+    const finalizeCapabilities = finalizeCapabilitiesByCase[String(caseItem.id ?? "")]
+      ?? finalizeCapabilitiesByCase[caseRef]
+      ?? [];
+    const resolutionCapabilities = finalizeCapabilities.filter((capability) => (
+      capability.action === "resolution_finalize"
+    ));
+    const sealCapability = finalizeCapabilities.find((capability) => (
+      capability.action === "seal_finalize"
+    )) ?? null;
     const resolution = governance.resolution && typeof governance.resolution === "object"
       ? governance.resolution as Row : null;
-    if (!resolution) continue;
+    if (!resolution) {
+      // An analyst review may be the authorized transition that creates the
+      // Resolution parent. This must exist at the 20-49 D17 tiers, where the
+      // maintainer bootstrap requires independent analyst support but a parent
+      // may not exist yet. Full maintainers get the same exact-version task
+      // with the server-derived no-parent bootstrap capability attached.
+      for (const report of reports) {
+        const author = String(report.author_wallet ?? "");
+        for (const version of Array.isArray(report.versions) ? report.versions as Row[] : []) {
+          if (version.lifecycle_state !== "published") continue;
+          const ref = String(version.version_ref ?? "");
+          const capability = resolutionCapabilities.find((item) => (
+            String(item.report_version_ref ?? "") === ref
+          )) ?? null;
+          const bootstrap = capability?.bootstrap && typeof capability.bootstrap === "object"
+            ? capability.bootstrap as Row : {};
+          const conflict = author === wallet;
+          task("resolution_selection", {
+            case_ref: caseRef,
+            exact_target: ref,
+            conflict,
+            finalization_capability: capability,
+            next_action_code: bootstrap.can_finalize === true
+              ? "finalize_resolution_via_maintainer_bootstrap"
+              : actorCapabilities.analyst && !conflict
+              ? "cast_resolution_selection_review_create_parent"
+              : String(bootstrap.reason_code ?? "resolution_parent_not_created"),
+            next_action: bootstrap.can_finalize === true
+              ? "Finalize exact published Report via maintainer bootstrap (not independent analyst quorum)"
+              : actorCapabilities.analyst && !conflict
+              ? "Review exact primary candidate and create the Resolution parent"
+              : conflict
+              ? "Selected Report author excluded"
+              : "Bootstrap Resolution prerequisite is not met",
+          });
+        }
+      }
+      continue;
+    }
     const reviews = Array.isArray(resolution.reviews) ? resolution.reviews as Row[] : [];
     const winningRef = String(resolution.winning_report_version_ref ?? "");
     const selectedReport = reports.find((report) => (
@@ -1041,23 +1138,63 @@ function buildReviewTasks(
     ));
     const selectedAuthorConflict = String(selectedReport?.author_wallet ?? "") === wallet;
     if (resolution.state === "selection_open") {
+      const emittedVersionRefs = new Set<string>();
       for (const report of reports) {
         const author = String(report.author_wallet ?? "");
         for (const version of Array.isArray(report.versions) ? report.versions as Row[] : []) {
           if (version.lifecycle_state !== "published") continue;
           const ref = String(version.version_ref ?? "");
+          emittedVersionRefs.add(ref);
           const own = reviews.find((review) => review.is_active === true
             && review.phase === "selection" && review.reviewer_wallet === wallet
             && review.target_version_ref === ref);
+          const finalizationCapability = resolutionCapabilities.find((capability) => (
+            String(capability.report_version_ref ?? "") === ref
+          )) ?? null;
+          const bootstrapCapability = finalizationCapability?.bootstrap as Row | undefined;
+          const standardCapability = finalizationCapability?.standard as Row | undefined;
           task("resolution_selection", {
-            case_ref: caseRef, exact_target: ref, conflict: author === wallet,
+            case_ref: caseRef, exact_target: ref,
+            conflict: author === wallet,
             current_vote: own ? String(own.decision ?? "") : null,
             weight_snapshot: own ? Number(own.weight ?? analystWeight ?? 0)
             : (actorCapabilities.analyst ? analystWeight : null),
-          next_action: author === wallet ? "Selected Report author excluded"
-              : (actorCapabilities.analyst ? "Review exact primary candidate" : "Finalize only after unique analyst quorum"),
+            finalization_capability: finalizationCapability,
+            next_action_code: bootstrapCapability?.can_finalize === true
+              ? "finalize_resolution_via_maintainer_bootstrap"
+              : standardCapability?.can_finalize === true
+              ? "finalize_resolution_via_standard_quorum"
+              : String(bootstrapCapability?.reason_code ?? "resolution_review_required"),
+            next_action: bootstrapCapability?.can_finalize === true
+              ? "Finalize exact published Report via maintainer bootstrap (not independent analyst quorum)"
+              : standardCapability?.can_finalize === true
+              ? "Finalize the unique server-derived analyst quorum leader"
+              : author === wallet ? "Selected Report author excluded"
+              : (actorCapabilities.analyst ? "Review exact primary candidate" : "Finalization prerequisite is not met"),
           });
         }
+      }
+      // A completed standard quorum stays bound to its immutable exact leader
+      // even if a later Report version moves the publication pointer and marks
+      // that leader superseded. The canonical write gate still finalizes that
+      // leader, so preserve its server-issued task instead of hiding the only
+      // authorized transition. D17 remains current-published-only.
+      for (const finalizationCapability of resolutionCapabilities) {
+        const ref = String(finalizationCapability.report_version_ref ?? "");
+        const standardCapability = finalizationCapability.standard as Row | undefined;
+        if (!ref || emittedVersionRefs.has(ref) || standardCapability?.can_finalize !== true) continue;
+        const report = reports.find((item) => (
+          (Array.isArray(item.versions) ? item.versions as Row[] : [])
+            .some((version) => String(version.version_ref ?? "") === ref)
+        ));
+        task("resolution_selection", {
+          case_ref: caseRef,
+          exact_target: ref,
+          conflict: String(report?.author_wallet ?? "") === wallet,
+          finalization_capability: finalizationCapability,
+          next_action_code: "finalize_resolution_via_standard_quorum",
+          next_action: "Finalize the superseded exact version selected by the completed analyst quorum",
+        });
       }
     }
     const challenges = Array.isArray(governance.challenges) ? governance.challenges as Row[] : [];
@@ -1091,6 +1228,8 @@ function buildReviewTasks(
         && windowEnd <= Date.now() && !blockers) {
       const own = reviews.find((review) => review.is_active === true
         && review.phase === "seal" && review.reviewer_wallet === wallet);
+      const sealBootstrapCapability = sealCapability?.bootstrap as Row | undefined;
+      const sealStandardCapability = sealCapability?.standard as Row | undefined;
       task("seal_reviews", {
         case_ref: caseRef, exact_target: String(resolution.public_ref ?? ""),
         deadline: resolution.challenge_window_closes_at ?? null,
@@ -1098,8 +1237,18 @@ function buildReviewTasks(
         current_vote: own ? String(own.decision ?? "") : null,
         weight_snapshot: own ? Number(own.weight ?? analystWeight ?? 0)
           : (actorCapabilities.analyst ? analystWeight : null),
+        finalization_capability: sealCapability,
+        next_action_code: sealBootstrapCapability?.can_finalize === true
+          ? "finalize_seal_via_maintainer_bootstrap"
+          : sealStandardCapability?.can_finalize === true
+          ? "finalize_seal_via_standard_quorum"
+          : String(sealBootstrapCapability?.reason_code ?? "seal_review_required"),
         next_action: selectedAuthorConflict ? "Selected Report author excluded"
-          : (actorCapabilities.analyst ? "Review process seal" : "Finalize only after analyst seal quorum"),
+          : sealBootstrapCapability?.can_finalize === true
+          ? "Finalize process seal via maintainer bootstrap (not independent analyst quorum)"
+          : sealStandardCapability?.can_finalize === true
+          ? "Finalize the completed analyst seal quorum"
+          : (actorCapabilities.analyst ? "Review process seal" : "Seal finalization prerequisite is not met"),
       });
     }
   }
@@ -1107,9 +1256,9 @@ function buildReviewTasks(
 }
 
 async function listReviewableCases(req: Request, body: Row): Promise<Response> {
-  const wallet = safeText(body.wallet);
   const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CASE_REVIEW);
   if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
+  const wallet = proof.actor.wallet;
 
   const [analystEligible, maintainerAccess] = await Promise.all([
     isVerifiedAnalyst(wallet),
@@ -1139,6 +1288,16 @@ async function listReviewableCases(req: Request, body: Row): Promise<Response> {
     caseRows.map((caseRow) => String(caseRow.id)),
     maintainerAccess,
   );
+  let finalizeCapabilitiesByCase: Record<string, Row[]> = {};
+  try {
+    finalizeCapabilitiesByCase = await governanceFinalizeCapabilities(
+      wallet,
+      caseRows.map((caseRow) => String(caseRow.id)),
+      maintainerAccess,
+    );
+  } catch {
+    return jsonResponse(500, { ok: false, error: "governance_finalize_capability_unavailable" });
+  }
   const caseDtos = caseRows.map((caseRow) => authorizedCaseDto(
     caseRow,
     graph.reportsByCase[String(caseRow.id)] ?? [],
@@ -1216,6 +1375,7 @@ async function listReviewableCases(req: Request, body: Row): Promise<Response> {
       caseDtos, wallet, analystWeight, reportVotesByVersion,
       { analyst: analystEligible, maintainer: maintainerAccess },
       reportCapabilitiesByVersion,
+      finalizeCapabilitiesByCase,
     ),
   });
 }
