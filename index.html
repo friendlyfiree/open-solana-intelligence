@@ -104,6 +104,7 @@
       <div class="wb-menu" id="wbMenu" role="menu" aria-label="Wallet and workspace">
         <div class="wb-menu-label">My work</div>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button>
+        <button class="wb-mi" type="button" role="menuitem" data-endpoint="osi-v2-case-read:list_my_challenges" onclick="osiV2OpenMyChallenges();closeWalletMenu();">My Challenges</button>
         <button class="wb-mi" type="button" role="menuitem" data-action-contract="report" data-endpoint="osi-v2-report-read:list_my_reports" onclick="osiRunLiveAction('report');closeWalletMenu();">My Reports</button>
         <button class="wb-mi" type="button" role="menuitem" data-action-contract="wire" data-endpoint="osi-v2-wire:list_my_wire_reports" onclick="osiV2OpenMyWireReports();closeWalletMenu();">My Wire Reports</button>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">My Reviews</button>

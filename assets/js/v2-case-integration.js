@@ -11,14 +11,15 @@
   var PAYMENT_RECOVERY_KEY = 'osi:v2:payment-recovery:1';
   var PAYMENT_RECOVERY_PREFIX = 'osi:v2:payment-recovery:2:';
   var state = {
-    cases: [], mode: 'public', locked: null, actorRole: 'public', currentActorRole: '', query: '', stage: 'open_public',
+    cases: [], challenges: [], mode: 'public', locked: null, actorRole: 'public', currentActorRole: '', query: '', stage: 'open_public',
     sort: 'newest', page: 1, loadToken: 0, drawerLoadToken: 0, current: null, tab: 'overview',
     capabilities: null, caseIdempotency: '', reviewBusy: false, reviewTasks: {},
     reviewLanes: {}, reviewUpdatedAt: null, reviewLoadToken: 0, caseReceipt: null,
     submissionReceipts: {},
     activeReviewTask: null,
     modalReturnFocus: null, drawerReturnFocus: null, governanceBusy: false,
-    paymentBusy: false, paymentPending: null, paymentWallet: '', paymentCleanup: null
+    paymentBusy: false, paymentPending: null, paymentWallet: '', paymentCleanup: null,
+    challengeTimer: 0
   };
   function esc(value){
     return String(value == null ? '' : value).replace(/[&<>"']/g,function(char){
@@ -477,6 +478,10 @@
       if(eyebrow) eyebrow.textContent='Authorized review queue';
       if(title) title.textContent='My Reviews';
       if(sub) sub.textContent='Private Cases available to this eligible analyst or full maintainer.';
+    }else if(mode==='challenges'){
+      if(eyebrow) eyebrow.textContent=t('Private challenger workspace');
+      if(title) title.textContent=t('My Challenges');
+      if(sub) sub.textContent=t('Your own challenge state, exact target, deadlines, and available next action.');
     }else{
       if(eyebrow) eyebrow.textContent='Public Case registry';
       if(title) title.textContent='The Field Office';
@@ -666,6 +671,11 @@
       title:'My Reviews is an authorized workspace',
       body:'Review tasks are limited to eligible analysts and full maintainers. Public Cases and published Reports are readable here without a wallet.',
       cta:'Connect wallet and authorize review access'
+    },
+    challenges:{
+      title:'My Challenges is a private workspace',
+      body:'Only the connected challenger wallet can read its restricted detail and active deadlines.',
+      cta:'Connect wallet and authorize challenge history'
     }
   };
   function drawWorkspaceLock(host,mode){
@@ -682,7 +692,63 @@
       +'<small>'+esc(t('One wallet message signature. No Solana transaction, no transfer, and no network fee.'))+'</small>'
       +'</div>';
     var button=host.querySelector('[data-workspace-unlock]');
-    if(button)button.addEventListener('click',function(){openSignedCollection(mode,{authorize:true});});
+    if(button)button.addEventListener('click',function(){
+      if(mode==='challenges')openMyChallenges({authorize:true});
+      else openSignedCollection(mode,{authorize:true});
+    });
+  }
+
+  function challengeDeadline(row){
+    if(row.state==='submitted'||row.state==='admissibility_review')return row.admissibility_deadline_at;
+    if(row.state==='open'||row.state==='under_review')return row.review_deadline_at;
+    return row.terminal_at;
+  }
+  function challengeCountdown(value){
+    var target=new Date(value||'').getTime();if(!Number.isFinite(target))return t('No active deadline');
+    var remaining=target-Date.now();if(remaining<=0)return t('Deadline reached; refresh for server state.');
+    var minutes=Math.max(1,Math.ceil(remaining/60000)),days=Math.floor(minutes/1440),hours=Math.floor((minutes%1440)/60),mins=minutes%60;
+    if(days)return t('{days}d {hours}h remaining',{days:days,hours:hours});
+    if(hours)return t('{hours}h {minutes}m remaining',{hours:hours,minutes:mins});
+    return t('{minutes}m remaining',{minutes:mins});
+  }
+  function updateChallengeCountdowns(){
+    if(state.mode!=='challenges'){clearInterval(state.challengeTimer);state.challengeTimer=0;return;}
+    Array.prototype.forEach.call(document.querySelectorAll('[data-my-challenge-deadline]'),function(node){
+      node.textContent=challengeCountdown(node.getAttribute('datetime'));
+    });
+  }
+  function drawMyChallenges(){
+    var host=document.getElementById('field-cases');if(!host)return;
+    var rows=state.challenges||[];
+    if(!rows.length){host.innerHTML='<div class="osi-v2-empty"><b>'+esc(t('No challenges submitted by this wallet'))+'</b><span>'+esc(t('A challenge appears here only after the existing evidence-bound submission succeeds.'))+'</span></div>';}
+    else{
+      host.innerHTML='<div class="osi-review-queue-tools"><div><p>'+esc(t('Only your wallet-bound challenge rows are shown. Server state remains authoritative.'))+'</p><time>'+esc(t('Deadlines update locally; refresh before acting.'))+'</time></div><button class="osi-action" type="button" data-my-challenges-refresh>'+esc(t('Refresh challenges'))+'</button></div><div class="osi-review-lanes"><section class="osi-review-lane"><header><h3>'+esc(t('Challenge history'))+'</h3><span>'+rows.length+'</span></header>'+rows.map(function(row){
+        var deadline=challengeDeadline(row),detail=row.restricted_detail?'<p class="osi-my-challenge-detail" data-osi-user-content>'+esc(row.restricted_detail)+'</p>':'';
+        var actions=(row.case_public_ref?'<button class="osi-action" type="button" data-challenge-case="'+esc(row.case_public_ref)+'">'+esc(t('Open public Case'))+'</button>':'')+(row.can_withdraw?'<button class="osi-action danger" type="button" data-challenge-withdraw="'+esc(row.public_ref)+'">'+esc(t('Withdraw challenge'))+'</button>':'');
+        return'<article class="osi-review-task osi-my-challenge"><div><span>'+esc(row.public_ref)+'</span>'+(row.target_public_ref?'<span>'+esc(row.target_public_ref)+'</span>':'')+'<b data-osi-user-content>'+esc(row.public_safe_summary)+'</b>'+detail+'</div><dl><div><dt>'+esc(t('State'))+'</dt><dd class="'+(row.blocking?'warn':'')+'">'+esc(t(label(row.state)))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(t(label(row.target_kind)))+'</dd></div><div><dt>'+esc(t('Deadline'))+'</dt><dd><time datetime="'+esc(deadline||'')+'" data-my-challenge-deadline>'+esc(challengeCountdown(deadline))+'</time></dd></div><div><dt>'+esc(t('Submitted'))+'</dt><dd>'+esc(dateText(row.created_at))+'</dd></div><div><dt>'+esc(t('Sealing effect'))+'</dt><dd>'+esc(row.blocking?t('Blocks sealing while active'):t('Does not block sealing'))+'</dd></div><div><dt>'+esc(t('Withdraw'))+'</dt><dd>'+esc(row.can_withdraw?t('Available; server rechecks state'):t('Unavailable in this state'))+'</dd></div></dl>'+(actions?'<div class="osi-my-challenge-actions">'+actions+'</div>':'')+'</article>';
+      }).join('')+'</section></div>';
+      var refresh=host.querySelector('[data-my-challenges-refresh]');if(refresh)refresh.addEventListener('click',function(){openMyChallenges({authorize:true});});
+      Array.prototype.forEach.call(host.querySelectorAll('[data-challenge-case]'),function(button){button.addEventListener('click',function(){if(typeof window.osiOpenPublicCase==='function')window.osiOpenPublicCase(button.getAttribute('data-challenge-case'));});});
+      Array.prototype.forEach.call(host.querySelectorAll('[data-challenge-withdraw]'),function(button){button.addEventListener('click',function(){
+        if(!confirm(t('Withdraw this active challenge? The withdrawal is permanent and wallet-signed.')))return;
+        button.disabled=true;withdrawMyChallenge(button.getAttribute('data-challenge-withdraw'));
+      });});
+    }
+    var count=document.getElementById('fo-count');if(count)count.textContent=rows.length+' '+t(rows.length===1?'challenge':'challenges');
+    var nav=document.getElementById('fo-pnav');if(nav)nav.innerHTML='';
+    var stats=document.getElementById('field-stats');if(stats)stats.innerHTML='';
+    var deck=document.getElementById('fo-deck');if(deck)deck.hidden=true;
+    clearInterval(state.challengeTimer);state.challengeTimer=setInterval(updateChallengeCountdowns,30000);
+  }
+
+  async function openMyChallenges(options){
+    options=options||{};++state.drawerLoadToken;var drawer=document.getElementById('osi-case-drawer');if(drawer&&!drawer.hidden)closeCase();
+    showView('field');var token=++state.loadToken;state.mode='challenges';state.locked=null;setFieldRailActive('');setFieldCopy('challenges');setReviewChrome(true);setLoading();
+    if(!walletPubkey&&options.authorize!==true){try{if(window.OSI_WALLET_READY)await window.OSI_WALLET_READY;}catch(_){}if(token!==state.loadToken)return;if(!walletPubkey){state.locked='challenges';drawWorkspaceLock(document.getElementById('field-cases'),'challenges');return;}}
+    try{
+      var result=await sessionRead('challenge:mine','list_my_challenges');if(token!==state.loadToken)return;
+      state.challenges=result.challenges||[];drawMyChallenges();
+    }catch(error){if(token!==state.loadToken)return;var host=document.getElementById('field-cases');if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Challenge workspace locked'))+'</b><span>'+esc(userError(error))+'</span>'+(refresh?'<button class="osi-action" type="button" data-challenge-access-refresh>'+esc(t('Refresh private access'))+'</button>':'')+'</div>';var retry=host.querySelector('[data-challenge-access-refresh]');if(retry)retry.addEventListener('click',function(){window.osiV2RefreshReadSession(['challenge:mine']).then(function(){openMyChallenges({authorize:true});});});}}
   }
   function drawCases(){
     var host=document.getElementById('field-cases');
@@ -1823,17 +1889,18 @@
     if(drawerToken!==state.drawerLoadToken)return;
     await openCase(caseRef,activeTask);
   }
-  async function governanceMutation(action,targetRef,payload){
-    if(state.governanceBusy||!state.current)return;
+  async function governanceMutation(action,targetRef,payload,options){
+    options=options||{};
+    if(state.governanceBusy||(!state.current&&options.allowDetached!==true))return;
     var generation=privateGeneration();
     state.governanceBusy=true;
-    var caseRef=state.current.public_ref;
+    var caseRef=options.caseRef||state.current&&state.current.public_ref||'';
     try{
       var wallet=await ensureWallet();
       assertPrivateGeneration(generation);
       var prepared=await api(GOVERNANCE_URL,{op:'prepare',action:action,wallet:wallet,target_ref:targetRef,payload:payload,idempotency_key:randomKey('governance')});
       assertPrivateGeneration(generation);
-      if(prepared.already_committed){showToast('This exact governance action was already committed.');await reloadGovernanceCase(caseRef);assertPrivateGeneration(generation);return;}
+      if(prepared.already_committed){showToast('This exact governance action was already committed.');if(typeof options.afterCommit==='function')await options.afterCommit();else if(caseRef)await reloadGovernanceCase(caseRef);assertPrivateGeneration(generation);return;}
       var body={op:'commit',action:action,wallet:wallet,nonce:prepared.nonce,payload:payload,proof_text:prepared.proof_text};
       if(prepared.proof_type==='solana_memo'){
         showToast('Approve the exact '+prepared.purpose+' Memo. Only the network fee is requested.');
@@ -1848,7 +1915,7 @@
       }
       assertPrivateGeneration(generation);
       showToast(label(prepared.purpose)+' recorded with '+(prepared.proof_type==='solana_memo'?'Memo proof.':'wallet-signed proof.'));
-      await reloadGovernanceCase(caseRef);
+      if(typeof options.afterCommit==='function')await options.afterCommit();else if(caseRef)await reloadGovernanceCase(caseRef);
       assertPrivateGeneration(generation);
     }catch(error){if(generation===privateGeneration())showToast(userError(error));}
     finally{if(generation===privateGeneration())state.governanceBusy=false;}
@@ -1897,6 +1964,7 @@
     governanceMutation('challenge_review',ref,{decision:decision,reason_code:decision==='accept'?'material_issue_confirmed':'selected_report_preserved',public_rationale:rationale,private_note:null});
   }
   function governanceWithdrawChallenge(ref){governanceMutation('challenge_withdraw',ref,{});}
+  function withdrawMyChallenge(ref){return governanceMutation('challenge_withdraw',ref,{}, {allowDetached:true,afterCommit:function(){return openMyChallenges({authorize:true});}});}
   function governanceFinalizeChallenge(ref){if(!requireActiveReviewTask('challenge_adjudication',ref))return;governanceMutation('challenge_finalize',ref,{});}
 
   function paymentRecoveryKey(wallet){return PAYMENT_RECOVERY_PREFIX+String(wallet||'');}
@@ -2451,6 +2519,7 @@
   };
   window.fieldSort=function(value){state.sort=String(value||'newest');drawCases();};
   window.osiV2OpenMyCases=function(options){return openSignedCollection('mine',options);};
+  window.osiV2OpenMyChallenges=function(options){return openMyChallenges(options);};
   window.osiV2OpenReviewQueue=function(options){return openSignedCollection('review',options);};
   window.osiV2RefreshUnifiedReviewQueue=loadUnifiedReviewQueue;
   window.osiV2CanOpenReviewQueue=function(){return !!(state.capabilities&&(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true));};

@@ -117,6 +117,12 @@ ok('Turkish covers D17 finalization, seal and evidence-bound challenge controls'
     && caseUi.includes("esc(t('Finalize standard quorum leader'))")
     && caseUi.includes("esc(t('Submit a challenge'))")
     && caseUi.includes("showToast(t('The server-derived seal prerequisite is no longer met. Refresh My Reviews.'))"));
+ok('Turkish covers the private My Challenges history and withdrawal surface',
+  i18n.includes("'My Challenges': 'İtirazlarım'")
+    && i18n.includes("'Withdraw challenge': 'İtirazı geri çek'")
+    && i18n.includes("'Blocks sealing while active': 'Etkin olduğu sürece mühürlemeyi durdurur'")
+    && caseUi.includes("sessionRead('challenge:mine','list_my_challenges')")
+    && caseUi.includes('data-osi-user-content'));
 ok('optional Report evidence copy is non-contradictory in both locales',
   i18n.includes("'Evidence references are recommended and can strengthen review. Add up to 12 total references when useful. Blank lines are ignored.'")
     && !i18n.includes('Add at least one and no more than 12 total references.'));
