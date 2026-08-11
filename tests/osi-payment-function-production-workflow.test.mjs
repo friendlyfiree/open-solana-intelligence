@@ -30,6 +30,11 @@ ok('validation runs the payment, UI, i18n, XSS, workflow, and Deno checks',
     'deno check supabase/functions/osi-v2-payment/index.ts']
     .every((marker) => workflow.includes(marker)));
 
+ok('remote Deno dependency validation has a bounded transient retry',
+  workflow.includes('for attempt in $(seq 1 3); do')
+  && workflow.includes('if deno check supabase/functions/osi-v2-payment/index.ts; then')
+  && workflow.includes('[ "$attempt" -lt 3 ]'));
+
 ok('deploy targets only the payment Edge Function and exact project',
   (workflow.match(/supabase functions deploy osi-v2-payment/g) || []).length === 1
   && (workflow.match(/supabase functions deploy/g) || []).length === 1
