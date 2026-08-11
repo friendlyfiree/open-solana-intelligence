@@ -250,6 +250,64 @@ ok("public DTO keeps the exact legacy label",
 ok("public Case without a consented submitter profile exposes an explicit null fallback",
   pub.submitter_profile === null);
 
+const challengeEvidenceId = "22222222-2222-4222-8222-222222222222";
+const challengeEvidenceView = core.publicCaseDto(
+  caseRow, [], {}, [], [
+    { id: challengeEvidenceId, kind: "url", ref: "https://example.test/evidence",
+      sha256: "a".repeat(64), is_public: true, moderation_state: "approved" },
+    { id: "33333333-3333-4333-8333-333333333333", kind: "url",
+      ref: "https://example.test/private", sha256: "b".repeat(64),
+      is_public: false, moderation_state: "approved" },
+    { id: "44444444-4444-4444-8444-444444444444", kind: "url",
+      ref: "https://example.test/pending", sha256: "c".repeat(64),
+      is_public: true, moderation_state: "pending" },
+    { id: "55555555-5555-4555-8555-555555555555", kind: "onchain_tx",
+      ref: "5".repeat(88), sha256: "d".repeat(64), is_public: true,
+      moderation_state: "approved", case_evidence: false, challenge_eligible: true },
+  ], [], {}, {}, {},
+);
+ok("challenge selector round-trips the exact id only on public approved Case evidence",
+  challengeEvidenceView.evidence.length === 1
+    && !Object.hasOwn(challengeEvidenceView.evidence[0], "challenge_evidence_id")
+    && !Object.hasOwn(challengeEvidenceView.evidence_sections.links[0], "challenge_evidence_id")
+    && challengeEvidenceView.challenge_evidence.length === 2
+    && challengeEvidenceView.challenge_evidence[0].challenge_evidence_id === challengeEvidenceId
+    && challengeEvidenceView.challenge_evidence[1].challenge_evidence_id
+      === "55555555-5555-4555-8555-555555555555"
+    && !JSON.stringify(challengeEvidenceView).includes("33333333-3333-4333-8333-333333333333")
+    && !JSON.stringify(challengeEvidenceView).includes("44444444-4444-4444-8444-444444444444"));
+
+const bootstrapCapability = core.governanceFinalizeCapabilityDto({
+  action: "resolution_finalize",
+  target_public_ref: "OSI-ABCDEF123456",
+  report_version_ref: "OSI-RV-ABCDEF1234567890",
+  standard_quorum_ready: false,
+  can_finalize_via_standard_quorum: false,
+  bootstrap_enabled: true,
+  bootstrap_active: true,
+  bootstrap_tier: "maintainer_plus_two",
+  eligible_analyst_count: 30,
+  bootstrap_required_analyst_count: 2,
+  bootstrap_required_analyst_weight: "1.00",
+  bootstrap_actual_support_count: 2,
+  bootstrap_actual_support_weight: "1.50",
+  bootstrap_actor_conflicted: false,
+  bootstrap_can_finalize: true,
+  bootstrap_reason_code: "ready",
+});
+ok("governance capability keeps standard quorum and D17 bootstrap independent",
+  bootstrapCapability.standard.quorum_ready === false
+    && bootstrapCapability.standard.can_finalize === false
+    && bootstrapCapability.bootstrap.tier === "maintainer_plus_two"
+    && bootstrapCapability.bootstrap.required_support_count === 2
+    && bootstrapCapability.bootstrap.actual_support_weight === 1.5
+    && bootstrapCapability.bootstrap.can_finalize === true);
+ok("governance capability preserves a server-derived actor conflict",
+  core.governanceFinalizeCapabilityDto({
+    action: "seal_finalize", bootstrap_actor_conflicted: true,
+    bootstrap_can_finalize: false, bootstrap_reason_code: "actor_conflict",
+  }).bootstrap.actor_conflicted === true);
+
 const consentingSubmitterProfile = {
   id: "99999999-9999-4999-8999-999999999999",
   public_ref: "OSI-PRF-A1B2C3D4E5F60718",
@@ -580,6 +638,20 @@ ok("review queue derives exact Report capabilities through the service-only cano
   fnSource.includes('rpc("osi_v2_report_publication_capabilities"')
     && fnSource.includes("reportPublicationCapabilityDto")
     && fnSource.includes("review_capability_unavailable"));
+ok("review queue derives target-specific Resolution and seal capabilities through a service-only RPC",
+  fnSource.includes('rpc("osi_v2_governance_finalize_capabilities"')
+    && fnSource.includes("governanceFinalizeCapabilityDto")
+    && fnSource.includes("governance_finalize_capability_unavailable")
+    && fnSource.includes("p_maintainer_auth_uuid: MAINTAINER_AUTH_UUID"));
+ok("no-parent Resolution tasks let analysts create support while maintainers receive exact D17 capability",
+  fnSource.includes("cast_resolution_selection_review_create_parent")
+    && fnSource.includes("Review exact primary candidate and create the Resolution parent")
+    && fnSource.includes("finalization_capability: capability")
+    && fnSource.includes("report_version_ref"));
+ok("completed standard quorum keeps a task for its superseded immutable leader",
+  fnSource.includes("const emittedVersionRefs = new Set<string>()")
+    && fnSource.includes("standardCapability?.can_finalize !== true")
+    && fnSource.includes("Finalize the superseded exact version selected by the completed analyst quorum"));
 ok("submitted and in-review Report versions both become real publication tasks",
   fnSource.includes('["submitted", "in_review"].includes')
     && fnSource.includes('task("report_publication"')

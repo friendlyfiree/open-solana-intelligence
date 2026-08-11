@@ -3,7 +3,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(75);
+select plan(77);
 
 create function pg_temp.add_published_report(
   p_case_id uuid, p_report_id uuid, p_version_id uuid,
@@ -205,6 +205,67 @@ select ok((select leader_version_ref='OSI-RV-AAAACCCC00010001' and leader_count=
  and leader_weight=3.00 and tie_unresolved=false
  from osi_private.osi_v2_resolution_quorum((select id from public.case_resolutions where case_id='30000000-0000-4000-8000-000000000001'))),
  'standard quorum derives one deterministic exact leader');
+
+-- A later publication moves the current pointer but cannot erase the exact
+-- immutable version already selected by completed standard quorum. The
+-- canonical finalization below remains bound to that leader, and its read-side
+-- capability must expose the same transition.
+insert into public.event_receipts (
+ id,event_version,event_type,target_type,target_id,public_ref,actor_wallet,
+ actor_role,decision,proof_type,payload_hash,server_verified,occurred_at
+) values
+ ('34000000-0000-4000-8000-000000000098','legacy','LEGACY_REPORT_IMPORTED','report_version',
+  '32000000-0000-4000-8000-000000000099','OSI-RV-AAAACCCC00010099',
+  '11111111111111111111111111111114','wallet','submit','legacy_imported',repeat('8',64),false,statement_timestamp()),
+ ('34000000-0000-4000-8000-000000000099','legacy','LEGACY_REPORT_PUBLISHED','report_version',
+  '32000000-0000-4000-8000-000000000099','OSI-RV-AAAACCCC00010099',
+  '11111111111111111111111111111114','wallet','publish','legacy_imported',repeat('9',64),false,statement_timestamp());
+insert into public.case_report_versions (
+ id,report_id,version_no,version_ref,created_by_wallet,body_private,
+ content_public_safe,evidence_snapshot_hash,lifecycle_state,published_at,
+ publication_receipt_id,event_receipt_id
+) values (
+ '32000000-0000-4000-8000-000000000099','31000000-0000-4000-8000-000000000001',2,
+ 'OSI-RV-AAAACCCC00010099','11111111111111111111111111111114',
+ 'Later immutable restricted fixture body.','Later public-safe fixture summary.',repeat('9',64),
+ 'published',statement_timestamp(),'34000000-0000-4000-8000-000000000099',
+ '34000000-0000-4000-8000-000000000098'
+);
+update public.case_report_versions
+   set lifecycle_state='superseded',
+       superseded_by_version_id='32000000-0000-4000-8000-000000000099',
+       superseded_at=statement_timestamp()
+ where id='32000000-0000-4000-8000-000000000001';
+update public.case_reports
+   set current_version_id='32000000-0000-4000-8000-000000000099',
+       current_published_version_id='32000000-0000-4000-8000-000000000099'
+ where id='31000000-0000-4000-8000-000000000001';
+select ok((
+  select report_version_ref='OSI-RV-AAAACCCC00010001'
+    and standard_quorum_ready
+    and can_finalize_via_standard_quorum
+    and bootstrap_can_finalize is false
+    and bootstrap_reason_code='standard_quorum_ready'
+  from public.osi_v2_governance_finalize_capabilities(
+    '44444444444444444444444444444444',
+    array['30000000-0000-4000-8000-000000000001'::uuid],
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  )
+  where action='resolution_finalize'
+    and report_version_ref='OSI-RV-AAAACCCC00010001'
+), 'standard capability preserves a superseded immutable quorum leader after publication advances');
+select ok((
+  select standard_quorum_ready is false
+    and bootstrap_can_finalize is false
+    and bootstrap_reason_code='standard_quorum_exists'
+  from public.osi_v2_governance_finalize_capabilities(
+    '44444444444444444444444444444444',
+    array['30000000-0000-4000-8000-000000000001'::uuid],
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  )
+  where action='resolution_finalize'
+    and report_version_ref='OSI-RV-AAAACCCC00010099'
+), 'D17 reports the existing standard quorum instead of claiming the replacement candidate is ready');
 
 select throws_ok($test$
  select * from public.osi_v2_prepare_governance_action(repeat('w',43),'resolution_finalize',

@@ -47,6 +47,29 @@ export type AiPackLayer = typeof AI_PACK_LAYERS[number];
 export type ConfidenceComponent = typeof AI_PACK_CONFIDENCE_COMPONENTS[number];
 export type Row = Record<string, any>;
 
+export function authorizeMaintainerRead(input: {
+  wallet: string;
+  maintainer_ok: boolean;
+  maintainer_reason?: string | null;
+  read_proof_ok: boolean;
+  read_proof_wallet?: string | null;
+  read_proof_reason?: string | null;
+}) {
+  if (!input.maintainer_ok) {
+    return {
+      ok: false as const,
+      reason: input.maintainer_reason || "maintainer_denied",
+    };
+  }
+  if (!input.read_proof_ok || input.read_proof_wallet !== input.wallet) {
+    return {
+      ok: false as const,
+      reason: input.read_proof_reason || "read_session_wallet_mismatch",
+    };
+  }
+  return { ok: true as const, reason: null };
+}
+
 export type EvidenceRow = {
   evidence_item_id: string;
   kind: string;

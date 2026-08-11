@@ -3,7 +3,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(98);
+select plan(105);
 
 -- ---------------------------------------------------------------------------
 -- Shared fixture helpers (same shapes as the accepted governance suite).
@@ -1091,8 +1091,8 @@ select is((
      and proc.proname <> 'osi_v2_bootstrap_tier'
      and proc.prosrc like '%osi_v2_bootstrap_tier%'
 ),
- 'osi_private.osi_v2_commit_governance_action,osi_private.osi_v2_commit_report_publication,osi_private.osi_v2_commit_wire_publication,osi_private.osi_v2_prepare_governance_action,osi_private.osi_v2_prepare_report_publication,osi_private.osi_v2_prepare_wire_publication,osi_private.osi_v2_report_publication_capabilities',
- 'only accepted D17 outcome functions and the side-effect-free Report capability projection can reach the bootstrap tier');
+ 'osi_private.osi_v2_commit_governance_action,osi_private.osi_v2_commit_report_publication,osi_private.osi_v2_commit_wire_publication,osi_private.osi_v2_governance_finalize_capabilities,osi_private.osi_v2_prepare_governance_action,osi_private.osi_v2_prepare_report_publication,osi_private.osi_v2_prepare_wire_publication,osi_private.osi_v2_report_publication_capabilities',
+ 'only accepted D17 outcome functions and the side-effect-free capability projections can reach the bootstrap tier');
 select throws_ok($test$
  insert into public.event_receipts (
   event_version,event_type,target_type,target_id,actor_wallet,actor_role,
@@ -1124,6 +1124,79 @@ select is((select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'
  'broad V2 write flag remains false');
 select is((select value from public.osi_config where key='OSI_V2_PROOF_ENABLED'),'false',
  'broad proof flag remains false');
+
+-- ---------------------------------------------------------------------------
+-- 9. Target-specific D17 capability is service-only and handles no-parent and
+--    owner-conflict paths without client threshold arithmetic.
+-- ---------------------------------------------------------------------------
+select ok(not has_function_privilege(
+  'anon', 'public.osi_v2_governance_finalize_capabilities(text,uuid[],text)', 'EXECUTE'
+), 'anonymous cannot execute the governance finalize capability projection');
+select ok(not has_function_privilege(
+  'authenticated', 'public.osi_v2_governance_finalize_capabilities(text,uuid[],text)', 'EXECUTE'
+), 'authenticated clients cannot execute the governance finalize capability projection');
+select ok(has_function_privilege(
+  'service_role', 'public.osi_v2_governance_finalize_capabilities(text,uuid[],text)', 'EXECUTE'
+), 'service role can execute the public PostgREST capability wrapper');
+select ok(has_function_privilege(
+  'service_role', 'osi_private.osi_v2_governance_finalize_capabilities(text,uuid[],text)', 'EXECUTE'
+), 'service role can execute the private SECURITY INVOKER capability implementation');
+
+select pg_temp.set_filler_analysts(0);
+update public.osi_config set value='true'
+ where key in ('OSI_V2_BOOTSTRAP_MAINTAINER_QUORUM_ENABLED',
+   'OSI_V2_RESOLUTION_LIFECYCLE_WRITES_ENABLED');
+update public.osi_config set value='44444444444444444444444444444444'
+ where key='admin_wallet';
+insert into public.cases (
+ id,public_ref,title,category,summary_public,details_restricted,
+ submitted_by_wallet,stage,visibility,risk_tier,subject_refs
+) values (
+ '40000000-0000-4000-8000-000000000099','OSI-BBBBDDDD0099','No-parent capability fixture','other',
+ 'Public summary for the no-parent capability fixture.','Restricted capability fixture.',
+ '11111111111111111111111111111131','open_public','public','standard','[]'::jsonb
+);
+select pg_temp.add_published_report(
+ '40000000-0000-4000-8000-000000000099','41000000-0000-4000-8000-000000000099',
+ '42000000-0000-4000-8000-000000000099','OSI-RPT-BBBBDDDD0099','OSI-RV-BBBBDDDD00990001',
+ '11111111111111111111111111111132');
+
+select ok((
+  select target_public_ref='OSI-BBBBDDDD0099'
+    and report_version_ref='OSI-RV-BBBBDDDD00990001'
+    and bootstrap_tier='maintainer_only'
+    and bootstrap_required_analyst_count=0
+    and bootstrap_actual_support_count=0
+    and bootstrap_can_finalize
+  from public.osi_v2_governance_finalize_capabilities(
+    '44444444444444444444444444444444',
+    array['40000000-0000-4000-8000-000000000099'::uuid],
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) where action='resolution_finalize'
+), 'no-parent D17 capability names the exact published Report and Case target');
+select ok((
+  select standard_quorum_ready is false
+    and can_finalize_via_standard_quorum is false
+    and bootstrap_can_finalize is true
+  from public.osi_v2_governance_finalize_capabilities(
+    '44444444444444444444444444444444',
+    array['40000000-0000-4000-8000-000000000099'::uuid],
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) where action='resolution_finalize'
+), 'standard quorum and no-parent D17 readiness remain separate channels');
+
+update public.osi_config set value='11111111111111111111111111111131'
+ where key='admin_wallet';
+select ok((
+  select bootstrap_actor_conflicted
+    and bootstrap_can_finalize is false
+    and bootstrap_reason_code='actor_conflict'
+  from public.osi_v2_governance_finalize_capabilities(
+    '11111111111111111111111111111131',
+    array['40000000-0000-4000-8000-000000000099'::uuid],
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  ) where action='resolution_finalize'
+), 'a full maintainer who owns the Case is explicitly conflicted from D17');
 
 select * from finish();
 rollback;

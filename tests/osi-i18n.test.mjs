@@ -12,6 +12,8 @@ const reportUi = read('assets/js/v2-report-integration.js');
 const analystUi = read('assets/js/v2-analyst-integration.js');
 const wireUi = read('assets/js/v2-wire-integration.js');
 const profileUi = read('assets/js/v2-profile-integration.js');
+const operationsUi = read('assets/js/88-functional-surface.js');
+const maintainerUi = read('assets/js/54-maintainer-console.js');
 
 let passed = 0;
 function ok(name, value) {
@@ -72,6 +74,17 @@ ok('Turkish covers the new payment, SAS and private AI operations controls',
     && i18n.includes("'Pay with Solana Pay': 'Solana Pay ile öde'")
     && i18n.includes("'SAS Authority': 'SAS Yetkisi'")
     && i18n.includes("'Maintainer-only AI Pack': 'Yalnızca sürdürücüye açık AI Pack'"));
+ok('AI Pack Operations translates server prerequisites even when they follow a Case stage',
+  [
+    "'AI Pack drafts':",
+    "'Generation in progress':",
+    "'Private maintainer draft available.':",
+    "'Generation prerequisites are unavailable; action remains disabled.':",
+    "'A Case owner cannot generate an AI Pack for their own Case in maintainer-only mode.':",
+    "'Open AI Pack':",
+  ].every((marker) => i18n.includes(marker))
+    && operationsUi.includes('opsText(prerequisite)')
+    && maintainerUi.includes('var prerequisite=admText('));
 ok('Turkish covers dynamic Analyst profile and timestamped SAS authority copy',
   i18n.includes("'Server-derived weight': 'Sunucunun belirlediği ağırlık'")
     && i18n.includes("'Probationary': 'Deneme süreci'")
@@ -88,6 +101,22 @@ ok('Turkish covers persistent receipts, unified queue recovery, and connected Ph
     && i18n.includes("'Finalized payment receipt': 'Kesinleşmiş ödeme makbuzu'")
     && i18n.includes("'Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.'")
     && i18n.includes("'Conflict: this exact governance action is unavailable to this wallet.'"));
+ok('Turkish covers D17 finalization, seal and evidence-bound challenge controls',
+  [
+    "'Finalize standard quorum leader':",
+    "'Maintainer bootstrap (D17)':",
+    "'Finalize exact version via D17':",
+    "'Memo-anchor standard process seal':",
+    "'Memo-anchor seal via D17':",
+    "'All server-derived D17 prerequisites are met.':",
+    "'Submit a challenge':",
+    "'Existing public evidence':",
+    "'Challenge submission unavailable':",
+    "'Select public, approved evidence linked to this Case or its winning Report version.':",
+  ].every((marker) => i18n.includes(marker))
+    && caseUi.includes("esc(t('Finalize standard quorum leader'))")
+    && caseUi.includes("esc(t('Submit a challenge'))")
+    && caseUi.includes("showToast(t('The server-derived seal prerequisite is no longer met. Refresh My Reviews.'))"));
 ok('optional Report evidence copy is non-contradictory in both locales',
   i18n.includes("'Evidence references are recommended and can strengthen review. Add up to 12 total references when useful. Blank lines are ignored.'")
     && !i18n.includes('Add at least one and no more than 12 total references.'));

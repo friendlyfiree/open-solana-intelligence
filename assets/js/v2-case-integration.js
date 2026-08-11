@@ -531,6 +531,8 @@
       routeTarget:String(taskValue(row,['route_target','application_id'],exact)||''),
       conflict:taskValue(row,['submitter_conflict','conflict'],false)===true,
       nextAction:String(taskValue(row,['next_action','prerequisite'],'Open the exact authorized task')||'Open the exact authorized task'),
+      nextActionCode:String(taskValue(row,['next_action_code'],'')||''),
+      finalizationCapability:row.finalization_capability||null,
       deadline:taskValue(row,['deadline','deadline_at','review_deadline_at','admissibility_deadline_at'],null),
       currentVote:taskValue(row,['current_vote','current_active_vote'],null),
       weight:taskValue(row,['weight_snapshot','weight'],null)
@@ -914,11 +916,22 @@
       var aiPackCapabilities={ai_pack_writes_enabled:false,ai_pack_review_writes_enabled:false,can_generate:false,generation_prerequisite:'AI Pack capabilities are safely unavailable.'};
       var aiPackCaseRef=String(state.current&&state.current.public_ref||'');
       if(aiPackCaseRef){
-        try{aiPackCapabilities=await api(AI_PACK_URL,{
-          op:'capabilities',
-          wallet:wallet,
-          case_ref:aiPackCaseRef
-        });}catch(aiPackError){}
+        try{
+          var aiPackRequest={op:'capabilities',wallet:wallet,case_ref:aiPackCaseRef};
+          if(typeof window.osiV2ReadSession==='function'){
+            try{
+              var aiPackSession=await window.osiV2ReadSession(['aipack:detail'],{allowUnlock:false});
+              if(aiPackSession&&aiPackSession.wallet===wallet&&aiPackSession.token)aiPackRequest.read_session=aiPackSession.token;
+            }catch(aiPackSessionError){}
+          }
+          aiPackCapabilities=await api(AI_PACK_URL,aiPackRequest);
+          aiPackCapabilities.ai_pack_maintainer_access=aiPackCapabilities.maintainer_access===true;
+          delete aiPackCapabilities.wallet_connected;
+          delete aiPackCapabilities.viewer_role;
+          delete aiPackCapabilities.analyst_eligible;
+          delete aiPackCapabilities.maintainer_access;
+          delete aiPackCapabilities.maintainer_gate;
+        }catch(aiPackError){}
       }
       assertPrivateGeneration(generation);if(wallet!==String(walletPubkey||''))throw new Error('private_session_changed');
       state.capabilities=Object.assign({},results[0],results[1],results[2],aiPackCapabilities);
@@ -1398,11 +1411,33 @@
     if(!rows||!rows.length)return'<div class="osi-v2-empty"><b>No reviews recorded</b><span>Only eligible, independent analyst reviews count.</span></div>';
     return '<div class="osi-governance-timeline">'+rows.map(function(row){var role=row.reviewer_role||row.actor_role||'';return'<div class="osi-governance-event"><span class="osi-proof-label">'+esc(row.proof_label||'Wallet-signed & server-verified')+'</span><b>'+esc(short(row.reviewer_wallet))+sasSlot(row.reviewer_wallet,role)+' &middot; '+esc(label(row.decision))+'</b><p>'+esc(row.target_version_ref||label(row.phase))+' &middot; weight '+esc(Number(row.weight||0).toFixed(2))+sasAuthority(row)+' &middot; '+esc(dateText(row.created_at))+'</p><p data-osi-user-content>'+esc(row.public_rationale||'No public rationale recorded.')+'</p></div>';}).join('')+'</div>';
   }
+  function bootstrapReason(code){
+    var reasons={
+      governance_writes_disabled:'Resolution lifecycle writes are disabled.',
+      full_maintainer_gate_required:'Both the configured maintainer wallet and maintainer sign-in are required.',
+      resolution_not_selection_ready:'This Case is not in a server-approved Resolution selection state.',
+      standard_quorum_ready:'The standard analyst quorum is ready; use the standard finalization control.',
+      standard_quorum_exists:'A standard analyst quorum already exists for another exact candidate; D17 cannot replace it.',
+      standard_quorum_tie_unresolved:'The standard analyst quorum is tied; more independent review is required and D17 cannot choose between candidates.',
+      bootstrap_candidate_not_current:'D17 can select only an exact version that is still the current published Report version.',
+      bootstrap_disabled:'The D17 maintainer-bootstrap flag is disabled.',
+      bootstrap_retired:'D17 is retired at 50 or more eligible analysts.',
+      actor_conflict:'The maintainer owns this Case, authored the candidate, or cast an active counted review.',
+      bootstrap_support_count_required:'More independent analyst support is required for the current D17 tier.',
+      bootstrap_support_weight_required:'More independent analyst support weight is required for the current D17 tier.',
+      blocking_challenge_active:'An admitted open or under-review challenge blocks sealing.',
+      challenge_window_not_ended:'The seven-day challenge window has not ended.',
+      ready:'All server-derived D17 prerequisites are met.'
+    };return t(reasons[String(code||'')]||'The server-derived bootstrap prerequisite is not met.');
+  }
   function resolution(item){
     var governance=item.governance||{};var row=governance.resolution;var candidates=publishedCandidates(item);var caps=state.capabilities||{};
     if(!candidates.length&&!row)return emptySection('Resolution','A published exact Report version is required before resolution selection can begin.');
     var quorum=row&&row.selection_quorum||{leader_count:0,leader_weight:0,required_count:item.risk_tier==='high'?3:2,required_weight:item.risk_tier==='high'?4.5:2.5};
     var selectionTask=activeTaskMatches('resolution_selection'),sealTask=activeTaskMatches('seal_reviews');
+    var selectionCapability=selectionTask&&state.activeReviewTask?state.activeReviewTask.finalizationCapability:null;
+    var selectionStandard=selectionCapability&&selectionCapability.standard||{};
+    var selectionBootstrap=selectionCapability&&selectionCapability.bootstrap||{};
     var exactSelection=selectionTask&&state.activeReviewTask&&String(state.activeReviewTask.exactTarget||'');
     var actionableCandidates=exactSelection&&candidates.some(function(candidate){return String(candidate.version_ref)===exactSelection;})
       ?candidates.filter(function(candidate){return String(candidate.version_ref)===exactSelection;}):candidates;
@@ -1413,18 +1448,27 @@
       ? '<div class="osi-governance-compose"><h4>Resolution selection review</h4><label>Exact published version<select id="osi-resolution-version">'+candidateOptions+'</select></label><label>Decision<select id="osi-resolution-decision"><option value="select">Select as primary</option><option value="object">Object</option><option value="abstain">Abstain</option></select></label><label>Public rationale<textarea id="osi-resolution-rationale" maxlength="10000" placeholder="Explain the process-based selection in public-safe language."></textarea></label><label>Restricted analyst note<textarea id="osi-resolution-note" maxlength="10000" placeholder="Optional. Never returned in the public DTO."></textarea></label><button class="osi-action primary" type="button" onclick="osiV2GovernanceResolutionReview()">Sign and record review</button></div>'
       : '';
     var leader=quorum.leader_version_ref;
-    var finalize=row&&row.state==='selection_open'&&caps.maintainer_access===true&&leader&&!quorum.tie_unresolved&&selectionTask&&!selectionConflict
-      ? '<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeResolution()">Finalize server-derived leader</button>'
-      : '<button class="osi-action" type="button" disabled title="'+esc(selectionConflict?conflictMessage():!selectionTask?reviewTaskRequiredMessage():'Requires a unique analyst quorum leader and full maintainer double-gate')+'">Finalize unavailable</button>';
-    var seal='';
+    var standardFinalize=selectionStandard.can_finalize===true
+      ? '<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeResolution(\'standard\')">'+esc(t('Finalize standard quorum leader'))+'</button>'
+      : '<button class="osi-action" type="button" disabled title="'+esc(!selectionTask?reviewTaskRequiredMessage():t('Requires a unique server-derived analyst quorum leader and the full maintainer double-gate'))+'">'+esc(t('Standard finalization unavailable'))+'</button>';
+    var bootstrapPanel='';
+    if(selectionCapability){
+      bootstrapPanel='<div class="osi-governance-seal"><h4>'+esc(t('Maintainer bootstrap (D17)'))+'</h4><p>'+esc(t('Tier'))+' '+esc(label(selectionBootstrap.tier||'disabled'))+' &middot; '+esc(selectionBootstrap.eligible_analyst_count==null?t('unavailable'):selectionBootstrap.eligible_analyst_count)+' '+esc(t('eligible analysts. This channel is not an independent analyst quorum.'))+'</p>'
+        +progress(selectionBootstrap.actual_support_count||0,selectionBootstrap.actual_support_weight||0,selectionBootstrap.required_support_count||0,selectionBootstrap.required_support_weight||0)
+        +(selectionBootstrap.can_finalize===true?'<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeResolution(\'bootstrap\')">'+esc(t('Finalize exact version via D17'))+'</button>':'<button class="osi-action" type="button" disabled title="'+esc(bootstrapReason(selectionBootstrap.reason_code))+'">'+esc(t('D17 finalization unavailable'))+'</button>')+'</div>';
+    }
+    var finalize=standardFinalize+bootstrapPanel;
+    var seal='',sealStandard={},sealBootstrap={};
     if(row&&row.state==='in_challenge_window'){
       var ended=new Date(row.challenge_window_closes_at).getTime()<=Date.now();var blocking=(governance.challenges||[]).some(function(challenge){return challenge.blocking;});
-      var sq=row.seal_quorum||{};
-      seal='<div class="osi-governance-seal"><h4>Process seal</h4>'+progress(sq.approve_count||0,sq.approve_weight||0,sq.required_count||2,sq.required_weight||2.5)
-        +(ended&&!blocking&&caps.analyst_eligible===true&&sealTask&&!sealConflict?'<button class="osi-action" type="button" onclick="osiV2GovernanceSealReview()">Sign seal review</button>':'<button class="osi-action" disabled title="'+esc(sealConflict?conflictMessage():!sealTask?reviewTaskRequiredMessage():'Requires an ended seven-day window, no active challenge and eligible analyst')+'">Seal review unavailable</button>')
-        +(ended&&!blocking&&sq.ready&&caps.maintainer_access===true&&sealTask&&!sealConflict?'<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeSeal()">Memo-anchor process seal</button>':'')+'</div>';
+      var sq=row.seal_quorum||{};var sealCapability=sealTask&&state.activeReviewTask?state.activeReviewTask.finalizationCapability:null;
+      sealStandard=sealCapability&&sealCapability.standard||{};sealBootstrap=sealCapability&&sealCapability.bootstrap||{};
+      seal='<div class="osi-governance-seal"><h4>'+esc(t('Process seal'))+'</h4>'+progress(sq.approve_count||0,sq.approve_weight||0,sq.required_count||2,sq.required_weight||2.5)
+        +(ended&&!blocking&&caps.analyst_eligible===true&&sealTask&&!sealConflict?'<button class="osi-action" type="button" onclick="osiV2GovernanceSealReview()">'+esc(t('Sign seal review'))+'</button>':'<button class="osi-action" disabled title="'+esc(sealConflict?conflictMessage():!sealTask?reviewTaskRequiredMessage():t('Requires an ended seven-day window, no active challenge and eligible analyst'))+'">'+esc(t('Seal review unavailable'))+'</button>')
+        +(sealStandard.can_finalize===true?'<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeSeal(\'standard\')">'+esc(t('Memo-anchor standard process seal'))+'</button>':'<button class="osi-action" disabled title="'+esc(t('Standard analyst seal quorum is not ready.'))+'">'+esc(t('Standard seal unavailable'))+'</button>')
+        +(sealCapability?'<div class="osi-case-note">D17 '+esc(label(sealBootstrap.tier||'disabled'))+' &middot; '+esc(sealBootstrap.actual_support_count||0)+' / '+esc(sealBootstrap.required_support_count||0)+' '+esc(t('analysts'))+' &middot; '+esc(Number(sealBootstrap.actual_support_weight||0).toFixed(2))+' / '+esc(Number(sealBootstrap.required_support_weight||0).toFixed(2))+' '+esc(t('weight'))+'</div>'+(sealBootstrap.can_finalize===true?'<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeSeal(\'bootstrap\')">'+esc(t('Memo-anchor seal via D17'))+'</button>':'<button class="osi-action" disabled title="'+esc(bootstrapReason(sealBootstrap.reason_code))+'">'+esc(t('D17 seal unavailable'))+'</button>'):'')+'</div>';
     }
-    var conflictNotice=selectionConflict||sealConflict?'<div class="osi-state-message warning" role="status"><b>'+esc(t('Conflict: this exact governance action is unavailable to this wallet.'))+'</b><span>'+esc(conflictMessage())+'</span></div>':'';
+    var conflictNotice=(selectionConflict&&selectionStandard.can_finalize!==true)||(sealConflict&&sealStandard.can_finalize!==true)?'<div class="osi-state-message warning" role="status"><b>'+esc(t('Conflict: this exact governance review is unavailable to this wallet.'))+'</b><span>'+esc(conflictMessage())+'</span></div>':'';
     var taskNotice=!conflictNotice&&(caps.analyst_eligible===true||caps.maintainer_access===true)&&(((!row||row.state==='selection_open')&&!selectionTask)||(row&&row.state==='in_challenge_window'&&!sealTask))
       ?'<div class="osi-state-message" role="status"><b>'+esc(t('Review actions open from My Reviews'))+'</b><span>'+esc(reviewTaskRequiredMessage())+'</span></div>':'';
     return '<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact-version governance</span><h3>Resolution</h3></div><span class="osi-chip">'+esc(row?label(row.state):'Selection not started')+'</span></div>'
@@ -1447,9 +1491,14 @@
     var governance=item.governance||{};var resolution=governance.resolution;var rows=governance.challenges||[];var caps=state.capabilities||{};
     if(!resolution||resolution.state==='selection_open')return emptySection('Challenges','Challenge intake opens only after an exact primary Report version is Memo-anchored.');
     var opens=new Date(resolution.challenge_window_opens_at).getTime();var closes=new Date(resolution.challenge_window_closes_at).getTime();var active=Date.now()>=opens&&Date.now()<closes&&resolution.state==='in_challenge_window';
-    var submit=active&&walletPubkey&&caps.resolution_lifecycle_writes_enabled===true
-      ? '<div class="osi-governance-compose"><h4>Submit a challenge</h4><label>Public-safe summary<textarea id="osi-challenge-summary" minlength="20" maxlength="10000" placeholder="Describe the challenge without restricted material."></textarea></label><label>Existing evidence item ID<input id="osi-challenge-evidence" inputmode="text" placeholder="00000000-0000-0000-0000-000000000000"></label><label>Restricted detail<textarea id="osi-challenge-detail" maxlength="10000" placeholder="Optional restricted context."></textarea></label><button class="osi-action primary" type="button" onclick="osiV2GovernanceSubmitChallenge()">Sign and submit challenge</button></div>'
-      : '<div class="osi-state-message"><b>Challenge intake '+(active?'requires a connected wallet':'is closed')+'</b><span>Submission alone does not block sealing. Only admitted open or under-review challenges block.</span></div>';
+    var eligibleEvidence=(item.challenge_evidence||item.evidence||[]).filter(function(evidence){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(evidence.challenge_evidence_id||''));});
+    var evidenceOptions=eligibleEvidence.map(function(evidence){return'<option value="'+esc(evidence.challenge_evidence_id)+'">'+esc(label(evidence.kind))+' &middot; '+esc(evidence.ref)+'</option>';}).join('');
+    var targetCopy='<div class="osi-case-note">'+esc(t('Target: Resolution {resolution} and its bound winning Report version {version}.',{resolution:resolution.public_ref,version:resolution.winning_report_version_ref||t('unavailable')}))+'</div>';
+    var submit=active&&walletPubkey&&caps.resolution_lifecycle_writes_enabled===true&&eligibleEvidence.length
+      ? '<div class="osi-governance-compose"><h4>'+esc(t('Submit a challenge'))+'</h4>'+targetCopy+'<label>'+esc(t('Public-safe summary'))+'<textarea id="osi-challenge-summary" minlength="20" maxlength="10000" placeholder="'+esc(t('Describe the challenge without restricted material.'))+'"></textarea></label><label>'+esc(t('Existing public evidence'))+'<select id="osi-challenge-evidence">'+evidenceOptions+'</select></label><label>'+esc(t('Restricted detail'))+'<textarea id="osi-challenge-detail" maxlength="10000" placeholder="'+esc(t('Optional restricted context.'))+'"></textarea></label><button class="osi-action primary" type="button" onclick="osiV2GovernanceSubmitChallenge()">'+esc(t('Sign and submit challenge'))+'</button></div>'
+      : active&&walletPubkey&&caps.resolution_lifecycle_writes_enabled===true
+      ? '<div class="osi-state-message"><b>'+esc(t('Challenge submission unavailable'))+'</b><span>'+esc(t('No public, approved evidence is linked to this Case or its winning Report version. Challenge intake cannot accept a typed internal ID; add/evaluate evidence through the separately governed evidence workflow first.'))+'</span></div>'+targetCopy
+      : '<div class="osi-state-message"><b>'+esc(t(active?'Challenge intake requires a connected wallet':'Challenge intake is closed'))+'</b><span>'+esc(t('Submission alone does not block sealing. Only admitted open or under-review challenges block.'))+'</span></div>';
     var list=rows.length?'<div class="osi-challenge-list">'+rows.map(function(row){
       var controls='';var route=caps.analyst_eligible?'analyst':'maintainer';var q=row.outcome_quorum||{};
       var admissibilityTask=activeTaskMatches('challenge_admissibility',row.public_ref);
@@ -1812,7 +1861,13 @@
     var rationale=fieldValue('osi-resolution-rationale');if(rationale.length<10){showToast('Add a public-safe rationale of at least 10 characters.');return;}
     governanceMutation('resolution_review',state.current.public_ref,{phase:'selection',report_version_ref:version,decision:decision,reason_code:'primary_report_assessment',public_rationale:rationale,private_note:fieldValue('osi-resolution-note')||null});
   }
-  function governanceFinalizeResolution(){if(!requireActiveReviewTask('resolution_selection'))return;var row=resolutionRow();if(row)governanceMutation('resolution_finalize',row.public_ref,{});}
+  function governanceFinalizeResolution(channel){
+    if(!requireActiveReviewTask('resolution_selection'))return;
+    var capability=state.activeReviewTask&&state.activeReviewTask.finalizationCapability;if(!capability)return;
+    var bootstrap=String(channel||'')==='bootstrap';var allowed=bootstrap?capability.bootstrap&&capability.bootstrap.can_finalize:capability.standard&&capability.standard.can_finalize;
+    if(!allowed){showToast(t('The server-derived finalization prerequisite is no longer met. Refresh My Reviews.'));return;}
+    governanceMutation('resolution_finalize',capability.target_public_ref,bootstrap?{report_version_ref:capability.report_version_ref}:{});
+  }
   function governanceSealReview(){
     if(!requireActiveReviewTask('seal_reviews'))return;
     var row=resolutionRow();if(!row)return;
@@ -1820,11 +1875,18 @@
     if(rationale===null)return;rationale=String(rationale).trim();if(rationale.length<10){showToast('The public-safe rationale must be at least 10 characters.');return;}
     governanceMutation('resolution_review',state.current.public_ref,{phase:'seal',report_version_ref:row.winning_report_version_ref,decision:'select',reason_code:'process_window_complete',public_rationale:rationale,private_note:null});
   }
-  function governanceFinalizeSeal(){if(!requireActiveReviewTask('seal_reviews'))return;var row=resolutionRow();if(row)governanceMutation('seal_finalize',row.public_ref,{});}
+  function governanceFinalizeSeal(channel){
+    if(!requireActiveReviewTask('seal_reviews'))return;
+    var capability=state.activeReviewTask&&state.activeReviewTask.finalizationCapability;if(!capability)return;
+    var bootstrap=String(channel||'')==='bootstrap';var allowed=bootstrap?capability.bootstrap&&capability.bootstrap.can_finalize:capability.standard&&capability.standard.can_finalize;
+    if(!allowed){showToast(t('The server-derived seal prerequisite is no longer met. Refresh My Reviews.'));return;}
+    governanceMutation('seal_finalize',capability.target_public_ref,{});
+  }
   function governanceSubmitChallenge(){
     var row=resolutionRow();if(!row)return;
     var summary=fieldValue('osi-challenge-summary'),evidence=fieldValue('osi-challenge-evidence');
     if(summary.length<20){showToast('The public-safe challenge summary must be at least 20 characters.');return;}
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(evidence)){showToast(t('Select public, approved evidence linked to this Case or its winning Report version.'));return;}
     governanceMutation('challenge_submit',row.public_ref,{reason_code:'material_evidence_challenge',public_safe_summary:summary,restricted_detail:fieldValue('osi-challenge-detail')||null,evidence_item_id:evidence});
   }
   function governanceAdmitChallenge(ref,decision,route){if(!requireActiveReviewTask('challenge_admissibility',ref))return;governanceMutation('challenge_admit',ref,{decision:decision,route:route});}

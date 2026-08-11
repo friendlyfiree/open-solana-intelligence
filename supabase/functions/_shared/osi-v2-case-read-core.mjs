@@ -373,7 +373,7 @@ export function evidenceLink(kind, ref) {
   return null;
 }
 
-function publicEvidenceDto(evidence) {
+function publicEvidenceDto(evidence, includeChallengeSelector = false) {
   const kind = normalizeEvidenceKind(evidence);
   const ref = String(evidence.ref ?? "");
   const link = evidenceLink(kind, ref);
@@ -382,9 +382,59 @@ function publicEvidenceDto(evidence) {
     ref,
     sha256: String(evidence.sha256 ?? ""),
   };
+  // The UUID remains absent from every unrelated evidence projection. This
+  // narrowly named selector is emitted only for an already public, approved,
+  // Case-linked evidence row, so the challenge form can round-trip the exact
+  // FK required by the write gate without asking a person to discover/type an
+  // internal identifier. Private and unmoderated evidence never gets one.
+  if (includeChallengeSelector
+      && evidence.is_public === true && evidence.moderation_state === "approved"
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(evidence.id ?? ""))) {
+    dto.challenge_evidence_id = String(evidence.id);
+  }
   if (kind === "wallet" || kind === "onchain_tx") dto.network = SOLANA_NETWORK_LABEL;
   if (link) dto.link_url = link;
   return dto;
+}
+
+function nullableNumber(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+export function governanceFinalizeCapabilityDto(capability) {
+  if (!capability || typeof capability !== "object") return null;
+  const action = capability.action === "resolution_finalize"
+    ? "resolution_finalize"
+    : capability.action === "seal_finalize"
+      ? "seal_finalize"
+      : null;
+  if (!action) return null;
+  return {
+    action,
+    target_public_ref: String(capability.target_public_ref ?? ""),
+    report_version_ref: capability.report_version_ref == null
+      ? null : String(capability.report_version_ref),
+    standard: {
+      quorum_ready: capability.standard_quorum_ready === true,
+      can_finalize: capability.can_finalize_via_standard_quorum === true,
+    },
+    bootstrap: {
+      enabled: capability.bootstrap_enabled === true,
+      active: capability.bootstrap_active === true,
+      tier: capability.bootstrap_tier == null ? null : String(capability.bootstrap_tier),
+      eligible_analyst_count: nullableNumber(capability.eligible_analyst_count),
+      required_support_count: nullableNumber(capability.bootstrap_required_analyst_count),
+      required_support_weight: nullableNumber(capability.bootstrap_required_analyst_weight),
+      actual_support_count: Number(capability.bootstrap_actual_support_count || 0),
+      actual_support_weight: Number(capability.bootstrap_actual_support_weight || 0),
+      actor_conflicted: capability.bootstrap_actor_conflicted === true,
+      can_finalize: capability.bootstrap_can_finalize === true,
+      reason_code: capability.bootstrap_reason_code == null
+        ? null : String(capability.bootstrap_reason_code),
+    },
+  };
 }
 
 // The same manifest, grouped into the exact sections the Case and Report
@@ -402,6 +452,15 @@ export function evidenceSections(evidence = []) {
     ? [SOLANA_NETWORK_LABEL]
     : [];
   return sections;
+}
+
+function challengeEvidenceDtos(evidence = []) {
+  return (Array.isArray(evidence) ? evidence : [])
+    .filter((item) => item.challenge_eligible !== false
+      && item.is_public === true
+      && item.moderation_state === "approved")
+    .map((item) => publicEvidenceDto(item, true))
+    .filter((item) => item.challenge_evidence_id);
 }
 
 // Case attribution is a narrower projection than the public profile page.
@@ -588,8 +647,11 @@ function governanceDto(governance = {}, includeRestricted = false) {
 
 // The ONLY fields an anonymous caller may ever see for a genuinely public
 // Case. Receipt actor wallets and validated Memo transaction signatures are
-// public provenance; internal UUIDs, private bodies, payload hashes, raw memo
-// text, nonces, signatures, and restricted reason codes remain excluded.
+// public provenance; internal UUIDs remain excluded from the ordinary evidence
+// manifest. The separate challenge_evidence projection contains the narrowly
+// named selector only on already public+approved linked evidence. Private
+// bodies, payload hashes, raw memo text, nonces, signatures, and restricted
+// reason codes remain excluded.
 export function publicCaseDto(
   caseRow,
   reports = [],
@@ -607,7 +669,8 @@ export function publicCaseDto(
       .map(String),
   );
   const publicEvidence = evidence
-    .filter((item) => item.is_public === true && item.moderation_state === "approved");
+    .filter((item) => item.case_evidence !== false
+      && item.is_public === true && item.moderation_state === "approved");
   return {
     public_ref: String(caseRow.public_ref ?? ""),
     title: String(caseRow.title ?? ""),
@@ -621,6 +684,7 @@ export function publicCaseDto(
     sealed_at: isoOrNull(caseRow.sealed_at),
     evidence: publicEvidence.map(publicEvidenceDto),
     evidence_sections: evidenceSections(publicEvidence),
+    challenge_evidence: challengeEvidenceDtos(evidence),
     reviews: reviews.filter((review) => review.is_active === true)
       .map((review) => reviewDto(review, false)),
     reports: reports.filter((report) => report.current_published_version_id != null)
@@ -715,6 +779,7 @@ export function authorizedCaseDto(
       visibleReportVersionIds.add(String(report.current_published_version_id));
     }
   }
+  const directEvidence = evidence.filter((item) => item.case_evidence !== false);
   return {
     public_ref: String(caseRow.public_ref ?? ""),
     title: String(caseRow.title ?? ""),
@@ -736,8 +801,9 @@ export function authorizedCaseDto(
       reward_intent_lamports: caseRow.reward_intent_lamports == null
         ? null : Number(caseRow.reward_intent_lamports),
     }),
-    evidence: evidence.map(publicEvidenceDto),
-    evidence_sections: evidenceSections(evidence),
+    evidence: directEvidence.map(publicEvidenceDto),
+    evidence_sections: evidenceSections(directEvidence),
+    challenge_evidence: challengeEvidenceDtos(evidence),
     ...(actor.opening_capability
       ? { opening_capability: caseOpeningCapabilityDto(actor.opening_capability) }
       : {}),

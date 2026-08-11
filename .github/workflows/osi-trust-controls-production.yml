@@ -1,0 +1,246 @@
+name: OSI Trust Controls Production
+
+# Main-only additive rollout for the two migrations that complete the
+# consolidated trust-controls release. Edge Functions are deliberately not
+# deployed here: the existing read-session and Report-write workflows retain
+# their independently reviewed deployment/smoke contracts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY-TRUST-CONTROLS-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-trust-controls-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
+  GOVERNANCE_VERSION: "20260809091827"
+  REPORT_BODY_VERSION: "20260809200000"
+  GOVERNANCE_MIGRATION: 20260809091827_governance_bootstrap_challenge_controls.sql
+  REPORT_BODY_MIGRATION: 20260809200000_osi_v2_published_report_body_is_public.sql
+  OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+jobs:
+  validate:
+    name: Validate exact current main from zero
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Require exact confirmation and main
+        run: |
+          set -euo pipefail
+          [ "$CONFIRM_INPUT" = "DEPLOY-TRUST-CONTROLS-${EXPECTED_PROJECT_REF}" ] || {
+            echo "::error::Confirmation phrase mismatch."; exit 1;
+          }
+          [ "$GITHUB_REF" = "refs/heads/main" ] || {
+            echo "::error::Production rollout must be dispatched from main."; exit 1;
+          }
+
+      - name: Check out the dispatched commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify current main and exact migration files
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Dispatched commit is not current origin/main."; exit 1;
+          }
+          test -f "supabase/migrations/${GOVERNANCE_MIGRATION}"
+          test -f "supabase/migrations/${REPORT_BODY_MIGRATION}"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.113.0
+
+      - name: Run the complete dependency-free test battery
+        run: |
+          set -euo pipefail
+          for test in tests/*.test.js tests/*.test.mjs; do node "$test"; done
+
+      - name: Build a disposable database from zero
+        run: |
+          set -euo pipefail
+          supabase db start
+          supabase db reset --local --no-seed
+          supabase db lint --local --level error
+          supabase test db
+          bash tests/osi-v2-concurrency.test.sh
+
+      - name: Prove the post-migration contract locally
+        run: |
+          set -euo pipefail
+          psql "$OSI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -Atq <<'SQL' > /tmp/trust-contract.txt
+          begin read only;
+          select 'report_count|' || value from public.osi_config where key='OSI_V2_REPORT_STANDARD_MIN_COUNT';
+          select 'report_weight|' || value from public.osi_config where key='OSI_V2_REPORT_STANDARD_MIN_WEIGHT';
+          select 'body_column|' || (is_nullable='NO' and column_default='true')::text
+            from information_schema.columns
+           where table_schema='public' and table_name='case_report_versions' and column_name='body_is_public';
+          select 'anon_capability|' || has_function_privilege('anon',
+            'public.osi_v2_governance_finalize_capabilities(text,uuid[],text)','EXECUTE')::text;
+          select 'authenticated_capability|' || has_function_privilege('authenticated',
+            'public.osi_v2_governance_finalize_capabilities(text,uuid[],text)','EXECUTE')::text;
+          select 'service_capability|' || has_function_privilege('service_role',
+            'public.osi_v2_governance_finalize_capabilities(text,uuid[],text)','EXECUTE')::text;
+          commit;
+          SQL
+          cat /tmp/trust-contract.txt
+          grep -q '^report_count|2$' /tmp/trust-contract.txt
+          grep -q '^report_weight|1.00$' /tmp/trust-contract.txt
+          grep -q '^body_column|true$' /tmp/trust-contract.txt
+          grep -q '^anon_capability|false$' /tmp/trust-contract.txt
+          grep -q '^authenticated_capability|false$' /tmp/trust-contract.txt
+          grep -q '^service_capability|true$' /tmp/trust-contract.txt
+
+      - name: Stop and discard the disposable database
+        if: always()
+        run: supabase stop --no-backup
+
+  rollout:
+    name: Dry-run and apply only the two additive migrations
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Check out the exact validated main commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.113.0
+
+      - name: Verify credentials project and unchanged main
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
+          [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
+          [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+            echo "::error::Validated commit is no longer current main."; exit 1;
+          }
+
+      - name: Resolve pinned session-pooler coordinates
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
+          coordinates="$(printf '%s' "$response" | python3 -c '
+          import sys, json
+          data = json.load(sys.stdin)
+          rows = data if isinstance(data, list) else [data]
+          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+          ')"
+          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Link and prove the pending suffix is exactly in scope
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
+          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
+          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' > /tmp/local-versions.txt
+          psql -Atqc "select version from supabase_migrations.schema_migrations order by version" > /tmp/remote-versions.txt
+          extras="$(comm -13 /tmp/local-versions.txt /tmp/remote-versions.txt)"
+          [ -z "$extras" ] || { echo "::error::Production contains migration versions absent from current main."; exit 1; }
+          missing="$(comm -23 /tmp/local-versions.txt /tmp/remote-versions.txt | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          case "$missing" in
+            "${GOVERNANCE_VERSION} ${REPORT_BODY_VERSION}"|"${REPORT_BODY_VERSION}"|"") ;;
+            *) echo "::error::Pending migrations are outside this exact two-migration suffix: ${missing}"; exit 1 ;;
+          esac
+          echo "PENDING_VERSIONS=$missing" >> "$GITHUB_ENV"
+
+      - name: Dry-run exactly the pending in-scope migrations
+        if: ${{ env.PENDING_VERSIONS != '' }}
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run 2>&1 | tee /tmp/trust-controls-dry-run.txt
+          got="$(grep -oE '20[0-9]{12}_[A-Za-z0-9_]+\.sql' /tmp/trust-controls-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          expected=""
+          for version in $PENDING_VERSIONS; do
+            case "$version" in
+              "$GOVERNANCE_VERSION") file="$GOVERNANCE_MIGRATION" ;;
+              "$REPORT_BODY_VERSION") file="$REPORT_BODY_MIGRATION" ;;
+              *) echo "::error::Unexpected pending version ${version}."; exit 1 ;;
+            esac
+            expected="${expected}${expected:+ }${file}"
+          done
+          [ "$got" = "$expected" ] || { echo "::error::Dry-run mismatch. Expected '${expected}', got '${got}'."; exit 1; }
+
+      - name: Snapshot immutable rows and configuration
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq -f scripts/protected-row-counts.sql > /tmp/protected-before.txt
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c "select key, encode(convert_to(value,'UTF8'),'base64') from public.osi_config order by key" > /tmp/config-before.txt
+
+      - name: Apply only the dry-run-approved additive migrations
+        if: ${{ env.PENDING_VERSIONS != '' }}
+        run: supabase db push --linked --yes
+
+      - name: Verify exact history boundaries and unchanged data
+        run: |
+          set -euo pipefail
+          find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' > /tmp/local-after.txt
+          psql -Atqc "select version from supabase_migrations.schema_migrations order by version" > /tmp/remote-after.txt
+          diff -u /tmp/local-after.txt /tmp/remote-after.txt
+          psql -v ON_ERROR_STOP=1 -Atq -f scripts/protected-row-counts.sql > /tmp/protected-after.txt
+          psql -v ON_ERROR_STOP=1 -Atq -F'|' -c "select key, encode(convert_to(value,'UTF8'),'base64') from public.osi_config order by key" > /tmp/config-after.txt
+          diff -u /tmp/protected-before.txt /tmp/protected-after.txt
+          diff -u /tmp/config-before.txt /tmp/config-after.txt
+
+      - name: Verify production authorization publication and quorum contract
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atq <<'SQL' > /tmp/production-contract.txt
+          begin read only;
+          select 'report_count|' || value from public.osi_config where key='OSI_V2_REPORT_STANDARD_MIN_COUNT';
+          select 'report_weight|' || value from public.osi_config where key='OSI_V2_REPORT_STANDARD_MIN_WEIGHT';
+          select 'body_column|' || (is_nullable='NO' and column_default='true')::text
+            from information_schema.columns
+           where table_schema='public' and table_name='case_report_versions' and column_name='body_is_public';
+          select 'anon_capability|' || has_function_privilege('anon',
+            'public.osi_v2_governance_finalize_capabilities(text,uuid[],text)','EXECUTE')::text;
+          select 'authenticated_capability|' || has_function_privilege('authenticated',
+            'public.osi_v2_governance_finalize_capabilities(text,uuid[],text)','EXECUTE')::text;
+          select 'service_capability|' || has_function_privilege('service_role',
+            'public.osi_v2_governance_finalize_capabilities(text,uuid[],text)','EXECUTE')::text;
+          commit;
+          SQL
+          cat /tmp/production-contract.txt
+          grep -q '^report_count|2$' /tmp/production-contract.txt
+          grep -q '^report_weight|1.00$' /tmp/production-contract.txt
+          grep -q '^body_column|true$' /tmp/production-contract.txt
+          grep -q '^anon_capability|false$' /tmp/production-contract.txt
+          grep -q '^authenticated_capability|false$' /tmp/production-contract.txt
+          grep -q '^service_capability|true$' /tmp/production-contract.txt
+
+      - name: Record the forward-fix boundary
+        if: always()
+        run: |
+          echo "Only two ordered additive migrations are in scope; no function, flag, secret, or domain row is changed by this workflow."
+          echo "Rollback is a focused additive forward fix. Do not drop, reset, repair, truncate, or rewrite production data."
