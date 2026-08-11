@@ -124,4 +124,28 @@ grant execute on function public.osi_v2_guard_nonce_update()
 comment on function public.osi_v2_guard_nonce_update() is
   'Stage-5 nonce immutability guard. Allows only one exact service-bound Solana Pay reference to be added to a live unconsumed payment nonce; all other bindings remain immutable.';
 
+-- These two public RPCs were originally SECURITY INVOKER while service_role
+-- intentionally has no broad table privileges on osi_config or osi_nonces.
+-- That combination made the service-only API callable but unusable. Keep the
+-- narrow EXECUTE boundary and fixed empty search_path, and let the owned
+-- functions perform only their explicitly modeled reads/update.
+alter function public.osi_v2_bind_payment_reference(text, text)
+  security definer;
+alter function public.osi_v2_find_payment_by_reference(text)
+  security definer;
+
+revoke all privileges on function public.osi_v2_bind_payment_reference(text, text)
+  from public, anon, authenticated;
+revoke all privileges on function public.osi_v2_find_payment_by_reference(text)
+  from public, anon, authenticated;
+grant execute on function public.osi_v2_bind_payment_reference(text, text)
+  to service_role;
+grant execute on function public.osi_v2_find_payment_by_reference(text)
+  to service_role;
+
+comment on function public.osi_v2_bind_payment_reference(text, text) is
+  'SECURITY DEFINER service-only, atomic binding of one server-issued native SOL payment nonce to one Solana Pay reference. Fixed search_path and exact row guards prevent caller-selected SQL authority; it never creates or confirms a payment.';
+comment on function public.osi_v2_find_payment_by_reference(text) is
+  'SECURITY DEFINER service-only lookup for an exact bound Solana Pay reference. Browser roles have no EXECUTE privilege.';
+
 commit;

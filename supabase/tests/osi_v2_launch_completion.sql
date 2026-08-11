@@ -161,6 +161,17 @@ select is(
   '11111111111111111111111111111114',
   'a live unconsumed exact payment nonce accepts one service-bound reference'
 );
+
+select is(
+  (
+    select issued_nonce
+      from public.osi_v2_find_payment_by_reference(
+        '11111111111111111111111111111114'
+      )
+  ),
+  repeat('p', 32),
+  'the service-only reference lookup can read its exact bound nonce without broad table grants'
+);
 reset role;
 
 select is(
