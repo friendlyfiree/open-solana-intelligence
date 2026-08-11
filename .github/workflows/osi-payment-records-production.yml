@@ -81,6 +81,7 @@ jobs:
           node tests/osi-v2-analyst-ui.test.js
           node tests/osi-v2-case-ui.test.js
           node tests/osi-i18n.test.mjs
+          node tests/osi-payment-records-production-workflow.test.mjs
           node tests/xss-escaping.test.js
           deno check supabase/functions/osi-v2-payment/index.ts supabase/functions/osi-v2-analyst/index.ts
 
@@ -101,7 +102,8 @@ jobs:
     name: Apply exact migrations, deploy exact functions, and verify production
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Step-level smoke timeouts leave ample budget for fail-closed cleanup.
+    timeout-minutes: 40
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -261,6 +263,7 @@ jobs:
           supabase functions deploy osi-v2-analyst --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
 
       - name: Enable only typed maintainer support and smoke the deployed backend
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='true',updated_at=statement_timestamp() where key='OSI_V2_MAINTAINER_SUPPORT_ENABLED' and value='false'"
@@ -279,6 +282,7 @@ jobs:
           echo 'BACKEND_SMOKE_PASSED=true' >> "$GITHUB_ENV"
 
       - name: Wait for the exact merged Vercel assets
+        timeout-minutes: 12
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
@@ -299,7 +303,7 @@ jobs:
         run: echo 'ROLLOUT_COMPLETE=true' >> "$GITHUB_ENV"
 
       - name: Fail closed after any incomplete production apply
-        if: failure() && env.MIGRATION_APPLY_STARTED == 'true' && env.ROLLOUT_COMPLETE != 'true'
+        if: (failure() || cancelled()) && env.MIGRATION_APPLY_STARTED == 'true' && env.ROLLOUT_COMPLETE != 'true'
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='false',updated_at=statement_timestamp() where key in ('OSI_V2_MAINTAINER_SUPPORT_ENABLED','OSI_V2_SOLANA_PAY_ENABLED')"

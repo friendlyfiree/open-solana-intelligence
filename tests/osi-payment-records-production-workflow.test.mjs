@@ -6,10 +6,18 @@ const path = new URL(
   import.meta.url,
 );
 const source = fs.readFileSync(path, "utf8");
+const applyStart = source.indexOf(
+  "- name: Apply exactly the dry-run-approved additive migrations",
+);
+const applyEnd = source.indexOf(
+  "- name: Verify production constraints, grants, flags, and unchanged rows",
+  applyStart,
+);
+const applyBlock = source.slice(applyStart, applyEnd);
 let passed = 0;
 
-function has(name, pattern) {
-  assert.match(source, pattern, name);
+function has(name, pattern, haystack = source) {
+  assert.match(haystack, pattern, name);
   passed += 1;
 }
 
@@ -39,7 +47,8 @@ has(
 );
 has(
   "apply uses the same resolved explicit route",
-  /supabase db push[\s\S]*--include-all --yes/,
+  /supabase db push[\s\S]*--db-url "postgresql:\/\/\$\{PGUSER\}@\$\{PGHOST\}:\$\{PGPORT\}\/\$\{PGDATABASE\}"[\s\S]*--password "\$SUPABASE_DB_PASSWORD" --include-all --yes/,
+  applyBlock,
 );
 before(
   "rollback marker precedes the independently committed migration apply",
@@ -52,8 +61,24 @@ before(
   "echo 'ROLLOUT_COMPLETE=true'",
 );
 has(
-  "any incomplete apply fails both payment surfaces closed",
-  /if: failure\(\) && env\.MIGRATION_APPLY_STARTED == 'true' && env\.ROLLOUT_COMPLETE != 'true'[\s\S]*OSI_V2_MAINTAINER_SUPPORT_ENABLED','OSI_V2_SOLANA_PAY_ENABLED/,
+  "failed or cancelled incomplete apply closes both payment surfaces",
+  /if: \(failure\(\) \|\| cancelled\(\)\) && env\.MIGRATION_APPLY_STARTED == 'true' && env\.ROLLOUT_COMPLETE != 'true'[\s\S]*OSI_V2_MAINTAINER_SUPPORT_ENABLED','OSI_V2_SOLANA_PAY_ENABLED/,
+);
+has(
+  "backend smoke has a bounded step timeout",
+  /Enable only typed maintainer support[\s\S]*timeout-minutes: 8/,
+);
+has(
+  "Vercel smoke has a bounded step timeout",
+  /Wait for the exact merged Vercel assets[\s\S]*timeout-minutes: 12/,
+);
+has(
+  "deploy job leaves cleanup budget",
+  /name: Apply exact migrations[\s\S]*timeout-minutes: 40/,
+);
+has(
+  "production validation runs this workflow regression",
+  /node tests\/osi-payment-records-production-workflow\.test\.mjs/,
 );
 has(
   "receipt exposes start and completion state",
