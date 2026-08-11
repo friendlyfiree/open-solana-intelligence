@@ -1,0 +1,273 @@
+name: OSI Payment Function Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY-PAYMENT-FUNCTION-afibxpniwfnavdobecrn to authorize"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: osi-payment-function-production
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
+  WEB_URL: https://open-solana-intel.vercel.app
+  CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
+
+jobs:
+  validate:
+    name: Validate exact payment function release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require exact confirmation and current main
+        run: |
+          set -euo pipefail
+          [ "$CONFIRM_INPUT" = "DEPLOY-PAYMENT-FUNCTION-${EXPECTED_PROJECT_REF}" ]
+          [ "${GITHUB_REF}" = "refs/heads/main" ]
+
+      - name: Check out current main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Prove dispatched commit is current origin/main
+        run: |
+          set -euo pipefail
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+          test -f supabase/functions/osi-v2-payment/index.ts
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.4.1
+
+      - name: Run focused payment and release validation
+        run: |
+          set -euo pipefail
+          node tests/osi-v2-payment.test.mjs
+          node tests/osi-v2-case-ui.test.js
+          node tests/osi-i18n.test.mjs
+          node tests/osi-payment-function-production-workflow.test.mjs
+          node tests/xss-escaping.test.js
+          deno check supabase/functions/osi-v2-payment/index.ts
+
+  deploy:
+    name: Deploy and smoke exact payment function
+    needs: validate
+    if: ${{ always() && needs.validate.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    outputs:
+      deploy_attempted: ${{ steps.mutation.outputs.attempted }}
+      backend_complete: ${{ steps.backend_smoke.outputs.complete }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Check out current main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact project and release commit
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN}" ]
+          [ -n "${SUPABASE_DB_PASSWORD}" ]
+          [ "${PROJECT_ID_SECRET}" = "${EXPECTED_PROJECT_REF}" ]
+          git fetch origin main --quiet
+          [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.109.1
+
+      - name: Prove the compatible frontend is already live
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            asset="$(curl -fsS --max-time 15 "${WEB_URL}/assets/js/v2-case-integration.js?release=${GITHUB_SHA}" || true)"
+            echo "$asset" | grep -q "recover_solana_pay" \
+              && echo "$asset" | grep -q "Expired: do not scan" \
+              && exit 0
+            [ "$attempt" -lt 12 ]
+            sleep 5
+          done
+          exit 1
+
+      - name: Resolve the exact production database route
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          status="$(curl -sS --max-time 20 -o /tmp/pooler.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler" || echo 000)"
+          if [ "$status" = "200" ]; then
+            coordinates="$(python3 -c '
+            import json
+            data=json.load(open("/tmp/pooler.json")); rows=data if isinstance(data,list) else [data]
+            row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
+            print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
+            ')"
+            read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          else
+            PGPORT=5432
+            PGUSER="postgres.${EXPECTED_PROJECT_REF}"
+            PGDATABASE=postgres
+            PGHOST=""
+            for candidate in aws-0-ap-southeast-2.pooler.supabase.com aws-1-ap-southeast-2.pooler.supabase.com; do
+              if PGHOST="$candidate" PGPORT="$PGPORT" PGUSER="$PGUSER" \
+                PGDATABASE="$PGDATABASE" PGPASSWORD="$PGPASSWORD" \
+                PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1' >/dev/null 2>&1; then
+                PGHOST="$candidate"
+                break
+              fi
+            done
+            [ -n "$PGHOST" ]
+          fi
+          case "$PGHOST" in aws-[01]-ap-southeast-2.pooler.supabase.com) : ;; *) exit 1 ;; esac
+          [ "$PGPORT" = "5432" ]
+          [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Mark the function mutation boundary
+        id: mutation
+        run: |
+          echo 'attempted=true' >> "$GITHUB_OUTPUT"
+          echo 'DEPLOY_ATTEMPTED=true' >> "$GITHUB_ENV"
+
+      - name: Deploy only osi-v2-payment
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          supabase functions deploy osi-v2-payment \
+            --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
+
+      - name: Smoke strict recovery operation
+        id: backend_smoke
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          payment="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-payment"
+          for attempt in $(seq 1 12); do
+            body="$(curl -sS --max-time 15 -X POST "$payment" -H 'Content-Type: application/json' -d '{"op":"capabilities"}' || true)"
+            echo "$body" | grep -q '"ok":true' && break
+            [ "$attempt" -lt 12 ]
+            sleep 5
+          done
+          status="$(curl -sS --max-time 15 -o /tmp/recover-solana-pay.json -w '%{http_code}' \
+            -X POST "$payment" -H 'Content-Type: application/json' \
+            -d '{"op":"recover_solana_pay","wallet":"invalid","nonce":"invalid","tx_sig":"invalid"}')"
+          [ "$status" = "400" ]
+          grep -q '"error":"bad_wallet"' /tmp/recover-solana-pay.json
+          psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='true',updated_at=statement_timestamp() where key='OSI_V2_SOLANA_PAY_ENABLED' and value='false'"
+          [ "$(psql -v ON_ERROR_STOP=1 -Atqc "select value from public.osi_config where key='OSI_V2_SOLANA_PAY_ENABLED'")" = "true" ]
+          for attempt in $(seq 1 8); do
+            body="$(curl -sS --max-time 15 -X POST "$payment" -H 'Content-Type: application/json' -d '{"op":"capabilities"}' || true)"
+            echo "$body" | grep -q '"ok":true' && echo "$body" | grep -q '"solana_pay_enabled":true' && break
+            [ "$attempt" -lt 8 ]
+            sleep 5
+          done
+          echo 'complete=true' >> "$GITHUB_OUTPUT"
+          echo 'BACKEND_SMOKE_COMPLETE=true' >> "$GITHUB_ENV"
+
+      - name: Fail closed after an incomplete function mutation
+        if: (failure() || cancelled()) && steps.mutation.outputs.attempted == 'true' && steps.backend_smoke.outputs.complete != 'true'
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='false',updated_at=statement_timestamp() where key='OSI_V2_SOLANA_PAY_ENABLED' and value is distinct from 'false'"
+          [ "$(psql -v ON_ERROR_STOP=1 -Atqc "select value from public.osi_config where key='OSI_V2_SOLANA_PAY_ENABLED'")" = "false" ]
+          echo 'FAIL_CLOSED_COMPLETE=true' >> "$GITHUB_ENV"
+
+      - name: Report exact release state
+        if: always()
+        run: |
+          printf '%s\n' \
+            "commit=${GITHUB_SHA}" \
+            "project=${EXPECTED_PROJECT_REF}" \
+            "function=osi-v2-payment" \
+            "deploy_attempted=${DEPLOY_ATTEMPTED:-false}" \
+            "backend_smoke_complete=${BACKEND_SMOKE_COMPLETE:-false}" \
+            "fail_closed_complete=${FAIL_CLOSED_COMPLETE:-false}"
+
+  fail_closed:
+    name: Disable Solana Pay after an interrupted mutation
+    needs: deploy
+    if: ${{ always() && (needs.deploy.result == 'failure' || needs.deploy.result == 'cancelled') && needs.deploy.outputs.deploy_attempted == 'true' && needs.deploy.outputs.backend_complete != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
+      PGSSLMODE: require
+    steps:
+      - name: Verify exact fail-closed target
+        run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_ACCESS_TOKEN}" ]
+          [ -n "${SUPABASE_DB_PASSWORD}" ]
+          [ "${PROJECT_ID_SECRET}" = "${EXPECTED_PROJECT_REF}" ]
+
+      - name: Resolve a pinned production pooler
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          PGPORT=5432
+          PGUSER="postgres.${EXPECTED_PROJECT_REF}"
+          PGDATABASE=postgres
+          PGHOST=""
+          for candidate in aws-0-ap-southeast-2.pooler.supabase.com aws-1-ap-southeast-2.pooler.supabase.com; do
+            if PGHOST="$candidate" PGPORT="$PGPORT" PGUSER="$PGUSER" \
+              PGDATABASE="$PGDATABASE" PGPASSWORD="$PGPASSWORD" \
+              PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1' >/dev/null 2>&1; then
+              PGHOST="$candidate"
+              break
+            fi
+          done
+          [ -n "$PGHOST" ]
+          { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
+
+      - name: Disable and verify only the dedicated Solana Pay flag
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='false',updated_at=statement_timestamp() where key='OSI_V2_SOLANA_PAY_ENABLED' and value is distinct from 'false'"
+          [ "$(psql -v ON_ERROR_STOP=1 -Atqc "select value from public.osi_config where key='OSI_V2_SOLANA_PAY_ENABLED'")" = "false" ]
+          payment="https://${EXPECTED_PROJECT_REF}.supabase.co/functions/v1/osi-v2-payment"
+          for attempt in $(seq 1 8); do
+            body="$(curl -sS --max-time 15 -X POST "$payment" -H 'Content-Type: application/json' -d '{"op":"capabilities"}' || true)"
+            echo "$body" | grep -q '"ok":true' && echo "$body" | grep -q '"solana_pay_enabled":false' && exit 0
+            [ "$attempt" -lt 8 ]
+            sleep 5
+          done
+          exit 1
+
+      - name: Report exact fail-closed state
+        if: always()
+        run: |
+          printf '%s\n' \
+            "project=${EXPECTED_PROJECT_REF}" \
+            "function=osi-v2-payment" \
+            "solana_pay_enabled=false" \
+            "immutable_payment_rows=unchanged"
