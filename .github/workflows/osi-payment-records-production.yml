@@ -108,8 +108,10 @@ jobs:
       PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
       PGSSLMODE: require
+      MIGRATION_APPLY_STARTED: "false"
       MIGRATIONS_APPLIED: "false"
       BACKEND_SMOKE_PASSED: "false"
+      ROLLOUT_COMPLETE: "false"
     steps:
       - name: Check out current main
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -157,7 +159,9 @@ jobs:
             PGDATABASE=postgres
             PGHOST=""
             for candidate in aws-0-ap-southeast-2.pooler.supabase.com aws-1-ap-southeast-2.pooler.supabase.com; do
-              if PGHOST="$candidate" PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1' >/dev/null 2>&1; then
+              if PGHOST="$candidate" PGPORT="$PGPORT" PGUSER="$PGUSER" \
+                PGDATABASE="$PGDATABASE" PGPASSWORD="$PGPASSWORD" \
+                PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1' >/dev/null 2>&1; then
                 PGHOST="$candidate"
                 break
               fi
@@ -210,6 +214,10 @@ jobs:
       - name: Apply exactly the dry-run-approved additive migrations
         run: |
           set -euo pipefail
+          # From this point onward any failure requires the dedicated payment
+          # flags to be disabled. Each migration commits independently, so the
+          # marker must precede db push rather than follow its final check.
+          echo 'MIGRATION_APPLY_STARTED=true' >> "$GITHUB_ENV"
           supabase db push \
             --db-url "postgresql://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
             --password "$SUPABASE_DB_PASSWORD" --include-all --yes
@@ -287,8 +295,11 @@ jobs:
           echo '::error::Vercel did not serve the exact merged Public Records and payment UI in time.'
           exit 1
 
-      - name: Fail closed only if the backend rollout did not pass smoke
-        if: failure() && env.MIGRATIONS_APPLIED == 'true' && env.BACKEND_SMOKE_PASSED != 'true'
+      - name: Mark the full rollout complete
+        run: echo 'ROLLOUT_COMPLETE=true' >> "$GITHUB_ENV"
+
+      - name: Fail closed after any incomplete production apply
+        if: failure() && env.MIGRATION_APPLY_STARTED == 'true' && env.ROLLOUT_COMPLETE != 'true'
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='false',updated_at=statement_timestamp() where key in ('OSI_V2_MAINTAINER_SUPPORT_ENABLED','OSI_V2_SOLANA_PAY_ENABLED')"
@@ -302,8 +313,10 @@ jobs:
             echo "project=${EXPECTED_PROJECT_REF}"
             echo "migrations=${NONCE_VERSION},${SUPPORT_VERSION}"
             echo "functions=osi-v2-payment,osi-v2-analyst"
+            echo "migration_apply_started=${MIGRATION_APPLY_STARTED}"
             echo "migrations_applied=${MIGRATIONS_APPLIED}"
             echo "backend_smoke_passed=${BACKEND_SMOKE_PASSED}"
+            echo "rollout_complete=${ROLLOUT_COMPLETE}"
           } > deployment-receipt/payment-records.txt
 
       - name: Upload deployment receipt
