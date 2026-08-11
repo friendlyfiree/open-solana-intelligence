@@ -124,32 +124,19 @@ jobs:
         timeout-minutes: 2
         run: |
           set -euo pipefail
-          status="$(curl -sS --max-time 20 -o /tmp/pooler.json -w '%{http_code}' \
-            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
-            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler" || echo 000)"
-          if [ "$status" = "200" ]; then
-            coordinates="$(python3 -c '
-            import json
-            data=json.load(open("/tmp/pooler.json")); rows=data if isinstance(data,list) else [data]
-            row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
-            print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
-            ')"
-            read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
-          else
-            PGPORT=5432
-            PGUSER="postgres.${EXPECTED_PROJECT_REF}"
-            PGDATABASE=postgres
-            PGHOST=""
-            for candidate in aws-0-ap-southeast-2.pooler.supabase.com aws-1-ap-southeast-2.pooler.supabase.com; do
-              if PGHOST="$candidate" PGPORT="$PGPORT" PGUSER="$PGUSER" \
-                PGDATABASE="$PGDATABASE" PGPASSWORD="$PGPASSWORD" \
-                PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1' >/dev/null 2>&1; then
-                PGHOST="$candidate"
-                break
-              fi
-            done
-            [ -n "$PGHOST" ]
-          fi
+          PGPORT=5432
+          PGUSER="postgres.${EXPECTED_PROJECT_REF}"
+          PGDATABASE=postgres
+          PGHOST=""
+          for candidate in aws-0-ap-southeast-2.pooler.supabase.com aws-1-ap-southeast-2.pooler.supabase.com; do
+            if PGHOST="$candidate" PGPORT="$PGPORT" PGUSER="$PGUSER" \
+              PGDATABASE="$PGDATABASE" PGPASSWORD="$PGPASSWORD" \
+              PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1' >/dev/null 2>&1; then
+              PGHOST="$candidate"
+              break
+            fi
+          done
+          [ -n "$PGHOST" ]
           case "$PGHOST" in aws-[01]-ap-southeast-2.pooler.supabase.com) : ;; *) exit 1 ;; esac
           [ "$PGPORT" = "5432" ]
           [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
