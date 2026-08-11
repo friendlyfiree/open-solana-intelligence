@@ -105,9 +105,10 @@ jobs:
           set -euo pipefail
           for attempt in $(seq 1 12); do
             asset="$(curl -fsS --max-time 15 "${WEB_URL}/assets/js/v2-case-integration.js?release=${GITHUB_SHA}" || true)"
-            echo "$asset" | grep -q "recover_solana_pay" \
-              && echo "$asset" | grep -q "Expired: do not scan" \
-              && exit 0
+            if [[ "$asset" == *"recover_solana_pay"* \
+              && "$asset" == *"Expired: do not scan"* ]]; then
+              exit 0
+            fi
             [ "$attempt" -lt 12 ]
             sleep 5
           done
