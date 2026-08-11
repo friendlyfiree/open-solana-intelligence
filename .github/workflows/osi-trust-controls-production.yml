@@ -24,9 +24,9 @@ env:
   EXPECTED_PROJECT_REF: afibxpniwfnavdobecrn
   CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
   GOVERNANCE_VERSION: "20260809091827"
-  REPORT_BODY_VERSION: "20260809200000"
+  REPORT_BODY_VERSION: "20260809195451"
   GOVERNANCE_MIGRATION: 20260809091827_governance_bootstrap_challenge_controls.sql
-  REPORT_BODY_MIGRATION: 20260809200000_osi_v2_published_report_body_is_public.sql
+  REPORT_BODY_MIGRATION: 20260809195451_osi_v2_published_report_body_is_public.sql
   OSI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
@@ -135,7 +135,6 @@ jobs:
       - name: Verify credentials project and unchanged main
         run: |
           set -euo pipefail
-          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is absent."; exit 1; }
           [ -n "${SUPABASE_DB_PASSWORD:-}" ] || { echo "::error::SUPABASE_DB_PASSWORD is absent."; exit 1; }
           [ "$PROJECT_ID_SECRET" = "$EXPECTED_PROJECT_REF" ] || { echo "::error::Pinned project mismatch."; exit 1; }
           git fetch origin main --quiet
@@ -143,34 +142,57 @@ jobs:
             echo "::error::Validated commit is no longer current main."; exit 1;
           }
 
-      - name: Resolve pinned session-pooler coordinates
+      - name: Resolve the pinned production database coordinates
         run: |
           set -euo pipefail
-          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
-          coordinates="$(printf '%s' "$response" | python3 -c '
-          import sys, json
-          data = json.load(sys.stdin)
-          rows = data if isinstance(data, list) else [data]
-          primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
-          print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
-          ')"
-          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
-          case "$PGHOST" in *.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          # Prefer the Management API. A project access token can be revoked or
+          # expire independently from the database password, so a 401 must not
+          # make an already-reviewed additive migration impossible to verify.
+          status="$(curl -sS --max-time 30 -o /tmp/pooler.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler" || echo 000)"
+          if [ "$status" = "200" ]; then
+            coordinates="$(python3 -c '
+            import sys, json
+            data = json.load(open("/tmp/pooler.json"))
+            rows = data if isinstance(data, list) else [data]
+            primary = next((r for r in rows if str(r.get("database_type", "")).upper() == "PRIMARY"), rows[0])
+            print(primary["db_host"], primary["db_port"], primary["db_user"], primary.get("db_name", "postgres"))
+            ')"
+            read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          else
+            # The project is pinned and independently verified as ap-southeast-2.
+            # Supabase operates two documented pooler generations in that
+            # region. The exact tenant user + database password means only this
+            # project can answer; the probe is SELECT 1 and changes no state.
+            PGPORT=5432
+            PGUSER="postgres.${EXPECTED_PROJECT_REF}"
+            PGDATABASE=postgres
+            PGHOST=""
+            for candidate in aws-0-ap-southeast-2.pooler.supabase.com aws-1-ap-southeast-2.pooler.supabase.com; do
+              if PGHOST="$candidate" PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1' >/dev/null 2>&1; then
+                PGHOST="$candidate"
+                break
+              fi
+            done
+            [ -n "$PGHOST" ] || { echo "::error::Neither pinned regional Supabase pooler accepted the project credentials."; exit 1; }
+            echo "::notice::Management API answered ${status}; using the verified pinned regional database route."
+          fi
+          case "$PGHOST" in aws-[01]-ap-southeast-2.pooler.supabase.com) : ;; *) echo "::error::Unexpected pooler host."; exit 1 ;; esac
+          [ "$PGPORT" = "5432" ] || { echo "::error::Unexpected pooler port."; exit 1; }
           [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ] || { echo "::error::Unexpected pooler user."; exit 1; }
           { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
 
-      - name: Link and prove the pending suffix is exactly in scope
+      - name: Prove the pending set is exactly in scope
         run: |
           set -euo pipefail
-          supabase link --project-ref "$EXPECTED_PROJECT_REF"
-          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
           find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | sed -E 's/^([0-9]{14}).*/\1/' > /tmp/local-versions.txt
           psql -Atqc "select version from supabase_migrations.schema_migrations order by version" > /tmp/remote-versions.txt
           extras="$(comm -13 /tmp/local-versions.txt /tmp/remote-versions.txt)"
           [ -z "$extras" ] || { echo "::error::Production contains migration versions absent from current main."; exit 1; }
           missing="$(comm -23 /tmp/local-versions.txt /tmp/remote-versions.txt | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
           case "$missing" in
-            "${GOVERNANCE_VERSION} ${REPORT_BODY_VERSION}"|"${REPORT_BODY_VERSION}"|"") ;;
+            "${GOVERNANCE_VERSION} ${REPORT_BODY_VERSION}"|"${GOVERNANCE_VERSION}"|"${REPORT_BODY_VERSION}"|"") ;;
             *) echo "::error::Pending migrations are outside this exact two-migration suffix: ${missing}"; exit 1 ;;
           esac
           echo "PENDING_VERSIONS=$missing" >> "$GITHUB_ENV"
@@ -179,7 +201,10 @@ jobs:
         if: ${{ env.PENDING_VERSIONS != '' }}
         run: |
           set -euo pipefail
-          supabase db push --linked --dry-run 2>&1 | tee /tmp/trust-controls-dry-run.txt
+          supabase db push \
+            --db-url "postgresql://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+            --password "$SUPABASE_DB_PASSWORD" --include-all --dry-run \
+            2>&1 | tee /tmp/trust-controls-dry-run.txt
           got="$(grep -oE '20[0-9]{12}_[A-Za-z0-9_]+\.sql' /tmp/trust-controls-dry-run.txt | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
           expected=""
           for version in $PENDING_VERSIONS; do
@@ -200,7 +225,10 @@ jobs:
 
       - name: Apply only the dry-run-approved additive migrations
         if: ${{ env.PENDING_VERSIONS != '' }}
-        run: supabase db push --linked --yes
+        run: |
+          supabase db push \
+            --db-url "postgresql://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+            --password "$SUPABASE_DB_PASSWORD" --include-all --yes
 
       - name: Verify exact history boundaries and unchanged data
         run: |

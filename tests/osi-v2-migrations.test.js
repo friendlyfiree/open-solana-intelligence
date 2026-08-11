@@ -50,7 +50,7 @@ const expectedFiles = [
   '20260808153040_remove_private_wire_fields_from_public_rpc.sql',
   '20260808163737_osi_v2_wallet_profiles.sql',
   '20260809091827_governance_bootstrap_challenge_controls.sql',
-  '20260809200000_osi_v2_published_report_body_is_public.sql',
+  '20260809195451_osi_v2_published_report_body_is_public.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
