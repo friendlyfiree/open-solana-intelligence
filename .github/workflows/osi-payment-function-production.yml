@@ -62,7 +62,13 @@ jobs:
           node tests/osi-i18n.test.mjs
           node tests/osi-payment-function-production-workflow.test.mjs
           node tests/xss-escaping.test.js
-          deno check supabase/functions/osi-v2-payment/index.ts
+          for attempt in $(seq 1 3); do
+            if deno check supabase/functions/osi-v2-payment/index.ts; then
+              break
+            fi
+            [ "$attempt" -lt 3 ]
+            sleep 5
+          done
 
   deploy:
     name: Deploy and smoke exact payment function
