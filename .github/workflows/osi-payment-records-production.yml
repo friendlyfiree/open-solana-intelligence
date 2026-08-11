@@ -81,6 +81,7 @@ jobs:
           node tests/osi-v2-analyst-ui.test.js
           node tests/osi-v2-case-ui.test.js
           node tests/osi-i18n.test.mjs
+          node tests/osi-payment-records-production-workflow.test.mjs
           node tests/xss-escaping.test.js
           deno check supabase/functions/osi-v2-payment/index.ts supabase/functions/osi-v2-analyst/index.ts
 
@@ -101,15 +102,18 @@ jobs:
     name: Apply exact migrations, deploy exact functions, and verify production
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Step-level smoke timeouts leave ample budget for fail-closed cleanup.
+    timeout-minutes: 40
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_ID_SECRET: ${{ secrets.SUPABASE_PROJECT_ID }}
       PGSSLMODE: require
+      MIGRATION_APPLY_STARTED: "false"
       MIGRATIONS_APPLIED: "false"
       BACKEND_SMOKE_PASSED: "false"
+      ROLLOUT_COMPLETE: "false"
     steps:
       - name: Check out current main
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -135,15 +139,40 @@ jobs:
       - name: Resolve pinned production pooler coordinates
         run: |
           set -euo pipefail
-          response="$(curl -sS --fail --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler")"
-          coordinates="$(printf '%s' "$response" | python3 -c '
-          import sys,json
-          data=json.load(sys.stdin); rows=data if isinstance(data,list) else [data]
-          row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
-          print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
-          ')"
-          read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
-          case "$PGHOST" in *.pooler.supabase.com) : ;; *) exit 1 ;; esac
+          status="$(curl -sS --max-time 30 -o /tmp/pooler.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${EXPECTED_PROJECT_REF}/config/database/pooler" || echo 000)"
+          if [ "$status" = "200" ]; then
+            coordinates="$(python3 -c '
+            import json
+            data=json.load(open("/tmp/pooler.json")); rows=data if isinstance(data,list) else [data]
+            row=next((r for r in rows if str(r.get("database_type","")).upper()=="PRIMARY"),rows[0])
+            print(row["db_host"],row["db_port"],row["db_user"],row.get("db_name","postgres"))
+            ')"
+            read -r PGHOST PGPORT PGUSER PGDATABASE <<< "$coordinates"
+          else
+            # The project ref and ap-southeast-2 region are pinned and were
+            # independently verified before this workflow. The exact tenant
+            # username + database password can authenticate only this project.
+            # Supabase documents session-pooler port 5432; probe both regional
+            # pooler generations with SELECT 1 and retain only the responder.
+            PGPORT=5432
+            PGUSER="postgres.${EXPECTED_PROJECT_REF}"
+            PGDATABASE=postgres
+            PGHOST=""
+            for candidate in aws-0-ap-southeast-2.pooler.supabase.com aws-1-ap-southeast-2.pooler.supabase.com; do
+              if PGHOST="$candidate" PGPORT="$PGPORT" PGUSER="$PGUSER" \
+                PGDATABASE="$PGDATABASE" PGPASSWORD="$PGPASSWORD" \
+                PGCONNECT_TIMEOUT=8 psql -Atqc 'select 1' >/dev/null 2>&1; then
+                PGHOST="$candidate"
+                break
+              fi
+            done
+            [ -n "$PGHOST" ] || { echo "::error::Neither pinned regional Supabase pooler accepted the project credentials."; exit 1; }
+            echo "::notice::Management API answered ${status}; using the verified pinned regional database route."
+          fi
+          case "$PGHOST" in aws-[01]-ap-southeast-2.pooler.supabase.com) : ;; *) exit 1 ;; esac
+          [ "$PGPORT" = "5432" ]
           [ "$PGUSER" = "postgres.${EXPECTED_PROJECT_REF}" ]
           { echo "PGHOST=$PGHOST"; echo "PGPORT=$PGPORT"; echo "PGUSER=$PGUSER"; echo "PGDATABASE=$PGDATABASE"; } >> "$GITHUB_ENV"
 
@@ -156,13 +185,13 @@ jobs:
           psql -v ON_ERROR_STOP=1 -Atq -c 'select version from supabase_migrations.schema_migrations order by version' > /tmp/remote-before.txt
           diff -u /tmp/expected-before.txt /tmp/remote-before.txt
 
-      - name: Link and dry-run exactly the approved two migrations
+      - name: Dry-run exactly the approved two migrations
         run: |
           set -euo pipefail
-          supabase link --project-ref "$EXPECTED_PROJECT_REF"
-          [ "$(cat supabase/.temp/project-ref)" = "$EXPECTED_PROJECT_REF" ]
-          supabase migration list --linked
-          supabase db push --linked --dry-run 2>&1 | tee /tmp/payment-records-dry-run.txt
+          supabase db push \
+            --db-url "postgresql://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+            --password "$SUPABASE_DB_PASSWORD" --include-all --dry-run \
+            2>&1 | tee /tmp/payment-records-dry-run.txt
           grep -q "$NONCE_MIGRATION" /tmp/payment-records-dry-run.txt
           grep -q "$SUPPORT_MIGRATION" /tmp/payment-records-dry-run.txt
           found="$(grep -oE '20260811084040_[A-Za-z0-9_]+\.sql|20260811090354_[A-Za-z0-9_]+\.sql' /tmp/payment-records-dry-run.txt | sort -u)"
@@ -187,7 +216,13 @@ jobs:
       - name: Apply exactly the dry-run-approved additive migrations
         run: |
           set -euo pipefail
-          supabase db push --linked --yes
+          # From this point onward any failure requires the dedicated payment
+          # flags to be disabled. Each migration commits independently, so the
+          # marker must precede db push rather than follow its final check.
+          echo 'MIGRATION_APPLY_STARTED=true' >> "$GITHUB_ENV"
+          supabase db push \
+            --db-url "postgresql://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+            --password "$SUPABASE_DB_PASSWORD" --include-all --yes
           [ "$(psql -Atq -c "select count(*) from supabase_migrations.schema_migrations where version in ('${NONCE_VERSION}','${SUPPORT_VERSION}')")" = '2' ]
           echo 'MIGRATIONS_APPLIED=true' >> "$GITHUB_ENV"
 
@@ -228,6 +263,7 @@ jobs:
           supabase functions deploy osi-v2-analyst --project-ref "$EXPECTED_PROJECT_REF" --no-verify-jwt --use-api
 
       - name: Enable only typed maintainer support and smoke the deployed backend
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='true',updated_at=statement_timestamp() where key='OSI_V2_MAINTAINER_SUPPORT_ENABLED' and value='false'"
@@ -246,6 +282,7 @@ jobs:
           echo 'BACKEND_SMOKE_PASSED=true' >> "$GITHUB_ENV"
 
       - name: Wait for the exact merged Vercel assets
+        timeout-minutes: 12
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
@@ -262,8 +299,11 @@ jobs:
           echo '::error::Vercel did not serve the exact merged Public Records and payment UI in time.'
           exit 1
 
-      - name: Fail closed only if the backend rollout did not pass smoke
-        if: failure() && env.MIGRATIONS_APPLIED == 'true' && env.BACKEND_SMOKE_PASSED != 'true'
+      - name: Mark the full rollout complete
+        run: echo 'ROLLOUT_COMPLETE=true' >> "$GITHUB_ENV"
+
+      - name: Fail closed after any incomplete production apply
+        if: (failure() || cancelled()) && env.MIGRATION_APPLY_STARTED == 'true' && env.ROLLOUT_COMPLETE != 'true'
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -c "update public.osi_config set value='false',updated_at=statement_timestamp() where key in ('OSI_V2_MAINTAINER_SUPPORT_ENABLED','OSI_V2_SOLANA_PAY_ENABLED')"
@@ -277,8 +317,10 @@ jobs:
             echo "project=${EXPECTED_PROJECT_REF}"
             echo "migrations=${NONCE_VERSION},${SUPPORT_VERSION}"
             echo "functions=osi-v2-payment,osi-v2-analyst"
+            echo "migration_apply_started=${MIGRATION_APPLY_STARTED}"
             echo "migrations_applied=${MIGRATIONS_APPLIED}"
             echo "backend_smoke_passed=${BACKEND_SMOKE_PASSED}"
+            echo "rollout_complete=${ROLLOUT_COMPLETE}"
           } > deployment-receipt/payment-records.txt
 
       - name: Upload deployment receipt
