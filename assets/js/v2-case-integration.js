@@ -17,7 +17,7 @@
     reviewLanes: {}, reviewUpdatedAt: null, reviewLoadToken: 0, caseReceipt: null,
     submissionReceipts: {},
     activeReviewTask: null,
-    modalReturnFocus: null, drawerReturnFocus: null, governanceBusy: false,
+    modalReturnFocus: null, drawerReturnFocus: null, drawerReturnHash: '', governanceBusy: false,
     paymentBusy: false, paymentPending: null, paymentWallet: '', paymentCleanup: null,
     challengeTimer: 0
   };
@@ -1250,6 +1250,8 @@
     var cached=state.cases.find(function(entry){return entry.public_ref===ref;})||null;
     var drawer=revealCaseDrawer();
     if(!drawer){state.activeReviewTask=null;return null;}
+    state.drawerReturnHash=/^#[a-z0-9-]+$/.test(String(options.returnHash||''))
+      ?String(options.returnHash):'';
     if(options.fromRoute!==true)pushCaseRoute(ref);
     paintCaseHeader(ref,cached);
     if(cached){state.current=cached;state.tab='overview';drawTabs();renderTab();renderActions();}
@@ -1330,7 +1332,13 @@
     wipeCaseDrawerContent();
     state.current=null;
     state.activeReviewTask=null;
-    if(options.fromRoute!==true)clearCaseRoute();
+    var returnHash=state.drawerReturnHash;
+    state.drawerReturnHash='';
+    if(options.fromRoute!==true){
+      if(returnHash&&String(window.location.hash||'').indexOf(CASE_ROUTE_PREFIX)===0){
+        try{window.history.pushState({osiView:'records'},'',returnHash);}catch(_){clearCaseRoute();}
+      }else clearCaseRoute();
+    }
     restoreFocus(state.drawerReturnFocus);
     state.drawerReturnFocus=null;
   }
@@ -2037,15 +2045,26 @@
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
     };
   }
-  function paymentReview(prepared){
+  function solanaPayUnavailableMessage(prepared){
+    var count=(prepared.recipient_manifest||[]).length;
+    if(count!==1)return t('Solana Pay QR requires exactly one recipient. Use Phantom to keep this multi-recipient transfer atomic.');
+    var reason=String(prepared.solana_pay&&prepared.solana_pay.reason||'');
+    if(reason==='solana_pay_disabled_or_already_committed')return t('Solana Pay QR is not enabled for this intent. Use Phantom or re-open an existing prepared payment.');
+    if(reason==='solana_pay_reference_collision')return t('A unique Solana Pay reference could not be reserved. Use Phantom or prepare the transfer again.');
+    return t('The server could not bind a single-use Solana Pay reference. Use Phantom; this transfer is not marked paid.');
+  }
+  function paymentReview(prepared,preferredMethod){
     return new Promise(function(resolve){
       var old=document.getElementById('osi-payment-review');if(old)old.remove();
       var modal=document.createElement('div');modal.id='osi-payment-review';modal.className='osi-payment-review';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-labelledby','osi-payment-review-title');
       var recipients=(prepared.recipient_manifest||[]).map(function(row){return'<li><span>'+esc(label(row.recipient_type))+' / '+esc(short(row.wallet))+'</span><b>'+esc(row.amount_sol)+' SOL</b></li>';}).join('');
       var payReady=prepared.solana_pay&&prepared.solana_pay.enabled===true&&(prepared.recipient_manifest||[]).length===1;
-      var alternative=payReady?'<button type="button" class="osi-action primary" data-payment-solana-pay>Show Solana Pay</button>':'';
-      var routeNote=(prepared.recipient_manifest||[]).length>1?'<div class="osi-state-message warning"><b>Atomic multi-recipient payment</b><span>Solana Pay transfer requests support this launch only for one exact recipient. Keep all selected transfers atomic in one Phantom transaction.</span></div>':'';
-      modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">Before any wallet opens</span><h3 id="osi-payment-review-title">Review exact mainnet transfer</h3><dl><div><dt>Network</dt><dd>Solana mainnet-beta</dd></div><div><dt>Payer</dt><dd class="mono">'+esc(prepared.payer_wallet)+'</dd></div><div><dt>Purpose</dt><dd>'+esc(label(prepared.payment_kind))+'</dd></div><div><dt>Total</dt><dd>'+esc(prepared.total_sol)+' SOL / '+esc(prepared.total_lamports)+' lamports</dd></div><div><dt>Target</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div><div><dt>Canonical Memo</dt><dd class="mono" data-payment-memo>'+esc(prepared.memo)+'</dd></div></dl><ul>'+recipients+'</ul>'+routeNote+'<div class="osi-case-note">This transaction is irreversible. Native SOL goes directly from your wallet to the exact server-derived recipient'+((prepared.recipient_manifest||[]).length===1?'':'s')+'. OSI receives no funds, has no custody or escrow, takes no commission, and support never changes governance, ranking, or review priority.</div><div class="osi-payment-actions"><button type="button" class="osi-action" data-payment-cancel>Cancel</button><button type="button" class="osi-action" data-payment-copy-memo>Copy Memo</button><button type="button" class="osi-action" data-payment-phantom>Open Phantom</button>'+alternative+'</div></div>';
+      var unavailable=payReady?'':solanaPayUnavailableMessage(prepared);
+      var phantomClass=preferredMethod==='solana_pay'?'osi-action':'osi-action primary';
+      var payClass=preferredMethod==='solana_pay'?'osi-action primary':'osi-action';
+      var alternative='<button type="button" class="'+payClass+'" data-payment-solana-pay'+(payReady?'':' disabled aria-describedby="osi-solana-pay-unavailable" title="'+esc(unavailable)+'"')+'>'+esc(t('Solana Pay QR'))+'</button>';
+      var routeNote=!payReady?'<div class="osi-state-message warning" id="osi-solana-pay-unavailable"><b>'+esc(t('Solana Pay QR unavailable'))+'</b><span>'+esc(unavailable)+'</span></div>':'';
+      modal.innerHTML='<div class="osi-payment-review-card"><span class="osi-eyebrow">Before any wallet opens</span><h3 id="osi-payment-review-title">Review exact mainnet transfer</h3><dl><div><dt>Network</dt><dd>Solana mainnet-beta</dd></div><div><dt>Payer</dt><dd class="mono">'+esc(prepared.payer_wallet)+'</dd></div><div><dt>Purpose</dt><dd>'+esc(label(prepared.payment_kind))+'</dd></div><div><dt>Total</dt><dd>'+esc(prepared.total_sol)+' SOL / '+esc(prepared.total_lamports)+' lamports</dd></div><div><dt>Target</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div><div><dt>Canonical Memo</dt><dd class="mono" data-payment-memo>'+esc(prepared.memo)+'</dd></div></dl><ul>'+recipients+'</ul>'+routeNote+'<div class="osi-case-note">This transaction is irreversible. Native SOL goes directly from your wallet to the exact server-derived recipient'+((prepared.recipient_manifest||[]).length===1?'':'s')+'. OSI receives no funds, has no custody or escrow, takes no commission, and support never changes governance, ranking, or review priority.</div><div class="osi-payment-actions"><button type="button" class="osi-action" data-payment-cancel>Cancel</button><button type="button" class="osi-action" data-payment-copy-memo>Copy Memo</button><button type="button" class="'+phantomClass+'" data-payment-phantom>'+esc(t('Pay with Phantom'))+'</button>'+alternative+'</div></div>';
       document.body.appendChild(modal);var prior=document.activeElement,settled=false;
       function finish(value,fromClear){if(settled)return;settled=true;document.removeEventListener('keydown',keyHandler,true);modal.remove();if(state.paymentCleanup===cancelFromClear)state.paymentCleanup=null;if(fromClear!==true&&prior&&document.contains(prior)&&prior.focus)prior.focus();resolve(value);}
       function cancelFromClear(){finish('',true);}
@@ -2060,7 +2079,7 @@
       modal.querySelector('[data-payment-phantom]').addEventListener('click',function(){finish('phantom');});
       var payButton=modal.querySelector('[data-payment-solana-pay]');if(payButton)payButton.addEventListener('click',function(){finish('solana_pay');});
       modal.addEventListener('click',function(event){if(event.target===modal)finish('');});
-      (payButton||modal.querySelector('[data-payment-phantom]')).focus();
+      ((preferredMethod==='solana_pay'&&payReady?payButton:null)||modal.querySelector('[data-payment-phantom]')).focus();
     });
   }
   function exactPaymentProvider(prepared,expectedWallet,generation){
@@ -2302,7 +2321,7 @@
     assertPrivateGeneration(generation);
     return result;
   }
-  async function prepareAndSendPayment(kind,targetRef,recipients,amountSol){
+  async function prepareAndSendPayment(kind,targetRef,recipients,amountSol,preferredMethod){
     if(state.paymentBusy)return;
     if(state.paymentPending){paymentStatus('Finish or re-verify the existing wallet-bound payment before preparing another transfer. Do not pay twice.','warning');return;}
     var generation=privateGeneration();state.paymentBusy=true;
@@ -2315,7 +2334,7 @@
       var body={op:'prepare_payment',payment_kind:kind,wallet:wallet,target_ref:targetRef,idempotency_key:randomKey('payment')};
       if(kind==='reward')body.amount_sol=amountSol;else body.recipients=recipients;
       paymentStatus('Deriving exact recipients and canonical Memo on the server...');
-      var prepared=await api(PAYMENT_URL,body);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);var method=await paymentReview(prepared);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);if(!method){paymentStatus('Transfer cancelled before any wallet opened.');return;}
+      var prepared=await api(PAYMENT_URL,body);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);var method=await paymentReview(prepared,preferredMethod);assertPrivateGeneration(generation);exactPaymentProvider(prepared,wallet,generation);if(!method){paymentStatus('Transfer cancelled before any wallet opened.');return;}
       var pending={wallet:wallet,caseRef:state.current&&state.current.public_ref||'',prepared:prepared,method:method,recovery_state:method==='solana_pay'?'prepared':'awaiting_wallet'};
       if(method==='solana_pay'){
         persistPaymentPending(pending);paymentStatus('Single-use Solana Pay request ready. It remains unpaid until exact finalized server verification.','warning');openSolanaPay(pending);return;
@@ -2365,6 +2384,7 @@
   }
   function supportLabel(targetType){
     if(targetType==='analyst')return 'this analyst';
+    if(targetType==='maintainer')return 'the OSI maintainer';
     if(targetType==='counted_reviewer')return 'this counted reviewer';
     if(targetType==='report_author')return 'the author of this published Report version';
     return 'this recipient';
@@ -2378,7 +2398,7 @@
     if(targetType==='report_author')return '';
     return targetRef;
   }
-  async function supportExternal(targetType,targetRef,reviewerWallet){
+  async function supportExternal(targetType,targetRef,reviewerWallet,preferredMethod){
     var generation=privateGeneration();
     var address=supportAddress(targetType,targetRef,reviewerWallet);
     var amount=await askSolAmount({
@@ -2394,7 +2414,7 @@
     if(amount===null)return;
     if(!validSolInput(amount)){showToast(t('Enter a positive SOL amount with at most 9 decimals.'));return;}
     var recipient={target_type:targetType,target_ref:targetRef,amount_sol:amount};if(targetType==='counted_reviewer')recipient.reviewer_wallet=reviewerWallet;
-    prepareAndSendPayment('support',targetRef,[recipient]);
+    prepareAndSendPayment('support',targetRef,[recipient],undefined,preferredMethod);
   }
   async function supportWireAuthor(versionRef,authorWallet){
     if(!/^OSI-WV-[0-9A-F]{16}$/.test(String(versionRef||''))||state.paymentBusy)return;
@@ -2571,7 +2591,8 @@
   window.osiV2PayReward=payReward;
   window.osiV2SupportContributors=supportContributors;
   window.osiV2SupportReportAuthor=function(versionRef){supportExternal('report_author',versionRef);};
-  window.osiV2SupportAnalyst=function(wallet){supportExternal('analyst',wallet);};
+  window.osiV2SupportAnalyst=function(wallet,preferredMethod){supportExternal('analyst',wallet,undefined,preferredMethod);};
+  window.osiV2SupportMaintainer=function(wallet,preferredMethod){supportExternal('maintainer',wallet,undefined,preferredMethod);};
   window.osiV2SupportCountedReviewer=function(versionRef,wallet){supportExternal('counted_reviewer',versionRef,wallet);};
   window.osiV2SupportWireAuthor=supportWireAuthor;
   window.osiV2RetryPayment=retryPayment;

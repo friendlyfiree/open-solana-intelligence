@@ -145,6 +145,14 @@ export function publicMaintainerProfile(row, record = null, proofHistory = []) {
         .map((link) => ({ label: typeof link.label === "string" ? link.label : "", url: link.url }))
       : [],
     updated_at: typeof row.updated_at === "string" ? row.updated_at : null,
+    support_eligible: row.support_eligible === true,
+    support_unavailable_reason: [
+      "maintainer_support_configuration_unavailable",
+      "maintainer_profile_not_current_admin",
+      "maintainer_support_disabled",
+    ].includes(row.support_unavailable_reason)
+      ? row.support_unavailable_reason
+      : null,
     // Stated in the payload rather than left to the interface, so any consumer
     // of this endpoint carries the same disclaimer the product does.
     is_analyst: false,

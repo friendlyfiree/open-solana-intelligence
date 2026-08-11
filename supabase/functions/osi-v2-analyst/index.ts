@@ -886,8 +886,11 @@ const MAINTAINER_PROFILE_COLS =
   "wallet,display_name,bio,avatar_url,proof_of_work_url,expertise_public,links_public,updated_at";
 
 async function getMaintainerProfile(): Promise<Response> {
-  const { data, error } = await admin.from("maintainer_profile")
-    .select(MAINTAINER_PROFILE_COLS).limit(1);
+  const [{ data, error }, { data: configRows, error: configError }] = await Promise.all([
+    admin.from("maintainer_profile").select(MAINTAINER_PROFILE_COLS).limit(1),
+    admin.from("osi_config").select("key,value")
+      .in("key", ["admin_wallet", "OSI_V2_MAINTAINER_SUPPORT_ENABLED"]).limit(2),
+  ]);
   if (error) return jsonResponse(503, { ok: false, error: "maintainer_profile_unavailable" });
   // No row is an honest empty state, not an error: the deployment simply has
   // no published operator identity yet.
@@ -900,9 +903,23 @@ async function getMaintainerProfile(): Promise<Response> {
   const graph = await profileGraph([row as Row]);
   const receipts = graph.receipts[String(row.wallet)] ?? [];
   const record = buildPublicWorkRecord(String(row.wallet ?? ""), receipts, graph.subjects);
+  const config = new Map((configRows ?? []).map((entry) => [String(entry.key), String(entry.value)]));
+  const isCurrentAdmin = !configError && config.get("admin_wallet") === String(row.wallet);
+  const supportEnabled = !configError && config.get("OSI_V2_MAINTAINER_SUPPORT_ENABLED") === "true";
+  const supportUnavailableReason = configError
+    ? "maintainer_support_configuration_unavailable"
+    : !isCurrentAdmin
+    ? "maintainer_profile_not_current_admin"
+    : !supportEnabled
+    ? "maintainer_support_disabled"
+    : null;
   return jsonResponse(200, {
     ok: true,
-    profile: publicMaintainerProfile(row, record, publicProofHistory(receipts, graph.subjects)),
+    profile: publicMaintainerProfile({
+      ...row,
+      support_eligible: supportUnavailableReason === null,
+      support_unavailable_reason: supportUnavailableReason,
+    }, record, publicProofHistory(receipts, graph.subjects)),
   });
 }
 

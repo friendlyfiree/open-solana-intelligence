@@ -35,6 +35,7 @@ const WALLET = "42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y";
     wallet: WALLET, display_name: "Aksusarya", bio: "On-chain intelligence.",
     avatar_url: "https://example.org/a.png", proof_of_work_url: "https://example.org/pow",
     expertise_public: ["osint"], links_public: [{ label: "X", url: "https://x.com/a" }],
+    support_eligible: true,
     updated_at: "2026-08-05T00:00:00Z",
   });
   ok("the public projection states that the maintainer is not an analyst",
@@ -42,6 +43,22 @@ const WALLET = "42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y";
     && /no review weight/i.test(projected.governance_notice));
   ok("the projection carries no status, tier or weight field that could imply standing",
     !("status" in projected) && !("tier_code" in projected) && !("weight_cached" in projected));
+  ok("the public projection exposes only the server-derived maintainer support eligibility bit",
+    projected.support_eligible === true && projected.support_unavailable_reason === null);
+  const stale = publicMaintainerProfile({
+    wallet: WALLET,
+    support_eligible: false,
+    support_unavailable_reason: "maintainer_profile_not_current_admin",
+  });
+  ok("a stale public profile carries an exact safe support prerequisite",
+    stale.support_eligible === false
+    && stale.support_unavailable_reason === "maintainer_profile_not_current_admin");
+  const hostileReason = publicMaintainerProfile({
+    wallet: WALLET,
+    support_unavailable_reason: "<img src=x onerror=alert(1)>",
+  });
+  ok("arbitrary support reasons are not projected",
+    hostileReason.support_unavailable_reason === null);
 }
 
 // An unwritten profile is an honest absence, not an invented operator.

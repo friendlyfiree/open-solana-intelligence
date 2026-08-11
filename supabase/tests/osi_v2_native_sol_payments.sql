@@ -7,9 +7,19 @@ select no_plan();
 
 select is((select value from public.osi_config where key='OSI_V2_PAYMENT_WRITES_ENABLED'),
   'false','native SOL payment mutations start fail-closed');
+select is((select value from public.osi_config where key='OSI_V2_MAINTAINER_SUPPORT_ENABLED'),
+  'false','typed maintainer support starts behind its dedicated fail-closed flag');
 select isnt(has_function_privilege('authenticated',
   'public.osi_v2_prepare_payment(text,text,text,text,jsonb,text,text)','EXECUTE'),true,
   'authenticated browser cannot call payment prepare RPC directly');
+select ok(
+  has_function_privilege('service_role',
+    'public.osi_v2_prepare_maintainer_support(text,text,text,bigint,text,text)','EXECUTE')
+  and not has_function_privilege('anon',
+    'public.osi_v2_prepare_maintainer_support(text,text,text,bigint,text,text)','EXECUTE')
+  and not has_function_privilege('authenticated',
+    'public.osi_v2_prepare_maintainer_support(text,text,text,bigint,text,text)','EXECUTE'),
+  'typed maintainer support preparation is service-only');
 select isnt(has_function_privilege('anon',
   'public.osi_v2_commit_payment(text,text,bigint,timestamptz,text,jsonb)','EXECUTE'),true,
   'anonymous browser cannot call payment commit RPC directly');
@@ -319,6 +329,73 @@ select ok((select event.state='confirmed' and event.support_type='analyst'
  where event.intent_nonce=repeat('l',43)),
  'confirmed support has its own authoritative row and Class A receipt');
 
+insert into public.osi_config (key,value,updated_at)
+values ('admin_wallet','44444444444444444444444444444444',statement_timestamp())
+on conflict (key) do update set value=excluded.value,updated_at=excluded.updated_at;
+update public.osi_config set value='true',updated_at=statement_timestamp()
+ where key='OSI_V2_MAINTAINER_SUPPORT_ENABLED';
+insert into public.maintainer_profile (
+  singleton,wallet,display_name,bio,expertise_public,links_public,updated_at
+) values (
+  true,'44444444444444444444444444444444','Maintainer fixture',
+  'Public operator profile for typed support tests.','[]'::jsonb,'[]'::jsonb,
+  statement_timestamp()
+) on conflict (singleton) do update set
+  wallet=excluded.wallet,display_name=excluded.display_name,bio=excluded.bio,
+  updated_at=excluded.updated_at;
+
+select throws_ok($test$
+ select * from public.osi_v2_prepare_maintainer_support(
+  repeat('s',43),'44444444444444444444444444444444',
+  '44444444444444444444444444444444',10000000,
+  'payment-maintainer-self-0001',repeat('6',64))
+$test$,'42501','Maintainer support recipient is unavailable or is the payer',
+ 'maintainer-profile self-support is rejected on the server');
+select throws_ok($test$
+ select * from public.osi_v2_prepare_maintainer_support(
+  repeat('t',43),'11111111111111111111111111111117',
+  '44444444444444444444444444444445',10000000,
+  'payment-maintainer-wrong-target-0001',repeat('7',64))
+$test$,'42501','Maintainer support recipient is unavailable or is the payer',
+ 'caller cannot replace the configured maintainer recipient');
+
+create temporary table maintainer_support on commit drop as
+select * from public.osi_v2_prepare_maintainer_support(
+ repeat('v',43),'11111111111111111111111111111117',
+ '44444444444444444444444444444444',30000000,
+ 'payment-maintainer-support-0001',repeat('8',64));
+select ok((select payment_kind='support' and actor_role='wallet'
+ and target_public_ref='OSI-MAINTAINER' and total_lamports=30000000
+ and recipient_manifest->0->>'wallet'='44444444444444444444444444444444'
+ and recipient_manifest->0->>'recipient_type'='maintainer'
+ and recipient_manifest->0->>'target_ref'='OSI-MAINTAINER'
+ from pg_temp.maintainer_support),
+ 'maintainer support derives one typed exact configured recipient');
+select lives_ok($test$
+ select * from public.osi_v2_commit_payment(repeat('v',43),repeat('H',88),500006,
+  statement_timestamp(),'finalized','{"fixture":"trusted_rpc"}'::jsonb)
+$test$,'finalized maintainer support reuses the verified payment commit path');
+select ok((select event.state='confirmed' and event.support_type='maintainer'
+ and event.analyst_wallet is null and event.case_report_version_id is null
+ and event.wire_report_version_id is null and event.target_wallet='44444444444444444444444444444444'
+ and receipt.event_type='SUPPORT_PAYMENT_CONFIRMED'
+ from public.support_events event
+ join public.event_receipts receipt on receipt.id=event.event_receipt_id
+ where event.intent_nonce=repeat('v',43)),
+ 'confirmed maintainer support is typed and grants no analyst/report target');
+
+update public.osi_config set value='44444444444444444444444444444445'
+ where key='admin_wallet';
+select throws_ok($test$
+ select * from public.osi_v2_prepare_maintainer_support(
+  repeat('w',43),'11111111111111111111111111111117',
+  '44444444444444444444444444444444',10000000,
+  'payment-maintainer-stale-profile-0001',repeat('9',64))
+$test$,'42501','Maintainer support recipient is unavailable or is the payer',
+ 'a stale maintainer profile fails closed after admin-wallet rotation');
+update public.osi_config set value='44444444444444444444444444444444'
+ where key='admin_wallet';
+
 create temporary table failed_support on commit drop as
 select * from public.osi_v2_prepare_payment(repeat('p',43),'support','11111111111111111111111111111117',
  '22222222222222222222222222222222',jsonb_build_object('recipients',jsonb_build_array(jsonb_build_object(
@@ -410,8 +487,8 @@ $test$,'23514','Idempotency key is bound to another exact payment intent',
 
 select is((select count(*)::integer from public.reward_payments where state='confirmed'),2,
  'only the two exact reward transfers are confirmed');
-select is((select count(*)::integer from public.support_events where state='confirmed'),2,
- 'only the normal and exact recovered analyst support transfers are confirmed');
+select is((select count(*)::integer from public.support_events where state='confirmed'),3,
+ 'only the normal, typed maintainer, and exact recovered analyst support transfers are confirmed');
 do $test$
 declare
   snapshot record;

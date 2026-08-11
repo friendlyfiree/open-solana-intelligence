@@ -364,6 +364,10 @@ ok(edge.includes("target_type,public_ref,actor_wallet"),
 ok(edge.includes("indexPublicSubjects") && edge.includes("buildPublicWorkRecord")
   && edge.includes('case "get_public_profile"'),
 "the gateway builds the public record and exposes the shareable single-profile route");
+ok(edge.includes('"admin_wallet", "OSI_V2_MAINTAINER_SUPPORT_ENABLED"')
+  && edge.includes('support_eligible: supportUnavailableReason === null')
+  && edge.includes('maintainer_profile_not_current_admin'),
+"the maintainer profile publishes support availability only after the current admin and dedicated gate are server-derived");
 
 // The public-stage rule lives in two files so the analyst function does not
 // bundle the Case read core. It may never drift.

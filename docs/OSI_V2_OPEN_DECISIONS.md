@@ -164,6 +164,10 @@ The rule at the foot of this document requires a written product-owner sign-off 
 
 Add `wallet_profiles` as the 33rd domain table and `WALLET_PROFILE_UPDATED` as the 71st event (Class B). Creation and every edit are owner-wallet-signed, nonce-bound to the exact current revision, transactional with an immutable receipt, and gated by `OSI_V2_PROFILE_WRITES_ENABLED=false` by default. Public visibility and public-Case attribution are separate explicit choices. Ordinary profile identity never carries analyst status, tier, weight, SAS credential state, or maintainer authority. Existing analyst identity is a read-only private fallback until the owner creates a wallet profile; there is no backfill or data import. *Sec high · Privacy high · UX high.*
 
+### D23 — Typed voluntary support for the public maintainer profile — **RESOLVED (2026-08-11, product-owner task)**
+
+Restore voluntary support on the public maintainer profile through a distinct `maintainer` recipient type, not through a synthetic analyst row and not through an untracked client-only transfer. The server derives the recipient from the singleton `maintainer_profile`, requires that wallet to still exactly equal `osi_config.admin_wallet`, rejects self-support and mixed/multi-recipient maintainer intents, and reuses the existing native-SOL Stage-5 nonce, Phantom/Solana Pay, trusted-mainnet-finality, replay and receipt path. A confirmed transfer is attributable payment proof only; it grants no analyst standing, weight, reputation, ranking, review priority, governance effect, or additional maintainer authority. A stale profile/config mismatch fails closed. Rollback disables only `OSI_V2_MAINTAINER_SUPPORT_ENABLED`; immutable receipts and support events are preserved. *Sec high · UX medium · Impl medium · Mig additive.*
+
 ## Remaining deferred feature flags
 - `OSI_V2_WRITES_ENABLED` — default **false** until Stage-5 write-gate work is verified (D14).
 - `OSI_V2_FALLBACK_GOVERNANCE` — default **false** first release (D3).

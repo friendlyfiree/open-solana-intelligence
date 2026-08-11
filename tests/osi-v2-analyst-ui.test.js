@@ -75,7 +75,14 @@ ok(analyst.includes('signMessage(prepared.message)'), 'class-B application and r
 ok(analyst.includes('castOnchainVote(prepared.memo)'), 'probation activation uses an exact Solana Memo');
 ok(analyst.includes('transaction_not_confirmed') && analyst.includes('commitActivationWithConfirmation'), 'UI never treats an unconfirmed Memo as success');
 ok(analyst.includes("weight '+Number(committed.analyst.weight).toFixed(2)"), 'activated weight is displayed from the server result');
-ok(analyst.includes('Support with SOL via Phantom or Solana Pay') && analyst.includes('osiV2SupportAnalyst'), 'public verified profile exposes Phantom and Solana Pay support');
+ok(analyst.includes("t('Pay with Phantom')")
+  && analyst.includes("t('Solana Pay QR')")
+  && analyst.includes("\\'phantom\\'")
+  && analyst.includes("\\'solana_pay\\'")
+  && analyst.includes('osiV2SupportAnalyst')
+  && analyst.includes('osiV2SupportMaintainer')
+  && analyst.includes("supportHandler=isMaintainer?'osiV2SupportMaintainer':'osiV2SupportAnalyst'"),
+  'public verified profile exposes separate Phantom and Solana Pay support choices');
 ok(analyst.includes('SOL transfer verified on Solana') && analyst.includes('recipient_amount_lamports'), 'analyst proof history labels finalized support and shows the exact recipient lamports');
 ok(html.includes('id="an-handle"') && html.includes('id="an-x-handle"')
   && analyst.includes('handle:handle') && analyst.includes('x_handle:xHandle'),

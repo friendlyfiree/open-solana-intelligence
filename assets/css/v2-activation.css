@@ -83,6 +83,8 @@
 .osi-public-profile p,.osi-workspace-profile p{font-size:12px;line-height:1.65;color:var(--ink-dim)}
 .osi-public-profile section,.osi-workspace-profile section{display:flex;flex-direction:column;gap:9px}
 .osi-public-profile h4,.osi-workspace-profile h4,.osi-version-card h4,.osi-application-card h3{font-size:13px;color:var(--ink);margin:0}
+.osi-profile-support-actions{display:flex;flex-wrap:wrap;gap:9px}
+.osi-profile-support-actions>button{flex:1 1 180px}
 .osi-profile-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--osi-border);border-radius:var(--osi-radius-md);overflow:hidden}
 .osi-profile-facts>div{display:flex;flex-direction:column;gap:6px;padding:13px;border-right:1px solid var(--osi-border)}
 .osi-profile-facts>div:last-child{border-right:0}

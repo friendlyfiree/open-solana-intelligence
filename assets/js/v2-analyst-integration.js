@@ -571,6 +571,8 @@
       proof_history:profile.proof_history||[],
       record:profile.record||null,
       proof_of_work_url:profile.proof_of_work_url||'',
+      support_eligible:profile.support_eligible===true,
+      support_unavailable_reason:profile.support_unavailable_reason||'',
     };
   }
 
@@ -578,18 +580,33 @@
   // maintainer differ in exactly two places: the badge, and the facts row that
   // states governance standing. Everything else - expertise, safe links,
   // contributions and proof history - is identical, because the guarantees
-  // behind them are identical. Voluntary support is the deliberate exception:
-  // the payment gateway accepts an eligible analyst, not a maintainer profile
-  // with no separate analyst standing.
+  // behind them are identical. Voluntary support accepts either an eligible
+  // analyst or the separately typed, server-derived singleton maintainer. The
+  // latter never gains analyst standing, weight, or a governance effect.
   function supportSection(profile,isMaintainer){
-    var separatelyEligible=!isMaintainer||state.profiles.some(function(row){return String(row.wallet)===String(profile.wallet);});
-    if(!separatelyEligible)return '';
     var isSelf=String(walletPubkey||'')===String(profile.wallet||'');
     var supportCopy=esc(t('Send native SOL directly through Phantom or Solana Pay. Support does not change weight, ranking, eligibility, or governance.'));
-    var action=isSelf
+    var supportHandler=isMaintainer?'osiV2SupportMaintainer':'osiV2SupportAnalyst';
+    var unavailableReason='';
+    if(isMaintainer&&profile.support_eligible!==true){
+      unavailableReason=profile.support_unavailable_reason==='maintainer_profile_not_current_admin'
+        ?t('This published profile is not the current configured maintainer wallet. Support stays disabled until they match.')
+        :profile.support_unavailable_reason==='maintainer_support_disabled'
+        ?t('Maintainer support is currently disabled by its dedicated production gate.')
+        :t('The server could not verify the current maintainer support recipient. Support remains disabled.');
+    }
+    var action=unavailableReason
+      ?'<div class="osi-profile-support-actions">'
+        +'<button class="osi-primary-action" type="button" disabled aria-describedby="osi-profile-support-copy osi-profile-support-reason">'+esc(t('Pay with Phantom'))+'</button>'
+        +'<button class="osi-secondary-action" type="button" disabled aria-describedby="osi-profile-support-copy osi-profile-support-reason">'+esc(t('Solana Pay QR'))+'</button>'
+        +'</div><p id="osi-profile-support-reason">'+esc(unavailableReason)+'</p>'
+      :isSelf
       ?'<button class="osi-primary-action" type="button" disabled aria-describedby="osi-profile-support-copy osi-profile-support-reason">'+esc(t('Self-support unavailable'))+'</button>'
-        +'<p id="osi-profile-support-reason">'+esc(t('The connected wallet owns this analyst profile. The server rejects self-support.'))+'</p>'
-      :'<button class="osi-primary-action" type="button" onclick="osiV2SupportAnalyst(\''+esc(profile.wallet)+'\')">'+esc(t('Support with SOL via Phantom or Solana Pay'))+'</button>';
+        +'<p id="osi-profile-support-reason">'+esc(t('The connected wallet owns this profile. The server rejects self-support.'))+'</p>'
+      :'<div class="osi-profile-support-actions">'
+        +'<button class="osi-primary-action" type="button" onclick="'+supportHandler+'(\''+esc(profile.wallet)+'\',\'phantom\')">'+esc(t('Pay with Phantom'))+'</button>'
+        +'<button class="osi-secondary-action" type="button" onclick="'+supportHandler+'(\''+esc(profile.wallet)+'\',\'solana_pay\')">'+esc(t('Solana Pay QR'))+'</button>'
+        +'</div>';
     return'<section class="osi-cv-hide-in-print"><h4>'+esc(t('Voluntary support'))+'</h4><p id="osi-profile-support-copy">'+supportCopy+'</p>'+action+'</section>';
   }
   function renderProfileModal(body,profile,options){

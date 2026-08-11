@@ -51,6 +51,8 @@ const expectedFiles = [
   '20260808163737_osi_v2_wallet_profiles.sql',
   '20260809195451_osi_v2_published_report_body_is_public.sql',
   '20260811065353_governance_bootstrap_challenge_controls.sql',
+  '20260811084040_solana_pay_nonce_binding_guard.sql',
+  '20260811090354_maintainer_voluntary_support.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -96,6 +98,10 @@ const walletProfiles =
   sqlByFile['20260808163737_osi_v2_wallet_profiles.sql'] || '';
 const governanceBootstrapChallengeControls =
   sqlByFile['20260811065353_governance_bootstrap_challenge_controls.sql'] || '';
+const solanaPayNonceBindingGuard =
+  sqlByFile['20260811084040_solana_pay_nonce_binding_guard.sql'] || '';
+const maintainerVoluntarySupport =
+  sqlByFile['20260811090354_maintainer_voluntary_support.sql'] || '';
 const aiPackApprovalCommitStart = aiPackPhase1.indexOf(
   'create function osi_private.osi_v2_commit_ai_pack_approval',
 );
@@ -210,6 +216,34 @@ ok(
     && launchCompletion.includes('osi_v2_find_payment_by_reference')
     && /revoke all privileges on function public\.osi_v2_bind_payment_reference\(text, text\)[\s\S]*from public, anon, authenticated/i.test(launchCompletion)
     && /grant execute on function public\.osi_v2_bind_payment_reference\(text, text\)[\s\S]*to service_role/i.test(launchCompletion),
+);
+ok(
+  'the nonce guard permits only one exact live payment reference addition',
+  solanaPayNonceBindingGuard.includes('create or replace function public.osi_v2_guard_nonce_update()')
+    && solanaPayNonceBindingGuard.includes("old.purpose in (\n        'REWARD_PAYMENT_CONFIRMED',\n        'SUPPORT_PAYMENT_CONFIRMED'")
+    && solanaPayNonceBindingGuard.includes("old.target_type in ('reward', 'support')")
+    && solanaPayNonceBindingGuard.includes("not (old.binding_context ? 'solana_pay')")
+    && solanaPayNonceBindingGuard.includes("new.binding_context = old.binding_context")
+    && solanaPayNonceBindingGuard.includes("jsonb_build_object('solana_pay', expected_solana_pay)")
+    && solanaPayNonceBindingGuard.includes('new.consumed_at is null')
+    && solanaPayNonceBindingGuard.includes('old.expires_at > statement_timestamp()')
+    && /revoke all privileges on function public\.osi_v2_guard_nonce_update\(\)[\s\S]*from public, anon, authenticated/i
+      .test(solanaPayNonceBindingGuard),
+);
+ok(
+  'maintainer support is a typed server-derived single-recipient payment path',
+  maintainerVoluntarySupport.includes("support_type in ('report_author', 'analyst', 'maintainer')")
+    && maintainerVoluntarySupport.includes("values ('OSI_V2_MAINTAINER_SUPPORT_ENABLED', 'false')")
+    && maintainerVoluntarySupport.includes('osi_v2_maintainer_support_enabled() is distinct from true')
+    && maintainerVoluntarySupport.includes("recipient_manifest->0->>'recipient_type' = 'maintainer'")
+    && maintainerVoluntarySupport.includes("config.key = 'admin_wallet'")
+    && maintainerVoluntarySupport.includes('p_payer_wallet = maintainer_wallet')
+    && maintainerVoluntarySupport.includes("'target_public_ref', 'OSI-MAINTAINER'")
+    && maintainerVoluntarySupport.includes("'maintainer_support', true")
+    && /revoke all privileges on function public\.osi_v2_prepare_maintainer_support\([\s\S]*from public, anon, authenticated/i
+      .test(maintainerVoluntarySupport)
+    && /grant execute on function public\.osi_v2_prepare_maintainer_support\([\s\S]*to service_role/i
+      .test(maintainerVoluntarySupport),
 );
 ok(
   'private AI Pack generation is independent of broad flags while review requires a future governed mode',
