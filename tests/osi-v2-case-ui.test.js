@@ -13,6 +13,7 @@ const reportIntegration = read('assets/js/v2-report-integration.js');
 const analystIntegration = read('assets/js/v2-analyst-integration.js');
 const aiPackIntegration = read('assets/js/v2-ai-pack-integration.js');
 const functionalSurface = read('assets/js/88-functional-surface.js');
+const walletWorkspace = read('assets/js/60-wallet-workspace.js');
 const briefing = read('assets/js/12-demo-briefing.js');
 const solanaPay = read('assets/js/73-solana-pay.js');
 
@@ -54,6 +55,22 @@ ok('primary navigation keeps Field Office and The Wire',
   index.includes('data-view="field"') && index.includes('data-view="wire"'));
 ok('My Cases is in the wallet menu',
   /role="menuitem"[^>]+osiV2OpenMyCases/.test(index));
+ok('My Challenges is reachable from both wallet navigation and My OSI',
+  /role="menuitem"[^>]+data-endpoint="osi-v2-case-read:list_my_challenges"[^>]+osiV2OpenMyChallenges/.test(index)
+    && walletWorkspace.includes("['My Challenges','Own challenge state, deadlines, and withdrawal.',\"osiV2OpenMyChallenges()\"]"));
+ok('My Challenges uses a dedicated wallet-bound scope and never auto-connects',
+  app.includes("sessionRead('challenge:mine','list_my_challenges')")
+    && app.includes("state.locked='challenges'")
+    && app.includes("drawWorkspaceLock(document.getElementById('field-cases'),'challenges')")
+    && !/async function openMyChallenges[\s\S]*?toggleWallet\(/.test(app.slice(
+      app.indexOf('async function openMyChallenges'),
+      app.indexOf('async function refreshCapabilities'),
+    )));
+ok('My Challenges renders honest deadlines and withdraws through existing Stage-5 governance',
+  app.includes('data-my-challenge-deadline')
+    && app.includes("governanceMutation('challenge_withdraw',ref,{}, {allowDetached:true")
+    && app.includes("row.blocking?t('Blocks sealing while active'):t('Does not block sealing')")
+    && css.includes('.osi-my-challenge-actions{'));
 ok('My Reviews is in the wallet menu',
   /role="menuitem"[^>]+osiV2OpenReviewQueue/.test(index));
 ok('My Reports is active only because it is wired to the signed Report read gateway',

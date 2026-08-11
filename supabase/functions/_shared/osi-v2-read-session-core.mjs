@@ -12,6 +12,7 @@ export const READ_SESSION_CLOCK_SKEW_SECONDS = 15;
 
 export const READ_SESSION_SCOPES = Object.freeze({
   CASE_MINE: "case:mine",
+  CHALLENGE_MINE: "challenge:mine",
   CASE_DETAIL: "case:detail",
   CASE_REVIEW: "case:review",
   CASE_MAINTAINER: "case:maintainer",

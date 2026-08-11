@@ -64,6 +64,12 @@ const profileScoped = await verifyReadSessionToken({
 });
 ok("ordinary wallet session carries the dedicated owner-profile scope",
   READ_SESSION_SCOPES.PROFILE_SELF === "profile:self" && profileScoped.ok);
+const challengeScoped = await verifyReadSessionToken({
+  token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet,
+  requiredScope: READ_SESSION_SCOPES.CHALLENGE_MINE, nowSeconds: now + 1,
+});
+ok("ordinary wallet session carries a dedicated own-challenge scope",
+  READ_SESSION_SCOPES.CHALLENGE_MINE === "challenge:mine" && challengeScoped.ok);
 const wrongProfileWallet = await verifyReadSessionToken({
   token: issued.token, secret, issuer, origin, allowedOrigin: origin, wallet: otherWallet,
   requiredScope: READ_SESSION_SCOPES.PROFILE_SELF, nowSeconds: now + 1,

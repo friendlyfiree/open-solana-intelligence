@@ -288,6 +288,40 @@ ok("challenge selector round-trips the exact id only on the dedicated projection
     && !JSON.stringify(challengeEvidenceView).includes("33333333-3333-4333-8333-333333333333")
     && !JSON.stringify(challengeEvidenceView).includes("44444444-4444-4444-8444-444444444444"));
 
+const ownActiveChallenge = core.myChallengeDto({
+  public_ref: "OSI-CHL-A1B2C3D4E5F60718",
+  target_kind: "resolution",
+  state: "under_review",
+  reason_code: "material_evidence_challenge",
+  public_safe_summary: "A public-safe challenge summary",
+  restricted_detail: "Only the challenger may read this detail",
+  created_at: "2026-08-01T00:00:00Z",
+  admissibility_ttl_at: "2026-08-02T00:00:00Z",
+  review_deadline_at: "2026-08-08T00:00:00Z",
+  terminal_at: null,
+}, {
+  target_public_ref: "OSI-RES-A1B2C3D4E5F60718",
+  case_public_ref: "OSI-ABCDEF123456",
+});
+ok("own challenge DTO exposes restricted detail only through its dedicated own-row projection",
+  ownActiveChallenge.restricted_detail === "Only the challenger may read this detail"
+    && ownActiveChallenge.public_ref === "OSI-CHL-A1B2C3D4E5F60718"
+    && ownActiveChallenge.target_public_ref === "OSI-RES-A1B2C3D4E5F60718"
+    && ownActiveChallenge.case_public_ref === "OSI-ABCDEF123456");
+ok("own active challenge DTO derives withdrawal and sealing effects from server state",
+  ownActiveChallenge.can_withdraw === true && ownActiveChallenge.blocking === true);
+ok("terminal own challenge DTO cannot advertise withdrawal or a sealing block",
+  (() => {
+    const terminal = core.myChallengeDto({
+      public_ref: "OSI-CHL-B1B2C3D4E5F60718", target_kind: "case",
+      state: "withdrawn", reason_code: "material_evidence_challenge",
+      public_safe_summary: "Withdrawn challenge", created_at: "2026-08-01T00:00:00Z",
+      terminal_at: "2026-08-03T00:00:00Z",
+    }, { target_public_ref: "OSI-ABCDEF123456", case_public_ref: "bad-ref" });
+    return terminal.can_withdraw === false && terminal.blocking === false
+      && terminal.case_public_ref === null;
+  })());
+
 const bootstrapCapability = core.governanceFinalizeCapabilityDto({
   action: "resolution_finalize",
   target_public_ref: "OSI-ABCDEF123456",
@@ -679,6 +713,18 @@ ok("restricted Case review queue excludes Case owners for every reviewer role",
     && !fnSource.includes("if (!maintainerAccess) casesQuery"));
 ok("service role key is never in a response",
   !fnSource.includes("SERVICE_ROLE_KEY") || !fnSource.match(/jsonResponse\([^)]*SERVICE_ROLE_KEY/));
+const myChallengesHandler = fnSource.slice(
+  fnSource.indexOf("async function listMyChallenges("),
+  fnSource.indexOf("// Server-derived Case opening capability", fnSource.indexOf("async function listMyChallenges(")),
+);
+ok("My Challenges is wallet-proof-bound and filters the exact challenger server-side",
+  myChallengesHandler.includes("READ_SESSION_SCOPES.CHALLENGE_MINE")
+    && myChallengesHandler.includes('.eq("challenger_wallet", proof.actor.wallet)')
+    && !myChallengesHandler.includes("body.wallet"));
+ok("My Challenges uses an explicit projection and returns no internal target ids",
+  fnSource.includes("const MY_CHALLENGE_COLS =")
+    && myChallengesHandler.includes("myChallengeDto")
+    && !/return jsonResponse\(200, \{ ok: true, challenges: rows/.test(myChallengesHandler));
 const configToml = readFileSync(join(root, "supabase/config.toml"), "utf8");
 ok("config.toml declares explicit auth for osi-v2-case-read",
   /\[functions\.osi-v2-case-read\][\s\S]*?verify_jwt\s*=\s*false/.test(configToml));

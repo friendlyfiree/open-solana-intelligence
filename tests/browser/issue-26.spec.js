@@ -22,6 +22,7 @@ const NO_PARENT_VERSION_REF = 'OSI-RV-3333333333333333';
 const WIRE_REPORT_REF = 'OSI-WR-A1B2C3D4E5F6';
 const WIRE_VERSION_REF = 'OSI-WV-A1B2C3D4E5F60718';
 const CHALLENGE_EVIDENCE_ID = '88888888-8888-4888-8888-888888888888';
+const MY_CHALLENGE_REF = 'OSI-CHL-A1B2C3D4E5F60718';
 const PRIVATE_SENTINEL = 'PRIVATE_FIXTURE_SENTINEL';
 const WIRE_PRIVATE_SENTINEL = 'WIRE_PRIVATE_FIXTURE_SENTINEL';
 const AI_RESTRICTED_SENTINEL = 'AI_RESTRICTED_FIXTURE_SENTINEL';
@@ -435,7 +436,7 @@ function token(origin, wallet = WALLET) {
     iat: issuedAt, exp: Math.floor(Date.now() / 1000) + 1440,
     sid_iat: issuedAt, abs_exp: issuedAt + 28800,
     jti: 'fixture-session-jti-00000000000000000001',
-    scp: ['case:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'wire:mine', 'wire:queue', 'analyst:workspace', 'analyst:maintainer', 'aipack:detail'],
+    scp: ['case:mine', 'challenge:mine', 'case:detail', 'case:review', 'case:maintainer', 'report:mine', 'report:review', 'wire:mine', 'wire:queue', 'analyst:workspace', 'analyst:maintainer', 'aipack:detail'],
     auth_sub: null,
   })}.fixture-signature`;
 }
@@ -521,6 +522,7 @@ async function installFixtureNetwork(page, options = {}) {
   let applicationActivated = false;
   let wireReviewed = false;
   let wirePublished = false;
+  let challengeWithdrawn = false;
   let expireReportReviewOnce = options.expireReportReviewOnce === true;
   let publicationCommitIndexingLagOnce = options.publicationCommitIndexingLagOnce === true;
   let publicProfileRequestCount = 0;
@@ -596,6 +598,22 @@ async function installFixtureNetwork(page, options = {}) {
           : privateCase;
         response.cases = [ownerCase];
       }
+      else if (body.op === 'list_my_challenges') response.challenges = [{
+        public_ref: MY_CHALLENGE_REF,
+        target_kind: 'resolution',
+        target_public_ref: 'OSI-RES-A1B2C3D4E5F60718',
+        case_public_ref: CASE_REF,
+        state: challengeWithdrawn ? 'withdrawn' : 'under_review',
+        blocking: !challengeWithdrawn,
+        can_withdraw: !challengeWithdrawn,
+        reason_code: 'material_evidence_challenge',
+        public_safe_summary: 'A cited transfer needs additional independent context.',
+        restricted_detail: PRIVATE_SENTINEL,
+        created_at: iso(-1),
+        admissibility_deadline_at: iso(1),
+        review_deadline_at: challengeWithdrawn ? null : iso(4),
+        terminal_at: challengeWithdrawn ? iso(0) : null,
+      }];
       else if (body.op === 'list_reviewable_cases') {
         const reviewedFixture = caseReviewed ? {
           ...privateCase,
@@ -763,7 +781,10 @@ async function installFixtureNetwork(page, options = {}) {
           proof_type: memoActions.includes(body.action) ? 'solana_memo' : 'wallet_signed_server_verified',
           purpose: body.action,
         };
-      } else if (body.op === 'commit') response = { ok: true, action: body.action };
+      } else if (body.op === 'commit') {
+        if (body.action === 'challenge_withdraw') challengeWithdrawn = true;
+        response = { ok: true, action: body.action };
+      }
     } else if (endpoint === 'osi-v2-report-write') {
       if (body.op === 'capabilities') response = {
         ok: true,
@@ -1513,6 +1534,39 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
     expectCleanRuntime(page);
   });
 }
+
+test('My Challenges stays explicitly locked and never opens a wallet on navigation', async ({ page }) => {
+  await ready(page, { role: 'anonymous' });
+  const before = await page.evaluate(() => window.__fixtureProviderCounts());
+  await page.evaluate(() => window.osiV2OpenMyChallenges());
+  await expect(page.locator('body')).toHaveAttribute('data-view', 'field');
+  await expect(page.locator('[data-workspace-lock="challenges"]')).toBeVisible();
+  await expect(page.locator('[data-workspace-lock="challenges"]')).toContainText('My Challenges is a private workspace');
+  const after = await page.evaluate(() => window.__fixtureProviderCounts());
+  expect(after.connect).toBe(before.connect);
+  expect(after.signMessage).toBe(before.signMessage);
+});
+
+test('My Challenges reads only the signed wallet rows and withdraws through Stage-5', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiV2OpenMyChallenges());
+  await expect(page.locator('#fo-title')).toHaveText('My Challenges');
+  await expect(page.locator('#field-cases')).toContainText(MY_CHALLENGE_REF);
+  await expect(page.locator('#field-cases')).toContainText(PRIVATE_SENTINEL);
+  await expect(page.locator('[data-my-challenge-deadline]')).toContainText(/remaining/);
+  await expectFixtureOperation(page, 'osi-v2-case-read', 'list_my_challenges');
+  expect(page.__fixtureOps.some((entry) => entry.endpoint === 'osi-v2-case-read'
+    && entry.op === 'list_my_challenges' && entry.hasReadSession)).toBe(true);
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Withdraw challenge' }).click();
+  await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'challenge_withdraw');
+  await expect(page.locator('#field-cases')).toContainText('Withdrawn');
+  await expect(page.getByRole('button', { name: 'Withdraw challenge' })).toHaveCount(0);
+  expect(fixtureOperationCount(page, 'osi-v2-governance-write', 'commit', 'challenge_withdraw')).toBe(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
 
 test('wallet-required Case and Analyst intents resume exactly once after a later connection', async ({ page }) => {
   await ready(page, { role: 'anonymous', writesEnabled: true });

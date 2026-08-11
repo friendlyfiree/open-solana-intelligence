@@ -403,6 +403,47 @@ function nullableNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+export function myChallengeDto(challenge, target = {}) {
+  const states = new Set([
+    "submitted", "admissibility_review", "open", "under_review",
+    "accepted", "rejected", "withdrawn", "expired",
+  ]);
+  const targetKinds = new Set([
+    "case", "case_report_version", "wire_report_version",
+    "ai_pack_version", "resolution",
+  ]);
+  const state = String(challenge?.state ?? "");
+  const targetKind = String(challenge?.target_kind ?? "");
+  if (!/^OSI-CHL-[0-9A-F]{16}$/.test(String(challenge?.public_ref ?? ""))
+      || !states.has(state) || !targetKinds.has(targetKind)) {
+    throw new TypeError("own challenge projection is invalid");
+  }
+  const targetPublicRef = String(target?.target_public_ref ?? "");
+  const casePublicRef = /^OSI-[0-9A-F]{12}$/.test(String(target?.case_public_ref ?? ""))
+    ? String(target.case_public_ref)
+    : null;
+  const active = new Set([
+    "submitted", "admissibility_review", "open", "under_review",
+  ]).has(state);
+  return {
+    public_ref: String(challenge.public_ref),
+    target_kind: targetKind,
+    target_public_ref: targetPublicRef || null,
+    case_public_ref: casePublicRef,
+    state,
+    blocking: state === "open" || state === "under_review",
+    can_withdraw: active,
+    reason_code: String(challenge.reason_code ?? ""),
+    public_safe_summary: String(challenge.public_safe_summary ?? ""),
+    restricted_detail: challenge.restricted_detail == null
+      ? null : String(challenge.restricted_detail),
+    created_at: isoOrNull(challenge.created_at),
+    admissibility_deadline_at: isoOrNull(challenge.admissibility_ttl_at),
+    review_deadline_at: isoOrNull(challenge.review_deadline_at),
+    terminal_at: isoOrNull(challenge.terminal_at),
+  };
+}
+
 export function governanceFinalizeCapabilityDto(capability) {
   if (!capability || typeof capability !== "object") return null;
   const action = capability.action === "resolution_finalize"

@@ -175,6 +175,7 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 .osi-review-task dt{color:var(--ink-faint);font:11px 'JetBrains Mono',monospace;text-transform:uppercase}
 .osi-review-task dd{margin:4px 0 0;color:var(--ink-dim);font:12px/1.4 'JetBrains Mono',monospace;overflow-wrap:anywhere}
 .osi-review-task dd.ok{color:var(--sol)}.osi-review-task dd.warn{color:var(--amber)}
+.osi-my-challenge{cursor:default}.osi-my-challenge:hover{background:transparent}.osi-my-challenge-detail{margin:8px 0 0;color:var(--ink-faint);font-size:12px;line-height:1.5;white-space:pre-wrap}.osi-my-challenge-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;padding-top:2px}
 .osi-review-lane-empty{padding:16px;color:var(--ink-faint);font:11px 'JetBrains Mono',monospace}
 .osi-review-lane-state{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px;color:var(--ink-dim);font-size:13px}
 .osi-review-lane-state.error{color:var(--red)}

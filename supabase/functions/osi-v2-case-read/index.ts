@@ -43,6 +43,7 @@ import {
   governanceFinalizeCapabilityDto,
   isCasePublic,
   maintainerOverviewDto,
+  myChallengeDto,
   parseChallenge,
   proofLabel,
   publicCaseDto,
@@ -148,6 +149,8 @@ const RESOLUTION_REVIEW_COLS =
   "id,resolution_id,candidate_report_version_id,phase,public_ref,reviewer_wallet,decision,weight,tier_snapshot,public_rationale,private_note,is_active,event_receipt_id,created_at";
 const CHALLENGE_COLS =
   "id,resolution_id,public_ref,challenger_wallet,reason_code,state,public_safe_summary,restricted_detail,admissibility_ttl_at,review_deadline_at,terminal_at,submitted_receipt_id,opened_receipt_id,resolved_receipt_id,created_at";
+const MY_CHALLENGE_COLS =
+  "id,public_ref,challenger_wallet,reason_code,target_kind,case_id,case_report_version_id,wire_report_version_id,ai_pack_version_id,resolution_id,state,public_safe_summary,restricted_detail,admissibility_ttl_at,review_deadline_at,terminal_at,created_at";
 const CHALLENGE_REVIEW_COLS =
   "id,challenge_id,phase,public_ref,reviewer_wallet,decision,weight,tier_snapshot,public_rationale,private_note,is_active,event_receipt_id,created_at";
 const PUBLIC_CASE_PROFILE_COLS =
@@ -791,6 +794,7 @@ async function createReadSession(req: Request, body: Row): Promise<Response> {
   ]);
   const scopes: string[] = [
     READ_SESSION_SCOPES.CASE_MINE,
+    READ_SESSION_SCOPES.CHALLENGE_MINE,
     READ_SESSION_SCOPES.CASE_DETAIL,
     READ_SESSION_SCOPES.REPORT_MINE,
     READ_SESSION_SCOPES.WIRE_MINE,
@@ -860,6 +864,7 @@ async function renewReadSession(req: Request, body: Row): Promise<Response> {
   ]);
   const currentlyAllowed = new Set<string>([
     READ_SESSION_SCOPES.CASE_MINE,
+    READ_SESSION_SCOPES.CHALLENGE_MINE,
     READ_SESSION_SCOPES.CASE_DETAIL,
     READ_SESSION_SCOPES.REPORT_MINE,
     READ_SESSION_SCOPES.WIRE_MINE,
@@ -943,6 +948,120 @@ async function listMyCases(req: Request, body: Row): Promise<Response> {
       graph.moneyByCase[String(caseRow.id)] ?? {},
     )),
   });
+}
+
+async function listMyChallenges(req: Request, body: Row): Promise<Response> {
+  const proof = await verifyReadSession(req, body, READ_SESSION_SCOPES.CHALLENGE_MINE);
+  if (!proof.ok) return jsonResponse(proof.status, { ok: false, error: proof.reason });
+
+  const { data, error } = await admin.from("challenges_v2")
+    .select(MY_CHALLENGE_COLS)
+    .eq("challenger_wallet", proof.actor.wallet)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) return jsonResponse(500, { ok: false, error: "read_failed" });
+  const rows: Row[] = (data ?? []) as Row[];
+  if (!rows.length) return jsonResponse(200, { ok: true, challenges: [] });
+
+  const ids = (field: string) => [...new Set(rows
+    .map((row) => safeText(row[field])).filter(Boolean))];
+  const caseIds = ids("case_id");
+  const resolutionIds = ids("resolution_id");
+  const reportVersionIds = ids("case_report_version_id");
+  const wireVersionIds = ids("wire_report_version_id");
+  const packVersionIds = ids("ai_pack_version_id");
+  const [resolutionResult, reportVersionResult, wireVersionResult, packVersionResult] =
+    await Promise.all([
+      resolutionIds.length
+        ? admin.from("case_resolutions").select("id,case_id,public_ref")
+          .in("id", resolutionIds).limit(100)
+        : Promise.resolve({ data: [], error: null }),
+      reportVersionIds.length
+        ? admin.from("case_report_versions").select("id,report_id,version_ref,lifecycle_state")
+          .in("id", reportVersionIds).limit(100)
+        : Promise.resolve({ data: [], error: null }),
+      wireVersionIds.length
+        ? admin.from("wire_report_versions").select("id,version_ref,lifecycle_state")
+          .in("id", wireVersionIds).limit(100)
+        : Promise.resolve({ data: [], error: null }),
+      packVersionIds.length
+        ? admin.from("ai_pack_versions").select("id,version_ref,lifecycle_state")
+          .in("id", packVersionIds).limit(100)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+  if (resolutionResult.error || reportVersionResult.error
+      || wireVersionResult.error || packVersionResult.error) {
+    return jsonResponse(500, { ok: false, error: "read_failed" });
+  }
+
+  const reportIds = [...new Set((reportVersionResult.data ?? [])
+    .map((row) => safeText(row.report_id)).filter(Boolean))];
+  const reportResult = reportIds.length
+    ? await admin.from("case_reports").select("id,case_id").in("id", reportIds).limit(100)
+    : { data: [], error: null };
+  if (reportResult.error) return jsonResponse(500, { ok: false, error: "read_failed" });
+  const reportById = new Map((reportResult.data ?? [])
+    .map((row) => [safeText(row.id), row]));
+  const reportVersionById = new Map((reportVersionResult.data ?? [])
+    .map((row) => [safeText(row.id), row]));
+  const resolutionById = new Map((resolutionResult.data ?? [])
+    .map((row) => [safeText(row.id), row]));
+  for (const resolution of resolutionResult.data ?? []) {
+    caseIds.push(safeText(resolution.case_id));
+  }
+  for (const version of reportVersionResult.data ?? []) {
+    const report = reportById.get(safeText(version.report_id));
+    if (report) caseIds.push(safeText(report.case_id));
+  }
+  const distinctCaseIds = [...new Set(caseIds.filter(Boolean))];
+  const caseResult = distinctCaseIds.length
+    ? await admin.from("cases").select("id,public_ref,visibility,category,archived_at")
+      .in("id", distinctCaseIds).eq("visibility", "public").is("archived_at", null)
+      .neq("category", "legacy_import").limit(200)
+    : { data: [], error: null };
+  if (caseResult.error) return jsonResponse(500, { ok: false, error: "read_failed" });
+  const publicCaseById = new Map((caseResult.data ?? [])
+    .map((row) => [safeText(row.id), safeText(row.public_ref)]));
+  const wireVersionById = new Map((wireVersionResult.data ?? [])
+    .map((row) => [safeText(row.id), row]));
+  const packVersionById = new Map((packVersionResult.data ?? [])
+    .map((row) => [safeText(row.id), row]));
+
+  try {
+    const challenges = rows.map((row) => {
+      const kind = safeText(row.target_kind);
+      let targetPublicRef = "";
+      let casePublicRef = "";
+      if (kind === "case") {
+        targetPublicRef = publicCaseById.get(safeText(row.case_id)) ?? "";
+        casePublicRef = targetPublicRef;
+      } else if (kind === "resolution") {
+        const target = resolutionById.get(safeText(row.resolution_id));
+        targetPublicRef = safeText(target?.public_ref);
+        casePublicRef = publicCaseById.get(safeText(target?.case_id)) ?? "";
+      } else if (kind === "case_report_version") {
+        const target = reportVersionById.get(safeText(row.case_report_version_id));
+        targetPublicRef = safeText(target?.version_ref);
+        const report = reportById.get(safeText(target?.report_id));
+        casePublicRef = publicCaseById.get(safeText(report?.case_id)) ?? "";
+      } else if (kind === "wire_report_version") {
+        targetPublicRef = safeText(wireVersionById.get(
+          safeText(row.wire_report_version_id),
+        )?.version_ref);
+      } else if (kind === "ai_pack_version") {
+        targetPublicRef = safeText(packVersionById.get(
+          safeText(row.ai_pack_version_id),
+        )?.version_ref);
+      }
+      return myChallengeDto(row, {
+        target_public_ref: targetPublicRef,
+        case_public_ref: casePublicRef,
+      });
+    });
+    return jsonResponse(200, { ok: true, challenges });
+  } catch {
+    return jsonResponse(500, { ok: false, error: "read_failed" });
+  }
 }
 
 // Server-derived Case opening capability, keyed by Case id. This is the exact
@@ -1654,6 +1773,8 @@ serve(async (req: Request): Promise<Response> => {
       return await renewReadSession(req, body);
     case "list_my_cases":
       return await listMyCases(req, body);
+    case "list_my_challenges":
+      return await listMyChallenges(req, body);
     case "list_reviewable_cases":
       return await listReviewableCases(req, body);
     case "get_authorized_case":

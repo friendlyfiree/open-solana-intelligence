@@ -829,6 +829,7 @@ function renderWorkspace(){
     sideValue = workspaceShort(ctx.wallet);
     cards = workspaceCards([
       ['My Cases','Private and public Cases authorized for this wallet.',"osiV2OpenMyCases()"],
+      ['My Challenges','Own challenge state, deadlines, and withdrawal.',"osiV2OpenMyChallenges()"],
       ['My Reports','Exact immutable Report version history.',"osiV2OpenMyReports()"],
       ['My Wire Reports','Private and published Wire version history.',"osiV2OpenMyWireReports()"],
       ['Analyst Profile','Server-derived profile or application starting point.',"osiAnalystOpenWorkspace('profile')"],
@@ -841,6 +842,7 @@ function renderWorkspace(){
     sideValue = workspaceShort(ctx.wallet);
     cards = workspaceCards([
       ['My Reviews','Cases authorized for your typed review.',"osiV2OpenReviewQueue()"],
+      ['My Challenges','Own challenge state, deadlines, and withdrawal.',"osiV2OpenMyChallenges()"],
       ['Report Review Queue','Exact unpublished Report versions awaiting review.',"osiV2OpenReportQueue()"],
       ['Wire Review Queue','Exact Wire versions awaiting review.',"osiV2OpenWireQueue()"],
       ['My Reports','Exact immutable Report version history.',"osiV2OpenMyReports()"],
@@ -855,6 +857,7 @@ function renderWorkspace(){
     cards = workspaceCards([
       ['Operations Center','Double-gated lifecycle and publication controls.',"admOpen()"],
       ['Case Review Queue','Native Case reviews authorized for this maintainer.',"osiV2OpenReviewQueue()"],
+      ['My Challenges','Own challenge state, deadlines, and withdrawal.',"osiV2OpenMyChallenges()"],
       ['Report Review Queue','Exact Report versions awaiting authorized review.',"osiV2OpenReportQueue()"],
       ['Wire Review Queue','Wire versions awaiting review or bootstrap publication inspection.',"osiV2OpenWireQueue()"],
       ['My Wire Reports','Private and published Wire version history.',"osiV2OpenMyWireReports()"],
