@@ -55,6 +55,8 @@ ok('compatible frontend is proven before the backend deploy begins',
   workflow.includes('${WEB_URL}/assets/js/v2-case-integration.js?release=${GITHUB_SHA}')
   && workflow.includes('recover_solana_pay')
   && workflow.includes('Expired: do not scan')
+  && workflow.includes('[[ "$asset" == *"recover_solana_pay"*')
+  && !workflow.includes('echo "$asset" | grep -q')
   && workflow.indexOf('Prove the compatible frontend is already live')
     < workflow.indexOf('Deploy only osi-v2-payment'));
 
