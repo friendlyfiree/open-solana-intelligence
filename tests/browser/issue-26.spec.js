@@ -2326,6 +2326,29 @@ test('single-recipient analyst support renders exact Solana Pay QR and explicit 
   expectCleanRuntime(page);
 });
 
+test('profile support fails closed for self-support and a maintainer without analyst standing', async ({ page }) => {
+  await ready(page, { role: 'report_author' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+
+  const ownProfileRow = page.locator('#lb-body').locator(`[data-analyst-wallet="${OTHER}"]`).first();
+  await ownProfileRow.click();
+  const ownProfile = page.locator('#ap-modal-body');
+  const selfSupport = ownProfile.getByRole('button', { name: 'Self-support unavailable' });
+  await expect(selfSupport).toBeDisabled();
+  await expect(ownProfile).toContainText('The server rejects self-support');
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+
+  await page.evaluate(() => window.closeAnalystProfile());
+  const maintainerRow = page.locator('#osi-maintainer-profile [data-maintainer-wallet]');
+  await maintainerRow.click();
+  const maintainerProfile = page.locator('#ap-modal-body');
+  await expect(maintainerProfile.locator('.osi-public-profile-maintainer')).toBeVisible();
+  await expect(maintainerProfile.getByRole('button', { name: 'Support with SOL via Phantom or Solana Pay' })).toHaveCount(0);
+  await expect(maintainerProfile.getByRole('button', { name: 'Self-support unavailable' })).toHaveCount(0);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  expectCleanRuntime(page);
+});
+
 test('signal enhancement fails open when its runtime is unavailable', async ({ page }) => {
   await installFixtureNetwork(page);
   await page.route('**/assets/js/95-signal-interactions.js', (route) =>

@@ -911,42 +911,56 @@
   <div class="osi-about-shell">
     <header class="osi-about-hero">
       <div class="osi-about-copy">
-        <p class="osi-kicker"><span aria-hidden="true"></span>About OSI</p>
-        <h1 id="osi-about-title">Public intelligence with an auditable boundary.</h1>
-        <p>OSI organizes public Solana incident evidence into attributable and challengeable records, reviewed through explicit quorum or a clearly labeled cold-start process. It proves who acted, what version they acted on, and which proof was verified. It does not decide automatic truth, guilt, or legal certainty.</p>
+        <p class="osi-kicker"><span aria-hidden="true"></span>Open Solana Intelligence</p>
+        <h1 id="osi-about-title">Public intelligence that preserves the evidence trail.</h1>
+        <p>OSI turns public Solana evidence into attributable records with immutable versions and a visible challenge window. Each record is reviewed through explicit quorum or a clearly labeled cold-start process, with that path exposed rather than hidden. It shows who acted, what they acted on, and how that action was verified. It does not decide truth, guilt, or legal certainty.</p>
+        <dl class="osi-about-contract" aria-label="Core OSI commitments">
+          <div><dt>Source</dt><dd>Public evidence</dd></div>
+          <div><dt>Review</dt><dd>Count and weight gates</dd></div>
+          <div><dt>Outcome</dt><dd>Challengeable record</dd></div>
+        </dl>
         <div class="osi-about-actions">
-          <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a Case</button>
-          <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('prooflog')">Inspect Proof Standards</button>
+          <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a private Case</button>
+          <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('prooflog')">Inspect proof standards</button>
         </div>
       </div>
-      <figure class="osi-about-wordmark">
-        <svg class="osi-eye-emblem" id="osi-about-emblem" viewBox="0 0 640 440" role="img" aria-labelledby="osi-eye-title osi-eye-desc">
-          <title id="osi-eye-title">OSI eye emblem</title>
-          <desc id="osi-eye-desc">A platinum intelligence eye crossed by a crimson signal line.</desc>
-          <defs>
-            <linearGradient id="osi-eye-metal" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#fffdf8"/>
-              <stop offset=".48" stop-color="#f5f0e8"/>
-              <stop offset="1" stop-color="#b9c0ca"/>
-            </linearGradient>
-            <filter id="osi-eye-glow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="5" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          <g class="osi-eye-metal" fill="none" stroke="url(#osi-eye-metal)" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M72 144C185 43 350 55 472 122c54 30 98 39 126 35" stroke-width="24"/>
-            <path d="M74 236c104-91 231-106 347-30 57 37 111 45 177 31-41 39-88 56-145 55-77-1-132 42-221 25-63-12-111-42-158-81Z" stroke-width="17"/>
-            <circle cx="260" cy="232" r="65" stroke-width="18"/>
-            <path d="M230 293c-2 46 5 86 24 118M278 297c45 82 115 119 181 72 37-26 48-60 26-84" stroke-width="19"/>
-            <path d="M457 369c21 9 42 1 50-17 8-19-1-39-19-47-18-7-38 1-46 19-6 14-2 29 7 38" stroke-width="15"/>
-          </g>
-          <path class="osi-eye-signal" d="M105 171c113-75 249-66 369-8 48 23 87 31 120 26" fill="none" stroke="#ff4d5f" stroke-width="13" stroke-linecap="round" filter="url(#osi-eye-glow)" pathLength="1"/>
-          <circle class="osi-eye-iris" cx="260" cy="232" r="31" fill="#ff4d5f" filter="url(#osi-eye-glow)"/>
-          <circle cx="274" cy="219" r="15" fill="#0b0d12"/>
-        </svg>
-        <figcaption>OSI intelligence signal mark. Never used as a proof or verification seal.</figcaption>
-      </figure>
+      <aside class="osi-about-record-model" aria-label="OSI public record contract">
+        <div class="osi-about-model-head"><span>OSI / record contract</span><b>Process, not verdict</b></div>
+        <figure class="osi-about-wordmark">
+          <svg class="osi-eye-emblem" id="osi-about-emblem" viewBox="0 0 640 440" role="img" aria-labelledby="osi-eye-title osi-eye-desc">
+            <title id="osi-eye-title">OSI eye emblem</title>
+            <desc id="osi-eye-desc">A platinum intelligence eye crossed by a crimson signal line.</desc>
+            <defs>
+              <linearGradient id="osi-eye-metal" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#fffdf8"/>
+                <stop offset=".48" stop-color="#f5f0e8"/>
+                <stop offset="1" stop-color="#b9c0ca"/>
+              </linearGradient>
+              <filter id="osi-eye-glow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="5" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <g class="osi-eye-metal" fill="none" stroke="url(#osi-eye-metal)" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M72 144C185 43 350 55 472 122c54 30 98 39 126 35" stroke-width="24"/>
+              <path d="M74 236c104-91 231-106 347-30 57 37 111 45 177 31-41 39-88 56-145 55-77-1-132 42-221 25-63-12-111-42-158-81Z" stroke-width="17"/>
+              <circle cx="260" cy="232" r="65" stroke-width="18"/>
+              <path d="M230 293c-2 46 5 86 24 118M278 297c45 82 115 119 181 72 37-26 48-60 26-84" stroke-width="19"/>
+              <path d="M457 369c21 9 42 1 50-17 8-19-1-39-19-47-18-7-38 1-46 19-6 14-2 29 7 38" stroke-width="15"/>
+            </g>
+            <path class="osi-eye-signal" d="M105 171c113-75 249-66 369-8 48 23 87 31 120 26" fill="none" stroke="#ff4d5f" stroke-width="13" stroke-linecap="round" filter="url(#osi-eye-glow)" pathLength="1"/>
+            <circle class="osi-eye-iris" cx="260" cy="232" r="31" fill="#ff4d5f" filter="url(#osi-eye-glow)"/>
+            <circle cx="274" cy="219" r="15" fill="#0b0d12"/>
+          </svg>
+          <figcaption>OSI intelligence signal mark. Never used as a proof or verification seal.</figcaption>
+        </figure>
+        <ol class="osi-about-model-steps">
+          <li><span>01</span><div><strong>Attributable input</strong><small>Wallet or Memo proof</small></div></li>
+          <li><span>02</span><div><strong>Exact artifact</strong><small>Immutable content version</small></div></li>
+          <li><span>03</span><div><strong>Independent review</strong><small>Count and weight gates</small></div></li>
+          <li><span>04</span><div><strong>Open disagreement</strong><small>Visible challenge window</small></div></li>
+        </ol>
+      </aside>
     </header>
 
     <section class="osi-about-section osi-about-boundaries" aria-labelledby="osi-about-boundaries-title">
