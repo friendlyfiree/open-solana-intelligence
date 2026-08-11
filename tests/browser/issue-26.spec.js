@@ -453,6 +453,8 @@ async function installFixtureNetwork(page, options = {}) {
   const wallet = ROLE_WALLETS[role] || WALLET;
   page.__fixtureRole = role;
   page.__fixtureOps = [];
+  let expiredSolanaPayPolls = Number.isInteger(options.expiredSolanaPayPolls)
+    ? options.expiredSolanaPayPolls : options.expiredSolanaPayOnce ? 1 : 0;
   await page.addInitScript(({ wallet: fixtureWallet, connected: initiallyConnected, maintainer }) => {
     const count = (name) => Number(sessionStorage.getItem(`fixture_provider_${name}`) || 0);
     const bump = (name) => sessionStorage.setItem(`fixture_provider_${name}`, String(count(name) + 1));
@@ -562,6 +564,7 @@ async function installFixtureNetwork(page, options = {}) {
       action: body.action || '',
       phase: body.payload && body.payload.phase || '',
       target: body.target_ref || body.version_public_ref || body.case_ref || '',
+      reference: body.reference || '',
       payloadEvidenceId: body.payload && body.payload.evidence_item_id || '',
       payloadReportVersionRef: body.payload && body.payload.report_version_ref || '',
       evidenceCount: body.report && Array.isArray(body.report.evidence) ? body.report.evidence.length
@@ -1195,6 +1198,14 @@ async function installFixtureNetwork(page, options = {}) {
         const maintainerSupport = body.recipients?.[0]?.target_type === 'maintainer';
         const recipientWallet = maintainerSupport ? ROLE_WALLETS.maintainer : body.recipients[0].target_ref;
         const targetPublicRef = maintainerSupport ? 'OSI-MAINTAINER' : 'OSI-AN-A1B2C3D4E5F60718';
+        const preparedNonce = (options.expiredSolanaPayOnce || options.expiredSolanaPayPolls)
+          ? 'solana-pay-fresh-browser-fixture-nonce-20260811'
+          : 'solana-pay-browser-fixture-nonce-20260728';
+        const preparedReference = (options.expiredSolanaPayOnce || options.expiredSolanaPayPolls)
+          ? '11111111111111111111111111111114'
+          : '11111111111111111111111111111113';
+        const preparedExpiresAt = Number.isFinite(options.solanaPayExpiresInMs)
+          ? new Date(Date.now() + options.solanaPayExpiresInMs).toISOString() : iso(1);
         response = {
         ok: true,
         payment_id: '77777777-7777-4777-8777-777777777777',
@@ -1216,31 +1227,35 @@ async function installFixtureNetwork(page, options = {}) {
         manifest_hash: 'a'.repeat(64),
         total_lamports: '100000000',
         total_sol: '0.1',
-        nonce: 'solana-pay-browser-fixture-nonce-20260728',
+        nonce: preparedNonce,
         payload_hash: 'b'.repeat(64),
-        memo: `OSI2|1|SUPPORT_PAYMENT_CONFIRMED|t=support|id=${targetPublicRef}|a=${body.wallet}|r=wallet|d=sent|n=solana-pay-browser-fixture-nonce-20260728|h=${'b'.repeat(64)}|ts=1785268800`,
+        memo: `OSI2|1|SUPPORT_PAYMENT_CONFIRMED|t=support|id=${targetPublicRef}|a=${body.wallet}|r=wallet|d=sent|n=${preparedNonce}|h=${'b'.repeat(64)}|ts=1785268800`,
         issued_at: iso(0),
-        expires_at: iso(1),
+        expires_at: preparedExpiresAt,
         direct_wallet_to_wallet: true,
         osi_custody: false,
         irreversible: true,
         solana_pay: {
           enabled: true,
-          reference: '11111111111111111111111111111113',
-          expires_at: iso(1),
+          reference: preparedReference,
+          expires_at: preparedExpiresAt,
           idempotent_replay: false,
         },
         };
       }
-      else if (body.op === 'poll_solana_pay') response = {
-        ok: true,
-        state: 'awaiting_payment',
-        paid: false,
-        retryable: true,
-        reference: body.reference,
-        expires_at: iso(1),
-      };
-      else if (body.op === 'recover_payment') response = {
+      else if (body.op === 'poll_solana_pay' && expiredSolanaPayPolls > 0) {
+        expiredSolanaPayPolls -= 1;
+        responseStatus = 410;
+        response = { ok: false, error: 'solana_pay_intent_expired', state: 'expired', paid: false };
+      } else if (body.op === 'poll_solana_pay') response = {
+          ok: true,
+          state: 'awaiting_payment',
+          paid: false,
+          retryable: true,
+          reference: body.reference,
+          expires_at: iso(1),
+        };
+      else if (body.op === 'recover_payment' || body.op === 'recover_solana_pay') response = {
         ok: true,
         payment_id: '77777777-7777-4777-8777-777777777777',
         payment_kind: 'reward',
@@ -1305,7 +1320,10 @@ async function ready(page, options = {}) {
     const expectedPublicationIndexingLag = options.publicationCommitIndexingLagOnce
       && message.type() === 'error'
       && /^Failed to load resource: the server responded with a status of 409 \(Conflict\)$/.test(text);
-    if (!fixtureSriBlock && !expectedPublicFailure && !expectedSessionExpiry && !expectedReviewQueueFailure && !expectedPublicationIndexingLag) page.__issue26Errors.push(`console ${message.type()}: ${text}`);
+    const expectedExpiredSolanaPay = (options.expiredSolanaPayOnce || options.expiredSolanaPayPolls)
+      && message.type() === 'error'
+      && /^Failed to load resource: the server responded with a status of 410 \(Gone\)$/.test(text);
+    if (!fixtureSriBlock && !expectedPublicFailure && !expectedSessionExpiry && !expectedReviewQueueFailure && !expectedPublicationIndexingLag && !expectedExpiredSolanaPay) page.__issue26Errors.push(`console ${message.type()}: ${text}`);
   });
   page.on('requestfailed', (request) => {
     const failure = request.failure() && request.failure().errorText || 'unknown';
@@ -1324,7 +1342,10 @@ async function ready(page, options = {}) {
     const expectedCaseReadFailure = options.caseReadFailureOnly
       && response.status() === 503
       && response.url().includes('/functions/v1/osi-v2-case-read');
-    if (response.status() >= 400 && !(options.publicFailure && response.status() === 503 && response.url().includes('/functions/v1/')) && !expectedCaseReadFailure && !expectedSessionExpiry && !expectedReviewQueueFailure && !expectedPublicationIndexingLag) {
+    const expectedExpiredSolanaPay = (options.expiredSolanaPayOnce || options.expiredSolanaPayPolls)
+      && response.status() === 410
+      && response.url().includes('/functions/v1/osi-v2-payment');
+    if (response.status() >= 400 && !(options.publicFailure && response.status() === 503 && response.url().includes('/functions/v1/')) && !expectedCaseReadFailure && !expectedSessionExpiry && !expectedReviewQueueFailure && !expectedPublicationIndexingLag && !expectedExpiredSolanaPay) {
       page.__issue26Errors.push(`http: ${response.status()} ${response.url()}`);
     }
   });
@@ -2503,14 +2524,15 @@ test('single-recipient analyst support renders exact Solana Pay QR and explicit 
     await supportButton.click();
     await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
     await page.locator('#sol-ask-go').click();
-    const review = page.locator('#osi-payment-review');
-    await expect(review).toBeVisible();
-    await expect(review).toContainText('Solana mainnet-beta');
-    await expect(review).toContainText('0.1 SOL / 100000000 lamports');
-    await expect(review).toContainText('no custody or escrow');
-    await expect(review.getByRole('button', { name: 'Pay with Phantom' })).toBeVisible();
-    await review.getByRole('button', { name: 'Solana Pay QR' }).click();
-    await expect(page.locator('#osi-solana-pay')).toBeVisible();
+    await expect(page.locator('#osi-payment-review')).toHaveCount(0);
+    const pay = page.locator('#osi-solana-pay');
+    await expect(pay).toBeVisible();
+    await expect(pay).toContainText('mainnet-beta');
+    await expect(pay).toContainText('Purpose');
+    await expect(pay).toContainText('Support');
+    await expect(pay).toContainText('0.1 SOL / 100000000 lamports');
+    await expect(pay).toContainText('no custody');
+    await expect(pay).toContainText('irreversible');
   }
 
   await openSolanaPay();
@@ -2524,6 +2546,13 @@ test('single-recipient analyst support renders exact Solana Pay QR and explicit 
   const desktopQrBox = await desktopQr.boundingBox();
   expect(desktopQrBox.width).toBeGreaterThanOrEqual(220);
   expect(desktopQrBox.height).toBeGreaterThanOrEqual(220);
+  expect(desktopQrBox.y).toBeGreaterThanOrEqual(0);
+  expect(desktopQrBox.y + desktopQrBox.height).toBeLessThanOrEqual((await page.viewportSize()).height);
+  await expect(desktopPay.locator('.osi-payment-review-card')).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(desktopPay.locator('[data-solana-pay-open]')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(desktopPay.getByRole('button', { name: 'Close' })).toBeFocused();
   await page.evaluate(() => {
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -2538,6 +2567,18 @@ test('single-recipient analyst support renders exact Solana Pay QR and explicit 
   await page.keyboard.press('Escape');
   await expect(desktopPay).toBeHidden();
   await expect(supportButton).toBeFocused();
+  await page.selectOption('#osi-language-select', 'tr');
+  await page.getByRole('button', { name: 'Solana Pay QR' }).click();
+  await expect(page.locator('#sol-ask')).not.toHaveClass(/\bopen\b/);
+  await expect(desktopPay).toBeVisible();
+  await expect(desktopPay).toContainText('Amaç');
+  await expect(desktopPay).toContainText('Destek');
+  await expect(desktopPay.locator('[data-solana-pay-open]')).toHaveAttribute('href', /reference=11111111111111111111111111111113/);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(1);
+  expect((await page.evaluate(() => window.__fixtureProviderCounts())).transaction).toBe(0);
+  await page.keyboard.press('Escape');
+  await expect(desktopPay).toBeHidden();
+  await page.selectOption('#osi-language-select', 'en');
   await page.evaluate((wallet) => window.osiV2ClearPaymentState({ forgetRecovery: true, wallet }), WALLET);
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -2569,6 +2610,273 @@ test('single-recipient analyst support renders exact Solana Pay QR and explicit 
   expectCleanRuntime(page);
 });
 
+test('expired restored Solana Pay intent preserves recovery until explicit replacement and then opens the analyst QR', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet', expiredSolanaPayPolls: 4 });
+  await page.evaluate(({ wallet, recipient, reference, expiresAt }) => {
+    localStorage.setItem(`osi:v2:payment-recovery:2:${wallet}`, JSON.stringify({
+      wallet,
+      method: 'solana_pay',
+      recovery_state: 'prepared',
+      prepared: {
+        payer_wallet: wallet,
+        payment_kind: 'support',
+        target_public_ref: 'OSI-AN-A1B2C3D4E5F60718',
+        recipient_manifest: [{
+          wallet: recipient,
+          recipient_type: 'analyst',
+          amount_lamports: '100000000',
+          amount_sol: '0.1',
+        }],
+        total_lamports: '100000000',
+        total_sol: '0.1',
+        nonce: 'restored-solana-pay-browser-fixture-nonce',
+        expires_at: expiresAt,
+        memo: 'OSI2|1|SUPPORT_PAYMENT_CONFIRMED|fixture-restored-request',
+        solana_pay: { reference, expires_at: expiresAt },
+      },
+    }));
+  }, { wallet: WALLET, recipient: OTHER, reference: '11111111111111111111111111111113', expiresAt: iso(1) });
+  await page.reload();
+  await page.waitForFunction(() => typeof window.osiNavigate === 'function');
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const qrButton = page.getByRole('button', { name: 'Solana Pay QR' });
+  await qrButton.click();
+  const replacement = page.locator('#osi-payment-replacement');
+  await expect(replacement).toBeVisible();
+  await expect(replacement).toContainText('Check wallet activity before starting again');
+  await expect(replacement).toContainText(OTHER);
+  await expect(replacement).toContainText('0.1 SOL');
+  await expect(replacement).toContainText('11111111111111111111111111111113');
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+
+  const recoveryExists = () => page.evaluate((wallet) => localStorage.getItem(`osi:v2:payment-recovery:2:${wallet}`) !== null, WALLET);
+  await replacement.getByRole('button', { name: 'Keep existing recovery record' }).click();
+  await expect(replacement).toBeHidden();
+  expect(await recoveryExists()).toBe(true);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+
+  await qrButton.click();
+  await expect(replacement).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(replacement).toBeHidden();
+  expect(await recoveryExists()).toBe(true);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+
+  await qrButton.click();
+  await expect(replacement).toBeVisible();
+  await replacement.click({ position: { x: 2, y: 2 } });
+  await expect(replacement).toBeHidden();
+  expect(await recoveryExists()).toBe(true);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+
+  await qrButton.click();
+  await expect(replacement).toBeVisible();
+  await replacement.getByRole('button', { name: 'I checked, start a new payment request' }).click();
+  expect(await recoveryExists()).toBe(false);
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.locator('#sol-ask-go').click();
+  await expect(page.locator('#osi-payment-review')).toHaveCount(0);
+  await expect(page.locator('#osi-solana-pay')).toBeVisible();
+  await expect(page.locator('#osi-solana-pay')).toContainText('11111111111111111111111111111114');
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'poll_solana_pay')).toBe(4);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(1);
+  const expiredPoll = page.__fixtureOps.find((entry) => entry.endpoint === 'osi-v2-payment' && entry.op === 'poll_solana_pay');
+  expect(expiredPoll.reference).toBe('11111111111111111111111111111113');
+  await page.locator('#osi-solana-pay').getByRole('button', { name: 'Close' }).click();
+  await page.evaluate((wallet) => window.osiV2ClearPaymentState({ forgetRecovery: true, wallet }), WALLET);
+  expectCleanRuntime(page);
+});
+
+test('an active QR expiry preserves its reference and blocks a second prepare until wallet-history confirmation', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet', expiredSolanaPayPolls: 2, solanaPayExpiresInMs: 300 });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const qrButton = page.getByRole('button', { name: 'Solana Pay QR' });
+  await qrButton.click();
+  await page.locator('#sol-ask-go').click();
+
+  const pay = page.locator('#osi-solana-pay');
+  await expect(pay).toBeVisible();
+  await expect(pay.locator('[data-solana-pay-state]')).toContainText('Expired: verification incomplete', { timeout: 5000 });
+  await expect(pay.locator('[data-solana-pay-qr]')).toContainText('Expired: do not scan');
+  await expect(pay.locator('[data-solana-pay-qr] svg')).toHaveCount(0);
+  await expect(pay.getByRole('button', { name: 'Copy link' })).toBeDisabled();
+  await expect(pay.getByRole('button', { name: 'Check payment' })).toBeDisabled();
+  await expect(pay.locator('[data-solana-pay-open]')).toHaveAttribute('aria-disabled', 'true');
+  await expect(pay.locator('[data-solana-pay-open]')).not.toHaveAttribute('href', /./);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(1);
+  expect(await page.evaluate((wallet) => localStorage.getItem(`osi:v2:payment-recovery:2:${wallet}`) !== null, WALLET)).toBe(true);
+
+  await pay.getByRole('button', { name: 'Close' }).click();
+  await qrButton.click();
+  const replacement = page.locator('#osi-payment-replacement');
+  await expect(replacement).toBeVisible();
+  await expect(replacement).toContainText('11111111111111111111111111111114');
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(1);
+  await replacement.getByRole('button', { name: 'Keep existing recovery record' }).click();
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(1);
+  expect(await page.evaluate((wallet) => localStorage.getItem(`osi:v2:payment-recovery:2:${wallet}`) !== null, WALLET)).toBe(true);
+  await page.evaluate((wallet) => window.osiV2ClearPaymentState({ forgetRecovery: true, wallet }), WALLET);
+  expectCleanRuntime(page);
+});
+
+test('a restored Solana Pay broadcast re-verifies its known signature before any expired-reference replacement', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet', expiredSolanaPayPolls: 1 });
+  await page.evaluate(({ wallet, recipient, reference, txSig, expiresAt }) => {
+    localStorage.setItem(`osi:v2:payment-recovery:2:${wallet}`, JSON.stringify({
+      wallet,
+      method: 'solana_pay',
+      recovery_state: 'broadcast',
+      txSig,
+      prepared: {
+        payer_wallet: wallet,
+        payment_kind: 'support',
+        target_public_ref: 'OSI-AN-A1B2C3D4E5F60718',
+        recipient_manifest: [{ wallet: recipient, recipient_type: 'analyst', amount_lamports: '100000000', amount_sol: '0.1' }],
+        total_lamports: '100000000',
+        total_sol: '0.1',
+        nonce: 'restored-solana-pay-known-signature-nonce',
+        expires_at: expiresAt,
+        solana_pay: { reference, expires_at: expiresAt },
+      },
+    }));
+  }, { wallet: WALLET, recipient: OTHER, reference: '11111111111111111111111111111113', txSig: TX, expiresAt: iso(-1) });
+  await page.reload();
+  await page.waitForFunction(() => typeof window.osiNavigate === 'function');
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  await page.getByRole('button', { name: 'Solana Pay QR' }).click();
+
+  await expect(page.locator('#osi-payment-receipt')).toBeVisible();
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'recover_solana_pay')).toBe(1);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'recover_payment')).toBe(0);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'poll_solana_pay')).toBe(0);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  await expect(page.locator('#osi-payment-replacement')).toHaveCount(0);
+  expect(await page.evaluate((wallet) => localStorage.getItem(`osi:v2:payment-recovery:2:${wallet}`), WALLET)).toBeNull();
+  await page.locator('#osi-payment-receipt').getByRole('button', { name: 'Done' }).click();
+  expectCleanRuntime(page);
+});
+
+test('a restored Wire Solana Pay broadcast stays on strict reference polling instead of unsupported recovery', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(({ wallet, recipient, reference, txSig, expiresAt }) => {
+    localStorage.setItem(`osi:v2:payment-recovery:2:${wallet}`, JSON.stringify({
+      wallet,
+      method: 'solana_pay',
+      recovery_state: 'broadcast',
+      txSig,
+      wireVersionRef: 'OSI-WV-A1B2C3D4E5F60718',
+      prepared: {
+        payer_wallet: wallet,
+        payment_kind: 'wire_support',
+        target_public_ref: 'OSI-WV-A1B2C3D4E5F60718',
+        recipient_manifest: [{ wallet: recipient, recipient_type: 'wire_author', amount_lamports: '100000000', amount_sol: '0.1' }],
+        total_lamports: '100000000',
+        total_sol: '0.1',
+        nonce: 'restored-wire-solana-pay-known-signature-nonce',
+        expires_at: expiresAt,
+        solana_pay: { reference, expires_at: expiresAt },
+      },
+    }));
+  }, { wallet: WALLET, recipient: OTHER, reference: '11111111111111111111111111111113', txSig: TX, expiresAt: iso(1) });
+  await page.reload();
+  await page.waitForFunction(() => typeof window.osiNavigate === 'function');
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  await page.getByRole('button', { name: 'Solana Pay QR' }).click();
+
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'poll_solana_pay')).toBe(1);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'recover_solana_pay')).toBe(0);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'recover_payment')).toBe(0);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  await expect(page.locator('#osi-payment-replacement')).toHaveCount(0);
+  expect(await page.evaluate((wallet) => localStorage.getItem(`osi:v2:payment-recovery:2:${wallet}`) !== null, WALLET)).toBe(true);
+  await page.evaluate((wallet) => window.osiV2ClearPaymentState({ forgetRecovery: true, wallet }), WALLET);
+  expectCleanRuntime(page);
+});
+
+test('a profile QR request can safely replace an unsigned interrupted Phantom intent only after explicit history confirmation', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(({ wallet, recipient, expiresAt }) => {
+    localStorage.setItem(`osi:v2:payment-recovery:2:${wallet}`, JSON.stringify({
+      wallet,
+      method: 'phantom',
+      recovery_state: 'awaiting_wallet',
+      prepared: {
+        payer_wallet: wallet,
+        payment_kind: 'support',
+        target_public_ref: 'OSI-AN-A1B2C3D4E5F60718',
+        recipient_manifest: [{ wallet: recipient, recipient_type: 'analyst', amount_lamports: '100000000', amount_sol: '0.1' }],
+        total_lamports: '100000000',
+        total_sol: '0.1',
+        nonce: 'unsigned-interrupted-phantom-fixture-nonce',
+        expires_at: expiresAt,
+      },
+    }));
+  }, { wallet: WALLET, recipient: OTHER, expiresAt: iso(1) });
+  await page.reload();
+  await page.waitForFunction(() => typeof window.osiNavigate === 'function');
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const qrButton = page.getByRole('button', { name: 'Solana Pay QR' });
+  await qrButton.click();
+
+  const replacement = page.locator('#osi-payment-replacement');
+  await expect(replacement).toContainText('No transaction signature was returned');
+  await expect(replacement).toContainText(OTHER);
+  await expect(replacement).toContainText('0.1 SOL');
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  await replacement.getByRole('button', { name: 'Keep existing recovery record' }).click();
+  expect(await page.evaluate((wallet) => localStorage.getItem(`osi:v2:payment-recovery:2:${wallet}`) !== null, WALLET)).toBe(true);
+
+  await qrButton.click();
+  await replacement.getByRole('button', { name: 'I checked, start a new payment request' }).click();
+  expect(await page.evaluate((wallet) => localStorage.getItem(`osi:v2:payment-recovery:2:${wallet}`), WALLET)).toBeNull();
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.locator('.sol-ask-x').click();
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  expectCleanRuntime(page);
+});
+
+test('connected Phantom can submit a prepared Solana Pay intent only once while verification is pending', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => {
+    class PublicKey { constructor(value) { this.value = String(value); } toString() { return this.value; } }
+    class Transaction {
+      constructor() { this.instructions = []; }
+      add(instruction) { this.instructions.push(instruction); return this; }
+      serialize() { return new Uint8Array([1, 2, 3]); }
+    }
+    class TransactionInstruction { constructor(fields) { Object.assign(this, fields); } }
+    class Connection { async getLatestBlockhash() { return { blockhash: 'fixture-mainnet-blockhash' }; } }
+    window.solanaWeb3 = {
+      PublicKey, Transaction, TransactionInstruction, Connection,
+      SystemProgram: { transfer: () => ({ keys: [] }) },
+    };
+  });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  await page.getByRole('button', { name: 'Solana Pay QR' }).click();
+  await page.locator('#sol-ask-go').click();
+
+  const pay = page.locator('#osi-solana-pay');
+  const phantom = pay.getByRole('button', { name: 'Use connected Phantom' });
+  await expect(pay.locator('[data-solana-pay-state]')).toContainText('Awaiting payment');
+  await expect(phantom).toBeEnabled();
+  await phantom.click();
+  await expect.poll(async () => (await page.evaluate(() => window.__fixtureProviderCounts())).transaction).toBe(1);
+  await expect(pay.locator('[data-solana-pay-state]')).toContainText('Awaiting payment');
+  await expect(phantom).toBeDisabled();
+  expect((await page.evaluate(() => window.__fixtureProviderCounts())).transaction).toBe(1);
+  await phantom.click({ force: true });
+  expect((await page.evaluate(() => window.__fixtureProviderCounts())).transaction).toBe(1);
+  await pay.getByRole('button', { name: 'Close' }).click();
+  await page.evaluate((wallet) => window.osiV2ClearPaymentState({ forgetRecovery: true, wallet }), WALLET);
+  expectCleanRuntime(page);
+});
+
 test('profile support rejects self-support and keeps maintainer support separately typed', async ({ page }) => {
   await ready(page, { role: 'report_author' });
   await page.evaluate(() => window.osiNavigate('analysts'));
@@ -2592,9 +2900,10 @@ test('profile support rejects self-support and keeps maintainer support separate
   await expect(maintainerProfile.getByRole('button', { name: 'Self-support unavailable' })).toHaveCount(0);
   await maintainerQr.click();
   await page.locator('#sol-ask-go').click();
-  await expect(page.locator('#osi-payment-review')).toContainText('OSI-MAINTAINER');
-  await expect(page.locator('#osi-payment-review')).toContainText('Maintainer');
-  await page.locator('#osi-payment-review').getByRole('button', { name: 'Cancel' }).click();
+  const maintainerPay = page.locator('#osi-solana-pay');
+  await expect(maintainerPay).toContainText('OSI-MAINTAINER');
+  await expect(maintainerPay).toContainText(ROLE_WALLETS.maintainer);
+  await maintainerPay.getByRole('button', { name: 'Close' }).click();
   const prepare = page.__fixtureOps.findLast((entry) => entry.endpoint === 'osi-v2-payment' && entry.op === 'prepare_payment');
   expect(prepare.recipients[0].target_type).toBe('maintainer');
   expect(prepare.recipients[0].target_ref).toBe(ROLE_WALLETS.maintainer);

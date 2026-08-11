@@ -771,6 +771,7 @@ serve(async (req: Request): Promise<Response> => {
     case "commit_payment": return await commitPayment(body);
     case "poll_solana_pay": return await pollSolanaPay(body);
     case "recover_payment": return await commitPayment(body, true);
+    case "recover_solana_pay": return await commitPayment(body, true, "solana_pay");
     default: return jsonResponse(400, { ok: false, error: "bad_op" });
   }
 });
