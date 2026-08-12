@@ -94,12 +94,25 @@ attestation PDA and reads it from mainnet yourself.
 
 ## 4. Governance memos on mainnet
 
-Every public governance outcome is a confirmed Solana Memo transaction using
-one canonical grammar:
+Every public governance outcome is a confirmed Solana Memo transaction under a
+documented envelope grammar. There are four shipped profiles, not one, and the
+difference matters for what you can read off the chain. The publication family
+uses `v1_expiring`:
 
 ```
 OSI2|<v>|<EVENT>|t=<target type>|id=<public ref>|a=<actor wallet>|r=<role>|d=<decision>|n=<nonce>|h=<payload hash>|ts=<unix>
 ```
+
+The resolution, challenge and seal family uses the older
+`historical_governance_v0` profile instead, which carries `t`, `id`, `ref`,
+`a`, `h`, `n`, `ts` and `exp` and **has no `r` field**. For those events the
+deciding role is not on chain; it is in the server-verified receipt, readable
+through the public API in section 5 as `actor_role` and `decision_channel`. The
+full profile table is in
+[docs/OSI_V2_MEMO_EVENT_SPEC.md](OSI_V2_MEMO_EVENT_SPEC.md). This is named here
+because an earlier revision of this page described the grammar as if one shape
+covered every event, and a verification guide that overstates what the chain
+carries is worse than no guide.
 
 Pull one and read it:
 
@@ -113,11 +126,14 @@ curl -s -X POST "$RPC" -H 'Content-Type: application/json' -d "{
 print('signer:', r['transaction']['message']['accountKeys'][0]['pubkey'])"
 ```
 
-Two things to look for. The `r=` field states the role that made the decision,
-so a decision taken through the transparent cold-start bootstrap channel reads
-`r=maintainer` on the chain itself and cannot be dressed up as analyst
-consensus afterwards. And no memo field carries a subject name, an allegation,
-or any case content, by design (`docs/OSI_V2_MEMO_EVENT_SPEC.md`).
+Two things to look for. On a publication event the `r=` field states the role
+that made the decision, so a report published through the transparent
+cold-start bootstrap channel reads `r=maintainer` on the chain itself and
+cannot be dressed up as analyst consensus afterwards. On a resolution,
+challenge or seal event there is no `r=` field, so check the role and channel
+through the public API in section 5 instead. And no memo field carries a
+subject name, an allegation, or any case content, by design
+(`docs/OSI_V2_MEMO_EVENT_SPEC.md`).
 
 The full memo event catalogue is in
 [docs/OSI_V2_MEMO_EVENT_SPEC.md](OSI_V2_MEMO_EVENT_SPEC.md).
