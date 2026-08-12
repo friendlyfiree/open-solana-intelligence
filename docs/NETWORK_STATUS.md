@@ -69,7 +69,21 @@ earned weight.
 channel.** Winner selection on Case `OSI-E0F2D49EA78B` was finalized on
 2026-08-12 through D17, because no analyst had cast a selection review and the
 standard resolution gate needs weight `2.50` against a live maximum of `1.50`.
-Its `REPORT_SELECTED_WINNING` memo reads `r=maintainer`. The seven-day
+
+Its `REPORT_SELECTED_WINNING` memo anchors the exact resolution and the acting
+wallet, and the deciding role travels in the server-verified receipt as
+`actor_role='maintainer'` with `decision_channel='maintainer_bootstrap'`. It
+does not read `r=maintainer` on chain, and an earlier revision of this page said
+it did. The resolution, challenge and seal family emits the
+`historical_governance_v0` envelope, which carries `t`, `id`, `ref`, `a`, `h`,
+`n`, `ts` and `exp` and has no `r` field at all; only the publication family
+carries the role on chain. All four shipped profiles are tabled in
+[docs/OSI_V2_MEMO_EVENT_SPEC.md](OSI_V2_MEMO_EVENT_SPEC.md), so the
+specification was right and this page was wrong. Bringing the governance family
+onto a versioned profile, so a seal carries its role on chain rather than only
+in the receipt, is open work and is named as such rather than left implied.
+
+The seven-day
 challenge window closes 2026-08-19, and sealing faces the same arithmetic, so
 the first seal will also travel the labeled bootstrap channel unless the roster
 grows earned weight first.
