@@ -24,7 +24,7 @@ years and hitting the same four walls every time.
 |---|---|---|
 | 54 | Bounty payout transactions earned for attribution work | Arkham Intel Exchange |
 | 26 | Paid intelligence report sale transactions | Arkham Intel Exchange |
-| 8 | Named marketplace research listings, listed or sold | Arkham Marketplace |
+| 9 | Named marketplace research listings, listed or sold | Arkham Marketplace |
 | 4 | Solana-focused investigative submissions | Superteam Earn / Redacted Hackathon |
 
 More than 80 transactions tied to real, paid intelligence work, plus named
@@ -165,6 +165,7 @@ titled, subject-specific investigations, not anonymous bounty submissions.
 
 ## Currently listed
 
+- [SkyAI Inc, formerly Sharps Technology](https://arkm.com/marketplace/listings/56c921e9-b824-44af-98eb-9a4ba5c4cc00)
 - [Enlivex](https://arkm.com/marketplace/listings/e9a599da-f486-474e-9e79-fe258202c898)
 - [Hyperion DeFi](https://arkm.com/marketplace/listings/861e7a5c-e0a3-4a57-9f27-0038c72a2d04)
 
