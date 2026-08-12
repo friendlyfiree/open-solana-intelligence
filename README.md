@@ -62,7 +62,7 @@ Concretely, three things in this repository are reusable by other Solana teams t
 
 The platform is deployed and open for its first Cases. The network is at its honest cold start.
 
-As of 2026-08-08: **3 public Cases, 1 published Case Report, 0 published Wire Reports, 3 probationary analysts, 0 seals, 0 publications through an independent analyst quorum.** The single published Report went out through the transparently labeled maintainer bootstrap channel, which is visible on chain as `r=maintainer` in its `REPORT_PUBLISHED` memo.
+As of 2026-08-12: **3 public Cases, 2 published Case Reports, 0 published Wire Reports, 3 probationary analysts, 0 seals, 1 publication through an independent analyst quorum.** That one cleared the ordinary analyst path with two independent reviewers and the author excluded at the database boundary; its `REPORT_PUBLISHED` memo reads `r=analyst`. The other published Report, and the first winner selection, went through the transparently labeled maintainer bootstrap channel and read `r=maintainer`. Both approving analysts sit at the probationary weight floor, so what is proven is that the path runs, not that it runs at earned weight.
 
 That is stated up front rather than buried, because a project whose product is verifiable public record does not get to describe its own adoption in adjectives. The full breakdown, including what would have to change for those numbers to mean something, is in [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md), and every figure in it is reproducible from the public endpoints in [docs/VERIFY.md](docs/VERIFY.md).
 
@@ -190,7 +190,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full map, [docs/USER_GU
 
 OSI is built and maintained by **Aksusarya**, an independent on-chain intelligence analyst. The project is a direct product of that work: paid attribution research and intelligence reports that were real, market-validated, and yet scattered across private buyers with no portable public track record and no reviewable process behind the conclusions.
 
-The verifiable record is in [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md): 54 bounty payout transactions, 26 paid intelligence report sales, 8 named marketplace research listings, and Solana-focused investigative submissions on Superteam Earn, every one of them resolving to a public transaction or listing.
+The verifiable record is in [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md): 54 bounty payout transactions, 26 paid intelligence report sales, 9 named marketplace research listings, and Solana-focused investigative submissions on Superteam Earn, every one of them resolving to a public transaction or listing.
 
 OSI is engineered with AI assistance under the explicit contract in [AGENTS.md](AGENTS.md), which is public for the same reason everything else here is. That approach is not defended by assertion. It is defended by checkable evidence: the code is MIT and public, authorization boundaries are covered by pgTAP suites against a database built from zero, the governance and payment decision cores are tested as shipped, and every claim of mainnet anchoring resolves to a transaction a stranger can inspect. Off-chain claims remain distinguishable and are checked through public APIs, receipts, and tests. See [AGENTS.md](AGENTS.md) section 15.
 

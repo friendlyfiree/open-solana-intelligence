@@ -136,7 +136,7 @@ ok(`bounty payout count matches the transactions listed (${bountyLinks})`,
 ok(`paid report sale count matches the transactions listed (${salesLinks})`,
   salesLinks === 26 && /\| 26 \|/.test(proofOfWork));
 ok(`marketplace listing count matches the listings shown (${listingLinks})`,
-  listingLinks === 8 && /\| 8 \|/.test(proofOfWork));
+  listingLinks === 9 && /\| 9 \|/.test(proofOfWork));
 ok("the track record discloses its own lost submission rather than omitting it",
   /Disclosure on the X ICOs submission/.test(proofOfWork));
 
@@ -144,21 +144,29 @@ ok("the track record discloses its own lost submission rather than omitting it",
 const readme = read("README.md");
 const readmeTr = read("README.tr.md");
 ok("the README states the real network size instead of describing it",
-  /0 publications through an independent analyst quorum/.test(readme)
+  /1 publication through an independent analyst quorum/.test(readme)
   && readme.includes("docs/NETWORK_STATUS.md"));
 ok("the Turkish README carries the same network statement",
-  /bağımsız analist yeter sayısı ile 0 yayımlama/.test(readmeTr)
+  /bağımsız analist yeter sayısı ile 1 yayımlama/.test(readmeTr)
   && readmeTr.includes("docs/NETWORK_STATUS.md"));
 ok("network status records the bootstrap channel rather than hiding it",
   /maintainer_bootstrap/.test(read("docs/NETWORK_STATUS.md")));
 const networkStatus = read("docs/NETWORK_STATUS.md");
-ok("the dated public network snapshot matches the reproduced 2026-08-08 counts",
-  networkStatus.includes("**Observed:** 2026-08-08")
+ok("the dated public network snapshot matches the reproduced 2026-08-12 counts",
+  networkStatus.includes("**Observed:** 2026-08-12")
   && /\| Public Cases \| 3 \|/.test(networkStatus)
-  && /\| Published Case Reports \| 1 \|/.test(networkStatus)
+  && /\| Published Case Reports \| 2 \|/.test(networkStatus)
   && /\| Published Wire Reports \| 0 \|/.test(networkStatus)
   && /\| Analysts with an active profile \| 3 \|/.test(networkStatus)
+  && /\| Publications through independent analyst quorum \| 1 \|/.test(networkStatus)
+  && /\| Seals \| 0 \|/.test(networkStatus)
   && /All three live analysts/.test(networkStatus));
+// The single quorum publication cleared a weight gate that D21 calibrated for a
+// floor-weight roster. A page whose whole purpose is refusing to flatter itself
+// has to carry that qualifier next to the number, not in a migration only.
+ok("the snapshot qualifies its one quorum publication with the D21 calibration",
+  /20260807154829_osi_v2_cold_start_weight_gate_calibration\.sql/.test(networkStatus)
+  && /has not yet run at\s+earned weight/.test(networkStatus));
 ok("both READMEs carry the current bounded private-read session lifetime",
   /30-minute inactivity window, 8-hour absolute lifetime/.test(readme)
   && /30 dakika hareketsizlik, 8 saat mutlak ömür/.test(readmeTr)

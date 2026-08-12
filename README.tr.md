@@ -61,7 +61,7 @@ Somut olarak, bu depoda üç şey OSI'den bağımsız şekilde bugün diğer Sol
 
 Platform yayında ve ilk vakalarına açık. Ağ ise dürüst bir soğuk başlangıçta.
 
-2026-08-08 itibarıyla: **3 kamuya açık Vaka, 1 yayımlanmış Vaka Raporu, 0 yayımlanmış Wire Raporu, 3 deneme süreli analist, 0 mühür, bağımsız analist yeter sayısı ile 0 yayımlama.** Yayımlanmış tek Rapor, şeffaf şekilde etiketlenmiş sürdürücü başlangıç kanalından çıktı; bu, `REPORT_PUBLISHED` memo'sunda `r=maintainer` olarak zincir üstünde görülebiliyor.
+2026-08-12 itibarıyla: **3 kamuya açık Vaka, 2 yayımlanmış Vaka Raporu, 0 yayımlanmış Wire Raporu, 3 deneme süreli analist, 0 mühür, bağımsız analist yeter sayısı ile 1 yayımlama.** Bu tek yayımlama, iki bağımsız inceleyiciyle ve yazar veritabanı sınırında dışlanarak olağan analist yolundan geçti; `REPORT_PUBLISHED` memo'su `r=analyst` okuyor. Diğer yayımlanmış Rapor ve ilk kazanan seçimi ise şeffaf şekilde etiketlenmiş sürdürücü başlangıç kanalından çıktı ve `r=maintainer` okuyor. Onaylayan iki analistin ikisi de deneme süreli ağırlık tabanında duruyor; yani kanıtlanan şey yolun işlediği, kazanılmış ağırlıkla işlediği değil.
 
 Bu bilgi gizlenmek yerine en başta veriliyor, çünkü ürünü doğrulanabilir kamusal kayıt olan bir proje kendi benimsenmesini sıfatlarla anlatamaz. Tam döküm ve bu sayıların anlam kazanması için nelerin değişmesi gerektiği [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) içinde; oradaki her rakam [docs/VERIFY.md](docs/VERIFY.md) bölüm 5'teki kamusal uçlardan yeniden üretilebilir.
 
@@ -179,7 +179,7 @@ Temel özellikler:
 
 OSI, bağımsız bir zincir üstü istihbarat analisti olan **Aksusarya** tarafından geliştirilip sürdürülüyor. Proje doğrudan bu işin ürünü: gerçek olan, piyasada karşılığı bulunan ama özel alıcılar arasında dağılmış, taşınabilir kamusal sicili ve sonuçların arkasında incelenebilir bir süreci olmayan ücretli atıf araştırmaları ve istihbarat raporları.
 
-Doğrulanabilir kayıt [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md) içinde: 54 ödül ödemesi işlemi, 26 ücretli istihbarat raporu satışı, 8 isimli pazar yeri araştırma ilanı ve Superteam Earn üzerinde Solana odaklı soruşturma gönderimleri. Her biri kamuya açık bir işleme veya ilana çözümleniyor.
+Doğrulanabilir kayıt [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md) içinde: 54 ödül ödemesi işlemi, 26 ücretli istihbarat raporu satışı, 9 isimli pazar yeri araştırma ilanı ve Superteam Earn üzerinde Solana odaklı soruşturma gönderimleri. Her biri kamuya açık bir işleme veya ilana çözümleniyor.
 
 OSI, [AGENTS.md](AGENTS.md) içindeki açık sözleşme altında yapay zekâ desteğiyle geliştiriliyor ve bu sözleşme, buradaki her şeyle aynı nedenle kamuya açık. Bu yaklaşım iddiayla değil denetlenebilir kanıtla savunuluyor: mainnet'e çapalandığı söylenen her sonuç bir işleme, zincir dışı iddialar ise kamusal API, makbuz veya teste çözümleniyor. Ayrıntı için [AGENTS.md](AGENTS.md) bölüm 15.
 
