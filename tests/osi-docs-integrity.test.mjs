@@ -134,7 +134,13 @@ const listingLinks = countLinks(sections[3] || "", /arkm\.com\/marketplace\/list
 ok(`bounty payout count matches the transactions listed (${bountyLinks})`,
   bountyLinks === 54 && /\| 54 \|/.test(proofOfWork));
 ok(`paid report sale count matches the transactions listed (${salesLinks})`,
-  salesLinks === 26 && /\| 26 \|/.test(proofOfWork));
+  salesLinks === 29 && /\| 29 \|/.test(proofOfWork));
+// The last three sales settled three of the nine named listings, so the two
+// rows genuinely overlap. A reader who adds them up must be told that, or the
+// page inflates itself by three transactions without meaning to.
+ok("the track record states the overlap between sale transactions and named listings",
+  /overlap by three/.test(proofOfWork)
+  && /83 transactions tied to real, paid intelligence work/.test(proofOfWork));
 ok(`marketplace listing count matches the listings shown (${listingLinks})`,
   listingLinks === 9 && /\| 9 \|/.test(proofOfWork));
 ok("the track record discloses its own lost submission rather than omitting it",
@@ -152,15 +158,39 @@ ok("the Turkish README carries the same network statement",
 ok("network status records the bootstrap channel rather than hiding it",
   /maintainer_bootstrap/.test(read("docs/NETWORK_STATUS.md")));
 const networkStatus = read("docs/NETWORK_STATUS.md");
-ok("the dated public network snapshot matches the reproduced 2026-08-12 counts",
-  networkStatus.includes("**Observed:** 2026-08-12")
+ok("the dated public network snapshot matches the reproduced 2026-09-18 counts",
+  networkStatus.includes("**Observed:** 2026-09-18")
   && /\| Public Cases \| 3 \|/.test(networkStatus)
+  && /\| Cases sealed \| 1 \|/.test(networkStatus)
   && /\| Published Case Reports \| 2 \|/.test(networkStatus)
   && /\| Published Wire Reports \| 0 \|/.test(networkStatus)
   && /\| Analysts with an active profile \| 3 \|/.test(networkStatus)
   && /\| Publications through independent analyst quorum \| 1 \|/.test(networkStatus)
-  && /\| Seals \| 0 \|/.test(networkStatus)
+  && /\| Seals \| 1 \|/.test(networkStatus)
   && /All three live analysts/.test(networkStatus));
+// The first seal was anchored a month after its challenge window closed. Both
+// dates are on chain, so the gap is derivable whether or not the page mentions
+// it. Accounting for it is pinned here so it cannot quietly drop out later.
+ok("the snapshot accounts for the month between the window closing and the seal",
+  /Why the seal is dated a month after its window closed/.test(networkStatus)
+  && /closed on 2026-08-19/.test(networkStatus)
+  && /anchored on 2026-09-18/.test(networkStatus));
+// The strongest thing the record can say about itself is also the one claim a
+// reader cannot check, so the attribution and the no-recovery boundary are
+// pinned with it. An outcome the owner relayed is never an OSI finding, and
+// this project does not get to let that distinction erode quietly.
+// Matched against whitespace-normalised prose. Pinning a sentence that a later
+// reflow can split across lines fails for a reason that has nothing to do with
+// the claim, which is how a guard rail teaches people to delete it.
+const networkStatusProse = networkStatus.replace(/\s+/g, " ");
+ok("the reported outcome on the sealed Case stays an owner report, not a finding",
+  networkStatusProse.includes("The Case owner reports taking the published Report")
+  && networkStatusProse.includes("OSI has not verified it")
+  && networkStatusProse.includes(
+    "approached no exchange and no authority and represented nobody")
+  && networkStatusProse.includes("It is not a recovery, and OSI promises none")
+  && networkStatusProse.includes(
+    "rather than a finding of wrongdoing by anyone"));
 // The single quorum publication cleared a weight gate that D21 calibrated for a
 // floor-weight roster. A page whose whole purpose is refusing to flatter itself
 // has to carry that qualifier next to the number, not in a migration only.

@@ -4,7 +4,7 @@ What is actually in the production network, stated plainly, with the exact
 queries that produce it. This page exists because a platform whose product is
 verifiable public record cannot describe its own adoption in adjectives.
 
-**Observed:** 2026-08-12
+**Observed:** 2026-09-18
 **How to reproduce:** every number below comes from the public endpoints in
 [docs/VERIFY.md](VERIFY.md) section 5. Nothing here is read from an internal
 dashboard.
@@ -14,7 +14,7 @@ dashboard.
 | Measure | Value |
 |---|---|
 | Public Cases | 3 |
-| Cases sealed | 0 |
+| Cases sealed | 1 |
 | Published Case Reports | 2 |
 | Published Wire Reports | 0 |
 | Analysts with an active profile | 3 |
@@ -23,11 +23,11 @@ dashboard.
 | Public openings through the full-maintainer approve-open path | 3 |
 | Publications through independent analyst quorum | 1 |
 | Publications through the labeled maintainer bootstrap channel | 1 |
-| Resolutions finalized | 1, in its challenge window |
+| Resolutions finalized | 1, sealed |
 | Challenges opened | 0 |
 | Confirmed reward payments | 0 |
 | Confirmed voluntary support transfers | 1, for 100,000 lamports |
-| Seals | 0 |
+| Seals | 1 |
 
 All three live analysts hold the `probationary` tier at review weight `0.50`,
 and the public verifier returned `valid` for all three
@@ -35,11 +35,11 @@ and the public verifier returned `valid` for all three
 
 ## What that means, without softening it
 
-**The machinery is built and the network is not.** Every lifecycle stage from
-intake through winner selection has now run at least once in production against
-real mainnet transactions, and the first challenge window is open as of
-2026-08-12. Sealing and reward payment have never run outside test
-environments.
+**The machinery is built and the network is not.** As of 2026-09-18 one Case has
+run the entire lifecycle in production against real mainnet transactions, from
+intake through publication, winner selection, a completed challenge window and
+`RECORD_SEALED`. Reward payment is the one step that has still never run outside
+a test environment, because that Case carried no pledge.
 
 **One publication has cleared an independent analyst quorum, and it is worth
 stating exactly how.** On 2026-08-09 report version `OSI-RV-84E1DCA675CA4480`
@@ -65,10 +65,16 @@ not change, and the restore trigger are recorded in
 The governance thesis has now run once in production. It has not yet run at
 earned weight.
 
-**No Case has been sealed, and the first resolution used the bootstrap
-channel.** Winner selection on Case `OSI-E0F2D49EA78B` was finalized on
-2026-08-12 through D17, because no analyst had cast a selection review and the
-standard resolution gate needs weight `2.50` against a live maximum of `1.50`.
+**The first Case is sealed, and both its resolution and its seal used the
+bootstrap channel.** Winner selection on Case `OSI-E0F2D49EA78B` was finalized
+on 2026-08-12 through D17, because no analyst had cast a selection review and
+the standard resolution gate needs weight `2.50` against a live maximum of
+`1.50`. Sealing met the same arithmetic on 2026-09-18 and travelled the same
+labeled channel, recorded as `actor_role='maintainer'` with
+`decision_channel='maintainer_bootstrap'`. The seal transaction is
+[`2WHUEpv9...UD5LqDQ`](https://solscan.io/tx/2WHUEpv9NHFPPfpa3ZuH6cLt7khyqDY14rZp88aQbmz5J1ocVTMnrG9hisBWExa31XiEooW5yUgrXmpP9UD5LqDQ),
+finalized on mainnet. What it proves is that the lifecycle completes in
+production. It is not analyst consensus and no surface presents it as one.
 
 Its `REPORT_SELECTED_WINNING` memo anchors the exact resolution and the acting
 wallet, and the deciding role travels in the server-verified receipt as
@@ -81,12 +87,43 @@ carries the role on chain. All four shipped profiles are tabled in
 [docs/OSI_V2_MEMO_EVENT_SPEC.md](OSI_V2_MEMO_EVENT_SPEC.md), so the
 specification was right and this page was wrong. Bringing the governance family
 onto a versioned profile, so a seal carries its role on chain rather than only
-in the receipt, is open work and is named as such rather than left implied.
+in the receipt, is open work and is named as such rather than left implied. The
+seal memo above is the clearest example to pull: fetch it from any Solana RPC
+and it reads `OSI2|RECORD_SEALED|t=resolution|id=...|ref=...|a=...|h=...|n=...|ts=...|exp=...`,
+with no role segment anywhere in it.
 
-The seven-day
-challenge window closes 2026-08-19, and sealing faces the same arithmetic, so
-the first seal will also travel the labeled bootstrap channel unless the roster
-grows earned weight first.
+**Why the seal is dated a month after its window closed.** The challenge window
+closed on 2026-08-19 and `RECORD_SEALED` was anchored on 2026-09-18. The delay
+was operational rather than technical: no challenge was pending and the action
+was available throughout. It is noted here because both dates are on chain and
+the gap is visible to anyone who looks.
+
+A seal records that the process completed, so waiting does not improve one.
+Material that arrives after a window closes has its own modelled paths, a new
+Report version, a challenge, or a reopen, none of which need the Case to sit
+unsealed in the meantime. A seal belongs at the close of its window, and that is
+where the next one goes.
+
+**The first sealed Case produced a Report its owner could use.** The Case owner
+reports taking the published Report to the exchange the receiving address was
+attributed to, and that the assets held at that address were frozen, with the
+matter now pursued through official channels. A published Report becoming
+something the person it was written for can act on is the point of this process,
+and this is the first time it has happened here.
+
+It is recorded as an owner report and nothing more. OSI has not verified it: it
+is not on chain and no exchange or authority has stated it publicly. No part of
+it was carried out by OSI, which approached no exchange and no authority and
+represented nobody. The owner took their own Report to their own counterparties;
+what OSI did was publish it through a reviewed process and seal the record. It
+is not a recovery, and OSI promises none. The published Report is unchanged by
+it and remains a reviewed, attributable and permanently challengeable
+observation about public evidence rather than a finding of wrongdoing by anyone.
+
+There is a product observation in it too. A sealed Case is a completed process
+record, and OSI has no modelled way to attach what happened next to one. An
+outcome has no reviewed path into the record it belongs to, so it sits on a
+status page instead. That is a named gap rather than a design choice.
 
 **No Case has been opened by an analyst either.** All three public Cases were
 opened on the full-maintainer approve-open path, which the model permits as an
@@ -115,13 +152,15 @@ privilege on schedule.
 
 Between here and there, the number that matters most is not Cases or page
 views. It is **publications that cleared a quorum with no maintainer weight in
-it**, which is currently one. One is not a network. The next honest thresholds
-are a sealed record that completes the lifecycle, a Wire Report published on
-the same independent path, and a roster carrying enough earned weight that
-resolution and sealing stop needing the bootstrap channel at all. Until those
-move, the correct description of OSI is a working system at cold start, and any
-other description would be the kind of invented traction this project's own
-constitution forbids.
+it**, which is currently one. One is not a network. A sealed record that
+completes the lifecycle was on that list until 2026-09-18 and has now been
+struck off it, which moves the remaining thresholds up rather than shortening
+them: a confirmed reward payment to an author who is not the maintainer, a Wire
+Report published on the independent analyst path, and a roster carrying enough
+earned weight that resolution and sealing stop needing the bootstrap channel at
+all. Until those move, the correct description of OSI is a working system at
+cold start, and any other description would be the kind of invented traction
+this project's own constitution forbids.
 
 ## Why there are no vanity metrics here
 

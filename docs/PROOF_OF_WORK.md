@@ -23,13 +23,18 @@ years and hitting the same four walls every time.
 | Count | What it is | Where it is verifiable |
 |---|---|---|
 | 54 | Bounty payout transactions earned for attribution work | Arkham Intel Exchange |
-| 26 | Paid intelligence report sale transactions | Arkham Intel Exchange |
-| 9 | Named marketplace research listings, listed or sold | Arkham Marketplace |
+| 29 | Paid intelligence report sale transactions | Arkham Intel Exchange |
+| 9 | Named marketplace research listings, every one of them sold | Arkham Marketplace |
 | 4 | Solana-focused investigative submissions | Superteam Earn / Redacted Hackathon |
 
-More than 80 transactions tied to real, paid intelligence work, plus named
-public research on money-laundering flows, sniper-wallet clusters, and
-named-entity attribution.
+83 transactions tied to real, paid intelligence work, plus named public research
+on money-laundering flows, sniper-wallet clusters, and named-entity attribution.
+
+The second and third rows overlap by three, and it is worth saying so rather
+than letting a reader add them up wrong. The three most recent sale
+transactions in Appendix B are the settlements for the last three named
+listings in Appendix C. Appendix C counts subjects, Appendix B counts
+transactions; the 83 above counts each transaction once.
 
 ## Areas of practice
 
@@ -127,7 +132,7 @@ verifiable on the Arkham Intel Exchange.
 # Appendix B: Arkham paid intelligence sales
 
 Transactions for standalone intelligence reports sold to buyers on the Arkham
-Intel Exchange. 26 transactions.
+Intel Exchange. 29 transactions.
 
 1. [`0x6ca4dc88...f93b`](https://arkm.com/explorer/tx/0x6ca4dc88e3423656ce167e8649dbd909039bf165b0a46f7e1eabe7261fe1f93b)
 2. [`0xa66f0c50...0ded`](https://arkm.com/explorer/tx/0xa66f0c5039b17f1c7ea30eb703d72839415fadf2c75e7d55f428e8ad3bfe0ded)
@@ -156,21 +161,30 @@ Intel Exchange. 26 transactions.
 25. [`0xcf640e4b...311d`](https://arkm.com/explorer/tx/0xcf640e4bb26bccdf049b637eb1d3b77d6cb184c4f24ade06ffc9df2e9125311d)
 26. [`0x62c96ccc...da1f`](https://arkm.com/explorer/tx/0x62c96ccce12156629dc184ba21971d3da95514ca36dd792778f111fbf6cada1f)
 
+The three below settled the last three named listings in Appendix C, which is
+why that appendix no longer has anything in its "currently listed" column.
+
+27. [`0x6852ba84...e292`](https://arkm.com/explorer/tx/0x6852ba84a3e6fdd8b85c7df2c73c69f474e86a11b7995ecacb99504ca3b9e292), SkyAI Inc
+28. [`0x2eb7f620...6f12`](https://arkm.com/explorer/tx/0x2eb7f62039eea0bf2d5edc1cc622547a43784a393c7155b80c10eafa52226f12), Hyperion DeFi
+29. [`0x4da6ee46...f490a`](https://arkm.com/explorer/tx/0x4da6ee46ae49b8a3d667429f2a20fb0899432260bac2d14046193abf8bbf490a), Enlivex
+
 ---
 
 # Appendix C: Arkham marketplace research listings
 
-Named research reports listed or sold on the Arkham Marketplace. These are
-titled, subject-specific investigations, not anonymous bounty submissions.
+Named research reports sold on the Arkham Marketplace. These are titled,
+subject-specific investigations, not anonymous bounty submissions.
 
-## Currently listed
-
-- [SkyAI Inc, formerly Sharps Technology](https://arkm.com/marketplace/listings/56c921e9-b824-44af-98eb-9a4ba5c4cc00)
-- [Enlivex](https://arkm.com/marketplace/listings/e9a599da-f486-474e-9e79-fe258202c898)
-- [Hyperion DeFi](https://arkm.com/marketplace/listings/861e7a5c-e0a3-4a57-9f27-0038c72a2d04)
+All nine have now sold. The last three cleared in August and September 2026;
+their settlement transactions are entries 27 to 29 in Appendix B, so each one
+resolves to a buyer paying for that exact report rather than to a listing page
+alone.
 
 ## Purchased by buyers
 
+- [SkyAI Inc, formerly Sharps Technology](https://arkm.com/marketplace/listings/56c921e9-b824-44af-98eb-9a4ba5c4cc00). Settled by [`0x6852ba84...e292`](https://arkm.com/explorer/tx/0x6852ba84a3e6fdd8b85c7df2c73c69f474e86a11b7995ecacb99504ca3b9e292)
+- [Hyperion DeFi](https://arkm.com/marketplace/listings/861e7a5c-e0a3-4a57-9f27-0038c72a2d04). Settled by [`0x2eb7f620...6f12`](https://arkm.com/explorer/tx/0x2eb7f62039eea0bf2d5edc1cc622547a43784a393c7155b80c10eafa52226f12)
+- [Enlivex](https://arkm.com/marketplace/listings/e9a599da-f486-474e-9e79-fe258202c898). Settled by [`0x4da6ee46...f490a`](https://arkm.com/explorer/tx/0x4da6ee46ae49b8a3d667429f2a20fb0899432260bac2d14046193abf8bbf490a)
 - [BTCS](https://arkm.com/marketplace/listings/fe12597824694019b5476dd63ab9c81a)
 - [Andrew Keys / ETH Strategy / GameSquare Holdings](https://arkm.com/marketplace/listings/03e1dc142a5d46ba9467f857eab0dc97)
 - [ETHZilla](https://arkm.com/marketplace/listings/8f1769def7b2477798442086c3367543)
