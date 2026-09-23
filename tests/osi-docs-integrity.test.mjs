@@ -145,6 +145,16 @@ ok(`marketplace listing count matches the listings shown (${listingLinks})`,
   listingLinks === 9 && /\| 9 \|/.test(proofOfWork));
 ok("the track record discloses its own lost submission rather than omitting it",
   /Disclosure on the X ICOs submission/.test(proofOfWork));
+// The first place is the one placement a reader should not have to take from
+// this page alone, so the sponsor's own announcement stays linked next to it.
+// The last three sales settled in blocks dated 20, 20 and 25 August 2026, and
+// an earlier revision placed them in September.
+const proofOfWorkProse = proofOfWork.replace(/\s+/g, " ");
+ok("the first place links to the sponsor's own announcement",
+  /range\.org\/blog\/winners-of-solana-hackathon-bounty/.test(proofOfWork));
+ok("the last three sales carry their settlement dates",
+  proofOfWorkProse.includes("cleared on 20, 20 and 25 August 2026")
+  && !proofOfWorkProse.includes("August and September 2026"));
 
 // 4. Network status is stated, not implied, and both entry points carry it.
 const readme = read("README.md");
@@ -197,6 +207,19 @@ ok("the reported outcome on the sealed Case stays an owner report, not a finding
 ok("the snapshot qualifies its one quorum publication with the D21 calibration",
   /20260807154829_osi_v2_cold_start_weight_gate_calibration\.sql/.test(networkStatus)
   && /has not yet run at\s+earned weight/.test(networkStatus));
+// Every analyst on the live roster was invited from the maintainer's own
+// network. "Independent" in this project is a database rule about authorship,
+// not a claim about relationships, and a reader has to be told both.
+ok("the snapshot discloses how the analyst roster formed",
+  /\| Analysts invited from the maintainer's own network \| 3 \|/.test(networkStatus)
+  && /\| Analysts who joined through public outreach \| 0 \|/.test(networkStatus)
+  && networkStatusProse.includes(
+    "It does not mean a reviewer with no relationship to the maintainer"));
+ok("both READMEs carry the roster disclosure",
+  readme.replace(/\s+/g, " ").includes(
+    "colleagues from the maintainer's own analyst network")
+  && readmeTr.replace(/\s+/g, " ").includes(
+    "sürdürücünün kendi analist ağından"));
 ok("both READMEs carry the current bounded private-read session lifetime",
   /30-minute inactivity window, 8-hour absolute lifetime/.test(readme)
   && /30 dakika hareketsizlik, 8 saat mutlak ömür/.test(readmeTr)

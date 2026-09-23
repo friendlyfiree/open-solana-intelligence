@@ -21,7 +21,14 @@ Solana has a wallet-victim problem that is measurable and getting worse, and alm
 - In that data, **Solana had the largest number of personal wallet theft incidents of any chain, with roughly 26,500 victims** in 2025. ([Chainalysis 2026 Crypto Crime Report](https://www.chainalysis.com/blog/crypto-hacking-stolen-funds-2026/))
 - Reporting scales with the losses and not with the help available: the FBI's IC3 logged **181,565 cryptocurrency fraud complaints totalling more than $11 billion** in 2025, up 22% year over year. ([FBI IC3 2025 Annual Report](https://www.ic3.gov/AnnualReport/Reports/2025_IC3Report.pdf))
 
-Tens of thousands of Solana victims per year, and the professional forensics market is priced and structured for institutions. Skilled community analysts do genuinely good work, but they do it in private chats and closed marketplaces where it builds no portable public track record, and where the reasoning behind a conclusion is invisible and cannot be contested. Exchanges, compliance teams, and law enforcement receive scattered screenshots instead of structured, verifiable evidence.
+Tens of thousands of Solana victims a year run into the same structural gaps. None of them is the failure of any one team:
+
+1. **Victims often lack a safe path.** After a drain there is rarely budget left for a bounty, and in panic victims meet fake recovery offers, lose money a second time, or share seed phrases and personal data with the wrong people.
+2. **Small cases wait.** Emergency responders and professional forensics firms do valuable work, but the slow follow-up a small, already-drained case needs is a different job that rarely gets priority, and bounty platforms depend on bounty size, central approval, and platform capacity.
+3. **Analyst work stays invisible.** Skilled community analysts help victims every week, but they do it in private chats and closed marketplaces where it builds no portable public track record and the reasoning behind a conclusion cannot be contested. New analysts have no open place to be reviewed and to learn, and reviewing someone else's work earns neither reputation nor fees.
+4. **Evidence stays scattered.** Wallets, transactions, screenshots, posts, and exchange replies sit in different places, claims mix with evidence, and people get accused without public proof. The same holds for rugs, scams, impersonation, and suspicious fund flows, not only hacks.
+5. **Exchanges and police need a readable record.** Compliance teams and law enforcement receive scattered screenshots instead of structured, verifiable evidence, and raw traces across bridges and wallet clusters are hard to follow.
+6. **Nothing is remembered.** Incidents are discussed and then forgotten, and Solana has no open, self-hostable workflow that turns them into reviewed, referenceable public records.
 
 The gap is not analytical talent. It is that there is no open place where an investigation can be **submitted, reviewed by independent people, published with its reasoning attached, contested, and permanently proven to have happened that way**.
 
@@ -63,6 +70,8 @@ Concretely, three things in this repository are reusable by other Solana teams t
 The platform is deployed and open for its first Cases. The network is at its honest cold start.
 
 As of 2026-09-18: **3 public Cases, 2 published Case Reports, 0 published Wire Reports, 3 probationary analysts, 1 seal, 1 publication through an independent analyst quorum.** One Case has now run the whole lifecycle in production, from intake through publication, winner selection, a completed seven-day challenge window and `RECORD_SEALED` on mainnet. The publication cleared the ordinary analyst path with two independent reviewers and the author excluded at the database boundary; its `REPORT_PUBLISHED` memo reads `r=analyst`. The other published Report went through the transparently labeled maintainer bootstrap channel and reads `r=maintainer`. So did the winner selection and the seal, though that memo family carries no role field at all, so the role is recorded in the server-verified receipt rather than on chain; [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) states which is which, and also records why the seal is dated a month after its window closed. Both approving analysts sit at the probationary weight floor, so what is proven is that the path runs, not that it runs at earned weight.
+
+All three analysts are colleagues from the maintainer's own analyst network, invited to support the cold start, and none has yet joined through public outreach. Throughout OSI, an independent analyst means a reviewer who is not the author of the version under review, enforced by the database, not someone with no relationship to the maintainer. [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) sets this out in full.
 
 That is stated up front rather than buried, because a project whose product is verifiable public record does not get to describe its own adoption in adjectives. The full breakdown, including what would have to change for those numbers to mean something, is in [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md), and every figure in it is reproducible from the public endpoints in [docs/VERIFY.md](docs/VERIFY.md).
 
@@ -140,7 +149,7 @@ Every active analyst holds a real, revocable **Solana Attestation Service (SAS)*
 
 The schema stores only integer tier and status codes. No names, no personal data, no case content ever goes on chain.
 
-## Governance that cannot be faked
+## Governance rules the database enforces
 
 Critical outcomes require both a minimum count of independent analysts and a minimum total voting weight. A single analyst can never decide a critical outcome alone, even at maximum weight. Authors can never review their own work; this is enforced at the database boundary, not just in the interface.
 
@@ -190,7 +199,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full map, [docs/USER_GU
 
 OSI is built and maintained by **Aksusarya**, an independent on-chain intelligence analyst. The project is a direct product of that work: paid attribution research and intelligence reports that were real, market-validated, and yet scattered across private buyers with no portable public track record and no reviewable process behind the conclusions.
 
-The verifiable record is in [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md): 54 bounty payout transactions, 29 paid intelligence report sales, 9 named marketplace research listings all of which have now sold, and Solana-focused investigative submissions on Superteam Earn, every one of them resolving to a public transaction or listing.
+The verifiable record is in [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md): 83 on-chain payments on the Arkham Intel Exchange from September 2023 to August 2026, totalling 62,569 ARKM across 54 bounty payouts and 29 paid intelligence report sales; 9 named marketplace research listings, all of which have now sold; and Solana investigation placements in the 2025 Redacted Hackathon, led by 1st place in Range's Money Laundering on Solana bounty (11,000 USDC). Every counted item resolves to a public transaction, listing, or page.
 
 OSI is engineered with AI assistance under the explicit contract in [AGENTS.md](AGENTS.md), which is public for the same reason everything else here is. That approach is not defended by assertion. It is defended by checkable evidence: the code is MIT and public, authorization boundaries are covered by pgTAP suites against a database built from zero, the governance and payment decision cores are tested as shipped, and every claim of mainnet anchoring resolves to a transaction a stranger can inspect. Off-chain claims remain distinguishable and are checked through public APIs, receipts, and tests. See [AGENTS.md](AGENTS.md) section 15.
 

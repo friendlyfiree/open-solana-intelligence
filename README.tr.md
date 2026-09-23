@@ -21,7 +21,14 @@ Solana'nın ölçülebilir ve büyüyen bir cüzdan mağduru problemi var ve bu 
 - Aynı veride **Solana, kişisel cüzdan hırsızlığında yaklaşık 26.500 mağdurla tüm zincirler arasında en yüksek olay sayısına** sahip. ([Chainalysis 2026 Crypto Crime Report](https://www.chainalysis.com/blog/crypto-hacking-stolen-funds-2026/))
 - Bildirimler kayıplarla birlikte büyüyor, ama ulaşılabilir yardımla değil: FBI IC3, 2025'te **181.565 kripto dolandırıcılık şikâyeti ve 11 milyar doları aşan kayıp** kaydetti, bir önceki yıla göre %22 artış. ([FBI IC3 2025 Annual Report](https://www.ic3.gov/AnnualReport/Reports/2025_IC3Report.pdf))
 
-Yılda on binlerce Solana mağduru var ve profesyonel adli inceleme piyasası fiyatıyla da yapısıyla da kurumlara göre kurulmuş. Yetenekli topluluk analistleri gerçekten iyi iş çıkarıyor, ama bunu özel sohbetlerde ve kapalı pazar yerlerinde yapıyorlar: taşınabilir bir kamusal sicil oluşmuyor ve bir sonuca nasıl varıldığı görünmediği için itiraz da edilemiyor. Borsalar, uyum ekipleri ve kolluk ise yapılandırılmış ve doğrulanabilir delil yerine dağınık ekran görüntüleri alıyor.
+Yılda on binlerce Solana mağduru aynı yapısal boşluklara takılıyor. Bunların hiçbiri tek bir ekibin kusuru değil:
+
+1. **Mağdurun çoğu zaman güvenli bir yolu yok.** Cüzdan boşaltıldıktan sonra bir ödül için bütçe nadiren kalıyor; panik içindeki mağdur sahte kurtarma tekliflerine denk geliyor, ikinci kez para kaybediyor ya da seed phrase ve kişisel verisini yanlış kişilerle paylaşıyor.
+2. **Küçük vakalar bekliyor.** Acil müdahale ekipleri ve profesyonel adli inceleme firmaları değerli iş yapıyor, ama küçük ve zaten boşaltılmış bir vakanın ihtiyaç duyduğu yavaş takip başka bir iş ve nadiren öncelik alıyor; ödül platformları ise ödül büyüklüğüne, merkezi onaya ve platform kapasitesine bağlı.
+3. **Analist emeği görünmez kalıyor.** Yetenekli topluluk analistleri her hafta mağdurlara yardım ediyor, ama bunu özel sohbetlerde ve kapalı pazar yerlerinde yapıyorlar: taşınabilir bir kamusal sicil oluşmuyor ve bir sonucun gerekçesine itiraz edilemiyor. Yeni analistlerin incelenip öğrenebileceği açık bir yer yok ve başkasının işini incelemek ne itibar ne de ücret kazandırıyor.
+4. **Delil dağınık kalıyor.** Cüzdanlar, işlemler, ekran görüntüleri, paylaşımlar ve borsa yanıtları farklı yerlerde duruyor, iddia ile delil birbirine karışıyor ve insanlar kamusal kanıt olmadan suçlanıyor. Bu yalnızca hack'ler için değil; rug'lar, dolandırıcılıklar, taklit hesaplar ve şüpheli fon akışları için de geçerli.
+5. **Borsalar ve kolluk okunabilir bir kayda ihtiyaç duyuyor.** Uyum ekipleri ve kolluk, yapılandırılmış ve doğrulanabilir delil yerine dağınık ekran görüntüleri alıyor; köprüler ve cüzdan kümeleri boyunca uzanan ham izleri takip etmek zor.
+6. **Hiçbir şey hatırlanmıyor.** Olaylar konuşulup unutuluyor ve Solana'da bunları incelenmiş, atıf yapılabilir kamusal kayıtlara dönüştüren açık ve kendi sunucunda çalıştırılabilir bir iş akışı yok.
 
 Eksik olan analitik yetenek değil. Eksik olan, bir incelemenin **gönderilebildiği, bağımsız kişilerce değerlendirildiği, gerekçesiyle birlikte yayımlandığı, itiraz edilebildiği ve tam olarak böyle olduğu kalıcı biçimde kanıtlanabildiği** açık bir yer.
 
@@ -62,6 +69,8 @@ Somut olarak, bu depoda üç şey OSI'den bağımsız şekilde bugün diğer Sol
 Platform yayında ve ilk vakalarına açık. Ağ ise dürüst bir soğuk başlangıçta.
 
 2026-09-18 itibarıyla: **3 kamuya açık Vaka, 2 yayımlanmış Vaka Raporu, 0 yayımlanmış Wire Raporu, 3 deneme süreli analist, 1 mühür, bağımsız analist yeter sayısı ile 1 yayımlama.** Bir Vaka artık tüm yaşam döngüsünü üretimde tamamladı: başvurudan yayımlamaya, kazanan seçimine, dolmuş yedi günlük itiraz penceresine ve mainnet üzerinde `RECORD_SEALED` mührüne kadar. Yayımlama, iki bağımsız inceleyiciyle ve yazar veritabanı sınırında dışlanarak olağan analist yolundan geçti; `REPORT_PUBLISHED` memo'su `r=analyst` okuyor. Diğer yayımlanmış Rapor, şeffaf şekilde etiketlenmiş sürdürücü başlangıç kanalından çıktı ve `r=maintainer` okuyor. Kazanan seçimi ve mühür de aynı kanaldan geçti; ancak o memo ailesi hiç rol alanı taşımaz, dolayısıyla o rol zincirde değil sunucu tarafından doğrulanan makbuzda kayıtlıdır. Hangisinin hangisi olduğu ve mührün penceresinin kapanmasından bir ay sonra tarihlenmesinin nedeni [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) içinde yazılıdır. Onaylayan iki analistin ikisi de deneme süreli ağırlık tabanında duruyor; yani kanıtlanan şey yolun işlediği, kazanılmış ağırlıkla işlediği değil.
+
+Üç analistin üçü de sürdürücünün kendi analist ağından, soğuk başlangıca destek için davet edilmiş meslektaşlar ve henüz hiçbiri kamusal duyuru yoluyla katılmadı. OSI genelinde bağımsız analist, incelenen sürümün yazarı olmayan ve bunu veritabanının zorladığı bir inceleyici demektir; sürdürücüyle hiçbir bağı olmayan biri demek değildir. [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) bunu eksiksiz ortaya koyar.
 
 Bu bilgi gizlenmek yerine en başta veriliyor, çünkü ürünü doğrulanabilir kamusal kayıt olan bir proje kendi benimsenmesini sıfatlarla anlatamaz. Tam döküm ve bu sayıların anlam kazanması için nelerin değişmesi gerektiği [docs/NETWORK_STATUS.md](docs/NETWORK_STATUS.md) içinde; oradaki her rakam [docs/VERIFY.md](docs/VERIFY.md) bölüm 5'teki kamusal uçlardan yeniden üretilebilir.
 
@@ -139,7 +148,7 @@ Aktif her analist mainnet üzerinde gerçek ve geri alınabilir bir **Solana Att
 
 Şema yalnızca tamsayı kademe ve durum kodlarını saklar. Zincire asla isim, kişisel veri veya vaka içeriği yazılmaz.
 
-## Taklit edilemeyen yönetişim
+## Veritabanının zorladığı yönetişim kuralları
 
 Kritik sonuçlar hem asgari bağımsız analist sayısını hem de asgari toplam oy ağırlığını gerektirir. Tek bir analist, azami ağırlıkta bile kritik bir sonucu tek başına karara bağlayamaz. Yazarlar kendi işlerini asla inceleyemez; bu yalnızca arayüzde değil, veritabanı sınırında zorlanır.
 
@@ -179,7 +188,7 @@ Temel özellikler:
 
 OSI, bağımsız bir zincir üstü istihbarat analisti olan **Aksusarya** tarafından geliştirilip sürdürülüyor. Proje doğrudan bu işin ürünü: gerçek olan, piyasada karşılığı bulunan ama özel alıcılar arasında dağılmış, taşınabilir kamusal sicili ve sonuçların arkasında incelenebilir bir süreci olmayan ücretli atıf araştırmaları ve istihbarat raporları.
 
-Doğrulanabilir kayıt [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md) içinde: 54 ödül ödemesi işlemi, 29 ücretli istihbarat raporu satışı, tamamı satılmış 9 isimli pazar yeri araştırma ilanı ve Superteam Earn üzerinde Solana odaklı soruşturma gönderimleri. Her biri kamuya açık bir işleme veya ilana çözümleniyor.
+Doğrulanabilir kayıt [docs/PROOF_OF_WORK.md](docs/PROOF_OF_WORK.md) içinde: Eylül 2023 ile Ağustos 2026 arasında Arkham Intel Exchange üzerinde, 54 ödül ödemesi ve 29 ücretli istihbarat raporu satışından oluşan, toplam 62.569 ARKM tutarında 83 zincir üstü ödeme; tamamı satılmış 9 isimli pazar yeri araştırma ilanı; ve 2025 Redacted Hackathon'da, başında Range'in Money Laundering on Solana ödülünde birincilik (11.000 USDC) gelen Solana soruşturma dereceleri. Sayılan her kalem kamuya açık bir işleme, ilana veya sayfaya çözümleniyor.
 
 OSI, [AGENTS.md](AGENTS.md) içindeki açık sözleşme altında yapay zekâ desteğiyle geliştiriliyor ve bu sözleşme, buradaki her şeyle aynı nedenle kamuya açık. Bu yaklaşım iddiayla değil denetlenebilir kanıtla savunuluyor: mainnet'e çapalandığı söylenen her sonuç bir işleme, zincir dışı iddialar ise kamusal API, makbuz veya teste çözümleniyor. Ayrıntı için [AGENTS.md](AGENTS.md) bölüm 15.
 
