@@ -233,7 +233,8 @@ ok("the snapshot discloses how the analyst roster formed",
   && networkStatusProse.includes(
     "It does not mean a reviewer with no relationship to the maintainer")
   && networkStatusProse.includes(
-    "written and submitted from one of the maintainer's own wallets"));
+    "written and submitted from one of the maintainer's own wallets")
+  && networkStatusProse.includes("but they are not investigative findings"));
 ok("both READMEs carry the roster disclosure",
   readme.replace(/\s+/g, " ").includes(
     "colleagues from the maintainer's own analyst network")

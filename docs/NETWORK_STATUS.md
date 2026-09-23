@@ -78,7 +78,11 @@ and its Case were written and submitted from one of the maintainer's own
 wallets,
 [`9KZXnfzt...dmgUVJQXb`](https://solscan.io/account/9KZXnfztWnBNJARVGyMoPuT7dF759bKuPwgdmgUVJQXb),
 on behalf of the person who asked for help, and the database excluded that
-author from its review like any other.
+author from its review like any other. The two Forward Industries Cases, and the
+Report published on one of them through the bootstrap channel, came from the
+cold start and were partly used to exercise intake, publication and payment end
+to end. They stay in the record because published versions are never deleted,
+but they are not investigative findings.
 
 The qualifier that belongs next to that first number: both approving analysts
 sit at the `0.50` probationary floor, so the publication cleared a standard
