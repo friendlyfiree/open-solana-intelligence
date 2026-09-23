@@ -230,7 +230,9 @@ ok("the snapshot discloses how the analyst roster formed",
   /\| Analysts invited from the maintainer's own network \| 3 \|/.test(networkStatus)
   && /\| Analysts who joined through public outreach \| 0 \|/.test(networkStatus)
   && networkStatusProse.includes(
-    "It does not mean a reviewer with no relationship to the maintainer"));
+    "It does not mean a reviewer with no relationship to the maintainer")
+  && networkStatusProse.includes(
+    "written and submitted from one of the maintainer's own wallets"));
 ok("both READMEs carry the roster disclosure",
   readme.replace(/\s+/g, " ").includes(
     "colleagues from the maintainer's own analyst network")

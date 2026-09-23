@@ -73,7 +73,12 @@ the exact version, the author was excluded at the database boundary, and the
 `decision_channel='standard'`. The other published Report, from 2026-08-03,
 went out through the cold-start bootstrap channel and reads `r=maintainer` with
 `decision_channel='maintainer_bootstrap'`. Both are visible on chain and the
-interface never presents the second as analyst consensus.
+interface never presents the second as analyst consensus. `OSI-RV-84E1DCA675CA4480`
+and its Case were written and submitted from one of the maintainer's own
+wallets,
+[`9KZXnfzt...dmgUVJQXb`](https://solscan.io/account/9KZXnfztWnBNJARVGyMoPuT7dF759bKuPwgdmgUVJQXb),
+on behalf of the person who asked for help, and the database excluded that
+author from its review like any other.
 
 The qualifier that belongs next to that first number: both approving analysts
 sit at the `0.50` probationary floor, so the publication cleared a standard
