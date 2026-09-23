@@ -173,7 +173,7 @@ Supabase Edge Functions (Deno)          Solana mainnet
    |  yalnızca servis rolüne açık RPC'ler, Stage-5 kanıtları
    v
 PostgreSQL (Supabase)
-   32 alan tablosu, FORCE row level security, varsayılan reddet
+   33 alan tablosu, FORCE row level security, varsayılan reddet
    eklemeli incelemeler, değiştirilemez sürümler, olay makbuzları
 ```
 

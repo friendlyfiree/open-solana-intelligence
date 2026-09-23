@@ -72,6 +72,17 @@ That last line is the privacy claim, on chain, in the schema itself: the only
 things OSI ever writes to an analyst's attestation are two integers. No name,
 no handle, no case content, no personal data.
 
+**Who controls issuance.** The OSI Credential's authority is the maintainer
+wallet `42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y`, and the Credential lists
+exactly two authorized signers: that wallet and the operational issuer above.
+The issuer is a dedicated key kept as a server secret in the OSI deployment. It
+was funded with 0.01 SOL from the maintainer wallet, and as of 2026-09-23 every
+transaction it has signed is a SAS instruction. Issuing and revoking analyst
+credentials is therefore under the maintainer's control today, while every
+credential remains a public account on mainnet that a reader can check without
+OSI. The authority and both signers are stored in the Credential account's
+data.
+
 ## 3. Any analyst wallet, straight from the chain
 
 OSI exposes a public verifier, and the verifier is itself checkable because it

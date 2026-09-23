@@ -77,6 +77,8 @@ const KNOWN_KEYS = new Set([
   ...Object.values(ONCHAIN),
   "FcwxSJJY6x7K4fPBzTVVtvaeYpg3E472ZNXL97aFmUkG",
   "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+  // The maintainer wallet, named as the Credential authority.
+  "42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y",
 ]);
 const verifyGuide = read("docs/VERIFY.md");
 const strayKeys = [...verifyGuide.matchAll(/\b[1-9A-HJ-NP-Za-km-z]{43,44}\b/g)]
@@ -84,6 +86,11 @@ const strayKeys = [...verifyGuide.matchAll(/\b[1-9A-HJ-NP-Za-km-z]{43,44}\b/g)]
   .filter((key) => !KNOWN_KEYS.has(key));
 ok("the verification guide contains no unexplained base58 account key",
   strayKeys.length === 0 || assert.fail(`unexplained keys: ${strayKeys.join(", ")}`));
+// A credential is only as independent as whoever can issue it, so the guide
+// names that party instead of leaving the issuer as a bare address.
+ok("the verification guide states who controls credential issuance",
+  /Who controls issuance/.test(verifyGuide)
+  && verifyGuide.includes("42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y"));
 
 // 2b. The default-deny proof in the verification guide names tables that exist.
 //
@@ -99,6 +106,15 @@ const declaredTables = new Set(
     .map((match) => match[1].toLowerCase()));
 ok(`the V2 additive schema declares its domain tables (${declaredTables.size} found)`,
   declaredTables.size >= 30 && declaredTables.has("cases") && declaredTables.has("event_receipts"));
+// The entry points once said 32 after `wallet_profiles` made it 33. The domain
+// model states the authoritative count, so every summary is held to it.
+const domainTableCount = (read("docs/OSI_V2_DOMAIN_MODEL.md")
+  .match(/Authoritative domain-table count: (\d+)/) || [])[1];
+ok(`the entry points state the blueprint's domain-table count (${domainTableCount})`,
+  Boolean(domainTableCount)
+  && read("README.md").includes(`${domainTableCount} domain tables`)
+  && read("README.tr.md").includes(`${domainTableCount} alan tablosu`)
+  && read("docs/ARCHITECTURE.md").includes(`${domainTableCount} domain tables`));
 
 // The guide's loop spans several backslash-continued lines; join them first.
 const denyLoop = verifyGuide.replace(/\\\n\s*/g, " ").match(/for\s+T\s+in\s+([^;]+?);\s*do/);

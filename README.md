@@ -182,7 +182,7 @@ Supabase Edge Functions (Deno)          Solana mainnet
    |  service-only RPCs, Stage-5 proofs
    v
 PostgreSQL (Supabase)
-   32 domain tables, FORCE row level security, default deny
+   33 domain tables, FORCE row level security, default deny
    append-only reviews, immutable versions, event receipts
 ```
 

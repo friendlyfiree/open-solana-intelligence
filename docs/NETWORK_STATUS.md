@@ -138,7 +138,7 @@ and this is the first time it has happened here.
 It is recorded as an owner report and nothing more. OSI has not verified it: it
 is not on chain and no exchange or authority has stated it publicly. No part of
 it was carried out by OSI, which approached no exchange and no authority and
-represented nobody. The owner took their own Report to their own counterparties;
+represented nobody. The owner took the published Report to their own counterparties;
 what OSI did was publish it through a reviewed process and seal the record. It
 is not a recovery, and OSI promises none. The published Report is unchanged by
 it and remains a reviewed, attributable and permanently challengeable
