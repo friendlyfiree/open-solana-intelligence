@@ -5,6 +5,7 @@ queries that produce it. This page exists because a platform whose product is
 verifiable public record cannot describe its own adoption in adjectives.
 
 **Observed:** 2026-09-18
+**Re-checked:** 2026-09-23, every count unchanged
 **How to reproduce:** every number below comes from the public endpoints in
 [docs/VERIFY.md](VERIFY.md) section 5. Nothing here is read from an internal
 dashboard.
@@ -19,6 +20,8 @@ dashboard.
 | Published Wire Reports | 0 |
 | Analysts with an active profile | 3 |
 | Analysts above probationary tier | 0 |
+| Analysts invited from the maintainer's own network | 3 |
+| Analysts who joined through public outreach | 0 |
 | Public openings through an independent analyst approval | 0 |
 | Public openings through the full-maintainer approve-open path | 3 |
 | Publications through independent analyst quorum | 1 |
@@ -26,12 +29,33 @@ dashboard.
 | Resolutions finalized | 1, sealed |
 | Challenges opened | 0 |
 | Confirmed reward payments | 0 |
-| Confirmed voluntary support transfers | 1, for 100,000 lamports |
+| Confirmed voluntary support transfers in the public Proof Log | 1, for 100,000 lamports |
 | Seals | 1 |
 
 All three live analysts hold the `probationary` tier at review weight `0.50`,
 and the public verifier returned `valid` for all three
 `OSI_VERIFIED_ANALYST` credentials on Solana mainnet at the observation time.
+
+## Who the current analysts are
+
+OSI has not been announced, so all three analysts on the roster are colleagues
+from the maintainer's own analyst network, based in different countries, who
+have worked with the maintainer on earlier investigations and joined at the
+maintainer's invitation to support the cold start. They are real, separate
+people with public X accounts linked from their OSI profiles. None of them
+arrived through public outreach, and none of them is evidence of outside
+demand.
+
+On this page and across OSI, an **independent analyst** means a reviewer who is
+not the author of the exact version under review, which the database enforces.
+It does not mean a reviewer with no relationship to the maintainer. The first
+analysts who join without an invitation are the real test of the network,
+which is why the table above counts them separately.
+
+The maintainer pays the roster's network fees and other costs of their OSI work
+personally. Those transfers are visible on chain in both directions and are fee
+and cost cover, not payment for reviews. So far they involve one roster member
+only.
 
 ## What that means, without softening it
 
@@ -49,7 +73,16 @@ the exact version, the author was excluded at the database boundary, and the
 `decision_channel='standard'`. The other published Report, from 2026-08-03,
 went out through the cold-start bootstrap channel and reads `r=maintainer` with
 `decision_channel='maintainer_bootstrap'`. Both are visible on chain and the
-interface never presents the second as analyst consensus.
+interface never presents the second as analyst consensus. `OSI-RV-84E1DCA675CA4480`
+and its Case were written and submitted from one of the maintainer's own
+wallets,
+[`9KZXnfzt...dmgUVJQXb`](https://solscan.io/account/9KZXnfztWnBNJARVGyMoPuT7dF759bKuPwgdmgUVJQXb),
+on behalf of the person who asked for help, and the database excluded that
+author from its review like any other. The two Forward Industries Cases, and the
+Report published on one of them through the bootstrap channel, came from the
+cold start and were partly used to exercise intake, publication and payment end
+to end. They stay in the record because published versions are never deleted,
+but they are not investigative findings.
 
 The qualifier that belongs next to that first number: both approving analysts
 sit at the `0.50` probationary floor, so the publication cleared a standard
@@ -93,10 +126,12 @@ and it reads `OSI2|RECORD_SEALED|t=resolution|id=...|ref=...|a=...|h=...|n=...|t
 with no role segment anywhere in it.
 
 **Why the seal is dated a month after its window closed.** The challenge window
-closed on 2026-08-19 and `RECORD_SEALED` was anchored on 2026-09-18. The delay
-was operational rather than technical: no challenge was pending and the action
-was available throughout. It is noted here because both dates are on chain and
-the gap is visible to anyone who looks.
+closed on 2026-08-19 and `RECORD_SEALED` was anchored on 2026-09-18. Nothing
+technical blocked it: no challenge was pending and the action was available
+throughout. It was held for two reasons. The Case owner had said to expect an
+off-chain development concerning the traced funds, and the seal had been named
+as a milestone in a pending grant application. Both treated the seal as if it
+closed the investigation rather than the process, and that was a mistake.
 
 A seal records that the process completed, so waiting does not improve one.
 Material that arrives after a window closes has its own modelled paths, a new
@@ -114,7 +149,7 @@ and this is the first time it has happened here.
 It is recorded as an owner report and nothing more. OSI has not verified it: it
 is not on chain and no exchange or authority has stated it publicly. No part of
 it was carried out by OSI, which approached no exchange and no authority and
-represented nobody. The owner took their own Report to their own counterparties;
+represented nobody. The owner took the published Report to their own counterparties;
 what OSI did was publish it through a reviewed process and seal the record. It
 is not a recovery, and OSI promises none. The published Report is unchanged by
 it and remains a reviewed, attributable and permanently challengeable
@@ -136,10 +171,14 @@ modelled route rather than the cold-start substitution the bootstrap channel
 names. The role field is what distinguishes it, and the count above is stated
 separately so nobody has to work that out from a channel label.
 
-**The one support transfer is not adoption.** It is 100,000 lamports sent by
-the maintainer wallet to a report author to exercise the payment path end to
-end against mainnet. It is recorded here as what it is: a production test of
-the money path, not demand.
+**The support transfers are not adoption.** The one in the public Proof Log is
+100,000 lamports sent by the maintainer wallet to a report author on 3 August
+to exercise the payment path end to end against mainnet. An earlier test on 25
+July sent 0.001 SOL from the maintainer wallet to the same roster member under
+the analyst-profile support target; its `SUPPORT_PAYMENT_CONFIRMED` memo is on
+chain, but the transfer does not appear in the public Proof Log projection.
+Both are recorded here as what they are: production tests of the money path,
+not demand.
 
 ## What would change these numbers honestly
 
@@ -155,8 +194,9 @@ views. It is **publications that cleared a quorum with no maintainer weight in
 it**, which is currently one. One is not a network. A sealed record that
 completes the lifecycle was on that list until 2026-09-18 and has now been
 struck off it, which moves the remaining thresholds up rather than shortening
-them: a confirmed reward payment to an author who is not the maintainer, a Wire
-Report published on the independent analyst path, and a roster carrying enough
+them: a confirmed reward payment to an author outside the maintainer and the
+invited roster, a Wire Report published on the independent analyst path, the
+first analysts who join without an invitation, and a roster carrying enough
 earned weight that resolution and sealing stop needing the bootstrap channel at
 all. Until those move, the correct description of OSI is a working system at
 cold start, and any other description would be the kind of invented traction
@@ -170,6 +210,20 @@ are deliberately absent. The public metrics OSI intends to publish later are
 listed in the README roadmap and share one property: each is independently
 verifiable by a third party against the chain or the public read API, using the
 same commands in [docs/VERIFY.md](VERIFY.md).
+
+## Review support ledger
+
+Support for a counted review on a published Case Report travels on the
+counted-reviewer rail, which binds the payment to that reviewer's active review
+of that exact published version. Support
+for any other review, including Wire reviews and reviews of versions that were
+not published, can only travel on the analyst-profile rail, which does not bind
+a payment to a review. A counted review is any review that counts toward a
+quorum decision, whether it approves or rejects. Every analyst-profile payment
+the maintainer sends for a review is listed here against the review it pays
+for, so the link can be checked.
+
+None has been sent yet.
 
 ## Refreshing this page
 

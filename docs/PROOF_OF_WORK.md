@@ -1,12 +1,13 @@
 # Maintainer proof of work
 
 Verifiable track record of the person who builds and maintains Open Solana
-Intelligence. Every claim on this page resolves to a public transaction, a
-public listing, or a public profile. Nothing here is self-reported without
-evidence a reader can open.
+Intelligence. Every counted claim on this page resolves to a public
+transaction, a public listing, or a public page. Nothing here is self-reported
+without evidence a reader can open. Arkham marketplace listings need an Arkham
+login to view; every other link opens without an account.
 
 **Identity:** Aksusarya
-**Primary public identity:** `Aksusarya.eth`
+**Primary public identity:** `Aksusarya.eth`, which resolves to `0x7C44edAC3795D0E8148A53EF6151F63290320A00`
 **Secondary wallet:** `0x7B4C1369874987021edc46C766F91622618cA0db`
 **GitHub:** [friendlyfiree](https://github.com/friendlyfiree)
 **Superteam Earn:** [superteam.fun/earn/t/Aksusarya](https://superteam.fun/earn/t/Aksusarya)
@@ -25,7 +26,7 @@ years and hitting the same four walls every time.
 | 54 | Bounty payout transactions earned for attribution work | Arkham Intel Exchange |
 | 29 | Paid intelligence report sale transactions | Arkham Intel Exchange |
 | 9 | Named marketplace research listings, every one of them sold | Arkham Marketplace |
-| 4 | Solana-focused investigative submissions | Superteam Earn / Redacted Hackathon |
+| 4 | Placements in Solana investigation bounties, including 1st place in Range's money-laundering bounty | Superteam Earn / Redacted Hackathon, Range |
 
 83 transactions tied to real, paid intelligence work, plus named public research
 on money-laundering flows, sniper-wallet clusters, and named-entity attribution.
@@ -35,6 +36,25 @@ than letting a reader add them up wrong. The three most recent sale
 transactions in Appendix B are the settlements for the last three named
 listings in Appendix C. Appendix C counts subjects, Appendix B counts
 transactions; the 83 above counts each transaction once.
+
+## Verified totals
+
+Read from the transaction receipts on Ethereum mainnet, the 83 transactions in
+Appendices A and B paid **62,569 ARKM** to the two addresses above between
+**September 2023 and August 2026**: 36,301 ARKM in bounty payouts and 26,268
+ARKM in report sales. All 83 succeeded, and each one carries an ARKM transfer
+to one of these two addresses. The figure is the sum of those transfers only;
+where a payout was batched with other recipients, their amounts are not
+counted. Anyone can reproduce it from the linked hashes with any Ethereum RPC
+or explorer.
+
+The strongest single result is on Solana: **1st place in Range's Money
+Laundering on Solana bounty (11,000 USDC)** in the 2025 Redacted Hackathon.
+Range's own announcement describes the winning work as "a well-researched,
+methodical map of laundering techniques that spanned P2P platforms, OTC flows,
+retail fintech on-ramps, and bridges":
+[range.org/blog/winners-of-solana-hackathon-bounty](https://www.range.org/blog/winners-of-solana-hackathon-bounty).
+Every placement is listed in Appendix D.
 
 ## Areas of practice
 
@@ -59,6 +79,16 @@ case study in the exact problem OSI closes.
 
 OSI is the platform its maintainer wanted to exist for that work, built so the
 next analyst does not have to prove themselves one private sale at a time.
+
+## Work that is not on this page
+
+Most of the investigation work behind this record does not appear on this
+page. Over the same years I wrote many individual and institutional
+investigation reports that were requested and delivered privately, through
+direct messages on X and Telegram. None of it is counted here, because none of
+it can be checked by a reader. That is the gap described above, in my own
+record: real work that left nothing a stranger can verify. OSI exists so that
+the next analyst's work does not disappear the same way.
 
 ---
 
@@ -175,7 +205,7 @@ why that appendix no longer has anything in its "currently listed" column.
 Named research reports sold on the Arkham Marketplace. These are titled,
 subject-specific investigations, not anonymous bounty submissions.
 
-All nine have now sold. The last three cleared in August and September 2026;
+All nine have now sold. The last three cleared on 20, 20 and 25 August 2026;
 their settlement transactions are entries 27 to 29 in Appendix B, so each one
 resolves to a buyer paying for that exact report rather than to a listing page
 alone.
@@ -201,21 +231,34 @@ scams.
 
 # Appendix D: Superteam Earn, Solana ecosystem work
 
-Public Solana-ecosystem investigative submissions.
+Public Solana investigations from the 2025 Redacted Hackathon, run on Superteam
+Earn. Each placement below is shown on the listing's winner board, and the
+profile shows the three won under my own account, for $11,300 in total.
 
 - **Profile:** [superteam.fun/earn/t/Aksusarya](https://superteam.fun/earn/t/Aksusarya)
-- [Money Laundering in Solana](https://superteam.fun/earn/listing/money-laundering-in-solana)
-- [Solana Snipers](https://superteam.fun/earn/listing/solana-snipers)
-- [Kelsier Blacklist](https://superteam.fun/earn/listing/kelsier-blacklist)
-- [X ICOs](https://superteam.fun/earn/listing/x-icos)
+
+| Place | Bounty | Sponsor | Prize |
+|---|---|---|---|
+| 1st | [War Games: Money Laundering in Solana](https://superteam.fun/earn/listing/money-laundering-in-solana) | Range | 11,000 USDC |
+| 3rd | [Solana Snipers](https://superteam.fun/earn/listing/solana-snipers) | Arkham | 250 USDC |
+| Bonus | [Kelsier Ventures Blacklist](https://superteam.fun/earn/listing/kelsier-blacklist) | Meteora | 50 USDC |
+| 3rd, joint | [X ICOs](https://superteam.fun/earn/listing/x-icos) | Arkham | 1,000 USDC, under a teammate's account |
+
+Range published its own announcement of the first place:
+[range.org/blog/winners-of-solana-hackathon-bounty](https://www.range.org/blog/winners-of-solana-hackathon-bounty).
 
 **Disclosure on the X ICOs submission.** The original entry was submitted empty
 and could not be deleted or replaced afterwards, so it appears as lost on the
-listing. The finished work was a collaborative submission with a teammate, and
-the credit for that contribution is public here:
+listing. The finished work was a collaborative submission with a teammate,
+filed from the teammate's account, and it placed 3rd. Its public submission
+page states the split of work, "Aksusarya worked on token analysis and
+corresponding composition":
+[hackmd.io/@cipher/redacted_hackathon_ICO_submission-links](https://hackmd.io/@cipher/redacted_hackathon_ICO_submission-links).
+The teammate's public credit is here:
 [x.com/Cipher0091/status/1917653761519976605](https://x.com/Cipher0091/status/1917653761519976605).
-It is recorded this way rather than quietly omitted, because a track record
-that hides its messy entries is not a track record.
+The prize was paid to the teammate's account and is not counted in the $11,300
+above. It is recorded this way rather than quietly omitted, because a track
+record that hides its messy entries is not a track record.
 
 That failure is also, precisely, an OSI design input. A submission that cannot
 be corrected, cannot be superseded by a new version, and carries no public
@@ -228,8 +271,10 @@ superseded by a new signed version while the original stays visible.
 ## How to check any of this
 
 Open the links. Arkham transaction pages resolve to the paying transaction and
-the receiving identity. Marketplace listings resolve to the report subject and
-its sale state. The Superteam profile resolves to the submission history.
+the receiving identity, and the same hashes open on any Ethereum explorer.
+Marketplace listings resolve to the report subject and its sale state, behind
+an Arkham login. The Superteam listings show each winner board, and the
+profile shows the submission history.
 
 For the OSI side of the record, see [docs/VERIFY.md](VERIFY.md), which shows
 how to verify every OSI claim directly against Solana mainnet without trusting

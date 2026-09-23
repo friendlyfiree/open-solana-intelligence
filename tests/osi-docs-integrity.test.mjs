@@ -77,6 +77,8 @@ const KNOWN_KEYS = new Set([
   ...Object.values(ONCHAIN),
   "FcwxSJJY6x7K4fPBzTVVtvaeYpg3E472ZNXL97aFmUkG",
   "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+  // The maintainer wallet, named as the Credential authority.
+  "42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y",
 ]);
 const verifyGuide = read("docs/VERIFY.md");
 const strayKeys = [...verifyGuide.matchAll(/\b[1-9A-HJ-NP-Za-km-z]{43,44}\b/g)]
@@ -84,6 +86,11 @@ const strayKeys = [...verifyGuide.matchAll(/\b[1-9A-HJ-NP-Za-km-z]{43,44}\b/g)]
   .filter((key) => !KNOWN_KEYS.has(key));
 ok("the verification guide contains no unexplained base58 account key",
   strayKeys.length === 0 || assert.fail(`unexplained keys: ${strayKeys.join(", ")}`));
+// A credential is only as independent as whoever can issue it, so the guide
+// names that party instead of leaving the issuer as a bare address.
+ok("the verification guide states who controls credential issuance",
+  /Who controls issuance/.test(verifyGuide)
+  && verifyGuide.includes("42VqbY8JghJuf4TcyzaQ9nzQ446W9L3zYTUL3no6XU4y"));
 
 // 2b. The default-deny proof in the verification guide names tables that exist.
 //
@@ -99,6 +106,15 @@ const declaredTables = new Set(
     .map((match) => match[1].toLowerCase()));
 ok(`the V2 additive schema declares its domain tables (${declaredTables.size} found)`,
   declaredTables.size >= 30 && declaredTables.has("cases") && declaredTables.has("event_receipts"));
+// The entry points once said 32 after `wallet_profiles` made it 33. The domain
+// model states the authoritative count, so every summary is held to it.
+const domainTableCount = (read("docs/OSI_V2_DOMAIN_MODEL.md")
+  .match(/Authoritative domain-table count: (\d+)/) || [])[1];
+ok(`the entry points state the blueprint's domain-table count (${domainTableCount})`,
+  Boolean(domainTableCount)
+  && read("README.md").includes(`${domainTableCount} domain tables`)
+  && read("README.tr.md").includes(`${domainTableCount} alan tablosu`)
+  && read("docs/ARCHITECTURE.md").includes(`${domainTableCount} domain tables`));
 
 // The guide's loop spans several backslash-continued lines; join them first.
 const denyLoop = verifyGuide.replace(/\\\n\s*/g, " ").match(/for\s+T\s+in\s+([^;]+?);\s*do/);
@@ -145,6 +161,16 @@ ok(`marketplace listing count matches the listings shown (${listingLinks})`,
   listingLinks === 9 && /\| 9 \|/.test(proofOfWork));
 ok("the track record discloses its own lost submission rather than omitting it",
   /Disclosure on the X ICOs submission/.test(proofOfWork));
+// The first place is the one placement a reader should not have to take from
+// this page alone, so the sponsor's own announcement stays linked next to it.
+// The last three sales settled in blocks dated 20, 20 and 25 August 2026, and
+// an earlier revision placed them in September.
+const proofOfWorkProse = proofOfWork.replace(/\s+/g, " ");
+ok("the first place links to the sponsor's own announcement",
+  /range\.org\/blog\/winners-of-solana-hackathon-bounty/.test(proofOfWork));
+ok("the last three sales carry their settlement dates",
+  proofOfWorkProse.includes("cleared on 20, 20 and 25 August 2026")
+  && !proofOfWorkProse.includes("August and September 2026"));
 
 // 4. Network status is stated, not implied, and both entry points carry it.
 const readme = read("README.md");
@@ -174,7 +200,8 @@ ok("the dated public network snapshot matches the reproduced 2026-09-18 counts",
 ok("the snapshot accounts for the month between the window closing and the seal",
   /Why the seal is dated a month after its window closed/.test(networkStatus)
   && /closed on 2026-08-19/.test(networkStatus)
-  && /anchored on 2026-09-18/.test(networkStatus));
+  && /anchored on 2026-09-18/.test(networkStatus)
+  && /It was held for two\s+reasons/.test(networkStatus));
 // The strongest thing the record can say about itself is also the one claim a
 // reader cannot check, so the attribution and the no-recovery boundary are
 // pinned with it. An outcome the owner relayed is never an OSI finding, and
@@ -197,6 +224,22 @@ ok("the reported outcome on the sealed Case stays an owner report, not a finding
 ok("the snapshot qualifies its one quorum publication with the D21 calibration",
   /20260807154829_osi_v2_cold_start_weight_gate_calibration\.sql/.test(networkStatus)
   && /has not yet run at\s+earned weight/.test(networkStatus));
+// Every analyst on the live roster was invited from the maintainer's own
+// network. "Independent" in this project is a database rule about authorship,
+// not a claim about relationships, and a reader has to be told both.
+ok("the snapshot discloses how the analyst roster formed",
+  /\| Analysts invited from the maintainer's own network \| 3 \|/.test(networkStatus)
+  && /\| Analysts who joined through public outreach \| 0 \|/.test(networkStatus)
+  && networkStatusProse.includes(
+    "It does not mean a reviewer with no relationship to the maintainer")
+  && networkStatusProse.includes(
+    "written and submitted from one of the maintainer's own wallets")
+  && networkStatusProse.includes("but they are not investigative findings"));
+ok("both READMEs carry the roster disclosure",
+  readme.replace(/\s+/g, " ").includes(
+    "colleagues from the maintainer's own analyst network")
+  && readmeTr.replace(/\s+/g, " ").includes(
+    "sürdürücünün kendi analist ağından"));
 ok("both READMEs carry the current bounded private-read session lifetime",
   /30-minute inactivity window, 8-hour absolute lifetime/.test(readme)
   && /30 dakika hareketsizlik, 8 saat mutlak ömür/.test(readmeTr)
