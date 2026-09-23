@@ -122,10 +122,12 @@ and it reads `OSI2|RECORD_SEALED|t=resolution|id=...|ref=...|a=...|h=...|n=...|t
 with no role segment anywhere in it.
 
 **Why the seal is dated a month after its window closed.** The challenge window
-closed on 2026-08-19 and `RECORD_SEALED` was anchored on 2026-09-18. The delay
-was operational rather than technical: no challenge was pending and the action
-was available throughout. It is noted here because both dates are on chain and
-the gap is visible to anyone who looks.
+closed on 2026-08-19 and `RECORD_SEALED` was anchored on 2026-09-18. Nothing
+technical blocked it: no challenge was pending and the action was available
+throughout. It was held for two reasons. The Case owner had said to expect an
+off-chain development concerning the traced funds, and the seal had been named
+as a milestone in a pending grant application. Both treated the seal as if it
+closed the investigation rather than the process, and that was a mistake.
 
 A seal records that the process completed, so waiting does not improve one.
 Material that arrives after a window closes has its own modelled paths, a new

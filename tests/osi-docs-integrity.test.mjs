@@ -200,7 +200,8 @@ ok("the dated public network snapshot matches the reproduced 2026-09-18 counts",
 ok("the snapshot accounts for the month between the window closing and the seal",
   /Why the seal is dated a month after its window closed/.test(networkStatus)
   && /closed on 2026-08-19/.test(networkStatus)
-  && /anchored on 2026-09-18/.test(networkStatus));
+  && /anchored on 2026-09-18/.test(networkStatus)
+  && /It was held for two\s+reasons/.test(networkStatus));
 // The strongest thing the record can say about itself is also the one claim a
 // reader cannot check, so the attribution and the no-recovery boundary are
 // pinned with it. An outcome the owner relayed is never an OSI finding, and
