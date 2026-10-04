@@ -65,9 +65,15 @@
       if(wallet)verifyPublicWallet(wallet);
     },40);
   }
+  // One timestamp style across the product: short date, 24-hour time, UTC.
   function checkedText(result){
     var value=result&&result.checked_at?new Date(result.checked_at):null;
-    return value&&!isNaN(value.getTime())?value.toLocaleString():tr('time unavailable');
+    if(!value||isNaN(value.getTime()))return tr('time unavailable');
+    var locale=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'&&window.OSI_I18N.getLocale()==='tr'?'tr-TR':'en-US';
+    try{
+      return value.toLocaleDateString(locale,{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'})+' '
+        +value.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'})+' UTC';
+    }catch(_){return value.toISOString().slice(0,16).replace('T',' ')+' UTC';}
   }
   function badgeFor(slot,result,overrideState){
     clearNode(slot);

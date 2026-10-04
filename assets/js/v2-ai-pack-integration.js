@@ -39,7 +39,9 @@
   }
   function dateText(value){
     var date=new Date(value||'');
-    return isNaN(date.getTime())?'Not recorded':date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+    var selected=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():'en';
+    var locale=String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US';
+    return isNaN(date.getTime())?'Not recorded':date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})+' UTC';
   }
   function wallet(){
     var value=typeof walletPubkey==='undefined'?window.walletPubkey:walletPubkey;

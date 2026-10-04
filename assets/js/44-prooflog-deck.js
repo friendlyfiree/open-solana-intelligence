@@ -139,7 +139,33 @@ function plMemo(ev){
     challenge_review_revised:{tag:'CHALLENGE_REVIEW_REVISED',title:'Challenge Review Revised',cls:'challenge'},
     challenge_accepted:{tag:'CHALLENGE_ACCEPTED',title:'Challenge Accepted',cls:'challenge'},
     challenge_rejected:{tag:'CHALLENGE_REJECTED',title:'Challenge Rejected',cls:'challenge'},
-    challenge_withdrawn:{tag:'CHALLENGE_WITHDRAWN',title:'Challenge Withdrawn',cls:'challenge'}
+    challenge_withdrawn:{tag:'CHALLENGE_WITHDRAWN',title:'Challenge Withdrawn',cls:'challenge'},
+    challenge_expired:{tag:'CHALLENGE_EXPIRED',title:'Challenge Expired',cls:'challenge'},
+    challenge_bad_faith_review_cast:{tag:'CHALLENGE_BAD_FAITH_REVIEW_CAST',title:'Bad-Faith Review Cast',cls:'challenge'},
+    challenge_bad_faith_review_revised:{tag:'CHALLENGE_BAD_FAITH_REVIEW_REVISED',title:'Bad-Faith Review Revised',cls:'challenge'},
+    challenge_bad_faith_confirmed:{tag:'CHALLENGE_BAD_FAITH_CONFIRMED',title:'Bad-Faith Finding Confirmed',cls:'challenge'},
+    challenge_bad_faith_dismissed:{tag:'CHALLENGE_BAD_FAITH_DISMISSED',title:'Bad-Faith Finding Dismissed',cls:'challenge'},
+    case_quorum_ready:{tag:'CASE_QUORUM_READY',title:'Resolution Selection Opened',cls:'case'},
+    case_halted:{tag:'CASE_HALTED',title:'Case Halted',cls:'case'},
+    case_safety_blocked:{tag:'CASE_SAFETY_BLOCKED',title:'Safety Block Applied',cls:'case'},
+    case_safety_lifted:{tag:'CASE_SAFETY_LIFTED',title:'Safety Block Lifted',cls:'case'},
+    owner_status_proof:{tag:'OWNER_STATUS_PROOF',title:'Owner Status Proof',cls:'case'},
+    reward_pledged:{tag:'REWARD_PLEDGED',title:'Reward Pledged',cls:'support'},
+    reward_assigned:{tag:'REWARD_ASSIGNED',title:'Reward Assigned',cls:'support'},
+    reward_paid:{tag:'REWARD_PAID',title:'Reward Paid',cls:'support'},
+    support_sent:{tag:'SUPPORT_SENT',title:'Support Sent',cls:'support'},
+    analyst_candidate:{tag:'ANALYST_CANDIDATE',title:'Analyst Candidate',cls:'other'},
+    wallet_profile_updated:{tag:'WALLET_PROFILE_UPDATED',title:'Wallet Profile Updated',cls:'other'},
+    config_changed:{tag:'CONFIG_CHANGED',title:'Configuration Changed',cls:'other'},
+    pack_submitted:{tag:'PACK_SUBMITTED',title:'AI Pack Submitted',cls:'other'},
+    pack_attached:{tag:'PACK_ATTACHED',title:'AI Pack Attached',cls:'other'},
+    pack_superseded:{tag:'PACK_SUPERSEDED',title:'AI Pack Superseded',cls:'other'},
+    pack_stale:{tag:'PACK_STALE',title:'AI Pack Marked Stale',cls:'other'},
+    ai_pack_review_cast:{tag:'AI_PACK_REVIEW_CAST',title:'AI Pack Review Cast',cls:'review'},
+    ai_pack_review_revised:{tag:'AI_PACK_REVIEW_REVISED',title:'AI Pack Review Revised',cls:'review'},
+    ai_pack_approved:{tag:'AI_PACK_APPROVED',title:'AI Pack Approved',cls:'review'},
+    ai_pack_rejected:{tag:'AI_PACK_REJECTED',title:'AI Pack Rejected',cls:'review'},
+    ai_pack_owner_feedback_submitted:{tag:'AI_PACK_OWNER_FEEDBACK_SUBMITTED',title:'AI Pack Owner Feedback',cls:'other'}
   };
   var eventType=String(ev&&ev.event_type||'').toLowerCase();
   if(exact[eventType]) return exact[eventType];
@@ -153,9 +179,13 @@ function plMemo(ev){
     other:     { title:'Signed Action',    cls:'other' }
   };
   var fallback=map[plGroup(ev)] || map.other;
+  // An event type this list does not name keeps its own name as the title.
+  // Borrowing the group title made an unrelated receipt read as, for
+  // example, a second "Case Opened".
+  var humanTitle=eventType?eventType.split('_').map(function(word){return word.charAt(0).toUpperCase()+word.slice(1);}).join(' '):'';
   return {
     tag:eventType ? eventType.toUpperCase() : 'SIGNED_ACTION',
-    title:fallback.title,
+    title:humanTitle||fallback.title,
     cls:fallback.cls
   };
 }
@@ -322,13 +352,13 @@ function plTimelineCard(ev){
   var sig=proof.tx_sig||proof.legacy_tx_sig||'';
   var wallet = ev.actor_wallet ? String(ev.actor_wallet) : '';
   var walletCell = wallet
-    ? '<span class="plc-wallet-id" title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet address" aria-label="Copy wallet address '+escapeHtml(raShortW(wallet))+'" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'+plSasSlot(ev)
+    ? '<span class="plc-wallet-id" title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet address" aria-label="Copy wallet address '+escapeHtml(raShortW(wallet))+'" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">Copy</button>'+plSasSlot(ev)
     : '<span>Wallet unavailable</span>';
   var label = plCleanLabel(ev);
   var when = plFullDate(ev.created_at);
   var ago = plAgo(ev.created_at);
   var txHtml = sig
-    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy transaction signature" aria-label="Copy transaction signature '+escapeHtml(plShortSig(sig))+'" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
+    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy transaction signature" aria-label="Copy transaction signature '+escapeHtml(plShortSig(sig))+'" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">Copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
     : '<span class="plc-no-tx">No transaction link</span>';
   return '<div class="plc type-'+m.cls+'" data-g="'+plGroup(ev)+'">'
     + '<span class="plc-dot" aria-hidden="true"></span>'
@@ -342,7 +372,7 @@ function plTimelineCard(ev){
         + '<div><div class="plc-meta-k">Wallet</div><div class="plc-meta-v">'+walletCell+'</div></div>'
         + '<div><div class="plc-meta-k">Wallet role</div><div class="plc-meta-v">'+escapeHtml(plSignerRole(ev))+'</div></div>'
         + plWeightCell(ev)
-        + '<div><div class="plc-meta-k">Proof status</div><div class="plc-meta-v '+(proof.key!=='legacy'?'ok':'')+'">'+escapeHtml(proof.label)+'</div></div>'
+        + '<div><div class="plc-meta-k">Proof status</div><div class="plc-meta-v '+(proof.onchain?'ok':(proof.key==='wallet'?'signed':''))+'">'+escapeHtml(proof.label)+'</div></div>'
         + '<div class="plc-action"><div class="plc-meta-k">Transaction</div>'+txHtml+'</div>'
       + '</div>'
     + '</div>'

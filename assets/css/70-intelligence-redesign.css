@@ -5068,3 +5068,44 @@ footer > .wrap {
     order: -1;
   }
 }
+
+/* Proof Log: the wallet, its copy control and the SAS badge share one
+ * aligned row instead of the address sinking below a floating button. */
+#prooflog .plc-meta-v:has(> .plc-wallet-id) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+#prooflog .plc-meta-v > .plc-wallet-id {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+#prooflog .plc-meta-v > [data-sas-wallet] {
+  flex: 1 1 100%;
+  margin-top: 2px !important;
+}
+
+#prooflog .plc-copy {
+  min-width: 0 !important;
+  min-height: 32px !important;
+  margin-left: 0 !important;
+  padding: 0 10px !important;
+  color: var(--ink-dim) !important;
+}
+
+#prooflog .plc-tx-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Green is kept for chain-confirmed proof; a server-verified signature
+ * reads as signed, and a system event stays neutral. */
+#prooflog .plc-meta-v.signed {
+  color: var(--platinum-cool);
+}

@@ -25,7 +25,7 @@ const reportUiSource = readFileSync(join(root, "assets/js/v2-report-integration.
 ok("Report timestamps follow the selected product locale instead of the browser locale",
   reportUiSource.includes("window.OSI_I18N.getLocale()")
     && reportUiSource.includes("==='tr'?'tr-TR':'en-US'")
-    && reportUiSource.includes("date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short'})")
+    && reportUiSource.includes("date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})")
     && !reportUiSource.includes("toLocaleString(undefined"));
 ok("the Case Reports tab exposes an honest accessible loading state until the exact public projection resolves",
   reportUiSource.includes("function reportLoadingState(mode)")

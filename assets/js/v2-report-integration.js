@@ -94,7 +94,7 @@
   }
   function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();});}
   function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
-  function dateText(value){var date=new Date(value||''),selected=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():(typeof document!=='undefined'&&document.documentElement?document.documentElement.lang:''),locale=String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US';return isNaN(date.getTime())?'Not recorded':date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short'});}
+  function dateText(value){var date=new Date(value||''),selected=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():(typeof document!=='undefined'&&document.documentElement?document.documentElement.lang:''),locale=String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US';return isNaN(date.getTime())?'Not recorded':date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})+' UTC';}
   function randomKey(){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return'report:'+id.replace(/[^A-Za-z0-9.-]/g,'');}
   // Both quorum outcomes anchor a Memo, so both need the same bounded browser
   // recovery record: a sent transaction whose commit failed must never turn

@@ -104,7 +104,7 @@ ok('browser calls dedicated read and write functions',
 ok('Case timestamps follow the selected product locale instead of the browser locale',
   app.includes("window.OSI_I18N.getLocale()")
     && app.includes("==='tr'?'tr-TR':'en-US'")
-    && app.includes("date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short'})")
+    && app.includes("date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})")
     && !app.includes("date.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})"));
 ok('Case drawer localizes generated labels without translating author content',
   app.includes('esc(t(tab[1]))')

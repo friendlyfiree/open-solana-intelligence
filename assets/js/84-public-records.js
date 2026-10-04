@@ -123,7 +123,7 @@ function crIsLegacyTestRecord(r){
   var text=[r.company,r.summary,r.title,r.description].map(function(v){return String(v||'');}).join(' ').toLowerCase();
   return /\b(?:demo|fixture|test record|for testing)\b/.test(text);
 }
-function crDate(v){ return v ? new Date(v).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''; }
+function crDate(v){ if(!v) return ''; var d=new Date(v); if(isNaN(d.getTime())) return ''; var tr=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'&&window.OSI_I18N.getLocale()==='tr'; return d.toLocaleDateString(tr?'tr-TR':'en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}); }
 function crValidDate(v){return typeof v==='string'&&v.length<=40&&Number.isFinite(Date.parse(v));}
 function crTxSig(r){
   return crProofState(r).tx_sig||'';
