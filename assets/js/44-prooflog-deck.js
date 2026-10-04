@@ -362,7 +362,10 @@ function plTimelineCard(ev){
     : '<span>Wallet unavailable</span>';
   var label = plCleanLabel(ev);
   var when = plFullDate(ev.created_at);
-  var ago = plAgo(ev.created_at);
+  // Past a month the relative helper falls back to a short date, which only
+  // repeated the full date printed beneath it.
+  var age = Date.now() - new Date(ev.created_at||'').getTime();
+  var ago = age >= 0 && age < 30*86400000 ? plAgo(ev.created_at) : '';
   var txHtml = sig
     ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy transaction signature" aria-label="'+escapeHtml(plT('Copy transaction signature {signature}',{signature:plShortSig(sig)}))+'" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">Copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
     : '<span class="plc-no-tx">No transaction link</span>';
@@ -372,7 +375,7 @@ function plTimelineCard(ev){
       + '<div class="plc-head">'
         + '<div><span class="plc-badge">'+escapeHtml(m.tag)+'</span></div>'
         + '<div><div class="plc-title">'+m.title+plChannelChip(ev)+'</div><div class="plc-ref">'+(label?(escapeHtml(label)+' - '):'')+plReferenceHtml(ev)+'</div></div>'
-        + '<div class="plc-time">'+(ago?escapeHtml(ago):'Timestamp unavailable')+(when?('<br>'+escapeHtml(when)):'')+'</div>'
+        + '<div class="plc-time">'+(ago?escapeHtml(ago)+(when?'<br>':''):'')+(when?escapeHtml(when):(ago?'':'Timestamp unavailable'))+'</div>'
       + '</div>'
       + '<div class="plc-grid" data-osi-i18n-ui>'
         + '<div><div class="plc-meta-k">Wallet</div><div class="plc-meta-v">'+walletCell+'</div></div>'

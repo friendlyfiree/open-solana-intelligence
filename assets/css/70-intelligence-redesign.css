@@ -5568,3 +5568,60 @@ footer > .wrap {
 .osi-report-loading { display: grid; gap: 4px; margin-bottom: 12px; }
 .osi-report-loading b { display: block; font-size: 15px; color: var(--ink); }
 .osi-report-loading span { display: block; font-size: 14px; color: var(--ink-faint); }
+
+/* Touch targets: every control at least 40px tall on desktop and 44px on phones.
+ * Text links that sit inside a sentence keep their line height. */
+#prooflog .rf-tab,
+#records-hero .rf-tab,
+#prooflog .plc-copy,
+#prooflog .plc-verify,
+#records-hero .cr-copy,
+#records-hero .cr-btn,
+.fo-pnav .fo-pg,
+.fo-rail .fr-i,
+#osi-home-live-state button,
+.osi-public-row button,
+#analysts .lb-link {
+  min-height: 40px !important;
+}
+.fo-pnav .fo-pg { min-width: 40px !important; }
+#analysts .lb-link { display: inline-flex; align-items: center; }
+a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; align-items: center; }
+
+@media (max-width: 600px) {
+  #prooflog .rf-tab,
+  #records-hero .rf-tab,
+  #prooflog .plc-copy,
+  #prooflog .plc-verify,
+  #records-hero .cr-copy,
+  #records-hero .cr-btn,
+  .fo-pnav .fo-pg,
+  #osi-home-live-state button,
+  .osi-public-row button,
+  #analysts .lb-link,
+  #analysts .lb-cta,
+  #wire-view .wire-cta,
+  .vsub .vsub-b,
+  #field-view select,
+  #field-view .fo-search,
+  #records-hero select,
+  #records-hero .cr-search,
+  #prooflog .cr-search,
+  #about-hero .fo-in,
+  #about-hero .osi-button,
+  .osi-global-footer .links a,
+  .osi-global-footer .links button,
+  .osi-nav-quick,
+  .osi-route-card > button,
+  .osi-live-pane > header button,
+  .osi-proof-legend-heading button {
+    min-height: 44px !important;
+  }
+  .fo-pnav .fo-pg { min-width: 44px !important; }
+  a.osi-proof-label[data-sas-badge] { min-height: 44px; }
+}
+
+/* The recorded decision is prose; only the reference beside it is machine data. */
+#prooflog .plc-ref { font-family: var(--font-sans) !important; font-size: 13px !important; }
+#prooflog .plc-ref .plc-ref-link,
+#prooflog .plc-ref a { font-family: var(--font-mono); font-size: 12.5px; }
