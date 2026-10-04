@@ -21,7 +21,7 @@
 :where(input,textarea,select){accent-color:var(--sol)}
 .osi-primary-action,.osi-secondary-action{
   min-height:40px;border-radius:var(--osi-radius-sm);padding:9px 15px;
-  font:700 11px/1.2 'JetBrains Mono',monospace;cursor:pointer;transition:background .16s,border-color .16s,transform .16s;
+  font:700 11px/1.2 var(--font-sans);cursor:pointer;transition:background .16s,border-color .16s,transform .16s;
 }
 .osi-primary-action{border:1px solid rgba(20,241,149,.55);background:var(--sol);color:#06120d}
 .osi-primary-action:hover{background:#39f6aa;transform:translateY(-1px)}
@@ -31,13 +31,13 @@
 /* Maintainer access communicates both independent gates at every size. */
 .adm-gates{display:grid;gap:9px;margin:18px 0}
 .adm-gate{display:grid;grid-template-columns:32px 1fr;gap:11px;align-items:center;padding:12px;border:1px solid var(--osi-border);border-radius:var(--osi-radius-md);background:var(--osi-surface-1)}
-.adm-gate>span{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--osi-border-strong);font:700 11px 'JetBrains Mono',monospace;color:var(--ink-faint)}
+.adm-gate>span{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--osi-border-strong);font:700 11px var(--font-sans);color:var(--ink-faint)}
 .adm-gate div{display:flex;flex-direction:column;gap:2px}
 .adm-gate b{font-size:13px;color:var(--ink)}
 .adm-gate small{font-size:11px;color:var(--ink-dim)}
 .adm-gate.ok{border-color:rgba(20,241,149,.35);background:rgba(20,241,149,.045)}
 .adm-gate.ok>span{border-color:rgba(20,241,149,.6);background:rgba(20,241,149,.12);color:var(--sol)}
-.osi-menu-lock{margin-left:auto;font:700 10px 'JetBrains Mono',monospace;color:var(--amber);text-transform:uppercase}
+.osi-menu-lock{margin-left:auto;font:700 10px var(--font-sans);color:var(--amber);text-transform:uppercase}
 .osi-menu-lock.ready{color:var(--sol)}
 
 /* Public analyst directory uses only the least-privilege public DTO. */
@@ -50,17 +50,17 @@
 .osi-analyst-person{display:flex;align-items:center;gap:11px;min-width:0}
 .osi-analyst-person>span:last-child{display:flex;flex-direction:column;min-width:0}
 .osi-analyst-person b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.osi-analyst-person em{font:400 10px 'JetBrains Mono',monospace;color:var(--ink-faint);font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.osi-analyst-person em{font:400 10px var(--font-sans);color:var(--ink-faint);font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .osi-an-avatar{width:var(--osi-avatar-size,42px);height:var(--osi-avatar-size,42px);object-fit:cover;border-radius:11px;border:1px solid rgba(255,176,32,.28);background:var(--osi-surface-3);flex:none}
 .osi-analyst-row .osi-an-avatar{--osi-avatar-size:38px}
 .osi-an-avatar.fallback{display:grid;place-items:center;color:var(--cyan);font-weight:800}
-.osi-status{display:inline-flex;width:max-content;max-width:100%;padding:5px 8px;border:1px solid var(--osi-border);border-radius:999px;background:rgba(134,151,196,.06);font:700 10px 'JetBrains Mono',monospace;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em}
+.osi-status{display:inline-flex;width:max-content;max-width:100%;padding:5px 8px;border:1px solid var(--osi-border);border-radius:999px;background:rgba(134,151,196,.06);font:700 10px var(--font-sans);color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em}
 .osi-status.probationary_analyst,.osi-status.approved{color:var(--sol);border-color:rgba(20,241,149,.36);background:rgba(20,241,149,.07)}
 .osi-status.in_review,.osi-status.submitted{color:var(--cyan);border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.07)}
 .osi-status.revision_requested{color:var(--amber);border-color:rgba(255,176,32,.38);background:rgba(255,176,32,.07)}
 .osi-status.rejected{color:var(--red);border-color:rgba(255,84,112,.36);background:rgba(255,84,112,.07)}
 .osi-expertise-list,.osi-tag-list{display:flex;gap:5px;flex-wrap:wrap}
-.osi-expertise-list span,.osi-tag-list span{padding:4px 7px;border:1px solid var(--osi-border);border-radius:999px;background:rgba(153,69,255,.06);font:500 10px 'JetBrains Mono',monospace;color:#c9b7ff}
+.osi-expertise-list span,.osi-tag-list span{padding:4px 7px;border:1px solid var(--osi-border);border-radius:999px;background:rgba(153,69,255,.06);font:500 10px var(--font-sans);color:#c9b7ff}
 .osi-expertise-list em{font-size:11px;color:var(--ink-faint);font-style:normal}
 .osi-weight{color:var(--sol);font-weight:700}
 /* Weight and Proof are right-aligned in the header row, so their values follow
@@ -69,7 +69,7 @@
 #analysts .osi-analyst-row>*:nth-child(5),
 #analysts .osi-analyst-row>*:nth-child(6){text-align:right}
 .osi-activation-loading,.osi-activation-empty{padding:26px 18px;color:var(--ink-dim);text-align:center}
-.osi-activation-loading{font:500 11px 'JetBrains Mono',monospace}
+.osi-activation-loading{font:500 11px var(--font-sans)}
 .osi-activation-empty{display:flex;flex-direction:column;align-items:center;gap:6px;border:1px dashed var(--osi-border-strong);border-radius:var(--osi-radius-md)}
 .osi-activation-empty b{font-size:14px;color:var(--ink)}
 .osi-activation-empty span{max-width:560px;font-size:12px;line-height:1.6}
@@ -88,15 +88,15 @@
 .osi-profile-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--osi-border);border-radius:var(--osi-radius-md);overflow:hidden}
 .osi-profile-facts>div{display:flex;flex-direction:column;gap:6px;padding:13px;border-right:1px solid var(--osi-border)}
 .osi-profile-facts>div:last-child{border-right:0}
-.osi-profile-facts>div>span{font:500 10px 'JetBrains Mono',monospace;color:var(--ink-faint);text-transform:uppercase}
-.osi-profile-facts b{font:700 12px 'JetBrains Mono',monospace;color:var(--sol)}
+.osi-profile-facts>div>span{font:500 10px var(--font-sans);color:var(--ink-faint);text-transform:uppercase}
+.osi-profile-facts b{font:700 12px var(--font-sans);color:var(--sol)}
 .osi-safe-links{display:flex;gap:8px;flex-wrap:wrap}
-.osi-safe-links a,.osi-history-row a{color:var(--cyan);font:600 10px 'JetBrains Mono',monospace;text-decoration:none;word-break:break-all}
+.osi-safe-links a,.osi-history-row a{color:var(--cyan);font:600 10px var(--font-sans);text-decoration:none;word-break:break-all}
 .osi-safe-links a{padding:7px 9px;border:1px solid rgba(255,176,32,.25);border-radius:var(--osi-radius-sm)}
 .osi-history-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--osi-border)}
 .osi-history-row>div{display:flex;flex-direction:column;gap:3px}
 .osi-history-row b{font-size:11px}
-.osi-history-row span,.osi-history-row time{font:400 10px 'JetBrains Mono',monospace;color:var(--ink-faint)}
+.osi-history-row span,.osi-history-row time{font:400 10px var(--font-sans);color:var(--ink-faint)}
 
 /* Private wallet-authorized workspace. */
 .osi-analyst-workspace{max-width:1120px;margin:0 auto;padding:28px 24px 60px}
@@ -105,7 +105,7 @@
 .osi-workspace-head h2{font-size:clamp(26px,4vw,42px);line-height:1.05;margin:7px 0}
 .osi-workspace-head p{max-width:650px;font-size:12px;color:var(--ink-dim)}
 .osi-workspace-tabs{display:flex;gap:5px;overflow-x:auto;padding:14px 0;border-bottom:1px solid var(--osi-border)}
-.osi-workspace-tabs button{white-space:nowrap;padding:9px 12px;border:1px solid transparent;border-radius:var(--osi-radius-sm);background:transparent;color:var(--ink-dim);font:600 10px 'JetBrains Mono',monospace;cursor:pointer}
+.osi-workspace-tabs button{white-space:nowrap;padding:9px 12px;border:1px solid transparent;border-radius:var(--osi-radius-sm);background:transparent;color:var(--ink-dim);font:600 10px var(--font-sans);cursor:pointer}
 .osi-workspace-tabs button:hover,.osi-workspace-tabs button.active{color:var(--cyan);border-color:rgba(255,176,32,.28);background:rgba(255,176,32,.06)}
 .osi-analyst-workspace>main{padding-top:20px}
 .osi-workspace-recover{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:16px}
@@ -116,12 +116,12 @@
 .osi-version-card{padding:16px 0;border-top:1px solid var(--osi-border)}
 .osi-version-card p{font-size:11px;line-height:1.65;color:var(--ink-dim);white-space:pre-wrap}
 .osi-version-card p b{color:var(--ink)}
-.osi-version-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font:400 10px 'JetBrains Mono',monospace;color:var(--ink-faint)}
-.osi-proof-badge{padding:5px 8px;border-radius:999px;font:600 10px 'JetBrains Mono',monospace;white-space:nowrap}
+.osi-version-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font:400 10px var(--font-sans);color:var(--ink-faint)}
+.osi-proof-badge{padding:5px 8px;border-radius:999px;font:600 10px var(--font-sans);white-space:nowrap}
 .osi-proof-badge.signed{color:var(--cyan);border:1px solid rgba(255,176,32,.3);background:rgba(255,176,32,.06)}
 .osi-review-list{display:flex;flex-direction:column;border-top:1px solid var(--osi-border);margin-top:12px}
 .osi-review-history{display:grid;grid-template-columns:130px 1fr auto;gap:12px;padding:9px 0;border-bottom:1px solid var(--osi-border);font-size:10px}
-.osi-review-history span,.osi-review-history time{font:400 10px 'JetBrains Mono',monospace;color:var(--ink-faint)}
+.osi-review-history span,.osi-review-history time{font:400 10px var(--font-sans);color:var(--ink-faint)}
 .osi-callout{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border-radius:var(--osi-radius-sm);font-size:11px}
 .osi-callout.warning{border:1px solid rgba(255,176,32,.35);background:rgba(255,176,32,.055);color:var(--amber)}
 .osi-callout span{color:var(--ink-dim)}
@@ -132,7 +132,7 @@
 .osi-analyst-form h3{font-size:23px;margin:0}
 .osi-analyst-form .lead{font-size:12px;line-height:1.65;color:var(--ink-dim)}
 .osi-analyst-form>label,.osi-form-grid label{display:flex;flex-direction:column;gap:7px}
-.osi-analyst-form label>span,.osi-expertise legend{font:600 10px 'JetBrains Mono',monospace;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.07em}
+.osi-analyst-form label>span,.osi-expertise legend{font:600 10px var(--font-sans);color:var(--ink-dim);text-transform:uppercase;letter-spacing:.07em}
 /* The safety consent is a sentence the applicant has to read, not a field
    label. The uppercase mono field-label face was leaking onto it and made it
    render unlike the identical consent on the Report and Wire forms. */
@@ -143,14 +143,14 @@
 .osi-analyst-form small{font-size:10px;color:var(--ink-faint)}
 .osi-application-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px;border:1px solid rgba(49,245,181,.2);border-radius:var(--osi-radius-md);background:rgba(49,245,181,.035)}
 .osi-application-steps span{display:flex;align-items:center;gap:7px;color:var(--ink-dim);font-size:11px;line-height:1.35}
-.osi-application-steps b{display:grid;place-items:center;flex:0 0 24px;height:24px;border:1px solid rgba(49,245,181,.35);border-radius:50%;color:var(--cyan);font:700 10px 'JetBrains Mono',monospace}
+.osi-application-steps b{display:grid;place-items:center;flex:0 0 24px;height:24px;border:1px solid rgba(49,245,181,.35);border-radius:50%;color:var(--cyan);font:700 10px var(--font-sans)}
 .osi-application-optional{border:1px solid var(--osi-border);border-radius:var(--osi-radius-md);background:rgba(255,255,255,.012);overflow:hidden}
 .osi-application-optional summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:10px 13px;cursor:pointer;list-style:none;color:var(--ink)}
 .osi-application-optional summary::-webkit-details-marker{display:none}
 .osi-application-optional summary span{display:flex;flex-direction:column;gap:2px}
 .osi-application-optional summary b{font-size:12px}
 .osi-application-optional summary small{font-size:10px;font-weight:400}
-.osi-application-optional summary i{color:var(--cyan);font:500 22px/1 'JetBrains Mono',monospace;font-style:normal;transition:transform .16s ease}
+.osi-application-optional summary i{color:var(--cyan);font:500 22px/1 var(--font-sans);font-style:normal;transition:transform .16s ease}
 .osi-application-optional[open] summary{border-bottom:1px solid var(--osi-border);background:rgba(49,245,181,.025)}
 .osi-application-optional[open] summary i{transform:rotate(45deg)}
 .osi-application-optional-body{display:flex;flex-direction:column;gap:14px;padding:14px}
@@ -176,17 +176,17 @@
 .osi-ops-application{padding:17px;border:1px solid var(--osi-border);border-radius:var(--osi-radius-md);background:var(--osi-surface-1)}
 .osi-ops-application>header{display:grid;grid-template-columns:46px 1fr auto;gap:12px;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--osi-border)}
 .osi-ops-application>header .osi-an-avatar{--osi-avatar-size:46px}
-.osi-ops-application header span,.osi-ops-application header p{font:400 10px 'JetBrains Mono',monospace;color:var(--ink-faint)}
+.osi-ops-application header span,.osi-ops-application header p{font:400 10px var(--font-sans);color:var(--ink-faint)}
 .osi-ops-application h4{font-size:15px;margin:2px 0}
 .osi-ops-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:20px;padding:16px 0}
 .osi-ops-grid section{min-width:0}
-.osi-ops-grid h5{font:700 10px 'JetBrains Mono',monospace;color:var(--cyan);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.osi-ops-grid h5{font:700 10px var(--font-sans);color:var(--cyan);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
 .osi-ops-grid p{font-size:11px;line-height:1.6;color:var(--ink-dim);white-space:pre-wrap;word-break:break-word}
 .osi-ops-grid p+p{margin-top:8px}
 .osi-ops-decision{display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--osi-border)}
-.osi-ops-decision label{display:flex;flex-direction:column;gap:6px;font:600 10px 'JetBrains Mono',monospace;color:var(--ink-faint);text-transform:uppercase}
+.osi-ops-decision label{display:flex;flex-direction:column;gap:6px;font:600 10px var(--font-sans);color:var(--ink-faint);text-transform:uppercase}
 .osi-ops-decision>div{display:flex;gap:7px;flex-wrap:wrap}
-.osi-ops-decision button{padding:9px 12px;border:1px solid var(--osi-border-strong);border-radius:var(--osi-radius-sm);background:transparent;color:var(--ink);font:700 10px 'JetBrains Mono',monospace;cursor:pointer}
+.osi-ops-decision button{padding:9px 12px;border:1px solid var(--osi-border-strong);border-radius:var(--osi-radius-sm);background:transparent;color:var(--ink);font:700 10px var(--font-sans);cursor:pointer}
 .osi-ops-decision button[data-analyst-decision=approve]{color:var(--sol);border-color:rgba(20,241,149,.4)}
 .osi-ops-decision button[data-analyst-decision=reject]{color:var(--red);border-color:rgba(255,84,112,.4)}
 .osi-ops-decision button:hover{background:rgba(255,255,255,.045)}
@@ -224,7 +224,7 @@
    holds no analyst standing and the surface should say that rather than leave
    it to be inferred from a column that is simply absent. */
 .osi-maintainer-profile{margin:0 0 18px;padding:0}
-.osi-maintainer-kicker{margin:0 0 8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+.osi-maintainer-kicker{margin:0 0 8px;font-family:var(--font-sans);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
 /* The operator card sits directly above the analyst roster, so it has to read
    as a peer of that table in weight while never reading as a row in it. It
    carries the accent rule and the roster does not; the roster carries status
@@ -257,8 +257,8 @@
 .osi-maintainer-editor-host{margin-top:12px}
 .osi-maintainer-editor{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid var(--line-bright);border-radius:12px}
 .osi-maintainer-editor label{display:flex;flex-direction:column;gap:5px}
-.osi-maintainer-editor label span{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
-.osi-maintainer-editor input,.osi-maintainer-editor textarea{width:100%;background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;font-family:'JetBrains Mono',monospace;outline:none;resize:vertical}
+.osi-maintainer-editor label span{font-family:var(--font-sans);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+.osi-maintainer-editor input,.osi-maintainer-editor textarea{width:100%;background:var(--bg);border:1px solid var(--line-bright);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;font-family:var(--font-sans);outline:none;resize:vertical}
 .osi-maintainer-editor input:focus-visible,.osi-maintainer-editor textarea:focus-visible{border-color:var(--sol)}
 .osi-maintainer-editor-actions{display:flex;gap:8px;flex-wrap:wrap}
 .osi-maintainer-editor-status{margin:0;font-size:12px;color:var(--ink-dim);min-height:1em}
@@ -273,7 +273,7 @@
    colour alone is not a label.
    --------------------------------------------------------------------------- */
 .osi-cv-share{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.osi-cv-permalink{flex:1 1 240px;min-width:0;padding:9px 11px;border:1px solid var(--osi-border);border-radius:var(--osi-radius-sm);color:var(--cyan);font:600 11px 'JetBrains Mono',monospace;text-decoration:none;word-break:break-all}
+.osi-cv-permalink{flex:1 1 240px;min-width:0;padding:9px 11px;border:1px solid var(--osi-border);border-radius:var(--osi-radius-sm);color:var(--cyan);font:600 11px var(--font-sans);text-decoration:none;word-break:break-all}
 .osi-cv-permalink:hover,.osi-cv-permalink:focus-visible{border-color:var(--cyan)}
 .osi-cv-no-permalink{flex:1 1 240px;min-width:0;font-size:11.5px;line-height:1.5;color:var(--ink-faint)}
 .osi-cv-record{gap:14px}
@@ -283,15 +283,15 @@
    own number below the rest of the row and the summary stops reading as a row. */
 .osi-cv-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));align-items:stretch;border:1px solid var(--osi-border);border-radius:var(--osi-radius-md);overflow:hidden}
 .osi-cv-summary>div{display:flex;flex-direction:column;justify-content:space-between;gap:6px;padding:11px 13px;border-right:1px solid var(--osi-border);border-bottom:1px solid var(--osi-border)}
-.osi-cv-summary>div>span{font:500 10.5px 'JetBrains Mono',monospace;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em}
-.osi-cv-summary b{font:700 16px 'JetBrains Mono',monospace;color:var(--ink)}
+.osi-cv-summary>div>span{font:500 10.5px var(--font-sans);color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em}
+.osi-cv-summary b{font:700 16px var(--font-sans);color:var(--ink)}
 .osi-cv-entries{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none}
 .osi-cv-entry{display:flex;flex-direction:column;gap:7px;padding:14px 0;border-bottom:1px solid var(--osi-border)}
 .osi-cv-entry:last-child{border-bottom:0}
 .osi-cv-entry-head{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
 .osi-cv-ref{color:var(--cyan);font:700 11.5px 'JetBrains Mono',monospace;text-decoration:none}
 a.osi-cv-ref:hover,a.osi-cv-ref:focus-visible{text-decoration:underline}
-.osi-cv-outcome{padding:3px 8px;border:1px solid var(--osi-border);border-radius:999px;font:600 10.5px 'JetBrains Mono',monospace;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em}
+.osi-cv-outcome{padding:3px 8px;border:1px solid var(--osi-border);border-radius:999px;font:600 10.5px var(--font-sans);color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em}
 /* A sealed record is the only state that reads as finished, so it is the only
    one that gets the Solana identity colour. Everything else stays neutral: an
    open investigation is not a lesser record, it is an unfinished one.
@@ -301,12 +301,12 @@ a.osi-cv-ref:hover,a.osi-cv-ref:focus-visible{text-decoration:underline}
 .osi-cv-outcome[data-outcome=sealed]{color:var(--sol);border-color:color-mix(in srgb,var(--sol) 42%,transparent)}
 .osi-cv-outcome[data-outcome=published],.osi-cv-outcome[data-outcome=resolved]{color:var(--cyan);border-color:color-mix(in srgb,var(--cyan) 36%,transparent)}
 .osi-cv-title{font-size:13.5px;line-height:1.45;color:var(--ink)}
-.osi-cv-role{font:500 11px 'JetBrains Mono',monospace;color:var(--ink-faint)}
+.osi-cv-role{font:500 11px var(--font-sans);color:var(--ink-faint)}
 .osi-cv-acts{display:flex;flex-direction:column;gap:5px;margin:3px 0 0;padding:0;list-style:none}
 .osi-cv-acts li{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
-.osi-cv-act-name{font:600 11px 'JetBrains Mono',monospace;color:var(--ink-dim)}
-.osi-cv-acts time{font:400 11px 'JetBrains Mono',monospace;color:var(--ink-faint)}
-.osi-cv-act-proof{font:600 11px 'JetBrains Mono',monospace;color:var(--cyan);text-decoration:none}
+.osi-cv-act-name{font:600 11px var(--font-sans);color:var(--ink-dim)}
+.osi-cv-acts time{font:400 11px var(--font-sans);color:var(--ink-faint)}
+.osi-cv-act-proof{font:600 11px var(--font-sans);color:var(--cyan);text-decoration:none}
 a.osi-cv-act-proof:hover,a.osi-cv-act-proof:focus-visible{text-decoration:underline}
 /* A wallet signature is real proof and is not a transaction. It never borrows
    the colour the product reserves for a link that resolves on chain. */

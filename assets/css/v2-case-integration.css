@@ -28,11 +28,11 @@
 .osi-v2-title{min-width:0}
 .osi-v2-title b{display:block;color:var(--ink);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .osi-v2-title span{display:block;color:var(--ink-faint);font-size:12px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.osi-v2-stage,.osi-v2-proof,.osi-v2-category{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.035em}
+.osi-v2-stage,.osi-v2-proof,.osi-v2-category{font-family:var(--font-sans);font-size:11px;text-transform:uppercase;letter-spacing:.035em}
 .osi-v2-stage{color:var(--sol)}
 .osi-v2-stage.private{color:var(--amber)}
 .osi-v2-category{color:var(--ink-dim)}
-.osi-v2-reviews{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink)}
+.osi-v2-reviews{font-family:var(--font-sans);font-size:12px;color:var(--ink)}
 .osi-v2-proof{color:var(--ink-dim)}
 .osi-v2-arrow{color:var(--acc);font-size:18px;text-align:right}
 .osi-v2-empty{border:1px solid var(--line);background:rgba(12,17,29,.65);padding:42px 28px;text-align:center}
@@ -49,7 +49,7 @@
 .osi-case-form{width:min(780px,calc(100vw - 30px));max-width:780px;max-height:calc(100vh - 34px);overflow:auto;padding:28px}
 .osi-case-form .fo-grid2{align-items:start}
 .osi-field{display:flex;flex-direction:column;gap:7px;color:var(--ink-dim);font-size:14px}
-.osi-field>span,.osi-evidence-set legend{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim)}
+.osi-field>span,.osi-evidence-set legend{font-family:var(--font-sans);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-dim)}
 .osi-field small{color:var(--ink-faint);font-size:12px;line-height:1.45}
 .osi-field .fo-in{width:100%;margin:0}
 .osi-case-form .fo-in{font-size:15px;line-height:1.5}
@@ -72,17 +72,17 @@
 .osi-submission-receipt[hidden]{display:none!important}
 .osi-submission-receipt:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
 .osi-receipt-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
-.osi-receipt-head span{display:block;color:var(--sol);font:10.5px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em}
+.osi-receipt-head span{display:block;color:var(--sol);font:10.5px var(--font-sans);text-transform:uppercase;letter-spacing:.06em}
 .osi-receipt-head h3{margin:5px 0 0;color:var(--ink);font-size:20px}
 .osi-receipt-ref{max-width:52%;color:var(--cyan);font:11px/1.5 'JetBrains Mono',monospace;text-align:right;overflow-wrap:anywhere}
 .osi-receipt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
 .osi-receipt-grid div{min-width:0;padding:10px;border:1px solid var(--line);background:rgba(8,12,22,.5)}
-.osi-receipt-grid dt{color:var(--ink-faint);font:10.5px 'JetBrains Mono',monospace;text-transform:uppercase}
+.osi-receipt-grid dt{color:var(--ink-faint);font:10.5px var(--font-sans);text-transform:uppercase}
 .osi-receipt-grid dd{margin:5px 0 0;color:var(--ink-dim);font-size:13px;line-height:1.55;overflow-wrap:anywhere}
 .osi-receipt-grid .wide{grid-column:1/-1}
 .osi-receipt-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:14px}
 .osi-receipt-actions button{min-height:42px}
-.osi-receipt-copy-state{min-height:18px;margin:10px 0 0;color:var(--sol);font:11px 'JetBrains Mono',monospace}
+.osi-receipt-copy-state{min-height:18px;margin:10px 0 0;color:var(--sol);font:11px var(--font-sans)}
 .osi-ops-head-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 
 .osi-case-drawer[hidden]{display:none}
@@ -94,7 +94,7 @@
 .osi-case-panel-head h2{margin:5px 0 8px;font-size:27px;line-height:1.12;letter-spacing:-.02em;color:var(--ink)}
 .osi-case-ref{font-size:11px;color:var(--acc);letter-spacing:.08em}
 .osi-case-state{display:flex;gap:8px;flex-wrap:wrap}
-.osi-chip{display:inline-flex;align-items:center;min-height:28px;max-width:100%;border:1px solid var(--line-bright);padding:4px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;color:var(--ink-dim);overflow-wrap:anywhere}
+.osi-chip{display:inline-flex;align-items:center;min-height:28px;max-width:100%;border:1px solid var(--line-bright);padding:4px 8px;font-family:var(--font-sans);font-size:11px;text-transform:uppercase;color:var(--ink-dim);overflow-wrap:anywhere}
 .osi-chip.public{color:var(--sol);border-color:rgba(20,241,149,.35);background:rgba(20,241,149,.06)}
 .osi-chip.private{color:var(--amber);border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.06)}
 .osi-case-close{width:42px;height:42px;border:1px solid var(--line);background:var(--bg-raised);color:var(--ink-dim);cursor:pointer;font-size:16px}
@@ -111,7 +111,7 @@
 /* Reserve the scrollbar gutter only when it is actually shown, so a strip that
    fits is not padded for a bar that never appears. */
 .osi-case-tabs[data-osi-overflow="true"]{padding-bottom:6px}
-.osi-case-tab{flex:none;border:0;border-bottom:2px solid transparent;background:none;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11px;padding:15px 12px;cursor:pointer;white-space:nowrap}
+.osi-case-tab{flex:none;border:0;border-bottom:2px solid transparent;background:none;color:var(--ink-faint);font-family:var(--font-sans);font-size:11px;padding:15px 12px;cursor:pointer;white-space:nowrap}
 .osi-case-tab:hover{color:var(--ink-dim)}
 .osi-case-tab.active{color:var(--acc);border-bottom-color:var(--acc)}
 .osi-case-content{flex:1;overflow:auto;padding:25px 28px 40px}
@@ -122,7 +122,7 @@
 .osi-case-note{margin-top:16px;padding:12px 14px;border-left:2px solid var(--acc);background:rgba(255,176,32,.06);color:var(--ink-dim);font-size:13px;line-height:1.6}
 .osi-case-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:18px}
 .osi-case-meta div{border:1px solid var(--line);background:rgba(14,19,32,.72);padding:12px}
-.osi-case-meta span{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;color:var(--ink-faint)}
+.osi-case-meta span{display:block;font-family:var(--font-sans);font-size:11px;text-transform:uppercase;color:var(--ink-faint)}
 .osi-case-meta b{display:block;margin-top:5px;color:var(--ink);font-size:14px;overflow-wrap:anywhere}
 .osi-list{display:flex;flex-direction:column;gap:8px}
 .osi-list-item{border:1px solid var(--line);background:rgba(14,19,32,.62);padding:13px}
@@ -130,7 +130,7 @@
 .osi-list-item b{color:var(--ink);font-size:14px}
 .osi-list-item span,.osi-list-item p{color:var(--ink-faint);font-size:12px;line-height:1.55}
 .osi-evidence-ref{font-family:'JetBrains Mono',monospace;overflow-wrap:anywhere;margin-top:6px}
-.osi-proof-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sol);text-transform:uppercase}
+.osi-proof-label{font-family:var(--font-sans);font-size:11px;color:var(--sol);text-transform:uppercase}
 .osi-proof-label.legacy{color:var(--ink-faint)}
 /* Every failing SAS state renders as a bordered chip, but the verified state
    is the one that is also a link to the explanation, so it was inheriting the
@@ -147,36 +147,36 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 .osi-proof-key i.memo{background:var(--sol);box-shadow:0 0 8px rgba(20,241,149,.4)}
 .osi-proof-key i.signed{background:var(--cyan);box-shadow:0 0 8px rgba(255,176,32,.35)}
 .osi-case-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:16px 28px;border-top:1px solid var(--line);background:rgba(8,11,20,.94)}
-.osi-action{min-height:42px;border:1px solid var(--line-bright);background:var(--bg-raised);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 13px;cursor:pointer}
+.osi-action{min-height:42px;border:1px solid var(--line-bright);background:var(--bg-raised);color:var(--ink-dim);font-family:var(--font-sans);font-size:12px;padding:9px 13px;cursor:pointer}
 .osi-action:hover{color:var(--ink);border-color:var(--acc-line)}
 .osi-action.primary{background:var(--acc);border-color:var(--acc);color:#090b12;font-weight:700}
 .osi-action.primary:hover{background:var(--acc-deep)}
 .osi-action-help{margin-right:auto;color:var(--ink-faint);font-size:12px;line-height:1.45;max-width:380px}
 
 .osi-review-form{display:grid;gap:11px}
-.osi-review-form label{display:grid;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;color:var(--ink-faint)}
-.osi-review-form select{width:100%;background:var(--bg);border:1px solid var(--line-bright);color:var(--ink);padding:10px;font:12px 'JetBrains Mono',monospace}
+.osi-review-form label{display:grid;gap:6px;font-family:var(--font-sans);font-size:11px;text-transform:uppercase;color:var(--ink-faint)}
+.osi-review-form select{width:100%;background:var(--bg);border:1px solid var(--line-bright);color:var(--ink);padding:10px;font:12px var(--font-sans)}
 .osi-review-route{padding:10px;border:1px solid var(--line);color:var(--ink-dim);font-size:13px;line-height:1.5}
 .osi-review-lanes{display:grid;gap:16px}
 .osi-review-lane{border:1px solid var(--line);background:rgba(8,12,22,.52)}
 .osi-review-lane>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;border-bottom:1px solid var(--line)}
 .osi-review-lane>header h3{margin:0;color:var(--ink);font-size:15px}
-.osi-review-lane>header span{min-width:26px;text-align:center;color:var(--cyan);font:11px 'JetBrains Mono',monospace}
+.osi-review-lane>header span{min-width:26px;text-align:center;color:var(--cyan);font:11px var(--font-sans)}
 .osi-review-queue-tools{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;padding:12px 14px;border:1px solid var(--line);background:rgba(8,12,22,.52)}
 .osi-review-queue-tools p{margin:0;color:var(--ink-dim);font-size:13px}
-.osi-review-queue-tools time{display:block;margin-top:4px;color:var(--ink-faint);font:11px 'JetBrains Mono',monospace}
+.osi-review-queue-tools time{display:block;margin-top:4px;color:var(--ink-faint);font:11px var(--font-sans)}
 .osi-review-task{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(0,1.7fr);gap:16px;width:100%;padding:14px 15px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);text-align:left;cursor:pointer}
 .osi-review-task:last-child{border-bottom:0}
 .osi-review-task:hover{background:rgba(255,176,32,.04)}
-.osi-review-task>div span{display:block;color:var(--cyan);font:12px 'JetBrains Mono',monospace;overflow-wrap:anywhere}
+.osi-review-task>div span{display:block;color:var(--cyan);font:12px var(--font-sans);overflow-wrap:anywhere}
 .osi-review-task>div b{display:block;margin-top:6px;font-size:13px;line-height:1.45;color:var(--ink-dim)}
 .osi-review-task dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
 .osi-review-task dl div{min-width:0}
-.osi-review-task dt{color:var(--ink-faint);font:11px 'JetBrains Mono',monospace;text-transform:uppercase}
-.osi-review-task dd{margin:4px 0 0;color:var(--ink-dim);font:12px/1.4 'JetBrains Mono',monospace;overflow-wrap:anywhere}
+.osi-review-task dt{color:var(--ink-faint);font:11px var(--font-sans);text-transform:uppercase}
+.osi-review-task dd{margin:4px 0 0;color:var(--ink-dim);font:12px/1.4 var(--font-sans);overflow-wrap:anywhere}
 .osi-review-task dd.ok{color:var(--sol)}.osi-review-task dd.warn{color:var(--amber)}
 .osi-my-challenge{cursor:default}.osi-my-challenge:hover{background:transparent}.osi-my-challenge-detail{margin:8px 0 0;color:var(--ink-faint);font-size:12px;line-height:1.5;white-space:pre-wrap}.osi-my-challenge-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;padding-top:2px}
-.osi-review-lane-empty{padding:16px;color:var(--ink-faint);font:11px 'JetBrains Mono',monospace}
+.osi-review-lane-empty{padding:16px;color:var(--ink-faint);font:11px var(--font-sans)}
 .osi-review-lane-state{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px;color:var(--ink-dim);font-size:13px}
 .osi-review-lane-state.error{color:var(--red)}
 .osi-review-lane-state button{flex:none;min-height:40px}
@@ -184,14 +184,14 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 .osi-governance-mini,.osi-resolution-primary,.osi-governance-seal,.osi-challenge-record{border:1px solid var(--line);background:rgba(14,19,32,.66);padding:14px;margin-bottom:12px}
 .osi-governance-mini,.osi-resolution-primary{display:flex;justify-content:space-between;gap:12px;align-items:center}
 .osi-governance-mini b,.osi-resolution-primary b,.osi-governance-event b,.osi-challenge-record b{color:var(--ink);overflow-wrap:anywhere}
-.osi-governance-mini span,.osi-resolution-primary span{color:var(--ink-faint);font:11px 'JetBrains Mono',monospace}
+.osi-governance-mini span,.osi-resolution-primary span{color:var(--ink-faint);font:11px var(--font-sans)}
 .osi-governance-compose{display:grid;gap:12px;margin:18px 0;padding:16px;border:1px solid rgba(255,176,32,.22);background:rgba(255,176,32,.035)}
 .osi-governance-compose h4,.osi-governance-seal h4{margin:0;color:var(--ink);font-size:15px}
-.osi-governance-compose label{display:grid;gap:6px;color:var(--ink-faint);font:10.5px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em}
-.osi-governance-compose select,.osi-governance-compose input,.osi-governance-compose textarea{width:100%;min-height:42px;border:1px solid var(--line-bright);border-radius:0;background:var(--bg);color:var(--ink);padding:10px;font:12px/1.5 'JetBrains Mono',monospace;text-transform:none;resize:vertical}
+.osi-governance-compose label{display:grid;gap:6px;color:var(--ink-faint);font:10.5px var(--font-sans);text-transform:uppercase;letter-spacing:.04em}
+.osi-governance-compose select,.osi-governance-compose input,.osi-governance-compose textarea{width:100%;min-height:42px;border:1px solid var(--line-bright);border-radius:0;background:var(--bg);color:var(--ink);padding:10px;font:12px/1.5 var(--font-sans);text-transform:none;resize:vertical}
 .osi-governance-compose textarea{min-height:88px}
 .osi-quorum{display:grid;gap:8px;margin:12px 0}
-.osi-quorum>div:first-child{display:flex;justify-content:space-between;gap:12px;color:var(--ink-dim);font:10.5px 'JetBrains Mono',monospace}
+.osi-quorum>div:first-child{display:flex;justify-content:space-between;gap:12px;color:var(--ink-dim);font:10.5px var(--font-sans)}
 .osi-quorum-track{height:6px;overflow:hidden;background:rgba(148,163,184,.14)}
 .osi-quorum-track i{display:block;height:100%;max-width:100%;background:var(--cyan)}
 .osi-governance-timeline{display:grid;gap:8px;margin:12px 0}
@@ -202,32 +202,32 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 .osi-challenge-list{display:grid;gap:14px}
 .osi-challenge-record>p{margin:10px 0 14px!important}
 .osi-chip.warning{color:var(--amber);border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.06)}
-.osi-reward-chip{display:inline-flex;width:max-content;margin-top:7px;border:1px solid rgba(20,241,149,.28);padding:3px 7px;color:var(--sol);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;font-style:normal}
+.osi-reward-chip{display:inline-flex;width:max-content;margin-top:7px;border:1px solid rgba(20,241,149,.28);padding:3px 7px;color:var(--sol);font:500 11px/1.5 var(--font-sans);letter-spacing:.04em;text-transform:uppercase;font-style:normal}
 
 .osi-payment-compose{display:grid;gap:12px;margin:16px 0;padding:16px;border:1px solid rgba(20,241,149,.24);background:rgba(20,241,149,.035)}
 .osi-payment-compose h4{margin:0;color:var(--ink);font-size:15px}
-.osi-payment-compose label{display:grid;gap:6px;color:var(--ink-faint);font:10.5px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em}
-.osi-payment-compose input,.osi-payment-compose select{width:100%;min-height:44px;border:1px solid var(--line-bright);border-radius:0;background:var(--bg);color:var(--ink);padding:10px;font:13px/1.5 'JetBrains Mono',monospace;text-transform:none}
+.osi-payment-compose label{display:grid;gap:6px;color:var(--ink-faint);font:10.5px var(--font-sans);text-transform:uppercase;letter-spacing:.04em}
+.osi-payment-compose input,.osi-payment-compose select{width:100%;min-height:44px;border:1px solid var(--line-bright);border-radius:0;background:var(--bg);color:var(--ink);padding:10px;font:13px/1.5 var(--font-sans);text-transform:none}
 .osi-payment-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .osi-support-group{display:grid;gap:9px;margin:0;padding:12px;border:1px solid var(--line)}
-.osi-support-group legend{padding:0 6px;color:var(--cyan);font:10px 'JetBrains Mono',monospace}
+.osi-support-group legend{padding:0 6px;color:var(--cyan);font:10px var(--font-sans)}
 .osi-support-recipient{display:grid!important;grid-template-columns:auto minmax(0,1fr) minmax(110px,150px);align-items:center;gap:9px;text-transform:none!important}
 .osi-support-recipient>input[type="checkbox"]{width:18px!important;min-height:18px!important;accent-color:var(--sol)}
 .osi-support-recipient>span{overflow-wrap:anywhere}
 .osi-payment-proof{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:12px 0}
 .osi-payment-proof div{padding:8px;border:1px solid var(--line);min-width:0}
-.osi-payment-proof dt{color:var(--ink-faint);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase}
-.osi-payment-proof dd{margin:4px 0 0;color:var(--ink-dim);font:11px 'JetBrains Mono',monospace;overflow-wrap:anywhere}
-.osi-payment-proof-recipients{margin:9px 0;padding-left:19px;color:var(--ink-dim);font:11px/1.6 'JetBrains Mono',monospace}
+.osi-payment-proof dt{color:var(--ink-faint);font:500 11px/1.5 var(--font-sans);letter-spacing:.04em;text-transform:uppercase}
+.osi-payment-proof dd{margin:4px 0 0;color:var(--ink-dim);font:11px var(--font-sans);overflow-wrap:anywhere}
+.osi-payment-proof-recipients{margin:9px 0;padding-left:19px;color:var(--ink-dim);font:11px/1.6 var(--font-sans)}
 .osi-payment-review{position:fixed;inset:0;z-index:var(--z-payment);display:grid;place-items:center;padding:18px;background:rgba(2,5,10,.86);backdrop-filter:blur(7px)}
 .osi-payment-review-card{width:min(540px,100%);max-height:calc(100vh - 36px);overflow:auto;border:1px solid var(--line-bright);background:#0a0f1b;box-shadow:0 28px 90px rgba(0,0,0,.72);padding:24px}
 .osi-payment-review-card h3{margin:7px 0 18px;color:var(--ink);font-size:22px}
 .osi-payment-review-card dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
 .osi-payment-review-card dl div{padding:10px;border:1px solid var(--line);background:rgba(14,19,32,.72);min-width:0}
-.osi-payment-review-card dt{color:var(--ink-faint);font:10px 'JetBrains Mono',monospace;text-transform:uppercase}
+.osi-payment-review-card dt{color:var(--ink-faint);font:10px var(--font-sans);text-transform:uppercase}
 .osi-payment-review-card dd{margin:4px 0 0;color:var(--ink);font-size:13px;overflow-wrap:anywhere}
 .osi-payment-review-card ul{display:grid;gap:7px;padding:0;margin:14px 0;list-style:none}
-.osi-payment-review-card li{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-left:2px solid var(--sol);background:rgba(20,241,149,.04);color:var(--ink-dim);font:11px 'JetBrains Mono',monospace}
+.osi-payment-review-card li{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-left:2px solid var(--sol);background:rgba(20,241,149,.04);color:var(--ink-dim);font:11px var(--font-sans)}
 .osi-payment-review-card li b{color:var(--ink)}
 .osi-solana-pay-card{width:min(760px,100%)}
 .osi-solana-pay-grid{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:18px;align-items:start;margin-bottom:14px}
@@ -236,7 +236,7 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 .osi-solana-pay-timer{margin:10px 0 0;color:var(--cyan);font-size:11px}
 
 .osi-stat{min-width:120px;border-left:1px solid var(--line);padding-left:16px}
-.osi-stat span{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;color:var(--ink-faint)}
+.osi-stat span{display:block;font-family:var(--font-sans);font-size:11px;text-transform:uppercase;color:var(--ink-faint)}
 .osi-stat b{display:block;margin-top:3px;font-size:18px;color:var(--ink)}
 
 body.osi-case-open{overflow:hidden}
@@ -306,7 +306,7 @@ body.osi-case-open{overflow:hidden}
 .osi-workspace-lock{display:grid;justify-items:center;gap:12px;border:1px solid var(--line);background:rgba(12,17,29,.65);padding:42px 28px;text-align:center}
 .osi-workspace-lock b{color:var(--ink);font-size:17px}
 .osi-workspace-lock span{max-width:600px;color:var(--ink-dim);font-size:14px;line-height:1.65}
-.osi-workspace-lock small{max-width:600px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;opacity:.85}
+.osi-workspace-lock small{max-width:600px;color:var(--ink-dim);font-family:var(--font-sans);font-size:11px;line-height:1.6;opacity:.85}
 .osi-workspace-lock .osi-action,.osi-workspace-lock .osi-report-action{min-height:44px;padding:11px 18px}
 .osi-workspace-lock .osi-action:hover,.osi-workspace-lock .osi-action:focus-visible{border-color:var(--acc-line);color:var(--ink);outline:0}
 @media(max-width:640px){
@@ -321,7 +321,8 @@ body.osi-case-open{overflow:hidden}
 .osi-state-message{display:grid;gap:8px;justify-items:start;margin:0 0 14px;padding:14px 16px;border:1px solid var(--line);border-left:3px solid var(--ink-faint);border-radius:8px;background:rgba(12,17,29,.6)}
 .osi-state-message b{color:var(--ink);font-size:14px;line-height:1.5}
 .osi-state-message span{color:var(--ink-dim);font-size:13px;line-height:1.65}
-.osi-state-message .mono,.osi-state-message .osi-report-card-meta{color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.6}
+.osi-state-message .mono{color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.6}
+.osi-state-message .osi-report-card-meta{color:var(--ink-dim);font-family:var(--font-sans);font-size:11.5px;line-height:1.6}
 .osi-state-message a{color:var(--cyan)}
 .osi-state-message>.osi-action,.osi-state-message>.osi-report-action,.osi-state-message>.osi-report-publish{min-height:44px;margin-top:2px}
 .osi-state-message.success{border-left-color:var(--sol);background:rgba(20,241,149,.06)}
@@ -331,8 +332,8 @@ body.osi-case-open{overflow:hidden}
 
 /* Published-Report signal on a Case row: the reason a reader opens the Case.
    Sized to the 11px monospace step used elsewhere rather than the 9.5px of the
-   older chip beside it, which predates the no-micro-text rule. */
-.osi-published-chip{display:inline-flex;width:max-content;margin-top:7px;margin-right:6px;border:1px solid rgba(255,176,32,.32);padding:3px 7px;color:var(--cyan);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;font-style:normal}
+   older chip beside it,which predates the no-micro-text rule. */
+.osi-published-chip{display:inline-flex;width:max-content;margin-top:7px;margin-right:6px;border:1px solid rgba(255,176,32,.32);padding:3px 7px;color:var(--cyan);font:500 11px/1.5 var(--font-sans);letter-spacing:.04em;text-transform:uppercase;font-style:normal}
 
 /* Structured reference sections.
    Addresses, transaction signatures and links are the substance of an OSI
@@ -345,11 +346,11 @@ body.osi-case-open{overflow:hidden}
 .osi-ref-sections{display:grid;gap:14px;margin:12px 0 0}
 .osi-ref-group{display:grid;gap:8px;min-width:0}
 .osi-ref-group>h4{margin:0;color:var(--ink);font-size:13px;font-weight:600;letter-spacing:.02em}
-.osi-ref-count{display:inline-block;margin-left:6px;border:1px solid var(--line);padding:1px 6px;color:var(--ink-dim);font:500 11px/1.5 'JetBrains Mono',monospace}
+.osi-ref-count{display:inline-block;margin-left:6px;border:1px solid var(--line);padding:1px 6px;color:var(--ink-dim);font:500 11px/1.5 var(--font-sans)}
 .osi-ref-list{display:grid;gap:8px;margin:0;padding:0;list-style:none;min-width:0}
 .osi-ref-item{display:grid;gap:6px;min-width:0;border:1px solid var(--line);border-radius:8px;background:rgba(12,17,29,.55);padding:10px 12px}
 .osi-ref-value{overflow-wrap:anywhere;word-break:break-word;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6}
-.osi-ref-meta{color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6}
+.osi-ref-meta{color:var(--ink-dim);font-family:var(--font-sans);font-size:11px;line-height:1.6}
 .osi-ref-actions{display:flex;flex-wrap:wrap;gap:8px}
 .osi-ref-copy,.osi-ref-link{display:inline-flex;align-items:center;justify-content:center;min-height:32px;border:1px solid var(--line);border-radius:6px;background:transparent;padding:5px 12px;color:var(--ink-dim);font-size:12px;line-height:1.4;text-decoration:none;cursor:pointer}
 .osi-ref-copy:hover,.osi-ref-copy:focus-visible,.osi-ref-link:hover,.osi-ref-link:focus-visible{border-color:var(--acc-line);color:var(--ink);outline:0}
@@ -360,14 +361,14 @@ body.osi-case-open{overflow:hidden}
 .osi-case-block>h4{margin:0;color:var(--ink);font-size:13px;font-weight:600;letter-spacing:.02em}
 .osi-case-block p{margin:0;color:var(--ink-dim);font-size:14px;line-height:1.7;overflow-wrap:anywhere}
 .osi-case-block.restricted{border-left:3px solid var(--amber);padding-left:12px}
-.osi-restricted-chip{display:inline-block;margin-left:6px;border:1px solid rgba(255,176,32,.32);padding:1px 6px;color:var(--amber);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase}
+.osi-restricted-chip{display:inline-block;margin-left:6px;border:1px solid rgba(255,176,32,.32);padding:1px 6px;color:var(--amber);font:500 11px/1.5 var(--font-sans);letter-spacing:.04em;text-transform:uppercase}
 .osi-detail-grid{display:grid;gap:8px;margin:0}
 .osi-detail-grid>div{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
 .osi-detail-grid dt{color:var(--ink-dim);font-size:12.5px}
 .osi-detail-grid dd{margin:0;color:var(--ink);font-size:12.5px;overflow-wrap:anywhere}
 
 /* Live character budget for long-form fields. */
-.osi-char-counter{display:block;color:var(--ink-faint);font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.6}
+.osi-char-counter{display:block;color:var(--ink-faint);font-family:var(--font-sans);font-size:11.5px;line-height:1.6}
 .osi-char-counter.near-limit{color:var(--amber)}
 .osi-char-counter.over-limit{color:var(--amber);font-weight:600}
 

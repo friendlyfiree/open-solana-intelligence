@@ -216,10 +216,10 @@ button {
   clip-path: inset(50%) !important;
 }
 
-.mono,
-.osi-kicker,
-.fo-eyebrow,
-.cr-kicker {
+/* Monospace is reserved for machine data: hashes, wallets, references,
+ * transaction ids and Memo names. Labels, eyebrows and buttons use the UI
+ * face so the interface reads as a product, not a terminal. */
+.mono {
   font-family: var(--font-mono) !important;
 }
 
@@ -332,7 +332,7 @@ button {
 
 .osi-brand-copy small {
   color: var(--ink-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: .07em;
   text-transform: uppercase;
@@ -437,7 +437,7 @@ button {
 .osi-platform-group > p {
   margin: 0 8px 8px;
   color: var(--ink-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -523,7 +523,7 @@ button {
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 650;
 }
@@ -1097,7 +1097,7 @@ button {
 .osi-model-label,
 .osi-signal-caption {
   color: var(--lamp);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .11em;
@@ -1176,7 +1176,7 @@ button {
   border-radius: 50%;
   background: #11141a;
   color: var(--platinum);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   box-shadow: 0 0 0 5px rgba(8, 9, 13, .76);
   transition: border-color 150ms ease, box-shadow 150ms ease, color 150ms ease;
@@ -1480,7 +1480,7 @@ button {
 
 .osi-route-copy > span {
   color: var(--lamp);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .12em;
@@ -1609,7 +1609,7 @@ button {
 
 .osi-live-pane > header span {
   color: var(--lamp);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: .09em;
   text-transform: uppercase;
@@ -1691,7 +1691,7 @@ button {
 .osi-proof-legend-heading > span,
 .osi-proof-legend-items > div > span {
   color: var(--lamp);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .11em;
@@ -1860,7 +1860,7 @@ footer > .wrap {
 .fr-index {
   width: 24px;
   color: var(--cyan);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
 }
 
@@ -2010,7 +2010,7 @@ footer > .wrap {
   background: rgba(255, 176, 32, .07);
   color: var(--platinum);
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 700;
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
@@ -2229,7 +2229,7 @@ footer > .wrap {
   #field-view .fo-prev-empty::before {
     content: "CASE CONTEXT";
     color: var(--lamp);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: .13em;
@@ -3617,7 +3617,7 @@ footer > .wrap {
 
 .osi-about-contract dt {
   color: var(--about-accent);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .12em;
@@ -3675,7 +3675,7 @@ footer > .wrap {
   min-height: 48px;
   padding: 0 16px;
   border-bottom: 1px solid rgba(245, 240, 232, .1);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -3748,7 +3748,7 @@ footer > .wrap {
   max-width: 38ch;
   margin-top: -16px;
   color: var(--ink-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: .08em;
   line-height: 1.5;
@@ -3787,7 +3787,7 @@ footer > .wrap {
   border: 1px solid var(--about-accent-line);
   border-radius: 50%;
   color: var(--about-accent);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
 }
@@ -3891,7 +3891,7 @@ footer > .wrap {
   border-radius: 999px;
   border-color: var(--about-accent-line);
   color: var(--about-accent);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .12em;
@@ -3961,7 +3961,7 @@ footer > .wrap {
 
 #sas-verifier-form .osi-field > span {
   color: var(--ink-dim);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .11em;
@@ -4064,7 +4064,7 @@ footer > .wrap {
 
 .osi-about-proof-grid span {
   color: var(--ink-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .12em;
@@ -4121,7 +4121,7 @@ footer > .wrap {
   border: 1px solid var(--about-accent-line);
   border-radius: 50%;
   color: var(--about-accent);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
 }
@@ -4200,7 +4200,7 @@ footer > .wrap {
 .osi-about-notice strong {
   flex: 0 0 auto;
   color: var(--platinum-cool);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: .1em;
   text-transform: uppercase;
