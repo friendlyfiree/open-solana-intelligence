@@ -83,12 +83,6 @@
 #about-hero .abt-disclaimer{display:flex;flex-wrap:wrap;gap:7px 13px;margin-top:10px;padding:11px 14px;color:var(--ink-faint);font-size:12px;line-height:1.45;background:rgba(8,13,24,.72);border-color:rgba(148,163,184,.14)}
 #about-hero .abt-disclaimer span{display:inline-flex;align-items:center;gap:8px}
 #about-hero .abt-disclaimer span::before{content:"";width:4px;height:4px;border-radius:50%;background:rgba(148,163,184,.45)}
-body[data-view="methodology"] footer{margin-top:18px;padding:16px 0 22px;background:linear-gradient(180deg,rgba(4,7,14,.2),rgba(4,7,14,.74));border-top:1px solid rgba(148,163,184,.12)}
-body[data-view="methodology"] footer .foot{align-items:center;gap:14px}
-body[data-view="methodology"] footer .foot .brand{margin-bottom:0;font-size:12.5px;letter-spacing:.16em;color:var(--ink-dim)}
-body[data-view="methodology"] footer .foot p,body[data-view="methodology"] footer .disclaimer{display:none}
-body[data-view="methodology"] footer .foot .links{flex-direction:row;align-items:center;gap:8px 14px}
-body[data-view="methodology"] footer .foot .links a{font-size:12.5px;color:var(--ink-faint)}
 @media(max-width:1180px){#about-hero .abt-shell{grid-template-columns:1fr}#about-hero .abt-aside{position:relative;top:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-hero{grid-template-columns:minmax(0,1fr) 250px}#about-hero .abt-flow{grid-template-columns:repeat(3,minmax(0,1fr))}#about-hero .abt-flow::before{display:none}#about-hero .abt-rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:780px){#about-hero .abt-wrap{padding:0 16px}#about-hero .abt-hero{grid-template-columns:1fr;padding:24px 18px}#about-hero .abt-protocol{display:none}#about-hero .abt-boundary{grid-template-columns:1fr}#about-hero .abt-aside{grid-template-columns:1fr}#about-hero .abt-flow{grid-template-columns:1fr}#about-hero .abt-rules{grid-template-columns:1fr}#about-hero .abt-cta{align-items:flex-start;flex-direction:column}#about-hero .abt-cta-b{width:100%}#about-hero .abt-b{width:100%}}
 /* ==@osi-src: index.html <style id="osi-about-premium"> block #27 (osi-about-premium) */

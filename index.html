@@ -87,7 +87,7 @@
       <div class="osi-platform-menu" id="platform-menu" hidden>
         <div class="osi-platform-group"><p>Investigations</p><button type="button" data-action-contract="case" data-endpoint="osi-v2-case-write:actor_capabilities" onclick="osiRunLiveAction('case')"><strong>Open a Case</strong><span>Start private, wallet-signed intake</span></button><button type="button" onclick="osiNavigate('field')"><strong>Field Office</strong><span>Open and follow Cases</span></button><button type="button" onclick="osiNavigate('wire')"><strong>The Wire</strong><span>Read standalone intelligence</span></button></div>
         <div class="osi-platform-group"><p>Public record</p><button type="button" onclick="osiNavigate('records')"><strong>Public Records</strong><span>Public Cases and governed findings</span></button><button type="button" data-action-contract="proof" data-endpoint="onchain_events:public_projection" onclick="osiRunLiveAction('proof')"><strong>Proof Log</strong><span>Verify signatures, Memos and transfers</span></button></div>
-        <div class="osi-platform-group"><p>Governance</p><button type="button" data-action-contract="review" data-endpoint="osi-v2-case-read:list_reviewable_cases" onclick="osiRunLiveAction('review')"><strong>Review Queue</strong><span>Open authorized review tasks</span></button><button type="button" data-action-contract="governance" data-endpoint="osi-v2-governance-write:prepare" onclick="osiRunLiveAction('governance')"><strong>Resolution lifecycle</strong><span>Resolve, challenge and seal</span></button><button type="button" data-action-contract="money" data-endpoint="osi-v2-payment:capabilities" onclick="osiRunLiveAction('money')"><strong>Reward &amp; support</strong><span>Eligible sealed Case actions</span></button></div>
+        <div class="osi-platform-group"><p>Governance</p><button type="button" data-action-contract="review" data-endpoint="osi-v2-case-read:list_reviewable_cases" onclick="osiRunLiveAction('review')"><strong>Review Queue</strong><span>Open authorized review tasks</span></button><button type="button" data-action-contract="governance" data-endpoint="osi-v2-governance-write:prepare" onclick="osiRunLiveAction('governance')"><strong>Resolution lifecycle</strong><span>Cases in selection, challenge and seal</span></button><button type="button" data-action-contract="money" data-endpoint="osi-v2-payment:capabilities" onclick="osiRunLiveAction('money')"><strong>Reward &amp; support</strong><span>Sealed Cases: reward and voluntary support</span></button></div>
         <div class="osi-platform-group"><p>Workspaces</p><button type="button" onclick="osiNavigate('workspace')"><strong>My OSI</strong><span>Open wallet-linked work</span></button><button type="button" onclick="osiNavigate('analysts')"><strong>Analyst Network</strong><span>Inspect attributable public work</span></button></div>
       </div>
     </div>
@@ -104,7 +104,7 @@
       </select>
     </label>
     <button class="osi-header-case" type="button" onclick="osiOpenCase()">Open a Case</button>
-    <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Maintainer access" aria-label="Maintainer access">M</button>
+    <button class="adm-lock" id="admLockBtn" style="display:none" onclick="admOpen()" title="Open Operations Center" aria-label="Open Operations Center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button>
     <div class="wb-wrap">
       <button class="wallet-btn" id="walletBtn" type="button" onclick="walletButtonClick()" aria-label="Connect Wallet" aria-haspopup="menu" aria-expanded="false" aria-controls="wbMenu" title="Connect, profile, or disconnect"><span class="wb-dot" aria-hidden="true"></span><span id="wbText">Connect Wallet</span></button>
       <div class="wb-menu" id="wbMenu" role="menu" aria-label="Wallet and workspace">
@@ -117,8 +117,7 @@
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyProfile();closeWalletMenu();">My Profile</button>
         <div class="wb-menu-rule"></div>
         <div class="wb-menu-label">Analyst</div>
-        <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenReviewQueue();closeWalletMenu();">Unified Review Queue</button>
-        <button class="wb-mi" type="button" role="menuitem" data-action-contract="analyst" data-endpoint="osi-v2-analyst:my_workspace" onclick="osiRunLiveAction('analyst');closeWalletMenu();">Applications</button>
+        <button class="wb-mi" type="button" role="menuitem" data-action-contract="analyst" data-endpoint="osi-v2-analyst:my_workspace" onclick="osiRunLiveAction('analyst');closeWalletMenu();">My Applications</button>
         <div class="wb-menu-rule"></div>
         <button class="wb-mi" id="maintainerAccessMenu" style="display:none" type="button" role="menuitem" data-action-contract="operations" data-endpoint="osi-v2-case-read:maintainer_case_overview" onclick="osiRunLiveAction('operations');closeWalletMenu();">Maintainer Sign In <span class="osi-menu-lock" id="maintainerAccessBadge">2 gates</span></button>
         <button class="wb-mi danger" type="button" role="menuitem" onclick="disconnectWallet();">Disconnect</button>

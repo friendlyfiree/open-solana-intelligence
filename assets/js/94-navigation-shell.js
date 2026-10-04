@@ -56,7 +56,27 @@
     if (first) first.focus();
   }
 
+  var viewTitles = {
+    field: 'Field Office',
+    wire: 'The Wire',
+    records: 'Public Records',
+    analysts: 'Analyst Network',
+    prooflog: 'Proof Log',
+    methodology: 'About',
+    workspace: 'My OSI',
+    identity: 'OSI Identity',
+    admin: 'Operations Center'
+  };
+  function syncDocumentTitle(view) {
+    var home = 'Open Solana Intelligence | Public incident intelligence';
+    var t = typeof window.osiT === 'function' ? window.osiT : function (key) { return key; };
+    document.title = viewTitles[view] ? t(viewTitles[view]) + ' | Open Solana Intelligence' : t(home);
+  }
+
+  window.osiSyncDocumentTitle = function () { syncDocumentTitle(document.body.dataset.view || 'registry'); };
+
   function syncActiveNavigation(view) {
+    syncDocumentTitle(view);
     document.querySelectorAll('[data-global-view]').forEach(function (button) {
       if (button.getAttribute('data-global-view') === view) {
         button.setAttribute('aria-current', 'page');
@@ -173,7 +193,8 @@
 
   function trapMobileFocus(event) {
     if (event.key !== 'Tab' || !document.body.classList.contains('nav-open') || !globalNav) return;
-    var items = focusable(globalNav);
+    // The visible close control sits outside the drawer; keep it in the cycle.
+    var items = (mobileToggle ? [mobileToggle] : []).concat(focusable(globalNav));
     if (!items.length) return;
     var first = items[0];
     var last = items[items.length - 1];
@@ -218,6 +239,16 @@
       platformTrigger.addEventListener('focus', function () {
         if (document.documentElement.classList.contains('osi-keyboard-input')) setPlatform(true);
       });
+      // A menu opened by keyboard focus closes again when focus moves on, so
+      // it never sits over the control the reader has tabbed to.
+      if (platformWrap) {
+        platformWrap.addEventListener('focusout', function (event) {
+          if (document.body.classList.contains('nav-open')) return;
+          if (event.relatedTarget && platformWrap.contains(event.relatedTarget)) return;
+          if (platformIntent) platformIntent.cancel();
+          setPlatform(false);
+        });
+      }
       platformTrigger.addEventListener('keydown', function (event) {
         if (event.key === 'ArrowDown') {
           event.preventDefault();
@@ -263,13 +294,27 @@
       }
       trapMobileFocus(event);
       if (key === 'Escape') {
+        var walletMenuNode = document.getElementById('wbMenu');
         if (document.body.classList.contains('nav-open')) closeMobileNav(true);
         else if (platformTrigger && platformTrigger.getAttribute('aria-expanded') === 'true') {
           setPlatform(false);
           platformTrigger.focus();
+        } else if (walletMenuNode && walletMenuNode.classList.contains('open')) {
+          if (typeof window.closeWalletMenu === 'function') window.closeWalletMenu();
+          var walletButtonNode = document.getElementById('walletBtn');
+          if (walletButtonNode) walletButtonNode.focus();
         }
       }
     });
+    var skipLink = document.querySelector('.skip-link');
+    if (skipLink) {
+      skipLink.addEventListener('click', function (event) {
+        var main = document.getElementById('main-content');
+        if (!main) return;
+        event.preventDefault();
+        main.focus();
+      });
+    }
     document.addEventListener('pointerdown', function (event) {
       document.documentElement.classList.remove('osi-keyboard-input');
       if (!platformMenu || !platformTrigger || platformMenu.hidden) return;
@@ -385,7 +430,9 @@
   // Every public entry point routes through one canonical Case detail so the
   // same reference always resolves to the same drawer and the same URL.
   function openPublicCase(publicRef) {
-    navigate('field', { focus: false, preserveScroll: true });
+    // Only the #case/<ref> entry is pushed, so Back returns to where the
+    // reader came from instead of an intermediate Field Office entry.
+    navigate('field', { focus: false, preserveScroll: true, history: true });
     window.setTimeout(function () {
       if (typeof window.osiV2OpenCase === 'function') window.osiV2OpenCase(publicRef);
     }, 0);
@@ -538,8 +585,8 @@
   // #case/OSI-XXXXXXXXXXXX is the canonical, shareable public Case route. It
   // carries only a public reference, never a token, nonce or wallet value.
   function caseRouteRef(hash) {
-    var match = /^case\/(OSI-[0-9A-Z]{6,20})$/.exec(String(hash || ''));
-    return match ? match[1] : '';
+    var match = /^case\/(OSI-[0-9A-Z]{6,20})$/i.exec(String(hash || ''));
+    return match ? match[1].toUpperCase() : '';
   }
 
   // #analyst/<handle> and #maintainer address one public profile. The analyst
@@ -598,7 +645,15 @@
     }
     if (hashViews[hash]) navigate(hashViews[hash], { history: true, focus: false });
     else if (!hash) navigate('registry', { history: true, focus: false });
-    else syncActiveNavigation(document.body.dataset.view || 'registry');
+    else {
+      var current = document.body.dataset.view || 'registry';
+      syncActiveNavigation(current);
+      // An address that is neither a view nor an element on the page would
+      // otherwise stay in the bar and contradict what is shown.
+      if (!document.getElementById(hash) && viewHashes[current]) {
+        try { window.history.replaceState({ osiView: current }, '', '#' + viewHashes[current]); } catch (_) {}
+      }
+    }
   }
 
   function init() {

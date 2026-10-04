@@ -1098,6 +1098,15 @@
     'Status': 'Durum',
     '{count} analyst': '{count} analist',
     '{count} analysts': '{count} analist',
+    'My Applications': 'Başvurularım',
+    'Open Operations Center': 'Operasyon Merkezini aç',
+    'Cases in selection, challenge and seal': 'Seçim, itiraz ve mühür aşamasındaki Vakalar',
+    'Sealed Cases: reward and voluntary support': 'Mühürlü Vakalar: ödül ve gönüllü destek',
+    'Wallet disconnected.': 'Cüzdan bağlantısı kesildi.',
+    'Contact email copied: {email}': 'İletişim e-postası kopyalandı: {email}',
+    'Copy failed. Contact email: {email}': 'Kopyalama başarısız. İletişim e-postası: {email}',
+    'Connect Wallet to continue. This action will resume once after connection.': 'Devam etmek için cüzdanınızı bağlayın. Bu işlem bağlantıdan sonra bir kez sürdürülür.',
+    'Operations Center': 'Operasyon Merkezi',
     'No Solana wallet found in this browser': 'Bu tarayıcıda Solana cüzdanı bulunamadı',
     'OSI attributes every Case, Report and review to the wallet that signs it. Install Phantom, then reload this page and connect.': 'OSI her Vakayı, Raporu ve incelemeyi onu imzalayan cüzdana bağlar. Phantom’u kurun, ardından bu sayfayı yenileyip bağlanın.',
     'On a phone, open this page inside the Phantom app browser.': 'Telefonda bu sayfayı Phantom uygulamasının tarayıcısında açın.',
@@ -1342,6 +1351,8 @@
 
     var titleKey = 'Open Solana Intelligence | Public incident intelligence';
     document.title = currentLocale === 'tr' ? turkish[titleKey] : titleKey;
+    // The shell titles each view; let it re-title the current view in the new language.
+    if (typeof window.osiSyncDocumentTitle === 'function') window.osiSyncDocumentTitle();
     var description = document.querySelector('meta[name="description"]');
     if (description) {
       var englishDescription = description.getAttribute('data-osi-en-content') || description.getAttribute('content');
