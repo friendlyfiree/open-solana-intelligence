@@ -5109,3 +5109,36 @@ footer > .wrap {
 #prooflog .plc-meta-v.signed {
   color: var(--platinum-cool);
 }
+
+/* Field Office list: fixed columns so the header and every row line up
+ * (the first column used to size itself per row), room for the longer
+ * Turkish headers, and the filing date under each reference so two Cases
+ * with the same title can be told apart. */
+@media (min-width: 1181px) {
+  .osi-v2-head,
+  .osi-v2-row {
+    grid-template-columns: 170px minmax(220px, 1fr) 150px 104px 96px 136px 24px !important;
+  }
+}
+
+.osi-v2-head > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: .06em !important;
+}
+
+.osi-v2-id {
+  display: grid !important;
+  gap: 4px;
+  align-content: center;
+}
+
+.osi-v2-id .osi-v2-date {
+  color: var(--ink-faint);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+

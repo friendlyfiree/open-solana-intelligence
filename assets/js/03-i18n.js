@@ -1098,6 +1098,16 @@
     'Status': 'Durum',
     '{count} analyst': '{count} analist',
     '{count} analysts': '{count} analist',
+    '{count} Case': '{count} Vaka',
+    '{count} Cases': '{count} Vaka',
+    'Search my Cases by reference, title, or summary': 'Vakalarımda referans, başlık veya özetle arayın',
+    'Search review tasks by reference or title': 'İnceleme görevlerinde referans veya başlıkla arayın',
+    'Search my challenges by reference': 'İtirazlarımda referansla arayın',
+    'Search public Cases by reference, title, or summary': 'Kamusal Vakalarda referans, başlık veya özetle arayın',
+    'Search my Cases': 'Vakalarımda ara',
+    'Search review tasks': 'İnceleme görevlerinde ara',
+    'Search my challenges': 'İtirazlarımda ara',
+    'Search public Cases': 'Kamusal Vakalarda ara',
     'Sealed outcomes only': 'Yalnızca mühürlenmiş sonuçlar',
     'No sealed public records are listed': 'Listelenen mühürlenmiş kamusal kayıt yok',
     'Public Records holds sealed outcomes only. Open public Cases and their published Reports are in the Field Office. OSI does not substitute example records for an empty public index.': 'Kamusal Kayıtlar yalnızca mühürlenmiş sonuçları tutar. Açık kamusal Case kayıtları ve yayımlanmış Raporları Saha Ofisi’ndedir. OSI, boş bir kamusal dizinin yerine örnek kayıt koymaz.',
@@ -1257,6 +1267,16 @@
       }
       return;
     }
+    // The app may rewrite a node while Turkish is shown. Anything that is not
+    // our own translation of the stored English is new English: remember it,
+    // so switching back restores the current text rather than the first one.
+    if (originalText.has(node)) {
+      var stored = originalText.get(node);
+      var ownTranslation = translatedValue(stored, currentLocale, node);
+      if (node.nodeValue !== stored && (!ownTranslation || node.nodeValue !== preserveWhitespace(stored, ownTranslation))) {
+        originalText.set(node, node.nodeValue);
+      }
+    }
     var replacement = translatedValue(node.nodeValue, currentLocale, node);
     if (!replacement) return;
     if (!originalText.has(node)) originalText.set(node, node.nodeValue);
@@ -1284,6 +1304,10 @@
       return;
     }
     var value = element.getAttribute(name);
+    if (Object.prototype.hasOwnProperty.call(stored, name) && value !== stored[name]) {
+      var ownTranslation = translatedValue(stored[name], currentLocale, element);
+      if (value !== ownTranslation) stored[name] = value;
+    }
     var replacement = translatedValue(value, currentLocale, element);
     if (!replacement) return;
     if (!Object.prototype.hasOwnProperty.call(stored, name)) stored[name] = value;

@@ -289,6 +289,12 @@
     var locale=String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US';
     return isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})+' UTC';
   }
+  function dayText(value){
+    var date=new Date(value||'');
+    if(isNaN(date.getTime()))return '';
+    var selected=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():'en';
+    return date.toLocaleDateString(String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+  }
   function countdownText(value){
     var end=new Date(value||'').getTime();if(!Number.isFinite(end))return'Window unavailable';
     var remaining=Math.max(0,end-Date.now());
@@ -466,7 +472,25 @@
     var host=document.getElementById('field-cases');
     if(host) host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';
   }
+  // The search box and the stage select describe the list that is actually
+  // shown. My Cases used to keep the public placeholder and a stale
+  // "Public investigation" filter while listing every stage.
+  function syncFieldControls(mode){
+    var search=document.getElementById('fo-search');
+    if(search){
+      var placeholder=mode==='mine'?'Search my Cases by reference, title, or summary'
+        :mode==='review'?'Search review tasks by reference or title'
+        :mode==='challenges'?'Search my challenges by reference'
+        :'Search public Cases by reference, title, or summary';
+      var label=mode==='mine'?'Search my Cases':mode==='review'?'Search review tasks':mode==='challenges'?'Search my challenges':'Search public Cases';
+      search.setAttribute('placeholder',placeholder);
+      search.setAttribute('aria-label',label);
+    }
+    var select=document.querySelector('#field-view select[onchange*="fieldFilter"]');
+    if(select&&mode!=='public'&&select.value!==state.stage)select.value=state.stage||'all';
+  }
   function setFieldCopy(mode){
+    syncFieldControls(mode==='mine'||mode==='review'||mode==='challenges'?mode:'public');
     var title=document.getElementById('fo-title');
     var sub=document.getElementById('fo-sub');
     var eyebrow=document.getElementById('fo-eyebrow');
@@ -801,7 +825,7 @@
         var rowLabel=t('Open Case detail')+': '+String(item.public_ref)+', '+String(item.title||'')
           +' ('+stageLabel(item.stage,item)+', '+(published?published+' '+t('published Reports'):t('no published Report'))+')';
         return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'" aria-label="'+esc(rowLabel)+'">'
-          +'<span class="osi-v2-id">'+esc(item.public_ref)+'</span>'
+          +'<span class="osi-v2-id">'+esc(item.public_ref)+(item.created_at&&dayText(item.created_at)?'<small class="osi-v2-date">'+esc(dayText(item.created_at))+'</small>':'')+'</span>'
           +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+submitterIdentity(item,false)+(published?'<em class="osi-published-chip">'+esc(published+' '+(published===1?t('published Report'):t('published Reports')))+'</em>':'')+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
           +'<span class="osi-v2-stage '+stageClass(item)+'">'+esc(stageLabel(item.stage,item))+'</span>'
           +'<span class="osi-v2-category">'+esc(label(item.category))+'</span>'
@@ -813,7 +837,7 @@
       });
     }
     var count=document.getElementById('fo-count');
-    if(count) count.textContent=rows.length+' real '+(rows.length===1?'Case':'Cases');
+    if(count) count.textContent=rows.length===1?t('{count} Case',{count:1}):t('{count} Cases',{count:rows.length});
     var nav=document.getElementById('fo-pnav');
     if(nav){
       nav.innerHTML=pages>1?'<button type="button" data-page="prev">Prev</button><span class="mono">'+state.page+' / '+pages+'</span><button type="button" data-page="next">Next</button>':'';
