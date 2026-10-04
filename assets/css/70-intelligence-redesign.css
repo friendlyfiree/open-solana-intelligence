@@ -5537,3 +5537,29 @@ footer > .wrap {
   grid-template-columns: minmax(0, 1fr) !important;
   min-height: 0 !important;
 }
+
+/* The credential name sits on its own line so both languages read as whole sentences. */
+.osi-about-credential { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 12px; color: var(--ink-faint); font-size: 14px; }
+.osi-about-credential code { font-family: var(--font-mono); font-size: 13px; color: var(--ink); background: var(--soft, #1b222d); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+
+/* The Wire lists newest first; there is one order, so it is stated, not offered as a control. */
+.wire-sort-order { font-family: var(--font-sans); font-size: 12.5px; font-weight: 500; color: var(--ink-faint); }
+
+/* Stat tile labels read as words in both languages: sentence case, no tracking.
+ * Uppercase tracking stays only on small column headers. */
+#prooflog .pl-stat-label,
+#wire-view .wire-op-l,
+#field-view .fo-op-l,
+#records-hero .fo-op-l,
+.osi-stat span {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  color: var(--ink-dim) !important;
+}
+#prooflog .pl-stat-top { justify-content: flex-start; }
+/* Values line up across tiles: the label row reserves two lines and the value follows it. */
+#prooflog .pl-stat { justify-content: flex-start !important; gap: 12px; }
+#prooflog .pl-stat-top { align-items: flex-start !important; min-height: 34px; }

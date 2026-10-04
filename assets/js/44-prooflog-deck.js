@@ -195,7 +195,9 @@ function plCleanLabel(ev){
   // said the same thing twice, so the recorded decision is used instead.
   if(ev && ev.proof_source === 'native_public_dto'){
     var decision = String(ev.decision || '').trim();
-    return decision ? ('Decision: ' + decision.replace(/_/g,' ')) : '';
+    // Known decisions have their own translated key; any other decision
+    // keeps the recorded English word rather than an invented label.
+    return decision ? plT('Decision: ' + decision.replace(/_/g,' ')) : '';
   }
   var label = String((ev && ev.label) || '').trim();
   if(!label) return '';
@@ -236,9 +238,13 @@ function plSasSlot(ev){
 }
 function plJsString(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\r?\n/g,' '); }
 function plShortSig(sig){ sig=String(sig||''); return sig ? (sig.slice(0,5)+'...'+sig.slice(-5)) : ''; }
+function plLocale(){
+  var locale=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():'en';
+  return String(locale||'en').toLowerCase().indexOf('tr')===0?'tr-TR':'en-US';
+}
 function plFullDate(ts){
   var t = new Date(ts||''); if(isNaN(t.getTime())) return '';
-  var d = t.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+  var d = t.toLocaleDateString(plLocale(),{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
   var tm = t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'});
   return d+' '+tm+' UTC';
 }
@@ -352,13 +358,13 @@ function plTimelineCard(ev){
   var sig=proof.tx_sig||proof.legacy_tx_sig||'';
   var wallet = ev.actor_wallet ? String(ev.actor_wallet) : '';
   var walletCell = wallet
-    ? '<span class="plc-wallet-id" title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet address" aria-label="Copy wallet address '+escapeHtml(raShortW(wallet))+'" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">Copy</button>'+plSasSlot(ev)
+    ? '<span class="plc-wallet-id" title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet address" aria-label="'+escapeHtml(plT('Copy wallet address {short}',{short:raShortW(wallet)}))+'" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">Copy</button>'+plSasSlot(ev)
     : '<span>Wallet unavailable</span>';
   var label = plCleanLabel(ev);
   var when = plFullDate(ev.created_at);
   var ago = plAgo(ev.created_at);
   var txHtml = sig
-    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy transaction signature" aria-label="Copy transaction signature '+escapeHtml(plShortSig(sig))+'" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">Copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
+    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy transaction signature" aria-label="'+escapeHtml(plT('Copy transaction signature {signature}',{signature:plShortSig(sig)}))+'" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">Copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
     : '<span class="plc-no-tx">No transaction link</span>';
   return '<div class="plc type-'+m.cls+'" data-g="'+plGroup(ev)+'">'
     + '<span class="plc-dot" aria-hidden="true"></span>'
@@ -368,7 +374,7 @@ function plTimelineCard(ev){
         + '<div><div class="plc-title">'+m.title+plChannelChip(ev)+'</div><div class="plc-ref">'+(label?(escapeHtml(label)+' - '):'')+plReferenceHtml(ev)+'</div></div>'
         + '<div class="plc-time">'+(ago?escapeHtml(ago):'Timestamp unavailable')+(when?('<br>'+escapeHtml(when)):'')+'</div>'
       + '</div>'
-      + '<div class="plc-grid">'
+      + '<div class="plc-grid" data-osi-i18n-ui>'
         + '<div><div class="plc-meta-k">Wallet</div><div class="plc-meta-v">'+walletCell+'</div></div>'
         + '<div><div class="plc-meta-k">Wallet role</div><div class="plc-meta-v">'+escapeHtml(plSignerRole(ev))+'</div></div>'
         + plWeightCell(ev)
@@ -407,7 +413,7 @@ function plDashRender(){
   var proofs=evs.map(plProofState);
   function proofCount(key){ return proofs.filter(function(proof){ return proof.key===key; }).length; }
   host.innerHTML =
-      stat('signed',plStatIcon('all'),'Proof Events',val(total),'Explicitly classified receipts')
+      stat('signed',plStatIcon('all'),'Proof events',val(total),'Explicitly classified receipts')
     + stat('review',plStatIcon('signature'),'Wallet verified',val(proofCount('wallet')),'Server-verified, not on-chain')
     + stat('memo',plStatIcon('memo'),'Memo anchored',val(proofCount('memo')),'Confirmed Solana Memo receipts')
     + stat('seal',plStatIcon('transfer'),'SOL transfers',val(proofCount('transfer')),'Confirmed wallet-to-wallet transfers')
@@ -839,10 +845,10 @@ function setTk(cls, price, chg){
 function raTimeAgo(ts){
   if(!ts) return '';
   const diff=Date.now()-new Date(ts).getTime(); const m=Math.floor(diff/60000);
-  if(m<1) return 'just now'; if(m<60) return m+'m ago';
-  const h=Math.floor(m/60); if(h<24) return h+'h ago';
-  const d=Math.floor(h/24); if(d<30) return d+'d ago';
-  try{ return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return ''; }
+  if(m<1) return plT('just now'); if(m<60) return plT('{count}m ago',{count:m});
+  const h=Math.floor(m/60); if(h<24) return plT('{count}h ago',{count:h});
+  const d=Math.floor(h/24); if(d<30) return plT('{count}d ago',{count:d});
+  try{ return new Date(ts).toLocaleDateString(plLocale(),{month:'short',day:'numeric',timeZone:'UTC'}); }catch(e){ return ''; }
 }
 function raItem(kind, title, sub, ts){
   const ic = kind==='rep' ? '<span class="ra-ic rep">\u25a4</span>'
@@ -876,3 +882,6 @@ async function renderActivity(){
     host.innerHTML='<div class="ra-feed">'+signed+live+raCaseSeed('Case file:')+'</div>';
   }catch(e){ /* keep the seed view on failure */ }
 }
+// Dates, relative times and recorded decisions are composed in script, so a
+// language switch repaints the already loaded receipts instead of refetching.
+if(typeof window.addEventListener==='function') window.addEventListener('osi:localechange',function(){ if(document.getElementById('pl-body')&&window.__plEvents) try{ plPaint(); }catch(e){} });

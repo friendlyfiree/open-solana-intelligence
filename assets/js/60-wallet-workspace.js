@@ -245,7 +245,7 @@ function updateWalletUI(){
   if(!btn || !txt) return;
   if(walletPubkey){
     btn.classList.add('connected');
-    btn.setAttribute('aria-label','Open wallet menu for '+walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
+    btn.setAttribute('aria-label',(typeof window.osiT==='function'?window.osiT:function(k,v){return k.replace('{wallet}',v.wallet);})('Open wallet menu for {wallet}',{wallet:walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4)}));
     const nm = lsGet('stw_profile_name','');
     txt.textContent = nm ? nm : (walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
     let av = document.getElementById('wbAva');
@@ -925,3 +925,6 @@ function renderWorkspace(){
     + '</div>'
     + body;
 }
+// The connected wallet button carries a composed aria-label; refresh it when
+// the interface language changes so assistive technology hears one language.
+if(typeof window.addEventListener==='function') window.addEventListener('osi:localechange',function(){ try{ updateWalletUI(); }catch(e){} });

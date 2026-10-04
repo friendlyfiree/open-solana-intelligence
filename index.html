@@ -267,7 +267,7 @@
     </div>
     <aside class="osi-proof-legend" aria-labelledby="osi-proof-legend-title">
       <div class="osi-proof-legend-heading"><span>Proof labels</span><h3 id="osi-proof-legend-title">Different proof. Different claim.</h3><button type="button" onclick="osiNavigate('prooflog')">Open Proof Log</button></div>
-      <div class="osi-proof-legend-items">
+      <div class="osi-proof-legend-items" data-osi-i18n-ui>
         <div><span>Wallet</span><strong>Server-verified signature</strong><small>Never labeled on-chain.</small></div>
         <div><span>Memo</span><strong>After confirmation</strong><small>Anchored only after the Memo transaction confirms.</small></div>
         <div><span>SOL</span><strong>Only when verified</strong><small>Only when an eligible transfer confirms. Solscan opens only with a real transaction reference.</small></div>
@@ -813,10 +813,9 @@
     <div class="wire-shell">
       <div class="wire-main">
         <div class="wire-bar">
-          <div class="wire-bar-l">▚ Intelligence feed</div>
+          <div class="wire-bar-l">Intelligence feed</div>
           <div class="wire-sorts" id="wire-sorts">
-            <span class="wire-bar-l" style="letter-spacing:.14em">sort</span>
-            <button class="wire-sort active" data-s="newest" onclick="wireSort('newest')">Newest</button>
+            <span class="wire-sort-order">Newest first</span>
           </div>
         </div>
 
@@ -1014,7 +1013,8 @@
       <div class="osi-about-heading">
         <p class="osi-kicker">Analyst authority</p>
         <h2 id="sas-verifier-title">Verify an OSI analyst credential on Solana.</h2>
-        <p>The Solana Attestation Service credential confirms that one wallet currently has OSI review authority under the exact OSI verified analyst credential (<code translate="no">OSI_VERIFIED_ANALYST</code>), schema, and issuer. It is not KYC, proof of a person's identity, an endorsement, or proof that a review is correct.</p>
+        <p>The Solana Attestation Service credential confirms that one wallet currently has OSI review authority under the exact OSI verified analyst credential, schema, and issuer. It is not KYC, proof of a person's identity, an endorsement, or proof that a review is correct.</p>
+        <p class="osi-about-credential"><span>Credential name</span> <code translate="no">OSI_VERIFIED_ANALYST</code></p>
       </div>
       <div class="osi-about-boundary-grid">
         <article class="osi-about-boundary is">

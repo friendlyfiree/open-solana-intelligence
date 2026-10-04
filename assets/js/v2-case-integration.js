@@ -674,7 +674,7 @@
       var lane=state.reviewLanes[laneId]||{},task=(lane.tasks||[]).find(function(row){return String(row.exactTarget)===String(target);});
       openReviewTask(task||{targetKind:button.getAttribute('data-review-kind'),exactTarget:target,routeTarget:button.getAttribute('data-review-route'),lane:laneId,caseRef:button.getAttribute('data-case-ref'),conflict:false});
     });});
-    var count=document.getElementById('fo-count');if(count)count.textContent=total+' real '+(total===1?'task':'tasks');
+    var count=document.getElementById('fo-count');if(count)count.textContent=t(total===1?'{count} review task':'{count} review tasks',{count:total});
     var nav=document.getElementById('fo-pnav');if(nav)nav.innerHTML='';
     var stats=document.getElementById('field-stats');if(stats){
       var loaded=reviewLaneDefinitions.filter(function(definition){return (state.reviewLanes[definition[0]]||{}).status==='success';}).length;
@@ -823,10 +823,10 @@
         var rewardState=item.money&&item.money.reward&&item.money.reward.status;
         var published=(item.reports||[]).filter(function(report){return report&&report.published===true;}).length;
         var rowLabel=t('Open Case detail')+': '+String(item.public_ref)+', '+String(item.title||'')
-          +' ('+stageLabel(item.stage,item)+', '+(published?published+' '+t('published Reports'):t('no published Report'))+')';
+          +' ('+stageLabel(item.stage,item)+', '+(published?t(published===1?'{count} published Report':'{count} published Reports',{count:published}):t('no published Report'))+')';
         return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'" aria-label="'+esc(rowLabel)+'">'
           +'<span class="osi-v2-id">'+esc(item.public_ref)+(item.created_at&&dayText(item.created_at)?'<small class="osi-v2-date">'+esc(dayText(item.created_at))+'</small>':'')+'</span>'
-          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+submitterIdentity(item,false)+(published?'<em class="osi-published-chip">'+esc(published+' '+(published===1?t('published Report'):t('published Reports')))+'</em>':'')+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
+          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+submitterIdentity(item,false)+(published?'<em class="osi-published-chip">'+esc(t(published===1?'{count} published Report':'{count} published Reports',{count:published}))+'</em>':'')+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
           +'<span class="osi-v2-stage '+stageClass(item)+'">'+esc(stageLabel(item.stage,item))+'</span>'
           +'<span class="osi-v2-category">'+esc(label(item.category))+'</span>'
           +'<span class="osi-v2-reviews">'+countActiveReviews(item)+'</span>'

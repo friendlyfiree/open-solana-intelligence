@@ -1028,7 +1028,7 @@
     if(eyebrow)eyebrow.textContent=mode==='mine'?'Private author workspace':'Authorized Report review queue';
     if(title)title.textContent=mode==='mine'?'My Reports':'Awaiting Report Review';
     if(sub)sub.textContent=mode==='mine'?'Your exact immutable Report versions, evidence manifests, and Solana proof.':'Exact private versions for eligible analyst review or full-maintainer inspection. Only analysts count toward publication quorum.';
-    if(counter)counter.textContent=count+' '+(count===1?'Report':'Reports');
+    if(counter)counter.textContent=t(count===1?'{count} Report':'{count} Reports',{count:count});
   }
   function drawWorkspace(reports,mode,notice){
     var host=document.getElementById('field-cases');if(!host)return;

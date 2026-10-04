@@ -387,6 +387,40 @@
     return String(locale || 'en').toLowerCase().indexOf('tr') === 0 ? 'tr-TR' : 'en-US';
   }
 
+  function tr(key, variables) {
+    return typeof window.osiT === 'function' ? window.osiT(key, variables) : String(key).replace(/\{([a-zA-Z0-9_]+)\}/g, function (_, name) {
+      return variables && Object.prototype.hasOwnProperty.call(variables, name) ? String(variables[name]) : '{' + name + '}';
+    });
+  }
+
+  // Server enum values (stage, category, expertise) render as their English
+  // label; the label is then translated as one exact key for the UI language.
+  // Titles and names come from Case owners and analysts; they are never
+  // passed through the interface dictionary.
+  function userText(tag, className, text) {
+    var node = make(tag, className, text);
+    node.setAttribute('data-osi-user-content', '');
+    return node;
+  }
+
+  function enumLabel(value) {
+    return tr(titleCase(value));
+  }
+
+  // The same public stage names the Field Office list uses, so one Case never
+  // reads as "Open Public" on the home page and "Public investigation" there.
+  var STAGE_LABELS = {
+    draft: 'Private intake', submitted: 'Private intake', initial_review: 'Initial review',
+    initial_rejected: 'Initial review rejected', open_public: 'Public investigation',
+    in_review: 'Reports under review', ready_for_finalization: 'Resolution selection',
+    resolution_proposed: 'Resolution selection', in_challenge_window: 'Challenge window',
+    resolved: 'Seal ready', sealed: 'Sealed', reopened: 'Resolution selection'
+  };
+
+  function stageText(stage) {
+    return STAGE_LABELS[stage] ? tr(STAGE_LABELS[stage]) : enumLabel(stage);
+  }
+
   function shortDate(value) {
     var date = new Date(value || '');
     if (isNaN(date.getTime())) return '';
@@ -419,12 +453,12 @@
     // listed in the Public Records pane right below.
     var item = cases.filter(function (row) { return row.stage !== 'sealed'; })[0] || cases[0];
     copy.appendChild(make('span', 'osi-live-label', item.stage === 'sealed' ? 'Newest public Case' : 'Newest open public Case'));
-    copy.appendChild(make('strong', '', item.title || shortRef(item.public_ref)));
-    copy.appendChild(make('small', '', shortRef(item.public_ref) + ' / ' + titleCase(item.stage)));
+    copy.appendChild(userText('strong', '', item.title || shortRef(item.public_ref)));
+    copy.appendChild(make('small', '', shortRef(item.public_ref) + ' / ' + stageText(item.stage)));
     host.appendChild(copy);
     var open = make('button', '', 'Open Case');
     open.type = 'button';
-    open.setAttribute('aria-label', 'Open Case detail for ' + item.public_ref + ', ' + (item.title || ''));
+    open.setAttribute('aria-label', tr('Open Case detail for {ref}, {title}', { ref: item.public_ref, title: item.title || '' }));
     open.addEventListener('click', function () { openPublicCase(item.public_ref); });
     host.appendChild(open);
   }
@@ -484,10 +518,10 @@
     }
     analysts.slice(0, 3).forEach(function (analyst) {
       var row = make('div', 'osi-public-row');
-      row.appendChild(make('span', 'osi-public-tier', titleCase(analyst.tier_code || analyst.status)));
+      row.appendChild(make('span', 'osi-public-tier', enumLabel(analyst.tier_code || analyst.status)));
       var copy = make('div');
-      copy.appendChild(make('strong', '', analyst.display_name || analyst.handle || shortRef(analyst.wallet)));
-      var expertise = Array.isArray(analyst.expertise) ? analyst.expertise.slice(0, 3).map(titleCase).join(', ') : '';
+      copy.appendChild(userText('strong', '', analyst.display_name || analyst.handle || shortRef(analyst.wallet)));
+      var expertise = Array.isArray(analyst.expertise) ? analyst.expertise.slice(0, 3).map(enumLabel).join(', ') : '';
       copy.appendChild(make('small', '', expertise || 'Public analyst profile'));
       row.appendChild(copy);
       row.appendChild(rowButton('View profile', function () {
@@ -540,8 +574,8 @@
       var row = make('div', 'osi-public-row');
       row.appendChild(make('span', 'osi-public-ref mono', shortRef(item.public_ref)));
       var copy = make('div');
-      copy.appendChild(make('strong', '', item.title || 'Sealed public record'));
-      copy.appendChild(make('small', '', titleCase(item.category) + ' / ' + (shortDate(item.sealed_at) || 'Seal recorded')));
+      copy.appendChild(item.title ? userText('strong', '', item.title) : make('strong', '', 'Sealed public record'));
+      copy.appendChild(make('small', '', enumLabel(item.category) + ' / ' + (shortDate(item.sealed_at) || tr('Seal recorded'))));
       row.appendChild(copy);
       row.appendChild(rowButton('Inspect proof', function () { openPublicCase(item.public_ref); }));
       host.appendChild(row);
@@ -565,10 +599,15 @@
     host.appendChild(empty);
   }
 
+  // The last public lists, kept only so a language switch can redraw the
+  // same rows with translated labels and dates instead of refetching them.
+  var homeCache = { cases: null, analysts: null };
+
   function loadHomeData() {
     var caseRequest = publicApi('osi-v2-case-read', { op: 'list_public_cases' })
       .then(function (result) {
         var cases = Array.isArray(result.cases) ? result.cases : [];
+        homeCache.cases = cases;
         renderHomeCaseState(cases);
         renderRecords(cases);
       })
@@ -578,11 +617,17 @@
       });
     var analystRequest = publicApi('osi-v2-analyst', { op: 'list_public_profiles' })
       .then(function (result) {
-        renderAnalysts(Array.isArray(result.analysts) ? result.analysts : []);
+        homeCache.analysts = Array.isArray(result.analysts) ? result.analysts : [];
+        renderAnalysts(homeCache.analysts);
       })
       .catch(renderAnalystError);
     return Promise.allSettled([caseRequest, analystRequest]);
   }
+
+  window.addEventListener('osi:localechange', function () {
+    if (homeCache.cases) { renderHomeCaseState(homeCache.cases); renderRecords(homeCache.cases); }
+    if (homeCache.analysts) renderAnalysts(homeCache.analysts);
+  });
 
   // #case/OSI-XXXXXXXXXXXX is the canonical, shareable public Case route. It
   // carries only a public reference, never a token, nonce or wallet value.

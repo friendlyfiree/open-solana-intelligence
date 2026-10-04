@@ -395,7 +395,7 @@ function crRenderStats(){
       '<div class="fo-op"><div class="fo-op-ic">'+osiStatIcon('archive')+'</div>'+val(publicRecords, publicRecords==null?'cr-stat-na':'')+'<div class="fo-op-l">Public Records</div></div>'
     + '<div class="fo-op"><div class="fo-op-ic sol">'+osiStatIcon('review')+'</div>'+val(reviewed, reviewed==null?'cr-stat-na':'sol')+'<div class="fo-op-l">Native reviewed</div></div>'
     + '<div class="fo-op"><div class="fo-op-ic">'+osiStatIcon('memo')+'</div>'+val(memo, memo==null?'cr-stat-na':'')+'<div class="fo-op-l">Memo-anchored</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic warn">'+osiStatIcon('challenge')+'</div>'+val(openCh, openCh==null?'cr-stat-na':(openCh>0?'warn':''))+'<div class="fo-op-l">Open Challenges</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic warn">'+osiStatIcon('challenge')+'</div>'+val(openCh, openCh==null?'cr-stat-na':(openCh>0?'warn':''))+'<div class="fo-op-l">Open challenges</div></div>'
     + '<div class="fo-op net"><div class="fo-op-ic sol">'+osiStatIcon('network')+'</div><div class="fo-op-n fo-op-text">Mainnet</div><div class="fo-op-l">Solana network</div></div>';
 }
 function crPaint(){
@@ -574,12 +574,12 @@ function crCard(r, packs){
   var copyBtn = displayedSig ? ('<button class="cr-copy" type="button" title="'+crAttr(crT('Copy transaction signature'))+'" aria-label="'+crAttr(crT('Copy transaction signature {signature}',{signature:displayedSigShort}))+'" onclick="event.stopPropagation();crCopyTx(&quot;'+crAttr(displayedSig)+'&quot;,this)">'+escapeHtml(crT('Copy'))+'</button>') : '';
   var verifyBtn = txSig ? ('<button class="cr-btn outline" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(txSig)+'&quot;)">Verify on Solana</button>') : (legacyTxSig?'<button class="cr-btn outline" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(legacyTxSig)+'&quot;)">Inspect transaction</button>':'');
   var evValue = isCaseReport?'<span class="cr-meta-v na">Case detail</span>':(evCount ? String(evCount) : '<span class="cr-meta-v na">Evidence not indexed</span>');
-  var evSub = isCaseReport?'Exact public manifest':(evCount ? ('Public reference' + (evCount===1?'':'s')) : 'No indexed evidence count');
+  var evSub = isCaseReport?'Exact public manifest':(evCount ? (evCount===1?'Public reference':'Public references') : 'No indexed evidence count');
   var revValue = revCount==null ? '<span class="cr-meta-v na">Review data unavailable</span>' : String(revCount);
-  var revSub = revCount==null ? 'Analyst tally unavailable' : ('Analyst review' + (revCount===1?'':'s'));
+  var revSub = revCount==null ? 'Analyst tally unavailable' : (revCount===1?'Analyst review':'Analyst reviews');
   var chValue = isCaseReport?'<span class="cr-meta-v na">Case detail</span>':(challengeCount ? String(challengeCount) : '<span class="cr-meta-v na">No open challenges</span>');
-  var chSub = isCaseReport?'Exact-version challenge path':(challengeCount ? ('Open challenge' + (challengeCount===1?'':'s')) : 'Challenge status clear');
-  var recordDateLabel=proof.key==='legacy'?'Legacy record date ':'Published ';
+  var chSub = isCaseReport?'Exact-version challenge path':(challengeCount ? (challengeCount===1?'Open challenge':'Open challenges') : 'Challenge status clear');
+  var recordDateLabel=proof.key==='legacy'?'Legacy record date {date}':'Published {date}';
   var isWire=r.record_source==='native_wire_dto';
   var recordKind=isWire?'Wire Report':(isCaseReport?'Published Case Report':'Case');
   var canonicalCaseRef=String(r.case_public_ref||(!isWire&&r.record_source==='native_public_dto'?r.public_ref:'')||'');
@@ -592,13 +592,13 @@ function crCard(r, packs){
   return '<article class="'+cls+'" data-cid="'+crAttr(r.id)+'">'
     + '<div class="cr-card-main">'
       + '<span class="cr-record-id">'+escapeHtml(cid)+(isWire?' | '+escapeHtml(crT('Wire Report')):(isCaseReport?' | '+escapeHtml(crT('Published Case Report')):''))+'</span>'
-      + '<div class="cr-title">'+title+'</div>'
+      + '<div class="cr-title" data-osi-user-content>'+title+'</div>'
       + (isCaseReport?'<div class="cr-record-parent mono">'+escapeHtml(crT('Parent Case'))+' '+escapeHtml(canonicalCaseRef)+' | '+escapeHtml(String(r.report_public_ref||''))+'</div>':'')
       + wallet
-      + '<div class="cr-summary">'+escapeHtml(String(r.summary || 'No public summary provided.').slice(0,220))+'</div>'
-      + '<div class="cr-date mono">'+(date ? (recordDateLabel+date) : 'Record date unavailable')+(updated ? (' <span class="sep">|</span> Updated '+updated) : '')+'</div>'
+      + (r.summary?'<div class="cr-summary" data-osi-user-content>'+escapeHtml(String(r.summary).slice(0,220))+'</div>':'<div class="cr-summary">No public summary provided.</div>')
+      + '<div class="cr-date mono">'+(date ? escapeHtml(crT(recordDateLabel,{date:date})) : 'Record date unavailable')+(updated ? (' <span class="sep">|</span> '+escapeHtml(crT('Updated {date}',{date:updated}))) : '')+'</div>'
     + '</div>'
-    + '<div class="cr-card-meta">'
+    + '<div class="cr-card-meta" data-osi-i18n-ui>'
       + '<div class="cr-meta-cell"><div class="cr-meta-k">Status</div><div class="cr-meta-v"><span class="cr-status '+st.cls+'">'+escapeHtml(crT(st.txt))+'</span></div><div class="cr-meta-sub">'+escapeHtml(crT(st.detail||'Native lifecycle pending'))+'</div></div>'
       + '<div class="cr-meta-cell"><div class="cr-meta-k">Evidence</div><div class="cr-meta-v">'+evValue+'</div><div class="cr-meta-sub">'+evSub+'</div></div>'
       + '<div class="cr-meta-cell"><div class="cr-meta-k">Reviews</div><div class="cr-meta-v">'+revValue+'</div><div class="cr-meta-sub">'+revSub+'</div></div>'
@@ -646,11 +646,11 @@ function crDrawerHtml(r, packs){
     : '';
   return ''
     + '<div class="crd-head"><span class="cr-cid mono">' + escapeHtml(cid) + '</span><span class="cr-status ' + st.cls + '">' + st.txt + '</span></div>'
-    + '<h3 class="crd-title" id="cr-drawer-title">' + title + '</h3>'
-    + '<div class="crd-meta mono">' + (date ? ((proof.key==='legacy'?'Legacy record date ':'Published ') + date) : 'Record date unavailable') + (updated ? (' | Updated ' + updated) : '') + '</div>'
+    + '<h3 class="crd-title" id="cr-drawer-title" data-osi-user-content>' + title + '</h3>'
+    + '<div class="crd-meta mono">' + (date ? escapeHtml(crT(proof.key==='legacy'?'Legacy record date {date}':'Published {date}',{date:date})) : 'Record date unavailable') + (updated ? (' | ' + escapeHtml(crT('Updated {date}',{date:updated}))) : '') + '</div>'
     + legacyNotice
     + '<div class="crd-block"><div class="crd-h">VERIFICATION</div>' + verifyRow + '</div>'
-    + '<div class="crd-block"><div class="crd-h">SUMMARY</div><p class="crd-sum">' + escapeHtml(r.summary || 'No public summary provided.') + '</p></div>'
+    + '<div class="crd-block"><div class="crd-h">SUMMARY</div>' + (r.summary ? '<p class="crd-sum" data-osi-user-content>' + escapeHtml(r.summary) + '</p>' : '<p class="crd-sum">No public summary provided.</p>') + '</div>'
     + '<div class="crd-block"><div class="crd-h">EVIDENCE</div><div class="crd-ev">' + escapeHtml(ev) + '</div></div>'
     + '<div class="crd-block"><div class="crd-h">ANALYST REVIEW</div><div class="crd-rev"><span class="crd-rev-dot"></span>' + escapeHtml(rev) + '</div></div>'
     + '<div class="crd-block"><div class="crd-h">CHALLENGE STATUS</div><div class="crd-ev">' + escapeHtml(ch) + '</div></div>'
@@ -704,3 +704,6 @@ function pfDownloadPack(caseRef, idx){
   // maintainer only; a wallet appearing on the report is not sufficient).
   osiAiPackDownload(caseRef, p.pack_type);
 }
+// Card dates and counted labels are composed in script; a language switch
+// repaints the records already loaded rather than asking the server again.
+if(typeof window.addEventListener==='function') window.addEventListener('osi:localechange',function(){ if(document.getElementById('case-records')&&window.__crList) try{ crPaint(); }catch(e){} });
