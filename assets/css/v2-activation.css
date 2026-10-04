@@ -9,7 +9,7 @@
   --osi-radius-md:12px;
   --osi-radius-lg:18px;
   --osi-shadow:0 24px 70px rgba(0,0,0,.34);
-  --osi-focus:0 0 0 3px rgba(34,211,238,.24);
+  --osi-focus:0 0 0 3px rgba(255,176,32,.24);
 }
 
 :where(button,a,input,textarea,select):focus-visible{
@@ -26,7 +26,7 @@
 .osi-primary-action{border:1px solid rgba(20,241,149,.55);background:var(--sol);color:#06120d}
 .osi-primary-action:hover{background:#39f6aa;transform:translateY(-1px)}
 .osi-secondary-action{border:1px solid var(--osi-border-strong);background:transparent;color:var(--ink)}
-.osi-secondary-action:hover{border-color:var(--cyan);background:rgba(34,211,238,.07)}
+.osi-secondary-action:hover{border-color:var(--cyan);background:rgba(255,176,32,.07)}
 
 /* Maintainer access communicates both independent gates at every size. */
 .adm-gates{display:grid;gap:9px;margin:18px 0}
@@ -46,17 +46,17 @@
 #analysts .osi-analyst-head{padding:11px 15px;border-bottom:1px solid var(--osi-border);font-size:10px;color:var(--ink-faint);letter-spacing:.09em;text-transform:uppercase}
 .osi-analyst-row{width:100%;min-height:72px;padding:13px 15px;border:0;border-bottom:1px solid var(--osi-border);background:transparent;color:var(--ink);text-align:left;cursor:pointer}
 .osi-analyst-row:last-child{border-bottom:0}
-.osi-analyst-row:hover{background:rgba(34,211,238,.045)}
+.osi-analyst-row:hover{background:rgba(255,176,32,.045)}
 .osi-analyst-person{display:flex;align-items:center;gap:11px;min-width:0}
 .osi-analyst-person>span:last-child{display:flex;flex-direction:column;min-width:0}
 .osi-analyst-person b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .osi-analyst-person em{font:400 10px 'JetBrains Mono',monospace;color:var(--ink-faint);font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.osi-an-avatar{width:var(--osi-avatar-size,42px);height:var(--osi-avatar-size,42px);object-fit:cover;border-radius:11px;border:1px solid rgba(34,211,238,.28);background:var(--osi-surface-3);flex:none}
+.osi-an-avatar{width:var(--osi-avatar-size,42px);height:var(--osi-avatar-size,42px);object-fit:cover;border-radius:11px;border:1px solid rgba(255,176,32,.28);background:var(--osi-surface-3);flex:none}
 .osi-analyst-row .osi-an-avatar{--osi-avatar-size:38px}
 .osi-an-avatar.fallback{display:grid;place-items:center;color:var(--cyan);font-weight:800}
 .osi-status{display:inline-flex;width:max-content;max-width:100%;padding:5px 8px;border:1px solid var(--osi-border);border-radius:999px;background:rgba(134,151,196,.06);font:700 10px 'JetBrains Mono',monospace;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em}
 .osi-status.probationary_analyst,.osi-status.approved{color:var(--sol);border-color:rgba(20,241,149,.36);background:rgba(20,241,149,.07)}
-.osi-status.in_review,.osi-status.submitted{color:var(--cyan);border-color:rgba(34,211,238,.34);background:rgba(34,211,238,.07)}
+.osi-status.in_review,.osi-status.submitted{color:var(--cyan);border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.07)}
 .osi-status.revision_requested{color:var(--amber);border-color:rgba(255,176,32,.38);background:rgba(255,176,32,.07)}
 .osi-status.rejected{color:var(--red);border-color:rgba(255,84,112,.36);background:rgba(255,84,112,.07)}
 .osi-expertise-list,.osi-tag-list{display:flex;gap:5px;flex-wrap:wrap}
@@ -92,7 +92,7 @@
 .osi-profile-facts b{font:700 12px 'JetBrains Mono',monospace;color:var(--sol)}
 .osi-safe-links{display:flex;gap:8px;flex-wrap:wrap}
 .osi-safe-links a,.osi-history-row a{color:var(--cyan);font:600 10px 'JetBrains Mono',monospace;text-decoration:none;word-break:break-all}
-.osi-safe-links a{padding:7px 9px;border:1px solid rgba(34,211,238,.25);border-radius:var(--osi-radius-sm)}
+.osi-safe-links a{padding:7px 9px;border:1px solid rgba(255,176,32,.25);border-radius:var(--osi-radius-sm)}
 .osi-history-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--osi-border)}
 .osi-history-row>div{display:flex;flex-direction:column;gap:3px}
 .osi-history-row b{font-size:11px}
@@ -106,7 +106,7 @@
 .osi-workspace-head p{max-width:650px;font-size:12px;color:var(--ink-dim)}
 .osi-workspace-tabs{display:flex;gap:5px;overflow-x:auto;padding:14px 0;border-bottom:1px solid var(--osi-border)}
 .osi-workspace-tabs button{white-space:nowrap;padding:9px 12px;border:1px solid transparent;border-radius:var(--osi-radius-sm);background:transparent;color:var(--ink-dim);font:600 10px 'JetBrains Mono',monospace;cursor:pointer}
-.osi-workspace-tabs button:hover,.osi-workspace-tabs button.active{color:var(--cyan);border-color:rgba(34,211,238,.28);background:rgba(34,211,238,.06)}
+.osi-workspace-tabs button:hover,.osi-workspace-tabs button.active{color:var(--cyan);border-color:rgba(255,176,32,.28);background:rgba(255,176,32,.06)}
 .osi-analyst-workspace>main{padding-top:20px}
 .osi-workspace-recover{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:16px}
 .osi-workspace-profile,.osi-application-card{display:flex;flex-direction:column;gap:18px;padding:20px;border:1px solid var(--osi-border);border-radius:var(--osi-radius-lg);background:var(--osi-surface-1);box-shadow:var(--osi-shadow)}
@@ -118,7 +118,7 @@
 .osi-version-card p b{color:var(--ink)}
 .osi-version-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font:400 10px 'JetBrains Mono',monospace;color:var(--ink-faint)}
 .osi-proof-badge{padding:5px 8px;border-radius:999px;font:600 10px 'JetBrains Mono',monospace;white-space:nowrap}
-.osi-proof-badge.signed{color:var(--cyan);border:1px solid rgba(34,211,238,.3);background:rgba(34,211,238,.06)}
+.osi-proof-badge.signed{color:var(--cyan);border:1px solid rgba(255,176,32,.3);background:rgba(255,176,32,.06)}
 .osi-review-list{display:flex;flex-direction:column;border-top:1px solid var(--osi-border);margin-top:12px}
 .osi-review-history{display:grid;grid-template-columns:130px 1fr auto;gap:12px;padding:9px 0;border-bottom:1px solid var(--osi-border);font-size:10px}
 .osi-review-history span,.osi-review-history time{font:400 10px 'JetBrains Mono',monospace;color:var(--ink-faint)}

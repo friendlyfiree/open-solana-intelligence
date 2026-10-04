@@ -3,8 +3,98 @@
  * This layer preserves the existing application views and replaces the visual shell.
  */
 
+/* Self-hosted type (SIL OFL 1.1, licenses in assets/fonts). Latin covers
+ * English; latin-ext adds the Turkish letters. The legacy family names
+ * ('Archivo', 'JetBrains Mono') are registered too, so every older rule that
+ * names them now renders the intended face on every operating system. */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2-variations"), url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2-variations"), url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Archivo Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("../fonts/archivo-latin-standard-normal.woff2") format("woff2-variations"), url("../fonts/archivo-latin-standard-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("../fonts/archivo-latin-ext-standard-normal.woff2") format("woff2-variations"), url("../fonts/archivo-latin-ext-standard-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("../fonts/archivo-latin-standard-normal.woff2") format("woff2-variations"), url("../fonts/archivo-latin-standard-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("../fonts/archivo-latin-ext-standard-normal.woff2") format("woff2-variations"), url("../fonts/archivo-latin-ext-standard-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("../fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations"), url("../fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("../fonts/jetbrains-mono-latin-ext-wght-normal.woff2") format("woff2-variations"), url("../fonts/jetbrains-mono-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("../fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations"), url("../fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("../fonts/jetbrains-mono-latin-ext-wght-normal.woff2") format("woff2-variations"), url("../fonts/jetbrains-mono-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 :root {
   color-scheme: dark;
+  /* Surfaces: near-black paper and two raised levels. */
   --bg: #08090d;
   --bg-deep: #0b0d12;
   --bg-raised: #10141b;
@@ -12,33 +102,55 @@
   --bg-soft: #1b222d;
   --line: #2a303a;
   --line-bright: #59616d;
-  --line-active: rgba(255, 77, 95, .68);
+  /* Ink. Every text token clears 4.5:1 on every surface above. */
   --ink: #f5f0e8;
   --ink-dim: #c2bdb4;
   --ink-faint: #9296a0;
-  --cyan: #ff4d5f;
-  --cyan-strong: #ff8792;
-  --teal: #34f5a4;
-  --violet: #d8e0ea;
-  --warning: #ffb86a;
-  --danger: #ff7380;
+  /* Lamp amber is the action and navigation identity: what you can act on
+   * and where you are. Dark ink sits on it (10:1). */
+  --lamp: #ffb020;
+  --lamp-strong: #ffc24d;
+  --lamp-deep: #e0960f;
+  --lamp-ink: #16110a;
+  --lamp-soft: rgba(255, 176, 32, .12);
+  --lamp-line: rgba(255, 176, 32, .42);
+  /* Crimson is the signal: the brand mark, a live signal, a boundary or a
+   * danger. It is never a primary action. */
   --signal: #ff4d5f;
   --signal-deep: #d92f49;
   --signal-soft: rgba(255, 77, 95, .12);
+  /* Verified green appears only for chain-confirmed proof. */
+  --verified: #34f5a4;
+  --teal: var(--verified);
+  --warning: #ffc24d;
+  --danger: #ff7380;
   --platinum: #f5f0e8;
   --platinum-cool: #d8e0ea;
-  --verified: #34f5a4;
-  --focus: #ff8792;
-  --acc: var(--signal);
-  --orange: var(--signal);
+  --violet: #d8e0ea;
+  --line-active: rgba(255, 176, 32, .62);
+  --focus: var(--lamp-strong);
+  /* Legacy accent names used by the route stylesheets resolve to the same
+   * single identity instead of the two retired accent themes. */
+  --cyan: var(--lamp);
+  --cyan-strong: var(--lamp-strong);
+  --acc: var(--lamp);
+  --acc-deep: var(--lamp-deep);
+  --acc-soft: var(--lamp-soft);
+  --acc-line: var(--lamp-line);
+  --acc-glow: rgba(255, 176, 32, .3);
+  --amber: var(--lamp);
+  --orange: var(--lamp);
   --orange2: var(--verified);
   --gold: var(--warning);
-  --font-sans: "Segoe UI Variable", "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
-  --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Archivo Variable", "Archivo", var(--font-sans);
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --sans: var(--font-sans);
+  --mono: var(--font-mono);
   --header-h: 72px;
   --shell: min(1424px, calc(100vw - 96px));
   --ease-out: cubic-bezier(.23, 1, .32, 1);
-  --brand-spectrum: linear-gradient(110deg, var(--signal-deep), var(--signal) 56%, #ff7b89);
+  --brand-spectrum: linear-gradient(180deg, var(--lamp-strong), var(--lamp) 58%, var(--lamp-deep));
 }
 
 html {
@@ -53,7 +165,7 @@ body {
   padding: var(--header-h) 0 0 !important;
   overflow-x: clip;
   background:
-    radial-gradient(circle at 86% -8%, rgba(255, 77, 95, .1), transparent 31%),
+    radial-gradient(circle at 86% -8%, rgba(255, 176, 32, .1), transparent 31%),
     radial-gradient(circle at 12% 12%, rgba(245, 240, 232, .035), transparent 26%),
     var(--bg) !important;
   color: var(--ink);
@@ -251,8 +363,8 @@ button {
 .osi-nav-link[aria-current="page"],
 .osi-platform-trigger[aria-expanded="true"] {
   color: var(--ink);
-  background: rgba(255, 77, 95, .07);
-  text-shadow: 0 0 18px rgba(255, 77, 95, .22);
+  background: rgba(255, 176, 32, .07);
+  text-shadow: 0 0 18px rgba(255, 176, 32, .22);
 }
 
 .osi-nav-link[aria-current="page"]::after,
@@ -263,8 +375,8 @@ button {
   bottom: 0;
   left: 14px;
   height: 2px;
-  background: var(--signal);
-  box-shadow: 0 0 16px rgba(255, 77, 95, .54);
+  background: var(--lamp);
+  box-shadow: 0 0 16px rgba(255, 176, 32, .54);
 }
 
 .osi-platform-wrap {
@@ -298,10 +410,10 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   transform: translateX(-50%);
   border: 1px solid var(--line-bright);
-  border-top-color: var(--signal);
+  border-top-color: var(--lamp);
   border-radius: 0 0 14px 14px;
   background:
-    radial-gradient(circle at 8% 0%, rgba(255, 77, 95, .1), transparent 34%),
+    radial-gradient(circle at 8% 0%, rgba(255, 176, 32, .1), transparent 34%),
     rgba(13, 15, 21, .98);
   box-shadow: 0 30px 80px rgba(3, 4, 7, .62);
   overflow: hidden;
@@ -349,7 +461,7 @@ button {
 
 .osi-platform-group button:hover,
 .osi-platform-group button:focus-visible {
-  background: var(--signal-soft);
+  background: var(--lamp-soft);
 }
 
 .osi-platform-group button strong {
@@ -435,18 +547,18 @@ button {
 
 .osi-header-case {
   padding: 0 16px;
-  border: 1px solid var(--signal);
+  border: 1px solid var(--lamp);
   background: var(--brand-spectrum);
   color: #18090d;
   font-size: 13px;
   font-weight: 750;
-  box-shadow: 0 10px 26px rgba(255, 77, 95, .16);
+  box-shadow: 0 10px 26px rgba(255, 176, 32, .16);
   transition: transform 150ms var(--ease-out), box-shadow 150ms ease;
 }
 
 .osi-header-case:hover {
   transform: translateY(-1px);
-  box-shadow: 0 13px 34px rgba(255, 77, 95, .27), 0 0 18px rgba(255, 77, 95, .16);
+  box-shadow: 0 13px 34px rgba(255, 176, 32, .27), 0 0 18px rgba(255, 176, 32, .16);
 }
 
 .osi-global-header .wallet-btn {
@@ -495,7 +607,7 @@ button {
 }
 
 .osi-global-header .wb-mi:hover {
-  background: var(--signal-soft);
+  background: var(--lamp-soft);
   color: var(--ink);
 }
 
@@ -664,7 +776,7 @@ button {
   position: absolute;
   inset: 5px;
   border: 1px solid transparent;
-  border-top-color: var(--signal);
+  border-top-color: var(--lamp);
   border-radius: 50%;
   animation: osi-spin 900ms linear infinite;
 }
@@ -696,7 +808,7 @@ button {
 
 .osi-home-live-state > button:hover,
 .osi-list-loading > button:hover {
-  border-color: var(--signal);
+  border-color: var(--lamp);
   color: var(--platinum);
 }
 
@@ -790,7 +902,7 @@ button {
 }
 
 .osi-public-row button:hover {
-  border-color: var(--signal);
+  border-color: var(--lamp);
   color: var(--platinum);
 }
 
@@ -857,7 +969,7 @@ button {
 }
 
 .osi-kicker {
-  color: var(--signal);
+  color: var(--lamp);
   font-family: var(--font-sans) !important;
   font-size: 11px;
   font-weight: 760;
@@ -909,15 +1021,15 @@ button {
 }
 
 .osi-button-primary {
-  border-color: var(--signal);
+  border-color: var(--lamp);
   background: var(--brand-spectrum);
   color: #19090d;
-  box-shadow: 0 14px 34px rgba(255, 77, 95, .2), inset 0 1px rgba(255, 255, 255, .34);
+  box-shadow: 0 14px 34px rgba(255, 176, 32, .2), inset 0 1px rgba(255, 255, 255, .34);
 }
 
 .osi-button-primary:hover {
   background: linear-gradient(110deg, #ec3c55, #ff6070 56%, #ff8d98);
-  box-shadow: 0 18px 44px rgba(255, 77, 95, .3), 0 0 22px rgba(255, 77, 95, .14);
+  box-shadow: 0 18px 44px rgba(255, 176, 32, .3), 0 0 22px rgba(255, 176, 32, .14);
 }
 
 .osi-button-secondary {
@@ -953,12 +1065,12 @@ button {
   margin: 68px 0 0 auto;
   padding: 22px;
   border: 1px solid rgba(245, 240, 232, .2);
-  border-top-color: rgba(255, 77, 95, .74);
+  border-top-color: rgba(255, 176, 32, .74);
   border-radius: 14px;
   background:
     linear-gradient(145deg, rgba(25, 27, 34, .88), rgba(10, 12, 17, .8)),
     rgba(8, 9, 13, .78);
-  box-shadow: 0 34px 90px rgba(3, 4, 7, .54), 0 0 52px rgba(255, 77, 95, .08), inset 0 1px rgba(255, 255, 255, .05);
+  box-shadow: 0 34px 90px rgba(3, 4, 7, .54), 0 0 52px rgba(255, 176, 32, .08), inset 0 1px rgba(255, 255, 255, .05);
   backdrop-filter: blur(18px) saturate(1.12);
   transform: perspective(1200px) rotateY(-2.2deg) rotateX(.6deg);
   transform-origin: 50% 100%;
@@ -966,8 +1078,8 @@ button {
 }
 
 .osi-home-hero .osi-hero-panel:hover {
-  border-color: rgba(255, 77, 95, .55);
-  box-shadow: 0 38px 100px rgba(3, 4, 7, .62), 0 0 64px rgba(255, 77, 95, .12), inset 0 1px rgba(255, 255, 255, .07);
+  border-color: rgba(255, 176, 32, .55);
+  box-shadow: 0 38px 100px rgba(3, 4, 7, .62), 0 0 64px rgba(255, 176, 32, .12), inset 0 1px rgba(255, 255, 255, .07);
   transform: perspective(1200px) rotateY(-1deg) translateY(-3px);
 }
 
@@ -984,7 +1096,7 @@ button {
 .osi-panel-topline > div > span,
 .osi-model-label,
 .osi-signal-caption {
-  color: var(--signal);
+  color: var(--lamp);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
@@ -1049,8 +1161,8 @@ button {
 
 .osi-lifecycle-track button:hover,
 .osi-lifecycle-track button:focus-visible {
-  border-color: rgba(255, 77, 95, .28);
-  background: rgba(255, 77, 95, .065);
+  border-color: rgba(255, 176, 32, .28);
+  background: rgba(255, 176, 32, .065);
   transform: translateY(-2px);
 }
 
@@ -1072,9 +1184,9 @@ button {
 
 .osi-lifecycle-track button:hover .osi-lifecycle-index,
 .osi-lifecycle-track button:focus-visible .osi-lifecycle-index {
-  border-color: var(--signal);
-  color: var(--signal);
-  box-shadow: 0 0 0 5px rgba(8, 9, 13, .76), 0 0 18px rgba(255, 77, 95, .32);
+  border-color: var(--lamp);
+  color: var(--lamp);
+  box-shadow: 0 0 0 5px rgba(8, 9, 13, .76), 0 0 18px rgba(255, 176, 32, .32);
 }
 
 .osi-lifecycle-track strong {
@@ -1144,7 +1256,7 @@ button {
 
 .osi-home-route {
   background:
-    radial-gradient(circle at 6% 12%, rgba(255, 77, 95, .13), transparent 31%),
+    radial-gradient(circle at 6% 12%, rgba(255, 176, 32, .13), transparent 31%),
     radial-gradient(circle at 88% 78%, rgba(255, 184, 106, .075), transparent 28%),
     linear-gradient(180deg, #0c0e14, #08090d);
 }
@@ -1187,7 +1299,7 @@ button {
   border: 1px solid rgba(245, 240, 232, .19);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 50% -12%, rgba(255, 77, 95, .1), transparent 38%),
+    radial-gradient(circle at 50% -12%, rgba(255, 176, 32, .1), transparent 38%),
     linear-gradient(160deg, rgba(29, 33, 42, .97), rgba(11, 13, 18, .98));
   box-shadow: 0 18px 52px rgba(3, 4, 7, .18), inset 0 1px rgba(255, 255, 255, .035);
   transition: transform 170ms var(--ease-out), border-color 170ms ease, box-shadow 170ms ease;
@@ -1207,8 +1319,8 @@ button {
 
 .osi-route-card:hover,
 .osi-route-card:focus-within {
-  border-color: rgba(255, 77, 95, .42);
-  box-shadow: 0 24px 68px rgba(3, 4, 7, .3), 0 0 34px rgba(255, 77, 95, .08), inset 0 1px rgba(255, 255, 255, .05);
+  border-color: rgba(255, 176, 32, .42);
+  box-shadow: 0 24px 68px rgba(3, 4, 7, .3), 0 0 34px rgba(255, 176, 32, .08), inset 0 1px rgba(255, 255, 255, .05);
   transform: translateY(-4px);
 }
 
@@ -1216,7 +1328,7 @@ button {
 .osi-route-card:focus-within::before {
   right: 4%;
   left: 4%;
-  background: linear-gradient(90deg, transparent, var(--signal), transparent);
+  background: linear-gradient(90deg, transparent, var(--lamp), transparent);
 }
 
 .osi-route-art {
@@ -1226,7 +1338,7 @@ button {
   overflow: hidden;
   border-bottom: 1px solid rgba(245, 240, 232, .1);
   background:
-    radial-gradient(circle at 50% 42%, rgba(255, 77, 95, .18), transparent 42%),
+    radial-gradient(circle at 50% 42%, rgba(255, 176, 32, .18), transparent 42%),
     linear-gradient(180deg, #1c1f28, #0e1117);
 }
 
@@ -1263,8 +1375,8 @@ button {
 }
 
 .osi-route-art .art-front {
-  fill: rgba(255, 77, 95, .055);
-  stroke: rgba(255, 77, 95, .62);
+  fill: rgba(255, 176, 32, .055);
+  stroke: rgba(255, 176, 32, .62);
 }
 
 .osi-route-art .art-line,
@@ -1281,9 +1393,9 @@ button {
 
 .osi-route-art .art-scan {
   fill: none;
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-width: 2;
-  filter: drop-shadow(0 0 8px rgba(255, 77, 95, .62));
+  filter: drop-shadow(0 0 8px rgba(255, 176, 32, .62));
   transform: translateY(-22px);
   transition: transform 320ms var(--ease-out);
 }
@@ -1295,11 +1407,11 @@ button {
 
 .osi-route-art .art-route {
   fill: none;
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-width: 2;
   stroke-dasharray: .18 .82;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 7px rgba(255, 77, 95, .46));
+  filter: drop-shadow(0 0 7px rgba(255, 176, 32, .46));
 }
 
 .osi-route-card:hover .art-route,
@@ -1325,14 +1437,14 @@ button {
 
 .osi-route-card:hover .art-lens,
 .osi-route-card:focus-within .art-lens {
-  stroke: var(--signal);
+  stroke: var(--lamp);
   transform: translate(3px, -3px);
 }
 
 .osi-route-art .art-check {
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-width: 2.5;
-  filter: drop-shadow(0 0 8px rgba(255, 77, 95, .46));
+  filter: drop-shadow(0 0 8px rgba(255, 176, 32, .46));
 }
 
 .osi-route-art .art-ring {
@@ -1341,7 +1453,7 @@ button {
 }
 
 .osi-route-art .art-ring-inner {
-  stroke: rgba(255, 77, 95, .58);
+  stroke: rgba(255, 176, 32, .58);
   stroke-dasharray: 5 7;
   transition: transform 360ms var(--ease-out);
 }
@@ -1358,7 +1470,7 @@ button {
 }
 
 .osi-route-art .art-seal {
-  stroke: rgba(255, 77, 95, .56);
+  stroke: rgba(255, 176, 32, .56);
 }
 
 .osi-route-copy {
@@ -1367,7 +1479,7 @@ button {
 }
 
 .osi-route-copy > span {
-  color: var(--signal);
+  color: var(--lamp);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
@@ -1410,14 +1522,14 @@ button {
 }
 
 .osi-route-card > button span {
-  color: var(--signal);
+  color: var(--lamp);
   font-size: 17px;
   transition: transform 150ms var(--ease-out);
 }
 
 .osi-route-card > button:hover,
 .osi-route-card > button:focus-visible {
-  border-bottom-color: var(--signal);
+  border-bottom-color: var(--lamp);
   color: #fffaf4;
 }
 
@@ -1428,7 +1540,7 @@ button {
 
 .osi-home-live {
   background:
-    radial-gradient(circle at 92% 0%, rgba(255, 77, 95, .11), transparent 31%),
+    radial-gradient(circle at 92% 0%, rgba(255, 176, 32, .11), transparent 31%),
     radial-gradient(circle at 8% 88%, rgba(52, 245, 164, .035), transparent 26%),
     #0a0c11;
 }
@@ -1449,7 +1561,7 @@ button {
 
 .osi-home-live-state[aria-busy="true"] .osi-state-mark::after,
 .osi-list-loading > span::after {
-  border-top-color: var(--signal);
+  border-top-color: var(--lamp);
 }
 
 .osi-home-live-state strong,
@@ -1496,7 +1608,7 @@ button {
 }
 
 .osi-live-pane > header span {
-  color: var(--signal);
+  color: var(--lamp);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: .09em;
@@ -1524,8 +1636,8 @@ button {
 
 .osi-live-pane > header button:hover,
 .osi-live-pane > header button:focus-visible {
-  border-color: var(--signal);
-  background: var(--signal-soft);
+  border-color: var(--lamp);
+  background: var(--lamp-soft);
   color: var(--platinum);
 }
 
@@ -1545,7 +1657,7 @@ button {
 }
 
 .osi-public-row > span {
-  color: var(--signal);
+  color: var(--lamp);
 }
 
 .osi-public-row button {
@@ -1554,7 +1666,7 @@ button {
 
 .osi-public-row button:hover,
 .osi-public-row button:focus-visible {
-  border-color: var(--signal);
+  border-color: var(--lamp);
 }
 
 .osi-proof-legend {
@@ -1564,9 +1676,9 @@ button {
   margin-top: 18px;
   padding: 20px;
   border: 1px solid rgba(245, 240, 232, .14);
-  border-left-color: rgba(255, 77, 95, .7);
+  border-left-color: rgba(255, 176, 32, .7);
   border-radius: 13px;
-  background: linear-gradient(120deg, rgba(255, 77, 95, .07), rgba(245, 240, 232, .025) 36%, rgba(12, 14, 19, .92));
+  background: linear-gradient(120deg, rgba(255, 176, 32, .07), rgba(245, 240, 232, .025) 36%, rgba(12, 14, 19, .92));
 }
 
 .osi-proof-legend-heading {
@@ -1578,7 +1690,7 @@ button {
 
 .osi-proof-legend-heading > span,
 .osi-proof-legend-items > div > span {
-  color: var(--signal);
+  color: var(--lamp);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
@@ -1611,7 +1723,7 @@ button {
 
 .osi-proof-legend-heading button:hover,
 .osi-proof-legend-heading button:focus-visible {
-  border-bottom-color: var(--signal);
+  border-bottom-color: var(--lamp);
 }
 
 .osi-proof-legend-items {
@@ -1717,7 +1829,7 @@ footer > .wrap {
 .fo-rail {
   border-color: var(--line) !important;
   background:
-    radial-gradient(circle at 0 0, rgba(255, 77, 95, .075), transparent 28%),
+    radial-gradient(circle at 0 0, rgba(255, 176, 32, .075), transparent 28%),
     var(--bg-deep) !important;
   box-shadow: 14px 0 44px rgba(3, 4, 7, .16) !important;
 }
@@ -1736,7 +1848,7 @@ footer > .wrap {
 
 .fr-i:hover,
 .fr-i.active {
-  background: rgba(255, 77, 95, .085) !important;
+  background: rgba(255, 176, 32, .085) !important;
   color: var(--ink) !important;
 }
 
@@ -1778,7 +1890,7 @@ footer > .wrap {
 .an-card:hover,
 .proof-card:hover {
   border-color: var(--line-active) !important;
-  box-shadow: 0 22px 58px rgba(3, 4, 7, .3), 0 0 28px rgba(255, 77, 95, .055), inset 0 1px rgba(255, 77, 95, .08) !important;
+  box-shadow: 0 22px 58px rgba(3, 4, 7, .3), 0 0 28px rgba(255, 176, 32, .055), inset 0 1px rgba(255, 176, 32, .08) !important;
 }
 
 :where(.fo-cta, .cr-btn, .osi-action, .moc-action, .rf-tab, .fo-fil, .fo-sort):disabled {
@@ -1846,13 +1958,13 @@ footer > .wrap {
 
 /* One material system across every product workspace. */
 #field-view {
-  --fo-cyan: rgba(255, 77, 95, .88);
-  --fo-edge-hot: rgba(255, 77, 95, .46);
-  --fo-orange: var(--signal);
+  --fo-cyan: rgba(255, 176, 32, .88);
+  --fo-edge-hot: rgba(255, 176, 32, .46);
+  --fo-orange: var(--lamp);
 }
 
 #wire-view {
-  --wire-cyan: rgba(255, 77, 95, .88);
+  --wire-cyan: rgba(255, 176, 32, .88);
   --wire-green: rgba(52, 245, 164, .86);
   --wire-amber: rgba(255, 184, 106, .86);
 }
@@ -1883,19 +1995,19 @@ footer > .wrap {
 #records-hero .cr-btn.primary,
 #analysts .lb-cta:not(.ghost),
 #about-hero .abt-b.primary {
-  border-color: var(--signal) !important;
+  border-color: var(--lamp) !important;
   background: var(--brand-spectrum) !important;
   color: #19090d !important;
-  box-shadow: 0 12px 28px rgba(255, 77, 95, .18) !important;
+  box-shadow: 0 12px 28px rgba(255, 176, 32, .18) !important;
 }
 
 #wire-view .wire-retry {
   min-height: 40px;
   margin-top: 14px;
   padding: 0 15px;
-  border: 1px solid rgba(255, 77, 95, .38);
+  border: 1px solid rgba(255, 176, 32, .38);
   border-radius: 8px;
-  background: rgba(255, 77, 95, .07);
+  background: rgba(255, 176, 32, .07);
   color: var(--platinum);
   cursor: pointer;
   font-family: var(--font-mono);
@@ -1906,8 +2018,8 @@ footer > .wrap {
 
 #wire-view .wire-retry:hover,
 #wire-view .wire-retry:focus-visible {
-  border-color: var(--signal);
-  background: rgba(255, 77, 95, .13);
+  border-color: var(--lamp);
+  background: rgba(255, 176, 32, .13);
   color: #fffaf4;
 }
 
@@ -1921,8 +2033,8 @@ footer > .wrap {
 #records-hero .cr-chips span:not(:first-child),
 #analysts .lb-trust-chips span,
 #prooflog .pl-chips span {
-  border-color: rgba(255, 77, 95, .26) !important;
-  background: rgba(255, 77, 95, .065) !important;
+  border-color: rgba(255, 176, 32, .26) !important;
+  background: rgba(255, 176, 32, .065) !important;
   color: var(--platinum-cool) !important;
 }
 
@@ -1945,7 +2057,7 @@ footer > .wrap {
 .abt-hero {
   border-color: rgba(245, 240, 232, .14) !important;
   background:
-    radial-gradient(circle at 86% 12%, rgba(255, 77, 95, .12), transparent 30%),
+    radial-gradient(circle at 86% 12%, rgba(255, 176, 32, .12), transparent 30%),
     radial-gradient(circle at 8% 100%, rgba(245, 240, 232, .045), transparent 30%),
     linear-gradient(135deg, #151922, #0b0d12) !important;
   box-shadow: 0 24px 72px rgba(3, 4, 7, .2), inset 0 1px rgba(255, 255, 255, .035) !important;
@@ -2003,7 +2115,7 @@ footer > .wrap {
   border: 1px solid rgba(245, 240, 232, .15);
   border-radius: 12px;
   background:
-    radial-gradient(circle at 50% 22%, rgba(255, 77, 95, .11), transparent 34%),
+    radial-gradient(circle at 50% 22%, rgba(255, 176, 32, .11), transparent 34%),
     linear-gradient(160deg, rgba(23, 27, 35, .88), rgba(10, 12, 17, .95));
   box-shadow: inset 0 1px rgba(255, 255, 255, .035);
 }
@@ -2014,13 +2126,13 @@ footer > .wrap {
   width: 42px;
   height: 42px;
   margin-bottom: 8px;
-  border: 1px solid rgba(255, 77, 95, .62);
+  border: 1px solid rgba(255, 176, 32, .62);
   border-radius: 50%;
   background:
-    radial-gradient(circle, var(--signal) 0 3px, transparent 4px),
+    radial-gradient(circle, var(--lamp) 0 3px, transparent 4px),
     linear-gradient(90deg, transparent 49%, rgba(245, 240, 232, .22) 50%, transparent 51%),
     linear-gradient(transparent 49%, rgba(245, 240, 232, .22) 50%, transparent 51%);
-  box-shadow: 0 0 0 7px rgba(255, 77, 95, .035), 0 0 28px rgba(255, 77, 95, .14);
+  box-shadow: 0 0 0 7px rgba(255, 176, 32, .035), 0 0 28px rgba(255, 176, 32, .14);
 }
 
 #field-view .osi-v2-empty b,
@@ -2042,21 +2154,21 @@ footer > .wrap {
   min-height: 44px;
   margin-top: 12px;
   padding: 0 18px;
-  border: 1px solid var(--signal);
+  border: 1px solid var(--lamp);
   border-radius: 7px;
   background: var(--brand-spectrum);
   color: #19090d;
   cursor: pointer;
   font-size: 12px;
   font-weight: 750;
-  box-shadow: 0 12px 28px rgba(255, 77, 95, .18);
+  box-shadow: 0 12px 28px rgba(255, 176, 32, .18);
   transition: transform 150ms var(--ease-out), box-shadow 150ms ease;
 }
 
 #analysts .osi-empty-cta:hover,
 #analysts .osi-empty-cta:focus-visible {
   transform: translateY(-1px);
-  box-shadow: 0 16px 34px rgba(255, 77, 95, .26);
+  box-shadow: 0 16px 34px rgba(255, 176, 32, .26);
 }
 
 @media (min-width: 900px) {
@@ -2103,10 +2215,10 @@ footer > .wrap {
     margin: 24px 0 !important;
     padding: 28px !important;
     border: 1px solid rgba(245, 240, 232, .14) !important;
-    border-top-color: rgba(255, 77, 95, .58) !important;
+    border-top-color: rgba(255, 176, 32, .58) !important;
     border-radius: 12px;
     background:
-      radial-gradient(circle at 50% 0%, rgba(255, 77, 95, .12), transparent 40%),
+      radial-gradient(circle at 50% 0%, rgba(255, 176, 32, .12), transparent 40%),
       rgba(245, 240, 232, .025) !important;
     color: var(--ink-dim);
     font-family: var(--font-sans) !important;
@@ -2116,7 +2228,7 @@ footer > .wrap {
 
   #field-view .fo-prev-empty::before {
     content: "CASE CONTEXT";
-    color: var(--signal);
+    color: var(--lamp);
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 700;
@@ -2128,17 +2240,17 @@ footer > .wrap {
 .cr-btn.primary,
 .osi-action.primary,
 #about-hero .abt-b.primary {
-  border-color: var(--signal) !important;
+  border-color: var(--lamp) !important;
   background: var(--brand-spectrum) !important;
   color: #19090d !important;
-  box-shadow: 0 12px 30px rgba(255, 77, 95, .18) !important;
+  box-shadow: 0 12px 30px rgba(255, 176, 32, .18) !important;
 }
 
 #about-hero .abt-cta {
-  border-color: rgba(255, 77, 95, .34) !important;
+  border-color: rgba(255, 176, 32, .34) !important;
   background:
-    radial-gradient(circle at 8% 50%, rgba(255, 77, 95, .12), transparent 32%),
-    linear-gradient(90deg, rgba(255, 77, 95, .06), rgba(11, 14, 20, .96)) !important;
+    radial-gradient(circle at 8% 50%, rgba(255, 176, 32, .12), transparent 32%),
+    linear-gradient(90deg, rgba(255, 176, 32, .06), rgba(11, 14, 20, .96)) !important;
 }
 
 /* Functional labels stay legible; only purely decorative indices may be micro-sized. */
@@ -3133,7 +3245,7 @@ footer > .wrap {
     #about-hero .abt-rules,
     #about-hero .abt-aside
   ):focus-visible {
-    outline: 2px solid var(--signal);
+    outline: 2px solid var(--lamp);
     outline-offset: 4px;
   }
 
@@ -3316,14 +3428,14 @@ footer > .wrap {
 }
 
 .osi-route-report .art-bind {
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-dasharray: .18 .82;
-  filter: drop-shadow(0 0 5px rgba(255, 77, 95, .44));
+  filter: drop-shadow(0 0 5px rgba(255, 176, 32, .44));
 }
 
 .osi-route-report .art-manifest {
-  fill: rgba(255, 77, 95, .055);
-  stroke: rgba(255, 77, 95, .7);
+  fill: rgba(255, 176, 32, .055);
+  stroke: rgba(255, 176, 32, .7);
   stroke-width: 1.2;
 }
 
@@ -3333,7 +3445,7 @@ footer > .wrap {
 }
 
 .osi-route-report .art-manifest-label {
-  fill: var(--signal);
+  fill: var(--lamp);
   font-size: 10px;
 }
 
@@ -3355,9 +3467,9 @@ footer > .wrap {
 
 .osi-route-report .art-hash-ring {
   fill: #11151c;
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-width: 1.3;
-  filter: drop-shadow(0 0 8px rgba(255, 77, 95, .4));
+  filter: drop-shadow(0 0 8px rgba(255, 176, 32, .4));
 }
 
 .osi-route-report .art-lock {
@@ -3371,7 +3483,7 @@ footer > .wrap {
 
 .osi-route-report:hover .art-version-current,
 .osi-route-report:focus-within .art-version-current {
-  stroke: var(--signal);
+  stroke: var(--lamp);
 }
 
 @keyframes osi-report-bind {
@@ -3869,8 +3981,8 @@ footer > .wrap {
 
 #sas-verifier-form .fo-in:focus {
   outline: none;
-  border-color: var(--signal);
-  box-shadow: 0 0 0 3px rgba(255, 77, 95, .16);
+  border-color: var(--lamp);
+  box-shadow: 0 0 0 3px rgba(255, 176, 32, .16);
 }
 
 #sas-verifier-form > p {
@@ -4101,27 +4213,27 @@ footer > .wrap {
 }
 
 #admin-view .adm-title b {
-  color: var(--signal);
+  color: var(--lamp);
 }
 
 #admin-view .adm-card {
   border: 1px solid rgba(245, 240, 232, .16);
-  border-left: 2px solid var(--signal);
+  border-left: 2px solid var(--lamp);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 6% 0%, rgba(255, 77, 95, .1), transparent 42%),
+    radial-gradient(circle at 6% 0%, rgba(255, 176, 32, .1), transparent 42%),
     linear-gradient(150deg, rgba(24, 28, 36, .96), rgba(10, 12, 17, .98));
   box-shadow: 0 24px 70px rgba(3, 4, 7, .28), inset 0 1px rgba(255, 255, 255, .035);
 }
 
 #admin-view .adm-field input:focus {
-  border-color: var(--signal);
+  border-color: var(--lamp);
 }
 
 #admin-view .adm-go {
   background: var(--brand-spectrum);
   color: #19090d;
-  box-shadow: 0 12px 28px rgba(255, 77, 95, .16);
+  box-shadow: 0 12px 28px rgba(255, 176, 32, .16);
 }
 
 #admin-view .adm-go:hover {

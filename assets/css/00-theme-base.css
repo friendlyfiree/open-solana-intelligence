@@ -19,18 +19,18 @@
   --line-bright:#2c3860;
   --ink:#eef2ff;
   --ink-dim:#8b96b8;
-  --ink-faint:#5a6488;
+  --ink-faint:#9296a0;
   --sol:#14f195;
   --sol-deep:#0bbd75;
   --violet:#9945ff;
   --amber:#ffb020;
-  --cyan:#22d3ee;
+  --cyan:#ffb020;
   --red:#ff5470;
-  --acc:#ff7a3d;
-  --acc-deep:#e8622a;
-  --acc-soft:rgba(255,122,61,.12);
-  --acc-line:rgba(255,122,61,.42);
-  --acc-glow:rgba(255,122,61,.34);
+  --acc:#ffb020;
+  --acc-deep:#e0960f;
+  --acc-soft:rgba(255,176,32,.12);
+  --acc-line:rgba(255,176,32,.42);
+  --acc-glow:rgba(255,176,32,.34);
   --sb:252px;
 
   /* Aliases for the token names the Report and modal stylesheets were authored
@@ -48,7 +48,7 @@
 html{scroll-behavior:smooth}
 body{
   background:
-    radial-gradient(ellipse 78% 48% at 50% -8%, rgba(255,122,61,.07), transparent 60%),
+    radial-gradient(ellipse 78% 48% at 50% -8%, rgba(255,176,32,.07), transparent 60%),
     radial-gradient(ellipse 55% 45% at 92% 6%, rgba(153,69,255,.05), transparent 58%),
     var(--bg);
   color:var(--ink);
@@ -89,7 +89,7 @@ body{
 .glow{
   position:fixed;top:-30%;left:50%;transform:translateX(-50%);
   width:900px;height:600px;z-index:0;pointer-events:none;
-  background:radial-gradient(circle,rgba(255,122,61,.12),transparent 62%);
+  background:radial-gradient(circle,rgba(255,176,32,.12),transparent 62%);
   filter:blur(40px);
 }
 .wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px}
@@ -181,7 +181,7 @@ body{padding-left:var(--sb)}
 .sb-item:hover{background:var(--bg-raised);color:var(--ink)}
 .sb-item .sb-c{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--ink-dim);background:var(--bg-raised);border:1px solid var(--line);border-radius:20px;padding:1px 7px;min-width:18px;text-align:center}
 body[data-view="registry"] .sb-item[data-view="registry"],
-body[data-view="methodology"] .sb-item[data-view="methodology"]{background:rgba(34,211,238,.10);color:var(--cyan);box-shadow:inset 3px 0 0 var(--cyan)}
+body[data-view="methodology"] .sb-item[data-view="methodology"]{background:rgba(255,176,32,.10);color:var(--cyan);box-shadow:inset 3px 0 0 var(--cyan)}
 body[data-view="registry"] .sb-item[data-view="registry"] .sb-c{color:var(--sol);border-color:rgba(20,241,149,.4);background:rgba(20,241,149,.08)}
 .sb-foot{margin-top:auto;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
 .sb-foot .wallet-btn{width:100%;justify-content:center}
@@ -348,7 +348,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
 .rm-phase{padding:20px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:11px}
 .rm-tag{align-self:flex-start;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:5px}
 .rm-tag.now{color:var(--sol);background:rgba(20,241,149,.1);border:1px solid rgba(20,241,149,.3)}
-.rm-tag.next{color:var(--cyan);background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.3)}
+.rm-tag.next{color:var(--cyan);background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3)}
 .rm-tag.soon{color:var(--amber);background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3)}
 .rm-tag.later{color:var(--ink-faint);background:var(--bg-raised);border:1px solid var(--line-bright)}
 .rm-phase h3{font-size:15px;font-weight:700;letter-spacing:-.01em}
@@ -390,7 +390,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0 60px}
 .cs-table tfoot td{font-weight:700;color:var(--ink);background:var(--bg-raised);border-bottom:none}
 .cs-table tfoot td.num{color:var(--sol)}
 .cs-card .co-name .meta{display:block;max-width:720px;line-height:1.5}
-.by-badge{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--cyan);background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.28);padding:2px 8px;border-radius:5px}
+.by-badge{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--cyan);background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.28);padding:2px 8px;border-radius:5px}
 .cs-inner{padding:24px}
 @media(max-width:520px){.cs-inner{padding:18px 16px}}
 /* view panels */

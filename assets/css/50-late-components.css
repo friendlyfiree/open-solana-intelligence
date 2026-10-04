@@ -46,7 +46,7 @@
 .pf-an.pending .pf-an-ic{color:var(--amber)}
 .pf-an.member{background:var(--bg-card)}
 .pf-an.member .pf-an-ic{color:var(--ink-faint)}
-.rf-intel{color:var(--cyan);border-color:rgba(34,211,238,.4)}
+.rf-intel{color:var(--cyan);border-color:rgba(255,176,32,.4)}
 .cm{margin:8px 0 2px}
 .cm-bar{height:6px;background:var(--bg);border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .cm-fill{height:100%;background:linear-gradient(90deg,var(--sol-deep),var(--sol));transition:width .3s}

@@ -119,7 +119,7 @@
 .osi-case-section h3{margin:0 0 14px;color:var(--ink);font-size:18px}
 .osi-case-section p{margin:0;color:var(--ink-dim);font-size:15px;line-height:1.72;white-space:pre-wrap;overflow-wrap:anywhere}
 .osi-case-form :focus-visible,.osi-case-panel button:focus-visible,.osi-case-panel a:focus-visible,.osi-case-panel select:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
-.osi-case-note{margin-top:16px;padding:12px 14px;border-left:2px solid var(--acc);background:rgba(255,122,61,.06);color:var(--ink-dim);font-size:13px;line-height:1.6}
+.osi-case-note{margin-top:16px;padding:12px 14px;border-left:2px solid var(--acc);background:rgba(255,176,32,.06);color:var(--ink-dim);font-size:13px;line-height:1.6}
 .osi-case-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:18px}
 .osi-case-meta div{border:1px solid var(--line);background:rgba(14,19,32,.72);padding:12px}
 .osi-case-meta span{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;color:var(--ink-faint)}
@@ -145,7 +145,7 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 .osi-proof-key span{display:grid;grid-template-columns:9px minmax(0,1fr);gap:9px;align-items:start;min-width:0;color:var(--ink-dim);font:10.5px/1.5 'JetBrains Mono',monospace;overflow-wrap:anywhere}
 .osi-proof-key i{width:7px;height:7px;margin-top:4px;border-radius:50%;background:var(--ink-faint)}
 .osi-proof-key i.memo{background:var(--sol);box-shadow:0 0 8px rgba(20,241,149,.4)}
-.osi-proof-key i.signed{background:var(--cyan);box-shadow:0 0 8px rgba(34,211,238,.35)}
+.osi-proof-key i.signed{background:var(--cyan);box-shadow:0 0 8px rgba(255,176,32,.35)}
 .osi-case-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:16px 28px;border-top:1px solid var(--line);background:rgba(8,11,20,.94)}
 .osi-action{min-height:42px;border:1px solid var(--line-bright);background:var(--bg-raised);color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 13px;cursor:pointer}
 .osi-action:hover{color:var(--ink);border-color:var(--acc-line)}
@@ -167,7 +167,7 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 .osi-review-queue-tools time{display:block;margin-top:4px;color:var(--ink-faint);font:11px 'JetBrains Mono',monospace}
 .osi-review-task{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(0,1.7fr);gap:16px;width:100%;padding:14px 15px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);text-align:left;cursor:pointer}
 .osi-review-task:last-child{border-bottom:0}
-.osi-review-task:hover{background:rgba(34,211,238,.04)}
+.osi-review-task:hover{background:rgba(255,176,32,.04)}
 .osi-review-task>div span{display:block;color:var(--cyan);font:12px 'JetBrains Mono',monospace;overflow-wrap:anywhere}
 .osi-review-task>div b{display:block;margin-top:6px;font-size:13px;line-height:1.45;color:var(--ink-dim)}
 .osi-review-task dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
@@ -185,7 +185,7 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 .osi-governance-mini,.osi-resolution-primary{display:flex;justify-content:space-between;gap:12px;align-items:center}
 .osi-governance-mini b,.osi-resolution-primary b,.osi-governance-event b,.osi-challenge-record b{color:var(--ink);overflow-wrap:anywhere}
 .osi-governance-mini span,.osi-resolution-primary span{color:var(--ink-faint);font:11px 'JetBrains Mono',monospace}
-.osi-governance-compose{display:grid;gap:12px;margin:18px 0;padding:16px;border:1px solid rgba(34,211,238,.22);background:rgba(34,211,238,.035)}
+.osi-governance-compose{display:grid;gap:12px;margin:18px 0;padding:16px;border:1px solid rgba(255,176,32,.22);background:rgba(255,176,32,.035)}
 .osi-governance-compose h4,.osi-governance-seal h4{margin:0;color:var(--ink);font-size:15px}
 .osi-governance-compose label{display:grid;gap:6px;color:var(--ink-faint);font:10.5px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em}
 .osi-governance-compose select,.osi-governance-compose input,.osi-governance-compose textarea{width:100%;min-height:42px;border:1px solid var(--line-bright);border-radius:0;background:var(--bg);color:var(--ink);padding:10px;font:12px/1.5 'JetBrains Mono',monospace;text-transform:none;resize:vertical}
@@ -332,7 +332,7 @@ body.osi-case-open{overflow:hidden}
 /* Published-Report signal on a Case row: the reason a reader opens the Case.
    Sized to the 11px monospace step used elsewhere rather than the 9.5px of the
    older chip beside it, which predates the no-micro-text rule. */
-.osi-published-chip{display:inline-flex;width:max-content;margin-top:7px;margin-right:6px;border:1px solid rgba(34,211,238,.32);padding:3px 7px;color:var(--cyan);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;font-style:normal}
+.osi-published-chip{display:inline-flex;width:max-content;margin-top:7px;margin-right:6px;border:1px solid rgba(255,176,32,.32);padding:3px 7px;color:var(--cyan);font:500 11px/1.5 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;font-style:normal}
 
 /* Structured reference sections.
    Addresses, transaction signatures and links are the substance of an OSI
