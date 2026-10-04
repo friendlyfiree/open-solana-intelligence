@@ -16,7 +16,8 @@
     });
   }
   function short(value){value=String(value||'');return value.length>18?value.slice(0,8)+'...'+value.slice(-6):value;}
-  function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();});}
+  var ACRONYMS={Osint:'OSINT',Aml:'AML',Kyc:'KYC',Defi:'DeFi',Nft:'NFT',Mev:'MEV',Dao:'DAO',Cex:'CEX',Dex:'DEX',Rpc:'RPC',Sas:'SAS'};
+  function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();}).replace(/\b[A-Z][a-z]+\b/g,function(word){return ACRONYMS[word]||word;});}
   function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
   function analystLocale(){
     var locale=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():document.documentElement.lang;
@@ -145,7 +146,7 @@
     return '<button class="osi-analyst-row" type="button" data-analyst-wallet="'+esc(profile.wallet)+'">'
       +'<span class="osi-analyst-person">'+avatar(profile,38)+'<span><b data-osi-user-content>'+esc(profile.display_name||profile.handle||short(profile.wallet))+'</b><em class="mono">'+esc(identity)+'</em></span></span>'
       +'<span>'+statusBadge(profile.status)+'</span><span class="osi-expertise-list">'+(expertise||'<em>Not listed</em>')+'</span>'
-      +'<span class="mono">'+contributions+'</span><span class="mono osi-weight">'+Number(profile.weight||0).toFixed(2)+'</span><span class="mono">'+proofs+'</span></button>';
+      +'<span class="mono">'+contributions+'</span><span class="mono osi-weight"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+Number(profile.weight||0).toFixed(2)+'</span><span class="mono">'+proofs+'</span></button>';
   }
   function renderPublicProfiles(){
     var host=document.getElementById('lb-body'),count=document.getElementById('lb-count'),pager=document.getElementById('lb-pnav');
@@ -210,7 +211,7 @@
       +'<span><span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span></span>'
       +'<span class="osi-expertise-list">'+(expertise||'<em>'+esc(t('Not listed'))+'</em>')+'</span>'
       +'<span class="mono">'+String(publicWorkCount(profile))+'</span>'
-      +'<span class="mono osi-weight osi-weight-none">'+esc(t('None'))+'</span>'
+      +'<span class="mono osi-weight osi-weight-none"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+esc(t('None'))+'</span>'
       +'<span class="mono">'+String((profile.proof_history||[]).length)+'</span></button>';
   }
   function renderMaintainerProfile(profile){

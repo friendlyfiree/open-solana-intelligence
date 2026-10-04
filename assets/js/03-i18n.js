@@ -95,6 +95,7 @@
     'Open a Case': 'Vaka Aç',
     'Start private, wallet-signed intake': 'Gizli ve cüzdan imzalı başvuru başlat',
     'Field Office': 'Saha Ofisi',
+    'Newest public Case': 'En yeni kamusal Vaka',
     'Open and follow Cases': 'Vakaları aç ve takip et',
     'The Wire': 'The Wire',
     'Read standalone intelligence': 'Bağımsız istihbarat kayıtlarını incele',

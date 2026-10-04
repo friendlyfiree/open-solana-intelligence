@@ -4804,3 +4804,100 @@ footer > .wrap {
     padding-inline: 11px !important;
   }
 }
+
+/* Analyst roster. The per-cell label only appears where the column header
+ * is hidden, so a phone still says what 0.50 means. */
+#analysts .osi-cell-label {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  #analysts .osi-analyst-row {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "person weight"
+      "status status"
+      "skills skills";
+    align-items: center;
+    gap: 10px 12px !important;
+    padding: 16px !important;
+  }
+
+  #analysts .osi-analyst-row > .osi-analyst-person {
+    grid-area: person;
+  }
+
+  #analysts .osi-analyst-row > span:nth-child(2) {
+    grid-area: status;
+  }
+
+  #analysts .osi-analyst-row > span:nth-child(3) {
+    grid-area: skills;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  #analysts .osi-analyst-row > span:nth-child(4),
+  #analysts .osi-analyst-row > span:nth-child(6) {
+    display: none !important;
+  }
+
+  #analysts .osi-analyst-row > span:nth-child(5) {
+    grid-area: weight;
+    display: grid !important;
+    justify-items: end;
+    text-align: right;
+  }
+
+  #analysts .osi-cell-label {
+    display: block;
+    color: var(--ink-faint);
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+
+  #analysts .osi-analyst-person b {
+    font-size: 15px;
+  }
+
+  #analysts .osi-analyst-row .osi-an-avatar {
+    --osi-avatar-size: 44px;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+  }
+}
+
+/* Home live panes: a reference stays on one line in the data face, and an
+ * analyst tier reads as the same status chip the Analyst Network uses. */
+.osi-public-row > .osi-public-ref {
+  color: var(--ink-dim) !important;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.osi-public-row > .osi-public-tier {
+  justify-self: start;
+  padding: 5px 10px;
+  border: 1px solid rgba(52, 245, 164, .34);
+  border-radius: 999px;
+  background: rgba(52, 245, 164, .07);
+  color: var(--verified) !important;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.osi-home-live-state .osi-live-label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--lamp);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}

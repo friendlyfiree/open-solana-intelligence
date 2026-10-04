@@ -331,8 +331,21 @@
     return text.slice(0, 10) + '...' + text.slice(-5);
   }
 
+  var ACRONYMS = { Osint: 'OSINT', Aml: 'AML', Kyc: 'KYC', Defi: 'DeFi', Nft: 'NFT', Mev: 'MEV', Dao: 'DAO', Cex: 'CEX', Dex: 'DEX', Rpc: 'RPC', Sas: 'SAS' };
   function titleCase(value) {
-    return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
+    return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, function (letter) { return letter.toUpperCase(); })
+      .replace(/\b[A-Z][a-z]+\b/g, function (word) { return ACRONYMS[word] || word; });
+  }
+
+  function uiLocale() {
+    var locale = window.OSI_I18N && typeof window.OSI_I18N.getLocale === 'function' ? window.OSI_I18N.getLocale() : document.documentElement.lang;
+    return String(locale || 'en').toLowerCase().indexOf('tr') === 0 ? 'tr-TR' : 'en-US';
+  }
+
+  function shortDate(value) {
+    var date = new Date(value || '');
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString(uiLocale(), { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
   }
 
   // One shared public reader for every surface. It de-duplicates concurrent
@@ -358,6 +371,7 @@
       return;
     }
     var item = cases[0];
+    copy.appendChild(make('span', 'osi-live-label', 'Newest public Case'));
     copy.appendChild(make('strong', '', item.title || shortRef(item.public_ref)));
     copy.appendChild(make('small', '', shortRef(item.public_ref) + ' / ' + titleCase(item.stage)));
     host.appendChild(copy);
@@ -421,10 +435,10 @@
     }
     analysts.slice(0, 3).forEach(function (analyst) {
       var row = make('div', 'osi-public-row');
-      row.appendChild(make('span', '', titleCase(analyst.tier_code || analyst.status)));
+      row.appendChild(make('span', 'osi-public-tier', titleCase(analyst.tier_code || analyst.status)));
       var copy = make('div');
       copy.appendChild(make('strong', '', analyst.display_name || analyst.handle || shortRef(analyst.wallet)));
-      var expertise = Array.isArray(analyst.expertise) ? analyst.expertise.slice(0, 3).join(', ') : '';
+      var expertise = Array.isArray(analyst.expertise) ? analyst.expertise.slice(0, 3).map(titleCase).join(', ') : '';
       copy.appendChild(make('small', '', expertise || 'Public analyst profile'));
       row.appendChild(copy);
       row.appendChild(rowButton('View profile', function () {
@@ -475,10 +489,10 @@
     }
     sealed.slice(0, 3).forEach(function (item) {
       var row = make('div', 'osi-public-row');
-      row.appendChild(make('span', '', shortRef(item.public_ref)));
+      row.appendChild(make('span', 'osi-public-ref mono', shortRef(item.public_ref)));
       var copy = make('div');
       copy.appendChild(make('strong', '', item.title || 'Sealed public record'));
-      copy.appendChild(make('small', '', titleCase(item.category) + ' / ' + (item.sealed_at ? new Date(item.sealed_at).toLocaleDateString() : 'Seal recorded')));
+      copy.appendChild(make('small', '', titleCase(item.category) + ' / ' + (shortDate(item.sealed_at) || 'Seal recorded')));
       row.appendChild(copy);
       row.appendChild(rowButton('Inspect proof', function () { openPublicCase(item.public_ref); }));
       host.appendChild(row);
