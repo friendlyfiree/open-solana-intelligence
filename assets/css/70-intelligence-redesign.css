@@ -5142,3 +5142,67 @@ footer > .wrap {
   letter-spacing: 0;
 }
 
+
+/* Missing wallet dialog. */
+.osi-wallet-missing {
+  position: fixed;
+  z-index: var(--z-modal, 4400);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.osi-wallet-missing-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(3, 4, 7, .72);
+  backdrop-filter: blur(4px);
+  cursor: default;
+}
+
+.osi-wallet-missing-card {
+  position: relative;
+  width: min(460px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line-bright);
+  border-top: 2px solid var(--lamp);
+  border-radius: 14px;
+  background: #0d0f15;
+  box-shadow: 0 30px 80px rgba(3, 4, 7, .6);
+}
+
+.osi-wallet-missing-card h2 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+
+.osi-wallet-missing-card p {
+  margin: 0 0 10px;
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.osi-wallet-missing-card .osi-wallet-missing-hint {
+  color: var(--ink-faint);
+  font-size: 13.5px;
+}
+
+.osi-wallet-missing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.osi-wallet-missing-actions .osi-button {
+  min-height: 44px;
+  text-decoration: none;
+}

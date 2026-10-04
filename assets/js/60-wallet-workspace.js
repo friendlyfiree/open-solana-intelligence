@@ -133,14 +133,66 @@ async function osiResumeWalletIntent(){
 }
 async function osiConnectForIntent(name,label,action){
   _osiWalletIntent={name:String(name||'wallet-action'),label:String(label||'Requested action'),action:action};
-  if(typeof showToast==='function')showToast('Connect Wallet to continue. This action will resume once after connection.');
+  var hasProvider=typeof getProvider==='function'&&!!getProvider();
+  if(hasProvider&&typeof showToast==='function')showToast('Connect Wallet to continue. This action will resume once after connection.');
   var connected=await toggleWallet();
   if(connected)await osiResumeWalletIntent();
-  else if(typeof showToast==='function')showToast('Wallet not connected. The '+String(label||'requested')+' action is saved; use Connect Wallet to resume it once.');
+  // The missing-wallet dialog already explains the next step; a second toast
+  // underneath it only repeats it.
+  else if(!document.getElementById('osi-wallet-missing')&&typeof showToast==='function')showToast('Wallet not connected. The '+String(label||'requested')+' action is saved; use Connect Wallet to resume it once.');
   return connected;
 }
 window.osiConnectForIntent=osiConnectForIntent;
 window.osiResumeWalletIntent=osiResumeWalletIntent;
+
+// No wallet extension: explain the requirement in a small dialog with one
+// explicit link, instead of opening a new tab the person did not ask for.
+var _osiWalletMissingReturn=null;
+function osiCloseWalletMissing(){
+  var host=document.getElementById('osi-wallet-missing');
+  if(host)host.remove();
+  document.removeEventListener('keydown',osiWalletMissingKey,true);
+  if(_osiWalletMissingReturn&&typeof _osiWalletMissingReturn.focus==='function'){try{_osiWalletMissingReturn.focus();}catch(_){}}
+  _osiWalletMissingReturn=null;
+}
+function osiWalletMissingKey(event){
+  if(event.key==='Escape'){event.preventDefault();osiCloseWalletMissing();}
+}
+function osiShowWalletMissing(){
+  // Without a renderable document, fall back to the plain notice and the
+  // install page so the requirement is still stated and the next step offered.
+  if(typeof document==='undefined'||typeof document.createElement!=='function'||!document.body||typeof document.body.appendChild!=='function'){
+    if(typeof showToast==='function')showToast("Phantom not found. Install it from phantom.app, then refresh and connect.");
+    try{ window.open("https://phantom.app/","_blank"); }catch(e){}
+    return;
+  }
+  if(document.getElementById('osi-wallet-missing'))return;
+  _osiWalletMissingReturn=document.activeElement;
+  var host=document.createElement('div');
+  host.id='osi-wallet-missing';
+  host.className='osi-wallet-missing';
+  var scrim=document.createElement('button');
+  scrim.type='button';scrim.className='osi-wallet-missing-scrim';scrim.tabIndex=-1;
+  scrim.setAttribute('aria-label','Close');
+  scrim.addEventListener('click',osiCloseWalletMissing);
+  var card=document.createElement('section');
+  card.className='osi-wallet-missing-card';
+  card.setAttribute('role','dialog');card.setAttribute('aria-modal','true');card.setAttribute('aria-labelledby','osi-wallet-missing-title');
+  var title=document.createElement('h2');title.id='osi-wallet-missing-title';title.textContent='No Solana wallet found in this browser';
+  var body=document.createElement('p');body.textContent='OSI attributes every Case, Report and review to the wallet that signs it. Install Phantom, then reload this page and connect.';
+  var hint=document.createElement('p');hint.className='osi-wallet-missing-hint';hint.textContent='On a phone, open this page inside the Phantom app browser.';
+  var actions=document.createElement('div');actions.className='osi-wallet-missing-actions';
+  var get=document.createElement('a');get.className='osi-button osi-button-primary';get.href='https://phantom.app/';get.target='_blank';get.rel='noopener noreferrer';get.textContent='Get Phantom';
+  var close=document.createElement('button');close.type='button';close.className='osi-button osi-button-secondary';close.textContent='Close';
+  close.addEventListener('click',osiCloseWalletMissing);
+  actions.appendChild(get);actions.appendChild(close);
+  card.appendChild(title);card.appendChild(body);card.appendChild(hint);card.appendChild(actions);
+  host.appendChild(scrim);host.appendChild(card);
+  document.body.appendChild(host);
+  document.addEventListener('keydown',osiWalletMissingKey,true);
+  get.focus();
+}
+window.osiShowWalletMissing=osiShowWalletMissing;
 
 async function toggleWalletOnce(){
   var prov = getProvider();
@@ -148,8 +200,7 @@ async function toggleWalletOnce(){
   // page answers immediately and keeps the install tab inside the user gesture.
   if(!prov && document.readyState !== 'complete') prov = await waitForProvider();
   if(!prov){
-    if(typeof showToast==='function') showToast("Phantom not found. Install it from phantom.app, then refresh and connect.");
-    try{ window.open("https://phantom.app/","_blank"); }catch(e){}
+    osiShowWalletMissing();
     markWalletReady();return false;
   }
   if(walletPubkey && prov.publicKey && prov.isConnected !== false) return true; // already connected this session
