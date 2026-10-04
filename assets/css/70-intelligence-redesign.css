@@ -5563,3 +5563,8 @@ footer > .wrap {
 /* Values line up across tiles: the label row reserves two lines and the value follows it. */
 #prooflog .pl-stat { justify-content: flex-start !important; gap: 12px; }
 #prooflog .pl-stat-top { align-items: flex-start !important; min-height: 34px; }
+
+/* Loading notes stack their headline and explanation instead of running together. */
+.osi-report-loading { display: grid; gap: 4px; margin-bottom: 12px; }
+.osi-report-loading b { display: block; font-size: 15px; color: var(--ink); }
+.osi-report-loading span { display: block; font-size: 14px; color: var(--ink-faint); }

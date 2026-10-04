@@ -1533,7 +1533,23 @@
     'This Case reference is not available in the public registry.': 'Bu Vaka referansı kamusal kayıtta bulunmuyor.',
     'Open The Wire': 'The Wire\'ı aç',
     'Proof events': 'Kanıt olayları',
-    'Open disputes': 'Açık anlaşmazlıklar'
+    'Open disputes': 'Açık anlaşmazlıklar',
+    'Report submission is not enabled.': 'Rapor gönderimi etkin değil.',
+    'Connect a wallet to submit a Report.': 'Rapor göndermek için bir cüzdan bağlayın.',
+    'This Case is not in an eligible public investigation stage.': 'Bu Vaka uygun bir kamusal inceleme aşamasında değil.',
+    'Submit an exact private Report version with a confirmed mainnet Memo. Review and publication are separate future transitions.': 'Onaylanmış bir mainnet Memo\'su ile kesin, gizli bir Rapor sürümü gönderin. İnceleme ve yayım ayrı, sonraki geçişlerdir.',
+    'Submitting asks your wallet to connect first. Reports remain private until reviewed publication.': 'Gönderim önce cüzdanınızı bağlamanızı ister. Raporlar incelemeli yayıma kadar gizli kalır.',
+    'Report capability is temporarily unavailable.': 'Rapor yetkinliği geçici olarak kullanılamıyor.',
+    'Checking exact submission prerequisites...': 'Kesin gönderim önkoşulları kontrol ediliyor...',
+    'Loading public and restricted authorized Report projections...': 'Kamusal ve kısıtlı yetkili Rapor görünümleri yükleniyor...',
+    'Public Report status unavailable': 'Kamusal Rapor durumuna ulaşılamıyor',
+    'Authorized submitted Reports': 'Yetkili gönderilmiş Raporlar',
+    'Authorized Report view unavailable': 'Yetkili Rapor görünümüne ulaşılamıyor',
+    'No authorized submitted Reports for this Case': 'Bu Vaka için yetkili gönderilmiş Rapor yok',
+    'Restricted authorized view. Submitted content remains hidden from anonymous and conflicted actors.': 'Kısıtlı yetkili görünüm. Gönderilen içerik anonim ve çıkar çatışması olan aktörlerden gizli kalır.',
+    'Loading published Reports...': 'Yayımlanmış Raporlar yükleniyor...',
+    'Loading published and authorized Report projections...': 'Yayımlanmış ve yetkili Rapor görünümleri yükleniyor...',
+    'Checking the exact published-version pointer and public evidence manifest.': 'Kesin yayımlanmış sürüm işaretçisi ve kamusal kanıt manifestosu kontrol ediliyor.'
   };
 
   var translations = { en: {}, tr: turkish };

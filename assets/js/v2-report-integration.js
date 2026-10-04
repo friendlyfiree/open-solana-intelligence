@@ -688,9 +688,27 @@
     try{
       var capability=await api(WRITE_URL,{op:'capabilities',wallet:wallet,case_ref:caseRef});
       if(generation!==privateGeneration()||requestedWallet!==String(walletPubkey||'')||!sectionIsCurrent(token,caseRef,host))return;
-      button.disabled=capability.report_writes_enabled!==true||capability.case_eligible!==true||!wallet;
-      copy.textContent=capability.prerequisite||'Submit an exact private Report version with a confirmed mainnet Memo. Review and publication are separate future transitions.';
-      button.title=capability.prerequisite||'Submit Report';
+      // The server names the wallet first, but a Case past Report intake stays
+      // closed whichever wallet connects. Saying "connect a wallet" on a sealed
+      // Case promised an action that could never succeed, so the stage wins.
+      // An open Case keeps the button live: opening the form asks the wallet
+      // to connect, exactly as the Case action bar already does.
+      var writesOn=capability.report_writes_enabled===true,eligible=capability.case_eligible===true;
+      if(!writesOn){
+        button.disabled=true;button.textContent=t('Submit Report');
+        copy.textContent=capability.prerequisite||t('Report submission is not enabled.');
+        button.title=copy.textContent;
+      }else if(!eligible){
+        button.disabled=true;button.textContent=t('Report intake closed');
+        copy.textContent=t('Report intake is open only while a Case is in public investigation, under Report review, or reopened.');
+        button.title=copy.textContent;
+      }else{
+        button.disabled=false;button.textContent=t('Submit Report');
+        copy.textContent=wallet
+          ?t('Submit an exact private Report version with a confirmed mainnet Memo. Review and publication are separate future transitions.')
+          :t('Submitting asks your wallet to connect first. Reports remain private until reviewed publication.');
+        button.title=t('Submit Report');
+      }
     }catch(error){if(generation!==privateGeneration()||requestedWallet!==String(walletPubkey||'')||!sectionIsCurrent(token,caseRef,host))return;button.disabled=true;copy.textContent='Report capability is temporarily unavailable.';button.title=copy.textContent;}
   }
   function reloadSection(item,mode,expectedRenderToken){
