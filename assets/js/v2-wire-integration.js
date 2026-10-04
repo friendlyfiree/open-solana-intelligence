@@ -501,6 +501,19 @@
     queue.title=allowed
       ? 'Review submitted Wire versions, and publish one that passes its gates'
       : (unavailableReason||'Connect an eligible analyst wallet, or open both maintainer gates (the configured maintainer wallet, plus a sign-in from Operations Center in the wallet menu), to open this queue');
+    syncWireActionNote();
+  }
+  // A disabled control states its exact prerequisite on the page, not only in
+  // a hover title that touch screens never show.
+  function syncWireActionNote(){
+    var note=document.getElementById('osi-wire-cta-note');if(!note)return;
+    var lines=[];
+    var intake=document.getElementById('osi-wire-intake-action');
+    var queue=document.getElementById('osi-wire-queue-action');
+    if(intake&&intake.disabled&&intake.title&&!/^Checking/.test(intake.title))lines.push(t(intake.title));
+    if(queue&&queue.disabled&&!/^Checking/.test(queue.title||''))lines.push(t('Review queue: opens for an eligible analyst wallet or the full double-gated maintainer.'));
+    note.textContent=lines.join(' ');
+    note.hidden=!lines.length;
   }
 
   // Several surfaces refresh the Wire intake control on the same tick (boot,
@@ -519,7 +532,7 @@
   async function refreshCapabilityOnce(){
     var button=document.getElementById('osi-wire-intake-action');if(!button)return;
     var loadToken=++state.capabilityLoadToken,generation=privateGeneration(),requestedWallet=String(walletPubkey||'');
-    try{var result=await api({op:'capabilities',wallet:requestedWallet});if(loadToken!==state.capabilityLoadToken||generation!==privateGeneration()||requestedWallet!==String(walletPubkey||''))return;state.capabilities=result;button.disabled=result.wire_writes_enabled!==true;button.textContent=result.wire_writes_enabled===true?'Submit a Wire Report':'Wire intake unavailable';button.title=result.prerequisite||'Create an exact private Wire Report version';setWireQueueAction(result.analyst_eligible===true||result.maintainer_access===true,null);}
+    try{var result=await api({op:'capabilities',wallet:requestedWallet});if(loadToken!==state.capabilityLoadToken||generation!==privateGeneration()||requestedWallet!==String(walletPubkey||''))return;state.capabilities=result;button.disabled=result.wire_writes_enabled!==true;button.textContent=result.wire_writes_enabled===true?'Submit a Wire Report':'Wire intake unavailable';button.title=result.prerequisite||(result.wire_writes_enabled===true?'Create an exact private Wire Report version':'Wire intake is not enabled on this deployment.');setWireQueueAction(result.analyst_eligible===true||result.maintainer_access===true,null);}
     catch(_){if(loadToken!==state.capabilityLoadToken||generation!==privateGeneration()||requestedWallet!==String(walletPubkey||''))return;button.disabled=true;button.textContent='Wire intake unavailable';button.title='Wire capability is temporarily unavailable';setWireQueueAction(false,'Wire capability is temporarily unavailable. Retry in a moment.');}
   }
   function clearSessionState(reason){

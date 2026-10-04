@@ -4975,3 +4975,73 @@ footer > .wrap {
     border-bottom: 0 !important;
   }
 }
+
+/* The Wire: a locked or unavailable action looks unavailable and says why
+ * on the page; the single sort reads as a statement, not a toggle; the hero
+ * keeps only the decoration that carries meaning. */
+#wire-view .wire-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+#wire-view .wire-actions .wire-cta {
+  margin-top: 0 !important;
+}
+
+#wire-view .wire-cta:disabled {
+  border: 1px dashed var(--line-bright) !important;
+  background: transparent !important;
+  color: var(--ink-faint) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  cursor: not-allowed;
+}
+
+#wire-view .wire-cta-note {
+  flex: 1 1 100%;
+  max-width: 62ch;
+  margin: 2px 0 0;
+  color: var(--ink-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#wire-view .wire-cta-note[hidden],
+#wire-view .wire-cta-note:empty {
+  display: none;
+}
+
+#wire-view .wire-sorts .wire-sort.active:only-of-type {
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--ink-dim) !important;
+  cursor: default;
+}
+
+#wire-view .wire-hero::before {
+  display: none !important;
+}
+
+#wire-view .wire-op {
+  justify-content: flex-start !important;
+  gap: 4px;
+}
+
+@media (max-width: 600px) {
+  /* Narrow stat tiles: labels wrap as words instead of spilling into the
+   * neighbouring tile. */
+  #wire-view .wire-op-l,
+  #field-view .fo-op-l,
+  #records-hero .fo-op-l {
+    letter-spacing: .02em !important;
+    text-transform: none !important;
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+    overflow-wrap: anywhere;
+  }
+}
