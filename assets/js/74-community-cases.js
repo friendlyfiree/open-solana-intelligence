@@ -273,7 +273,7 @@ function showToast(msg){
     t.setAttribute('role','status');
     t.setAttribute('aria-live','polite');
     t.setAttribute('aria-atomic','true');
-    t.style.cssText = "position:fixed;left:50%;bottom:74px;transform:translateX(-50%);z-index:80;background:var(--bg-raised);border:1px solid var(--sol);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 16px;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center";
+    t.style.cssText = "position:fixed;left:50%;bottom:74px;transform:translateX(-50%);z-index:80;background:var(--bg-raised);border:1px solid var(--lamp-line);color:var(--ink);font-family:var(--font-sans);font-size:13.5px;padding:10px 16px;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center";
     document.body.appendChild(t);
   }
   t.textContent = msg;

@@ -412,9 +412,11 @@ button {
   border: 1px solid var(--line-bright);
   border-top-color: var(--lamp);
   border-radius: 0 0 14px 14px;
+  /* Fully opaque: under the header's backdrop filter even a 98% alpha
+   * layer let the hero headline read through the menu. */
   background:
-    radial-gradient(circle at 8% 0%, rgba(255, 176, 32, .1), transparent 34%),
-    rgba(13, 15, 21, .98);
+    radial-gradient(circle at 8% 0%, rgba(255, 176, 32, .08), transparent 34%),
+    #0d0f15;
   box-shadow: 0 30px 80px rgba(3, 4, 7, .62);
   overflow: hidden;
   animation: osi-menu-enter 170ms var(--ease-out);
@@ -622,6 +624,12 @@ button {
 
 .osi-mobile-nav-toggle,
 .osi-nav-scrim {
+  display: none;
+}
+
+/* Direct section links exist for the mobile drawer only. The desktop bar
+ * keeps its four entries and reaches the same sections through Platform. */
+.osi-global-nav > .osi-nav-quick {
   display: none;
 }
 
@@ -2325,42 +2333,92 @@ footer > .wrap {
   background: var(--bg-raised) !important;
 }
 
+/* Two columns filled top to bottom, every entry the same 40px row, so a
+ * button and a link line up exactly. */
 .osi-global-footer .links {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(4, auto);
+  grid-auto-flow: column;
   align-content: start;
-  gap: 13px 24px;
+  gap: 2px 32px;
 }
 
 .osi-global-footer .links a,
 .osi-global-footer .links button {
-  color: var(--ink-dim);
-}
-
-.osi-global-footer .links button {
   min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
   border: 0;
   background: transparent;
-  padding: 0;
+  color: var(--ink-dim) !important;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px !important;
+  line-height: 1.3;
+  text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: color 150ms ease-out;
 }
 
-.osi-global-footer .links button:hover {
-  color: var(--sol);
+.osi-global-footer .links a:hover,
+.osi-global-footer .links a:focus-visible,
+.osi-global-footer .links button:hover,
+.osi-global-footer .links button:focus-visible {
+  color: var(--lamp) !important;
 }
 
+/* The floating Feedback control sits in the page gutter as a compact icon
+ * and only widens to show its label on hover or focus, so it never covers
+ * content at rest. Below 1180px the gutter is too narrow and the footer
+ * keeps the same action. */
 .fb-btn {
-  right: 18px !important;
+  right: 6px !important;
   bottom: 18px !important;
-  min-height: 42px;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  justify-content: center;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
   border-color: var(--line-bright) !important;
-  border-radius: 4px !important;
+  border-radius: 999px !important;
   background: var(--bg-raised) !important;
-  color: var(--ink) !important;
+  color: var(--ink-dim) !important;
   box-shadow: 0 12px 32px rgba(0, 5, 10, .35) !important;
+  transition: width 180ms var(--ease-out), color 150ms ease, border-color 150ms ease !important;
+}
+
+.fb-btn span {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 180ms var(--ease-out);
+}
+
+.fb-btn:hover,
+.fb-btn:focus-visible {
+  width: auto;
+  gap: 8px !important;
+  padding: 0 14px !important;
+  border-color: var(--lamp-line) !important;
+  color: var(--ink) !important;
+}
+
+.fb-btn:hover span,
+.fb-btn:focus-visible span {
+  max-width: 120px;
+}
+
+@media (max-width: 1180px) {
+  .fb-btn {
+    display: none !important;
+  }
 }
 
 @media (max-width: 1180px) {
@@ -2511,6 +2569,44 @@ footer > .wrap {
 
   .osi-platform-group button {
     min-height: 58px;
+  }
+
+  /* Drawer order follows the accepted primary navigation; the Platform
+   * group follows as the full action catalogue. */
+  body.nav-open .osi-global-nav > .osi-nav-quick {
+    display: flex;
+    align-items: center;
+  }
+
+  .osi-global-nav > [data-global-view="registry"] { order: 1; }
+  .osi-global-nav > [data-global-view="field"] { order: 2; }
+  .osi-global-nav > [data-global-view="wire"] { order: 3; }
+  .osi-global-nav > [data-global-view="records"] { order: 4; }
+  .osi-global-nav > [data-global-view="analysts"] { order: 5; }
+  .osi-global-nav > [data-global-view="prooflog"] { order: 6; }
+  .osi-global-nav > [data-global-view="methodology"] { order: 7; }
+  .osi-global-nav > .osi-platform-wrap {
+    order: 8;
+    margin-top: 10px;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+
+  .osi-global-nav > .osi-nav-link {
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+  }
+
+  /* The trigger opens the action catalogue here; the current section is
+   * already marked by its own entry above. */
+  .osi-platform-trigger[aria-current="page"]:not([aria-expanded="true"]) {
+    background: transparent;
+    text-shadow: none;
+  }
+
+  .osi-platform-trigger[aria-current="page"]:not([aria-expanded="true"])::after {
+    display: none;
   }
 
   .osi-nav-scrim {

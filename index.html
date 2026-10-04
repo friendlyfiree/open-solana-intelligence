@@ -78,6 +78,10 @@
   <button class="osi-mobile-nav-toggle" id="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="global-nav" aria-label="Open navigation"><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
   <nav class="osi-global-nav" id="global-nav" aria-label="Global navigation">
     <button class="osi-nav-link" type="button" data-global-view="registry" onclick="osiNavigate('registry')">Home</button>
+    <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="field" onclick="osiNavigate('field')">Field Office</button>
+    <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="wire" onclick="osiNavigate('wire')">The Wire</button>
+    <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="records" onclick="osiNavigate('records')">Public Records</button>
+    <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="prooflog" onclick="osiNavigate('prooflog')">Proof Log</button>
     <div class="osi-platform-wrap">
       <button class="osi-nav-link osi-platform-trigger" id="platform-menu-trigger" type="button" aria-expanded="false" aria-controls="platform-menu">Platform <span aria-hidden="true">&#8964;</span></button>
       <div class="osi-platform-menu" id="platform-menu" hidden>
@@ -1129,7 +1133,9 @@
       <div class="links">
         <a href="#home" onclick="osiNavigate('registry');return false;">Home</a>
         <a href="#field-office" onclick="osiNavigate('field');return false;">Field Office</a>
+        <a href="#wire" onclick="osiNavigate('wire');return false;">The Wire</a>
         <a href="#public-records" onclick="osiNavigate('records');return false;">Public Records</a>
+        <a href="#analyst-network" onclick="osiNavigate('analysts');return false;">Analyst Network</a>
         <a href="#proof-log" onclick="osiNavigate('prooflog');return false;">Proof Log</a>
         <a href="#about" onclick="osiNavigate('methodology');return false;">About</a>
         <button type="button" onclick="copyContact(event)" aria-label="Copy feedback contact email">Feedback</button>
