@@ -1347,7 +1347,16 @@
   function syncTabOverflow(host){
     host=host||document.getElementById('osi-case-tabs');
     if(!host)return;
-    host.setAttribute('data-osi-overflow',host.scrollWidth>host.clientWidth+1?'true':'false');
+    var overflow=host.scrollWidth>host.clientWidth+1;
+    host.setAttribute('data-osi-overflow',overflow?'true':'false');
+    // Which edge still hides tabs, so the fade sits only where there is more.
+    var before=overflow&&host.scrollLeft>2;
+    var after=overflow&&host.scrollLeft+host.clientWidth<host.scrollWidth-2;
+    host.setAttribute('data-osi-more',before&&after?'both':before?'start':after?'end':'none');
+    if(!host.__osiMoreBound){
+      host.__osiMoreBound=true;
+      host.addEventListener('scroll',function(){syncTabOverflow(host);},{passive:true});
+    }
   }
   function drawTabs(){
     var host=document.getElementById('osi-case-tabs');
