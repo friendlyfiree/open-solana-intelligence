@@ -40,7 +40,7 @@ function markAppliedUI(card, sig){
   btn.textContent = "✦ Apply again"; btn.disabled = false;
   if(sig && !card.querySelector('.apply-tx')){
     const note = document.createElement('div'); note.className = "apply-tx mono";
-    note.style.cssText = "font-size:9px;color:#b98cff;margin-top:4px";
+    note.style.cssText = "font-size:11.5px;color:#b98cff;margin-top:4px";
     note.innerHTML = `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener" style="color:#b98cff;text-decoration:none">↗ application on-chain ✓</a>`;
     btn.parentElement.appendChild(note);
   }

@@ -616,7 +616,7 @@ function crDrawerHtml(r, packs){
   var solUrl = displayedSig ? ((typeof solscanTx === 'function') ? solscanTx(displayedSig) : ('https://solscan.io/tx/' + encodeURIComponent(displayedSig))) : '';
   var verifyRow = displayedSig
     ? '<div class="crd-verify"><span class="crd-vk">'+escapeHtml(proof.label)+'</span><a class="crd-vlink" href="' + escapeHtml(solUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(String(displayedSig).slice(0,16)) + '... '+(txSig?'Verify on Solana':'Inspect unverified reference')+'</a></div>'
-    : '<div class="crd-verify"><span class="crd-vk">'+escapeHtml(proof.label)+'</span><span class="mono" style="color:var(--ink-faint);font-size:11px">No native proof receipt</span></div>';
+    : '<div class="crd-verify"><span class="crd-vk">'+escapeHtml(proof.label)+'</span><span class="mono" style="color:var(--ink-faint);font-size:12.5px">No native proof receipt</span></div>';
   var packRows = packs.length
     ? packs.map(function(p,i){ return '<div class="crd-pack"><div><div class="crd-pack-t">' + escapeHtml(escPackLabel(p.pack_type)) + '</div><div class="crd-pack-d">Public escalation pack metadata</div></div><button class="crd-dl" type="button" onclick="crDownloadPack(&quot;' + crAttr(r.id) + '&quot;,' + i + ')">Download</button></div>'; }).join('')
     : '<div class="crd-empty">No public packs published for this record yet.</div>';

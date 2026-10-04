@@ -176,8 +176,8 @@ function proofLogHtml(proofLog) {
     var r = proofLog[i];
     out += '<div class="proof-item">' +
       '<span class="' + chipClassForLabel(r.label) + '">' + escapeHtml(r.label) + "</span>" +
-      '<span class="mono" style="font-size:11.5px">' + escapeHtml(r.event_type || "") + "</span>" +
-      (r.tx_sig ? '<span class="mono" style="font-size:11px;color:var(--ink-faint)">tx ' + escapeHtml(shortWallet(r.tx_sig)) + "</span>" : "") +
+      '<span class="mono" style="font-size:12.5px">' + escapeHtml(r.event_type || "") + "</span>" +
+      (r.tx_sig ? '<span class="mono" style="font-size:12.5px;color:var(--ink-faint)">tx ' + escapeHtml(shortWallet(r.tx_sig)) + "</span>" : "") +
       '<span class="proof-when">' + escapeHtml(fmtDate(r.occurred_at)) + "</span>" +
       "</div>";
   }
