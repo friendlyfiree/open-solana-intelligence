@@ -1599,7 +1599,11 @@
     'Case intake is safely disabled while rollout checks are incomplete.': 'Yayın kontrolleri tamamlanana kadar Vaka girişi güvenli şekilde devre dışıdır.',
     'Preparing an exact, single-use submission proof...': 'Kesin, tek kullanımlık bir gönderim kanıtı hazırlanıyor...',
     'Confirming the exact signer, Memo, target, payload hash, and mainnet transaction...': 'Kesin imzalayan, Memo, hedef, içerik hash\'i ve mainnet işlemi doğrulanıyor...',
-    'Private Case created with an immutable submission receipt.': 'Değiştirilemez bir gönderim makbuzuyla gizli Vaka oluşturuldu.'
+    'Private Case created with an immutable submission receipt.': 'Değiştirilemez bir gönderim makbuzuyla gizli Vaka oluşturuldu.',
+    'Public registry': 'Kamusal kayıt',
+    'In resolution': 'Çözüm aşamasında',
+    'Under challenge': 'İtiraz altında',
+    'Field Office sections': 'Saha Ofisi bölümleri'
   };
 
   var translations = { en: {}, tr: turkish };

@@ -814,7 +814,7 @@
 
   async function openMyChallenges(options){
     options=options||{};++state.drawerLoadToken;var drawer=document.getElementById('osi-case-drawer');if(drawer&&!drawer.hidden)closeCase();
-    showView('field');var token=++state.loadToken;state.mode='challenges';state.locked=null;setFieldRailActive('');setFieldCopy('challenges');setReviewChrome(true);setLoading();
+    showView('field');var token=++state.loadToken;state.mode='challenges';state.locked=null;setFieldRailActive('my-challenges');setFieldCopy('challenges');setReviewChrome(true);setLoading();
     if(!walletPubkey&&options.authorize!==true){try{if(window.OSI_WALLET_READY)await window.OSI_WALLET_READY;}catch(_){}if(token!==state.loadToken)return;if(!walletPubkey){state.locked='challenges';drawWorkspaceLock(document.getElementById('field-cases'),'challenges');return;}}
     try{
       var result=await sessionRead('challenge:mine','list_my_challenges');if(token!==state.loadToken)return;
@@ -1032,7 +1032,7 @@
     showView('field');
     if(!walletPubkey&&options.authorize!==true){
       var lockToken=++state.loadToken;
-      state.locked=null;setFieldRailActive(mode==='review'?'review':'');setFieldCopy(mode);setReviewChrome(false);setLoading();
+      state.locked=null;setFieldRailActive(mode==='review'?'review':(mode==='mine'?'mine':''));setFieldCopy(mode);setReviewChrome(false);setLoading();
       // A trusted Phantom reconnect never prompts, so waiting for it avoids
       // showing the lock to a wallet that is about to restore itself.
       try{if(window.OSI_WALLET_READY)await window.OSI_WALLET_READY;}catch(_){}
@@ -1047,7 +1047,7 @@
     state.locked=null;
     if(mode==='review'){++state.loadToken;return loadUnifiedReviewQueue();}
     var token=++state.loadToken;
-    setFieldRailActive('');
+    setFieldRailActive(mode==='mine'?'mine':'');
     state.mode=mode;state.page=1;state.stage='all';setFieldCopy(mode);setReviewChrome(false);setLoading();
     try{
       var result=await sessionRead('case:mine','list_my_cases');

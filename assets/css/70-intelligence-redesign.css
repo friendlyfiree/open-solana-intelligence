@@ -5806,3 +5806,6 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
   box-shadow: none !important;
 }
 #field-view .fo-cta-note { margin: 8px 0 0; font-size: 14px; color: var(--ink-faint); max-width: 52ch; }
+
+/* Rail groups: a gap separates the public registry from private work. */
+#field-view .fo-rail .fr-g-private { margin-top: 18px; }
