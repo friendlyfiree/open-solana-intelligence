@@ -5625,3 +5625,118 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 #prooflog .plc-ref { font-family: var(--font-sans) !important; font-size: 13px !important; }
 #prooflog .plc-ref .plc-ref-link,
 #prooflog .plc-ref a { font-family: var(--font-mono); font-size: 12.5px; }
+
+/* Field Office sub-navigation: the tab strip covers every width below the
+ * docked rail (it used to vanish between 981 and 1279px), stays on one
+ * scrollable row, and marks the current item in the lamp colour. */
+@media (max-width: 1279.98px) {
+  #field-view .vsub {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding-bottom: 0;
+    scrollbar-width: none;
+  }
+  #field-view .vsub::-webkit-scrollbar { display: none; }
+  #field-view .vsub-b { flex: 0 0 auto; min-height: 44px; white-space: nowrap; }
+}
+.vsub .vsub-b.active,
+.vsub .vsub-b[aria-current="true"] {
+  color: var(--ink) !important;
+  border-bottom: 2px solid var(--lamp) !important;
+  font-weight: 650;
+}
+
+/* Header cells share the row box exactly: same gap, same inline padding and
+ * the same 1px side border, so every label sits over its column. */
+#field-view .osi-v2-head {
+  column-gap: 12px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  border-left: 1px solid transparent !important;
+  border-right: 1px solid transparent !important;
+}
+
+/* The header has nothing to label while the list shows a state message. */
+#field-view .fo-main:has(#field-cases > .osi-v2-empty) .osi-v2-head,
+#field-view .fo-main:has(#field-cases > .osi-workspace-lock) .osi-v2-head {
+  display: none !important;
+}
+
+/* Pager */
+#field-view .fo-pnav { display: flex; align-items: center; gap: 8px; }
+#field-view .fo-pg-state { font-size: 13px; color: var(--ink-faint); padding: 0 4px; }
+#field-view .fo-pnav .fo-pg[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* Reward chip tones follow the money-honesty rule: only a verified payment is green. */
+.osi-reward-chip[data-tone] { border: 1px solid var(--line-bright) !important; background: transparent !important; color: var(--ink-dim) !important; }
+.osi-reward-chip[data-tone="lamp"] { border-color: var(--lamp-line, rgba(255,176,32,.42)) !important; color: var(--lamp) !important; }
+.osi-reward-chip[data-tone="signal"] { border-color: rgba(255,77,95,.42) !important; color: var(--signal, #ff4d5f) !important; }
+.osi-reward-chip[data-tone="verified"] { border-color: rgba(52,245,164,.4) !important; color: var(--verified, #34f5a4) !important; }
+.osi-reward-chip[data-tone="muted"] { color: var(--ink-faint) !important; }
+
+/* A locked or private panel does not butt against the hero above it. */
+#field-cases > .osi-workspace-lock { margin-top: 16px; }
+
+/* Field Office rows: stage, category and proof read as words in sentence case;
+ * a small dot carries the stage tone, and only the sealed stage is green. */
+#field-view .osi-v2-stage,
+#field-view .osi-v2-category,
+#field-view .osi-v2-proof {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+}
+#field-view .osi-v2-stage { color: var(--ink) !important; display: inline-flex; align-items: center; gap: 8px; }
+#field-view .osi-v2-stage::before { content: ""; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--lamp); }
+#field-view .osi-v2-stage.private::before { background: var(--ink-faint); }
+#field-view .osi-v2-stage.challenge::before { background: var(--signal, #ff4d5f); }
+#field-view .osi-v2-stage.sealed::before { background: var(--verified, #34f5a4); }
+#field-view .osi-v2-category,
+#field-view .osi-v2-proof { color: var(--ink-dim) !important; }
+.osi-published-chip {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: var(--ink) !important;
+  border-color: var(--line-bright) !important;
+  border-radius: 999px;
+  padding: 2px 10px !important;
+  font-size: 12.5px !important;
+}
+#field-view .fo-eyebrow::before { background: var(--lamp) !important; box-shadow: none !important; }
+#field-view .fo-sel-l { text-transform: none !important; letter-spacing: 0 !important; font-size: 12.5px !important; }
+
+/* Submitter: one quiet line under the summary. The placeholder avatar is
+ * dropped in the list; a real profile avatar still shows. */
+#field-cases .osi-v2-title .osi-case-submitter { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+#field-cases .osi-v2-title .osi-case-submitter-avatar.fallback { display: none; }
+#field-cases .osi-v2-title .osi-case-submitter-copy { display: flex; flex-direction: row; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+#field-cases .osi-v2-title .osi-case-submitter-copy small { font-size: 12.5px; color: var(--ink-faint); }
+#field-cases .osi-v2-title .osi-case-submitter-copy b { font-size: 13px; font-weight: 600; color: var(--ink-dim); }
+
+/* Phones: the Field Office uses the same 16px gutter as every other page. */
+@media (max-width: 720px) {
+  .sec[data-view="field"] > .wrap { width: auto !important; margin-inline: 0 !important; padding-inline: 16px !important; }
+  #field-view .osi-stat { min-width: 0; }
+  #field-view .osi-stat span { white-space: normal; }
+}
+
+/* Toolbar labels, counts and column headers are interface text: sans, not mono. */
+#field-view .fo-sel-l,
+#field-view .fo-count,
+#field-view .osi-v2-head,
+#field-view .fr-g {
+  font-family: var(--font-sans) !important;
+}
+#field-view .fo-count { letter-spacing: 0 !important; font-size: 13px !important; }
+#field-view .fr-g { letter-spacing: .06em !important; font-size: 12px !important; }
+
+/* The Field Office hero uses the shared warm surface, not the old navy fill. */
+#field-view .fo-hero {
+  background:
+    radial-gradient(circle at 86% 12%, rgba(255, 176, 32, .12), transparent 30%),
+    radial-gradient(circle at 8% 100%, rgba(245, 240, 232, .045), transparent 30%),
+    linear-gradient(135deg, #151922, #0b0d12) !important;
+}

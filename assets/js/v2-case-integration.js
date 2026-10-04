@@ -89,6 +89,17 @@
     var url=String(value||'');
     return /^https:\/\/[^\s"'<>]+$/.test(url)?url:'';
   }
+  // Reward states as the server reports them. Green is kept for the one state
+  // that is verified on Solana; a failure never borrows the verified tone.
+  var REWARD_CHIP={
+    pledged:['Reward pledged, not escrowed','neutral'],
+    payment_ready:['Reward payable','lamp'],
+    awaiting_finality:['Payment awaiting finality','lamp'],
+    verification_failed:['Payment not verified','signal'],
+    partially_fulfilled:['Partly paid, verified on Solana','lamp'],
+    fulfilled:['Reward paid, verified on Solana','verified'],
+    withdrawn:['Pledge withdrawn','muted']
+  };
   function submitterIdentity(item,interactive){
     var profile=item&&item.submitter_profile&&typeof item.submitter_profile==='object'?item.submitter_profile:null;
     var publicRef=profile&&/^OSI-PRF-[A-F0-9]{16}$/.test(String(profile.public_ref||''))?String(profile.public_ref):'';
@@ -99,8 +110,10 @@
     if(avatarUrl.indexOf(trustedPrefix)!==0)avatarUrl='';
     var image=avatarUrl
       ?'<img class="osi-case-submitter-avatar" src="'+esc(avatarUrl)+'" alt="" width="26" height="26">'
-      :'<span class="osi-case-submitter-avatar fallback" aria-hidden="true">'+esc((name.charAt(0)||'C').toUpperCase())+'</span>';
-    var body=image+'<span class="osi-case-submitter-copy"><small>'+esc(t('Case submitter'))+'</small><b data-osi-user-content>'+esc(name)+'</b></span>';
+      :'<span class="osi-case-submitter-avatar fallback" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>';
+    // Only a real public profile name is user content. The neutral fallback is
+    // interface copy, so it follows the language like any other label.
+    var body=image+'<span class="osi-case-submitter-copy"><small>'+esc(t('Case submitter'))+'</small><b'+(displayName?' data-osi-user-content':'')+'>'+esc(name)+'</b></span>';
     if(interactive&&publicRef)return'<button class="osi-case-submitter osi-case-submitter-detail" type="button" data-public-wallet-profile="'+esc(publicRef)+'" aria-label="'+esc(t('Open public profile for {name}',{name:name}))+'">'+body+'</button>';
     return'<span class="osi-case-submitter'+(interactive?' osi-case-submitter-detail':'')+'">'+body+'</span>';
   }
@@ -468,9 +481,25 @@
       if(active)node.setAttribute('aria-current','true');else node.removeAttribute('aria-current');
     });
   }
+  // Counters and the pager belong to the list that produced them. While a
+  // different list loads, or when it fails, they are cleared rather than left
+  // describing the previous surface.
+  function clearListChrome(){
+    ['field-stats','fo-pnav'].forEach(function(id){var node=document.getElementById(id);if(node)node.innerHTML='';});
+    var count=document.getElementById('fo-count');if(count)count.textContent='';
+  }
   function setLoading(){
     var host=document.getElementById('field-cases');
-    if(host) host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';
+    clearListChrome();
+    if(host){host.setAttribute('aria-busy','true');host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';}
+  }
+  // The stage select and the search box always show the filter that produced
+  // the list below them.
+  function syncCaseToolbar(){
+    var select=document.querySelector('#field-view select[onchange*="fieldFilter"]');
+    if(select&&select.value!==state.stage)select.value=state.stage;
+    var search=document.getElementById('fo-search');
+    if(search&&search.value!==state.query)search.value=state.query;
   }
   // The search box and the stage select describe the list that is actually
   // shown. My Cases used to keep the public placeholder and a stale
@@ -509,7 +538,7 @@
     }else{
       if(eyebrow) eyebrow.textContent='Public Case registry';
       if(title) title.textContent='The Field Office';
-      if(sub) sub.textContent='Only approved, Memo-anchored V2 Cases appear in this public registry.';
+      if(sub) sub.textContent='Only approved, Memo-anchored Cases appear in this public registry.';
     }
   }
   function countActiveReviews(item){
@@ -518,7 +547,15 @@
   function hasOpenProof(item){
     return (item.proof_log||[]).some(function(row){return row.event_type==='CASE_OPENED'&&row.label==='Memo-anchored on Solana';});
   }
-  function stageClass(item){return item.visibility==='private'?'private':'';}
+  // A stage dot marks the lifecycle position; colour is never the only signal
+  // because the stage name is always printed beside it. Green is reserved for
+  // the Memo-anchored seal.
+  function stageClass(item){
+    if(item.visibility==='private')return 'private';
+    if(hasBlockingChallenge(item))return 'challenge';
+    if(item.stage==='sealed')return 'sealed';
+    return 'public';
+  }
   var reviewLaneDefinitions=[
     ['initial_open','Case initial reviews','case'],
     ['report_publication','Report publication reviews','report'],
@@ -722,6 +759,8 @@
     });
   }
 
+  var CHALLENGE_STATE={submitted:'Awaiting admissibility',admissibility_review:'Admissibility review',open:'Admitted, open',under_review:'Under review',accepted:'Accepted',rejected:'Rejected',withdrawn:'Withdrawn',expired:'Expired'};
+  function challengeActive(row){return['submitted','admissibility_review','open','under_review'].indexOf(String(row&&row.state||''))>=0;}
   function challengeDeadline(row){
     if(row.state==='submitted'||row.state==='admissibility_review')return row.admissibility_deadline_at;
     if(row.state==='open'||row.state==='under_review')return row.review_deadline_at;
@@ -749,7 +788,9 @@
       host.innerHTML='<div class="osi-review-queue-tools"><div><p>'+esc(t('Only your wallet-bound challenge rows are shown. Server state remains authoritative.'))+'</p><time>'+esc(t('Deadlines update locally; refresh before acting.'))+'</time></div><button class="osi-action" type="button" data-my-challenges-refresh>'+esc(t('Refresh challenges'))+'</button></div><div class="osi-review-lanes"><section class="osi-review-lane"><header><h3>'+esc(t('Challenge history'))+'</h3><span>'+rows.length+'</span></header>'+rows.map(function(row){
         var deadline=challengeDeadline(row),detail=row.restricted_detail?'<p class="osi-my-challenge-detail" data-osi-user-content>'+esc(row.restricted_detail)+'</p>':'';
         var actions=(row.case_public_ref?'<button class="osi-action" type="button" data-challenge-case="'+esc(row.case_public_ref)+'">'+esc(t('Open public Case'))+'</button>':'')+(row.can_withdraw?'<button class="osi-action danger" type="button" data-challenge-withdraw="'+esc(row.public_ref)+'">'+esc(t('Withdraw challenge'))+'</button>':'');
-        return'<article class="osi-review-task osi-my-challenge"><div><span>'+esc(row.public_ref)+'</span>'+(row.target_public_ref?'<span>'+esc(row.target_public_ref)+'</span>':'')+'<b data-osi-user-content>'+esc(row.public_safe_summary)+'</b>'+detail+'</div><dl><div><dt>'+esc(t('State'))+'</dt><dd class="'+(row.blocking?'warn':'')+'">'+esc(t(label(row.state)))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(t(label(row.target_kind)))+'</dd></div><div><dt>'+esc(t('Deadline'))+'</dt><dd><time datetime="'+esc(deadline||'')+'" data-my-challenge-deadline>'+esc(challengeCountdown(deadline))+'</time></dd></div><div><dt>'+esc(t('Submitted'))+'</dt><dd>'+esc(dateText(row.created_at))+'</dd></div><div><dt>'+esc(t('Sealing effect'))+'</dt><dd>'+esc(row.blocking?t('Blocks sealing while active'):t('Does not block sealing'))+'</dd></div><div><dt>'+esc(t('Withdraw'))+'</dt><dd>'+esc(row.can_withdraw?t('Available; server rechecks state'):t('Unavailable in this state'))+'</dd></div></dl>'+(actions?'<div class="osi-my-challenge-actions">'+actions+'</div>':'')+'</article>';
+        return'<article class="osi-review-task osi-my-challenge"><div><span>'+esc(row.public_ref)+'</span>'+(row.target_public_ref?'<span>'+esc(row.target_public_ref)+'</span>':'')+'<b data-osi-user-content>'+esc(row.public_safe_summary)+'</b>'+detail+'</div><dl><div><dt>'+esc(t('State'))+'</dt><dd class="'+(row.blocking?'warn':'')+'">'+esc(t(CHALLENGE_STATE[row.state]||label(row.state)))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(t(label(row.target_kind)))+'</dd></div>'+(challengeActive(row)
+          ?'<div><dt>'+esc(t('Deadline'))+'</dt><dd><time datetime="'+esc(deadline||'')+'" data-my-challenge-deadline>'+esc(challengeCountdown(deadline))+'</time></dd></div>'
+          :'<div><dt>'+esc(t('Closed'))+'</dt><dd><time datetime="'+esc(row.terminal_at||'')+'">'+esc(row.terminal_at?dateText(row.terminal_at):t('Closed'))+'</time></dd></div>')+'<div><dt>'+esc(t('Submitted'))+'</dt><dd>'+esc(dateText(row.created_at))+'</dd></div><div><dt>'+esc(t('Sealing effect'))+'</dt><dd>'+esc(row.blocking?t('Blocks sealing while active'):t('Does not block sealing'))+'</dd></div><div><dt>'+esc(t('Withdraw'))+'</dt><dd>'+esc(row.can_withdraw?t('Available; server rechecks state'):t('Unavailable in this state'))+'</dd></div></dl>'+(actions?'<div class="osi-my-challenge-actions">'+actions+'</div>':'')+'</article>';
       }).join('')+'</section></div>';
       var refresh=host.querySelector('[data-my-challenges-refresh]');if(refresh)refresh.addEventListener('click',function(){openMyChallenges({authorize:true});});
       Array.prototype.forEach.call(host.querySelectorAll('[data-challenge-case]'),function(button){button.addEventListener('click',function(){if(typeof window.osiOpenPublicCase==='function')window.osiOpenPublicCase(button.getAttribute('data-challenge-case'));});});
@@ -758,7 +799,7 @@
         button.disabled=true;withdrawMyChallenge(button.getAttribute('data-challenge-withdraw'));
       });});
     }
-    var count=document.getElementById('fo-count');if(count)count.textContent=rows.length+' '+t(rows.length===1?'challenge':'challenges');
+    var count=document.getElementById('fo-count');if(count)count.textContent=t(rows.length===1?'{count} challenge':'{count} challenges',{count:rows.length});
     var nav=document.getElementById('fo-pnav');if(nav)nav.innerHTML='';
     var stats=document.getElementById('field-stats');if(stats)stats.innerHTML='';
     var deck=document.getElementById('fo-deck');if(deck)deck.hidden=true;
@@ -777,7 +818,9 @@
   function drawCases(){
     var host=document.getElementById('field-cases');
     if(!host) return;
-    if(state.locked){drawWorkspaceLock(host,state.locked);return;}
+    host.removeAttribute('aria-busy');
+    if(state.locked){clearListChrome();drawWorkspaceLock(host,state.locked);return;}
+    syncCaseToolbar();
     if(state.mode==='review'){drawReviewTasks(host);return;}
     var rows=state.cases.slice();
     var query=state.query.toLowerCase();
@@ -809,24 +852,26 @@
       var emptyBody;
       var emptyAction='';
       if(filtered&&state.cases.length){
-        emptyTitle='No Cases match this view';
-        emptyBody=state.cases.length+' '+(state.cases.length===1?'Case is':'Cases are')+' available here. None of them '+(query?'matches this search':'is at this stage')+' right now.';
-        emptyAction='<button class="osi-action" type="button" onclick="osiV2ClearCaseFilters()">Show all Cases</button>';
+        emptyTitle=t('No Cases match this view');
+        emptyBody=state.cases.length===1
+          ?t(query?'One Case is available here, and it does not match this search.':'One Case is available here, and it is not at this stage.')
+          :t(query?'{count} Cases are available here. None of them matches this search right now.':'{count} Cases are available here. None of them is at this stage right now.',{count:state.cases.length});
+        emptyAction='<button class="osi-action" type="button" onclick="osiV2ClearCaseFilters()">'+esc(t('Show all Cases'))+'</button>';
       }else{
-        emptyTitle=state.mode==='public'?'No public V2 Cases yet':(state.mode==='mine'?'No Cases for this wallet':'No Cases currently await this wallet');
-        emptyBody=state.mode==='public'?'The registry is live and reads production data. A Case appears only after an eligible analyst threshold or full maintainer approval, plus a confirmed CASE_OPENED Memo.':(state.mode==='mine'?'Open a Case to create a private, wallet-anchored record.':'Only private initial-review Cases available under server-derived authorization appear here.');
+        emptyTitle=t(state.mode==='public'?'No public Cases yet':(state.mode==='mine'?'No Cases for this wallet':'No Cases currently await this wallet'));
+        emptyBody=t(state.mode==='public'?'The registry is live and reads production data. A Case appears only after an eligible analyst threshold or full maintainer approval, plus the confirmed public-opening Memo.':(state.mode==='mine'?'Open a Case to create a private, wallet-anchored record.':'Only private initial-review Cases available under server-derived authorization appear here.'));
       }
       host.innerHTML='<div class="osi-v2-empty"><b>'+esc(emptyTitle)+'</b><span>'+esc(emptyBody)+'</span>'+emptyAction+'</div>';
     }else{
       host.innerHTML=visible.map(function(item){
-        var proof=hasOpenProof(item)?'Memo anchored':((item.proof_log||[]).length?'Proof recorded':'Awaiting proof');
+        var proof=t(hasOpenProof(item)?'Memo anchored':((item.proof_log||[]).length?'Proof recorded':'Awaiting proof'));
         var rewardState=item.money&&item.money.reward&&item.money.reward.status;
         var published=(item.reports||[]).filter(function(report){return report&&report.published===true;}).length;
         var rowLabel=t('Open Case detail')+': '+String(item.public_ref)+', '+String(item.title||'')
           +' ('+stageLabel(item.stage,item)+', '+(published?t(published===1?'{count} published Report':'{count} published Reports',{count:published}):t('no published Report'))+')';
         return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'" aria-label="'+esc(rowLabel)+'">'
           +'<span class="osi-v2-id">'+esc(item.public_ref)+(item.created_at&&dayText(item.created_at)?'<small class="osi-v2-date">'+esc(dayText(item.created_at))+'</small>':'')+'</span>'
-          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+submitterIdentity(item,false)+(published?'<em class="osi-published-chip">'+esc(t(published===1?'{count} published Report':'{count} published Reports',{count:published}))+'</em>':'')+(rewardState?'<em class="osi-reward-chip">'+esc(label(rewardState))+'</em>':'')+'</span>'
+          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+(state.mode==='mine'?'<span class="osi-case-submitter"><span class="osi-case-submitter-copy"><small>'+esc(t('Case submitter'))+'</small><b>'+esc(t('You'))+'</b></span></span>':submitterIdentity(item,false))+(published?'<em class="osi-published-chip">'+esc(t(published===1?'{count} published Report':'{count} published Reports',{count:published}))+'</em>':'')+(rewardState&&REWARD_CHIP[rewardState]?'<em class="osi-reward-chip" data-tone="'+REWARD_CHIP[rewardState][1]+'">'+esc(t(REWARD_CHIP[rewardState][0]))+'</em>':'')+'</span>'
           +'<span class="osi-v2-stage '+stageClass(item)+'">'+esc(stageLabel(item.stage,item))+'</span>'
           +'<span class="osi-v2-category">'+esc(label(item.category))+'</span>'
           +'<span class="osi-v2-reviews">'+countActiveReviews(item)+'</span>'
@@ -837,20 +882,35 @@
       });
     }
     var count=document.getElementById('fo-count');
-    if(count) count.textContent=rows.length===1?t('{count} Case',{count:1}):t('{count} Cases',{count:rows.length});
+    if(count) count.textContent=rows.length!==state.cases.length
+      ?t('{shown} of {total} Cases shown',{shown:rows.length,total:state.cases.length})
+      :(rows.length===1?t('{count} Case',{count:1}):t('{count} Cases',{count:rows.length}));
     var nav=document.getElementById('fo-pnav');
     if(nav){
-      nav.innerHTML=pages>1?'<button type="button" data-page="prev">Prev</button><span class="mono">'+state.page+' / '+pages+'</span><button type="button" data-page="next">Next</button>':'';
-      Array.prototype.forEach.call(nav.querySelectorAll('button'),function(button){button.addEventListener('click',function(){state.page+=button.dataset.page==='next'?1:-1;state.page=Math.max(1,Math.min(pages,state.page));drawCases();});});
+      nav.innerHTML=pages>1
+        ?'<button class="fo-pg" type="button" data-page="prev"'+(state.page<=1?' disabled':'')+'>'+esc(t('Previous'))+'</button><span class="fo-pg-state">'+esc(t('Page {page} of {pages}',{page:state.page,pages:pages}))+'</span><button class="fo-pg" type="button" data-page="next"'+(state.page>=pages?' disabled':'')+'>'+esc(t('Next'))+'</button>'
+        :'';
+      // Turning a page returns the reader to the top of the list and puts
+      // focus on its first row, instead of leaving them below an empty fold.
+      Array.prototype.forEach.call(nav.querySelectorAll('button'),function(button){button.addEventListener('click',function(){
+        state.page+=button.dataset.page==='next'?1:-1;state.page=Math.max(1,Math.min(pages,state.page));drawCases();
+        var list=document.getElementById('field-cases');if(list&&list.scrollIntoView)list.scrollIntoView({block:'start'});
+        var first=document.querySelector('#field-cases .osi-v2-row');if(first)first.focus({preventScroll:true});
+      });});
     }
-    drawStats(rows);
+    drawStats();
   }
-  function drawStats(rows){
+  // The tiles describe the whole list this surface loaded, not the current
+  // filter, so a stage filter never makes the registry read as empty. The
+  // filtered count is stated once, beside the pager.
+  function drawStats(){
     var stats=document.getElementById('field-stats');
     if(!stats) return;
-    var proofCount=rows.reduce(function(total,item){return total+(item.proof_log||[]).length;},0);
-    var openCount=rows.filter(function(item){return item.stage==='open_public';}).length;
-    stats.innerHTML='<div class="osi-stat"><span>Visible</span><b>'+rows.length+'</b></div><div class="osi-stat"><span>Open public</span><b>'+openCount+'</b></div><div class="osi-stat"><span>Proof entries</span><b>'+proofCount+'</b></div>';
+    var all=state.cases||[];
+    var tiles=state.mode==='mine'
+      ?[['My Cases',all.length],['Private',all.filter(function(item){return item.visibility==='private';}).length],['Public',all.filter(function(item){return item.visibility==='public';}).length]]
+      :[['Public Cases',all.length],['Published Reports',all.reduce(function(total,item){return total+(item.reports||[]).filter(function(report){return report&&report.published===true;}).length;},0)],['Sealed',all.filter(function(item){return item.stage==='sealed';}).length]];
+    stats.innerHTML=tiles.map(function(tile){return '<div class="osi-stat"><span>'+esc(t(tile[0]))+'</span><b>'+tile[1]+'</b></div>';}).join('');
     var deck=document.getElementById('fo-deck'); if(deck) deck.hidden=true;
     var preview=document.getElementById('fo-preview');
     if(preview) preview.innerHTML='<div class="fo-prev-empty mono">Select a Case for evidence, reviews, Proof Log, and lifecycle prerequisites.</div>';
@@ -944,7 +1004,13 @@
     }catch(error){
       if(token!==state.loadToken) return;
       var host=document.getElementById('field-cases');
-      if(host) host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Public registry unavailable</b><span>'+esc(userError(error))+'</span></div>';
+      clearListChrome();
+      if(host){
+        host.removeAttribute('aria-busy');
+        host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Public registry unavailable'))+'</b><span>'+esc(userError(error))+'</span><button class="osi-action" type="button" data-registry-retry>'+esc(t('Retry'))+'</button></div>';
+        var retry=host.querySelector('[data-registry-retry]');
+        if(retry)retry.addEventListener('click',function(){if(typeof window.osiPublicReadInvalidate==='function')window.osiPublicReadInvalidate();loadPublicCases();});
+      }
     }
   }
   async function openSignedCollection(mode,options){
@@ -2614,7 +2680,9 @@
   window.osiV2GovernanceWithdrawChallenge=governanceWithdrawChallenge;
   window.osiV2GovernanceFinalizeChallenge=governanceFinalizeChallenge;
   window.fieldCloseForm=fieldCloseFormV2;
-  window.fieldMine=function(mine){return mine?openSignedCollection('mine'):loadPublicCases();};
+  // The Cases item always returns to the default public registry view, so a
+  // Resolutions or Challenges filter never survives into it.
+  window.fieldMine=function(mine){if(mine)return openSignedCollection('mine');state.stage='open_public';state.query='';state.page=1;return loadPublicCases();};
   window.fieldSearch=function(value){state.query=String(value||'');state.page=1;drawCases();};
   // Resolutions and Challenges are stage filters over the same public Case
   // list, so the rail marker follows the stage rather than the click that set

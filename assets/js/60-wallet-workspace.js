@@ -239,13 +239,17 @@ function toggleWallet(){
   return pending.finally(function(){if(_osiWalletConnectPromise===pending)_osiWalletConnectPromise=null;});
 }
 
+function walletButtonLabel(){
+  var short=walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4);
+  return typeof window.osiT==='function'?window.osiT('Open wallet menu for {wallet}',{wallet:short}):'Open wallet menu for '+short;
+}
 function updateWalletUI(){
   const btn = document.getElementById('walletBtn');
   const txt = document.getElementById('wbText');
   if(!btn || !txt) return;
   if(walletPubkey){
     btn.classList.add('connected');
-    btn.setAttribute('aria-label',(typeof window.osiT==='function'?window.osiT:function(k,v){return k.replace('{wallet}',v.wallet);})('Open wallet menu for {wallet}',{wallet:walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4)}));
+    btn.setAttribute('aria-label',walletButtonLabel());
     const nm = lsGet('stw_profile_name','');
     txt.textContent = nm ? nm : (walletPubkey.slice(0,4)+'\u2026'+walletPubkey.slice(-4));
     let av = document.getElementById('wbAva');
@@ -927,4 +931,4 @@ function renderWorkspace(){
 }
 // The connected wallet button carries a composed aria-label; refresh it when
 // the interface language changes so assistive technology hears one language.
-if(typeof window.addEventListener==='function') window.addEventListener('osi:localechange',function(){ try{ updateWalletUI(); }catch(e){} });
+if(typeof window.addEventListener==='function') window.addEventListener('osi:localechange',function(){ try{ var btn=document.getElementById('walletBtn'); if(btn&&walletPubkey) btn.setAttribute('aria-label',walletButtonLabel()); }catch(e){} });

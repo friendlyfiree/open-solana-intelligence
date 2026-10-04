@@ -1674,7 +1674,7 @@ test('legacy-import private drafts stay out of maintainer DOM counts and rows', 
 test('launch readiness: public empty states are explanatory and contain no raw sentinel values', async ({ page }) => {
   await ready(page, { role: 'anonymous', empty: true });
   await page.evaluate(() => window.osiNavigate('field'));
-  await expect(page.locator('#field-cases')).toContainText('No public V2 Cases yet');
+  await expect(page.locator('#field-cases')).toContainText('No public Cases yet');
 
   await page.evaluate(async () => {
     window.CASE_STUDIES = [];
@@ -2112,7 +2112,7 @@ test('unified My Reviews composes all eight exact lanes, maintainer bootstrap, c
   await page.evaluate(() => window.osiV2CloseCase());
 
   await page.evaluate(() => window.osiV2OpenReviewQueue());
-  await expect(page.locator('#fo-count')).toHaveText('8 real tasks');
+  await expect(page.locator('#fo-count')).toHaveText('8 review tasks');
   for (const lane of ['initial_open', 'report_publication', 'analyst_applications', 'wire_reviews', 'resolution_selection', 'challenge_admissibility', 'challenge_adjudication', 'seal_reviews']) {
     await expect(page.locator(`[data-review-lane-section="${lane}"]`)).toBeVisible();
   }
@@ -2274,7 +2274,7 @@ for (const role of ['ordinary_wallet', 'report_author', 'verified_analyst']) {
 test('unified queue distinguishes a genuine all-lane empty result from errors', async ({ page }) => {
   await ready(page, { role: 'maintainer', reviewQueueEmpty: true });
   await page.evaluate(() => window.osiV2OpenReviewQueue());
-  await expect(page.locator('#fo-count')).toHaveText('0 real tasks');
+  await expect(page.locator('#fo-count')).toHaveText('0 review tasks');
   for (const lane of [
     'initial_open',
     'report_publication',
