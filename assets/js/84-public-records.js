@@ -367,6 +367,21 @@ function crPage(p){
   crState.page=p|0; crPaint();
   var h=document.getElementById('case-records'); if(h){ try{ h.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
 }
+function osiStatIcon(name){
+  var paths={
+    archive:'<path d="M3 7h18v4H3z"/><path d="M5 11v8h14v-8"/><path d="M10 15h4"/>',
+    review:'<path d="M20 6 9 17l-5-5"/>',
+    memo:'<circle cx="12" cy="5" r="2"/><path d="M12 7v14"/><path d="M5 13a7 7 0 0 0 14 0"/><path d="M8 11h8"/>',
+    challenge:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+    network:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+    all:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
+    signature:'<path d="M4 20h4L18 10l-4-4L4 16z"/><path d="m13 7 4 4"/>',
+    transfer:'<path d="M7 7h12l-3-3"/><path d="M17 17H5l3 3"/>',
+    system:'<rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><path d="M8 7.5h.01"/><path d="M8 16.5h.01"/>',
+    legacy:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  };
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+(paths[name]||'')+'</svg>';
+}
 function crRenderStats(){
   var host=document.getElementById('cr-stats'); if(!host) return;
   var reports=window.__crList||[];
@@ -377,11 +392,11 @@ function crRenderStats(){
   var openCh = sourceOk ? (window.__crOpenChallengeCount||0) : null;
   var val = function(v, cls){ return '<div class="fo-op-n'+(cls?(' '+cls):'')+'">'+(v==null ? 'Not available yet' : v)+'</div>'; };
   host.innerHTML =
-      '<div class="fo-op"><div class="fo-op-ic">ARC</div>'+val(publicRecords, publicRecords==null?'cr-stat-na':'')+'<div class="fo-op-l">Public Records</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic sol">REV</div>'+val(reviewed, reviewed==null?'cr-stat-na':'sol')+'<div class="fo-op-l">Native reviewed</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic">MEM</div>'+val(memo, memo==null?'cr-stat-na':'')+'<div class="fo-op-l">Memo-anchored</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic warn">CHL</div>'+val(openCh, openCh==null?'cr-stat-na':(openCh>0?'warn':''))+'<div class="fo-op-l">Open Challenges</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic sol">SOL</div><div class="fo-op-n sol">Solana</div><div class="fo-op-l">Mainnet</div></div>';
+      '<div class="fo-op"><div class="fo-op-ic">'+osiStatIcon('archive')+'</div>'+val(publicRecords, publicRecords==null?'cr-stat-na':'')+'<div class="fo-op-l">Public Records</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic sol">'+osiStatIcon('review')+'</div>'+val(reviewed, reviewed==null?'cr-stat-na':'sol')+'<div class="fo-op-l">Native reviewed</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic">'+osiStatIcon('memo')+'</div>'+val(memo, memo==null?'cr-stat-na':'')+'<div class="fo-op-l">Memo-anchored</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic warn">'+osiStatIcon('challenge')+'</div>'+val(openCh, openCh==null?'cr-stat-na':(openCh>0?'warn':''))+'<div class="fo-op-l">Open Challenges</div></div>'
+    + '<div class="fo-op net"><div class="fo-op-ic sol">'+osiStatIcon('network')+'</div><div class="fo-op-n fo-op-text">Mainnet</div><div class="fo-op-l">Solana network</div></div>';
 }
 function crPaint(){
   var host = document.getElementById('case-records'); if(!host) return;

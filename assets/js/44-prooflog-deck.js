@@ -348,6 +348,21 @@ function plTimelineCard(ev){
     + '</div>'
   + '</div>';
 }
+function plStatIcon(name){
+  var paths={
+    archive:'<path d="M3 7h18v4H3z"/><path d="M5 11v8h14v-8"/><path d="M10 15h4"/>',
+    review:'<path d="M20 6 9 17l-5-5"/>',
+    memo:'<circle cx="12" cy="5" r="2"/><path d="M12 7v14"/><path d="M5 13a7 7 0 0 0 14 0"/><path d="M8 11h8"/>',
+    challenge:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+    network:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+    all:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
+    signature:'<path d="M4 20h4L18 10l-4-4L4 16z"/><path d="m13 7 4 4"/>',
+    transfer:'<path d="M7 7h12l-3-3"/><path d="M17 17H5l3 3"/>',
+    system:'<rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><path d="M8 7.5h.01"/><path d="M8 16.5h.01"/>',
+    legacy:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  };
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+(paths[name]||'')+'</svg>';
+}
 function plDashRender(){
   var host=document.getElementById('pl-dash'); if(!host) return;
   var evs=window.__plEvents||[];
@@ -362,13 +377,13 @@ function plDashRender(){
   var proofs=evs.map(plProofState);
   function proofCount(key){ return proofs.filter(function(proof){ return proof.key===key; }).length; }
   host.innerHTML =
-      stat('signed','ALL','Proof Events',val(total),'Explicitly classified receipts')
-    + stat('review','SIG','Wallet verified',val(proofCount('wallet')),'Server-verified, not on-chain')
-    + stat('memo','MEM','Memo anchored',val(proofCount('memo')),'Confirmed Solana Memo receipts')
-    + stat('seal','SOL','SOL transfers',val(proofCount('transfer')),'Memo and transfers verified')
-    + stat('case','SYS','System events',val(proofCount('system')),'Server-originated process events')
-    + stat('challenge','LEG','Legacy / unverified',val(proofCount('legacy')),'No native verification claim')
-    + stat('net','SOL','Network','Solana','Mainnet');
+      stat('signed',plStatIcon('all'),'Proof Events',val(total),'Explicitly classified receipts')
+    + stat('review',plStatIcon('signature'),'Wallet verified',val(proofCount('wallet')),'Server-verified, not on-chain')
+    + stat('memo',plStatIcon('memo'),'Memo anchored',val(proofCount('memo')),'Confirmed Solana Memo receipts')
+    + stat('seal',plStatIcon('transfer'),'SOL transfers',val(proofCount('transfer')),'Confirmed wallet-to-wallet transfers')
+    + stat('case',plStatIcon('system'),'System events',val(proofCount('system')),'Server-originated process events')
+    + stat('challenge',plStatIcon('legacy'),'Legacy / unverified',val(proofCount('legacy')),'No native verification claim')
+    + stat('net',plStatIcon('network'),'Network','Mainnet','Solana mainnet-beta');
 }
 function plSchemaRender(){
   var host=document.getElementById('pl-schema'); if(!host) return;

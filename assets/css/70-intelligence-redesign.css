@@ -4599,12 +4599,12 @@ footer > .wrap {
   #osi-about-proof-title,
   #osi-about-principles-title,
   #sas-verifier-title,
-  .fo-title,
-  .cr-title,
-  .lb-title,
-  .pl-title,
-  .wire-title,
-  .adm-title,
+  h1.fo-title,
+  h1.cr-title,
+  h1.lb-title,
+  h1.pl-title,
+  h1.wire-title,
+  h1.adm-title,
   .osi-section-heading h2,
   .osi-about-heading h2,
   .osi-about-cta h2
@@ -4624,7 +4624,7 @@ footer > .wrap {
 
 /* Every product view title sits on the same scale, so moving between views
  * never makes one feel louder than another. */
-:is(#main-content, body) :is(.fo-title, .cr-title, .lb-title, .pl-title, .wire-title, .adm-title) {
+:is(#main-content, body) :is(h1.fo-title, h1.cr-title, h1.lb-title, h1.pl-title, h1.wire-title, h1.adm-title) {
   font-size: clamp(34px, 3.2vw, 48px) !important;
   line-height: 1.02 !important;
 }
@@ -4900,4 +4900,78 @@ footer > .wrap {
   font-weight: 650;
   letter-spacing: .08em;
   text-transform: uppercase;
+}
+
+/* Stat tiles carry a drawn icon instead of a three-letter code, and the
+ * network tile reads as a fact rather than a number. */
+.fo-op-ic svg,
+.pl-stat-ic svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+#records-hero .fo-op-ic,
+#prooflog .pl-stat-ic {
+  font-size: 0 !important;
+  letter-spacing: 0 !important;
+}
+
+#records-hero .fo-op .fo-op-text {
+  font-size: 20px !important;
+  color: var(--ink) !important;
+}
+
+/* Public Records cards. The reference chip wraps inside its own column
+ * instead of running into Status, and the three actions read as one
+ * hierarchy: primary, outline, then a quiet text link. */
+#records-hero .cr-record-id {
+  width: auto !important;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+#records-hero .cr-actions.secondary .cr-btn.chx {
+  min-height: 36px;
+  padding: 0 2px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ink-dim) !important;
+  opacity: 1 !important;
+  text-decoration: underline;
+  text-decoration-color: var(--line-bright);
+  text-underline-offset: 4px;
+}
+
+#records-hero .cr-actions.secondary .cr-btn.chx:hover,
+#records-hero .cr-actions.secondary .cr-btn.chx:focus-visible {
+  color: var(--lamp) !important;
+  text-decoration-color: var(--lamp);
+}
+
+@media (max-width: 560px) {
+  /* Four short facts read as a 2 x 2 grid instead of a tall single column. */
+  #records-hero .cr-card-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0 !important;
+    padding: 0 !important;
+  }
+
+  #records-hero .cr-meta-cell {
+    padding: 12px !important;
+    border-right: 1px solid var(--line) !important;
+    border-bottom: 1px solid var(--line) !important;
+  }
+
+  #records-hero .cr-meta-cell:nth-child(2n) {
+    border-right: 0 !important;
+  }
+
+  #records-hero .cr-meta-cell:nth-last-child(-n + 2) {
+    border-bottom: 0 !important;
+  }
 }
