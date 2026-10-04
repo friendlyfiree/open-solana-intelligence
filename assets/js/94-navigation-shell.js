@@ -415,8 +415,10 @@
       host.appendChild(copy);
       return;
     }
-    var item = cases[0];
-    copy.appendChild(make('span', 'osi-live-label', 'Newest public Case'));
+    // Prefer the newest Case still in progress: sealed outcomes are already
+    // listed in the Public Records pane right below.
+    var item = cases.filter(function (row) { return row.stage !== 'sealed'; })[0] || cases[0];
+    copy.appendChild(make('span', 'osi-live-label', item.stage === 'sealed' ? 'Newest public Case' : 'Newest open public Case'));
     copy.appendChild(make('strong', '', item.title || shortRef(item.public_ref)));
     copy.appendChild(make('small', '', shortRef(item.public_ref) + ' / ' + titleCase(item.stage)));
     host.appendChild(copy);
@@ -672,7 +674,7 @@
   window.osiNavigateSection = navigateSection;
   window.osiOpenCase = openCase;
   window.osiOpenPublicCase = openPublicCase;
-  window.osiBrowsePublicCases = function () { navigate('field', { focus: false }); };
+  window.osiBrowsePublicCases = function () { navigate('field'); };
   window.osiNavigateFieldStage = navigateFieldStage;
   window.osiPublicApi = publicApi;
   window.osiLoadHomeData = loadHomeData;

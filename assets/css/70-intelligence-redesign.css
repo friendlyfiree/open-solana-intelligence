@@ -5296,3 +5296,244 @@ footer > .wrap {
   border-radius: 10px !important;
   color: var(--lamp) !important;
 }
+
+/* Home hero: two deliberate headline lines, a readable example step with
+ * no blinking cursor, a flat panel at rest, and visible trust markers. */
+#osi-home-title .osi-h1-line {
+  display: block;
+}
+
+.osi-signal-readout strong {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.osi-signal-readout strong::after {
+  display: none !important;
+}
+
+.osi-signal-caption {
+  font-family: var(--font-sans) !important;
+}
+
+.osi-home-hero .osi-hero-panel {
+  transform: none !important;
+}
+
+.osi-home-hero .osi-hero-panel:hover {
+  transform: translateY(-3px) !important;
+}
+
+.osi-trust-line li::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lamp);
+  opacity: .8;
+}
+
+.osi-trust-line li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-dim) !important;
+  font-size: 13px !important;
+}
+
+@media (max-width: 720px) {
+  .osi-trust-line {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px 16px !important;
+  }
+}
+
+/* Section headings: the lede sits under its heading instead of drifting to
+ * the far edge of the page. */
+.osi-section-heading {
+  grid-template-columns: 1fr !important;
+  gap: 12px !important;
+  max-width: 780px;
+}
+
+.osi-section-heading > p {
+  max-width: 60ch;
+  font-size: 16px !important;
+  color: var(--ink-dim) !important;
+}
+
+/* The loading spinner's box is not left behind as an empty gap once the
+ * strip has loaded. */
+.osi-home-live-state[aria-busy="false"] .osi-state-mark {
+  display: none;
+}
+
+#main-content #osi-home-title {
+  max-width: 22ch !important;
+}
+
+@media (min-width: 721px) and (max-width: 980px) {
+  #main-content #osi-home-title {
+    font-size: clamp(46px, 6.6vw, 60px) !important;
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1280px) {
+  #main-content #osi-home-title {
+    font-size: clamp(40px, 4.2vw, 52px) !important;
+  }
+}
+
+/* About: one framed surface in the hero, headings above their content, a
+ * caption that sits under the emblem, proof kinds without false numbering,
+ * one primary and one secondary action with the rest as text links, and
+ * verifier states that read differently. */
+.osi-about-hero {
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.osi-about-hero::before,
+.osi-about-hero::after {
+  display: none !important;
+}
+
+.osi-about-wordmark figcaption {
+  position: static !important;
+  margin-top: 12px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12.5px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  line-height: 1.45 !important;
+}
+
+.osi-about-section {
+  grid-template-columns: 1fr !important;
+  gap: 28px !important;
+}
+
+.osi-about-heading {
+  max-width: 72ch;
+}
+
+.osi-about-heading h2 {
+  max-width: 26ch !important;
+  font-size: clamp(28px, 2.7vw, 40px) !important;
+  line-height: 1.08 !important;
+}
+
+.osi-about-heading > p:not(.osi-kicker) {
+  max-width: 64ch !important;
+  color: var(--ink-dim) !important;
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+}
+
+.osi-about-heading code {
+  font-family: var(--font-mono);
+  font-size: .88em;
+  color: var(--ink);
+}
+
+.osi-about-principle-list article > span {
+  display: none !important;
+}
+
+.osi-about-proof-grid article > span {
+  letter-spacing: .08em !important;
+}
+
+.osi-about-cta .osi-about-actions > .osi-button:nth-child(n + 3) {
+  min-height: 40px !important;
+  padding: 0 4px !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--ink-dim) !important;
+  text-decoration: underline;
+  text-decoration-color: var(--line-bright);
+  text-underline-offset: 4px;
+}
+
+.osi-about-cta .osi-about-actions > .osi-button:nth-child(n + 3):hover,
+.osi-about-cta .osi-about-actions > .osi-button:nth-child(n + 3):focus-visible {
+  color: var(--lamp) !important;
+  text-decoration-color: var(--lamp);
+}
+
+.osi-about-cta .osi-about-actions > .osi-button {
+  white-space: nowrap;
+}
+
+#sas-verifier-form .osi-form-status.success {
+  color: var(--verified) !important;
+}
+
+#sas-verifier-form .osi-form-status.error {
+  color: var(--danger) !important;
+}
+
+#sas-verifier-form .osi-form-status {
+  font-size: 14px !important;
+}
+
+#sas-verifier-form .osi-case-note {
+  padding: 14px 0 0 !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(245, 240, 232, .12) !important;
+  border-radius: 0 !important;
+  background: none !important;
+  font-size: 14px !important;
+}
+
+#sas-verifier-form .osi-case-note .osi-button {
+  min-height: 36px;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  color: var(--lamp) !important;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+#sas-verifier-wallet[aria-invalid="true"] {
+  border-color: var(--danger) !important;
+}
+
+/* Decorative loops play once. */
+.osi-eye-signal,
+.osi-eye-iris,
+.osi-hero-light-lamp,
+.osi-hero-light {
+  animation-iteration-count: 1 !important;
+}
+
+.osi-hero-light-lamp,
+.osi-about-wordmark .osi-eye-signal,
+.osi-about-wordmark .osi-eye-iris {
+  animation-fill-mode: both !important;
+}
+
+/* The untranslated brand name inside the About kicker is text, not the
+ * kicker's dot. */
+.osi-about-copy .osi-kicker span[lang] {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* Principles are not a sequence: with the numbers gone the copy takes the
+ * full card width. */
+.osi-about-principle-list article {
+  grid-template-columns: minmax(0, 1fr) !important;
+  min-height: 0 !important;
+}

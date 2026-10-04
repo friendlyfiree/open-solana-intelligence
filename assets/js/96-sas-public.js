@@ -50,8 +50,16 @@
   function setStatus(node,text,kind){
     if(!node)return;
     node.textContent=tr(text||'');
-    node.className='osi-form-status mono '+(kind||'');
+    node.className='osi-form-status '+(kind||'');
   }
+  // Server codes are shown as reviewed words; an unknown code is shown as is
+  // rather than guessed at.
+  var STATE_TEXT={verified:'Verified',invalid:'Not verified',expired:'Expired',revoked:'Revoked',unavailable:'Unavailable',pending_verification:'Pending verification'};
+  var REASON_TEXT={valid:'Current credential',absent:'No credential exists for this wallet',expired:'The credential has expired',revoked:'The credential was revoked'};
+  var SOURCE_TEXT={live:'Live Solana read',cache:'Recent cached read',cached:'Recent cached read'};
+  function stateText(value){value=String(value||'unavailable');return STATE_TEXT[value]?tr(STATE_TEXT[value]):value;}
+  function reasonText(value){value=String(value||'');return REASON_TEXT[value]?tr(REASON_TEXT[value]):(value||tr('Not returned'));}
+  function sourceText(value){value=String(value||'');return SOURCE_TEXT[value]?tr(SOURCE_TEXT[value]):(value||tr('Unavailable'));}
   function openExplanation(value){
     var wallet=walletValue(value);
     if(typeof window.osiNavigate==='function')window.osiNavigate('methodology');
@@ -155,8 +163,8 @@
     }else{
       setStatus(status,'Not verified. No current OSI_VERIFIED_ANALYST credential was returned for this wallet.','');
       resultHost.appendChild(paragraph(doc,'No badge is shown. State: {state}. Reason: {reason}.',{
-        state:String(result&&result.state||'unavailable'),
-        reason:String(result&&result.reason||'not returned')
+        state:stateText(result&&result.state),
+        reason:reasonText(result&&result.reason)
       }));
     }
     var links=doc.createElement('div');
@@ -166,9 +174,9 @@
     if(credential)links.appendChild(credential);
     if(schema)links.appendChild(schema);
     if(links.children&&links.children.length)resultHost.appendChild(links);
-    var checked=result&&result.checked_at?String(result.checked_at):'not supplied';
+    var checked=result&&result.checked_at?checkedText(result):tr('not supplied');
     resultHost.appendChild(paragraph(doc,'Verifier source: {source}. Checked: {checked}.',{
-      source:String(result&&result.source||'unavailable'),
+      source:sourceText(result&&result.source),
       checked:checked
     }));
     return isPositive(result);
@@ -183,14 +191,24 @@
   }
   function verifyPublicWallet(value,nodes){
     nodes=verifierNodes(nodes);
-    var wallet=walletValue(value||(nodes.input&&nodes.input.value));
+    var raw=String(value||(nodes.input&&nodes.input.value)||'').trim();
+    var wallet=walletValue(raw);
+    if(!raw){
+      setStatus(nodes.status,'Paste a Solana wallet address to check.','error');
+      if(nodes.input&&nodes.input.setAttribute)nodes.input.setAttribute('aria-invalid','true');
+      clearNode(nodes.result);
+      if(nodes.result)nodes.result.hidden=true;
+      return Promise.resolve(null);
+    }
     if(!wallet){
+      if(nodes.input&&nodes.input.setAttribute)nodes.input.setAttribute('aria-invalid','true');
       setStatus(nodes.status,'Enter a valid Solana wallet address.','error');
       clearNode(nodes.result);
       if(nodes.result)nodes.result.hidden=true;
       return Promise.resolve(null);
     }
     if(nodes.input)nodes.input.value=wallet;
+    if(nodes.input&&nodes.input.removeAttribute)nodes.input.removeAttribute('aria-invalid');
     setStatus(nodes.status,'Checking the public SAS verifier...','');
     clearNode(nodes.result);
     if(nodes.result)nodes.result.hidden=true;

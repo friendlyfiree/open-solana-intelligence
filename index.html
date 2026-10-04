@@ -141,7 +141,7 @@
   <div class="osi-home-shell osi-hero-layout">
     <div class="osi-hero-copy">
       <p class="osi-kicker"><span aria-hidden="true"></span>Public Solana intelligence</p>
-      <h1 id="osi-home-title">Investigate Solana incidents. Prove every step.</h1>
+      <h1 id="osi-home-title"><span class="osi-h1-line">Investigate Solana incidents.</span> <span class="osi-h1-line">Prove every step.</span></h1>
       <p class="osi-hero-lede">Open a private Case, attach public evidence, and follow independent review to a challengeable public record.</p>
       <div class="osi-hero-actions">
         <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a Case</button>
@@ -154,7 +154,7 @@
       </ul>
     </div>
 
-    <div class="osi-hero-panel" aria-label="Explanatory OSI Case lifecycle">
+    <div class="osi-hero-panel" role="figure" aria-label="Explanatory OSI Case lifecycle">
       <div class="osi-panel-topline">
         <div><span>Case lifecycle</span><strong>Evidence becomes a public record</strong></div>
         <span class="osi-model-label">Explanatory route</span>
@@ -166,9 +166,9 @@
         <li><button type="button" onclick="osiNavigate('records')"><span class="osi-lifecycle-index">04</span><strong>Public record</strong><small>Challengeable proof</small></button></li>
       </ol>
       <div class="osi-signal-readout" aria-live="off">
-        <span class="osi-signal-caption">Signal state</span>
-        <strong id="osi-hero-signal-text">WALLET_SIGNED</strong>
-        <span class="sr-only">The explanatory sequence also includes REVIEW_QUORUM, CHALLENGE_WINDOW, MEMO_ANCHORED, and SOL_TRANSFER_VERIFIED.</span>
+        <span class="osi-signal-caption">Example step</span>
+        <strong id="osi-hero-signal-text">Wallet-signed and server-verified</strong>
+        <span class="sr-only">The example continues through independent review quorum, the seven-day challenge window, a Memo anchor that appears only after its transaction confirms, and a SOL transfer that appears only after RPC verification.</span>
       </div>
       <p class="osi-panel-note">Memo and verified SOL labels appear only after their Solana transactions are confirmed.</p>
     </div>
@@ -190,7 +190,7 @@
           <svg viewBox="0 0 320 190" focusable="false"><path class="art-grid" d="M22 44H298M22 86H298M22 128H298M64 18V172M160 18V172M256 18V172"/><path class="art-back" d="M72 60h72l18 18h86v78H72z"/><path class="art-front" d="M58 76h76l18 18h110v74H58z"/><path class="art-line" d="M84 118h128M84 139h94"/><path class="art-scan" d="M70 102h180"/></svg>
         </div>
         <div class="osi-route-copy"><span>01</span><h3>Open a Case</h3><p>Private-by-default intake for public evidence.</p></div>
-        <button type="button" onclick="osiOpenCase()">Open a Case <span aria-hidden="true">&#8599;</span></button>
+        <button type="button" onclick="osiOpenCase()">Open a Case</button>
       </article>
       <article class="osi-route-card osi-route-report">
         <div class="osi-route-art" aria-hidden="true">
@@ -218,21 +218,21 @@
           </svg>
         </div>
         <div class="osi-route-copy"><span>02</span><h3>Build a Versioned Report</h3><p>Each immutable version binds to one exact evidence manifest.</p></div>
-        <button type="button" onclick="osiV2OpenMyReports()">My Reports <span aria-hidden="true">&#8599;</span></button>
+        <button type="button" onclick="osiV2OpenMyReports()">My Reports</button>
       </article>
       <article class="osi-route-card osi-route-review">
         <div class="osi-route-art" aria-hidden="true">
           <svg viewBox="0 0 320 190" focusable="false"><path class="art-grid" d="M22 44H298M22 86H298M22 128H298M64 18V172M160 18V172M256 18V172"/><path class="art-doc" d="M64 44h82v116H64zM174 30h82v116h-82z"/><path class="art-line" d="M84 76h42M84 96h34M194 62h42M194 82h34"/><circle class="art-lens" cx="164" cy="110" r="48"/><path class="art-check" d="M142 110l16 16 31-38"/><path class="art-handle" d="M198 144l34 34"/></svg>
         </div>
         <div class="osi-route-copy"><span>03</span><h3>Review and Challenge</h3><p>Independent gates with a contestable outcome.</p></div>
-        <button type="button" onclick="osiV2OpenReviewQueue()">Review Queue <span aria-hidden="true">&#8599;</span></button>
+        <button type="button" onclick="osiV2OpenReviewQueue()">Review Queue</button>
       </article>
       <article class="osi-route-card osi-route-proof">
         <div class="osi-route-art" aria-hidden="true">
           <svg viewBox="0 0 320 190" focusable="false"><path class="art-grid" d="M22 44H298M22 86H298M22 128H298M64 18V172M160 18V172M256 18V172"/><circle class="art-ring" cx="160" cy="94" r="62"/><circle class="art-ring art-ring-inner" cx="160" cy="94" r="43"/><path class="art-solana" d="M126 70h80l-12 13h-80zM114 88h80l12 13h-80zM126 106h80l-12 13h-80z"/><path class="art-seal" d="M134 148l-12 28 38-14 38 14-12-28"/></svg>
         </div>
         <div class="osi-route-copy"><span>04</span><h3>Verify the Record</h3><p>Inspect signatures, Memos, and real transfer proof.</p></div>
-        <button type="button" onclick="osiNavigate('prooflog')">Proof Log <span aria-hidden="true">&#8599;</span></button>
+        <button type="button" onclick="osiNavigate('prooflog')">Proof Log</button>
       </article>
     </div>
   </div>
@@ -253,13 +253,13 @@
     </div>
     <div class="osi-live-grid">
       <article class="osi-live-pane">
-        <header><div><span>Public Records</span><strong>Sealed outcomes only</strong></div><button type="button" onclick="osiNavigate('records')">Open registry <span aria-hidden="true">&#8599;</span></button></header>
+        <header><div><span>Public Records</span><strong>Sealed outcomes only</strong></div><button type="button" onclick="osiNavigate('records')">Open registry</button></header>
         <div class="osi-live-list osi-record-list" id="home-public-records" aria-live="polite" aria-busy="true">
           <div class="osi-list-loading"><span aria-hidden="true"></span><p><strong>Loading sealed public records</strong><small>Open public Cases and their published Reports live in the Field Office. Private Cases and unpublished Reports stay excluded.</small></p></div>
         </div>
       </article>
       <article class="osi-live-pane">
-        <header><div><span>Analyst Network</span><strong>Attributable work</strong></div><button type="button" onclick="osiNavigate('analysts')">Open network <span aria-hidden="true">&#8599;</span></button></header>
+        <header><div><span>Analyst Network</span><strong>Attributable work</strong></div><button type="button" onclick="osiNavigate('analysts')">Open network</button></header>
         <div class="osi-live-list" id="home-analyst-list" aria-live="polite" aria-busy="true">
           <div class="osi-list-loading"><span aria-hidden="true"></span><p><strong>Loading public profiles</strong><small>No wallet identity is invented for this surface.</small></p></div>
         </div>
@@ -917,7 +917,7 @@
   <div class="osi-about-shell">
     <header class="osi-about-hero">
       <div class="osi-about-copy">
-        <p class="osi-kicker"><span aria-hidden="true"></span>Open Solana Intelligence</p>
+        <p class="osi-kicker"><span aria-hidden="true"></span><span lang="en" translate="no" data-osi-i18n-ignore>Open Solana Intelligence</span></p>
         <h1 id="osi-about-title">Public intelligence that preserves the evidence trail.</h1>
         <p>OSI turns public Solana evidence into attributable records with immutable versions and a visible challenge window. Each record is reviewed through explicit quorum or a clearly labeled cold-start process, with that path exposed rather than hidden. It shows who acted, what they acted on, and how that action was verified. It does not decide truth, guilt, or legal certainty.</p>
         <dl class="osi-about-contract" aria-label="Core OSI commitments">
@@ -927,7 +927,7 @@
         </dl>
         <div class="osi-about-actions">
           <button class="osi-button osi-button-primary" type="button" onclick="osiOpenCase()">Open a private Case</button>
-          <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('prooflog')">Inspect proof standards</button>
+          <button class="osi-button osi-button-secondary" type="button" onclick="osiNavigate('prooflog')">Open Proof Log</button>
         </div>
       </div>
       <aside class="osi-about-record-model" aria-label="OSI public record contract">
@@ -1003,10 +1003,10 @@
         <p>OSI keeps wallet approval, confirmed Solana proof, transfer verification, and process status visibly separate.</p>
       </div>
       <div class="osi-about-proof-grid">
-        <article data-proof="wallet"><span>01 / OFF-CHAIN</span><h3>Wallet signature</h3><p>Wallet-signed and server-verified. Never labeled on-chain.</p></article>
-        <article data-proof="memo"><span>02 / ON-CHAIN</span><h3>Confirmed Memo</h3><p>Memo-anchored on Solana only after the exact transaction confirms.</p></article>
-        <article data-proof="sol"><span>03 / TRANSFER</span><h3>Verified SOL</h3><p>Shown only after the intended System Program transfer is confirmed.</p></article>
-        <article data-proof="process"><span>04 / RECORD</span><h3>Process state</h3><p>Provenance records an action. It is not a truth or legal verdict.</p></article>
+        <article data-proof="wallet"><span>Off-chain</span><h3>Wallet signature</h3><p>Wallet-signed and server-verified. Never labeled on-chain.</p></article>
+        <article data-proof="memo"><span>On-chain</span><h3>Confirmed Memo</h3><p>Memo-anchored on Solana only after the exact transaction confirms.</p></article>
+        <article data-proof="sol"><span>Transfer</span><h3>Verified SOL</h3><p>Shown only after the intended System Program transfer is confirmed.</p></article>
+        <article data-proof="process"><span>Record</span><h3>Process state</h3><p>Provenance records an action. It is not a truth or legal verdict.</p></article>
       </div>
     </section>
 
@@ -1014,24 +1014,24 @@
       <div class="osi-about-heading">
         <p class="osi-kicker">Analyst authority</p>
         <h2 id="sas-verifier-title">Verify an OSI analyst credential on Solana.</h2>
-        <p>The Solana Attestation Service credential confirms that one wallet currently has OSI review authority under the exact OSI_VERIFIED_ANALYST credential, schema, and issuer. It is not KYC, proof of a person's identity, an endorsement, or proof that a review is correct.</p>
+        <p>The Solana Attestation Service credential confirms that one wallet currently has OSI review authority under the exact OSI verified analyst credential (<code translate="no">OSI_VERIFIED_ANALYST</code>), schema, and issuer. It is not KYC, proof of a person's identity, an endorsement, or proof that a review is correct.</p>
       </div>
       <div class="osi-about-boundary-grid">
         <article class="osi-about-boundary is">
           <span class="osi-about-boundary-tag">What the badge means</span>
           <ul>
-            <li>The public verifier returned <b>valid</b> with the exact verified state.</li>
+            <li>The public verifier confirmed a current credential for this exact wallet.</li>
             <li>The answer is tied to the pasted wallet and OSI's on-chain SAS configuration.</li>
             <li>A missing, expired, invalid, or unavailable credential never earns a badge.</li>
             <li>Review authority is separate from truth, correctness, identity, or legal certainty.</li>
           </ul>
         </article>
-        <form class="osi-about-boundary" id="sas-verifier-form">
+        <form class="osi-about-boundary" id="sas-verifier-form" novalidate>
           <span class="osi-about-boundary-tag">Public wallet verifier</span>
-          <label class="osi-field" for="sas-verifier-wallet"><span>Solana wallet address</span><input class="fo-in" id="sas-verifier-wallet" type="text" inputmode="text" autocomplete="off" spellcheck="false" minlength="32" maxlength="44" required placeholder="Paste any Solana wallet address"></label>
-          <p>No wallet connection is needed. OSI displays only the answer returned by the existing public sas_verify endpoint.</p>
+          <label class="osi-field" for="sas-verifier-wallet"><span>Solana wallet address</span><input class="fo-in" id="sas-verifier-wallet" aria-describedby="sas-verifier-status" type="text" inputmode="text" autocomplete="off" spellcheck="false" minlength="32" maxlength="44" required placeholder="Paste any Solana wallet address"></label>
+          <p>No wallet connection is needed. OSI shows only the answer from its public verifier.</p>
           <button class="osi-button osi-button-secondary" type="submit">Verify wallet</button>
-          <div class="osi-form-status mono" id="sas-verifier-status" role="status" aria-live="polite"></div>
+          <div class="osi-form-status" id="sas-verifier-status" role="status" aria-live="polite"></div>
           <div class="osi-case-note" id="sas-verifier-result" hidden></div>
         </form>
       </div>
