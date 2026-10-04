@@ -1581,7 +1581,25 @@
     'Withdrawn': 'Geri çekildi',
     'Closed': 'Kapandı',
     '{count} challenge': '{count} itiraz',
-    '{count} challenges': '{count} itiraz'
+    '{count} challenges': '{count} itiraz',
+    'Line {line} is not a Solana wallet address.': '{line}. satır bir Solana cüzdan adresi değil.',
+    'Line {line} is not a Solana transaction signature.': '{line}. satır bir Solana işlem imzası değil.',
+    'Line {line} is not a public https:// link.': '{line}. satır kamuya açık bir https:// bağlantısı değil.',
+    'Line {line} repeats an earlier reference.': '{line}. satır önceki bir referansı tekrarlıyor.',
+    'Fix the highlighted evidence line, then sign again.': 'İşaretli kanıt satırını düzeltin, sonra yeniden imzalayın.',
+    'A Case can include at most 12 structured evidence references.': 'Bir Vaka en fazla 12 yapılandırılmış kanıt referansı içerebilir.',
+    'One evidence link is not a public https:// address.': 'Kanıt bağlantılarından biri kamuya açık bir https:// adresi değil.',
+    'One transaction signature is not a valid Solana signature.': 'İşlem imzalarından biri geçerli bir Solana imzası değil.',
+    'One evidence line is empty or too long.': 'Kanıt satırlarından biri boş veya çok uzun.',
+    'The same evidence reference appears twice.': 'Aynı kanıt referansı iki kez geçiyor.',
+    'Reward intent must be a positive SOL amount with at most 9 decimals.': 'Ödül niyeti, en fazla 9 ondalıklı pozitif bir SOL tutarı olmalıdır.',
+    'Approve the Case submission Memo in your wallet. OSI receives no funds.': 'Cüzdanınızda Vaka gönderim Memo\'sunu onaylayın. OSI hiçbir fon almaz.',
+    'An authorized reviewer records an initial-open decision. The confirmed public-opening Memo is still required before the Case becomes public.': 'Yetkili bir inceleyici ilk açılış kararını kaydeder. Vakanın kamusal olması için onaylanmış kamusal açılış Memo\'su yine de gereklidir.',
+    'Describe what happened in neutral words': 'Ne olduğunu tarafsız sözcüklerle anlatın',
+    'Case intake is safely disabled while rollout checks are incomplete.': 'Yayın kontrolleri tamamlanana kadar Vaka girişi güvenli şekilde devre dışıdır.',
+    'Preparing an exact, single-use submission proof...': 'Kesin, tek kullanımlık bir gönderim kanıtı hazırlanıyor...',
+    'Confirming the exact signer, Memo, target, payload hash, and mainnet transaction...': 'Kesin imzalayan, Memo, hedef, içerik hash\'i ve mainnet işlemi doğrulanıyor...',
+    'Private Case created with an immutable submission receipt.': 'Değiştirilemez bir gönderim makbuzuyla gizli Vaka oluşturuldu.'
   };
 
   var translations = { en: {}, tr: turkish };

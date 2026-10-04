@@ -5740,3 +5740,69 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
     radial-gradient(circle at 8% 100%, rgba(245, 240, 232, .045), transparent 30%),
     linear-gradient(135deg, #151922, #0b0d12) !important;
 }
+
+/* Case intake dialog: one scroller (the overlay), a title and close button
+ * that stay reachable, a footer that stays in view, and full screen on phones. */
+#fo-modal .osi-case-form { max-height: none !important; overflow: visible !important; }
+#fo-modal .fo-form-h,
+#fo-form-title {
+  margin: 0 56px 8px 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -.01em;
+}
+#fo-modal .fo-x { z-index: 3; }
+#fo-modal .fo-form-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 16px -24px -24px;
+  padding: 14px 24px;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 14px 14px;
+}
+.osi-case-fields > .osi-field,
+.osi-case-fields > .osi-evidence-set,
+.osi-case-fields > .osi-reward-field { margin-top: 16px; }
+.osi-evidence-set .fo-grid2 > .osi-field { margin-top: 0 !important; }
+.osi-evidence-set > .osi-field:last-child { margin-top: 12px; }
+.osi-case-form .fo-in:not(textarea) { min-height: 48px; }
+#v2-case-title, #v2-case-summary, #v2-case-details, #v2-case-reward { font-family: var(--font-sans) !important; }
+#v2-case-wallets, #v2-case-transactions, #v2-case-urls { font-family: var(--font-mono) !important; font-size: 13px !important; }
+.osi-field > span,
+.osi-evidence-set legend {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+  font-weight: 600;
+  color: var(--ink) !important;
+}
+.osi-case-confirm input { width: 20px; height: 20px; flex: 0 0 20px; }
+.osi-case-fields.is-submitted { opacity: .55; }
+#field-form .osi-form-status { font: 500 14px/1.5 var(--font-sans) !important; }
+#field-form .osi-form-status.error { color: var(--signal, #ff4d5f); }
+.osi-field-error { display: block; color: var(--signal, #ff4d5f) !important; font-size: 13px !important; }
+.osi-case-form [aria-invalid="true"] { border-color: var(--signal, #ff4d5f) !important; }
+.fo-form-note { font-size: 13px !important; }
+@media (max-width: 640px) {
+  #fo-modal { padding: 0 !important; }
+  #fo-modal .osi-case-form {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 100dvh;
+    border-radius: 0 !important;
+    border-inline: 0 !important;
+  }
+  #fo-modal .fo-form-foot { margin: 16px -24px -24px; padding: 12px 24px; border-radius: 0; }
+}
+
+/* Disabled intake states its prerequisite beside the control. */
+#field-view .fo-cta.is-blocked {
+  background: var(--bg-soft, #1b222d) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--ink-dim) !important;
+  box-shadow: none !important;
+}
+#field-view .fo-cta-note { margin: 8px 0 0; font-size: 14px; color: var(--ink-faint); max-width: 52ch; }

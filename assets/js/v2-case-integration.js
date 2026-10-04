@@ -436,6 +436,12 @@
       ,solana_pay_reference_reused:'The reference appeared outside the one exact transfer instruction.'
       ,payment_wallet_changed:'The connected payer changed. No wallet was opened; review the transfer again from the intended wallet.'
       ,payment_recovery_unavailable:'This browser cannot durably save the wallet-bound recovery record. No wallet was opened.'
+      ,'evidence URL is invalid':'One evidence link is not a public https:// address.'
+      ,'transaction reference is invalid':'One transaction signature is not a valid Solana signature.'
+      ,'evidence ref is invalid':'One evidence line is empty or too long.'
+      ,'duplicate evidence item':'The same evidence reference appears twice.'
+      ,'evidence is invalid':'A Case can include at most 12 structured evidence references.'
+      ,'reward intent is invalid':'Reward intent must be a positive SOL amount with at most 9 decimals.'
       ,payment_recovery_poll_only:'A restored payment record can only be checked against the server. It cannot reopen a wallet or construct a transfer.'
     };
     if(messages[code])return messages[code];
@@ -1097,8 +1103,28 @@
       setAdminVisibility(state.capabilities.maintainer_access===true);
       if(typeof window.osiV2SetMaintainerCapability==='function') window.osiV2SetMaintainerCapability(state.capabilities.maintainer_access===true);
       setReviewNavigationVisibility(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true);
+      syncIntakeCta(state.capabilities);
       return state.capabilities;
     }catch(error){if(generation!==privateGeneration()||wallet!==String(walletPubkey||''))return null;state.capabilities=null;if(typeof setMaintainerServerGate==='function')setMaintainerServerGate(false,'unavailable');setAdminVisibility(false);setReviewNavigationVisibility(false);if(typeof window.osiV2SetMaintainerCapability==='function')window.osiV2SetMaintainerCapability(false);return null;}
+  }
+  // When the server reports Case intake as disabled, the Open a Case control
+  // says so where it sits instead of looking ready and explaining itself only
+  // in a passing toast. It stays enabled so the explanation can be read again
+  // from the control itself; the note it points to says why the action will
+  // not open the form.
+  function syncIntakeCta(capabilities){
+    var cta=document.querySelector('#field-view .fo-cta');if(!cta)return;
+    var blocked=!!(capabilities&&capabilities.case_writes_enabled!==true);
+    var note=document.getElementById('fo-cta-note');
+    if(blocked){
+      cta.classList.add('is-blocked');
+      if(!note){note=document.createElement('p');note.className='fo-cta-note';note.id='fo-cta-note';cta.insertAdjacentElement('afterend',note);}
+      note.textContent=t('Case intake is safely disabled while rollout checks are incomplete.');
+      cta.setAttribute('aria-describedby','fo-cta-note');
+    }else{
+      cta.classList.remove('is-blocked');cta.removeAttribute('aria-describedby');
+      if(note)note.remove();
+    }
   }
   function setAdminVisibility(allowed){
     var button=document.getElementById('admLockBtn')||document.getElementById('adminBtn')||document.getElementById('admin-btn');
@@ -1121,7 +1147,7 @@
       var capabilities=await refreshCapabilities();
       assertPrivateGeneration(generation);
       if(!capabilities||capabilities.case_writes_enabled!==true)throw new Error('case_writes_disabled');
-      if(state.caseReceipt){state.caseReceipt=null;clearSubmissionReceipt('v2-case-receipt');var staleForm=document.getElementById('field-form');if(staleForm)staleForm.reset();}
+      if(state.caseReceipt){state.caseReceipt=null;clearSubmissionReceipt('v2-case-receipt');var staleForm=document.getElementById('field-form');if(staleForm)staleForm.reset();lockCaseFields(false);}
       restoreCaseDraft(wallet);
       var modal=document.getElementById('fo-modal'); if(modal) modal.classList.add('open');
       syncBodyLock();
@@ -1147,9 +1173,13 @@
     document.body.style.overflow=(modal&&modal.classList.contains('open'))||(drawer&&!drawer.hidden)?'hidden':'';
   }
   function restoreFocus(node){if(node&&document.contains(node)&&typeof node.focus==='function')setTimeout(function(){node.focus();},0);}
+  function lockCaseFields(locked){
+    var fields=document.getElementById('v2-case-fields');if(!fields)return;
+    fields.inert=!!locked;fields.classList.toggle('is-submitted',!!locked);
+  }
   function fieldCloseFormV2(){
     var modal=document.getElementById('fo-modal');if(modal)modal.classList.remove('open');
-    if(state.caseReceipt){var form=document.getElementById('field-form');if(form)form.reset();state.caseReceipt=null;clearSubmissionReceipt('v2-case-receipt');formStatus('');var submit=document.getElementById('v2-case-submit');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}}
+    if(state.caseReceipt){var form=document.getElementById('field-form');if(form)form.reset();state.caseReceipt=null;lockCaseFields(false);clearEvidenceErrors();clearSubmissionReceipt('v2-case-receipt');formStatus('');var submit=document.getElementById('v2-case-submit');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}}
     syncBodyLock();restoreFocus(state.modalReturnFocus);state.modalReturnFocus=null;
   }
   function lines(id,kind){
@@ -1187,6 +1217,52 @@
       field.value=String(values[id]||'');
     });
   }
+  // Mirrors the server's evidence rules so a malformed line is named on its own
+  // field before any wallet request, instead of coming back as a raw server
+  // string after a signature prompt. The server still decides.
+  var EVIDENCE_FIELDS=[
+    ['v2-case-wallets','wallet',/^[1-9A-HJ-NP-Za-km-z]{32,44}$/,'Line {line} is not a Solana wallet address.'],
+    ['v2-case-transactions','onchain_tx',/^[1-9A-HJ-NP-Za-km-z]{64,90}$/,'Line {line} is not a Solana transaction signature.'],
+    ['v2-case-urls','url',null,'Line {line} is not a public https:// link.']
+  ];
+  function clearEvidenceErrors(){
+    EVIDENCE_FIELDS.forEach(function(field){
+      var input=document.getElementById(field[0]);if(!input)return;
+      input.removeAttribute('aria-invalid');
+      var note=document.getElementById(field[0]+'-error');if(note)note.remove();
+      var described=String(input.getAttribute('aria-describedby')||'').split(' ').filter(function(id){return id&&id!==field[0]+'-error';}).join(' ');
+      if(described)input.setAttribute('aria-describedby',described);else input.removeAttribute('aria-describedby');
+    });
+  }
+  function validEvidenceUrl(value){
+    try{var parsed=new URL(value);return parsed.protocol==='https:'&&!parsed.username&&!parsed.password;}catch(_){return false;}
+  }
+  function validateEvidenceFields(){
+    clearEvidenceErrors();
+    var firstInvalid=null,total=0;
+    EVIDENCE_FIELDS.forEach(function(field){
+      var input=document.getElementById(field[0]);if(!input)return;
+      var seen={},problem='';
+      String(input.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean).forEach(function(value,index){
+        total+=1;
+        if(problem)return;
+        var ok=field[2]?field[2].test(value):validEvidenceUrl(value);
+        if(!ok)problem=t(field[3],{line:index+1});
+        else if(seen[value])problem=t('Line {line} repeats an earlier reference.',{line:index+1});
+        seen[value]=true;
+      });
+      if(!problem)return;
+      input.setAttribute('aria-invalid','true');
+      var note=document.createElement('small');note.className='osi-field-error';note.id=field[0]+'-error';note.textContent=problem;
+      input.insertAdjacentElement('afterend',note);
+      input.setAttribute('aria-describedby',((input.getAttribute('aria-describedby')||'')+' '+note.id).trim());
+      if(!firstInvalid)firstInvalid=input;
+    });
+    if(firstInvalid)formStatus(t('Fix the highlighted evidence line, then sign again.'),'error');
+    else if(total>12){firstInvalid=document.getElementById('v2-case-urls');formStatus(t('A Case can include at most 12 structured evidence references.'),'error');}
+    if(firstInvalid){firstInvalid.focus();return false;}
+    return true;
+  }
   function casePayload(){
     var sol=Number(document.getElementById('v2-case-reward').value||0);
     return {
@@ -1198,7 +1274,7 @@
       evidence:lines('v2-case-wallets','wallet').concat(lines('v2-case-transactions','onchain_tx'),lines('v2-case-urls','url'))
     };
   }
-  function formStatus(text,kind){var node=document.getElementById('v2-case-form-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
+  function formStatus(text,kind){var node=document.getElementById('v2-case-form-status');if(node){node.textContent=text||'';node.className='osi-form-status '+(kind||'');}}
   async function commitWithConfirmation(body,url,generation){
     var lastError;
     for(var attempt=0;attempt<5;attempt++){
@@ -1210,6 +1286,8 @@
   async function submitCase(event){
     if(event)event.preventDefault();
     var form=document.getElementById('field-form');if(!form||!form.reportValidity())return;
+    if(!validateEvidenceFields())return;
+    formStatus('');
     var generation=privateGeneration();
     var button=document.getElementById('v2-case-submit');button.disabled=true;button.setAttribute('aria-busy','true');
     try{
@@ -1221,15 +1299,17 @@
       formStatus('Preparing an exact, single-use submission proof...');
       var prepared=await api(WRITE_URL,{op:'prepare_case',wallet:wallet,case:payload,idempotency_key:state.caseIdempotency});
       assertPrivateGeneration(generation);
-      formStatus('Approve the CASE_SUBMITTED Memo in your wallet. OSI receives no funds.');
+      formStatus('Approve the Case submission Memo in your wallet. OSI receives no funds.');
       var txSig=await castOnchainVote(prepared.memo);
       assertPrivateGeneration(generation);
       formStatus('Confirming the exact signer, Memo, target, payload hash, and mainnet transaction...');
       var committed=await commitWithConfirmation({op:'commit_case',wallet:wallet,case:payload,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},WRITE_URL,generation);
       assertPrivateGeneration(generation);
       formStatus('Private Case created with an immutable submission receipt.','success');
-      showToast('Case '+committed.case.public_ref+' is private and awaiting eligible analyst or full maintainer review.');
       state.caseIdempotency='';state.caseReceipt=committed.case;
+      // The saved Case is final; the fields above the receipt are locked so an
+      // edit cannot look like it changed what was signed.
+      lockCaseFields(true);
       if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(caseDraftKey(wallet));
       var canQueue=!!(state.capabilities&&(state.capabilities.analyst_eligible===true||state.capabilities.maintainer_access===true));
       renderSubmissionReceipt('v2-case-receipt',{
@@ -1237,7 +1317,7 @@
         stage:stageLabel(committed.case.stage||'initial_review',committed.case),visibility:label(committed.case.visibility||'private'),
         where:'My Cases, using a fresh wallet-authorized private read.',
         reviewers:'Eligible independent analysts and full double-gated maintainers. The Case owner cannot self-review.',
-        next:'An authorized reviewer records an initial-open decision. A confirmed CASE_OPENED Memo is still required before the Case becomes public.',
+        next:'An authorized reviewer records an initial-open decision. The confirmed public-opening Memo is still required before the Case becomes public.',
         openLabel:'Open My Cases',canOpenQueue:canQueue,
         onOpen:function(){fieldCloseFormV2();window.osiV2OpenMyCases();},
         onQueue:function(){fieldCloseFormV2();window.osiV2OpenReviewQueue();},
