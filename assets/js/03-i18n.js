@@ -1603,7 +1603,11 @@
     'Public registry': 'Kamusal kayıt',
     'In resolution': 'Çözüm aşamasında',
     'Under challenge': 'İtiraz altında',
-    'Field Office sections': 'Saha Ofisi bölümleri'
+    'Field Office sections': 'Saha Ofisi bölümleri',
+    'Step 1, Case: open a private Case': 'Adım 1, Vaka: gizli bir Vaka açın',
+    'Step 2, Report: open My Reports, wallet required': 'Adım 2, Rapor: Raporlarım\'ı açın, cüzdan gerekir',
+    'Step 3, Review: open the review queue, eligible analysts only': 'Adım 3, İnceleme: inceleme kuyruğunu açın, yalnızca uygun analistler',
+    'Step 4, Public record: open Public Records': 'Adım 4, Kamusal kayıt: Kamusal Kayıtlar\'ı açın'
   };
 
   var translations = { en: {}, tr: turkish };

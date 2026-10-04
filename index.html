@@ -160,10 +160,10 @@
         <span class="osi-model-label">Explanatory route</span>
       </div>
       <ol class="osi-lifecycle-track">
-        <li><button type="button" onclick="osiOpenCase()"><span class="osi-lifecycle-index">01</span><strong>Case</strong><small>Private intake</small></button></li>
-        <li><button type="button" onclick="osiV2OpenMyReports()"><span class="osi-lifecycle-index">02</span><strong>Report</strong><small>Exact evidence</small></button></li>
-        <li><button type="button" onclick="osiV2OpenReviewQueue()"><span class="osi-lifecycle-index">03</span><strong>Review</strong><small>Independent gates</small></button></li>
-        <li><button type="button" onclick="osiNavigate('records')"><span class="osi-lifecycle-index">04</span><strong>Public record</strong><small>Challengeable proof</small></button></li>
+        <li><button type="button" onclick="osiOpenCase()" aria-label="Step 1, Case: open a private Case"><span class="osi-lifecycle-index">01</span><strong>Case</strong><small>Private intake</small></button></li>
+        <li><button type="button" onclick="osiV2OpenMyReports()" aria-label="Step 2, Report: open My Reports, wallet required"><span class="osi-lifecycle-index">02</span><strong>Report</strong><small>Exact evidence</small></button></li>
+        <li><button type="button" onclick="osiV2OpenReviewQueue()" aria-label="Step 3, Review: open the review queue, eligible analysts only"><span class="osi-lifecycle-index">03</span><strong>Review</strong><small>Independent gates</small></button></li>
+        <li><button type="button" onclick="osiNavigate('records')" aria-label="Step 4, Public record: open Public Records"><span class="osi-lifecycle-index">04</span><strong>Public record</strong><small>Challengeable proof</small></button></li>
       </ol>
       <div class="osi-signal-readout" aria-live="off">
         <span class="osi-signal-caption">Example step</span>
