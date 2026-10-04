@@ -5045,3 +5045,26 @@ footer > .wrap {
     overflow-wrap: anywhere;
   }
 }
+
+@media (max-width: 720px) {
+  /* Reference strips stay horizontal (no card wall), but the next card now
+   * visibly peeks in, so the strip reads as scrollable. */
+  #records-hero .cr-aside,
+  #analysts .lb-aside,
+  #prooflog .pl-aside,
+  #wire-view .wire-side {
+    grid-auto-columns: 84% !important;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), rgba(0, 0, 0, .35));
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), rgba(0, 0, 0, .35));
+  }
+
+  #prooflog .pl-dash {
+    grid-auto-columns: 46% !important;
+  }
+
+  /* The card that holds the only action (start an application) comes first
+   * instead of hiding three swipes away. */
+  #analysts .lb-aside > .lb-card:has(.lb-cta) {
+    order: -1;
+  }
+}
