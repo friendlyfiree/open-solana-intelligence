@@ -73,6 +73,20 @@
       if(wallet)verifyPublicWallet(wallet);
     },40);
   }
+  // When the badge's own read happened. A check from today reads as a time,
+  // an older cached read as a date, and both say "checked" so neither looks
+  // like the credential's issue date.
+  function checkedShort(result){
+    var value=result&&result.checked_at?new Date(result.checked_at):null;
+    if(!value||isNaN(value.getTime()))return tr('time unavailable');
+    var locale=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'&&window.OSI_I18N.getLocale()==='tr'?'tr-TR':'en-US';
+    try{
+      var today=new Date().toISOString().slice(0,10)===value.toISOString().slice(0,10);
+      return today
+        ?value.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'})+' UTC'
+        :value.toLocaleDateString(locale,{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+    }catch(_){return value.toISOString().slice(0,10);}
+  }
   // One timestamp style across the product: short date, 24-hour time, UTC.
   function checkedText(result){
     var value=result&&result.checked_at?new Date(result.checked_at):null;
@@ -96,7 +110,7 @@
       // The badge carries its own padding now, so the old leading space that
       // separated a bare inline label from the wallet beside it would only
       // push the text off centre inside the chip.
-      badge.textContent=tr('SAS verified')+' \u00b7 '+checkedText(result);
+      badge.textContent=tr('SAS verified')+' \u00b7 '+tr('checked {checked}',{checked:checkedShort(result)});
       badge.setAttribute('data-sas-badge','verified');
       badge.setAttribute('aria-label',tr('SAS analyst review authority verified. Last checked {checked}. Read the Solana Attestation Service explanation.',{checked:checkedText(result)}));
       badge.addEventListener('click',function(event){
@@ -104,6 +118,15 @@
         event.stopPropagation();
         openExplanation(slot.getAttribute('data-sas-wallet'));
       });
+    }else if(state==='checking'){
+      // The badge's own read is still in flight. That is not a credential
+      // state, so it stays neutral instead of borrowing the warning tone a
+      // genuinely pending or failed credential uses.
+      badge=doc.createElement('span');
+      badge.className='osi-chip';
+      badge.setAttribute('data-sas-badge','checking');
+      badge.setAttribute('aria-busy','true');
+      badge.textContent=tr('Checking SAS credential');
     }else{
       badge=doc.createElement('span');
       badge.className='osi-chip warning';
@@ -112,7 +135,9 @@
       else if(state==='expired')badge.textContent=tr('SAS expired')+' \u00b7 '+checkedText(result);
       else if(state==='revoked')badge.textContent=tr('SAS revoked')+' \u00b7 '+checkedText(result);
       else if(state==='invalid')badge.textContent=tr('SAS invalid / not verified')+' \u00b7 '+checkedText(result);
-      else badge.textContent=tr('SAS unavailable \u00b7 no authority counted');
+      // A failed client read says nothing about counting: the server's own
+      // authority record decides that. Only the live check is unavailable.
+      else{badge.className='osi-chip';badge.textContent=tr('Live SAS check unavailable');}
       badge.setAttribute('aria-label',badge.textContent);
     }
     slot.appendChild(badge);
@@ -122,7 +147,7 @@
     var wallet=walletValue(slot&&slot.getAttribute('data-sas-wallet'));
     if(!slot||!wallet){clearNode(slot);return Promise.resolve(null);}
     slot.setAttribute('aria-busy','true');
-    badgeFor(slot,null,'pending_verification');
+    badgeFor(slot,null,'checking');
     slot.setAttribute('aria-busy','true');
     return verifyWallet(wallet).then(function(result){return badgeFor(slot,result);},function(){return badgeFor(slot,null,'unavailable');});
   }

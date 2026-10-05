@@ -168,7 +168,8 @@ ok('reward UI requires the server-derived sealed payment-ready state',
     && app.includes('winning_report_author_wallet') && app.includes('Pledged, not escrowed'));
 ok('challenge-window reward control is disabled with the exact sealing prerequisite',
   app.includes('Challenge window must end and the Case must be sealed')
-    && app.includes('>Payment unavailable</button>'));
+    && app.includes("disabledAction(t('Payment unavailable'),t(payReason))")
+    && app.includes('<p class="osi-action-reason" id="\'+id+\'">'));
 ok('support contributors are bounded to four atomic recipients',
   app.includes('Select up to four recipients') && app.includes('checks.length>4')
     && app.includes('SystemProgram.transfer') && app.includes('bytes.length>1232'));
@@ -182,7 +183,7 @@ ok('submitted signature survives reload and blocks an accidental second payment'
   app.includes("PAYMENT_RECOVERY_PREFIX = 'osi:v2:payment-recovery:2:'")
     && app.includes('localStorage.setItem(paymentRecoveryKey(wallet),serialized)')
     && app.includes('localStorage.getItem(paymentRecoveryKey(wallet))!==serialized')
-    && app.includes('<b>Do not start a second payment</b>')
+    && app.includes("esc(t('Do not start a second payment'))")
     && app.includes('Re-verify existing signature')
     && app.includes('!pendingRecovery&&Object.keys(supportGroups)'));
 ok('wallet account or disconnect hides the pending intent without deleting durable recovery',
@@ -310,8 +311,8 @@ ok('Resolution controls keep standard quorum and D17 bootstrap visibly separate'
     && app.includes("osiV2GovernanceFinalizeResolution(\\'bootstrap\\')")
     && app.includes("bootstrap?{report_version_ref:capability.report_version_ref}:{}"));
 ok('server-authorized standard finalization remains available when only counted review is conflicted',
-  app.includes('var standardFinalize=selectionStandard.can_finalize===true')
-    && !app.includes('var standardFinalize=selectionStandard.can_finalize===true&&!selectionConflict')
+  app.includes('finalize=selectionStandard.can_finalize===true')
+    && !app.includes('selectionStandard.can_finalize===true&&!selectionConflict')
     && app.includes('standard_quorum_tie_unresolved')
     && app.includes('bootstrap_candidate_not_current'));
 ok('seal controls keep standard analyst quorum and D17 bootstrap separate',

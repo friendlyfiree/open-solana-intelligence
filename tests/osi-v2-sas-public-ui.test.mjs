@@ -179,10 +179,31 @@ ok('SAS visibility introduces no stylesheet and reuses existing badge, form, and
   && index.includes('class="fo-in" id="sas-verifier-wallet"')
   && index.includes('class="osi-button osi-button-secondary" type="submit"')
   && !/createElement\(['"]style['"]\)|<style|rel=['"]stylesheet['"]/.test(source));
-ok('pending and unavailable states remain explicit and fail closed',
-  source.includes("badgeFor(slot,null,'pending_verification')")
+ok('checking, pending and unavailable states remain explicit and fail closed',
+  source.includes("badgeFor(slot,null,'checking')")
   && source.includes("badgeFor(slot,null,'unavailable')")
   && source.includes('SAS verification pending')
-  && source.includes('SAS unavailable \\u00b7 no authority counted'));
+  && source.includes('Live SAS check unavailable'));
+
+// The badge's own read in flight is not a credential state, and a failed
+// client read says nothing about whether a review counted: only the server's
+// authority record decides that.
+const slow = load(() => new Promise(() => {}));
+const slowSlot = new FakeElement('span', slow.document);
+slowSlot.setAttribute('data-sas-wallet', WALLET);
+slow.api.decorateSlot(slowSlot);
+ok('a badge still reading shows a neutral checking state, not a warning',
+  slowSlot.children.length === 1
+  && slowSlot.children[0].getAttribute('data-sas-badge') === 'checking'
+  && slowSlot.children[0].className === 'osi-chip'
+  && !/pending|verified|counted/i.test(slowSlot.children[0].textContent));
+const failing = load(async () => { throw new Error('network'); });
+const failingSlot = new FakeElement('span', failing.document);
+failingSlot.setAttribute('data-sas-wallet', WALLET);
+await failing.api.decorateSlot(failingSlot);
+ok('a failed live read states only that the live check is unavailable',
+  failingSlot.children[0].getAttribute('data-sas-badge') === 'unavailable'
+  && failingSlot.children[0].textContent === 'Live SAS check unavailable'
+  && !/counted|authority/i.test(failingSlot.children[0].textContent));
 
 console.log(`\n${passed} SAS public UI assertions passed.`);
