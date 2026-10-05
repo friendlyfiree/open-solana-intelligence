@@ -391,9 +391,9 @@ ok("a blocked publication control names its exact unmet prerequisite",
   && caseUi.includes("openingReasonText(capability.public_open_reason_code)"));
 ok("structured sections render per kind and skip empty groups",
   caseUi.includes("var EVIDENCE_SECTION_ORDER=[")
-  && caseUi.includes("['wallets','Wallet Addresses']")
+  && caseUi.includes("['wallets','Wallet addresses']")
   && caseUi.includes("['transactions','Transactions']")
-  && caseUi.includes("['links','Evidence and Sources']")
+  && caseUi.includes("['links','Evidence and sources']")
   && caseUi.includes("if(!rows.length)return'';")
   && caseUi.includes("if(!blocks.length)return options.emptyHtml||'';"));
 ok("the Case overview renders its sections separately",

@@ -195,7 +195,7 @@ ok("My Reviews exposes all five real task lanes",
     "challenge_adjudication", "seal_reviews"].every((lane) => ui.includes(lane)));
 ok("drawer and modal preserve focus trap Escape and focus restore",
   /function trapFocus/.test(ui) && /event\.key==='Escape'/.test(ui)
-    && /restoreFocus\(state\.drawerReturnFocus\)/.test(ui));
+    && /restoreDrawerFocus\(state\.drawerReturnFocus,/.test(ui));
 ok("legacy public challenge button cannot call legacy mutation",
   !/chxSubmit\(\)/.test(html)
     && !/chxOpen/.test(readFileSync(join(root, "assets/js/84-public-records.js"), "utf8")));

@@ -235,3 +235,10 @@
    rather than an accent, since a number is not an action. */
 #osi-case-drawer .osi-report-quorum span{display:inline-flex;align-items:center;gap:4px;min-height:32px;border-radius:999px;padding:4px 12px;color:var(--ink-dim);font:500 13px/1.4 var(--font-sans);font-variant-numeric:tabular-nums}
 #osi-case-drawer .osi-report-quorum b{color:var(--ink);font-weight:600}
+@media(max-width:600px){
+  /* The state chip and the proof toggle share one row under the reference
+     instead of stacking as two separate lines. */
+  #osi-case-drawer .osi-report-public-head{flex-direction:row;flex-wrap:wrap;align-items:center}
+  #osi-case-drawer .osi-report-public-head>div{flex:1 1 100%}
+  #osi-case-drawer .osi-report-public-toggle{align-self:center}
+}
