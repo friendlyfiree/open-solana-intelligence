@@ -950,7 +950,7 @@ function renderWorkspace(){
   }
 
   var wallet = ctx.wallet ? workspaceShort(ctx.wallet) : '';
-  var side = '<aside class="osi-ws-side" aria-label="Workspace context">'
+  var side = '<aside class="osi-ws-side" aria-label="Workspace context" data-osi-i18n-ui>'
     + '<div class="osi-ws-side-row"><div class="l">Access</div><div class="v">'+escapeHtml(workspaceAccessLabel(ctx))+'</div></div>'
     + '<div class="osi-ws-side-row"><div class="l">Wallet</div><div class="v'+(wallet?' mono':'')+'">'+(wallet?escapeHtml(wallet):'Not connected')+'</div></div>'
     + '</aside>';

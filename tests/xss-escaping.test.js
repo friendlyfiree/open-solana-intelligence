@@ -135,5 +135,30 @@ ok('a bare host word for a known host reads as its proper name',
     && analystLinkLabel('', 'https://www.example.org/p') === 'example.org',
   analystLinkLabel('twitter', 'https://x.com/someone'));
 
+// Intelligence Passport: the display name and operator note are owner-written
+// text. They are escaped, marked as user content, and a hostile name never
+// becomes markup in the heading or the avatar seal.
+global.escapeHtml = escapeHtml;
+global.identityRoleClass = loadFn('assets/js/60-wallet-workspace.js', 'identityRoleClass');
+global.identityRoleLabel = loadFn('assets/js/60-wallet-workspace.js', 'identityRoleLabel');
+global.identityAvatarHtml = loadFn('assets/js/60-wallet-workspace.js', 'identityAvatarHtml');
+const identityPassport = loadFn('assets/js/60-wallet-workspace.js', 'identityPassport');
+const hostilePassport = identityPassport({
+  ctx: { workspaceRole: 'wallet' }, wallet: 'W"><img src=x onerror=alert(6)>', walletShort: '<b>W</b>',
+  displayName: '<img src=x onerror="alert(7)">', bio: '<script>alert(8)</script>', avatarUrl: '',
+});
+ok('passport never renders a hostile display name, bio or wallet as markup',
+  !/<img|<script|<b>/.test(hostilePassport)
+    && hostilePassport.includes('&lt;img src=x onerror=&quot;alert(7)&quot;&gt;')
+    && /class="identity-name" data-osi-user-content/.test(hostilePassport)
+    && /class="identity-bio" data-osi-user-content/.test(hostilePassport),
+  hostilePassport.slice(0, 200));
+// Native Operations draws server text (Case titles, SAS rows, flags) through
+// textContent only, so a hostile title can never become markup there.
+const functionalSurface = fs.readFileSync(path.join(__dirname, '..', 'assets/js/88-functional-surface.js'), 'utf8');
+ok('native Operations renders server text without innerHTML',
+  !/innerHTML|insertAdjacentHTML|outerHTML/.test(functionalSurface)
+    && functionalSurface.includes("title.setAttribute('data-osi-user-content','')"));
+
 console.log((fail ? 'FAILED: ' + fail : 'OK') + ' (' + pass + ' assertions passed, ' + fail + ' failed)');
 process.exit(fail ? 1 : 0);
