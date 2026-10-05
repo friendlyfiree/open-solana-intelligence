@@ -420,6 +420,19 @@ body.osi-case-open{overflow:hidden}
 #osi-case-drawer .osi-case-tabs[hidden],#osi-case-drawer .osi-case-actions[hidden]{display:none!important}
 #osi-case-drawer .osi-case-actions{background:var(--bg-deep);gap:10px}
 #osi-case-drawer .osi-action-help{max-width:52ch;color:var(--ink-dim);font-size:13px;line-height:1.5}
+/* Wider than a phone, the action bar keeps one-line button labels: the
+   help sentence takes the free space and the buttons move to their own row
+   when both no longer fit, instead of squeezing a label onto three lines. */
+@media(min-width:641px){
+  #osi-case-drawer .osi-case-actions{flex-wrap:wrap}
+  #osi-case-drawer .osi-case-actions>.osi-action-help{flex:1 1 280px;min-width:0}
+  #osi-case-drawer .osi-case-actions>.osi-action{flex:none;white-space:nowrap}
+}
+/* On a tablet the drawer is too narrow for both, so the sentence takes its
+   own row and the buttons stay together under it. */
+@media(min-width:641px) and (max-width:960px){
+  #osi-case-drawer .osi-case-actions>.osi-action-help{flex-basis:100%;max-width:none}
+}
 
 /* Type. Sentence case, sans for words, mono only for machine values. */
 #osi-case-drawer .osi-case-section{max-width:720px}
