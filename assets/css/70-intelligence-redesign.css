@@ -6472,3 +6472,33 @@ body .osi-status.maintainer {
   border-color: var(--lamp-line);
   color: var(--lamp);
 }
+
+/* The application receipt is a wallet-signed, server-verified save, not
+ * chain proof, so it is neutral. Its facts read as one definition list
+ * with hairlines rather than a third level of bordered boxes. */
+#apx-modal .osi-submission-receipt {
+  border-color: var(--line-bright);
+  background: rgba(245, 240, 232, .03);
+}
+
+#apx-modal .osi-receipt-head span,
+#apx-modal .osi-receipt-copy-state {
+  color: var(--ink-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#apx-modal .osi-receipt-grid {
+  gap: 0 18px;
+}
+
+#apx-modal .osi-receipt-grid div {
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+}
+
+#apx-modal .osi-receipt-grid dt {
+  text-transform: none;
+}

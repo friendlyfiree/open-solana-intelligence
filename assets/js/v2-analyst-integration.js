@@ -1246,6 +1246,8 @@
     if(state.maintainerProfile&&maintainerHost&&!maintainerHost.querySelector('[data-maintainer-editor]')){
       renderMaintainerProfile(state.maintainerProfile);attachMaintainerEditor(state.maintainerProfile);
     }
+    // The workspace composes dates, counts and versions in the active language.
+    if(state.workspace&&document.querySelector('#identity-body .osi-analyst-workspace [data-workspace-tab]'))renderWorkspace();
     var profileModal=document.getElementById('ap-modal');
     if(profileModal&&profileModal.classList.contains('open')&&state.profileIntent){
       openPublicProfile(state.profileIntent,{preserveReturnFocus:true,preserveFocus:true});
