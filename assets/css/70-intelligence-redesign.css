@@ -8316,3 +8316,43 @@ body .osi-status.maintainer {
   margin: 0 0 4px;
   font-size: 13px;
 }
+
+/* My Reviews: lane badges in words, facts in sentence case, and a clear
+ * conflict check in plain ink (green is reserved for chain proof). */
+.osi-review-lane > header .osi-review-lane-count {
+  min-width: 0;
+  padding: 2px 10px;
+  border: 1px solid var(--line-bright);
+  border-radius: 999px;
+  color: var(--ink-dim);
+  font: 600 12.5px/1.4 var(--font-sans);
+  white-space: nowrap;
+}
+
+.osi-review-lane[data-lane-status="success"] > header .osi-review-lane-count {
+  border-color: var(--lamp-line);
+  color: var(--lamp);
+  font-variant-numeric: tabular-nums;
+}
+
+.osi-review-lane[data-lane-status="error"] > header .osi-review-lane-count {
+  border-color: rgba(255, 77, 95, .45);
+  color: var(--signal);
+}
+
+.osi-review-task dt {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.osi-review-task dd {
+  font-size: 13px;
+}
+
+.osi-review-task dd.ok {
+  color: var(--ink);
+}
+
+.osi-review-task > div span:first-child {
+  font-family: var(--font-mono);
+}
