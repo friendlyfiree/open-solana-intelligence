@@ -163,7 +163,7 @@ document.addEventListener('click',function(event){
 // workspace or the restricted review queue. The private modes hide the public
 // feed chrome and say plainly that what follows is visible only to this wallet.
 var WIRE_MODE_COPY={
-  public:{eyebrow:'Open intelligence',title:'The Wire',sub:'Standalone findings filed by wallet authors and made public only after independent review. Unpublished versions stay private.'},
+  public:{eyebrow:'Open intelligence',title:'The Wire',sub:'Standalone findings filed by wallet authors. Each version stays private until someone other than its author publishes it after review.'},
   mine:{eyebrow:'Private workspace',title:'My Wire Reports',sub:'Only this wallet can see these versions, after a signed read. Nothing here is public until an exact version is published.'},
   queue:{eyebrow:'Restricted queue',title:'Wire review queue',sub:'Restricted queue for eligible analysts and the full maintainer. Authors never see or review their own versions here.'}
 };
