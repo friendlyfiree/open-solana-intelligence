@@ -6922,3 +6922,6 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
  * nested surface, and the sign action carries no glow. */
 #wire-view .osi-payment-compose .osi-case-note { margin: 0; padding: 2px 0 2px 12px; border: 0; border-left: 2px solid var(--line-bright); background: none !important; color: var(--ink-dim); }
 #wire-view .osi-payment-compose .osi-action { box-shadow: none !important; }
+/* The prerequisite note always starts its own line under the controls. */
+#wire-view .wire-actions { display: flex; flex-wrap: wrap; align-items: center; }
+#wire-view .wire-actions .wire-cta-note { flex: 1 1 100%; margin-bottom: 0; }
