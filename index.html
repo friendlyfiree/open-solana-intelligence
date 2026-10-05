@@ -86,7 +86,7 @@
       <button class="osi-nav-link osi-platform-trigger" id="platform-menu-trigger" type="button" aria-expanded="false" aria-controls="platform-menu">Platform <span aria-hidden="true">&#8964;</span></button>
       <div class="osi-platform-menu" id="platform-menu" hidden>
         <div class="osi-platform-group"><p>Investigations</p><button type="button" data-action-contract="case" data-endpoint="osi-v2-case-write:actor_capabilities" onclick="osiRunLiveAction('case')"><strong>Open a Case</strong><span>Start private, wallet-signed intake</span></button><button type="button" onclick="osiNavigate('field')"><strong>Field Office</strong><span>Open and follow Cases</span></button><button type="button" onclick="osiNavigate('wire')"><strong>The Wire</strong><span>Read standalone intelligence</span></button></div>
-        <div class="osi-platform-group"><p>Public record</p><button type="button" onclick="osiNavigate('records')"><strong>Public Records</strong><span>Public Cases and governed findings</span></button><button type="button" data-action-contract="proof" data-endpoint="onchain_events:public_projection" onclick="osiRunLiveAction('proof')"><strong>Proof Log</strong><span>Verify signatures, Memos and transfers</span></button></div>
+        <div class="osi-platform-group"><p>Public record</p><button type="button" onclick="osiNavigate('records')"><strong>Public Records</strong><span>Published and sealed outcomes</span></button><button type="button" data-action-contract="proof" data-endpoint="onchain_events:public_projection" onclick="osiRunLiveAction('proof')"><strong>Proof Log</strong><span>Verify signatures, Memos and transfers</span></button></div>
         <div class="osi-platform-group"><p>Governance</p><button type="button" data-action-contract="review" data-endpoint="osi-v2-case-read:list_reviewable_cases" onclick="osiRunLiveAction('review')"><strong>Review Queue</strong><span>Open authorized review tasks</span></button><button type="button" data-action-contract="governance" data-endpoint="osi-v2-governance-write:prepare" onclick="osiRunLiveAction('governance')"><strong>Resolution lifecycle</strong><span>Cases in selection, challenge and seal</span></button><button type="button" data-action-contract="money" data-endpoint="osi-v2-payment:capabilities" onclick="osiRunLiveAction('money')"><strong>Reward &amp; support</strong><span>Sealed Cases: reward and voluntary support</span></button></div>
         <div class="osi-platform-group"><p>Workspaces</p><button type="button" onclick="osiNavigate('workspace')"><strong>My OSI</strong><span>Open wallet-linked work</span></button><button type="button" onclick="osiNavigate('analysts')"><strong>Analyst Network</strong><span>Inspect attributable public work</span></button></div>
       </div>
@@ -281,7 +281,7 @@
     <div class="cr-hero">
       <div class="cr-hero-copy">
         <h1 class="cr-title">Public Records</h1>
-        <p class="cr-sub">The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Public Cases without an outcome are listed separately under Open investigations. Each Memo proof links to its Solana mainnet transaction.</p>
+        <p class="cr-sub">The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Open investigations stay in the Field Office until they reach an outcome. Each Memo proof links to its Solana mainnet transaction.</p>
         <p class="cr-boundary"><span>Records are process, not verdict. They stay challengeable and promise no legal certainty, recovery or custody.</span> <button class="cr-link" type="button" onclick="osiNavigate('methodology')">Read what OSI does not promise</button></p>
       </div>
       <div class="cr-legend">
@@ -304,7 +304,6 @@
             <button class="rf-tab" data-f="memo" type="button" aria-pressed="false" onclick="crFilter('memo')">Memo-anchored <span class="rf-n" data-cr-n="memo"></span></button>
             <button class="rf-tab" data-f="challenged" type="button" aria-pressed="false" onclick="crFilter('challenged')">Open challenges <span class="rf-n" data-cr-n="challenged"></span></button>
             <button class="rf-tab" data-f="sealed" type="button" aria-pressed="false" onclick="crFilter('sealed')">Sealed <span class="rf-n" data-cr-n="sealed"></span></button>
-            <button class="rf-tab rf-tab-open" data-f="open" type="button" aria-pressed="false" onclick="crFilter('open')" hidden>Open investigations <span class="rf-n" data-cr-n="open"></span></button>
           </div>
           <label class="fo-sel"><span class="fo-sel-l">Sort</span>
             <select id="cr-sort-sel" onchange="crSortChange(this.value)" aria-label="Sort records">

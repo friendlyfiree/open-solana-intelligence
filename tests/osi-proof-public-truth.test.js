@@ -438,16 +438,17 @@ ok('truthful cold-start copy remains localized in Turkish',
   i18nSource.includes('Uygun bir soğuk başlangıç sonuçlandırması ayrıca etiketlenir.')
     && i18nSource.includes('açıkça etiketlenmiş bir soğuk başlangıç süreciyle incelenir.'));
 // Public Records is the archive of outcomes (published Case Report versions,
-// published Wire Reports, reviewed and sealed Cases). Open public Cases are
-// still listed, but separately under their own Open investigations filter and
-// never in an outcome count, and the copy never calls them sealed outcomes.
-ok('Public Records copy includes open public Cases without calling them sealed outcomes',
-  index.includes('Public Cases and governed findings')
-    && index.includes('The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Public Cases without an outcome are listed separately under Open investigations.')
-    && index.includes('data-f="open"')
+// published Wire Reports, reviewed and sealed Cases). Open public Cases are not
+// records yet: they are never listed or counted here, and the page says how
+// many there are and links to the Field Office, where their work happens.
+ok('Public Records lists outcomes only and points open investigations to the Field Office',
+  index.includes('<span>Published and sealed outcomes</span>')
+    && index.includes('The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Open investigations stay in the Field Office until they reach an outcome.')
+    && !index.includes('data-f="open"')
     && !index.includes('<span>Reviewed and sealed outcomes</span>')
     && recordsSource.includes('reports=reports.filter(crIsOutcome);')
-    && recordsSource.includes("if(crState.filter==='open') reports = openRows;"));
+    && !recordsSource.includes('reports = openRows')
+    && recordsSource.includes("They have no reviewed outcome yet, so they are in the Field Office, not here."));
 
 console.log((fail ? 'FAILED: ' + fail : 'OK') +
   ' (' + pass + ' assertions passed, ' + fail + ' failed)');

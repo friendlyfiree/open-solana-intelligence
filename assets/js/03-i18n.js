@@ -2435,7 +2435,13 @@
     'Preparing an exact single-use profile message...': 'Tek kullanımlık kesin profil mesajı hazırlanıyor...',
     'Approve the exact WALLET_PROFILE_UPDATED message. This is not an on-chain transaction.': 'Kesin WALLET_PROFILE_UPDATED mesajını onaylayın. Bu zincir üstü bir işlem değildir.',
     'Saving profile': 'Profil kaydediliyor',
-    'That handle is already in use. Choose another.': 'Bu kullanıcı adı zaten kullanılıyor. Başka bir tane seçin.'
+    'That handle is already in use. Choose another.': 'Bu kullanıcı adı zaten kullanılıyor. Başka bir tane seçin.',
+    'Published and sealed outcomes': 'Yayımlanmış ve mühürlenmiş sonuçlar',
+    'The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Open investigations stay in the Field Office until they reach an outcome. Each Memo proof links to its Solana mainnet transaction.': 'İncelenmiş sonuçların arşivi: yayımlanmış Vaka Raporlarının kesin sürümleri, yayımlanmış Wire Raporları ve çözüme ya da mühüre ulaşmış Vakalar. Açık soruşturmalar bir sonuca ulaşana kadar Saha Ofisi\'nde kalır. Her Memo kanıtı Solana mainnet işlemine bağlanır.',
+    '1 public Case is still under investigation. It has no reviewed outcome yet, so it is in the Field Office, not here.': '1 kamusal Vaka hâlâ soruşturma aşamasında. Henüz incelenmiş bir sonucu olmadığı için burada değil, Saha Ofisi\'nde.',
+    '{count} public Cases are still under investigation. They have no reviewed outcome yet, so they are in the Field Office, not here.': '{count} kamusal Vaka hâlâ soruşturma aşamasında. Henüz incelenmiş bir sonuçları olmadığı için burada değil, Saha Ofisi\'ndeler.',
+    'This search matches an open investigation, not a record.': 'Bu arama bir kayıtla değil, açık bir soruşturmayla eşleşiyor.',
+    'The Case has no reviewed outcome yet. Follow it in the Field Office.': 'Bu Vakanın henüz incelenmiş bir sonucu yok. Saha Ofisi\'nden takip edin.'
   };
 
   var translations = { en: {}, tr: turkish };
