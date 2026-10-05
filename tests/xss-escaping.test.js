@@ -95,5 +95,28 @@ ok('wallet profile and public profile rendering escape all HTML-significant char
     '&lt;img src=x onerror=&quot;alert(4)&quot;&gt;&#39;&amp;',
   escapeV2Profile('<img src=x onerror="alert(4)">\'&'));
 
+// Every drawer proof link, including the finalized payment receipt, is
+// printed only for a validated Solscan transaction URL. A server-supplied
+// script, data or look-alike URL never becomes an href.
+const caseSrc = fs.readFileSync(path.join(__dirname, '..', 'assets/js/v2-case-integration.js'), 'utf8');
+const solscanMatch = /var SOLSCAN_TX_RE=(\/[^\n]*?\/);/.exec(caseSrc);
+ok('the drawer declares one Solscan transaction pattern', !!solscanMatch);
+// eslint-disable-next-line no-eval
+const solscanRe = solscanMatch ? eval(solscanMatch[1]) : /$^/;
+const goodTx = 'https://solscan.io/tx/' + '5'.repeat(87) + 'A';
+ok('a canonical Solscan transaction URL is accepted', solscanRe.test(goodTx));
+for (const bad of [
+  'javascript:alert(1)',
+  'data:text/html,<script>alert(1)</script>',
+  'http://solscan.io/tx/' + '5'.repeat(88),
+  'https://solscan.io.evil.example/tx/' + '5'.repeat(88),
+  'https://solscan.io/tx/' + '5'.repeat(88) + '"><img src=x onerror=alert(1)>',
+  'https://solscan.io/tx/' + '0'.repeat(88),
+  goodTx + '?cluster=devnet',
+]) ok('a non-canonical proof URL is rejected: ' + JSON.stringify(bad).slice(0, 60), !solscanRe.test(bad));
+ok('the payment receipt link goes through the same validation',
+  caseSrc.includes('var receiptUrl=solscanTx(receipt.solscan_url);')
+    && !caseSrc.includes("href=\"'+esc(receipt.solscan_url)"));
+
 console.log((fail ? 'FAILED: ' + fail : 'OK') + ' (' + pass + ' assertions passed, ' + fail + ' failed)');
 process.exit(fail ? 1 : 0);

@@ -2954,7 +2954,8 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await page.locator('[data-tab="challenges"]').click();
   await expect(page.locator('#osi-case-content')).toContainText('additional independent context');
   await page.locator('[data-tab="reward"]').click();
-  await expect(page.locator('#osi-case-content')).toContainText('Partially Fulfilled');
+  // Server-derived status words read in sentence case, like every drawer label.
+  await expect(page.locator('#osi-case-content')).toContainText('Partially fulfilled');
   await expect(page.locator('#osi-case-content')).toContainText('Voluntary support');
   await page.locator('[data-tab="proof"]').click();
   for (const label of ['Wallet-signed and server-verified', 'Memo-anchored on Solana', 'SOL transfer verified on Solana', 'System event']) {

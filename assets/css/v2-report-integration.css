@@ -193,3 +193,60 @@
 .osi-report-full-body p{margin:0 0 14px}
 .osi-report-full-body p:last-child{margin-bottom:0}
 @media (prefers-reduced-motion:reduce){.osi-report-full>summary::before{transition:none}}
+
+/* Case drawer pass: the published Report reads as part of the drawer, one
+   surface deep, with sentence-case labels and lamp actions. */
+.osi-report-action-row h3{margin:0}
+.osi-report-action-row .osi-report-action-copy{margin:6px 0 0;font-size:13.5px}
+#osi-case-drawer .osi-report-action-row{display:block}
+.osi-report-action{border-radius:8px;min-height:44px;font-size:14px}
+#osi-case-drawer .osi-report-public-list{gap:0}
+#osi-case-drawer .osi-report-public-card{padding:20px 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}
+#osi-case-drawer .osi-report-public-card:first-child{border-top:0;padding-top:4px}
+.osi-report-public-body h4{color:var(--ink-dim);font:600 13px/1.4 var(--font-sans);letter-spacing:0;text-transform:none}
+.osi-report-full>summary b{letter-spacing:0;text-transform:none;font-size:14px}
+.osi-report-proof-detail dt{letter-spacing:0;text-transform:none;font-weight:500;color:var(--ink-faint)}
+.osi-report-proof-detail dd{font-size:13.5px}
+.osi-report-public-detail{border-radius:10px;margin:12px 0 4px}
+.osi-report-proof-sig{display:grid;gap:4px;border-radius:8px}
+.osi-report-proof-sig span{color:var(--ink-faint);font:500 12.5px/1.4 var(--font-sans)}
+.osi-report-proof-sig code{color:var(--ink);font-size:12.5px;overflow-wrap:anywhere}
+.osi-tech-code{display:inline-block;margin-left:4px;padding:0 6px;border:1px solid var(--line);border-radius:5px;color:var(--ink-faint);font:12px/1.6 var(--font-mono);overflow-wrap:anywhere}
+.osi-report-publication-channel{border-radius:10px;font-size:13px;background:rgba(245,240,232,.03)}
+.osi-report-publication-channel.bootstrap{border-color:var(--lamp-line);background:var(--lamp-soft)}
+.osi-report-publication-channel.bootstrap b{color:var(--lamp-strong)}
+.osi-report-publication-channel span{color:var(--ink-dim)}
+.osi-report-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-top:14px}
+.osi-report-actions .osi-report-chain-link{margin-top:0;color:var(--lamp);font-weight:600;text-decoration-color:var(--lamp-line)}
+.osi-report-public-toggle{border-radius:999px}
+.osi-report-timeline-item span{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px}
+.osi-report-timeline-item small{display:block;margin-top:4px;font-size:12.5px;line-height:1.5}
+.osi-report-loading{display:grid;gap:4px;margin-bottom:12px}
+.osi-report-loading b{font-size:15px;color:var(--ink)}
+.osi-report-loading span{font-size:14px;color:var(--ink-faint)}
+#osi-case-drawer .osi-report-projection>h4{font-size:15px}
+#osi-case-drawer .osi-report-process-note{font-size:13px}
+@media(max-width:600px){
+  .osi-report-actions{flex-direction:column;align-items:stretch}
+  .osi-report-actions .osi-report-chain-link{justify-content:flex-start}
+}
+.osi-report-public-evidence>.osi-ref-sections{display:grid;grid-template-columns:minmax(0,1fr);padding:0;border:0;font:inherit}
+/* Publication quorum: words in sans, numbers tabular, the met count in ink
+   rather than an accent, since a number is not an action. */
+#osi-case-drawer .osi-report-quorum span{display:inline-flex;align-items:center;gap:4px;min-height:32px;border-radius:999px;padding:4px 12px;color:var(--ink-dim);font:500 13px/1.4 var(--font-sans);font-variant-numeric:tabular-nums}
+#osi-case-drawer .osi-report-quorum b{color:var(--ink);font-weight:600}
+/* Reference on the left, its state and the proof toggle together on the
+   right, instead of the chip floating in the middle of the row. */
+#osi-case-drawer .osi-report-public-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px 12px}
+#osi-case-drawer .osi-report-publication-channel span,#osi-case-drawer .osi-report-publication-channel p{margin:0;font-size:13px;line-height:1.55;color:var(--ink-dim)}
+@media(max-width:600px){
+  #osi-case-drawer .osi-report-public-head{display:flex}
+  /* The state chip and the proof toggle share one row under the reference
+     instead of stacking as two separate lines. */
+  #osi-case-drawer .osi-report-public-head{flex-direction:row;flex-wrap:wrap;align-items:center}
+  #osi-case-drawer .osi-report-public-head>div{flex:1 1 100%}
+  #osi-case-drawer .osi-report-public-toggle{align-self:center}
+}
+/* Inside the drawer the proof detail is already the second surface, so the
+   transaction signature is a plain full-width row, not a third box. */
+#osi-case-drawer .osi-report-proof-sig{margin-top:12px;padding:12px 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}

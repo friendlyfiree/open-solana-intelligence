@@ -24,7 +24,7 @@
 .osi-v2-row:hover,.osi-v2-row:focus-visible{background:var(--bg-raised);border-color:var(--acc-line);outline:0;transform:translateX(2px)}
 /* A Case reference is an identifier. It never breaks mid-token: the column
    grows for it instead. */
-.osi-v2-id{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--acc);white-space:nowrap}
+.osi-v2-id{font-family:var(--font-mono);font-size:12.5px;color:var(--acc);white-space:nowrap}
 .osi-v2-title{min-width:0}
 .osi-v2-title b{display:block;color:var(--ink);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .osi-v2-title span{display:block;color:var(--ink-faint);font-size:12px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -74,7 +74,7 @@
 .osi-receipt-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
 .osi-receipt-head span{display:block;color:var(--sol);font:12px var(--font-sans);text-transform:uppercase;letter-spacing:.06em}
 .osi-receipt-head h3{margin:5px 0 0;color:var(--ink);font-size:20px}
-.osi-receipt-ref{max-width:52%;color:var(--cyan);font:12.5px/1.5 'JetBrains Mono',monospace;text-align:right;overflow-wrap:anywhere}
+.osi-receipt-ref{max-width:52%;color:var(--cyan);font:12.5px/1.5 var(--font-mono);text-align:right;overflow-wrap:anywhere}
 .osi-receipt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
 .osi-receipt-grid div{min-width:0;padding:10px;border:1px solid var(--line);background:rgba(8,12,22,.5)}
 .osi-receipt-grid dt{color:var(--ink-faint);font:12px var(--font-sans);text-transform:uppercase}
@@ -94,9 +94,11 @@
 .osi-case-panel-head h2{margin:5px 0 8px;font-size:27px;line-height:1.12;letter-spacing:-.02em;color:var(--ink)}
 .osi-case-ref{font-size:12.5px;color:var(--acc);letter-spacing:.08em}
 .osi-case-state{display:flex;gap:8px;flex-wrap:wrap}
-.osi-chip{display:inline-flex;align-items:center;min-height:28px;max-width:100%;border:1px solid var(--line-bright);padding:4px 8px;font-family:var(--font-sans);font-size:12.5px;text-transform:uppercase;color:var(--ink-dim);overflow-wrap:anywhere}
-.osi-chip.public{color:var(--sol);border-color:rgba(20,241,149,.35);background:rgba(20,241,149,.06)}
-.osi-chip.private{color:var(--amber);border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.06)}
+.osi-chip{display:inline-flex;align-items:center;gap:7px;min-height:26px;max-width:100%;border:1px solid var(--line-bright);border-radius:999px;padding:3px 10px;font:500 12.5px/1.35 var(--font-sans);color:var(--ink-dim);overflow-wrap:anywhere}
+/* Visibility is a boundary, not proof: a public Case is neutral and a private
+   one carries the lamp tone. Green stays reserved for chain-confirmed proof. */
+.osi-chip.public,.osi-chip.visibility-public{color:var(--ink-dim)}
+.osi-chip.private,.osi-chip.visibility-private{color:var(--lamp-strong);border-color:var(--lamp-line)}
 .osi-case-close{width:42px;height:42px;border:1px solid var(--line);background:var(--bg-raised);color:var(--ink-dim);cursor:pointer;font-size:16px}
 .osi-case-close:hover{color:var(--ink);border-color:var(--acc-line)}
 /* Eight tabs do not fit the drawer at any realistic width, so the strip
@@ -122,27 +124,31 @@
 .osi-case-note{margin-top:16px;padding:12px 14px;border-left:2px solid var(--acc);background:rgba(255,176,32,.06);color:var(--ink-dim);font-size:13px;line-height:1.6}
 .osi-case-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:18px}
 .osi-case-meta div{border:1px solid var(--line);background:rgba(14,19,32,.72);padding:12px}
-.osi-case-meta span{display:block;font-family:var(--font-sans);font-size:12.5px;text-transform:uppercase;color:var(--ink-faint)}
+.osi-case-meta span{display:block;font-family:var(--font-sans);font-size:12.5px;color:var(--ink-faint)}
 .osi-case-meta b{display:block;margin-top:5px;color:var(--ink);font-size:14px;overflow-wrap:anywhere}
 .osi-list{display:flex;flex-direction:column;gap:8px}
 .osi-list-item{border:1px solid var(--line);background:rgba(14,19,32,.62);padding:13px}
 .osi-list-item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .osi-list-item b{color:var(--ink);font-size:14px}
 .osi-list-item span,.osi-list-item p{color:var(--ink-faint);font-size:12px;line-height:1.55}
-.osi-evidence-ref{font-family:'JetBrains Mono',monospace;overflow-wrap:anywhere;margin-top:6px}
-.osi-proof-label{font-family:var(--font-sans);font-size:12.5px;color:var(--sol);text-transform:uppercase}
-.osi-proof-label.legacy{color:var(--ink-faint)}
+.osi-evidence-ref{font-family:var(--font-mono);overflow-wrap:anywhere;margin-top:6px}
+.osi-proof-label{font-family:var(--font-sans);font-size:12.5px;color:var(--ink-dim)}
+/* Proof tone follows the proof: green only for chain-confirmed proof (a
+   confirmed Memo, a verified transfer, a SAS credential read on Solana). */
+.osi-proof-label.chain,.osi-proof-label[data-sas-authority="counted"],a.osi-proof-label[data-sas-badge="verified"]{color:var(--verified)}
+.osi-proof-label.signed{color:var(--ink-dim)}
+.osi-proof-label.system,.osi-proof-label.legacy{color:var(--ink-faint)}
 /* Every failing SAS state renders as a bordered chip, but the verified state
    is the one that is also a link to the explanation, so it was inheriting the
    plain underlined link treatment. The single state that means "review
    authority is verified on chain" was the one that read as a broken link.
    Give it the same chip shape the other states already have. */
-a.osi-proof-label[data-sas-badge]{display:inline-flex;align-items:center;min-height:24px;max-width:100%;border:1px solid rgba(20,241,149,.35);background:rgba(20,241,149,.06);padding:3px 8px;text-decoration:none;overflow-wrap:anywhere}
-a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-visible{border-color:rgba(20,241,149,.6);background:rgba(20,241,149,.12)}
-.osi-proof-link{color:var(--acc);font-size:12px;text-decoration:none}
-.osi-proof-link:hover{text-decoration:underline}
+a.osi-proof-label[data-sas-badge]{display:inline-flex;align-items:center;min-height:24px;max-width:100%;border:1px solid rgba(52,245,164,.35);border-radius:999px;background:rgba(52,245,164,.06);padding:3px 10px;text-decoration:none;overflow-wrap:anywhere}
+a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-visible{border-color:rgba(52,245,164,.6);background:rgba(52,245,164,.12)}
+.osi-proof-link{display:inline-flex;align-items:center;min-height:40px;color:var(--lamp);font:600 14px/1.3 var(--font-sans);text-decoration:underline;text-decoration-color:var(--lamp-line);text-underline-offset:4px}
+.osi-proof-link:hover{text-decoration-color:var(--lamp)}
 .osi-proof-key{display:grid;gap:9px;min-width:0}
-.osi-proof-key span{display:grid;grid-template-columns:9px minmax(0,1fr);gap:9px;align-items:start;min-width:0;color:var(--ink-dim);font:12px/1.5 'JetBrains Mono',monospace;overflow-wrap:anywhere}
+.osi-proof-key span{display:grid;grid-template-columns:9px minmax(0,1fr);gap:9px;align-items:start;min-width:0;color:var(--ink-dim);font:12px/1.5 var(--font-mono);overflow-wrap:anywhere}
 .osi-proof-key i{width:7px;height:7px;margin-top:4px;border-radius:50%;background:var(--ink-faint)}
 .osi-proof-key i.memo{background:var(--sol);box-shadow:0 0 8px rgba(20,241,149,.4)}
 .osi-proof-key i.signed{background:var(--cyan);box-shadow:0 0 8px rgba(255,176,32,.35)}
@@ -155,7 +161,7 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 
 .osi-review-form{display:grid;gap:11px}
 .osi-review-form label{display:grid;gap:6px;font-family:var(--font-sans);font-size:12.5px;text-transform:uppercase;color:var(--ink-faint)}
-.osi-review-form select{width:100%;background:var(--bg);border:1px solid var(--line-bright);color:var(--ink);padding:10px;font:12px var(--font-sans)}
+.osi-review-form select,.osi-review-form input[type="text"]{width:100%;background:var(--bg);border:1px solid var(--line-bright);color:var(--ink);padding:10px;font:12px var(--font-sans)}
 .osi-review-route{padding:10px;border:1px solid var(--line);color:var(--ink-dim);font-size:13px;line-height:1.5}
 .osi-review-lanes{display:grid;gap:16px}
 .osi-review-lane{border:1px solid var(--line);background:rgba(8,12,22,.52)}
@@ -201,7 +207,7 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 .osi-governance-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:12px}
 .osi-challenge-list{display:grid;gap:14px}
 .osi-challenge-record>p{margin:10px 0 14px!important}
-.osi-chip.warning{color:var(--amber);border-color:rgba(255,176,32,.34);background:rgba(255,176,32,.06)}
+.osi-chip.warning{color:var(--lamp-strong);border-color:var(--lamp-line);background:var(--lamp-soft)}
 .osi-reward-chip{display:inline-flex;width:max-content;margin-top:7px;border:1px solid rgba(20,241,149,.28);padding:3px 7px;color:var(--sol);font:500 12.5px/1.5 var(--font-sans);letter-spacing:.04em;text-transform:uppercase;font-style:normal}
 
 .osi-payment-compose{display:grid;gap:12px;margin:16px 0;padding:16px;border:1px solid rgba(20,241,149,.24);background:rgba(20,241,149,.035)}
@@ -321,7 +327,7 @@ body.osi-case-open{overflow:hidden}
 .osi-state-message{display:grid;gap:8px;justify-items:start;margin:0 0 14px;padding:14px 16px;border:1px solid var(--line);border-left:3px solid var(--ink-faint);border-radius:8px;background:rgba(12,17,29,.6)}
 .osi-state-message b{color:var(--ink);font-size:14px;line-height:1.5}
 .osi-state-message span{color:var(--ink-dim);font-size:13px;line-height:1.65}
-.osi-state-message .mono{color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6}
+.osi-state-message .mono{color:var(--ink-dim);font-family:var(--font-mono);font-size:12.5px;line-height:1.6}
 .osi-state-message .osi-report-card-meta{color:var(--ink-dim);font-family:var(--font-sans);font-size:12.5px;line-height:1.6}
 .osi-state-message a{color:var(--cyan)}
 .osi-state-message>.osi-action,.osi-state-message>.osi-report-action,.osi-state-message>.osi-report-publish{min-height:44px;margin-top:2px}
@@ -349,10 +355,10 @@ body.osi-case-open{overflow:hidden}
 .osi-ref-count{display:inline-block;margin-left:6px;border:1px solid var(--line);padding:1px 6px;color:var(--ink-dim);font:500 12.5px/1.5 var(--font-sans)}
 .osi-ref-list{display:grid;gap:8px;margin:0;padding:0;list-style:none;min-width:0}
 .osi-ref-item{display:grid;gap:6px;min-width:0;border:1px solid var(--line);border-radius:8px;background:rgba(12,17,29,.55);padding:10px 12px}
-.osi-ref-value{overflow-wrap:anywhere;word-break:break-word;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6}
+.osi-ref-value{overflow-wrap:anywhere;word-break:break-word;color:var(--ink);font-family:var(--font-mono);font-size:12.5px;line-height:1.6}
 .osi-ref-meta{color:var(--ink-dim);font-family:var(--font-sans);font-size:12.5px;line-height:1.6}
 .osi-ref-actions{display:flex;flex-wrap:wrap;gap:8px}
-.osi-ref-copy,.osi-ref-link{display:inline-flex;align-items:center;justify-content:center;min-height:32px;border:1px solid var(--line);border-radius:6px;background:transparent;padding:5px 12px;color:var(--ink-dim);font-size:12px;line-height:1.4;text-decoration:none;cursor:pointer}
+.osi-ref-copy,.osi-ref-link{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border:1px solid var(--line);border-radius:6px;background:transparent;padding:5px 12px;color:var(--ink-dim);font-size:12px;line-height:1.4;text-decoration:none;cursor:pointer}
 .osi-ref-copy:hover,.osi-ref-copy:focus-visible,.osi-ref-link:hover,.osi-ref-link:focus-visible{border-color:var(--acc-line);color:var(--ink);outline:0}
 .osi-ref-list.plain .osi-ref-item{background:transparent}
 
@@ -386,3 +392,297 @@ body.osi-case-open{overflow:hidden}
 .osi-review-actor-link{cursor:pointer;text-decoration:underline;text-decoration-color:rgba(139,150,184,.45);text-underline-offset:3px}
 .osi-review-actor-link:hover,.osi-review-actor-link:focus-visible{color:var(--cyan);text-decoration-color:var(--cyan);outline:0}
 .osi-review-wallet{color:var(--ink-faint);font-size:12.5px;font-weight:500}
+
+/* ===================================================================
+   Case drawer pass.
+   One calm reading surface. Lamp amber marks what can be acted on and
+   where the reader is; verified green appears only for chain-confirmed
+   proof; crimson only for danger. Scoped to the drawer and its payment
+   dialogs, with !important only where the redesign layer sets it.
+   =================================================================== */
+
+/* Shell. The global `header` and `footer` type selectors made the drawer's
+   own header sticky and blurred and put a dead 60px band above the action
+   bar. */
+.osi-case-panel-head{position:relative;top:auto;z-index:auto;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
+.osi-case-actions{margin:0}
+.osi-case-panel-head>div{min-width:0;flex:1 1 auto}
+#osi-case-drawer .osi-case-close,#osi-wire-drawer .osi-case-close{flex:0 0 44px!important}
+#osi-case-drawer .osi-case-ref{font-family:var(--font-mono);font-size:12.5px;letter-spacing:.04em}
+#osi-case-drawer .osi-case-state{gap:6px;margin-top:2px}
+#osi-case-drawer .osi-case-state .osi-chip.stage::before,#osi-case-drawer .osi-chip.state::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--lamp)}
+#osi-case-drawer .osi-case-section .osi-chip.state::before{background:var(--ink-dim)}
+#osi-case-drawer .osi-case-section .osi-chip.state.live::before{background:var(--lamp)}
+#osi-case-drawer .osi-case-section .osi-chip.state.live{color:var(--ink);border-color:var(--lamp-line)}
+#osi-case-drawer .osi-case-section-head+.osi-case-quiet{margin:-6px 0 14px!important}
+#osi-case-drawer .osi-ref-count{border-radius:999px;padding:0 8px}
+#osi-case-drawer .osi-chip.visibility-public::before,#osi-case-drawer .osi-chip.visibility-private::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:currentColor}
+#osi-case-drawer .osi-case-tabs[hidden],#osi-case-drawer .osi-case-actions[hidden]{display:none!important}
+#osi-case-drawer .osi-case-actions{background:var(--bg-deep);gap:10px}
+#osi-case-drawer .osi-action-help{max-width:52ch;color:var(--ink-dim);font-size:13px;line-height:1.5}
+/* Wider than a phone, the action bar keeps one-line button labels: the
+   help sentence takes the free space and the buttons move to their own row
+   when both no longer fit, instead of squeezing a label onto three lines. */
+@media(min-width:641px){
+  #osi-case-drawer .osi-case-actions{flex-wrap:wrap}
+  #osi-case-drawer .osi-case-actions>.osi-action-help{flex:1 1 280px;min-width:0}
+  #osi-case-drawer .osi-case-actions>.osi-action{flex:none;white-space:nowrap}
+}
+/* On a tablet the drawer is too narrow for both, so the sentence takes its
+   own row and the buttons stay together under it. */
+@media(min-width:641px) and (max-width:960px){
+  #osi-case-drawer .osi-case-actions>.osi-action-help{flex-basis:100%;max-width:none}
+}
+
+/* Type. Sentence case, sans for words, mono only for machine values. */
+#osi-case-drawer .osi-case-section{max-width:720px}
+#osi-case-drawer .osi-case-section h3{margin:0 0 16px;color:var(--ink);font-size:19px;font-weight:650;letter-spacing:-.01em}
+#osi-case-drawer .osi-case-section p{white-space:normal}
+#osi-case-drawer .mono,#osi-case-drawer code,.osi-payment-review .mono,.osi-payment-review code{font-family:var(--font-mono)}
+.osi-case-section-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 16px;margin:0 0 16px}
+.osi-case-section-head h3{margin:0!important}
+.osi-case-subhead{margin:20px 0 10px;color:var(--ink);font-size:14px;font-weight:600}
+.osi-case-quiet{margin:12px 0 0!important;color:var(--ink-faint)!important;font-size:13.5px!important;line-height:1.6!important}
+.osi-sep{color:var(--ink-faint)}
+#osi-case-drawer .osi-case-note{border-left:2px solid var(--line-bright);background:rgba(245,240,232,.03);color:var(--ink-dim);font-size:13.5px;border-radius:0 8px 8px 0}
+
+/* Buttons. One shape; a disabled control stays legible and says why in
+   the text beside it. */
+#osi-case-drawer .osi-action,.osi-payment-review .osi-action{min-height:44px;border-radius:8px;font-size:14px;padding:10px 16px}
+#osi-case-drawer .osi-action:disabled,.osi-payment-review .osi-action:disabled{opacity:1!important;border-style:dashed!important;background:transparent!important;color:var(--ink-faint)!important}
+.osi-disabled-action{display:grid;justify-items:end;gap:6px;max-width:100%}
+.osi-action-reason{margin:0!important;max-width:48ch;color:var(--ink-dim)!important;font-size:13px!important;line-height:1.5!important;text-align:right}
+#osi-case-drawer .osi-governance-actions{align-items:flex-start;gap:10px;margin:14px 0}
+#osi-case-drawer .osi-v2-empty .osi-action{margin-top:14px}
+
+/* Surfaces: the panel and one raised level. */
+#osi-case-drawer .osi-list{gap:10px;margin:0;padding:0;list-style:none}
+#osi-case-drawer .osi-list-item{border:1px solid var(--line);border-radius:10px;background:var(--bg-raised);padding:14px 16px}
+#osi-case-drawer .osi-list-item b{font-size:14.5px;font-weight:600}
+#osi-case-drawer .osi-list-item p{margin:6px 0 0;color:var(--ink-dim);font-size:13.5px;line-height:1.6}
+#osi-case-drawer .osi-list-item-head{flex-wrap:wrap}
+#osi-case-drawer .osi-list-item-head>b>.mono{font-size:inherit;color:inherit}
+#osi-case-drawer .osi-v2-empty{border-radius:10px;background:var(--bg-raised);padding:28px 20px}
+#osi-case-drawer .osi-v2-empty b{font-size:16px}
+#osi-case-drawer .osi-v2-empty.compact,.osi-v2-empty.compact{padding:16px 18px;text-align:left}
+.osi-v2-empty.compact span{margin:6px 0 0}
+#osi-case-drawer .osi-state-message{border-radius:10px}
+#osi-case-drawer .osi-state-message.approved{border-left-color:var(--ink-dim)}
+#osi-case-drawer .osi-state-message .osi-proof-link{margin-top:-4px}
+#osi-case-drawer .osi-state-message.success,.osi-payment-review .osi-state-message.success{border-left-color:var(--ink-dim);background:var(--bg-raised)}
+#osi-case-drawer .osi-state-message.success b,.osi-payment-review .osi-state-message.success b{color:var(--ink)}
+
+/* Proof labels pair tone with a shape: a filled dot for chain proof, a
+   ring for a wallet signature, a dashed ring for system and legacy rows. */
+#osi-case-drawer .osi-proof-label:not([data-sas-badge]):not([data-sas-authority]){display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+#osi-case-drawer .osi-proof-label:not([data-sas-badge]):not([data-sas-authority])::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;border:1.5px solid currentColor;box-sizing:border-box}
+#osi-case-drawer .osi-proof-label.chain:not([data-sas-badge])::before{background:currentColor}
+#osi-case-drawer .osi-proof-label.system::before,#osi-case-drawer .osi-proof-label.legacy::before{border-style:dashed}
+#osi-case-drawer [data-sas-authority="counted"]{display:inline-flex;align-items:center;min-height:24px;padding:2px 9px;border:1px solid rgba(52,245,164,.35);border-radius:999px}
+#osi-case-drawer .osi-chip.channel-bootstrap{color:var(--lamp-strong);border-color:var(--lamp-line)}
+#osi-case-drawer .osi-chip.reward-verified{color:var(--verified);border-color:rgba(52,245,164,.4)}
+#osi-case-drawer .osi-chip.reward-signal{color:var(--danger);border-color:rgba(255,77,95,.45)}
+#osi-case-drawer .osi-chip.reward-lamp{color:var(--lamp-strong);border-color:var(--lamp-line)}
+#osi-case-drawer .osi-chip.reward-muted{color:var(--ink-faint)}
+
+/* The restricted marker is a word, not a shout. */
+#osi-case-drawer .osi-restricted-chip{border-radius:999px;padding:1px 8px;color:var(--lamp-strong);border-color:var(--lamp-line);letter-spacing:0;text-transform:none}
+/* The verified SAS chip opens its explanation, so it keeps a full-size hit
+   area around its compact face. */
+a.osi-proof-label[data-sas-badge="verified"]{position:relative}
+a.osi-proof-label[data-sas-badge="verified"]::after{content:"";position:absolute;inset:-5px -2px}
+
+/* Overview. The next step leads, then who filed it and when. */
+.osi-next-step{margin:0 0 20px;padding:14px 16px;border:1px solid var(--lamp-line);border-radius:10px;background:var(--lamp-soft)}
+.osi-next-step span{display:block;margin-bottom:4px;color:var(--lamp-strong);font:600 13px/1.4 var(--font-sans)}
+.osi-next-step p{margin:0!important;color:var(--ink)!important;font-size:15px!important;line-height:1.6!important}
+.osi-case-byline{display:flex;flex-wrap:wrap;align-items:center;gap:12px 28px;margin:0 0 8px}
+.osi-case-facts{display:flex;flex-wrap:wrap;gap:8px 28px;margin:0}
+.osi-case-facts>div{display:grid;gap:2px;min-width:0}
+.osi-case-facts dt{color:var(--ink-faint);font:500 12.5px/1.4 var(--font-sans)}
+.osi-case-facts dd{margin:0;color:var(--ink);font:500 14px/1.5 var(--font-sans);overflow-wrap:anywhere}
+#osi-case-drawer .osi-case-block{margin-top:18px}
+#osi-case-drawer .osi-case-block>h4{font-size:14px}
+#osi-case-drawer .osi-case-block p{font-size:15px;line-height:1.75;color:var(--ink-dim)}
+.osi-case-summary-row{grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:16px;padding-top:14px;border-top:1px solid var(--line)}
+.osi-case-summary-row>h4,.osi-case-summary-row>p{grid-column:1}
+.osi-case-summary-row>.osi-action{grid-column:2;grid-row:1/3}
+.osi-case-summary-row>p{font-size:14px!important}
+#osi-case-drawer .osi-ref-group>h4{font-size:14px}
+
+/* Resolution: the anchored history first, then the governance numbers. */
+.osi-outcome-steps{display:grid;margin:0 0 18px;padding:0;list-style:none}
+.osi-outcome-step{position:relative;padding:0 0 18px 28px}
+.osi-outcome-step::before{content:"";position:absolute;left:4px;top:5px;width:12px;height:12px;box-sizing:border-box;border:2px solid var(--ink-faint);border-radius:50%;background:var(--bg-deep)}
+.osi-outcome-step.anchored::before{border-color:var(--verified);background:var(--verified)}
+.osi-outcome-step:not(:last-child)::after{content:"";position:absolute;left:9.5px;top:21px;bottom:2px;width:1px;background:var(--line-bright)}
+.osi-outcome-step-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.osi-outcome-step-head b{color:var(--ink);font-size:15px;font-weight:600}
+.osi-outcome-step-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:4px 0 0!important;color:var(--ink-dim)!important;font-size:13.5px!important}
+.osi-outcome-step-none{display:block;margin-top:4px;color:var(--ink-faint);font-size:13px}
+.osi-outcome-step .osi-proof-link{min-height:36px}
+#osi-case-drawer .osi-resolution-primary{flex-wrap:wrap;border-radius:10px;background:var(--bg-raised);padding:14px 16px;margin:0 0 6px}
+#osi-case-drawer .osi-resolution-primary span{font:500 13px/1.4 var(--font-sans);color:var(--ink-dim)}
+#osi-case-drawer .osi-resolution-primary b{font-size:14px}
+#osi-case-drawer .osi-quorum{gap:6px;margin:14px 0 16px}
+.osi-quorum-title{margin:0!important;color:var(--ink)!important;font:600 13.5px/1.4 var(--font-sans)!important}
+#osi-case-drawer .osi-quorum>div:not(.osi-quorum-track){display:flex;justify-content:space-between;gap:12px;color:var(--ink-dim);font:500 13px/1.4 var(--font-sans);font-variant-numeric:tabular-nums}
+#osi-case-drawer .osi-quorum-track{height:6px;border-radius:3px;background:rgba(245,240,232,.08)}
+#osi-case-drawer .osi-quorum-track i{border-radius:3px;background:var(--ink-dim)}
+#osi-case-drawer .osi-quorum.ready .osi-quorum-track i{background:var(--lamp)}
+#osi-case-drawer .osi-governance-seal,#osi-case-drawer .osi-challenge-record{border-radius:10px;background:var(--bg-raised);padding:16px}
+#osi-case-drawer .osi-governance-seal>p{margin:6px 0 0;font-size:14px}
+#osi-case-drawer .osi-governance-event{border-left:2px solid var(--line-bright);background:transparent;padding:8px 0 8px 14px}
+#osi-case-drawer .osi-governance-event p{font-size:13px!important;color:var(--ink-dim)}
+#osi-case-drawer .osi-governance-compose,#osi-case-drawer .osi-payment-compose{border:1px solid var(--line);border-radius:10px;background:var(--bg-raised)}
+#osi-case-drawer .osi-governance-compose label,#osi-case-drawer .osi-payment-compose label,#osi-case-drawer .osi-review-form label{color:var(--ink-dim);font:500 13px/1.4 var(--font-sans);letter-spacing:0;text-transform:none}
+#osi-case-drawer .osi-governance-compose :is(select,input,textarea),#osi-case-drawer .osi-payment-compose :is(select,input),#osi-case-drawer .osi-review-form select,#osi-case-drawer .osi-review-form input[type="text"]{min-height:44px;border-radius:8px;font:14px/1.5 var(--font-sans)}
+#osi-case-drawer .osi-review-route{border-radius:8px;font-size:14px}
+#osi-case-drawer .osi-form-status{font:500 13px/1.5 var(--font-sans)}
+#osi-case-drawer .osi-form-status.success{color:var(--ink)}
+
+/* A review in a governance timeline: who and what on the first line with
+   the proof type beside it, then the facts and the rationale at full width. */
+#osi-case-drawer .osi-governance-event .osi-proof-label{grid-column:2;grid-row:1;align-self:start;max-width:none}
+#osi-case-drawer .osi-governance-event>p{grid-column:1/-1}
+#osi-case-drawer .osi-governance-event .osi-proof-meta>span,#osi-case-drawer .osi-governance-event .osi-proof-meta>time{color:var(--ink-dim);font-size:13px}
+#osi-case-drawer .osi-governance-event .osi-proof-meta>.osi-sep{margin:0 7px;color:var(--ink-faint)}
+#osi-case-drawer .osi-governance-event [data-osi-user-content]{color:var(--ink)!important;font-size:14px!important;line-height:1.6!important}
+/* A gate this outcome never used keeps its numbers, quietly, with no bar. */
+#osi-case-drawer .osi-quorum.unused{padding:12px 14px;border:1px dashed var(--line-bright);border-radius:10px}
+#osi-case-drawer .osi-quorum.unused .osi-quorum-title{color:var(--ink-dim)!important;font-weight:500!important}
+#osi-case-drawer .osi-quorum.unused>div{color:var(--ink-faint)}
+.osi-outcome-step-meta>time,.osi-outcome-step-meta>span{color:var(--ink-dim)}
+
+/* Proof Log rows. */
+.osi-proof-list{counter-reset:none}
+.osi-proof-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0;flex:1 1 260px}
+.osi-proof-ref{flex-basis:100%;color:var(--ink-faint);font-size:12.5px;overflow-wrap:anywhere}
+.osi-proof-meta{display:flex;flex-wrap:wrap;align-items:center;gap:2px 0}
+#osi-case-drawer .osi-proof-meta>span,#osi-case-drawer .osi-proof-meta>time{color:var(--ink-dim);font-size:13.5px;line-height:1.6}
+#osi-case-drawer .osi-proof-meta>.osi-sep{margin:0 8px;color:var(--ink-faint)}
+#osi-payment-status:empty,#osi-case-drawer .osi-form-status:empty{min-height:0;margin:0}
+.osi-proof-actor{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px}
+.osi-proof-actor .mono{color:var(--ink-dim);font-size:12.5px}
+.osi-proof-channel-note{margin:8px 0 0!important;padding-left:10px;border-left:2px solid var(--lamp-line);color:var(--ink-dim)!important;font-size:13px!important}
+#osi-case-drawer .osi-payment-proof{gap:6px 16px}
+#osi-case-drawer .osi-payment-proof div{padding:0;border:0}
+#osi-case-drawer .osi-payment-proof dt{font:500 12.5px/1.4 var(--font-sans);letter-spacing:0;text-transform:none;color:var(--ink-faint)}
+#osi-case-drawer .osi-payment-proof dd{font:500 13.5px/1.5 var(--font-sans);color:var(--ink)}
+#osi-case-drawer .osi-evidence-ref span:first-child{color:var(--ink-faint);font-family:var(--font-sans)}
+
+/* Rewards and support. */
+.osi-payment-recipient{display:block;padding:10px 12px;border:1px solid var(--line);border-radius:8px;color:var(--ink)}
+#osi-case-drawer .osi-support-group{border-radius:8px}
+#osi-case-drawer .osi-support-group legend{color:var(--ink-dim);font:500 13px/1.4 var(--font-sans)}
+#osi-case-drawer .osi-support-recipient>input[type="checkbox"]{accent-color:var(--lamp)}
+#osi-case-drawer .osi-payment-compose p{margin:0;font-size:14px}
+
+/* Payment review and Solana Pay dialogs. */
+.osi-payment-review-card{border-radius:14px;background:var(--bg-deep);overscroll-behavior:contain}
+.osi-payment-review-card:focus{outline:none}
+.osi-payment-review-card:focus-visible{outline:2px solid var(--lamp);outline-offset:3px}
+.osi-payment-review-card h3{margin:4px 0 18px;font-size:22px}
+.osi-payment-kicker,.osi-payment-review-card .osi-eyebrow{display:block;margin:0;color:var(--ink-dim);font:500 13px/1.4 var(--font-sans)}
+.osi-payment-subhead{margin:0 0 8px;color:var(--ink-dim);font:600 13px/1.4 var(--font-sans)}
+.osi-payment-review-card dt{font:500 12.5px/1.4 var(--font-sans);letter-spacing:0;text-transform:none}
+.osi-payment-review-card dd{font-size:14px}
+.osi-payment-review-card dl>div.wide{grid-column:1/-1}
+.osi-payment-review-card dl div{border-radius:8px}
+.osi-payment-review-card li{border-left-color:var(--line-bright);background:var(--bg-raised);border-radius:0 8px 8px 0;font:500 13.5px/1.5 var(--font-sans)}
+.osi-payment-review-card .osi-payment-recipients{margin:0 0 14px}
+.osi-payment-review-card .osi-payment-recipients li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;border-left:2px solid var(--ink-dim)}
+.osi-payment-recipient-head{grid-column:1/-1;display:flex;justify-content:space-between;gap:12px;color:var(--ink-dim)}
+.osi-payment-recipients .osi-ref-value{grid-column:1;color:var(--ink);font-size:13.5px}
+.osi-payment-recipients .osi-ref-copy{grid-column:2}
+.osi-payment-review-card .osi-case-note{margin:14px 0;border-left:2px solid var(--line-bright);background:rgba(245,240,232,.03)}
+.osi-payment-review-card .osi-payment-actions{align-items:center}
+.osi-payment-memo{margin:8px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(14,19,32,.72)}
+.osi-payment-memo-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.osi-payment-memo-head span{color:var(--ink-faint);font:500 12.5px/1.4 var(--font-sans)}
+.osi-payment-memo code{display:block;color:var(--ink);font:12.5px/1.55 var(--font-mono);overflow-wrap:anywhere}
+/* Cancel sits apart from the two wallet routes. */
+.osi-payment-review-actions>[data-payment-cancel]{margin-right:auto}
+/* Solana Pay keeps Close first and the wallet link last in focus order, so
+   the row breaks on purpose: Close and the copy controls, then the routes. */
+.osi-actions-break{flex:0 0 100%!important;height:0;margin:0;padding:0}
+/* A disabled payment control inside a card reads left to right with its
+   reason under it, like the rest of the card. */
+#osi-case-drawer .osi-payment-compose>.osi-disabled-action{justify-items:start}
+#osi-case-drawer .osi-payment-compose>.osi-disabled-action .osi-action-reason{text-align:left}
+.osi-solana-pay-grid dl>div:has([data-solana-pay-memo]){grid-column:1/-1}
+.osi-solana-pay-key dl{grid-template-columns:1fr}
+.osi-solana-pay-key dd{font-size:15px}
+.osi-payment-review-card .osi-solana-pay-detail{margin:0 0 14px}
+.osi-solana-pay-actions>[data-solana-pay-close]{margin-right:auto}
+#osi-payment-banner{margin:12px 0}
+.osi-solana-pay-timer{margin:10px 0 0;color:var(--lamp-strong);font:600 14px/1.4 var(--font-sans);font-variant-numeric:tabular-nums}
+.osi-action-group{display:inline-flex;flex-wrap:wrap;gap:8px}
+.osi-action-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+
+/* On a desktop the action row stays at the foot of the card while the
+   transfer details scroll, so "Check payment" and the wallet routes are
+   always one move away. Phones keep the natural order. */
+@media(min-width:641px){
+  .osi-payment-review-card{padding-bottom:0}
+  .osi-payment-review-card>.osi-payment-actions:last-child{position:sticky;bottom:0;z-index:1;margin:14px -24px 0;padding:14px 24px 20px;border-top:1px solid var(--line);background:var(--bg-deep)}
+}
+.osi-solana-pay-key dd.mono{font-size:13.5px;line-height:1.5}
+.osi-payment-review-card .osi-solana-pay-detail dd.mono,.osi-payment-review-card dl dd.mono{font-size:12.5px;line-height:1.55}
+
+/* The amount dialog the support buttons open. */
+#sol-ask .sol-ask-card{border-radius:14px;background:var(--bg-deep);padding:28px 24px 22px}
+#sol-ask .sol-ask-x{top:8px;right:8px;width:44px;height:44px;display:grid;place-items:center;padding:0;border-radius:10px;font-size:22px}
+#sol-ask .sol-ask-x:hover,#sol-ask .sol-ask-x:focus-visible{color:var(--ink);background:var(--bg-soft)}
+#sol-ask .sol-ask-h{padding-right:44px;font:650 17px/1.3 var(--font-sans);letter-spacing:0}
+#sol-ask .sol-ask-to{font-size:13.5px}
+#sol-ask .sol-ask-to .mono{font-family:var(--font-mono);font-size:12.5px;overflow-wrap:anywhere}
+#sol-ask .sol-ask-amt,#sol-ask .sol-ask-custom{min-height:44px;border-radius:8px;font-size:14px}
+#sol-ask .sol-ask-amt:hover,#sol-ask .sol-ask-custom:focus{border-color:var(--lamp);color:var(--ink)}
+#sol-ask .sol-ask-amt.active{background:var(--lamp-soft);border-color:var(--lamp);color:var(--lamp-strong)}
+#sol-ask .sol-ask-go{min-height:48px;border-radius:8px;background:var(--lamp);color:var(--lamp-ink);font-size:15px;letter-spacing:0}
+#sol-ask .sol-ask-go:hover{background:var(--lamp-strong)}
+#sol-ask .sol-ask-note{font:13px/1.6 var(--font-sans);color:var(--ink-dim)}
+#sol-ask .sol-ask-usd,#sol-ask .sol-ask-err{font-size:13px}
+
+/* Profile badge spacing (the SAS chip used to touch the analyst name). */
+.osi-public-profile h3 [data-sas-wallet]:not(:empty),.an-profile h3 [data-sas-wallet]:not(:empty){margin-left:10px;vertical-align:middle}
+
+/* A reviewer name that opens the analyst profile keeps a full-size hit area
+   without pushing the line it sits in apart. */
+#osi-case-drawer .osi-review-actor-link{display:inline-flex;align-items:center;min-height:40px;margin-block:-10px}
+#osi-payment-banner{scroll-margin-top:16px}
+.osi-ref-value.osi-ref-network{font-family:var(--font-sans);font-size:14px}
+@media(max-width:640px){
+  /* Receipt facts stack on a phone, so a separator never dangles at the end
+     of a wrapped line. */
+  #osi-case-drawer .osi-proof-meta{flex-direction:column;align-items:flex-start;gap:2px}
+  #osi-case-drawer .osi-proof-meta>.osi-sep{display:none}
+  #osi-case-drawer .osi-case-panel{width:100vw!important;border-left:0}
+  #osi-case-drawer .osi-case-panel-head{padding:12px 16px 10px!important;gap:10px}
+  #osi-case-drawer .osi-case-panel-head h2{margin:2px 0 8px!important;font-size:19px!important;line-height:1.2!important;-webkit-line-clamp:2!important}
+  #osi-case-drawer .osi-case-ref{font-size:12px}
+  #osi-case-drawer .osi-case-content{padding:16px 16px 28px!important}
+  #osi-case-drawer .osi-case-actions .osi-action-help{display:-webkit-box!important;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  #osi-case-drawer .osi-case-section h3{font-size:18px}
+  .osi-disabled-action{justify-items:stretch;width:100%}
+  .osi-action-reason{text-align:left;max-width:none}
+  #osi-case-drawer .osi-governance-actions>.osi-action{flex:1 1 auto}
+  .osi-case-summary-row{grid-template-columns:1fr}
+  .osi-case-summary-row>.osi-action{grid-column:1;grid-row:auto;justify-self:start}
+  .osi-payment-review-card .osi-payment-recipients li{grid-template-columns:1fr}
+  .osi-payment-recipients .osi-ref-copy{grid-column:1;justify-self:start}
+  .osi-payment-review-card .osi-payment-actions>*{flex:1 1 auto}
+  .osi-action-group{display:flex;flex:1 1 100%}
+  .osi-action-group>.osi-action{flex:1 1 0}
+  #osi-case-drawer .osi-case-actions .osi-action{padding-inline:10px;font-size:13.5px;white-space:nowrap}
+}
+/* A challenge record is already the second surface level, so its empty
+   review state is a quiet line rather than a third nested card. */
+#osi-case-drawer .osi-challenge-record .osi-case-facts{margin-bottom:14px}
+#osi-case-drawer .osi-challenge-record .osi-v2-empty.compact{border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:12px 0 0;margin:0 0 4px}
+#osi-case-drawer .osi-challenge-record .osi-v2-empty.compact b{font-size:14.5px}
+/* The recipient group sits inside the support card, so its Report version
+   legend reads as a sub-heading with a rule instead of a third bordered box. */
+#osi-case-drawer .osi-support-group{border:0;border-top:1px solid var(--line);border-radius:0;padding:12px 0 0;margin-top:4px}
+#osi-case-drawer .osi-support-group legend{padding:0 8px 0 0}

@@ -14,11 +14,18 @@
   function sasAuthority(review){
     var a=review&&review.sas_authority;
     if(!a||a.enforced!==true)return'';
-    if(a.counted===true)return' <span class="osi-proof-label" data-sas-authority="counted">Authority verified on Solana</span>';
+    // The maintainer path is weight 0 by design and is not SAS-based; saying it
+    // has no valid credential would state a governance fact that is not true.
+    if(String(review.reviewer_role||review.actor_role||'').toLowerCase()==='maintainer')return' <span class="osi-chip" data-sas-authority="not_applicable">'+esc(t('Maintainer path, not an analyst vote'))+'</span>';
+    if(a.counted===true)return' <span class="osi-proof-label" data-sas-authority="counted">'+esc(t('Authority verified on Solana'))+'</span>';
     var pending=String(a.state||'')==='pending_verification';
     return' <span class="osi-chip warning" data-sas-authority="excluded">'+
-      (pending?'Not counted: SAS credential not confirmed':'Not counted: no valid SAS credential')+'</span>';
+      esc(t(pending?'Not counted: SAS credential not confirmed':'Not counted: no valid SAS credential'))+'</span>';
   }
+  function sentence(value){var text=String(value||'').replace(/_/g,' ').trim().toLowerCase();return text?text.charAt(0).toUpperCase()+text.slice(1):'';}
+  var DECISION_LABELS={approve:'Approve',request_changes:'Request changes',reject:'Reject',abstain:'Abstain',object:'Object',select:'Select as primary'};
+  var ROLE_LABELS={analyst:'Analyst',verified_analyst:'Verified analyst',senior_analyst:'Senior analyst',probationary_analyst:'Probationary analyst',maintainer:'Maintainer',wallet:'Report author',owner:'Case owner',service:'OSI service'};
+  var SOLSCAN_SIG_RE=/^[1-9A-HJ-NP-Za-km-z]{64,96}$/;
   function draftKey(wallet,caseRef){return'report:'+String(wallet||'')+':'+String(caseRef||'');}
   function saveDraft(){
     if(!state.caseRef||!walletPubkey||typeof window.osiV2SaveDraft!=='function')return;
@@ -502,8 +509,13 @@
 
   function publicReviewTimeline(rows){
     if(!rows||!rows.length)return'';
-    return'<div class="osi-report-timeline"><h4>Review timeline</h4>'+rows.map(function(review){
-      return'<div class="osi-report-timeline-item"><div><b>'+esc(reviewerName(review))+'</b><span>'+esc(label(review.decision))+' · '+esc(Number(review.weight).toFixed(2))+' weight · '+esc(label(review.tier_snapshot))+sasAuthority(review)+'</span></div><p data-osi-user-content>'+esc(review.public_rationale)+'</p><small>'+esc(review.actor_role)+' · '+esc(review.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof recorded')+' · '+esc(dateText(review.created_at))+(review.is_active?' · active':' · superseded')+'</small></div>';
+    return'<div class="osi-report-timeline"><h4>'+esc(t('Review timeline'))+'</h4>'+rows.map(function(review){
+      var decision=t(DECISION_LABELS[review.decision]||sentence(review.decision));
+      var tier=review.tier_snapshot?t(sentence(review.tier_snapshot)):'';
+      var meta=[esc(decision),esc(t('{weight} weight',{weight:Number(review.weight||0).toFixed(2)}))];
+      if(tier)meta.push(esc(tier));
+      var rationale=review.public_rationale?'<p data-osi-user-content>'+esc(review.public_rationale)+'</p>':'';
+      return'<div class="osi-report-timeline-item"><div><b'+(review.reviewer_display_name||review.reviewer_handle?' data-osi-user-content':'')+'>'+esc(reviewerName(review))+'</b><span>'+meta.join(' · ')+(sasAuthority(review)?'<span class="osi-sep" aria-hidden="true"> · </span>'+sasAuthority(review).replace(/^ /,''):'')+'</span></div>'+rationale+'<small>'+esc(t(ROLE_LABELS[String(review.actor_role||'').toLowerCase()]||sentence(review.actor_role)||'Reviewer'))+' · '+esc(t(review.proof_type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Proof recorded'))+' · '+esc(dateText(review.created_at))+' · '+esc(t(review.is_active?'Active':'Superseded'))+'</small></div>';
     }).join('')+'</div>';
   }
   // Structured public evidence. The published wallets, transaction signatures
@@ -532,31 +544,42 @@
   function publicEvidence(row){
     var html=structuredReferences(row);
     if(!html)return'';
-    return'<div class="osi-report-public-evidence"><h4>'+esc(t('Evidence and Sources'))+'</h4>'+html+'</div>';
+    return'<div class="osi-report-public-evidence"><h4>'+esc(t('Evidence and sources'))+'</h4>'+html+'</div>';
   }
+  // The decision channel is stated in words. The raw receipt field stays on
+  // the element for auditors and is printed in the technical proof detail.
   function publicationChannelHtml(proof){
     proof=proof||{};var channel=String(proof.decision_channel||'');if(!channel)return'';
-    var channelLabel=proof.decision_channel_label||label(channel),bootstrap=channel==='maintainer_bootstrap';
-    return'<div class="osi-report-publication-channel '+(bootstrap?'bootstrap':'standard')+'"><b>'+esc(t(channelLabel))+'</b><span class="mono">decision_channel='+esc(channel)+'</span>'+(bootstrap?'<p>'+esc(t('This publication used the maintainer bootstrap channel. It is not independent analyst quorum.'))+'</p>':'')+'</div>';
+    var bootstrap=channel==='maintainer_bootstrap';
+    var channelLabel=proof.decision_channel_label||(bootstrap?'Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.':'Standard analyst quorum');
+    // The server's own channel label is the canonical notice and stays
+    // visible; the sentence under it says what that means for this Report.
+    return'<div class="osi-report-publication-channel '+(bootstrap?'bootstrap':'standard')+'" data-decision-channel="'+esc(channel)+'"><b>'+esc(t(bootstrap?'Maintainer bootstrap publication':'Published through the standard analyst quorum'))+'</b>'+(bootstrap||proof.decision_channel_label?'<span>'+esc(t(channelLabel))+'</span>':'')+(bootstrap?'<p>'+esc(t('This publication used the maintainer bootstrap channel. It is not independent analyst quorum.'))+'</p>':'')+'</div>';
   }
   // Public proof detail for one published version. Every field comes straight
   // from the anonymous projection; nothing private is derived or reconstructed.
+  // This is the technical record, so the receipt's own codes are shown next to
+  // their names for anyone matching them against the on-chain Memo.
   function publicationProofDetail(row){
     var proof=row&&row.publication_proof||null;
-    if(!proof)return'<div class="osi-v2-empty"><b>'+esc(t('No public publication proof is recorded'))+'</b><span>'+esc(t('OSI shows no invented proof for this exact version.'))+'</span></div>';
+    if(!proof)return'<div class="osi-v2-empty compact"><b>'+esc(t('No public publication proof is recorded'))+'</b><span>'+esc(t('OSI shows no invented proof for this exact version.'))+'</span></div>';
+    var eventType=String(proof.event_type||'REPORT_PUBLISHED');
+    var eventName=typeof window.plMemo==='function'?(window.plMemo({event_type:eventType})||{}).title:'';
+    var channel=String(proof.decision_channel||'standard');
+    var code=function(value){return'<code class="osi-tech-code">'+esc(value)+'</code>';};
     var rows=[
-      [t('Report'),row.report_public_ref],
-      [t('Exact version'),row.version_public_ref+' · '+t('version')+' '+row.version_no],
-      [t('Publication event'),proof.event_type||'REPORT_PUBLISHED'],
-      [t('Proof type'),proof.proof_type==='solana_memo'?t('Memo-anchored on Solana'):label(proof.proof_type||'unknown')],
-      [t('Server verified'),proof.server_verified===true?t('Yes'):t('No')],
-      [t('Publishing actor'),short(proof.actor_wallet)+' · '+label(proof.actor_role||'unknown')],
-      [t('Decision channel'),String(proof.decision_channel||'standard')],
-      [t('Published at'),dateText(proof.occurred_at||row.published_at)]
+      [t('Report'),'<span class="mono">'+esc(row.report_public_ref)+'</span>'],
+      [t('Exact version'),'<span class="mono">'+esc(row.version_public_ref)+'</span> · '+esc(t('version {number}',{number:row.version_no}))],
+      [t('Publication event'),esc(t(eventName||'Report Published'))+' '+code(eventType)],
+      [t('Proof type'),esc(proof.proof_type==='solana_memo'?t('Memo-anchored on Solana'):t(sentence(proof.proof_type||'unknown')))],
+      [t('Server verified'),esc(proof.server_verified===true?t('Yes'):t('No'))],
+      [t('Publishing actor'),'<span class="mono" title="'+esc(proof.actor_wallet)+'">'+esc(short(proof.actor_wallet))+'</span> · '+esc(t(ROLE_LABELS[String(proof.actor_role||'').toLowerCase()]||sentence(proof.actor_role)||'Unattributed'))],
+      [t('Decision channel'),esc(t(channel==='maintainer_bootstrap'?'Maintainer bootstrap':'Standard analyst quorum'))+' '+code(channel)],
+      [t('Published at'),esc(dateText(proof.occurred_at||row.published_at))]
     ];
     return'<dl class="osi-report-proof-detail">'+rows.map(function(pair){
-      return'<div><dt>'+esc(pair[0])+'</dt><dd class="mono">'+esc(pair[1]==null?'':pair[1])+'</dd></div>';
-    }).join('')+'</dl>'+(proof.tx_sig?'<div class="osi-report-proof-sig mono" data-osi-user-content>'+esc(proof.tx_sig)+'</div>':'');
+      return'<div><dt>'+esc(pair[0])+'</dt><dd>'+pair[1]+'</dd></div>';
+    }).join('')+'</dl>'+(proof.tx_sig?'<div class="osi-report-proof-sig"><span>'+esc(t('Transaction signature'))+'</span><code class="mono">'+esc(proof.tx_sig)+'</code></div>':'');
   }
   // A published summary is prose an analyst wrote, and it can be up to 4,000
   // characters. Preserve its paragraphs so it reads as a finding instead of one
@@ -572,14 +595,14 @@
   }
   function publishedRows(rows){
     rows=(rows||[]).filter(function(row){return row&&row.state==='published';});
-    if(!rows.length)return'<div class="osi-v2-empty"><b>No published Reports</b><span>Every Report and exact version stays private until publication is finalized.</span></div>';
+    if(!rows.length)return'<div class="osi-v2-empty compact"><b>'+esc(t('No published Reports'))+'</b><span>'+esc(t('Every Report and exact version stays private until publication is finalized.'))+'</span></div>';
     return'<div class="osi-report-public-list">'+rows.map(function(row){
       var q=row.quorum||{};
       var detailId='osi-report-detail-'+esc(row.version_public_ref);
-      var progress='<div class="osi-report-quorum" aria-label="Publication quorum"><span><b>'+esc(q.approve_count||0)+'</b> / '+esc(q.required_count||0)+' analysts</span><span><b>'+esc(Number(q.approve_weight||0).toFixed(2))+'</b> / '+esc(Number(q.required_weight||0).toFixed(2))+' weight</span></div>';
+      var progress='<div class="osi-report-quorum" aria-label="'+esc(t('Publication quorum'))+'"><span><b>'+esc(q.approve_count||0)+'</b> / '+esc(q.required_count||0)+' '+esc(t('analysts'))+'</span><span><b>'+esc(Number(q.approve_weight||0).toFixed(2))+'</b> / '+esc(Number(q.required_weight||0).toFixed(2))+' '+esc(t('weight'))+'</span></div>';
       var summary=row.content_public_safe
         ? '<div class="osi-report-public-body"><h4>'+esc(t('Published finding'))+'</h4>'+publicProse(row.content_public_safe)+'</div>'
-        : '<p class="osi-report-public-body" role="note"><b>No public-safe summary was provided.</b> Publication metadata, public evidence and proof remain available. The restricted Report body is not public.</p>';
+        : '<p class="osi-report-public-body" role="note"><b>'+esc(t('No public-safe summary was provided.'))+'</b> '+esc(t('Publication metadata, public evidence and proof remain available. The restricted Report body is not public.'))+'</p>';
       // The reviewed analysis itself, when its author published it. This is the
       // reasoning behind the finding above, and it is the reason a reader can
       // check the work instead of taking the conclusion on trust. It is the
@@ -590,20 +613,24 @@
         ? '<details class="osi-report-full" open><summary><b>'+esc(t('Full analysis'))+'</b><small>'+esc(t('The reviewed report, as approved'))+'</small></summary><div class="osi-report-public-body osi-report-full-body">'+publicProse(row.public_body)+'</div></details>'
         : '';
       var content=summary+analysis+publicEvidence(row);
-      var proof=publicationChannelHtml(row.publication_proof)+(row.publication_proof&&row.publication_proof.tx_sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(row.publication_proof.tx_sig)+'" target="_blank" rel="noopener">Verify REPORT_PUBLISHED on Solscan ↗</a>':'');
-      var support=row.state==='published'?'<button class="osi-report-action" type="button" onclick="osiV2SupportReportAuthor(\''+esc(row.version_public_ref)+'\')">Support author with SOL</button>':'';
+      var sig=row.publication_proof&&SOLSCAN_SIG_RE.test(String(row.publication_proof.tx_sig||''))?String(row.publication_proof.tx_sig):'';
+      var proof=publicationChannelHtml(row.publication_proof);
+      // The chain link and the support control are one action row, so they
+      // never touch and read as two separate things.
+      var actions='<div class="osi-report-actions">'+(sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(sig)+'" target="_blank" rel="noopener">'+esc(t('Verify the publication Memo on Solscan'))+'</a>':'')
+        +(row.state==='published'?'<button class="osi-report-action" type="button" data-support-version="'+esc(row.version_public_ref)+'" data-default-label="Support author with SOL" onclick="osiV2SupportReportAuthor(\''+esc(row.version_public_ref)+'\')">'+esc(t('Support author with SOL'))+'</button>':'')+'</div>';
       // An explicit label keeps this read-only disclosure control from reading
       // like a review or publication action.
-      var headLabel=t('Proof detail for')+' '+row.report_public_ref+', '+t('version')+' '+row.version_no;
+      var headLabel=t('Proof detail for {report}, version {number}',{report:row.report_public_ref,number:row.version_no});
       var head='<button class="osi-list-item-head osi-report-public-head" type="button" data-report-detail-toggle="'+esc(row.version_public_ref)+'" aria-expanded="false" aria-controls="'+detailId+'" aria-label="'+esc(headLabel)+'">'
-        +'<div><b>'+esc(row.report_public_ref)+'</b><small>'+esc(row.version_public_ref)+' · version '+esc(row.version_no)+'</small></div>'
-        +'<span class="osi-proof-label">'+esc(row.state==='published'?'Published':'Under review')+'</span>'
-        +'<span class="osi-report-public-toggle" aria-hidden="true">'+esc(t('Report detail'))+'</span></button>';
+        +'<div><b class="mono">'+esc(row.report_public_ref)+'</b><small><span class="mono">'+esc(row.version_public_ref)+'</span> · '+esc(t('version {number}',{number:row.version_no}))+'</small></div>'
+        +'<span class="osi-chip state">'+esc(t(row.state==='published'?'Published':'Under review'))+'</span>'
+        +'<span class="osi-report-public-toggle" aria-hidden="true">'+esc(t('Proof detail'))+'</span></button>';
       var detail='<div class="osi-report-public-detail" id="'+detailId+'" hidden>'+publicationProofDetail(row)+'</div>';
       // Reading order is the finding first. Governance numbers, proof and the
       // support control follow it; they explain the finding rather than stand
       // between the reader and it.
-      return'<article class="osi-report-public-card" data-report-public-ref="'+esc(row.report_public_ref)+'" data-report-version-public-ref="'+esc(row.version_public_ref)+'">'+head+content+progress+publicReviewTimeline(row.review_timeline)+proof+detail+support+'<p class="osi-report-process-note">'+esc(row.process_notice)+'</p></article>';
+      return'<article class="osi-report-public-card" data-report-public-ref="'+esc(row.report_public_ref)+'" data-report-version-public-ref="'+esc(row.version_public_ref)+'">'+head+detail+content+progress+publicReviewTimeline(row.review_timeline)+proof+actions+'<p class="osi-report-process-note">'+esc(t(row.process_notice||''))+'</p></article>';
     }).join('')+'</div>';
   }
   function sectionIsCurrent(token,caseRef,host){
@@ -629,17 +656,26 @@
         button.setAttribute('aria-expanded',open?'true':'false');
       });
     });
+    // A payment already pending for this Case turns the support controls into
+    // the resume control, so a second intent is never offered here.
+    if(typeof window.osiV2SyncPendingSupport==='function')window.osiV2SyncPendingSupport(host);
   }
   function reportLoadingState(mode){
     var copy=mode==='authorized'
-      ?'Loading published and authorized Report projections...'
+      ?'Loading published and authorized Reports...'
       :'Loading published Reports...';
-    return'<div class="osi-report-loading" role="status" aria-live="polite"><b>'+esc(copy)+'</b><span>Checking the exact published-version pointer and public evidence manifest.</span></div><div class="osi-v2-skeleton" aria-hidden="true"></div><div class="osi-v2-skeleton" aria-hidden="true"></div>';
+    return'<div class="osi-report-loading" role="status" aria-live="polite"><b>'+esc(t(copy))+'</b><span>'+esc(t('Checking the exact published version and its public evidence.'))+'</span></div><div class="osi-v2-skeleton" aria-hidden="true"></div><div class="osi-v2-skeleton" aria-hidden="true"></div>';
+  }
+  // A private Case has no public Report projection yet. That is an expected
+  // state, not an error with a retry.
+  function privateCaseReportsNote(){
+    return'<div class="osi-state-message" role="note"><b>'+esc(t('No public Reports yet'))+'</b><span>'+esc(t('A private Case has no published Report, and nothing on this tab is public.'))+'</span></div>';
   }
   async function refreshPublicReports(item,token,host){
     var caseRef=String(item&&item.public_ref||'');
     host=host||document.getElementById('osi-public-reports');
     if(!host||!sectionIsCurrent(token,caseRef,host))return;
+    if(String(item&&item.visibility||'public')!=='public'){host.innerHTML=privateCaseReportsNote();host.removeAttribute('aria-busy');return;}
     host.setAttribute('aria-busy','true');
     host.innerHTML=reportLoadingState('public');
     try{
@@ -649,7 +685,7 @@
       bindPublishedRows(host);
     }catch(error){
       if(!sectionIsCurrent(token,caseRef,host))return;
-      host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Public Report status unavailable</b><span>'+esc(userError(error))+'</span><button class="osi-report-action" type="button" onclick="osiV2RefreshPublicReports()">Try again</button></div>';
+      host.innerHTML='<div class="osi-v2-empty osi-v2-error compact"><b>'+esc(t('Public Report status unavailable'))+'</b><span>'+esc(t(userError(error)))+'</span><button class="osi-report-action" type="button" onclick="osiV2RefreshPublicReports()">'+esc(t('Try again'))+'</button></div>';
     }
     if(sectionIsCurrent(token,caseRef,host))host.removeAttribute('aria-busy');
   }
@@ -658,58 +694,51 @@
     var caseRef=String(item&&item.public_ref||'');
     host=host||document.getElementById('osi-public-reports');
     if(!host||!sectionIsCurrent(token,caseRef,host))return;host.setAttribute('aria-busy','true');host.innerHTML=reportLoadingState('authorized');
+    var publicCase=String(item&&item.visibility||'public')==='public';
     var results=await Promise.allSettled([
-      api(READ_URL,{op:'list_public_reports',case_ref:caseRef}),
+      publicCase?api(READ_URL,{op:'list_public_reports',case_ref:caseRef}):Promise.resolve(null),
       loadReviewQueueData()
     ]);
     if(generation!==privateGeneration()||!sectionIsCurrent(token,caseRef,host))return;
-    var publicHtml=results[0].status==='fulfilled'?publishedRows(results[0].value.reports||[]):'<div class="osi-v2-empty osi-v2-error"><b>Public Report status unavailable</b><span>'+esc(userError(results[0].reason))+'</span><button class="osi-report-action" type="button" onclick="osiV2RefreshCaseReports()">Try again</button></div>';
+    var publicHtml=!publicCase?privateCaseReportsNote():results[0].status==='fulfilled'?publishedRows(results[0].value.reports||[]):'<div class="osi-v2-empty osi-v2-error compact"><b>'+esc(t('Public Report status unavailable'))+'</b><span>'+esc(t(userError(results[0].reason)))+'</span><button class="osi-report-action" type="button" onclick="osiV2RefreshCaseReports()">'+esc(t('Try again'))+'</button></div>';
     var authorizedHtml;
     if(results[1].status==='fulfilled'){
       var reports=(results[1].value.reports||[]).filter(function(report){return String(report.case_public_ref||'')===caseRef;});
-      authorizedHtml=reports.length?'<div class="osi-case-note">Restricted authorized view. Submitted content remains hidden from anonymous and conflicted actors.</div><div class="osi-report-workspace">'+reports.map(function(report){return reportCard(report,'queue');}).join('')+'</div>':'<div class="osi-v2-empty"><b>No authorized submitted Reports for this Case</b><span>The restricted Report endpoint returned an empty array for this exact Case.</span></div>';
+      authorizedHtml=reports.length?'<div class="osi-case-note">'+esc(t('Restricted authorized view. Submitted content remains hidden from anonymous and conflicted actors.'))+'</div><div class="osi-report-workspace">'+reports.map(function(report){return reportCard(report,'queue');}).join('')+'</div>':'<div class="osi-v2-empty compact"><b>'+esc(t('No submitted Reports are waiting for you on this Case'))+'</b><span>'+esc(t('New Report versions appear here when they are submitted for review.'))+'</span></div>';
     }else{
-      authorizedHtml='<div class="osi-v2-empty osi-v2-error"><b>Authorized Report view unavailable</b><span>'+esc(userError(results[1].reason))+'</span><button class="osi-report-action" type="button" onclick="osiV2RefreshCaseReports()">Try again</button></div>';
+      authorizedHtml='<div class="osi-v2-empty osi-v2-error compact"><b>'+esc(t('Authorized Report view unavailable'))+'</b><span>'+esc(t(userError(results[1].reason)))+'</span><button class="osi-report-action" type="button" onclick="osiV2RefreshCaseReports()">'+esc(t('Try again'))+'</button></div>';
     }
-    host.innerHTML='<section class="osi-report-projection"><h4>Published Reports</h4>'+publicHtml+parentCaseNote(item)+'</section><section class="osi-report-projection restricted"><h4>Authorized submitted Reports</h4>'+authorizedHtml+'</section>';
+    host.innerHTML='<section class="osi-report-projection"><h4>'+esc(t('Published Reports'))+'</h4>'+publicHtml+parentCaseNote(item)+'</section><section class="osi-report-projection restricted"><h4>'+esc(t('Authorized submitted Reports'))+'</h4>'+authorizedHtml+'</section>';
     bindPublishedRows(host);
     if(results[1].status==='fulfilled')restoreWorkspaceDraft();
     host.removeAttribute('aria-busy');
   }
+  // The drawer footer holds the one Submit Report control. This line only
+  // says whether submission is open here and why, so the tab and the footer
+  // can never disagree.
+  var INTAKE_STAGES=['open_public','in_review','reopened'];
   async function refreshSectionAction(item,token,host){
     var generation=privateGeneration(),requestedWallet=String(walletPubkey||'');
     var caseRef=String(item&&item.public_ref||'');
     host=host||document.getElementById('osi-public-reports');
     if(!host||!sectionIsCurrent(token,caseRef,host))return;
-    var button=document.getElementById('osi-report-submit-action');
     var copy=document.getElementById('osi-report-action-copy');
-    if(!button||!copy)return;
+    if(!copy)return;
+    // A Case past Report intake stays closed whichever wallet connects, so the
+    // stage answers before the wallet does.
+    if(INTAKE_STAGES.indexOf(String(item&&item.stage||''))<0){
+      copy.textContent=t(String(item&&item.visibility||'')==='public'?'Report intake is closed for this Case. Its published Reports and proof stay readable.':'Report intake opens after this Case is approved for public investigation.');
+      return;
+    }
     var wallet=String(walletPubkey||'');
     try{
       var capability=await api(WRITE_URL,{op:'capabilities',wallet:wallet,case_ref:caseRef});
       if(generation!==privateGeneration()||requestedWallet!==String(walletPubkey||'')||!sectionIsCurrent(token,caseRef,host))return;
-      // The server names the wallet first, but a Case past Report intake stays
-      // closed whichever wallet connects. Saying "connect a wallet" on a sealed
-      // Case promised an action that could never succeed, so the stage wins.
-      // An open Case keeps the button live: opening the form asks the wallet
-      // to connect, exactly as the Case action bar already does.
       var writesOn=capability.report_writes_enabled===true,eligible=capability.case_eligible===true;
-      if(!writesOn){
-        button.disabled=true;button.textContent=t('Submit Report');
-        copy.textContent=capability.prerequisite||t('Report submission is not enabled.');
-        button.title=copy.textContent;
-      }else if(!eligible){
-        button.disabled=true;button.textContent=t('Report intake closed');
-        copy.textContent=t('Report intake is open only while a Case is in public investigation, under Report review, or reopened.');
-        button.title=copy.textContent;
-      }else{
-        button.disabled=false;button.textContent=t('Submit Report');
-        copy.textContent=wallet
-          ?t('Submit an exact private Report version with a confirmed mainnet Memo. Review and publication are separate future transitions.')
-          :t('Submitting asks your wallet to connect first. Reports remain private until reviewed publication.');
-        button.title=t('Submit Report');
-      }
-    }catch(error){if(generation!==privateGeneration()||requestedWallet!==String(walletPubkey||'')||!sectionIsCurrent(token,caseRef,host))return;button.disabled=true;copy.textContent='Report capability is temporarily unavailable.';button.title=copy.textContent;}
+      if(!writesOn)copy.textContent=t(capability.prerequisite||'Report submission is not enabled.');
+      else if(!eligible)copy.textContent=t('Report intake is open only while a Case is in public investigation, under Report review, or reopened.');
+      else copy.textContent=t('Report intake is open for this Case. Use Submit Report in the bar below; a new Report stays private until reviewed publication.');
+    }catch(error){if(generation!==privateGeneration()||requestedWallet!==String(walletPubkey||'')||!sectionIsCurrent(token,caseRef,host))return;copy.textContent=t('Report capability is temporarily unavailable.');}
   }
   function reloadSection(item,mode,expectedRenderToken){
     var caseRef=String(item&&item.public_ref||'');
@@ -726,7 +755,7 @@
     var mode=authorized&&!ownerConflict?'authorized':'public';
     var renderToken=++state.sectionLoadToken;state.sectionContext=item;state.sectionMode=mode;
     setTimeout(function(){reloadSection(item,mode,renderToken);},0);
-    return'<section class="osi-case-section"><div class="osi-report-action-row"><div><h3>'+esc(mode==='authorized'?t('Reports'):t('Published Reports'))+'</h3><div class="osi-report-action-copy" id="osi-report-action-copy">'+esc(mode==='authorized'?'Loading public and restricted authorized Report projections...':'Checking exact submission prerequisites...')+'</div></div><button class="osi-report-action" id="osi-report-submit-action" type="button" disabled onclick="osiV2OpenReportForm(\''+esc(item.public_ref)+'\')">Submit Report</button></div><div id="osi-public-reports" aria-live="polite" aria-busy="true">'+reportLoadingState(mode)+'</div></section>';
+    return'<section class="osi-case-section"><div class="osi-report-action-row"><h3>'+esc(mode==='authorized'?t('Reports'):t('Published Reports'))+'</h3><p class="osi-report-action-copy" id="osi-report-action-copy">'+esc(t('Checking whether Report intake is open for this Case.'))+'</p></div><div id="osi-public-reports" aria-live="polite" aria-busy="true">'+reportLoadingState(mode)+'</div></section>';
   }
 
   // Review-stage manifest for My Reports and the analyst/maintainer queue. It
@@ -735,7 +764,7 @@
   function evidenceHtml(items,sections){
     var html=structuredReferences({evidence:items||[],evidence_sections:sections||null});
     if(!html)return'';
-    return'<div class="osi-report-evidence-list"><h5>'+esc(t('Evidence and Sources'))+'</h5>'+html+'</div>';
+    return'<div class="osi-report-evidence-list"><h5>'+esc(t('Evidence and sources'))+'</h5>'+html+'</div>';
   }
   // Long-form Report text keeps its paragraphs in the review surfaces too. A
   // 100,000-character narrative in one paragraph element is unreadable and
