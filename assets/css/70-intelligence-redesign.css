@@ -6012,7 +6012,7 @@ svg.osi-av {
 @media (min-width: 901px) {
   #analysts .osi-analyst-head,
   #analysts .osi-analyst-row {
-    grid-template-columns: minmax(200px, 1.2fr) minmax(170px, .8fr) minmax(170px, 1fr) 76px 64px 56px;
+    grid-template-columns: minmax(180px, 1.1fr) minmax(200px, .9fr) minmax(170px, 1fr) 76px 64px 56px;
   }
 }
 
@@ -6234,7 +6234,7 @@ body .osi-status.maintainer {
 
 /* A short roster leaves the reference cards below it in one row of three
  * instead of a tall column beside a short table. */
-@media (min-width: 1180px) {
+@media (min-width: 901px) {
   #analysts .lb-console:has(#lb-body > .osi-analyst-row:first-child):not(:has(#lb-body > .osi-analyst-row:nth-child(8))) {
     grid-template-columns: 1fr;
   }
@@ -6501,4 +6501,20 @@ body .osi-status.maintainer {
 
 #apx-modal .osi-receipt-grid dt {
   text-transform: none;
+}
+
+/* The group labels keep the case they were written in (the foundation
+ * eyebrow style tracks them, which reads as an English-only shout). */
+#analysts .osi-maintainer-kicker {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Reference cards keep their own height; a short card is not stretched to
+ * match its neighbour. */
+@media (min-width: 721px) {
+  #analysts .lb-console .lb-aside {
+    align-items: start;
+  }
 }
