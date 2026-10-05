@@ -247,3 +247,6 @@
   #osi-case-drawer .osi-report-public-head>div{flex:1 1 100%}
   #osi-case-drawer .osi-report-public-toggle{align-self:center}
 }
+/* Inside the drawer the proof detail is already the second surface, so the
+   transaction signature is a plain full-width row, not a third box. */
+#osi-case-drawer .osi-report-proof-sig{margin-top:12px;padding:12px 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}

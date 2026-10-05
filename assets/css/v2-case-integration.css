@@ -677,3 +677,12 @@ a.osi-proof-label[data-sas-badge="verified"]::after{content:"";position:absolute
   .osi-action-group>.osi-action{flex:1 1 0}
   #osi-case-drawer .osi-case-actions .osi-action{padding-inline:10px;font-size:13.5px;white-space:nowrap}
 }
+/* A challenge record is already the second surface level, so its empty
+   review state is a quiet line rather than a third nested card. */
+#osi-case-drawer .osi-challenge-record .osi-case-facts{margin-bottom:14px}
+#osi-case-drawer .osi-challenge-record .osi-v2-empty.compact{border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:12px 0 0;margin:0 0 4px}
+#osi-case-drawer .osi-challenge-record .osi-v2-empty.compact b{font-size:14.5px}
+/* The recipient group sits inside the support card, so its Report version
+   legend reads as a sub-heading with a rule instead of a third bordered box. */
+#osi-case-drawer .osi-support-group{border:0;border-top:1px solid var(--line);border-radius:0;padding:12px 0 0;margin-top:4px}
+#osi-case-drawer .osi-support-group legend{padding:0 8px 0 0}
