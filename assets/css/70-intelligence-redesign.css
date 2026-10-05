@@ -8356,3 +8356,12 @@ body .osi-status.maintainer {
 .osi-review-task > div span:first-child {
   font-family: var(--font-mono);
 }
+
+#identity-view .identity-sidebar {
+  align-items: start;
+}
+
+/* The decorative read-only stamp collided with long display names. */
+#identity-view .identity-passport::after {
+  content: none;
+}
