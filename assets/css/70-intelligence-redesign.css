@@ -5819,7 +5819,10 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 
 /* ---------- Public Records: introduction ---------- */
 #records-hero .cr-hero {
-  display: block !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  gap: 24px 40px;
+  align-items: start;
   padding: clamp(24px, 3vw, 36px) clamp(20px, 3vw, 36px) !important;
   border-radius: 12px !important;
 }
@@ -6800,4 +6803,19 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
   #wire-view .osi-report-evidence-item { grid-template-columns: 28px minmax(0, 1fr); }
   #wire-view .osi-report-evidence-item > span:nth-child(3),
   #wire-view .osi-report-evidence-item > a { grid-column: 2; }
+}
+
+/* Public Records introduction: what each proof label on a card means. */
+#records-hero .cr-legend { position: relative; z-index: 1; min-width: 0; padding-left: 28px; border-left: 1px solid var(--line); }
+#records-hero .cr-legend-h { margin: 0 0 14px; color: var(--ink); font: 650 15px/1.35 var(--font-sans); }
+#records-hero .cr-legend dl { display: grid; gap: 14px; margin: 0; }
+#records-hero .cr-legend-row { display: grid; grid-template-columns: 14px minmax(0, 1fr); column-gap: 10px; }
+#records-hero .cr-legend-row::before { content: ""; grid-row: span 2; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--ink-dim); }
+#records-hero .cr-legend-row[data-tone="proof"]::before { background: var(--verified); }
+#records-hero .cr-legend-row[data-tone="bootstrap"]::before { background: var(--lamp); }
+#records-hero .cr-legend dt { grid-column: 2; color: var(--ink); font: 600 14px/1.4 var(--font-sans); }
+#records-hero .cr-legend dd { grid-column: 2; margin: 2px 0 0; color: var(--ink-faint); font: 400 13.5px/1.5 var(--font-sans); }
+@media (max-width: 1020px) {
+  #records-hero .cr-hero { grid-template-columns: minmax(0, 1fr) !important; }
+  #records-hero .cr-legend { padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--line); }
 }
