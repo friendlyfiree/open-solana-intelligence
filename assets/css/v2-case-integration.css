@@ -556,7 +556,7 @@ a.osi-proof-label[data-sas-badge="verified"]::after{content:"";position:absolute
 
 /* Proof Log rows. */
 .osi-proof-list{counter-reset:none}
-.osi-proof-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0}
+.osi-proof-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0;flex:1 1 260px}
 .osi-proof-ref{flex-basis:100%;color:var(--ink-faint);font-size:12.5px;overflow-wrap:anywhere}
 .osi-proof-meta{display:flex;flex-wrap:wrap;align-items:center;gap:2px 0}
 #osi-case-drawer .osi-proof-meta>span,#osi-case-drawer .osi-proof-meta>time{color:var(--ink-dim);font-size:13.5px;line-height:1.6}
