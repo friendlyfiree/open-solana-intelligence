@@ -7967,3 +7967,138 @@ body .osi-status.maintainer {
     display: none !important;
   }
 }
+
+/* My OSI: the page is the surface. The head and the passport block sit on
+ * it directly and the cards are the only framed level, so there are never
+ * more than two nested surfaces and no competing accent borders. */
+#workspace-view .osi-ws {
+  overflow: visible;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+#workspace-view .osi-ws::before {
+  content: none;
+}
+
+#workspace-view .osi-ws-head {
+  padding: 0 0 28px;
+}
+
+#workspace-view .osi-ws-body {
+  padding: 28px 0 0;
+}
+
+#workspace-view .osi-ws-side {
+  display: grid;
+  gap: 12px;
+  min-width: 220px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+#workspace-view .osi-ws-side .l {
+  margin-bottom: 2px;
+  font: 500 12.5px/1.4 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+
+#workspace-view .osi-ws-side .v {
+  font: 600 14px/1.4 var(--font-sans);
+  color: var(--ink);
+  word-break: normal;
+}
+
+#workspace-view .osi-ws-side .v.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 13px;
+  font-variant-ligatures: none;
+}
+
+#workspace-view .osi-ws-identity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+}
+
+#workspace-view .osi-ws-identity::after {
+  content: none;
+}
+
+#workspace-view .osi-ws-id-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--lamp-line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--lamp);
+  font: 600 14px/1.2 var(--font-sans);
+}
+
+#workspace-view .osi-ws-id-btn:hover {
+  border-color: var(--lamp);
+  background: rgba(255, 176, 32, .08);
+}
+
+#workspace-view .osi-ws-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+}
+
+#workspace-view .osi-ws-card:hover {
+  border-color: var(--lamp-line);
+  background: var(--bg-raised);
+}
+
+#workspace-view .osi-ws-card span {
+  font-size: 13px;
+}
+
+#workspace-view .osi-ws-card i {
+  font: 600 13px/1.2 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--lamp);
+}
+
+@media (max-width: 760px) {
+  #workspace-view .osi-ws-head {
+    flex-direction: column;
+  }
+
+  #workspace-view .osi-ws-side {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #workspace-view .osi-ws-identity {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 900px) {
+  #workspace-view .osi-ws-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  #workspace-view .osi-ws-grid {
+    grid-template-columns: 1fr;
+  }
+}

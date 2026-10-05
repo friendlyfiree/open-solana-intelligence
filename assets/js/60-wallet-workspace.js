@@ -852,7 +852,7 @@ function workspaceCard(title, note, action){
   return '<button class="osi-ws-card" type="button" onclick="'+action+'">'
     + '<b>'+escapeHtml(title)+'</b>'
     + '<span>'+escapeHtml(note)+'</span>'
-    + '<i>Open</i>'
+    + '<i aria-hidden="true">Open</i>'
     + '</button>';
 }
 function workspaceCards(items){
@@ -861,9 +861,18 @@ function workspaceCards(items){
 function workspaceIdentityCard(ctx){
   var analystWorkspace = !!(ctx && ctx.isVerifiedAnalyst);
   return '<div class="osi-ws-identity">'
-    + '<div><div class="osi-ws-identity-k">'+(analystWorkspace?'Analyst identity':'OSI Identity')+'</div><h2>'+(analystWorkspace?'Analyst workspace':'OSI Identity')+'</h2><p>'+(analystWorkspace?'Open your server-derived analyst profile and immutable application history.':'Open your wallet-linked intelligence passport, role status, and public proof record.')+'</p></div>'
+    + '<div><h2>'+(analystWorkspace?'Analyst workspace':'Intelligence Passport')+'</h2><p>'+(analystWorkspace?'Open your server-derived analyst profile and immutable application history.':'Open your wallet-linked intelligence passport, role status, and public proof record.')+'</p></div>'
     + '<button class="osi-ws-id-btn" type="button" onclick="'+(analystWorkspace?"osiAnalystOpenWorkspace('profile')":"osiNavigate('identity')")+'">'+(analystWorkspace?'Open Analyst Profile':'Open Intelligence Passport')+'</button>'
     + '</div>';
+}
+// What the visitor can do here, in words. "Public Registry" was a place, not
+// a role, so the access line names who is looking instead.
+function workspaceAccessLabel(ctx){
+  var role = (ctx && ctx.workspaceRole) || 'public';
+  if(role === 'maintainer') return 'Maintainer, both gates verified';
+  if(role === 'analyst') return 'Verified analyst';
+  if(role === 'wallet') return 'Connected wallet';
+  return 'Public visitor';
 }
 function renderWorkspace(){
   var host = document.getElementById('workspace-body');
@@ -872,29 +881,24 @@ function renderWorkspace(){
   var role = ctx.workspaceRole || 'public';
   var title = 'OSI Workspace';
   var msg = 'Connect a wallet to see your cases, signed actions, and role.';
-  var sideLabel = 'Workspace role';
-  var sideValue = (typeof getWorkspaceRoleLabel === 'function') ? getWorkspaceRoleLabel(ctx) : 'Public Registry';
   var actions = '';
   var cards = '';
 
   if(role === 'wallet'){
     title = 'My OSI';
     msg = 'Your wallet-linked workspace for case work, report history, and signed activity.';
-    sideLabel = 'Wallet';
-    sideValue = workspaceShort(ctx.wallet);
     cards = workspaceCards([
       ['My Cases','Private and public Cases authorized for this wallet.',"osiV2OpenMyCases()"],
       ['My Challenges','Own challenge state, deadlines, and withdrawal.',"osiV2OpenMyChallenges()"],
       ['My Reports','Exact immutable Report version history.',"osiV2OpenMyReports()"],
       ['My Wire Reports','Private and published Wire version history.',"osiV2OpenMyWireReports()"],
+      ['My Profile','Display name, public visibility and Case attribution.',"osiV2OpenMyProfile()"],
       ['Analyst Profile','Server-derived profile or application starting point.',"osiAnalystOpenWorkspace('profile')"],
       ['My Applications','Wallet-signed analyst application versions.',"osiAnalystOpenWorkspace('applications')"]
     ]);
   } else if(role === 'analyst'){
     title = 'Analyst Desk';
     msg = 'Verified analyst workspace for review, votes, reports, and reputation.';
-    sideLabel = 'Wallet';
-    sideValue = workspaceShort(ctx.wallet);
     cards = workspaceCards([
       ['My Reviews','Cases authorized for your typed review.',"osiV2OpenReviewQueue()"],
       ['My Challenges','Own challenge state, deadlines, and withdrawal.',"osiV2OpenMyChallenges()"],
@@ -902,30 +906,33 @@ function renderWorkspace(){
       ['Wire Review Queue','Exact Wire versions awaiting review.',"osiV2OpenWireQueue()"],
       ['My Reports','Exact immutable Report version history.',"osiV2OpenMyReports()"],
       ['My Wire Reports','Private and published Wire version history.',"osiV2OpenMyWireReports()"],
-      ['Analyst Profile','Server-derived profile and application history.',"osiAnalystOpenWorkspace('profile')"]
+      ['My Profile','Display name, public visibility and Case attribution.',"osiV2OpenMyProfile()"]
     ]);
   } else if(role === 'maintainer'){
     title = 'Maintainer Console';
     msg = 'Maintainer workspace for publishing, moderation, analyst applications, and safety review.';
-    sideLabel = ctx.wallet ? 'Maintainer wallet' : 'Session';
-    sideValue = ctx.wallet ? workspaceShort(ctx.wallet) : 'Supabase auth active';
     cards = workspaceCards([
-      ['Operations Center','Double-gated lifecycle and publication controls.',"admOpen()"],
-      ['Case Review Queue','Native Case reviews authorized for this maintainer.',"osiV2OpenReviewQueue()"],
+      ['Operations Center','Double-gated overview, flags, AI Pack and SAS status, and the analyst application queue.',"admOpen()"],
+      ['My Reviews','Every server-authorized review lane in one queue.',"osiV2OpenReviewQueue()"],
       ['My Challenges','Own challenge state, deadlines, and withdrawal.',"osiV2OpenMyChallenges()"],
       ['Report Review Queue','Exact Report versions awaiting authorized review.',"osiV2OpenReportQueue()"],
       ['Wire Review Queue','Wire versions awaiting review or bootstrap publication inspection.',"osiV2OpenWireQueue()"],
       ['My Wire Reports','Private and published Wire version history.',"osiV2OpenMyWireReports()"],
-      ['Analyst Applications','Double-gated application review queue.',"admOpen()"]
+      ['My Profile','Display name, public visibility and Case attribution.',"osiV2OpenMyProfile()"]
     ]);
   } else {
     actions = '<div class="osi-ws-actions"><button class="osi-ws-cta primary" type="button" onclick="toggleWallet().then(function(){if(typeof renderWorkspace===\'function\')renderWorkspace();})">Connect Wallet</button></div>';
   }
 
+  var wallet = ctx.wallet ? workspaceShort(ctx.wallet) : '';
+  var side = '<aside class="osi-ws-side" aria-label="Workspace context">'
+    + '<div class="osi-ws-side-row"><div class="l">Access</div><div class="v">'+escapeHtml(workspaceAccessLabel(ctx))+'</div></div>'
+    + '<div class="osi-ws-side-row"><div class="l">Wallet</div><div class="v'+(wallet?' mono':'')+'">'+(wallet?escapeHtml(wallet):'Not connected')+'</div></div>'
+    + '</aside>';
   var body = '<div class="osi-ws-body">' + workspaceIdentityCard(ctx) + cards + '</div>';
   host.innerHTML = '<div class="osi-ws-head">'
-    + '<div><div class="osi-ws-kicker mono">'+escapeHtml(sideValue)+'</div><h1>'+escapeHtml(title)+'</h1><p class="osi-ws-msg">'+escapeHtml(msg)+'</p>'+actions+'</div>'
-    + '<aside class="osi-ws-side" aria-label="Workspace context"><div class="l">'+escapeHtml(sideLabel)+'</div><div class="v">'+escapeHtml(sideValue)+'</div></aside>'
+    + '<div><div class="osi-ws-kicker">Workspace</div><h1>'+escapeHtml(title)+'</h1><p class="osi-ws-msg">'+escapeHtml(msg)+'</p>'+actions+'</div>'
+    + side
     + '</div>'
     + body;
 }
