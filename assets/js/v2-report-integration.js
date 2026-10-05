@@ -552,9 +552,9 @@
     proof=proof||{};var channel=String(proof.decision_channel||'');if(!channel)return'';
     var bootstrap=channel==='maintainer_bootstrap';
     var channelLabel=proof.decision_channel_label||(bootstrap?'Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.':'Standard analyst quorum');
-    // A bootstrap publication says so once, in plain words; the server's own
-    // label is kept on the element for anyone matching it to the receipt.
-    return'<div class="osi-report-publication-channel '+(bootstrap?'bootstrap':'standard')+'" data-decision-channel="'+esc(channel)+'" title="'+esc(t(channelLabel))+'"><b>'+esc(t(bootstrap?'Maintainer bootstrap publication':'Published through the standard analyst quorum'))+'</b>'+(bootstrap?'<p>'+esc(t('This publication used the maintainer bootstrap channel. It is not independent analyst quorum.'))+'</p>':(proof.decision_channel_label?'<span>'+esc(t(channelLabel))+'</span>':''))+'</div>';
+    // The server's own channel label is the canonical notice and stays
+    // visible; the sentence under it says what that means for this Report.
+    return'<div class="osi-report-publication-channel '+(bootstrap?'bootstrap':'standard')+'" data-decision-channel="'+esc(channel)+'"><b>'+esc(t(bootstrap?'Maintainer bootstrap publication':'Published through the standard analyst quorum'))+'</b>'+(bootstrap||proof.decision_channel_label?'<span>'+esc(t(channelLabel))+'</span>':'')+(bootstrap?'<p>'+esc(t('This publication used the maintainer bootstrap channel. It is not independent analyst quorum.'))+'</p>':'')+'</div>';
   }
   // Public proof detail for one published version. Every field comes straight
   // from the anonymous projection; nothing private is derived or reconstructed.
@@ -666,7 +666,7 @@
   // A private Case has no public Report projection yet. That is an expected
   // state, not an error with a retry.
   function privateCaseReportsNote(){
-    return'<div class="osi-state-message" role="note"><b>'+esc(t('No public Reports yet'))+'</b><span>'+esc(t('Reports open after this Case is approved for public investigation.'))+'</span></div>';
+    return'<div class="osi-state-message" role="note"><b>'+esc(t('No public Reports yet'))+'</b><span>'+esc(t('A private Case has no published Report, and nothing on this tab is public.'))+'</span></div>';
   }
   async function refreshPublicReports(item,token,host){
     var caseRef=String(item&&item.public_ref||'');

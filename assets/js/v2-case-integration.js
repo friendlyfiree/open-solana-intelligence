@@ -1889,6 +1889,9 @@
   }
   function resolution(item){
     var governance=item.governance||{};var row=governance.resolution;var candidates=publishedCandidates(item);var caps=state.capabilities||{};
+    // A Case past selection whose resolution record is not in this projection
+    // says exactly that, rather than "selection not started" on a sealed Case.
+    if(!row&&['resolved','sealed'].indexOf(String(item.stage||''))>=0)return emptySection('Resolution','This Case is past resolution selection, but its resolution record is not part of this public projection. The Proof Log keeps every receipt that is public.','No public resolution record',{tab:'proof',label:'Open Proof Log'});
     if(!candidates.length&&!row)return emptySection('Resolution','A published exact Report version is required before resolution selection can begin.','Resolution has not started',{tab:'reports',label:reportsTabLabel()});
     var actor=caps.analyst_eligible===true||caps.maintainer_access===true;
     var sealed=!!row&&(row.state==='sealed'||row.state==='resolved_legacy');

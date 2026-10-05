@@ -102,6 +102,79 @@ const publishedReport = {
   process_notice: 'Publication records a reviewed OSI process outcome. It is not proof of truth, guilt, legal certainty, recovery, custody, or guaranteed payment.',
 };
 
+// Hostile server text for the drawer's rendering paths. Every field a drawer
+// tab prints, as text or inside an attribute, carries markup or a script URL.
+// The record is reachable only by its reference, never listed.
+const HOSTILE_REF = 'OSI-BADBADBAD001';
+const HOSTILE_VERSION_REF = 'OSI-RV-BADBADBADBAD0001';
+const XSS = '<img src=x onerror="window.__osiXss=1">';
+const XSS_ATTR = '"><svg onload="window.__osiXss=2"></svg>';
+const XSS_URL = 'javascript:window.__osiXss=3';
+const hostileProof = {
+  label: XSS, event_type: XSS_ATTR, public_ref: XSS, actor_wallet: XSS_ATTR, actor_role: XSS,
+  decision: XSS, weight: null, occurred_at: XSS, decision_channel: 'maintainer_bootstrap',
+  decision_channel_label: XSS, tx_sig: XSS_ATTR, solscan_url: XSS_URL, memo: XSS,
+};
+const hostileCase = {
+  ...publicCase,
+  public_ref: HOSTILE_REF,
+  title: XSS,
+  summary: XSS_ATTR,
+  category: XSS,
+  stage: 'sealed',
+  sealed_at: XSS,
+  reports: [],
+  evidence: [],
+  evidence_sections: {
+    wallets: [{ kind: 'wallet', ref: XSS_ATTR, network: XSS, sha256: XSS, link_url: XSS_URL }],
+    transactions: [], links: [{ kind: 'url', ref: XSS, link_url: XSS_URL }], other: [], networks: [XSS],
+  },
+  reviews: [{
+    reviewer_wallet: XSS_ATTR, decision: XSS, reviewer_role: XSS, weight: XSS, is_active: true,
+    created_at: '2026-07-29T13:07:51+00:00', proof_label: XSS, reason_code: XSS_ATTR,
+    sas_authority: { enforced: true, counted: false, state: XSS },
+  }],
+  governance: {
+    resolution: {
+      public_ref: XSS, state: 'sealed', decision_channel: 'maintainer_bootstrap', decision_channel_label: XSS,
+      winning_report_version_ref: XSS_ATTR, challenge_window_opens_at: XSS, challenge_window_closes_at: XSS, sealed_at: XSS,
+      selection_quorum: { leader_count: 0, leader_weight: 0, required_count: 2, required_weight: 2.5 },
+      final_proof: hostileProof, seal_proof: { ...hostileProof, solscan_url: `https://solscan.io/tx/${OPEN_TX}` },
+      reviews: [{ phase: 'selection', reviewer_wallet: XSS_ATTR, reviewer_role: XSS, decision: XSS, weight: 1,
+        target_version_ref: XSS_ATTR, created_at: XSS, public_rationale: XSS, proof_label: XSS,
+        sas_authority: { enforced: true, counted: true, state: 'verified' } }],
+    },
+    challenges: [{ public_ref: XSS_ATTR, state: XSS, blocking: false, public_safe_summary: XSS,
+      admissibility_deadline_at: XSS, review_deadline_at: XSS, reviews: [], outcome_quorum: {}, challenger_wallet: XSS }],
+  },
+  money: {
+    reward: { state: 'pledged', status: XSS, amount_lamports: '1000', confirmed_lamports: '0', outstanding_lamports: '1000',
+      winning_report_author_wallet: XSS_ATTR, winning_report_version_ref: XSS_ATTR,
+      payments: [{ amount_lamports: '5', state: XSS, confirmed_at: XSS, solscan_url: XSS_URL }] },
+    support_options: [{ target_type: XSS_ATTR, target_ref: XSS_ATTR, wallet: XSS_ATTR, label: XSS }],
+    confirmed_support: [{ support_type: 'report_author', amount_lamports: '5', state: 'confirmed', confirmed_at: XSS, solscan_url: XSS_URL }],
+  },
+  proof_log: [
+    hostileProof,
+    { ...hostileProof, actor_wallet: '', decision: null, label: 'SOL transfer verified on Solana',
+      payment_proof: { payer_wallet: XSS_ATTR, total_lamports: XSS, target_public_ref: XSS, finality: XSS, slot: XSS,
+        block_time: XSS, memo_verified: true, transfers_verified: true,
+        recipient_manifest: [{ wallet: XSS_ATTR, amount_lamports: XSS, recipient_type: XSS }] } },
+  ],
+};
+const hostileReport = {
+  report_public_ref: XSS_ATTR, version_public_ref: HOSTILE_VERSION_REF, version_no: XSS, state: 'published',
+  content_public_safe: XSS, public_body: XSS_ATTR,
+  evidence: [{ kind: 'url', ref: XSS, ordinal: XSS, link_url: XSS_URL }],
+  quorum: { approve_count: XSS, approve_weight: 0, required_count: XSS, required_weight: 2 },
+  review_timeline: [{ reviewer_wallet: XSS_ATTR, reviewer_handle: XSS, reviewer_display_name: XSS, decision: XSS, weight: 1,
+    tier_snapshot: XSS, public_rationale: XSS, actor_role: XSS, proof_type: XSS, created_at: XSS, is_active: true,
+    sas_authority: { enforced: true, counted: false, state: XSS } }],
+  publication_proof: { event_type: XSS_ATTR, actor_wallet: XSS_ATTR, actor_role: XSS, proof_type: XSS, server_verified: true,
+    tx_sig: XSS_ATTR, occurred_at: XSS, decision_channel: 'maintainer_bootstrap', decision_channel_label: XSS },
+  published_at: XSS, process_notice: XSS,
+};
+
 // Install a fixture backend. `options.wallet` decides whether a Phantom-like
 // provider exists at all, which is what the no-wallet contracts depend on.
 async function installFixture(page, options = {}) {
@@ -181,7 +254,7 @@ async function installFixture(page, options = {}) {
       if (body.op === 'list_public_cases') payload = { ok: true, cases: [publicCase, secondCase] };
       else if (body.op === 'get_public_case') {
         if (publicCaseDelayMs) await new Promise((resolve) => setTimeout(resolve, publicCaseDelayMs));
-        const match = [publicCase, secondCase].find((item) => item.public_ref === body.public_ref);
+        const match = [publicCase, secondCase, hostileCase].find((item) => item.public_ref === body.public_ref);
         if (match) payload = { ok: true, case: match };
         else { status = 404; payload = { ok: false, error: 'not_found_or_private' }; }
       } else { status = 401; payload = { ok: false, error: 'wallet_not_connected' }; }
@@ -191,7 +264,9 @@ async function installFixture(page, options = {}) {
         // carries a restricted body field.
         payload = body.case_ref === CASE_REF
           ? { ok: true, case_public_ref: CASE_REF, reports: [publishedReport] }
-          : { ok: true, case_public_ref: body.case_ref, reports: [] };
+          : body.case_ref === HOSTILE_REF
+            ? { ok: true, case_public_ref: HOSTILE_REF, reports: [hostileReport] }
+            : { ok: true, case_public_ref: body.case_ref, reports: [] };
       } else { status = 401; payload = { ok: false, error: 'wallet_not_connected' }; }
     } else if (endpoint === 'osi-v2-report-write' && body.op === 'capabilities') {
       payload = { ok: true, report_writes_enabled: false, case_eligible: false, prerequisite: 'Connect a wallet to submit a Report.' };
@@ -428,6 +503,45 @@ test.describe('public projection privacy', () => {
     await page.locator('#osi-case-tabs button[data-tab="reports"]').click();
     await expect(page.locator('#osi-case-content')).toContainText('No published Reports');
     await expect(page.locator('#osi-case-content')).not.toContainText(REPORT_REF);
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+});
+
+test.describe('hostile server text', () => {
+  test('every drawer tab renders hostile server text as text and never as markup or a script link', async ({ page }) => {
+    await boot(page, { wallet: 'none' });
+    await page.evaluate((ref) => window.osiV2OpenCase(ref), HOSTILE_REF);
+    await expect(page.locator('#osi-case-ref')).toHaveText(HOSTILE_REF);
+    // The title is user content and arrives as literal characters.
+    await expect(page.locator('#osi-case-title')).toHaveText(XSS);
+    const tabs = await page.locator('#osi-case-tabs [data-tab]').evaluateAll((nodes) => nodes.map((node) => node.dataset.tab));
+    expect(tabs).toEqual(expect.arrayContaining(['overview', 'reviews', 'evidence', 'reports', 'resolution', 'challenges', 'reward', 'proof']));
+    for (const tab of tabs) {
+      await page.locator(`#osi-case-tabs [data-tab="${tab}"]`).click();
+      if (tab === 'reports') {
+        await expect(page.locator(`[data-report-version-public-ref="${HOSTILE_VERSION_REF}"]`)).toBeVisible();
+        await page.locator(`[data-report-detail-toggle="${HOSTILE_VERSION_REF}"]`).click();
+      }
+      const audit = await page.evaluate(() => {
+        const root = document.getElementById('osi-case-drawer');
+        return {
+          handlers: root.querySelectorAll('[onerror],[onload]').length,
+          images: root.querySelectorAll('img[src="x"]').length,
+          scriptLinks: Array.from(root.querySelectorAll('a[href]')).filter((node) => !/^https:\/\//.test(node.getAttribute('href'))).map((node) => node.getAttribute('href')),
+          fired: window.__osiXss || null,
+        };
+      });
+      expect(audit, tab).toEqual({ handlers: 0, images: 0, scriptLinks: [], fired: null });
+    }
+    // The resolution still names the maintainer bootstrap channel and keeps
+    // the one validated Solscan link while dropping the script URL.
+    await page.locator('#osi-case-tabs [data-tab="resolution"]').click();
+    await expect(page.locator('#osi-case-content [data-decision-channel="maintainer_bootstrap"]').first()).toBeVisible();
+    await expect(page.locator(`#osi-case-content a[href="https://solscan.io/tx/${OPEN_TX}"]`)).toHaveCount(1);
+    await page.locator('#osi-case-tabs [data-tab="proof"]').click();
+    await expect(page.locator('#osi-case-content')).toContainText(XSS);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => window.__osiXss || null)).toBeNull();
     expect(page.__runtimeErrors).toEqual([]);
   });
 });

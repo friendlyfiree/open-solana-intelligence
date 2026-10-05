@@ -238,7 +238,7 @@
 /* Reference on the left, its state and the proof toggle together on the
    right, instead of the chip floating in the middle of the row. */
 #osi-case-drawer .osi-report-public-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px 12px}
-#osi-case-drawer .osi-report-publication-channel p{font-size:13px;line-height:1.55;color:var(--ink-dim)}
+#osi-case-drawer .osi-report-publication-channel span,#osi-case-drawer .osi-report-publication-channel p{margin:0;font-size:13px;line-height:1.55;color:var(--ink-dim)}
 @media(max-width:600px){
   #osi-case-drawer .osi-report-public-head{display:flex}
   /* The state chip and the proof toggle share one row under the reference
