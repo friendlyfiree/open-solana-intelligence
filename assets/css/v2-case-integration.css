@@ -578,12 +578,25 @@ a.osi-proof-label[data-sas-badge="verified"]::after{content:"";position:absolute
 .osi-payment-review-card dl div{border-radius:8px}
 .osi-payment-review-card li{border-left-color:var(--line-bright);background:var(--bg-raised);border-radius:0 8px 8px 0;font:500 13.5px/1.5 var(--font-sans)}
 .osi-payment-review-card .osi-payment-recipients{margin:0 0 14px}
-.osi-payment-review-card .osi-payment-recipients li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;border-left:2px solid var(--lamp)}
+.osi-payment-review-card .osi-payment-recipients li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;border-left:2px solid var(--ink-dim)}
 .osi-payment-recipient-head{grid-column:1/-1;display:flex;justify-content:space-between;gap:12px;color:var(--ink-dim)}
 .osi-payment-recipients .osi-ref-value{grid-column:1;color:var(--ink);font-size:13.5px}
 .osi-payment-recipients .osi-ref-copy{grid-column:2}
 .osi-payment-review-card .osi-case-note{margin:14px 0;border-left:2px solid var(--line-bright);background:rgba(245,240,232,.03)}
 .osi-payment-review-card .osi-payment-actions{align-items:center}
+.osi-payment-memo{margin:8px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(14,19,32,.72)}
+.osi-payment-memo-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.osi-payment-memo-head span{color:var(--ink-faint);font:500 12.5px/1.4 var(--font-sans)}
+.osi-payment-memo code{display:block;color:var(--ink);font:12.5px/1.55 var(--font-mono);overflow-wrap:anywhere}
+/* Cancel sits apart from the two wallet routes. */
+.osi-payment-review-actions>[data-payment-cancel]{margin-right:auto}
+/* Solana Pay keeps Close first and the wallet link last in focus order, so
+   the row breaks on purpose: Close and the copy controls, then the routes. */
+.osi-actions-break{flex:0 0 100%!important;height:0;margin:0;padding:0}
+/* A disabled payment control inside a card reads left to right with its
+   reason under it, like the rest of the card. */
+#osi-case-drawer .osi-payment-compose>.osi-disabled-action{justify-items:start}
+#osi-case-drawer .osi-payment-compose>.osi-disabled-action .osi-action-reason{text-align:left}
 .osi-solana-pay-grid dl>div:has([data-solana-pay-memo]){grid-column:1/-1}
 .osi-solana-pay-key dl{grid-template-columns:1fr}
 .osi-solana-pay-key dd{font-size:15px}

@@ -544,7 +544,7 @@
   function publicEvidence(row){
     var html=structuredReferences(row);
     if(!html)return'';
-    return'<div class="osi-report-public-evidence"><h4>'+esc(t('Evidence and Sources'))+'</h4>'+html+'</div>';
+    return'<div class="osi-report-public-evidence"><h4>'+esc(t('Evidence and sources'))+'</h4>'+html+'</div>';
   }
   // The decision channel is stated in words. The raw receipt field stays on
   // the element for auditors and is printed in the technical proof detail.
@@ -618,7 +618,7 @@
       // The chain link and the support control are one action row, so they
       // never touch and read as two separate things.
       var actions='<div class="osi-report-actions">'+(sig?'<a class="osi-report-chain-link" href="https://solscan.io/tx/'+esc(sig)+'" target="_blank" rel="noopener">'+esc(t('Verify the publication Memo on Solscan'))+'</a>':'')
-        +(row.state==='published'?'<button class="osi-report-action" type="button" onclick="osiV2SupportReportAuthor(\''+esc(row.version_public_ref)+'\')">'+esc(t('Support author with SOL'))+'</button>':'')+'</div>';
+        +(row.state==='published'?'<button class="osi-report-action" type="button" data-support-version="'+esc(row.version_public_ref)+'" data-default-label="Support author with SOL" onclick="osiV2SupportReportAuthor(\''+esc(row.version_public_ref)+'\')">'+esc(t('Support author with SOL'))+'</button>':'')+'</div>';
       // An explicit label keeps this read-only disclosure control from reading
       // like a review or publication action.
       var headLabel=t('Proof detail for {report}, version {number}',{report:row.report_public_ref,number:row.version_no});
@@ -656,6 +656,9 @@
         button.setAttribute('aria-expanded',open?'true':'false');
       });
     });
+    // A payment already pending for this Case turns the support controls into
+    // the resume control, so a second intent is never offered here.
+    if(typeof window.osiV2SyncPendingSupport==='function')window.osiV2SyncPendingSupport(host);
   }
   function reportLoadingState(mode){
     var copy=mode==='authorized'
@@ -761,7 +764,7 @@
   function evidenceHtml(items,sections){
     var html=structuredReferences({evidence:items||[],evidence_sections:sections||null});
     if(!html)return'';
-    return'<div class="osi-report-evidence-list"><h5>'+esc(t('Evidence and Sources'))+'</h5>'+html+'</div>';
+    return'<div class="osi-report-evidence-list"><h5>'+esc(t('Evidence and sources'))+'</h5>'+html+'</div>';
   }
   // Long-form Report text keeps its paragraphs in the review surfaces too. A
   // 100,000-character narrative in one paragraph element is unreadable and
