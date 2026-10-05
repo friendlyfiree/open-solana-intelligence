@@ -622,6 +622,9 @@ a.osi-proof-label[data-sas-badge="verified"]::after{content:"";position:absolute
 /* Profile badge spacing (the SAS chip used to touch the analyst name). */
 .osi-public-profile h3 [data-sas-wallet]:not(:empty),.an-profile h3 [data-sas-wallet]:not(:empty){margin-left:10px;vertical-align:middle}
 
+/* A reviewer name that opens the analyst profile keeps a full-size hit area
+   without pushing the line it sits in apart. */
+#osi-case-drawer .osi-review-actor-link{display:inline-flex;align-items:center;min-height:40px;margin-block:-10px}
 #osi-payment-banner{scroll-margin-top:16px}
 .osi-ref-value.osi-ref-network{font-family:var(--font-sans);font-size:14px}
 @media(max-width:640px){

@@ -552,7 +552,9 @@
     proof=proof||{};var channel=String(proof.decision_channel||'');if(!channel)return'';
     var bootstrap=channel==='maintainer_bootstrap';
     var channelLabel=proof.decision_channel_label||(bootstrap?'Maintainer bootstrap (cold-start) decision. Not an independent analyst quorum outcome.':'Standard analyst quorum');
-    return'<div class="osi-report-publication-channel '+(bootstrap?'bootstrap':'standard')+'" data-decision-channel="'+esc(channel)+'"><b>'+esc(t(bootstrap?'Maintainer bootstrap publication':'Published through the standard analyst quorum'))+'</b>'+(bootstrap||proof.decision_channel_label?'<span>'+esc(t(channelLabel))+'</span>':'')+(bootstrap?'<p>'+esc(t('This publication used the maintainer bootstrap channel. It is not independent analyst quorum.'))+'</p>':'')+'</div>';
+    // A bootstrap publication says so once, in plain words; the server's own
+    // label is kept on the element for anyone matching it to the receipt.
+    return'<div class="osi-report-publication-channel '+(bootstrap?'bootstrap':'standard')+'" data-decision-channel="'+esc(channel)+'" title="'+esc(t(channelLabel))+'"><b>'+esc(t(bootstrap?'Maintainer bootstrap publication':'Published through the standard analyst quorum'))+'</b>'+(bootstrap?'<p>'+esc(t('This publication used the maintainer bootstrap channel. It is not independent analyst quorum.'))+'</p>':(proof.decision_channel_label?'<span>'+esc(t(channelLabel))+'</span>':''))+'</div>';
   }
   // Public proof detail for one published version. Every field comes straight
   // from the anonymous projection; nothing private is derived or reconstructed.
@@ -732,9 +734,7 @@
       var writesOn=capability.report_writes_enabled===true,eligible=capability.case_eligible===true;
       if(!writesOn)copy.textContent=t(capability.prerequisite||'Report submission is not enabled.');
       else if(!eligible)copy.textContent=t('Report intake is open only while a Case is in public investigation, under Report review, or reopened.');
-      else copy.textContent=wallet
-        ?t('Submit Report from the bar below. It records an exact private Report version with a confirmed mainnet Memo; review and publication are separate steps.')
-        :t('Submit Report from the bar below. Submitting asks your wallet to connect first, and Reports remain private until reviewed publication.');
+      else copy.textContent=t('Report intake is open for this Case. Use Submit Report in the bar below; a new Report stays private until reviewed publication.');
     }catch(error){if(generation!==privateGeneration()||requestedWallet!==String(walletPubkey||'')||!sectionIsCurrent(token,caseRef,host))return;copy.textContent=t('Report capability is temporarily unavailable.');}
   }
   function reloadSection(item,mode,expectedRenderToken){
