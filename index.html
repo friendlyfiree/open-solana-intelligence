@@ -386,32 +386,38 @@
 <section class="sec" id="analysts" data-view="analysts">
   <div class="lb-shell">
     <div class="lb-hero">
-      <div class="sec-eyebrow">VERIFIED PUBLIC IDENTITIES</div>
+      <div class="sec-eyebrow">Public analyst roster</div>
       <h1 class="lb-title">Analyst Network</h1>
       <p class="lb-sub">Wallet-linked analysts with server-derived status, attributable contributions, and inspectable proof history. Support never changes ordering, status, or review weight.</p>
       <div class="lb-trust-chips" aria-label="Analyst trust model">
         <span>Wallet-linked work</span>
-        <span>Reputation by contribution</span>
+        <span>Track record from signed work</span>
         <span>Challengeable reviews</span>
         <span>No pay-to-rank</span>
       </div>
     </div>
     <div class="lb-console">
       <div class="lb-maincol">
-        <!-- Who operates this deployment. Rendered above the roster and kept
-             visibly separate from it: the maintainer is not an analyst, holds no
-             review weight and is counted in no quorum. Empty until a profile is
-             published, and never a placeholder. -->
-        <section id="osi-maintainer-profile" class="osi-maintainer-profile" hidden aria-labelledby="osi-maintainer-profile-title"></section>
         <div class="lb-board" id="lb-board">
-          <div class="lb-thead osi-analyst-head mono" aria-hidden="true" data-osi-i18n-ui><span>Analyst</span><span>Status</span><span>Expertise</span><span>Contributions</span><span class="r">Weight</span><span class="r">Proof</span></div>
+          <div class="lb-thead osi-analyst-head" aria-hidden="true" data-osi-i18n-ui><span>Analyst</span><span>Status</span><span>Expertise</span><span>Public records</span><span class="r">Weight</span><span class="r">Proof</span></div>
+          <!-- Who operates this deployment, under the same column labels as the
+               roster so its numbers are never unlabeled. Its own heading and
+               notice keep it apart: the maintainer is not an analyst, holds no
+               review weight and is counted in no quorum. Empty until a profile
+               is published, and never a placeholder. -->
+          <section id="osi-maintainer-profile" class="osi-maintainer-profile" hidden aria-labelledby="osi-maintainer-profile-title"></section>
+          <h2 class="osi-roster-group" id="osi-analyst-roster-title">Analysts</h2>
           <div class="lb-wrap" id="lb-body"></div>
         </div>
-        <div class="fo-pager"><span class="fo-count mono" id="lb-count" aria-live="polite"></span><div class="fo-pnav" id="lb-pnav" role="navigation" aria-label="Leaderboard pages"></div></div>
+        <div class="fo-pager"><span class="fo-count" id="lb-count" aria-live="polite"></span><div class="fo-pnav" id="lb-pnav" role="navigation" aria-label="Leaderboard pages"></div></div>
+        <div class="lb-legend">
+          <h2 class="lb-legend-h">Proof labels in profiles</h2>
+          <div class="osi-proof-key"><span><i class="memo"></i>Memo-anchored on Solana</span><span><i class="signed"></i>Wallet-signed and server-verified</span><span><i class="legacy"></i>Legacy, not server-verified</span></div>
+        </div>
       </div>
       <aside class="lb-aside" aria-label="Reputation system" tabindex="0">
         <div class="lb-card">
-          <div class="fd-h mono">Initial review authority</div>
+          <h2 class="fd-h">Initial review authority</h2>
           <div class="lb-rules">
             <div class="lb-rule"><span>Probationary analyst</span><b class="ok">weight 0.50</b></div>
             <div class="lb-rule"><span>Initial-open analyst gate</span><b class="ok">1 analyst and 0.50</b></div>
@@ -423,7 +429,7 @@
           <div class="lb-cap">Tier and weight are server-derived. A maintainer cannot type, select, or override either value.</div>
         </div>
         <div class="lb-card">
-          <div class="fd-h mono">How to earn a seat</div>
+          <h2 class="fd-h">How to earn a seat</h2>
           <div class="lb-steps">
             <div class="lb-step"><span class="n">1</span><div><b>Create a wallet profile</b><span>Choose a unique handle and short public bio; the handle is required and permanent, expertise is optional.</span></div></div>
             <div class="lb-step"><span class="n">2</span><div><b>Submit work evidence</b><span>Each application version is signed and immutable.</span></div></div>
@@ -433,17 +439,13 @@
           <button class="lb-cta" type="button" onclick="apxOpen()">Start analyst application</button>
           <button class="lb-cta ghost" type="button" onclick="osiAnalystOpenWorkspace('applications')">Open My Applications</button>
         </div>
-        <div class="lb-card">
-          <div class="fd-h mono">Proof labels</div>
-          <div class="osi-proof-key"><span><i class="memo"></i>Memo-anchored on Solana</span><span><i class="signed"></i>Wallet-signed and server-verified</span><span><i class="legacy"></i>Legacy, not server-verified</span></div>
-        </div>
         <div class="lb-card lb-guidelines">
-          <div class="fd-h mono">Review guidelines</div>
+          <h2 class="fd-h">Review guidelines</h2>
           <div class="lb-guideline-list">
-            <div class="lb-guide"><span class="n">1</span><div><b>Read the evidence</b><span>Check public links, wallets, logs, and submitted context.</span></div></div>
-            <div class="lb-guide"><span class="n">2</span><div><b>Vote with conviction</b><span>One vote per item; only sign what the evidence supports.</span></div></div>
-            <div class="lb-guide"><span class="n">3</span><div><b>Challenge weak claims</b><span>If attribution is thin, challenge it before publication.</span></div></div>
-            <div class="lb-guide"><span class="n">4</span><div><b>Protect the record</b><span>Quality reviews keep public records useful and challengeable.</span></div></div>
+            <div class="lb-guide"><div><b>Read the evidence</b><span>Check public links, wallets, logs, and submitted context.</span></div></div>
+            <div class="lb-guide"><div><b>Vote with conviction</b><span>One vote per item; only sign what the evidence supports.</span></div></div>
+            <div class="lb-guide"><div><b>Challenge weak claims</b><span>If attribution is thin, challenge it before publication.</span></div></div>
+            <div class="lb-guide"><div><b>Protect the record</b><span>Quality reviews keep public records useful and challengeable.</span></div></div>
           </div>
         </div>
       </aside>
