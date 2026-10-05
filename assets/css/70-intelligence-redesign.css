@@ -6925,3 +6925,739 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 /* The prerequisite note always starts its own line under the controls. */
 #wire-view .wire-actions { display: flex; flex-wrap: wrap; align-items: center; }
 #wire-view .wire-actions .wire-cta-note { flex: 1 1 100%; margin-bottom: 0; }
+
+/* === Analyst Network pass === */
+
+/* --- Analyst profile: a right-hand reading drawer -------------------------
+ * The profile is a long record (facts, work record, support, proof
+ * history), so it reads in the same right-hand drawer shape as a Case
+ * instead of a centred modal. The card no longer scrolls; only the body
+ * does, so the close control stays put at the top while the record moves
+ * underneath it. */
+#ap-modal {
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+}
+
+#ap-modal .ap-modal-bg {
+  background: rgba(4, 5, 8, .72);
+}
+
+#ap-modal .ap-modal-card {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100vw) !important;
+  height: 100%;
+  max-height: none;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 0;
+  border-left: 1px solid var(--line-bright);
+  border-radius: 0;
+  background: var(--bg-deep);
+  box-shadow: -28px 0 80px rgba(0, 0, 0, .5);
+  transform: translateX(24px);
+  transition: transform 180ms var(--ease-out);
+}
+
+#ap-modal.open .ap-modal-card {
+  transform: none;
+}
+
+#ap-modal .ap-modal-x {
+  top: 14px;
+  right: 16px;
+  z-index: 70;
+  border: 1px solid var(--line-bright);
+  border-radius: 10px;
+  background: var(--bg-raised);
+  color: var(--ink-dim);
+  font-size: 24px;
+}
+
+#ap-modal .ap-modal-x:hover {
+  border-color: var(--lamp-line);
+  color: var(--ink);
+}
+
+#ap-modal .ap-modal-x:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-color: var(--lamp);
+}
+
+#ap-modal .ap-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 32px 36px 56px;
+}
+
+/* A legacy type selector made every <header> sticky, translucent and z50.
+ * Inside these records it pinned the profile heading over the close control
+ * and over scrolling content, so each record heading is put back in flow. */
+.osi-public-profile > header,
+.osi-workspace-profile > header,
+.osi-workspace-head,
+.osi-application-card > header,
+.osi-version-card > header,
+.osi-ops-application > header {
+  position: static;
+  top: auto;
+  z-index: auto;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.osi-application-card > header,
+.osi-version-card > header {
+  border-bottom: 0;
+}
+
+/* The heading never runs under the close control. */
+#ap-modal .osi-public-profile > header {
+  padding-right: 56px;
+}
+
+/* Generated avatars keep their drawn size inside flex rows. */
+svg.osi-av {
+  flex: none;
+}
+
+@media (max-width: 760px) {
+  #ap-modal .ap-modal-card {
+    width: 100vw !important;
+    border-left: 0;
+  }
+
+  #ap-modal .ap-modal-body {
+    padding: 20px 16px calc(40px + env(safe-area-inset-bottom));
+  }
+
+  #ap-modal .ap-modal-x {
+    top: 10px;
+    right: 10px;
+  }
+}
+
+@media print {
+  #ap-modal.open .ap-modal-card {
+    display: block !important;
+    height: auto !important;
+  }
+}
+
+/* --- Analyst roster: labels, groups and legend ---------------------------
+ * One quiet label style: sentence case in the reading face. Uppercase
+ * tracking turned English words into dotted-I forms under Turkish case
+ * rules, so these labels keep the case they were written in. */
+#analysts .lb-thead,
+#analysts .osi-analyst-head {
+  font-family: var(--font-sans);
+  font-size: 12px !important;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+
+#analysts .osi-maintainer-kicker,
+#analysts .osi-roster-group {
+  margin: 0;
+  padding: 14px 15px 4px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-dim);
+}
+
+#analysts .lb-board .osi-maintainer-profile {
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#analysts .lb-board .osi-maintainer-rows {
+  border: 0;
+  border-radius: 0;
+  background: rgba(245, 240, 232, .025);
+}
+
+#analysts .lb-board .osi-maintainer-notice {
+  margin: 0;
+  padding: 0 15px 14px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+#analysts .lb-board .osi-maintainer-edit,
+#analysts .lb-board .osi-maintainer-editor-host,
+#analysts .lb-board .osi-maintainer-empty {
+  margin-inline: 15px;
+}
+
+#analysts .lb-board .osi-maintainer-edit {
+  margin-bottom: 14px;
+}
+
+/* The maintainer row is set apart by a neutral rule, not by a colour that
+ * means proof or action. */
+.osi-analyst-row-maintainer::before {
+  background: rgba(216, 224, 234, .45);
+}
+
+.osi-analyst-row-maintainer:hover,
+.osi-analyst-row:hover {
+  background: rgba(245, 240, 232, .035);
+}
+
+/* The board clips overflow, so the keyboard ring sits inside the row. */
+#analysts .osi-analyst-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+  background: rgba(255, 176, 32, .05);
+}
+
+/* Desktop columns: the status chip stays on one line and the three number
+ * columns are only as wide as their labels. */
+@media (min-width: 901px) {
+  #analysts .osi-analyst-head,
+  #analysts .osi-analyst-row {
+    grid-template-columns: minmax(180px, 1.1fr) minmax(200px, .9fr) minmax(170px, 1fr) 76px 64px 56px;
+  }
+}
+
+#analysts .osi-analyst-row .osi-records,
+#analysts .osi-analyst-row .osi-proofs {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+}
+
+#analysts .osi-analyst-row .osi-weight {
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+
+#analysts .osi-analyst-row .osi-weight-none {
+  color: var(--ink-faint);
+  font-family: var(--font-sans);
+}
+
+/* Where the column header is hidden, each number carries its own label. */
+@media (max-width: 900px) {
+  #analysts .osi-cell-label {
+    display: block;
+    color: var(--ink-faint);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  #analysts .osi-analyst-row > .osi-weight {
+    display: grid;
+    justify-items: end;
+  }
+}
+
+@media (max-width: 600px) {
+  #analysts .osi-cell-label {
+    font-size: 12px;
+  }
+}
+
+/* Status chips: sentence case and one line. Colour follows meaning: a
+ * standing is neutral, pending is a cool grey-blue, a rejection is the
+ * danger tone with a glyph, and green stays reserved for chain proof. */
+body .osi-status {
+  padding: 5px 9px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  color: var(--ink-dim);
+  border-color: rgba(245, 240, 232, .2);
+  background: rgba(245, 240, 232, .04);
+}
+
+body .osi-status.probationary_analyst,
+body .osi-status.verified_analyst,
+body .osi-status.senior_analyst,
+body .osi-status.approved {
+  color: var(--ink);
+  border-color: rgba(245, 240, 232, .32);
+  background: rgba(245, 240, 232, .06);
+}
+
+body .osi-status.in_review,
+body .osi-status.submitted {
+  color: #b9c8e0;
+  border-color: rgba(159, 180, 216, .42);
+  background: rgba(159, 180, 216, .08);
+}
+
+body .osi-status.revision_requested {
+  color: var(--warning);
+  border-color: rgba(255, 194, 77, .4);
+  background: rgba(255, 194, 77, .07);
+}
+
+body .osi-status.rejected,
+body .osi-status.revoked,
+body .osi-status.suspended {
+  color: var(--danger);
+  border-color: rgba(255, 115, 128, .42);
+  background: rgba(255, 115, 128, .07);
+}
+
+body .osi-status.rejected::before,
+body .osi-status.revoked::before {
+  content: "\2715";
+  margin-right: 6px;
+}
+
+body .osi-status.maintainer {
+  color: var(--platinum-cool);
+  border-style: dashed;
+  border-color: rgba(216, 224, 234, .5);
+  background: transparent;
+}
+
+/* Expertise is self-described, so it reads as plain neutral tags. */
+.osi-expertise-list span,
+.osi-tag-list span {
+  border-color: var(--line);
+  background: rgba(245, 240, 232, .04);
+  color: var(--ink-dim);
+}
+
+/* Proof labels legend, under the roster it explains. Shape and colour
+ * together: a filled green dot only for Memo-anchored proof, a hollow ring
+ * for a wallet signature, a dashed ring for legacy rows. */
+#analysts .lb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+#analysts .lb-legend-h {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink-dim);
+}
+
+#analysts .lb-legend .osi-proof-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+#analysts .lb-legend .osi-proof-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.osi-proof-key i,
+.osi-proof-dot {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin: 0;
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+.osi-proof-key i.memo,
+.osi-proof-dot.memo {
+  background: var(--verified);
+}
+
+.osi-proof-key i.signed,
+.osi-proof-dot.signed {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--platinum-cool);
+}
+
+.osi-proof-key i.legacy,
+.osi-proof-dot.legacy {
+  background: transparent;
+  border: 1.5px dashed var(--ink-faint);
+}
+
+.osi-proof-dot {
+  margin-right: 7px;
+  vertical-align: -1px;
+}
+
+/* Wallet-signed proof is a neutral fact, not an alarm or an action. */
+.osi-proof-badge.signed {
+  color: var(--platinum-cool);
+  border-color: rgba(216, 224, 234, .38);
+  background: rgba(216, 224, 234, .05);
+}
+
+/* --- Reference column ---------------------------------------------------- */
+#analysts .fd-h {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px !important;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-dim) !important;
+}
+
+#analysts .lb-rule b,
+#analysts .lb-rule b.ok {
+  color: var(--ink);
+  text-shadow: none;
+  font-weight: 600;
+}
+
+#analysts .lb-rule b.mut,
+#analysts .lb-cap,
+#analysts .lb-step span:not(.n),
+#analysts .lb-guide span {
+  color: var(--ink-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#analysts .lb-step .n {
+  border-color: var(--line-bright);
+  background: transparent;
+  color: var(--ink-dim);
+}
+
+/* A short roster leaves the reference cards below it in one row of three
+ * instead of a tall column beside a short table. */
+@media (min-width: 901px) {
+  #analysts .lb-console:has(#lb-body > .osi-analyst-row:first-child):not(:has(#lb-body > .osi-analyst-row:nth-child(8))) {
+    grid-template-columns: 1fr;
+  }
+
+  #analysts .lb-console:has(#lb-body > .osi-analyst-row:first-child):not(:has(#lb-body > .osi-analyst-row:nth-child(8))) .lb-maincol {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  #analysts .lb-console:has(#lb-body > .osi-analyst-row:first-child):not(:has(#lb-body > .osi-analyst-row:nth-child(8))) .lb-aside {
+    position: static;
+    grid-column: 1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+/* A failed directory read is not an empty roster: the application actions
+ * stay where they were. Only the empty state has its own start button. */
+#analysts .osi-activation-error::before {
+  border-color: rgba(255, 115, 128, .42);
+  color: var(--danger);
+}
+
+@media (min-width: 900px) {
+  #analysts .lb-console:has(#lb-body .osi-activation-error) .lb-aside .lb-cta,
+  #analysts .lb-console:has(#lb-body .osi-activation-empty) .lb-aside .lb-cta.ghost {
+    display: block;
+  }
+}
+
+/* Phones: the reference cards stack in reading order (the card with the
+ * application action first) instead of hiding in a sideways strip. */
+@media (max-width: 720px) {
+  #analysts .lb-aside {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+    overflow: visible;
+    padding-bottom: 0;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  #analysts .lb-aside > .lb-card:has(.lb-cta) {
+    order: -1;
+  }
+}
+
+/* --- Profile drawer content ---------------------------------------------- */
+#ap-modal .osi-profile-facts > div > span,
+#ap-modal .osi-cv-summary dt {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+
+#ap-modal .osi-profile-facts b {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+#ap-modal .osi-profile-facts small {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.osi-cv-summary {
+  margin: 0;
+}
+
+.osi-cv-summary dd {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.osi-cv-scope {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+
+.osi-cv-outcome {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Lifecycle outcomes are neutral; sealed is the one filled state. */
+.osi-cv-outcome[data-outcome=published],
+.osi-cv-outcome[data-outcome=resolved] {
+  color: var(--platinum-cool);
+  border-color: rgba(216, 224, 234, .38);
+}
+
+.osi-cv-outcome[data-outcome=sealed] {
+  color: var(--bg);
+  border-color: var(--platinum-cool);
+  background: var(--platinum-cool);
+}
+
+.osi-history-row > div > span {
+  display: block;
+  line-height: 1.5;
+}
+
+.osi-history-support > div > b {
+  color: var(--ink);
+}
+
+#ap-modal .osi-primary-action {
+  border-color: var(--lamp);
+  background: var(--brand-spectrum);
+  color: var(--lamp-ink);
+}
+
+@media print {
+  .osi-cv-summary dd {
+    color: #000 !important;
+  }
+}
+
+/* --- Analyst application modal ------------------------------------------- */
+/* The dialog fits the viewport with its own scroll, so the bottom border and
+ * the submit row are never cut off behind a second scroll container. */
+#apx-modal.open {
+  padding: clamp(16px, 6vh, 72px) 16px !important;
+}
+
+#apx-modal .fo-form {
+  max-height: calc(100dvh - 2 * clamp(16px, 6vh, 72px));
+}
+
+#apx-modal .fo-x {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 16px;
+  z-index: 3;
+}
+
+#apx-modal .rec-sec-h {
+  letter-spacing: 0;
+  text-transform: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+
+#apx-modal .osi-analyst-form label > span,
+#apx-modal .osi-expertise legend {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 13px;
+}
+
+/* The safety box sits on the line of the sentence it confirms. */
+#apx-modal .osi-analyst-form > label.osi-report-safety {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+#apx-modal .osi-analyst-form > label.osi-report-safety input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+}
+
+#apx-modal .osi-handle-preview {
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+#apx-modal .osi-handle-preview:empty {
+  display: none;
+}
+
+#apx-modal .rec-go {
+  border: 1px solid var(--lamp);
+  background: var(--brand-spectrum);
+  color: var(--lamp-ink);
+}
+
+/* --- Analyst workspace ----------------------------------------------------- */
+.osi-workspace-kicker {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.osi-application-card > header > div > span:first-child {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+
+.osi-workspace-head .osi-workspace-kicker {
+  color: var(--ink-faint);
+  letter-spacing: 0;
+}
+
+/* Workspace and application actions use the action colour, never green. */
+.osi-analyst-workspace .osi-primary-action {
+  border-color: var(--lamp);
+  background: var(--brand-spectrum);
+  color: var(--lamp-ink);
+}
+
+#apx-modal .osi-application-steps {
+  border-color: var(--line);
+  background: rgba(245, 240, 232, .025);
+}
+
+#apx-modal .osi-application-steps b {
+  border-color: var(--lamp-line);
+  color: var(--lamp);
+}
+
+/* The application receipt is a wallet-signed, server-verified save, not
+ * chain proof, so it is neutral. Its facts read as one definition list
+ * with hairlines rather than a third level of bordered boxes. */
+#apx-modal .osi-submission-receipt {
+  border-color: var(--line-bright);
+  background: rgba(245, 240, 232, .03);
+}
+
+#apx-modal .osi-receipt-head span,
+#apx-modal .osi-receipt-copy-state {
+  color: var(--ink-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#apx-modal .osi-receipt-grid {
+  gap: 0 18px;
+}
+
+#apx-modal .osi-receipt-grid div {
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+}
+
+#apx-modal .osi-receipt-grid dt {
+  text-transform: none;
+}
+
+/* The group labels keep the case they were written in (the foundation
+ * eyebrow style tracks them, which reads as an English-only shout). */
+#analysts .osi-maintainer-kicker {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Reference cards keep their own height; a short card is not stretched to
+ * match its neighbour. */
+@media (min-width: 721px) {
+  #analysts .lb-console .lb-aside {
+    align-items: start;
+  }
+}
+
+/* The maintainer's role note is a boundary statement, marked by a neutral
+ * rule rather than an off-palette violet. */
+#ap-modal .osi-profile-role-note {
+  border-left-color: var(--platinum-cool);
+  font-size: 13px;
+}
+
+/* Work-record counts read as a two-column list of label and number, so a
+ * seventh count never sits alone on a row of its own. */
+#ap-modal .osi-cv-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#ap-modal .osi-cv-summary > div {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 13px;
+}
+
+@media (max-width: 520px) {
+  #ap-modal .osi-cv-summary {
+    grid-template-columns: 1fr;
+  }
+}

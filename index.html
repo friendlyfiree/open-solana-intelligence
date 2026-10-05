@@ -345,32 +345,38 @@
 <section class="sec" id="analysts" data-view="analysts">
   <div class="lb-shell">
     <div class="lb-hero">
-      <div class="sec-eyebrow">VERIFIED PUBLIC IDENTITIES</div>
+      <div class="sec-eyebrow">Public analyst roster</div>
       <h1 class="lb-title">Analyst Network</h1>
       <p class="lb-sub">Wallet-linked analysts with server-derived status, attributable contributions, and inspectable proof history. Support never changes ordering, status, or review weight.</p>
       <div class="lb-trust-chips" aria-label="Analyst trust model">
         <span>Wallet-linked work</span>
-        <span>Reputation by contribution</span>
+        <span>Track record from signed work</span>
         <span>Challengeable reviews</span>
         <span>No pay-to-rank</span>
       </div>
     </div>
     <div class="lb-console">
       <div class="lb-maincol">
-        <!-- Who operates this deployment. Rendered above the roster and kept
-             visibly separate from it: the maintainer is not an analyst, holds no
-             review weight and is counted in no quorum. Empty until a profile is
-             published, and never a placeholder. -->
-        <section id="osi-maintainer-profile" class="osi-maintainer-profile" hidden aria-labelledby="osi-maintainer-profile-title"></section>
         <div class="lb-board" id="lb-board">
-          <div class="lb-thead osi-analyst-head mono" aria-hidden="true" data-osi-i18n-ui><span>Analyst</span><span>Status</span><span>Expertise</span><span>Contributions</span><span class="r">Weight</span><span class="r">Proof</span></div>
+          <div class="lb-thead osi-analyst-head" aria-hidden="true" data-osi-i18n-ui><span>Analyst</span><span>Status</span><span>Expertise</span><span>Records</span><span class="r">Weight</span><span class="r">Proof</span></div>
+          <!-- Who operates this deployment, under the same column labels as the
+               roster so its numbers are never unlabeled. Its own heading and
+               notice keep it apart: the maintainer is not an analyst, holds no
+               review weight and is counted in no quorum. Empty until a profile
+               is published, and never a placeholder. -->
+          <section id="osi-maintainer-profile" class="osi-maintainer-profile" hidden aria-labelledby="osi-maintainer-profile-title"></section>
+          <h2 class="osi-roster-group" id="osi-analyst-roster-title">Analysts</h2>
           <div class="lb-wrap" id="lb-body"></div>
         </div>
-        <div class="fo-pager"><span class="fo-count mono" id="lb-count" aria-live="polite"></span><div class="fo-pnav" id="lb-pnav" role="navigation" aria-label="Leaderboard pages"></div></div>
+        <div class="fo-pager"><span class="fo-count" id="lb-count" aria-live="polite"></span><div class="fo-pnav" id="lb-pnav" role="navigation" aria-label="Leaderboard pages"></div></div>
+        <div class="lb-legend">
+          <h2 class="lb-legend-h">Proof labels in profiles</h2>
+          <div class="osi-proof-key"><span><i class="memo"></i>Memo-anchored on Solana</span><span><i class="signed"></i>Wallet-signed and server-verified</span><span><i class="legacy"></i>Legacy, not server-verified</span></div>
+        </div>
       </div>
       <aside class="lb-aside" aria-label="Reputation system" tabindex="0">
         <div class="lb-card">
-          <div class="fd-h mono">Initial review authority</div>
+          <h2 class="fd-h">Initial review authority</h2>
           <div class="lb-rules">
             <div class="lb-rule"><span>Probationary analyst</span><b class="ok">weight 0.50</b></div>
             <div class="lb-rule"><span>Initial-open analyst gate</span><b class="ok">1 analyst and 0.50</b></div>
@@ -382,7 +388,7 @@
           <div class="lb-cap">Tier and weight are server-derived. A maintainer cannot type, select, or override either value.</div>
         </div>
         <div class="lb-card">
-          <div class="fd-h mono">How to earn a seat</div>
+          <h2 class="fd-h">How to earn a seat</h2>
           <div class="lb-steps">
             <div class="lb-step"><span class="n">1</span><div><b>Create a wallet profile</b><span>Choose a unique handle and short public bio; the handle is required and permanent, expertise is optional.</span></div></div>
             <div class="lb-step"><span class="n">2</span><div><b>Submit work evidence</b><span>Each application version is signed and immutable.</span></div></div>
@@ -392,17 +398,13 @@
           <button class="lb-cta" type="button" onclick="apxOpen()">Start analyst application</button>
           <button class="lb-cta ghost" type="button" onclick="osiAnalystOpenWorkspace('applications')">Open My Applications</button>
         </div>
-        <div class="lb-card">
-          <div class="fd-h mono">Proof labels</div>
-          <div class="osi-proof-key"><span><i class="memo"></i>Memo-anchored on Solana</span><span><i class="signed"></i>Wallet-signed and server-verified</span><span><i class="legacy"></i>Legacy, not server-verified</span></div>
-        </div>
         <div class="lb-card lb-guidelines">
-          <div class="fd-h mono">Review guidelines</div>
+          <h2 class="fd-h">Review guidelines</h2>
           <div class="lb-guideline-list">
-            <div class="lb-guide"><span class="n">1</span><div><b>Read the evidence</b><span>Check public links, wallets, logs, and submitted context.</span></div></div>
-            <div class="lb-guide"><span class="n">2</span><div><b>Vote with conviction</b><span>One vote per item; only sign what the evidence supports.</span></div></div>
-            <div class="lb-guide"><span class="n">3</span><div><b>Challenge weak claims</b><span>If attribution is thin, challenge it before publication.</span></div></div>
-            <div class="lb-guide"><span class="n">4</span><div><b>Protect the record</b><span>Quality reviews keep public records useful and challengeable.</span></div></div>
+            <div class="lb-guide"><div><b>Read the evidence</b><span>Check public links, wallets, logs, and submitted context.</span></div></div>
+            <div class="lb-guide"><div><b>Vote with conviction</b><span>One vote per item; only sign what the evidence supports.</span></div></div>
+            <div class="lb-guide"><div><b>Challenge weak claims</b><span>If attribution is thin, challenge it before publication.</span></div></div>
+            <div class="lb-guide"><div><b>Protect the record</b><span>Quality reviews keep public records useful and challengeable.</span></div></div>
           </div>
         </div>
       </aside>
@@ -1036,12 +1038,12 @@
 <div class="fo-modal" id="apx-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="osi-application-title" onclick="if(event.target===this)apxClose()">
 <div class="fo-form">
 <button class="fo-x" type="button" onclick="apxClose()" aria-label="Close">✕</button>
-<div class="rec-sec-h" style="margin-top:2px">SIGNED ANALYST APPLICATION</div>
+<div class="rec-sec-h" style="margin-top:2px">Signed analyst application</div>
 <form class="osi-analyst-form" id="analyst-form" onsubmit="osiAnalystSubmit(event)">
   <h3 id="osi-application-title">Create your analyst profile</h3>
   <p class="lead">Apply in about one minute. Your wallet is the applicant identity and you approve one exact message. No SOL transfer or network fee is required.</p>
   <div class="osi-application-steps" aria-label="Application steps"><span><b>1</b> Choose a handle and bio</span><span><b>2</b> Confirm safety</span><span><b>3</b> Sign once</span></div>
-  <label><span>Short public bio (required)</span><textarea id="an-bio" minlength="10" maxlength="600" required placeholder="What you investigate and how you work with public evidence."></textarea><small>What you investigate and how you work with public evidence.</small></label><label><span>Public OSI handle</span><input id="an-handle" required minlength="2" maxlength="32" pattern="[A-Za-z0-9_]{2,32}" spellcheck="false" autocomplete="off" placeholder="chain_sleuth"><small>Required. This becomes your public address, osi.app/#analyst/your_handle, and it cannot be changed later.</small></label>
+  <label><span>Short public bio (required)</span><textarea id="an-bio" minlength="10" maxlength="600" required placeholder="What you investigate and how you work with public evidence."></textarea><small>10 to 600 characters. Shown on your public analyst profile.</small></label><label><span>Public OSI handle</span><input id="an-handle" required minlength="2" maxlength="32" pattern="[A-Za-z0-9_]{2,32}" spellcheck="false" autocomplete="off" placeholder="chain_sleuth"><small>Required. This becomes the permanent address of your public profile and cannot be changed later.</small><small class="osi-handle-preview" data-an-permalink-preview aria-live="polite"></small></label>
   <details class="osi-application-optional" id="analyst-optional-details">
     <summary><span><b>Add optional profile and work evidence</b><small>Display name, expertise, links, image and experience</small></span><i aria-hidden="true">+</i></summary>
     <div class="osi-application-optional-body">

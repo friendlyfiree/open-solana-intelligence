@@ -16,3 +16,8 @@
 @media (max-width:820px){.osi-profile-head{padding:22px 18px}.osi-profile-layout,.osi-profile-public-layout{grid-template-columns:1fr;padding:12px}.osi-profile-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.osi-profile-choice{grid-template-columns:1fr}.osi-profile-actions{align-items:stretch;flex-direction:column}.osi-profile-primary{width:100%}}
 @media (max-width:520px){.osi-profile-workspace{border-left:0;border-right:0;border-radius:0}.osi-profile-head{flex-direction:column}.osi-profile-head .osi-profile-secondary{width:100%}.osi-profile-card,.osi-profile-side section,.osi-profile-boundary,.osi-profile-rollout{padding:16px}.osi-profile-side{grid-template-columns:1fr}.osi-profile-summary{align-items:flex-start}.osi-profile-loading{grid-template-columns:1fr}.osi-profile-skeleton.avatar{margin:auto}}
 @media (prefers-reduced-motion:reduce){.osi-profile-primary,.osi-profile-secondary{transition:none}.osi-profile-skeleton{animation:none}}
+
+/* The legacy header type selector made these sticky, translucent and z50,
+   so they pinned over the form while it scrolled. They are record headings. */
+.osi-profile-head,.osi-profile-summary{position:static;top:auto;z-index:auto;-webkit-backdrop-filter:none;backdrop-filter:none}
+.osi-profile-summary{background:none}

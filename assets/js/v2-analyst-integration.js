@@ -8,7 +8,7 @@
   // who this browser is. This module has no capability fetch of its own, and an
   // earlier version read `state.capabilities` here, a key nothing in this file
   // ever set, so the operator's own edit control could never appear.
-  var state={profiles:[],profilesPromise:null,profileIntent:'',profileReturnFocus:null,workspace:null,workspaceWallet:'',workspaceTab:'profile',queue:[],busy:false,returnFocus:null,receipt:null,maintainerAccess:false,maintainerProfile:null};
+  var state={profiles:[],profilesError:null,profilesPromise:null,profileIntent:'',profileReturnFocus:null,workspace:null,workspaceWallet:'',workspaceTab:'profile',queue:[],busy:false,returnFocus:null,receipt:null,maintainerAccess:false,maintainerProfile:null};
 
   function esc(value){
     return String(value==null?'':value).replace(/[&<>"']/g,function(char){
@@ -18,12 +18,23 @@
   function short(value){value=String(value||'');return value.length>18?value.slice(0,8)+'...'+value.slice(-6):value;}
   var ACRONYMS={Osint:'OSINT',Aml:'AML',Kyc:'KYC',Defi:'DeFi',Nft:'NFT',Mev:'MEV',Dao:'DAO',Cex:'CEX',Dex:'DEX',Rpc:'RPC',Sas:'SAS'};
   function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();}).replace(/\b[A-Z][a-z]+\b/g,function(word){return ACRONYMS[word]||word;});}
+  // Expertise codes are server vocabulary. Each known code has one reader
+  // label (with its real acronym) and one Turkish translation; an unknown code
+  // still reads as words rather than as snake_case.
+  var EXPERTISE_LABELS={blockchain_forensics:'Blockchain forensics',scam_analysis:'Scam analysis',exploit_research:'Exploit research',data_analysis:'Data analysis',osint:'OSINT',protocol_research:'Protocol research',attribution:'Attribution',fund_flow_tracing:'Fund-flow tracing',onchain_tracing:'On-chain tracing'};
+  function expertiseLabel(code){var key=String(code||'').toLowerCase();return t(EXPERTISE_LABELS[key]||label(code));}
+  function expertiseChips(list){return (list||[]).filter(function(item){return typeof item==='string'&&item;}).map(function(item){return '<span>'+esc(expertiseLabel(item))+'</span>';}).join('');}
+  var STATUS_LABELS={probationary_analyst:'Probationary analyst',verified_analyst:'Verified analyst',verified:'Verified analyst',senior_analyst:'Senior analyst',senior:'Senior analyst',approved:'Approved',in_review:'In review',submitted:'Submitted',revision_requested:'Revision requested',rejected:'Rejected',withdrawn:'Withdrawn',suspended:'Suspended',revoked:'Revoked',maintainer:'Maintainer'};
+  function statusText(status){return t(STATUS_LABELS[String(status||'')]||label(status));}
   function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
   function analystLocale(){
     var locale=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():document.documentElement.lang;
     return String(locale||'en').toLowerCase().indexOf('tr')===0?'tr-TR':'en-US';
   }
-  function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(analystLocale(),{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})+' UTC';}
+  function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?t('Not recorded'):date.toLocaleString(analystLocale(),{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})+' UTC';}
+  // Server-derived weight in the reader's number format (0,50 in Turkish),
+  // matching the reference rules beside the roster.
+  function weightText(value){var number=Number(value||0);try{return number.toLocaleString(analystLocale(),{minimumFractionDigits:2,maximumFractionDigits:2});}catch(_){return number.toFixed(2);}}
   function randomKey(prefix){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return prefix+':'+id.replace(/[^A-Za-z0-9.-]/g,'');}
   function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
   function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
@@ -107,6 +118,24 @@
   function safeHttps(url){
     try{var parsed=new URL(String(url||''));return parsed.protocol==='https:'&&!parsed.username&&!parsed.password?parsed.toString():'';}catch(_){return '';}
   }
+  // A link label is user text. Known hosts get their proper name when the
+  // label is a bare lowercase host word ("twitter"), and anything else is shown
+  // exactly as the owner wrote it.
+  function linkLabel(text,url){
+    var raw=String(text||'').trim(),host='';
+    try{host=new URL(url).hostname.replace(/^www\./,'');}catch(_){}
+    if(!raw)return host||url;
+    if(/^(twitter|x)$/i.test(raw)&&/^(x|twitter)\.com$/.test(host))return 'X';
+    if(/^github$/i.test(raw)&&host==='github.com')return 'GitHub';
+    return raw;
+  }
+  var STANDING_EVENTS={ANALYST_PROBATION:1,ANALYST_VERIFIED:1,ANALYST_SENIOR:1};
+  function standingSince(profile){
+    var latest=(profile&&profile.proof_history||[]).filter(function(row){return STANDING_EVENTS[String(row&&row.event_type||'')]===1;})
+      .map(function(row){return new Date(row.occurred_at||'');}).filter(function(date){return !isNaN(date.getTime());})
+      .sort(function(a,b){return b-a;})[0];
+    return latest?latest.toLocaleDateString(analystLocale(),{dateStyle:'medium',timeZone:'UTC'})+' UTC':'';
+  }
   function avatar(profile,size){
     var url=trustedAvatar(profile&&profile.avatar_url);
     if(url)return '<img class="osi-an-avatar" src="'+esc(url)+'" alt="" width="'+size+'" height="'+size+'" loading="lazy">';
@@ -115,14 +144,14 @@
   }
   function proofLabel(type){return type==='solana_memo'?'Memo-anchored on Solana':type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':'Legacy, not server-verified';}
   function solFromLamports(value){var text=String(value==null?'0':value);if(!/^\d+$/.test(text))return'0';text=text.replace(/^0+(?=\d)/,'');var padded=text.padStart(10,'0'),whole=padded.slice(0,-9),fraction=padded.slice(-9).replace(/0+$/,'');return whole+(fraction?'.'+fraction:'');}
-  function statusBadge(status){return '<span class="osi-status '+esc(status)+'">'+esc(label(status))+'</span>';}
+  function statusBadge(status){return '<span class="osi-status '+esc(status)+'">'+esc(statusText(status))+'</span>';}
   function sasSlot(wallet,status){return '<span data-sas-wallet="'+esc(wallet)+'" data-sas-role="'+esc(status||'analyst_profile')+'"></span>';}
   function empty(title,body){return '<div class="osi-activation-empty"><b>'+esc(title)+'</b><span>'+esc(body)+'</span></div>';}
   // Loading, locked and failed states keep the workspace chrome. Dropping the
   // header left a bare notice floating on an otherwise empty page, which reads
   // as a broken render rather than a state the product intends.
   function workspaceShell(bodyHtml){
-    return '<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>Your server-derived analyst profile and immutable application history.</p></div></header><main>'+bodyHtml+'</main></div>';
+    return '<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="osi-workspace-kicker">'+esc(t('My OSI'))+'</span><h2>'+esc(t('Analyst workspace'))+'</h2><p>'+esc(t('Your server-derived analyst profile and immutable application history.'))+'</p></div></header><main>'+bodyHtml+'</main></div>';
   }
 
   function syncAnalystMaps(rows){
@@ -138,23 +167,40 @@
     if(summary&&typeof summary.public_entries==='number')return summary.public_entries;
     return ((profile&&profile.contributions)||[]).length;
   }
+  // The column header is decorative for assistive technology, so each row
+  // carries its own full name: who, standing, and the three numbers with the
+  // words that say what they count.
+  function rowLabel(name,standing,records,weight,proofs){
+    return t('{name}. {status}. Public records: {records}. Review weight: {weight}. Proof receipts: {proofs}. Opens the profile.',{name:name,status:standing,records:records,weight:weight,proofs:proofs});
+  }
   function publicRow(profile){
-    var expertise=(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
+    var expertise=expertiseChips(profile.expertise);
     var contributions=publicWorkCount(profile);
     var proofs=(profile.proof_history||[]).length;
     var identity=profile.handle?'@'+profile.handle:short(profile.wallet);
-    return '<button class="osi-analyst-row" type="button" data-analyst-wallet="'+esc(profile.wallet)+'">'
-      +'<span class="osi-analyst-person">'+avatar(profile,38)+'<span><b data-osi-user-content>'+esc(profile.display_name||profile.handle||short(profile.wallet))+'</b><em class="mono">'+esc(identity)+'</em></span></span>'
-      +'<span>'+statusBadge(profile.status)+'</span><span class="osi-expertise-list">'+(expertise||'<em>Not listed</em>')+'</span>'
-      +'<span class="mono">'+contributions+'</span><span class="mono osi-weight"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+Number(profile.weight||0).toFixed(2)+'</span><span class="mono">'+proofs+'</span></button>';
+    var name=profile.display_name||profile.handle||short(profile.wallet);
+    var weight=weightText(profile.weight);
+    return '<button class="osi-analyst-row" type="button" data-analyst-wallet="'+esc(profile.wallet)+'" aria-label="'+esc(rowLabel(name,statusText(profile.status),contributions,weight,proofs))+'">'
+      +'<span class="osi-analyst-person">'+avatar(profile,38)+'<span><b data-osi-user-content>'+esc(name)+'</b><em class="mono">'+esc(identity)+'</em></span></span>'
+      +'<span>'+statusBadge(profile.status)+'</span><span class="osi-expertise-list">'+(expertise||'<em>'+esc(t('Not listed'))+'</em>')+'</span>'
+      +'<span class="osi-records"><small class="osi-cell-label">'+esc(t('Records'))+'</small>'+contributions+'</span><span class="mono osi-weight"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+weight+'</span><span class="osi-proofs"><small class="osi-cell-label">'+esc(t('Proof'))+'</small>'+proofs+'</span></button>';
   }
   function renderPublicProfiles(){
     var host=document.getElementById('lb-body'),count=document.getElementById('lb-count'),pager=document.getElementById('lb-pnav');
     if(!host)return;
     host.removeAttribute('aria-busy');
     if(pager)pager.innerHTML='';
+    // A failed read stays a failure. Rendering it as "No activated analysts
+    // yet / 0 analysts" would state something the page never learned, so the
+    // empty state below is reachable only after a successful empty answer.
+    if(state.profilesError){
+      host.innerHTML='<div class="osi-activation-empty osi-activation-error" role="alert"><b>'+esc(t('Analyst directory unavailable'))+'</b><span>'+esc(t('The public analyst directory could not be read. No list is shown rather than an empty one. Retry in a moment.'))+'</span><button class="osi-empty-cta" type="button" data-analyst-directory-retry>'+esc(t('Retry'))+'</button></div>';
+      var retry=host.querySelector('[data-analyst-directory-retry]');if(retry)retry.addEventListener('click',function(){loadPublicProfiles();});
+      if(count)count.textContent='';
+      return;
+    }
     if(!state.profiles.length){
-      host.innerHTML='<div class="osi-activation-empty"><b>No activated analysts yet</b><span>Approved probationary analysts will appear here with server-derived status, weight, contributions, and proof.</span><button class="osi-empty-cta" type="button" onclick="apxOpen()">Start analyst application</button></div>';
+      host.innerHTML='<div class="osi-activation-empty"><b>'+esc(t('No activated analysts yet'))+'</b><span>'+esc(t('Approved probationary analysts will appear here with server-derived status, weight, contributions, and proof.'))+'</span><button class="osi-empty-cta" type="button" onclick="apxOpen()">'+esc(t('Start analyst application'))+'</button></div>';
       if(count)count.textContent=t('{count} analysts',{count:0});
       return;
     }
@@ -172,13 +218,13 @@
         var result=typeof window.osiPublicRead==='function'
           ? await window.osiPublicRead('osi-v2-analyst',body)
           : await api(body);
-        state.profiles=Array.isArray(result.analysts)?result.analysts:[];
+        state.profiles=Array.isArray(result.analysts)?result.analysts:[];state.profilesError=null;
         syncAnalystMaps(state.profiles);renderPublicProfiles();
         loadMaintainerProfile();
         return state.profiles;
       }catch(error){
-        state.profiles=[];syncAnalystMaps([]);
-        if(host){host.removeAttribute('aria-busy');host.innerHTML=empty(t('Analyst directory unavailable'),userError(error))+'<button class="osi-empty-cta" type="button" data-analyst-directory-retry>'+esc(t('Retry'))+'</button>';var retry=host.querySelector('[data-analyst-directory-retry]');if(retry)retry.addEventListener('click',function(){loadPublicProfiles();});}
+        state.profiles=[];state.profilesError=error;syncAnalystMaps([]);
+        renderPublicProfiles();
         if(options.throwOnError)throw error;
         return state.profiles;
       }finally{state.profilesPromise=null;}
@@ -203,16 +249,16 @@
   // the modal states it in the same facts row every analyst uses.
   function maintainerRow(profile){
     var name=String(profile.display_name||'').trim()||short(profile.wallet);
-    var expertise=(profile.expertise_public||[]).filter(function(v){return typeof v==='string'&&v;})
-      .map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
-    return '<button class="osi-analyst-row osi-analyst-row-maintainer" type="button" data-maintainer-wallet="'+esc(profile.wallet)+'">'
+    var expertise=expertiseChips(profile.expertise_public);
+    var records=publicWorkCount(profile),proofs=(profile.proof_history||[]).length;
+    return '<button class="osi-analyst-row osi-analyst-row-maintainer" type="button" data-maintainer-wallet="'+esc(profile.wallet)+'" aria-label="'+esc(rowLabel(name,t('Maintainer, no analyst standing'),records,t('None'),proofs))+'">'
       +'<span class="osi-analyst-person">'+avatar({avatar_url:profile.avatar_url,wallet:profile.wallet,display_name:name},38)
       +'<span><b data-osi-user-content>'+esc(name)+'</b><em class="mono">'+esc(short(profile.wallet))+'</em></span></span>'
       +'<span><span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span></span>'
       +'<span class="osi-expertise-list">'+(expertise||'<em>'+esc(t('Not listed'))+'</em>')+'</span>'
-      +'<span class="mono">'+String(publicWorkCount(profile))+'</span>'
-      +'<span class="mono osi-weight osi-weight-none"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+esc(t('None'))+'</span>'
-      +'<span class="mono">'+String((profile.proof_history||[]).length)+'</span></button>';
+      +'<span class="osi-records"><small class="osi-cell-label">'+esc(t('Records'))+'</small>'+String(publicWorkCount(profile))+'</span>'
+      +'<span class="osi-weight osi-weight-none"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+esc(t('None'))+'</span>'
+      +'<span class="osi-proofs"><small class="osi-cell-label">'+esc(t('Proof'))+'</small>'+String(proofs)+'</span></button>';
   }
   function renderMaintainerProfile(profile){
     var host=document.getElementById('osi-maintainer-profile');
@@ -221,7 +267,7 @@
     if(!profile||!profile.wallet){host.hidden=true;host.innerHTML='';return;}
     host.hidden=false;
     host.innerHTML=
-      '<h3 id="osi-maintainer-profile-title" class="osi-maintainer-kicker">'+esc(t('Maintainer'))+'</h3>'
+      '<h2 id="osi-maintainer-profile-title" class="osi-maintainer-kicker">'+esc(t('Maintainer'))+'</h2>'
       +'<div class="osi-maintainer-rows">'+maintainerRow(profile)+'</div>'
       // One line, not a card. It answers what the maintainer does; the modal
       // carries the three governance facts stating what they do not hold.
@@ -352,7 +398,7 @@
     // the "Publish" wording below would be unreachable.
     if(!profile||!profile.wallet){
       host.innerHTML=
-        '<h3 id="osi-maintainer-profile-title" class="osi-maintainer-kicker">'+esc(t('Maintainer'))+'</h3>'
+        '<h2 id="osi-maintainer-profile-title" class="osi-maintainer-kicker">'+esc(t('Maintainer'))+'</h2>'
         +'<p class="osi-maintainer-empty">'+esc(t('No maintainer profile is published yet.'))+'</p>';
     }
     var button=document.createElement('button');
@@ -382,10 +428,48 @@
     loadMaintainerProfile();
   };
 
-  function publicProof(row){
-    var tx=row.proof_type==='solana_memo'&&/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(row.tx_sig||''))?'<a href="https://solscan.io/tx/'+encodeURIComponent(row.tx_sig)+'" target="_blank" rel="noopener noreferrer">Verify on Solscan</a>':'';
-    var payment=row.payment_proof&&row.event_type==='SUPPORT_PAYMENT_CONFIRMED'?'<span>'+esc(solFromLamports(row.payment_proof.recipient_amount_lamports))+' SOL / '+esc(row.payment_proof.recipient_amount_lamports)+' lamports / '+esc(label(row.payment_proof.finality))+'</span>':'';
-    return '<div class="osi-history-row"><div><b>'+esc(label(row.event_type))+'</b><span>'+esc(row.payment_proof?'SOL transfer verified on Solana':proofLabel(row.proof_type))+' / actor '+esc(label(row.actor_role))+'</span>'+payment+'</div><time>'+esc(dateText(row.occurred_at))+'</time>'+tx+'</div>';
+  // One reader title per receipt, shared with the Proof Log so the same
+  // receipt is never named two ways. A code the classifier does not know still
+  // reads as words, never as an uppercase registry code.
+  function eventTitle(eventType){
+    var code=String(eventType||'');
+    if(typeof window.plMemo==='function'){
+      try{var memo=window.plMemo({event_type:code});if(memo&&memo.title)return t(memo.title);}catch(_){}
+    }
+    return t(label(code.toLowerCase()));
+  }
+  function solscanLink(tx,className){
+    if(!/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(tx||'')))return '';
+    return '<a'+(className?' class="'+className+'"':'')+' href="https://solscan.io/tx/'+encodeURIComponent(tx)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verify on Solscan'))+'</a>';
+  }
+  // Who signed a receipt, in words. Proof history mixes acts this wallet signed
+  // with acts signed about it (the maintainer's probation Memo) and support
+  // other wallets sent to it, and "actor Wallet" could not tell those apart.
+  function actorLine(row,wallet){
+    var role=String(row&&row.actor_role||''),self=!!wallet&&String(row&&row.actor_wallet||'')===String(wallet);
+    if(self){
+      if(role==='analyst'||role==='senior')return t('Signed by this wallet as analyst');
+      if(role==='maintainer')return t('Signed by this wallet as maintainer');
+      if(role==='owner')return t('Signed by this wallet as Case owner');
+      return t('Signed by this wallet');
+    }
+    if(role==='maintainer')return t('Signed by the maintainer');
+    if(role==='service')return t('Recorded by the server');
+    if(role==='analyst'||role==='senior')return t('Signed by another analyst');
+    return t('Signed by another wallet');
+  }
+  function proofTime(row){var time=new Date(row&&row.occurred_at||'').getTime();return isNaN(time)?0:time;}
+  function publicProof(row,wallet){
+    var tx=row.proof_type==='solana_memo'?solscanLink(row.tx_sig):'';
+    // Support is money this profile received, so the row says that, and the
+    // amount is the recipient's own share, not the payer's total.
+    if(row.payment_proof&&row.event_type==='SUPPORT_PAYMENT_CONFIRMED'){
+      var lamports=String(row.payment_proof.recipient_amount_lamports||'0');
+      return '<div class="osi-history-row osi-history-support"><div><b>'+esc(t('Voluntary support received: {sol} SOL',{sol:solFromLamports(lamports)}))+'</b>'
+        +'<span>'+esc(t('SOL transfer verified on Solana'))+' · '+esc(t('{lamports} lamports to this profile',{lamports:lamports}))+(row.payment_proof.finality?' · '+esc(t(label(row.payment_proof.finality))):'')+'</span>'
+        +'<span>'+esc(t('Support never changes weight, ranking, eligibility or governance.'))+'</span></div><time>'+esc(dateText(row.occurred_at))+'</time>'+tx+'</div>';
+    }
+    return '<div class="osi-history-row"><div><b>'+esc(eventTitle(row.event_type))+'</b><span><i class="osi-proof-dot '+esc(row.proof_type==='solana_memo'?'memo':row.proof_type==='wallet_signed_server_verified'?'signed':'legacy')+'" aria-hidden="true"></i>'+esc(t(proofLabel(row.proof_type)))+' · '+esc(actorLine(row,wallet))+'</span></div><time>'+esc(dateText(row.occurred_at))+'</time>'+tx+'</div>';
   }
   // ---------------------------------------------------------------------------
   // The verified work record: the part of a profile that is a track record
@@ -412,6 +496,7 @@
     archived:'Archived',
     published:'Published'
   };
+  var SUBJECT_LABELS={case:'Case',case_report:'Case Report',wire_report:'Wire Report'};
   var ROLE_LABELS={
     author:'Author',
     submitter:'Submitted by this wallet',
@@ -427,10 +512,10 @@
     return /^OSI-[0-9A-Z]{6,20}$/.test(ref)?'#case/'+encodeURIComponent(ref):'';
   }
   function recordAct(act){
-    var tx=act.proof_type==='solana_memo'&&/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(act.tx_sig||''))
-      ?'<a class="osi-cv-act-proof" href="https://solscan.io/tx/'+encodeURIComponent(act.tx_sig)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verify on Solana'))+'</a>'
+    var tx=act.proof_type==='solana_memo'&&solscanLink(act.tx_sig)
+      ?solscanLink(act.tx_sig,'osi-cv-act-proof')
       :'<span class="osi-cv-act-proof osi-cv-act-offchain">'+esc(t('Wallet-signed, server-verified'))+'</span>';
-    return '<li><span class="osi-cv-act-name">'+esc(label(act.event_type))+'</span>'
+    return '<li><span class="osi-cv-act-name">'+esc(eventTitle(act.event_type))+'</span>'
       +'<time>'+esc(dateText(act.occurred_at))+'</time>'+tx+'</li>';
   }
   function recordEntry(entry){
@@ -446,23 +531,28 @@
       +'<span class="osi-cv-outcome" data-outcome="'+esc(outcome)+'">'+esc(t(OUTCOME_LABELS[outcome]||label(outcome)))+'</span></div>'
       +(title?'<b class="osi-cv-title" data-osi-user-content>'+esc(title)+'</b>':'')
       +'<span class="osi-cv-role">'+esc(t(ROLE_LABELS[String(entry.role||'')]||label(entry.role)))
-      +' / '+esc(t(label(entry.subject_type)))+'</span>'
+      +' · '+esc(t(SUBJECT_LABELS[String(entry.subject_type||'')]||label(entry.subject_type)))+'</span>'
       +'<ul class="osi-cv-acts">'+(entry.acts||[]).map(recordAct).join('')+'</ul></li>';
   }
+  // Every count here is over the public records listed below, in any role.
+  // The labels say exactly that: "Reports published" used to read as
+  // authorship while it also counted Reports this wallet only reviewed, and a
+  // Memo count of 0 sat above a proof history full of Memo receipts that have
+  // no public subject.
   function recordSummary(summary){
     if(!summary)return '';
     var cells=[
-      ['Public records',summary.public_entries],
-      ['Cases',summary.cases],
-      ['Sealed',summary.cases_sealed],
-      ['Reports published',summary.reports_published],
-      ['Wire published',summary.wire_reports_published],
+      ['Public records listed',summary.public_entries],
+      ['Cases, any role',summary.cases],
+      ['Cases now sealed',summary.cases_sealed],
+      ['Published Reports, any role',summary.reports_published],
+      ['Published Wire Reports, any role',summary.wire_reports_published],
       ['Reviews cast',summary.reviews],
-      ['Memo-anchored acts',summary.memo_anchored_acts]
+      ['Memo-anchored acts on these records',summary.memo_anchored_acts]
     ];
-    return '<div class="osi-cv-summary">'+cells.map(function(cell){
-      return '<div><span>'+esc(t(cell[0]))+'</span><b class="mono">'+esc(String(Number(cell[1]||0)))+'</b></div>';
-    }).join('')+'</div>';
+    return '<dl class="osi-cv-summary">'+cells.map(function(cell){
+      return '<div><dt>'+esc(t(cell[0]))+'</dt><dd class="mono">'+esc(String(Number(cell[1]||0)))+'</dd></div>';
+    }).join('')+'</dl><p class="osi-cv-scope">'+esc(t('Counts cover only the public records listed below, in any role. Proof history further down also lists receipts that have no public subject.'))+'</p>';
   }
   function recordSection(record){
     record=record||{};
@@ -563,6 +653,9 @@
       handle:'',
       display_name:profile.display_name||'',
       bio:profile.bio||'',
+      // The roster row already shows the published portrait; the modal used to
+      // drop it and draw a generated letter for the same person.
+      avatar_url:profile.avatar_url||'',
       status:'maintainer',
       tier_code:'',
       weight:0,
@@ -613,12 +706,15 @@
   function renderProfileModal(body,profile,options){
     options=options||{};
     var isMaintainer=options.maintainer===true;
-    var links=(profile.links||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label||url)+'</a>':'';}).join('');
+    var links=(profile.links||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(linkLabel(link.label,url))+'</a>':'';}).join('');
     var proofOfWork=safeHttps(profile.proof_of_work_url);
     if(proofOfWork)links+='<a href="'+esc(proofOfWork)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a>';
     // A public reference is the thing a reader looks the work up by, so it is
     // printed whole. Only opaque internal ids are shortened.
-    var proofs=(profile.proof_history||[]).map(publicProof).join('');
+    // Newest first, by the time each receipt was recorded. The server returns
+    // its rows grouped by source, which read as an unordered list.
+    var proofs=(profile.proof_history||[]).slice().sort(function(a,b){return proofTime(b)-proofTime(a);})
+      .map(function(row){return publicProof(row,profile.wallet);}).join('');
     var identity=profile.handle?'@'+profile.handle:short(profile.wallet);
     var displayName=profile.display_name||profile.handle||short(profile.wallet);
     // The maintainer holds no analyst standing, no review weight and no quorum
@@ -630,15 +726,21 @@
         +'<div><span>'+esc(t('Review weight'))+'</span><b>'+esc(t('None'))+'</b></div>'
         +'<div><span>'+esc(t('Quorum vote'))+'</span><b>'+esc(t('None'))+'</b></div>'
       : '<div><span>'+esc(t('Status'))+'</span>'+statusBadge(profile.status)+'</div>'
-        +'<div><span>'+esc(t('Server-derived weight'))+'</span><b>'+Number(profile.weight||0).toFixed(2)+'</b></div>'
-        +'<div><span>'+esc(t('Tier'))+'</span><b>'+esc(label(profile.tier_code))+'</b></div>';
+        +'<div><span>'+esc(t('Review weight'))+'</span><b class="mono">'+esc(weightText(profile.weight))+'</b><small>'+esc(t('Server-derived from the live tier'))+'</small></div>'
+        // The tier repeated the status word for word, so the third cell says
+        // when the current standing began, read from the public activation
+        // receipt itself (profile creation is the application date, not the
+        // standing). With no such receipt the tier is shown instead.
+        +(standingSince(profile)
+          ?'<div><span>'+esc(t('Standing since'))+'</span><b>'+esc(standingSince(profile))+'</b></div>'
+          :'<div><span>'+esc(t('Tier'))+'</span><b>'+esc(t(label(profile.tier_code)))+'</b></div>');
     var badge=isMaintainer
       ? '<span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span>'
       : sasSlot(profile.wallet,profile.status);
     var role=isMaintainer
       ? '<p class="osi-profile-role-note">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. Standard publication uses independent analyst quorum; constitutionally limited cold-start outcomes are labelled maintainer bootstrap.'))+'</p>'
       : '';
-    var expertise=(profile.expertise||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('');
+    var expertise=expertiseChips(profile.expertise);
     // The shareable address for this exact profile, so the page a reader lands
     // on is the page they can send on. A profile with no public handle keeps
     // the wallet as its address; the maintainer has its own single route.
@@ -702,32 +804,41 @@
   function latestVersion(application){return application&&application.versions&&application.versions.slice().sort(function(a,b){return Number(b.version_no)-Number(a.version_no);})[0]||null;}
   function workspaceNav(){
     return '<div class="osi-workspace-tabs" role="tablist" aria-label="Analyst workspace sections">'
-      +'<button type="button" role="tab" id="osi-workspace-tab-profile" aria-controls="osi-workspace-panel-profile" aria-selected="'+(state.workspaceTab==='profile'?'true':'false')+'" tabindex="'+(state.workspaceTab==='profile'?'0':'-1')+'" class="'+(state.workspaceTab==='profile'?'active':'')+'" data-workspace-tab="profile">My Profile</button>'
-      +'<button type="button" role="tab" id="osi-workspace-tab-applications" aria-controls="osi-workspace-panel-applications" aria-selected="'+(state.workspaceTab==='applications'?'true':'false')+'" tabindex="'+(state.workspaceTab==='applications'?'0':'-1')+'" class="'+(state.workspaceTab==='applications'?'active':'')+'" data-workspace-tab="applications">My Applications</button></div>'
-      +'<nav class="osi-workspace-tabs" aria-label="Related private work"><button type="button" onclick="osiV2OpenMyCases()">My Cases</button><button type="button" onclick="osiV2OpenMyReports()">My Reports</button><button type="button" onclick="osiV2OpenReviewQueue()">My Reviews</button></nav>';
+      +'<button type="button" role="tab" id="osi-workspace-tab-profile" aria-controls="osi-workspace-panel-profile" aria-selected="'+(state.workspaceTab==='profile'?'true':'false')+'" tabindex="'+(state.workspaceTab==='profile'?'0':'-1')+'" class="'+(state.workspaceTab==='profile'?'active':'')+'" data-workspace-tab="profile">'+esc(t('My Profile'))+'</button>'
+      +'<button type="button" role="tab" id="osi-workspace-tab-applications" aria-controls="osi-workspace-panel-applications" aria-selected="'+(state.workspaceTab==='applications'?'true':'false')+'" tabindex="'+(state.workspaceTab==='applications'?'0':'-1')+'" class="'+(state.workspaceTab==='applications'?'active':'')+'" data-workspace-tab="applications">'+esc(t('My Applications'))+'</button></div>'
+      +'<nav class="osi-workspace-tabs" aria-label="Related private work"><button type="button" onclick="osiV2OpenMyCases()">'+esc(t('My Cases'))+'</button><button type="button" onclick="osiV2OpenMyReports()">'+esc(t('My Reports'))+'</button><button type="button" onclick="osiV2OpenReviewQueue()">'+esc(t('My Reviews'))+'</button></nav>';
   }
   function profilePane(){
     var profile=state.workspace&&state.workspace.profile,application=latestApplication();
-    if(!profile)return empty('No analyst profile yet','Create an immutable wallet-signed application version to begin.')+'<button class="osi-primary-action" type="button" onclick="apxOpen()">Start analyst application</button>';
-    var links=(profile.links_public||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label)+'</a>':'';}).join(''),identity=profile.handle?'@'+profile.handle:short(profile.wallet);
+    if(!profile)return empty(t('No analyst profile yet'),t('Create an immutable wallet-signed application version to begin.'))+'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+esc(t('Start analyst application'))+'</button>';
+    var links=(profile.links_public||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(linkLabel(link.label,url))+'</a>':'';}).join(''),identity=profile.handle?'@'+profile.handle:short(profile.wallet);
     var applicationAction=application&&application.status==='revision_requested'
-      ?'<button class="osi-primary-action" type="button" onclick="apxOpen()">Submit requested revision</button>'
-      :(application?'<div class="osi-callout"><b>Application '+esc(label(application.status))+'</b><span>No new version is needed now. Open My Applications for the exact status and review history.</span></div><button class="osi-secondary-action" type="button" onclick="osiAnalystOpenWorkspace(\'applications\')">Open My Applications</button>':'');
+      ?'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+esc(t('Submit requested revision'))+'</button>'
+      :(application?'<div class="osi-callout"><b>'+esc(t('Application status: {status}',{status:statusText(application.status)}))+'</b><span>'+esc(t('No new version is needed now. Open My Applications for the exact status and review history.'))+'</span></div><button class="osi-secondary-action" type="button" onclick="osiAnalystOpenWorkspace(\'applications\')">'+esc(t('Open My Applications'))+'</button>':'');
     return '<div class="osi-workspace-profile"><header>'+avatar(profile,58)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(profile.display_name||profile.handle||short(profile.wallet))+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
-      +'<div class="osi-profile-facts"><div><span>Profile status</span>'+statusBadge(profile.status)+'</div><div><span>Tier</span><b>'+esc(label(profile.tier_code))+'</b></div><div><span>Server-derived weight</span><b>'+Number(profile.weight_cached||0).toFixed(2)+'</b></div></div>'
-      +'<section><h4>Expertise</h4><div class="osi-tag-list">'+(profile.expertise_public||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section>'
-      +(links?'<section><h4>Public links</h4><div class="osi-safe-links">'+links+'</div></section>':'')
+      +'<div class="osi-profile-facts"><div><span>'+esc(t('Profile status'))+'</span>'+statusBadge(profile.status)+'</div><div><span>'+esc(t('Tier'))+'</span><b>'+esc(t(label(profile.tier_code)))+'</b></div><div><span>'+esc(t('Server-derived weight'))+'</span><b class="mono">'+esc(weightText(profile.weight_cached))+'</b></div></div>'
+      +'<section><h4>'+esc(t('Expertise'))+'</h4><div class="osi-tag-list">'+expertiseChips(profile.expertise_public)+'</div></section>'
+      +(links?'<section><h4>'+esc(t('Public links'))+'</h4><div class="osi-safe-links">'+links+'</div></section>':'')
       +applicationAction+'</div>';
   }
-  function reviewHistory(review){return '<div class="osi-review-history"><b>'+esc(label(review.decision))+'</b><span>'+esc(label(review.reason_code))+' / weight '+Number(review.weight||0).toFixed(2)+'</span><time>'+esc(dateText(review.created_at))+'</time></div>';}
+  // An application review is a maintainer decision. It carries no analyst
+  // weight, so none is printed; the decision and its reason are words.
+  var DECISION_LABELS={approve:'Approved',reject:'Rejected',request_revision:'Revision requested',abstain:'Abstained'};
+  function sentence(code){var text=String(code||'').replace(/_/g,' ').trim();return text?text.charAt(0).toUpperCase()+text.slice(1):'';}
+  function reviewHistory(review){return '<div class="osi-review-history"><b>'+esc(t(DECISION_LABELS[String(review.decision||'')]||sentence(review.decision)))+'</b><span>'+esc(t(sentence(review.reason_code)))+'</span><time>'+esc(dateText(review.created_at))+'</time></div>';}
   function applicationPane(){
     var applications=state.workspace&&state.workspace.applications||[];
-    if(!applications.length)return empty('No applications yet','Start an analyst application to create version 1 with exact wallet proof.')+'<button class="osi-primary-action" type="button" onclick="apxOpen()">Start analyst application</button>';
+    if(!applications.length)return empty(t('No applications yet'),t('Start an analyst application to create version 1 with exact wallet proof.'))+'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+esc(t('Start analyst application'))+'</button>';
     return applications.map(function(application){
       var versions=(application.versions||[]).slice().sort(function(a,b){return Number(b.version_no)-Number(a.version_no);});
-      var history=versions.map(function(version){var details=version.details_restricted||{};return '<article class="osi-version-card"><header><div><span class="mono">'+esc(version.version_ref)+'</span><h4>Version '+Number(version.version_no)+'</h4></div><span class="osi-proof-badge signed">Wallet-signed and server-verified</span></header><p><b>Motivation:</b> '+esc(details.motivation||'Not recorded')+'</p><p><b>Experience:</b> '+esc(details.experience||'Not recorded')+'</p><div class="osi-tag-list">'+(version.expertise_public||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div><div class="osi-version-meta"><span>Submitted '+esc(dateText(version.submitted_at||version.created_at))+'</span>'+(version.supersedes_version_id?'<span>Supersedes '+esc(short(version.supersedes_version_id))+'</span>':'')+'</div>'+((version.reviews||[]).length?'<div class="osi-review-list">'+version.reviews.map(reviewHistory).join('')+'</div>':'')+'</article>';}).join('');
-      var revision=application.status==='revision_requested'?'<div class="osi-callout warning"><b>Revision requested</b><span>Submit a new immutable version. Prior versions and decisions stay visible.</span></div>':'';
-      return '<section class="osi-application-card"><header><div><span class="mono">Application '+esc(short(application.id))+'</span><h3>Current version '+Number(latestVersion(application).version_no)+'</h3></div>'+statusBadge(application.status)+'</header>'+revision+history+(application.status==='revision_requested'?'<button class="osi-primary-action" type="button" onclick="apxOpen()">Submit revision</button>':'')+'</section>';
+      // A superseded version is named by its public reference, never by an
+      // internal id the reader cannot look up anywhere.
+      var refs={};versions.forEach(function(version){if(version&&version.id)refs[String(version.id)]=version.version_ref||'';});
+      var first=versions[versions.length-1]||{};
+      var history=versions.map(function(version){var details=version.details_restricted||{};var superseded=version.supersedes_version_id?(refs[String(version.supersedes_version_id)]||t('an earlier version')):'';return '<article class="osi-version-card"><header><div><span class="mono">'+esc(version.version_ref)+'</span><h4>'+esc(t('Version {number}',{number:Number(version.version_no)}))+'</h4></div><span class="osi-proof-badge signed">'+esc(t('Wallet-signed and server-verified'))+'</span></header><p><b>'+esc(t('Motivation'))+':</b> '+esc(details.motivation||t('Not recorded'))+'</p><p><b>'+esc(t('Experience'))+':</b> '+esc(details.experience||t('Not recorded'))+'</p><div class="osi-tag-list">'+expertiseChips(version.expertise_public)+'</div><div class="osi-version-meta"><span>'+esc(t('Submitted {date}',{date:dateText(version.submitted_at||version.created_at)}))+'</span>'+(superseded?'<span>'+esc(t('Supersedes {ref}',{ref:superseded}))+'</span>':'')+'</div>'+((version.reviews||[]).length?'<div class="osi-review-list">'+version.reviews.map(reviewHistory).join('')+'</div>':'')+'</article>';}).join('');
+      var revision=application.status==='revision_requested'?'<div class="osi-callout warning"><b>'+esc(t('Revision requested'))+'</b><span>'+esc(t('Submit a new immutable version. Prior versions and decisions stay visible.'))+'</span></div>':'';
+      var started=first.submitted_at||first.created_at||application.created_at;
+      return '<section class="osi-application-card"><header><div><span>'+esc(started?t('Analyst application, started {date}',{date:dateText(started)}):t('Analyst application'))+'</span><h3>'+esc(t('Current version {number}',{number:Number(latestVersion(application).version_no)}))+'</h3></div>'+statusBadge(application.status)+'</header>'+revision+history+(application.status==='revision_requested'?'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+esc(t('Submit revision'))+'</button>':'')+'</section>';
     }).join('');
   }
   function setWorkspaceTab(tab,focusTab){
@@ -755,18 +866,37 @@
   }
   function renderWorkspace(){
     var host=document.getElementById('identity-body');if(!host)return;
-    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>One wallet signature starts a bounded private working session that renews silently while you are active.</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Refresh data</button></header>'+workspaceNav()+'<main><section id="osi-workspace-panel-profile" role="tabpanel" aria-labelledby="osi-workspace-tab-profile" data-workspace-panel="profile"'+(state.workspaceTab==='profile'?'':' hidden')+'>'+profilePane()+'</section><section id="osi-workspace-panel-applications" role="tabpanel" aria-labelledby="osi-workspace-tab-applications" data-workspace-panel="applications"'+(state.workspaceTab==='applications'?'':' hidden')+'>'+applicationPane()+'</section></main></div>';
+    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="osi-workspace-kicker">'+esc(t('My OSI'))+'</span><h2>'+esc(t('Analyst workspace'))+'</h2><p>'+esc(t('One wallet signature starts a bounded private working session that renews silently while you are active.'))+'</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">'+esc(t('Refresh data'))+'</button></header>'+workspaceNav()+'<main><section id="osi-workspace-panel-profile" role="tabpanel" aria-labelledby="osi-workspace-tab-profile" data-workspace-panel="profile"'+(state.workspaceTab==='profile'?'':' hidden')+'>'+profilePane()+'</section><section id="osi-workspace-panel-applications" role="tabpanel" aria-labelledby="osi-workspace-tab-applications" data-workspace-panel="applications"'+(state.workspaceTab==='applications'?'':' hidden')+'>'+applicationPane()+'</section></main></div>';
     host.querySelectorAll('[data-workspace-tab]').forEach(function(button){button.addEventListener('click',function(){setWorkspaceTab(button.dataset.workspaceTab,false);});button.addEventListener('keydown',workspaceTabKeydown);});
   }
   function showNativeWorkspaceView(){
     if(typeof window.osiNavigate==='function')window.osiNavigate('identity',{render:false,focus:false});
     else{document.body.dataset.view='identity';window.scrollTo({top:0,behavior:'auto'});}
   }
-  async function openWorkspace(tab){
+  // Navigating to the private workspace never opens the wallet. A live read
+  // session is reused silently; without one the page says what opening it
+  // costs, and only the explicit control below connects and signs.
+  function workspaceLocked(){
+    var connected=!!walletPubkey;
+    return workspaceShell(empty(t('Analyst workspace is private'),t('Opening it costs one wallet message signature and no Solana transaction. The signature is wallet-signed and server-verified, never an on-chain transaction.'))
+      +'<div class="osi-workspace-recover"><button class="osi-primary-action" type="button" data-ws-unlock>'+esc(connected?t('Authorize private read'):t('Connect wallet and authorize private read'))+'</button></div>');
+  }
+  async function hasLiveWorkspaceSession(){
+    if(!walletPubkey||typeof window.osiV2ReadSession!=='function')return false;
+    try{await window.osiV2ReadSession(['analyst:workspace'],{allowUnlock:false});return true;}
+    catch(error){return String(error&&error.message||'')!=='read_session_required';}
+  }
+  async function openWorkspace(tab,options){
+    options=options||{};
     state.workspaceTab=tab==='applications'?'applications':'profile';showNativeWorkspaceView();
-    var host=document.getElementById('identity-body');if(host)host.innerHTML=workspaceShell('<div class="osi-activation-loading">Unlocking the shared private read session...</div>');
+    var host=document.getElementById('identity-body');
+    if(options.unlock!==true&&!(await hasLiveWorkspaceSession())){
+      if(host){host.innerHTML=workspaceLocked();var unlock=host.querySelector('[data-ws-unlock]');if(unlock)unlock.addEventListener('click',function(){openWorkspace(state.workspaceTab,{unlock:true});});}
+      return;
+    }
+    if(host)host.innerHTML=workspaceShell('<div class="osi-activation-loading">'+esc(t('Unlocking the shared private read session...'))+'</div>');
     try{var wallet=await ensureWallet();var result=await sessionRead('analyst:workspace','my_workspace');state.workspace=result;state.workspaceWallet=wallet;renderWorkspace();}
-    catch(error){if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=workspaceShell(empty('Analyst workspace unavailable',userError(error))+'<div class="osi-workspace-recover"><button class="osi-secondary-action" type="button" onclick="'+(refresh?'osiAnalystRefreshWorkspace(\''+esc(state.workspaceTab)+'\')':'osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')')+'">'+(refresh?'Refresh private access':'Try again')+'</button></div>');}}
+    catch(error){if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=workspaceShell(empty(t('Analyst workspace unavailable'),userError(error))+'<div class="osi-workspace-recover"><button class="osi-secondary-action" type="button" onclick="'+(refresh?'osiAnalystRefreshWorkspace(\''+esc(state.workspaceTab)+'\')':'osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')')+'">'+esc(refresh?t('Refresh private access'):t('Try again'))+'</button></div>');}}
   }
 
   function setApplicationStatus(text,kind){var node=document.getElementById('an-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
@@ -793,7 +923,16 @@
     Object.keys(values).forEach(function(id){var node=document.getElementById(id);if(node)node.value=values[id]||'';});
     var link=(profile&&profile.links_public||[]).find(function(item){return item&&item.label!=='X / Twitter';});var ll=document.getElementById('an-link-label'),lu=document.getElementById('an-link-url');if(ll)ll.value=link&&link.label||'';if(lu)lu.value=link&&link.url||'';
     var expertise=profile&&profile.expertise_public||version&&version.expertise_public||[];document.querySelectorAll('input[name="an-expertise"]').forEach(function(box){box.checked=expertise.indexOf(box.value)!==-1;});
-    var title=document.getElementById('osi-application-title');if(title)title.textContent=application?'Submit immutable application version '+(Number(version&&version.version_no||0)+1):'Create your analyst profile';
+    var title=document.getElementById('osi-application-title');if(title)title.textContent=application?t('Submit immutable application version {number}',{number:Number(version&&version.version_no||0)+1}):t('Create your analyst profile');
+    updateHandlePreview();
+  }
+  // The handle becomes this deployment's own profile address, so the applicant
+  // sees the exact URL they will share, built from the page they are on.
+  function updateHandlePreview(){
+    var node=document.querySelector('[data-an-permalink-preview]'),input=document.getElementById('an-handle');if(!node)return;
+    var handle=String(input&&input.value||'').trim().replace(/^@/,'');
+    var base=window.location.origin+window.location.pathname;
+    node.textContent=/^[A-Za-z0-9_]{2,32}$/.test(handle)?t('Your profile address: {url}',{url:base+'#analyst/'+handle.toLowerCase()}):t('Your profile address will be {url}',{url:base+'#analyst/your_handle'});
   }
   async function openApplication(){
     var generation;
@@ -805,8 +944,8 @@
       var wallet=await ensureWallet();
       generation=privateGeneration();
       assertPrivateGeneration(generation);
-      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();var restored=restoreApplicationDraft(wallet),optional=document.getElementById('analyst-optional-details');if(optional)optional.open=!!latestApplication()||(restored&&hasOptionalApplicationData(applicationDraft()));state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');setApplicationStatus('');
-      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(typeof showToast==='function')showToast('Application ready. Only the final exact message needs one wallet signature.');setTimeout(function(){var target=document.getElementById('an-bio');var host=document.getElementById('apx-modal');if(!target)return;if(host&&document.activeElement&&host.contains(document.activeElement))return;target.focus();},50);
+      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();var restored=restoreApplicationDraft(wallet),optional=document.getElementById('analyst-optional-details');if(optional)optional.open=!!latestApplication()||(restored&&hasOptionalApplicationData(applicationDraft()));state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');setApplicationStatus('');updateHandlePreview();
+      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(typeof showToast==='function')showToast(t('Application ready. Only the final exact message needs one wallet signature.'));setTimeout(function(){var target=document.getElementById('an-bio');var host=document.getElementById('apx-modal');if(!target)return;if(host&&document.activeElement&&host.contains(document.activeElement))return;target.focus();},50);
     }catch(error){if((generation==null||generation===privateGeneration())&&typeof showToast==='function')showToast(userError(error));}
   }
   function closeApplication(){var modal=document.getElementById('apx-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}document.body.style.overflow='';if(state.receipt){state.receipt=null;var form=document.getElementById('analyst-form');if(form)form.reset();if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');}if(state.returnFocus&&typeof state.returnFocus.focus==='function')state.returnFocus.focus();state.returnFocus=null;}
@@ -822,12 +961,12 @@
     state.receipt=application;
     var access=typeof resolveMaintainerAccess==='function'?resolveMaintainerAccess():{allowed:false};
     if(typeof window.osiV2RenderSubmissionReceipt==='function')window.osiV2RenderSubmissionReceipt('osi-analyst-receipt',{
-      title:'Analyst application version saved',publicRef:application.version_ref,
-      copyValue:application.version_ref||application.id,stage:label(application.status||'submitted'),visibility:'Private',
-      where:'My Applications, in the immutable application version history.',
-      reviewers:'Full double-gated maintainers. The applicant cannot review or activate their own application.',
-      next:'A full maintainer reviews this exact version. Approval does not activate an analyst until a separate confirmed ANALYST_PROBATION Memo is finalized.',
-      openLabel:'Open My Applications',
+      title:t('Analyst application version saved'),publicRef:application.version_ref,
+      copyValue:application.version_ref||application.id,stage:statusText(application.status||'submitted'),visibility:t('Private'),
+      where:t('My Applications, in the immutable application version history.'),
+      reviewers:t('Full double-gated maintainers. The applicant cannot review or activate their own application.'),
+      next:t('A full maintainer reviews this exact version. Approval does not activate an analyst until a separate confirmed ANALYST_PROBATION Memo is finalized.'),
+      openLabel:t('Open My Applications'),
       onOpen:function(){closeApplication();openWorkspace('applications');},
       canOpenQueue:access.allowed===true,
       onQueue:function(){closeApplication();if(typeof window.osiV2OpenReviewQueue==='function')window.osiV2OpenReviewQueue();},
@@ -1060,7 +1199,7 @@
   window.osiAnalystLoadMaintainerQueue=loadQueue;
   window.osiAnalystLoadReviewTasks=loadMaintainerQueueData;
   window.osiAnalystOpenMaintainerApplication=function(id,expectedVersionRef){return openMaintainerApplication(id,expectedVersionRef).catch(function(error){if(typeof showToast==='function')showToast(userError(error));throw error;});};
-  window.osiAnalystRefreshWorkspace=function(tab){return window.osiV2RefreshReadSession(['analyst:workspace']).then(function(){return openWorkspace(tab);});};
+  window.osiAnalystRefreshWorkspace=function(tab){return window.osiV2RefreshReadSession(['analyst:workspace']).then(function(){return openWorkspace(tab,{unlock:true});});};
   window.osiAnalystRefreshMaintainerQueue=function(){return window.osiV2RefreshReadSession(['analyst:maintainer']).then(loadQueue);};
   window.osiAnalystDecision=reviewApplication;
   window.osiAnalystActivate=activateProbation;
@@ -1078,7 +1217,7 @@
   }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('analyst',clearPrivateAnalystCache);
   var analystDraftForm=document.getElementById('analyst-form');
-  if(analystDraftForm){analystDraftForm.addEventListener('input',saveApplicationDraft);analystDraftForm.addEventListener('change',saveApplicationDraft);}
+  if(analystDraftForm){analystDraftForm.addEventListener('input',saveApplicationDraft);analystDraftForm.addEventListener('input',function(event){if(event.target&&event.target.id==='an-handle')updateHandlePreview();});analystDraftForm.addEventListener('change',saveApplicationDraft);}
 
   function trapModalFocus(event,modal){
     if(event.key!=='Tab'||!modal)return;
@@ -1099,6 +1238,16 @@
     else if(profileModal&&profileModal.classList.contains('open'))trapModalFocus(event,profileModal);
   });
   window.addEventListener('osi:localechange',function(){
+    // The roster composes counts, labels and row names in the active language,
+    // so it is drawn again rather than left half in the previous one. An open
+    // maintainer editor is left alone so an unsaved edit is never thrown away.
+    if(state.profiles.length||state.profilesError)renderPublicProfiles();
+    var maintainerHost=document.getElementById('osi-maintainer-profile');
+    if(state.maintainerProfile&&maintainerHost&&!maintainerHost.querySelector('[data-maintainer-editor]')){
+      renderMaintainerProfile(state.maintainerProfile);attachMaintainerEditor(state.maintainerProfile);
+    }
+    // The workspace composes dates, counts and versions in the active language.
+    if(state.workspace&&document.querySelector('#identity-body .osi-analyst-workspace [data-workspace-tab]'))renderWorkspace();
     var profileModal=document.getElementById('ap-modal');
     if(profileModal&&profileModal.classList.contains('open')&&state.profileIntent){
       openPublicProfile(state.profileIntent,{preserveReturnFocus:true,preserveFocus:true});

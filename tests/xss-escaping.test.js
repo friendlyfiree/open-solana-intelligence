@@ -118,5 +118,22 @@ ok('the payment receipt link goes through the same validation',
   caseSrc.includes('var receiptUrl=solscanTx(receipt.solscan_url);')
     && !caseSrc.includes("href=\"'+esc(receipt.solscan_url)"));
 
+// Analyst roster, profile drawer and workspace: link labels, expertise and
+// application versions are owner-written text rendered through esc().
+const escapeV2Analyst = loadFn('assets/js/v2-analyst-integration.js', 'esc');
+const analystLinkLabel = loadFn('assets/js/v2-analyst-integration.js', 'linkLabel');
+ok('analyst profile rendering escapes all HTML-significant characters',
+  escapeV2Analyst('<img src=x onerror="alert(5)">\'&') ===
+    '&lt;img src=x onerror=&quot;alert(5)&quot;&gt;&#39;&amp;',
+  escapeV2Analyst('<img src=x onerror="alert(5)">\'&'));
+ok('an owner-written link label is returned verbatim for escaping, never as markup',
+  escapeV2Analyst(analystLinkLabel('<b onmouseover="x">me</b>', 'https://example.org/a')) ===
+    '&lt;b onmouseover=&quot;x&quot;&gt;me&lt;/b&gt;',
+  analystLinkLabel('<b onmouseover="x">me</b>', 'https://example.org/a'));
+ok('a bare host word for a known host reads as its proper name',
+  analystLinkLabel('twitter', 'https://x.com/someone') === 'X'
+    && analystLinkLabel('', 'https://www.example.org/p') === 'example.org',
+  analystLinkLabel('twitter', 'https://x.com/someone'));
+
 console.log((fail ? 'FAILED: ' + fail : 'OK') + ' (' + pass + ' assertions passed, ' + fail + ' failed)');
 process.exit(fail ? 1 : 0);
