@@ -130,7 +130,7 @@ function crStatus(r){
     if(stage==='sealed') return { txt:'Seal proof unavailable', cls:'cr-pending', detail:'The server stage is sealed, but its public seal Memo receipt is unavailable.' };
     if(['ready_for_finalization','resolution_proposed','in_challenge_window','resolved','archived'].indexOf(stage)!==-1 && Number(r.native_review_count||0)>0){
       var selectionBoot=r.selection_channel===CR_BOOTSTRAP;
-      return { txt:'Reviewed', cls:'cr-reviewed', channel:selectionBoot?CR_BOOTSTRAP:'', detail:CR_REVIEWED_STAGE_DETAIL[stage]+(selectionBoot?' That selection was a maintainer bootstrap (cold-start) decision, not independent analyst quorum.':'') };
+      return { txt:'Reviewed', pill:stage==='resolved'?'Resolved':'Reviewed', cls:'cr-reviewed', channel:selectionBoot?CR_BOOTSTRAP:'', detail:CR_REVIEWED_STAGE_DETAIL[stage]+(selectionBoot?' That selection was a maintainer bootstrap (cold-start) decision, not independent analyst quorum.':'') };
     }
     if(stage==='open_public') return { txt:'Public investigation', cls:'cr-pending', detail:'Public Case with no reviewed outcome yet.' };
     if(stage==='in_review') return { txt:'Under review', cls:'cr-pending', detail:'Independent review is in progress.' };

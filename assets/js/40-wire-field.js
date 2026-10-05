@@ -28,7 +28,7 @@ async function renderWire(options){
           subject:row.title,body:row.summary,
           author:row.author&&row.author.wallet||'',author_handle:row.author&&row.author.handle||'',
           created_at:row.published_at,native:true,publication_channel:row.publication_channel,
-          contested_at:row.contested_at,support_lamports:row.support_lamports||0,
+          contested_at:row.contested_at,challenge_state:row.challenge_state||null,support_lamports:row.support_lamports||0,
           promoted:row.promoted===true,is_current_published:row.is_current_published!==false
         };
       });
@@ -101,7 +101,11 @@ function wireCard(d){
     : (authorRaw ? '<span class="wr-by" data-osi-user-content>'+escapeHtml(wireT('by {name}',{name:authorRaw}))+'</span>' : '<span class="wr-by">source not attributed</span>');
   const chips = [];
   if(d.native){
-    chips.push('<span class="wr-st '+(d.is_current_published===false?'old':'pub')+'">'+escapeHtml(wireT(d.is_current_published===false?'Superseded':'Published'))+'</span>');
+    // The same words Public Records uses for the same state: an upheld
+    // challenge puts the exact version under re-review before anything else.
+    const reReview = d.challenge_state==='challenge_upheld_under_re_review' || !!d.contested_at;
+    const stateWord = reReview ? 'Under re-review' : (d.is_current_published===false ? 'Superseded' : 'Published');
+    chips.push('<span class="wr-st '+(reReview||d.is_current_published===false?'old':'pub')+'">'+escapeHtml(wireT(stateWord))+'</span>');
     if(d.publication_channel==='maintainer_bootstrap') chips.push('<span class="wr-st boot">'+escapeHtml(wireT('Maintainer bootstrap'))+'</span>');
   }else{
     chips.push('<span class="wr-st legacy">'+escapeHtml(wireT('Legacy'))+'</span>');

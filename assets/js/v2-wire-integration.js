@@ -293,7 +293,7 @@
       if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(error,anchor.nextSibling);
       field.setAttribute('aria-describedby',((field.getAttribute('aria-describedby')||'')+' '+error.id).trim());
     });
-    if(invalid.length){status(t('Complete the fields marked below. Your draft is saved on this device.'),'error');invalid[0].focus();}
+    if(invalid.length){status(t('Some fields need attention. Each one says what it needs. Your draft is saved on this device.'),'error');invalid[0].focus();}
     return !invalid.length;
   }
   async function submitWire(event){
@@ -392,6 +392,12 @@
     try{return(rows||[]).reduce(function(sum,row){var value=String(row&&row.amount_lamports||'0');return/^[0-9]+$/.test(value)?sum+BigInt(value):sum;},0n).toString();}
     catch(_){return'Unavailable';}
   }
+  // A lamport count reads as SOL first; the exact integer stays beside it.
+  function solText(lamports){
+    var value=String(lamports==null?'':lamports);if(!/^[0-9]+$/.test(value))return'';
+    var padded=value.padStart(10,'0'),whole=padded.slice(0,-9).replace(/^0+(?=[0-9])/,''),fraction=padded.slice(-9).replace(/0+$/,'');
+    return whole+(fraction?'.'+fraction:'')+' SOL';
+  }
   function publicProof(proof){
     proof=proof||{};var type=String(proof.proof_type||''),transfer=type==='solana_memo'&&proof.event_type==='SUPPORT_PAYMENT_CONFIRMED'&&verifiedPaymentProof(proof.payment_proof),text=transfer?'SOL transfer verified on Solana':type==='solana_memo'?'Memo-anchored on Solana':type==='wallet_signed_server_verified'?'Wallet-signed and server-verified':type==='system_event'?'System event':'Proof unavailable';
     var link=type==='solana_memo'&&validTx(proof.tx_sig)?'<a href="https://solscan.io/tx/'+esc(proof.tx_sig)+'" target="_blank" rel="noopener">Verify on Solscan</a>':'';
@@ -462,8 +468,8 @@
     return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact published version</span><h3>Challenges</h3></div></div>'+compose+(rows||'<p>No challenges have been submitted.</p>')+'<div class="osi-case-note">Challenge accept or reject always requires the independent analyst count and weight gates. Maintainer bootstrap is unavailable.</div></section>';
   }
   function supportTab(item){
-    var total=totalLamports(item.support),rows=(item.support||[]).map(function(row){return'<article class="osi-report-version"><p class="wire-review-line" data-osi-i18n-ui><b>'+esc(t('{amount} lamports',{amount:row.amount_lamports}))+'</b><span>Sent by</span> <code>'+esc(row.from_wallet)+'</code></p>'+publicProof({event_type:'SUPPORT_PAYMENT_CONFIRMED',proof_type:row.proof_type,payment_proof:row.payment_proof,tx_sig:row.tx_sig,occurred_at:row.confirmed_at})+'</article>';}).join('');
-    return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Voluntary direct SOL</span><h3>Support</h3></div><span class="osi-chip">'+esc(t('{amount} lamports',{amount:total}))+'</span></div>'+(rows||'<p>No finalized support transfer is recorded.</p>')+'<div class="osi-case-note">Support is non-custodial and has zero influence on ranking, recommendation, review priority, reputation, voting power, or governance.</div></section>';
+    var total=totalLamports(item.support),rows=(item.support||[]).map(function(row){var sol=solText(row.amount_lamports);return'<article class="osi-report-version"><p class="wire-review-line" data-osi-i18n-ui>'+(sol?'<b>'+esc(sol)+'</b><span class="wire-lamports">'+esc(t('{amount} lamports',{amount:row.amount_lamports}))+'</span>':'<b>'+esc(t('{amount} lamports',{amount:row.amount_lamports}))+'</b>')+'<span>Sent by</span> <code>'+esc(row.from_wallet)+'</code></p>'+publicProof({event_type:'SUPPORT_PAYMENT_CONFIRMED',proof_type:row.proof_type,payment_proof:row.payment_proof,tx_sig:row.tx_sig,occurred_at:row.confirmed_at})+'</article>';}).join('');
+    return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Voluntary direct SOL</span><h3>Support</h3></div><span class="osi-chip" title="'+esc(t('{amount} lamports',{amount:total}))+'">'+esc(solText(total)||t('{amount} lamports',{amount:total}))+'</span></div>'+(rows||'<p>No finalized support transfer is recorded.</p>')+'<div class="osi-case-note">Support is non-custodial and has zero influence on ranking, recommendation, review priority, reputation, voting power, or governance.</div></section>';
   }
   function proofTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Proof type for each event</span><h3>Proof Log</h3></div></div>'+((item.proof_log||[]).map(function(row){return'<article class="osi-report-version"><div class="osi-report-version-head"><b>'+esc(eventTitle(row.event_type))+'</b><span class="mono">'+esc(row.receipt_id)+'</span></div><p class="wire-review-line" data-osi-i18n-ui><span>Actor</span> <code>'+esc(row.actor_wallet||'System')+'</code>'+sasSlot(row.actor_wallet,row.actor_role)+'<span>'+esc(label(row.actor_role))+'</span>'+(row.weight!=null?'<span>Weight</span> <code>'+esc(row.weight)+'</code>':'')+'</p>'+publicProof(row)+'</article>';}).join('')||'<p>No public proof events were recorded.</p>')+'</section>';}
   function renderDetail(){
@@ -620,7 +626,7 @@
     if(intake&&intake.disabled&&intake.title&&!/^Checking/.test(intake.title))lines.push(t(intake.title));
     else if(intake&&!intake.disabled&&intake.getAttribute('data-wallet-required')==='true')lines.push(t('Submitting starts by connecting a Solana wallet. Each version is anchored with one Memo transaction; OSI receives no funds.'));
     var locked=queue&&(queue.disabled||queue.getAttribute('aria-disabled')==='true');
-    if(locked&&!/^Checking/.test(queue.title||''))lines.push(t('Review queue: opens for an eligible analyst wallet or the full double-gated maintainer.'));
+    if(locked&&!/^Checking/.test(queue.title||''))lines.push(t('The review queue opens for an eligible analyst wallet or the full double-gated maintainer.'));
     note.innerHTML=lines.map(function(line){return'<span>'+esc(line)+'</span>';}).join('');
     note.hidden=!lines.length;
   }

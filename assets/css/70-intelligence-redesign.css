@@ -6549,9 +6549,39 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 }
 
 /* ---------- Wire intake form ---------- */
-/* The eyebrow and the 44px close sit in one bar that stays at the top of the
- * form while it scrolls, so closing never means scrolling back up. */
-#osi-wire-modal .fo-form { background: var(--bg-raised) !important; }
+/* A long form reads as a sheet, not a pop-up: it docks to the right edge at
+ * full height (the whole screen on a phone) and scrolls inside itself. The
+ * eyebrow and the 44px close sit in one bar pinned to its top, and the
+ * actions in one bar pinned to its foot, so closing or submitting never means
+ * scrolling. The sheet has no vertical padding, so both bars pin flush to
+ * its edges and nothing scrolls past above or below them. */
+#osi-wire-modal {
+  align-items: stretch !important;
+  justify-content: flex-end !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+#osi-wire-modal .fo-form {
+  box-sizing: border-box;
+  width: min(720px, 100vw) !important;
+  max-width: none !important;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0 !important;
+  padding: 0 32px !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 0 !important;
+  border-left: 1px solid var(--line-bright) !important;
+  border-radius: 0 !important;
+  background: var(--bg-raised) !important;
+  box-shadow: -24px 0 80px rgba(0, 0, 0, .5) !important;
+  animation: osiWireSheetIn .18s ease-out;
+}
+@keyframes osiWireSheetIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #osi-wire-modal .fo-form { animation: none; } }
 #osi-wire-modal .wire-form-top {
   position: sticky;
   top: 0;
@@ -6560,10 +6590,9 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: -28px -28px 12px;
-  padding: 12px 16px 12px 28px;
-  border-bottom: 1px solid transparent;
-  border-radius: 14px 14px 0 0;
+  margin: 0 -32px 20px;
+  padding: 12px 16px 12px 32px;
+  border-bottom: 1px solid var(--line);
   background: var(--bg-raised);
 }
 #osi-wire-modal .fo-x {
@@ -6641,10 +6670,9 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
-  margin: 20px -28px -28px;
-  padding: 14px 28px;
+  margin: 24px -32px 0;
+  padding: 14px 32px;
   border-top: 1px solid var(--line);
-  border-radius: 0 0 14px 14px;
   background: var(--bg-raised);
 }
 #osi-wire-modal .wire-form-submit,
@@ -6662,17 +6690,14 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 #osi-wire-modal .wire-form-cancel { border: 1px solid var(--line-bright) !important; background: transparent !important; color: var(--ink) !important; }
 
 @media (max-width: 640px) {
-  #osi-wire-modal { padding: 0 !important; }
   #osi-wire-modal .fo-form {
     width: 100% !important;
-    max-width: none !important;
-    min-height: 100dvh;
-    padding: 20px !important;
-    border-radius: 0 !important;
-    border-inline: 0 !important;
+    padding: 0 20px !important;
+    border-left: 0 !important;
+    box-shadow: none !important;
   }
-  #osi-wire-modal .wire-form-top { margin: -20px -20px 12px; padding: 10px 12px 10px 20px; border-radius: 0; }
-  #osi-wire-modal .fo-form-actions { flex-direction: row !important; flex-wrap: nowrap; margin: 20px -20px -20px; padding: 12px 20px; border-radius: 0; }
+  #osi-wire-modal .wire-form-top { margin: 0 -20px 16px; padding: 10px 12px 10px 20px; }
+  #osi-wire-modal .fo-form-actions { flex-direction: row !important; flex-wrap: nowrap; margin: 20px -20px 0; padding: 12px 20px; }
   #osi-wire-modal .wire-form-cancel { flex: 0 0 auto; width: auto !important; }
   #osi-wire-modal .wire-form-submit { flex: 1 1 auto; width: auto !important; }
 }
@@ -6728,7 +6753,6 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 }
 #osi-wire-drawer .osi-case-section h4 { margin: 16px 0 6px; color: var(--ink); font: 600 14px/1.4 var(--font-sans); }
 #osi-wire-drawer .osi-case-section > p { color: var(--ink-dim); font: 400 15px/1.6 var(--font-sans); }
-#osi-wire-modal { padding-bottom: 0 !important; }
 #osi-wire-modal .osi-report-context code { font: 500 12.5px/1.4 var(--font-mono); color: var(--ink-dim); }
 #osi-wire-drawer .osi-section-heading { width: 100%; max-width: none !important; }
 #osi-wire-drawer .osi-report-version-head b { text-transform: none !important; letter-spacing: 0 !important; font: 600 15px/1.35 var(--font-sans) !important; color: var(--ink); }
@@ -6748,7 +6772,7 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 #osi-wire-drawer .osi-report-evidence-item > span:nth-child(3) { min-width: 0; overflow-wrap: anywhere; font: 500 13px/1.45 var(--font-mono); }
 #osi-wire-drawer .osi-report-evidence-item > a { color: var(--lamp); text-decoration: underline; text-decoration-color: var(--lamp-line); text-underline-offset: 3px; }
 #osi-wire-drawer .osi-report-evidence-item > code { grid-column: 3; color: var(--ink-faint); font: 500 12.5px/1.4 var(--font-mono); }
-#osi-wire-drawer .osi-case-actions .osi-action { white-space: nowrap; min-height: 44px; }
+#osi-wire-drawer .osi-case-actions .osi-action { min-height: 44px; }
 #wire-view .osi-report-proof a,
 #wire-view .osi-report-card a { display: inline-flex; align-items: center; min-height: 40px; color: var(--lamp); text-decoration: underline; text-decoration-color: var(--lamp-line); text-underline-offset: 3px; }
 #wire-view .osi-payment-compose textarea,
@@ -6823,3 +6847,64 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
  * keeps only its title, scope and controls there. */
 #wire-view[data-wire-mode="queue"] .wire-steps { display: none !important; }
 #wire-view[data-wire-mode="queue"] .wire-hero { grid-template-columns: minmax(0, 1fr) !important; }
+
+/* Wire Report drawer: the footer wraps instead of squeezing its note into a
+ * column, and stacks full width on a phone. */
+#osi-wire-drawer .osi-case-actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px !important;
+}
+#osi-wire-drawer .osi-case-actions > .osi-case-note { flex: 1 1 260px; min-width: 0; margin: 0; }
+#osi-wire-drawer .osi-case-actions .osi-action { padding: 0 18px; border-radius: 8px; font: 600 14px/1.2 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; }
+#osi-wire-drawer .osi-case-actions .osi-form-status:empty { display: none; }
+@media (max-width: 640px) {
+  #osi-wire-drawer .osi-case-actions { flex-direction: column; flex-wrap: nowrap !important; align-items: stretch !important; }
+  #osi-wire-drawer .osi-case-actions > * { flex: 0 0 auto !important; width: 100% !important; }
+  #osi-wire-drawer .osi-case-actions .osi-action { white-space: normal !important; }
+}
+/* A maintainer bootstrap chip beside a proof reads in the lamp tone it has
+ * everywhere else, never like a neutral state. */
+#osi-wire-drawer .osi-report-proof .osi-chip { color: var(--lamp) !important; border-color: var(--lamp-line) !important; background: var(--lamp-soft) !important; }
+#osi-wire-drawer .wire-lamports { color: var(--ink-faint); font: 500 12.5px/1.4 var(--font-mono); }
+/* The challenge form inside the drawer: one quiet surface, sentence-case
+ * labels, inputs that match every other field. */
+#osi-wire-drawer .osi-payment-compose {
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid var(--line) !important;
+  border-radius: 10px;
+  background: var(--bg) !important;
+  box-shadow: none !important;
+}
+#osi-wire-drawer .osi-payment-compose h4 { margin: 0; color: var(--ink); font: 600 15px/1.4 var(--font-sans); }
+#osi-wire-drawer .osi-payment-compose label { gap: 6px; color: var(--ink) !important; font: 600 14px/1.4 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; }
+#osi-wire-drawer .osi-payment-compose textarea,
+#osi-wire-drawer .osi-payment-compose select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 8px !important;
+  background: var(--bg-raised) !important;
+  color: var(--ink) !important;
+  font: 400 16px/1.5 var(--font-sans) !important;
+}
+#osi-wire-drawer .osi-payment-compose textarea { min-height: 88px; resize: vertical; }
+#osi-wire-drawer .osi-payment-compose .osi-action { justify-self: start; min-height: 44px; padding: 0 20px; border-radius: 8px; box-shadow: none !important; font: 600 14px/1.2 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; }
+
+/* The review queue does not offer a link to itself. */
+#wire-view[data-wire-mode="queue"] #osi-wire-queue-action { display: none !important; }
+
+/* Public Records on narrow screens: the open-investigations filter starts its
+ * own line at the left, and the help actions stack label over hint. */
+@media (max-width: 760px) {
+  #records-hero .rf-tab-open { margin-left: 0; }
+}
+@media (max-width: 720px) {
+  #records-hero .cr-actions-panel button { display: grid !important; justify-content: stretch; gap: 2px; text-align: left; }
+  #records-hero .cr-actions-panel span { text-align: left; }
+}
