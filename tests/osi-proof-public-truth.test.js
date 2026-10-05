@@ -391,9 +391,9 @@ records.__crList = [legacy, nativeReviewed, nativeSealed];
 records.__crOpenChallengeCount = 0;
 records.crRenderStats();
 ok('Public Records stats name native review and Memo anchoring explicitly',
-  stats.innerHTML.includes('Native reviewed') && stats.innerHTML.includes('Memo-anchored'));
+  stats.innerHTML.includes('Reviewed or published') && stats.innerHTML.includes('Memo-anchored'));
 ok('legacy row cannot inflate native reviewed or Memo counters',
-  /<div class="fo-op-n sol">2<\/div><div class="fo-op-l">Native reviewed<\/div>/.test(stats.innerHTML)
+  /<div class="fo-op-n">2<\/div><div class="fo-op-l">Reviewed or published<\/div>/.test(stats.innerHTML)
     && /<div class="fo-op-n">1<\/div><div class="fo-op-l">Memo-anchored<\/div>/.test(stats.innerHTML));
 ok('Proof Log copy distinguishes wallet, Memo, transfer, system, and legacy proof',
   index.includes('How proof labels work')
@@ -406,10 +406,16 @@ ok('About describes both explicit quorum and clearly labeled cold-start review',
 ok('truthful cold-start copy remains localized in Turkish',
   i18nSource.includes('Uygun bir soğuk başlangıç sonuçlandırması ayrıca etiketlenir.')
     && i18nSource.includes('açıkça etiketlenmiş bir soğuk başlangıç süreciyle incelenir.'));
-ok('Public Records copy includes open public Cases without calling them sealed outcomes',
+// Public Records lists outcomes only (published Case Report versions,
+// published Wire Reports, reviewed and sealed Cases); open investigations are
+// counted and linked to the Field Office. The copy must name exactly that set
+// and never call the archive "sealed outcomes" alone.
+ok('Public Records copy names the outcomes it lists without calling them all sealed',
   index.includes('Public Cases and governed findings')
-    && index.includes('Public Cases, exact current published Case Report versions, and published Wire findings with their lifecycle and proof status.')
-    && !index.includes('<span>Reviewed and sealed outcomes</span>'));
+    && index.includes('The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal.')
+    && !index.includes('<span>Reviewed and sealed outcomes</span>')
+    && recordsSource.includes('nativeCases.filter(crIsOpenInvestigation)')
+    && recordsSource.includes('This archive lists outcomes only.'));
 
 console.log((fail ? 'FAILED: ' + fail : 'OK') +
   ' (' + pass + ' assertions passed, ' + fail + ' failed)');

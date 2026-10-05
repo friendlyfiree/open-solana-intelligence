@@ -48,7 +48,7 @@ vm.createContext(wireContext);
 vm.runInContext(wireSource, wireContext);
 
 const firstRender = wireContext.renderWire();
-ok('The Wire exposes an explicit loading state before its source resolves', wireHost.innerHTML.includes('Opening the live wire'));
+ok('The Wire exposes an explicit loading state before its source resolves', wireHost.innerHTML.includes('Loading published Wire Reports') && wireHost.innerHTML.includes('role="status"'));
 releaseRows([]);
 await firstRender;
 ok('an available source with zero rows renders a genuine public empty state without leaking private intake', wireHost.innerHTML.includes('The wire is quiet') && wireHost.innerHTML.includes('Unpublished submissions remain private') && !wireHost.innerHTML.includes('wireOpenForm'));

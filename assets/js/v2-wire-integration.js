@@ -19,6 +19,11 @@
   }
   function short(value){value=String(value||'');return value.length>18?value.slice(0,8)+'...'+value.slice(-6):value;}
   function label(value){return String(value||'').replace(/_/g,' ').replace(/\b\w/g,function(char){return char.toUpperCase();});}
+  // Lifecycle and decision words read in sentence case ("In review"), and an
+  // evidence kind reads as a noun a reader knows, not as its storage code.
+  function stateLabel(value){var text=String(value||'').replace(/_/g,' ').trim().toLowerCase();return text?text.charAt(0).toUpperCase()+text.slice(1):'';}
+  var EVIDENCE_KIND_LABELS={onchain_tx:'Solana transaction',wallet:'Wallet',url:'Source URL'};
+  function kindLabel(kind){return EVIDENCE_KIND_LABELS[String(kind||'')]||stateLabel(kind);}
   function t(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
   function sasSlot(wallet,role){role=String(role||'').toLowerCase();return['analyst','verified_analyst','senior_analyst','probationary_analyst'].indexOf(role)>=0?'<span data-sas-wallet="'+esc(wallet)+'" data-sas-role="'+esc(role)+'"></span>':'';}
   function dateText(value){var date=new Date(value||''),selected=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():(typeof document!=='undefined'&&document.documentElement?document.documentElement.lang:''),locale=String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US';return isNaN(date.getTime())?'Not recorded':date.toLocaleString(locale,{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})+' UTC';}
@@ -171,8 +176,10 @@
       generation=privateGeneration();
       var capability=await api({op:'capabilities',wallet:wallet});
       assertPrivateGeneration(generation);
+      applyIntakeCapability(capability);syncWireActionNote();
       if(capability.wire_writes_enabled!==true)throw new Error('wire_writes_disabled');
       var form=document.getElementById('osi-wire-form');form.reset();
+      Object.keys(WIRE_FIELD_MESSAGES).forEach(function(id){clearFieldError(document.getElementById(id));});
       state.summaryManual=false;
       var summaryInput=document.getElementById('osi-wire-summary');if(summaryInput)summaryInput.removeAttribute('data-auto-draft');
       state.reportRef=reportRef||null;state.isRevision=!!reportRef;state.pending=null;state.idempotency=randomKey();state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-wire-receipt');
@@ -190,8 +197,8 @@
         document.getElementById('osi-wire-analysis').value=current.body_private||'';
         document.getElementById('osi-wire-uncertainties').value=current.uncertainties_private||'';
         setEvidence(current.evidence||[]);
-        context.textContent=reportRef+' | Revision | Next version '+(Number(report.current_version_no)+1);
-      }else context.textContent='New standalone finding | Initial immutable version 1';
+        context.innerHTML='<code>'+esc(reportRef)+'</code> <span>'+esc(t('Revision. Next version {n}',{n:Number(report.current_version_no)+1}))+'</span>';
+      }else context.textContent='New standalone finding. Initial immutable version 1.';
       restoreDraft(wallet,state.reportRef);
       state.summaryManual=!!document.getElementById('osi-wire-summary').value;
       var modal=document.getElementById('osi-wire-modal');modal.classList.add('open');syncBodyLock();status('');
@@ -236,8 +243,46 @@
       onDismiss:closeWireForm
     });
   }
+  // Inline validation: every incomplete field says what it needs right under
+  // itself, in the page language, instead of one browser bubble on the first.
+  var WIRE_FIELD_MESSAGES={
+    'osi-wire-title':'Add a public-safe title of at least 3 characters.',
+    'osi-wire-summary':'Add a public-safe summary of at least 10 characters.',
+    'osi-wire-analysis':'Add the detailed analysis, at least 20 characters.',
+    'osi-wire-revision-reason':'Choose why this revision exists.',
+    'osi-wire-safety':'Confirm the safety statement before preparing the Memo.'
+  };
+  function clearFieldError(field){
+    if(!field)return;field.removeAttribute('aria-invalid');
+    var error=document.getElementById(field.id+'-error');if(error&&error.parentNode)error.parentNode.removeChild(error);
+    var described=String(field.getAttribute('aria-describedby')||'').split(/\s+/).filter(function(id){return id&&id!==field.id+'-error';});
+    if(described.length)field.setAttribute('aria-describedby',described.join(' '));else field.removeAttribute('aria-describedby');
+  }
+  function fieldIncomplete(field){
+    if(!field||field.disabled||field.offsetParent===null&&field.type!=='checkbox')return false;
+    if(field.type==='checkbox')return field.required&&!field.checked;
+    var value=String(field.value||'').trim();
+    if(field.required&&!value)return true;
+    var min=Number(field.getAttribute('minlength')||0);
+    return !!value&&min>0&&value.length<min;
+  }
+  function validateWireForm(){
+    var invalid=[];
+    Object.keys(WIRE_FIELD_MESSAGES).forEach(function(id){
+      var field=document.getElementById(id);if(!field)return;clearFieldError(field);
+      if(id==='osi-wire-revision-reason'&&!state.isRevision)return;
+      if(!fieldIncomplete(field))return;
+      invalid.push(field);field.setAttribute('aria-invalid','true');
+      var error=document.createElement('span');error.className='fo-error';error.id=id+'-error';error.textContent=t(WIRE_FIELD_MESSAGES[id]);
+      var anchor=field.type==='checkbox'?field.closest('label'):field;
+      if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(error,anchor.nextSibling);
+      field.setAttribute('aria-describedby',((field.getAttribute('aria-describedby')||'')+' '+error.id).trim());
+    });
+    if(invalid.length){status(t('Complete the fields marked below. Your draft is saved on this device.'),'error');invalid[0].focus();}
+    return !invalid.length;
+  }
   async function submitWire(event){
-    if(event)event.preventDefault();var form=document.getElementById('osi-wire-form');if(!form||!form.reportValidity()||state.busy)return;
+    if(event)event.preventDefault();var form=document.getElementById('osi-wire-form');if(!form||state.busy||!validateWireForm())return;
     var wire=payload();if(wire.evidence.length>12){status('A Wire version can include at most 12 evidence references.','error');return;}
     var generation=privateGeneration();
     state.busy=true;var button=document.getElementById('osi-wire-submit');button.disabled=true;button.setAttribute('aria-busy','true');
@@ -268,7 +313,7 @@
     }catch(error){if(generation===privateGeneration()){status(userError(error),'error');if(['wire_payload_rejected','proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_signer','wrong_memo'].indexOf(String(error.message))>=0){state.pending=null;state.idempotency=randomKey();}}}
     finally{if(generation===privateGeneration()){state.busy=false;button.disabled=!!state.receipt;button.removeAttribute('aria-busy');}}
   }
-  function evidenceHtml(items){if(!items||!items.length)return'';return'<div class="osi-report-evidence-list">'+items.map(function(item){return'<div class="osi-report-evidence-item"><span>#'+esc(item.ordinal)+'</span><span>'+esc(label(item.kind))+'</span><span>'+esc(item.ref)+'</span></div>';}).join('')+'</div>';}
+  function evidenceHtml(items){if(!items||!items.length)return'';return'<div class="osi-report-evidence-list">'+items.map(function(item){return'<div class="osi-report-evidence-item"><span>#'+esc(item.ordinal)+'</span><span>'+esc(kindLabel(item.kind))+'</span><span>'+esc(item.ref)+'</span></div>';}).join('')+'</div>';}
   function proofHtml(proof){
     if(!proof)return'<span>Proof unavailable</span>';
     var sig=String(proof.tx_sig||''),link=/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(sig)?'<a href="https://solscan.io/tx/'+esc(sig)+'" target="_blank" rel="noopener">Verify on Solscan</a>':'';
@@ -278,16 +323,21 @@
     var versions=(report.versions||[]).slice().sort(function(a,b){return Number(b.version_no)-Number(a.version_no);});
     var revision=report.revision_eligible?'<button class="osi-report-action" type="button" onclick="osiV2OpenWireForm(\''+esc(report.wire_report_public_ref)+'\')">Create revision</button>':'';
     var published=report.current_published_version_ref?'<button class="osi-report-action" type="button" onclick="osiV2OpenWireReport(\''+esc(report.current_published_version_ref)+'\')">Open published version</button>':'';
-    return'<article class="osi-report-card"><div class="osi-report-card-head"><div><div class="osi-report-card-kicker"><span>'+esc(report.wire_report_public_ref)+'</span></div><h3 data-osi-user-content>'+esc(versions[0]&&versions[0].title_public_safe||'Wire Report')+'</h3><div class="osi-report-card-meta">Exact current version '+esc(report.current_version_no)+' | '+esc(report.current_version_ref)+'</div></div><span class="osi-report-state">'+esc(label(versions[0]&&versions[0].lifecycle_state))+'</span></div><div class="osi-report-card-head"><div class="osi-report-card-meta">Private author view. Published content is exposed only through the public allowlist for its exact version.</div><div>'+published+revision+'</div></div><details><summary>Version history ('+versions.length+')</summary>'+versions.map(function(version){return'<section class="osi-report-version"><div class="osi-report-version-head"><div><div class="osi-report-version-ref">'+esc(version.version_ref)+' | version '+esc(version.version_no)+'</div><small>'+esc(label(version.lifecycle_state))+' | '+esc(dateText(version.submitted_at))+'</small></div><span class="mono">sha256 '+esc(short(version.evidence_snapshot_hash))+'</span></div><p data-osi-user-content><b>'+esc(version.title_public_safe)+'</b></p><p data-osi-user-content>'+esc(version.content_public_safe)+'</p><p data-osi-user-content>'+esc(version.body_private)+'</p><p data-osi-user-content><b>Uncertainties and limits:</b> '+esc(version.uncertainties_private)+'</p>'+evidenceHtml(version.evidence)+proofHtml(version.proof)+'</section>';}).join('')+'</details></article>';
+    return'<article class="osi-report-card"><div class="osi-report-card-head"><div><div class="osi-report-card-kicker"><span>'+esc(report.wire_report_public_ref)+'</span></div><h3 data-osi-user-content>'+esc(versions[0]&&versions[0].title_public_safe||'Wire Report')+'</h3><div class="osi-report-card-meta">'+esc(t('Exact current version {n}',{n:report.current_version_no}))+' <code>'+esc(report.current_version_ref)+'</code></div></div><span class="osi-report-state">'+esc(stateLabel(versions[0]&&versions[0].lifecycle_state))+'</span></div><div class="osi-report-card-head"><div class="osi-report-card-meta">Private author view. Published content is exposed only through the public allowlist for its exact version.</div><div>'+published+revision+'</div></div><details><summary>'+esc(t('Version history ({count})',{count:versions.length}))+'</summary>'+versions.map(function(version){return'<section class="osi-report-version"><div class="osi-report-version-head"><div><div class="osi-report-version-ref"><code>'+esc(version.version_ref)+'</code> '+esc(t('version {n}',{n:version.version_no}))+'</div><small><span>'+esc(stateLabel(version.lifecycle_state))+'</span> <span>'+esc(dateText(version.submitted_at))+'</span></small></div><span class="mono">sha256 '+esc(short(version.evidence_snapshot_hash))+'</span></div><p data-osi-user-content><b>'+esc(version.title_public_safe)+'</b></p><p data-osi-user-content>'+esc(version.content_public_safe)+'</p><p data-osi-user-content>'+esc(version.body_private)+'</p><p><b>Uncertainties and limits:</b> <span data-osi-user-content>'+esc(version.uncertainties_private)+'</span></p>'+evidenceHtml(version.evidence)+proofHtml(version.proof)+'</section>';}).join('')+'</details></article>';
   }
   function workspaceMarkup(reports){return reports.length?'<div class="osi-case-note"><button class="osi-report-action" type="button" onclick="wireOpenPublic()">Back to public Wire</button><span>Private author workspace. Unpublished existence and content are not public.</span></div><div class="osi-report-workspace">'+reports.map(reportCard).join('')+'</div>':'<div class="osi-report-empty"><b>No Wire Reports for this wallet</b><p>Use Submit a Wire Report to create an exact private version.</p></div>';}
   function drawWorkspace(reports){
     var host=document.getElementById('wire-cases');if(!host)return;host.innerHTML=workspaceMarkup(reports);
-    var stats=document.getElementById('wire-stats'),published=reports.filter(function(report){return!!report.current_published_version_ref;}).length;if(stats)stats.innerHTML='<div class="wire-op"><div class="wire-op-n cy">'+reports.length+'</div><div class="wire-op-l">My reports</div></div><div class="wire-op"><div class="wire-op-n">'+reports.reduce(function(sum,report){return sum+(report.versions||[]).length;},0)+'</div><div class="wire-op-l">Immutable versions</div></div><div class="wire-op"><div class="wire-op-n">'+published+'</div><div class="wire-op-l">Published</div></div>';
+    var stats=document.getElementById('wire-stats'),published=reports.filter(function(report){return!!report.current_published_version_ref;}).length,versions=reports.reduce(function(sum,report){return sum+(report.versions||[]).length;},0);
+    if(stats){
+      stats.textContent=reports.length?[t(reports.length===1?'{count} Wire Report':'{count} Wire Reports',{count:reports.length}),t(versions===1?'{count} immutable version':'{count} immutable versions',{count:versions}),t('{count} published',{count:published})].join(', '):'';
+      stats.hidden=!reports.length;
+      var bar=stats.parentNode;if(bar&&bar.classList&&bar.classList.contains('wire-bar'))bar.hidden=!reports.length;
+    }
   }
   async function openWorkspace(){
-    if(typeof showView==='function')showView('wire');if(typeof wireEnterPrivateMode==='function')wireEnterPrivateMode();var host=document.getElementById('wire-cases');if(host)host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';
-    try{var reports=await loadMine();drawWorkspace(reports);}catch(error){if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Wire workspace locked</b><span>'+esc(userError(error))+'</span><button class="osi-report-action" type="button" onclick="'+(refresh?'osiV2RefreshWireWorkspace()':'osiV2OpenMyWireReports()')+'">'+(refresh?'Refresh private access':'Try again')+'</button></div>';}}
+    if(typeof showView==='function')showView('wire');if(typeof wireEnterPrivateMode==='function')wireEnterPrivateMode('mine');var host=document.getElementById('wire-cases');if(host)host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';
+    try{var reports=await loadMine();state.privateView='mine';drawWorkspace(reports);}catch(error){state.privateView='';if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Wire workspace locked</b><span>'+esc(userError(error))+'</span><button class="osi-report-action" type="button" onclick="'+(refresh?'osiV2RefreshWireWorkspace()':'osiV2OpenMyWireReports()')+'">'+(refresh?'Refresh private access':'Try again')+'</button></div>';}}
   }
   function safeHttpsUrl(value){
     try{var url=new URL(String(value||''));return url.protocol==='https:'&&!url.username&&!url.password?url.href:'';}catch(_){return'';}
@@ -309,11 +359,13 @@
     else if(item.kind==='onchain_tx'&&validTx(ref))href='https://solscan.io/tx/'+ref;
     else if(item.kind==='wallet'&&validWallet(ref))href='https://solscan.io/account/'+ref;
     var value=href?'<a href="'+esc(href)+'" target="_blank" rel="noopener">'+esc(ref)+'</a>':'<span>'+esc(ref)+'</span>';
-    return'<div class="osi-report-evidence-item"><span>#'+esc(item.ordinal)+'</span><span>'+esc(label(item.kind))+'</span>'+value+'<code class="mono">sha256 '+esc(short(item.sha256))+'</code></div>';
+    return'<div class="osi-report-evidence-item"><span>#'+esc(item.ordinal)+'</span><span>'+esc(kindLabel(item.kind))+'</span>'+value+'<code class="mono">sha256 '+esc(short(item.sha256))+'</code></div>';
   }
+  // One attribution row: role, name, handle and the exact wallet on its own
+  // line, so a long wallet never runs into the text that follows it.
   function attribution(actor,role){
-    actor=actor||{};var handle=actor.handle?'@'+actor.handle:'';
-    return'<div class="osi-report-proof"><b>'+esc(actor.display_name||handle||'Wallet contributor')+sasSlot(actor.wallet,role)+'</b><span class="mono">'+esc(actor.wallet||'Wallet unavailable')+'</span><span>'+esc(label(role||''))+(handle?' | '+esc(handle):'')+'</span></div>';
+    actor=actor||{};var handle=actor.handle?'@'+actor.handle:'',name=actor.display_name||handle;
+    return'<div class="wire-attribution" data-osi-i18n-ui><span class="wire-attribution-role">'+esc(label(role||''))+'</span><b>'+(name?'<span data-osi-user-content>'+esc(name)+'</span>':'<span>Wallet contributor</span>')+sasSlot(actor.wallet,role)+'</b>'+(handle&&actor.display_name?'<span class="wire-attribution-handle" data-osi-user-content>'+esc(handle)+'</span>':'')+'<code class="wire-attribution-wallet">'+esc(actor.wallet||'Wallet unavailable')+'</code></div>';
   }
   function verifiedPaymentProof(value){
     value=value&&typeof value==='object'?value:{};var manifest=Array.isArray(value.recipient_manifest)?value.recipient_manifest:[];
@@ -331,19 +383,52 @@
     var channel=proof.decision_channel==='maintainer_bootstrap'?'<span class="osi-chip">Maintainer bootstrap</span>':'';
     return'<div class="osi-report-proof"><b>'+esc(text)+'</b><span>'+esc(dateText(proof.occurred_at||proof.created_at))+'</span>'+channel+link+'</div>';
   }
+  var WIRE_EVENT_TITLES={
+    WIRE_REPORT_VERSION_SUBMITTED:'Wire version submitted',WIRE_REPORT_REVIEW_CAST:'Wire review cast',
+    WIRE_REPORT_REVIEW_REVISED:'Wire review revised',WIRE_REPORT_PUBLISHED:'Wire Report published',
+    WIRE_PROMOTED:'Promoted to Case',SUPPORT_PAYMENT_CONFIRMED:'Support transfer confirmed',
+    CHALLENGE_SUBMITTED:'Challenge submitted',CHALLENGE_ADMISSIBILITY_ACCEPTED:'Challenge admitted',
+    CHALLENGE_ADMISSIBILITY_REJECTED:'Challenge not admitted',CHALLENGE_REVIEW_CAST:'Challenge review cast',
+    CHALLENGE_REVIEW_REVISED:'Challenge review revised',CHALLENGE_WITHDRAWN:'Challenge withdrawn',
+    CHALLENGE_ACCEPTED:'Challenge accepted',CHALLENGE_REJECTED:'Challenge rejected',CHALLENGE_EXPIRED:'Challenge expired'
+  };
+  function eventTitle(type){var key=String(type||'').toUpperCase();return WIRE_EVENT_TITLES[key]||label(String(type||'').toLowerCase()).replace(/^(\w)/,function(c){return c.toUpperCase();});}
+  // The publication itself, with its channel spelled out: a maintainer
+  // bootstrap publication always says so next to its proof.
+  function publicationBlock(item){
+    var publication=item.publication||{},boot=publication.decision_channel==='maintainer_bootstrap';
+    var channel=boot?'Published through the labeled maintainer bootstrap (cold-start) path, not independent analyst quorum.':(publication.decision_channel==='standard'?'Published through independent analyst quorum for this exact version.':'');
+    if(!publication.tx_sig&&!publication.occurred_at)return'';
+    return'<h4>Publication</h4>'+(channel?'<p class="wire-channel'+(boot?' boot':'')+'">'+esc(channel)+'</p>':'')+publicProof({proof_type:publication.proof_type||'',tx_sig:publication.tx_sig,occurred_at:publication.occurred_at,decision_channel:publication.decision_channel,event_type:'WIRE_REPORT_PUBLISHED'});
+  }
   function tabs(){return[['overview','Overview'],['evidence','Evidence'],['reviews','Reviews'],['challenges','Challenges'],['support','Support'],['proof','Proof Log']];}
+  // Marks the tab strip when it scrolls, so the edge fade appears only where
+  // more tabs are hidden, and keeps the active tab in view.
+  function syncTabOverflow(host){
+    if(!host)return;
+    var overflow=host.scrollWidth>host.clientWidth+1,before=overflow&&host.scrollLeft>2,after=overflow&&host.scrollLeft+host.clientWidth<host.scrollWidth-2;
+    host.setAttribute('data-osi-overflow',overflow?'true':'false');
+    host.setAttribute('data-osi-more',before&&after?'both':before?'start':after?'end':'none');
+    if(!host.__osiMoreBound){host.__osiMoreBound=true;host.addEventListener('scroll',function(){syncTabOverflow(host);},{passive:true});}
+  }
   function drawDetailTabs(){
     var host=document.getElementById('osi-wire-detail-tabs');if(!host)return;
     host.setAttribute('role','tablist');
     host.innerHTML=tabs().map(function(row){var active=state.tab===row[0];return'<button type="button" role="tab" aria-selected="'+active+'" tabindex="'+(active?'0':'-1')+'" class="osi-case-tab '+(active?'active':'')+'" data-wire-tab="'+row[0]+'">'+row[1]+'</button>';}).join('');
+    var active=host.querySelector('[aria-selected="true"]');
+    if(active&&host.scrollWidth>host.clientWidth+1){var box=host.getBoundingClientRect(),tab=active.getBoundingClientRect();if(tab.left<box.left)host.scrollLeft-=box.left-tab.left+8;else if(tab.right>box.right)host.scrollLeft+=tab.right-box.right+8;}
+    syncTabOverflow(host);
+    if(typeof requestAnimationFrame==='function')requestAnimationFrame(function(){syncTabOverflow(host);});
   }
+  // The drawer header already carries the title, so the overview opens on
+  // what the header does not say: which version this is and who wrote it.
   function overviewTab(item){
-    return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Standalone finding</span><h3 data-osi-user-content>'+esc(item.title)+'</h3></div><span class="osi-chip">Version '+esc(item.version_no)+'</span></div>'+attribution(item.author,'author')+'<h4>Public-safe summary</h4><p data-osi-user-content>'+esc(item.summary)+'</p><div class="osi-case-note">Publication exposes the public-safe summary, approved public evidence, review record, and proof log. Restricted analysis and uncertainties remain private. Publication is not automatic truth, guilt, legal certainty, recovery, custody, or guaranteed payment.</div></section>';
+    return'<section class="osi-case-section"><div class="osi-section-heading"><span class="osi-eyebrow">Standalone finding</span><span class="osi-chip">'+esc(t('Version {n}',{n:item.version_no}))+'</span></div>'+attribution(item.author,'author')+'<h4>Public-safe summary</h4><p data-osi-user-content>'+esc(item.summary)+'</p>'+publicationBlock(item)+'<div class="osi-case-note">Publication exposes the public-safe summary, approved public evidence, review record, and proof log. Restricted analysis and uncertainties remain private. Publication is not automatic truth, guilt, legal certainty, recovery, custody, or guaranteed payment.</div></section>';
   }
-  function evidenceTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact immutable version</span><h3>Evidence</h3></div><span class="osi-chip">'+esc((item.evidence||[]).length)+' references</span></div><div class="osi-report-evidence-list">'+((item.evidence||[]).map(publicEvidenceItem).join('')||'<p>No public evidence references were recorded.</p>')+'</div></section>';}
+  function evidenceTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact immutable version</span><h3>Evidence</h3></div><span class="osi-chip">'+esc(t((item.evidence||[]).length===1?'{count} reference':'{count} references',{count:(item.evidence||[]).length}))+'</span></div><div class="osi-report-evidence-list">'+((item.evidence||[]).map(publicEvidenceItem).join('')||'<p>No public evidence references were recorded.</p>')+'</div></section>';}
   function reviewsTab(item){
-    var rows=(item.reviews||[]).map(function(review){return'<article class="osi-report-version">'+attribution(review.reviewer,review.actor_role)+'<p><b>'+esc(label(review.decision))+'</b> | Weight snapshot '+esc(review.weight)+' | '+esc(label(review.tier_snapshot))+'</p><p data-osi-user-content>'+esc(review.public_rationale)+'</p>'+publicProof({proof_type:review.proof_type,occurred_at:review.created_at})+'</article>';}).join('');
-    return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">D16 public attribution</span><h3>Reviews</h3></div></div>'+(rows||'<p>No public reviews were recorded.</p>')+'</section>';
+    var rows=(item.reviews||[]).map(function(review){return'<article class="osi-report-version">'+attribution(review.reviewer,review.actor_role)+'<p class="wire-review-line" data-osi-i18n-ui><b>'+esc(stateLabel(review.decision))+'</b><span>Weight snapshot</span> <code>'+esc(review.weight)+'</code><span>'+esc(stateLabel(review.tier_snapshot))+'</span></p><p data-osi-user-content>'+esc(review.public_rationale)+'</p>'+publicProof({proof_type:review.proof_type,occurred_at:review.created_at})+'</article>';}).join('');
+    return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Public attribution</span><h3>Reviews</h3></div></div>'+(rows||'<p>No public reviews were recorded.</p>')+'</section>';
   }
   function challengeButtons(challenge){
     var caps=state.capabilities||{},ref=String(challenge.challenge_public_ref||''),challengeState=String(challenge.state||''),wallet=String(walletPubkey||''),author=String(state.current&&state.current.author&&state.current.author.wallet||''),conflicted=!!wallet&&(wallet===String(challenge.challenger_wallet||'')||wallet===author);if(!validChallenge(ref))return'';
@@ -358,14 +443,14 @@
   function challengesTab(item){
     var options=(item.evidence||[]).filter(function(row){return Number.isInteger(Number(row.ordinal))&&Number(row.ordinal)>=1&&Number(row.ordinal)<=12&&/^[0-9a-f]{64}$/.test(String(row.sha256||''));}).map(function(row){return'<option value="'+esc(String(Number(row.ordinal))+':'+String(row.sha256))+'">#'+esc(row.ordinal)+' '+esc(label(row.kind))+' | '+esc(short(row.ref))+'</option>';}).join('');
     var caps=state.capabilities||{},compose=item.is_current_published===true&&options&&caps.challenge_enabled===true?'<div class="osi-payment-compose"><h4>Challenge this exact published version</h4><label>Public-safe summary<textarea id="osi-wire-challenge-summary" minlength="20" maxlength="10000"></textarea></label><label>Linked evidence<select id="osi-wire-challenge-evidence">'+options+'</select></label><label>Restricted detail<textarea id="osi-wire-challenge-detail" maxlength="10000"></textarea></label><button class="osi-action primary" type="button" data-wire-governance="submit">Submit wallet-signed challenge</button></div>':'<div class="osi-case-note">New challenges require the current published version, public approved evidence, and the Wire write gate.</div>';
-    var rows=(item.challenges||[]).map(function(challenge){return'<article class="osi-report-version"><div class="osi-report-version-head"><b>'+esc(challenge.challenge_public_ref)+'</b><span class="osi-chip">'+esc(label(challenge.state))+'</span></div><p data-osi-user-content>'+esc(challenge.public_safe_summary)+'</p><p class="mono">Challenger '+esc(challenge.challenger_wallet)+'</p>'+((challenge.reviews||[]).map(function(review){return attribution(review.reviewer,review.actor_role)+'<p><b>'+esc(label(review.decision))+'</b> | Weight '+esc(review.weight)+'</p><p data-osi-user-content>'+esc(review.public_rationale)+'</p>';}).join(''))+'<div class="osi-case-actions">'+challengeButtons(challenge)+'</div></article>';}).join('');
-    return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact typed target</span><h3>Challenges</h3></div></div>'+compose+(rows||'<p>No challenges have been submitted.</p>')+'<div class="osi-case-note">Challenge accept or reject always requires the independent analyst count and weight gates. Maintainer bootstrap is unavailable.</div></section>';
+    var rows=(item.challenges||[]).map(function(challenge){return'<article class="osi-report-version"><div class="osi-report-version-head"><b>'+esc(challenge.challenge_public_ref)+'</b><span class="osi-chip">'+esc(stateLabel(challenge.state))+'</span></div><p data-osi-user-content>'+esc(challenge.public_safe_summary)+'</p><p class="wire-review-line" data-osi-i18n-ui><span>Challenger</span> <code>'+esc(challenge.challenger_wallet)+'</code></p>'+((challenge.reviews||[]).map(function(review){return attribution(review.reviewer,review.actor_role)+'<p><b>'+esc(label(review.decision))+'</b> | Weight '+esc(review.weight)+'</p><p data-osi-user-content>'+esc(review.public_rationale)+'</p>';}).join(''))+'<div class="osi-case-actions">'+challengeButtons(challenge)+'</div></article>';}).join('');
+    return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact published version</span><h3>Challenges</h3></div></div>'+compose+(rows||'<p>No challenges have been submitted.</p>')+'<div class="osi-case-note">Challenge accept or reject always requires the independent analyst count and weight gates. Maintainer bootstrap is unavailable.</div></section>';
   }
   function supportTab(item){
-    var total=totalLamports(item.support),rows=(item.support||[]).map(function(row){return'<article class="osi-report-version"><p><b>'+esc(row.amount_lamports)+' lamports</b> from <span class="mono">'+esc(row.from_wallet)+'</span></p>'+publicProof({event_type:'SUPPORT_PAYMENT_CONFIRMED',proof_type:row.proof_type,payment_proof:row.payment_proof,tx_sig:row.tx_sig,occurred_at:row.confirmed_at})+'</article>';}).join('');
-    return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Voluntary direct SOL</span><h3>Support</h3></div><span class="osi-chip">'+esc(total)+' lamports</span></div>'+(rows||'<p>No finalized support transfer is recorded.</p>')+'<div class="osi-case-note">Support is non-custodial and has zero influence on ranking, recommendation, review priority, reputation, voting power, or governance.</div></section>';
+    var total=totalLamports(item.support),rows=(item.support||[]).map(function(row){return'<article class="osi-report-version"><p class="wire-review-line" data-osi-i18n-ui><b>'+esc(t('{amount} lamports',{amount:row.amount_lamports}))+'</b><span>from</span> <code>'+esc(row.from_wallet)+'</code></p>'+publicProof({event_type:'SUPPORT_PAYMENT_CONFIRMED',proof_type:row.proof_type,payment_proof:row.payment_proof,tx_sig:row.tx_sig,occurred_at:row.confirmed_at})+'</article>';}).join('');
+    return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Voluntary direct SOL</span><h3>Support</h3></div><span class="osi-chip">'+esc(t('{amount} lamports',{amount:total}))+'</span></div>'+(rows||'<p>No finalized support transfer is recorded.</p>')+'<div class="osi-case-note">Support is non-custodial and has zero influence on ranking, recommendation, review priority, reputation, voting power, or governance.</div></section>';
   }
-  function proofTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Honest transport labels</span><h3>Proof Log</h3></div></div>'+((item.proof_log||[]).map(function(row){return'<article class="osi-report-version"><div class="osi-report-version-head"><b>'+esc(label(row.event_type))+'</b><span class="mono">'+esc(row.receipt_id)+'</span></div><p>Actor <span class="mono">'+esc(row.actor_wallet||'System')+'</span>'+sasSlot(row.actor_wallet,row.actor_role)+' | '+esc(label(row.actor_role))+(row.weight!=null?' | Weight '+esc(row.weight):'')+'</p>'+publicProof(row)+'</article>';}).join('')||'<p>No public proof events were recorded.</p>')+'</section>';}
+  function proofTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Proof type for each event</span><h3>Proof Log</h3></div></div>'+((item.proof_log||[]).map(function(row){return'<article class="osi-report-version"><div class="osi-report-version-head"><b>'+esc(eventTitle(row.event_type))+'</b><span class="mono">'+esc(row.receipt_id)+'</span></div><p class="wire-review-line" data-osi-i18n-ui><span>Actor</span> <code>'+esc(row.actor_wallet||'System')+'</code>'+sasSlot(row.actor_wallet,row.actor_role)+'<span>'+esc(label(row.actor_role))+'</span>'+(row.weight!=null?'<span>Weight</span> <code>'+esc(row.weight)+'</code>':'')+'</p>'+publicProof(row)+'</article>';}).join('')||'<p>No public proof events were recorded.</p>')+'</section>';}
   function renderDetail(){
     var item=state.current,host=document.getElementById('osi-wire-detail-content');if(!item||!host)return;
     drawDetailTabs();var html=state.tab==='evidence'?evidenceTab(item):state.tab==='reviews'?reviewsTab(item):state.tab==='challenges'?challengesTab(item):state.tab==='support'?supportTab(item):state.tab==='proof'?proofTab(item):overviewTab(item);host.innerHTML=html;
@@ -449,7 +534,7 @@
       bootstrapUnavailable=wireBootstrapUnavailableReason(item,caps.maintainer_access),
       publicationUnavailable=caps.publication_enabled!==true?'Publication is unavailable because the Wire publication gate is closed.':bootstrapUnavailable||'Publication is unavailable until both analyst quorum gates pass and this analyst approved the exact version.',
       publish=caps.publication_enabled===true&&(standardReady||bootstrapReady)?'<button class="osi-action" type="button" data-wire-publish="'+ref+'">'+(standardReady?'Publish approved version':'Publish via maintainer bootstrap')+'</button>':'<div class="osi-case-note">'+esc(publicationUnavailable)+'</div>';
-    return'<article class="osi-report-card" data-wire-queue-card="'+ref+'" tabindex="-1"><div class="osi-report-card-head"><div><div class="osi-report-card-kicker"><span>'+esc(item.wire_report_public_ref)+'</span></div><h3 data-osi-user-content>'+esc(item.title)+'</h3><div class="osi-report-card-meta">'+esc(ref)+' | Author '+esc(item.author_wallet)+'</div></div><span class="osi-report-state">'+esc(label(item.lifecycle_state))+'</span></div><p data-osi-user-content>'+esc(item.summary)+'</p><p data-osi-user-content>'+esc(item.analysis)+'</p><p data-osi-user-content><b>Uncertainties:</b> '+esc(item.uncertainties)+'</p>'+evidenceHtml(item.evidence)+'<div class="osi-payment-compose">'+review+publish+'</div><div class="osi-case-note">Approve quorum '+esc(q.approve_count||0)+' / '+esc(q.required_count||2)+' analysts and '+esc(q.approve_weight||0)+' / '+esc(q.required_weight||2)+' weight. The server chooses standard or maintainer-bootstrap publication.</div></article>';
+    return'<article class="osi-report-card" data-wire-queue-card="'+ref+'" tabindex="-1"><div class="osi-report-card-head"><div><div class="osi-report-card-kicker"><span>'+esc(item.wire_report_public_ref)+'</span></div><h3 data-osi-user-content>'+esc(item.title)+'</h3><div class="osi-report-card-meta" data-osi-i18n-ui><code>'+esc(ref)+'</code> <span>Author</span> <code>'+esc(item.author_wallet)+'</code></div></div><span class="osi-report-state">'+esc(stateLabel(item.lifecycle_state))+'</span></div><p data-osi-user-content>'+esc(item.summary)+'</p><p data-osi-user-content>'+esc(item.analysis)+'</p><p><b>Uncertainties:</b> <span data-osi-user-content>'+esc(item.uncertainties)+'</span></p>'+evidenceHtml(item.evidence)+'<div class="osi-payment-compose">'+review+publish+'</div><div class="osi-case-note">'+esc(t('Approve quorum {count} / {requiredCount} analysts and {weight} / {requiredWeight} weight. The server chooses standard or maintainer-bootstrap publication.',{count:q.approve_count||0,requiredCount:q.required_count||2,weight:q.approve_weight||0,requiredWeight:q.required_weight||2}))+'</div></article>';
   }
   async function loadWireQueueData(){
     var wallet=await ensureWallet(),generation=privateGeneration();
@@ -461,7 +546,7 @@
     state.queue=Array.isArray(result.reports)?result.reports:[];return{authorized:true,reports:state.queue,result:result,capabilities:capabilities};
   }
   async function openWireQueue(){
-    if(typeof showView==='function')showView('wire');if(typeof wireEnterPrivateMode==='function')wireEnterPrivateMode();
+    if(typeof showView==='function')showView('wire');if(typeof wireEnterPrivateMode==='function')wireEnterPrivateMode('queue');
     // Entering private mode cancels the public feed render, so this function
     // owns whatever the reader sees next. Without its own loading and failure
     // states a refused queue left the feed frozen on "Opening the live wire".
@@ -478,6 +563,7 @@
     }
     host=document.getElementById('wire-cases');
     if(loaded.authorized!==true){if(host)host.innerHTML='<div class="osi-v2-empty"><b>Wire queue unavailable</b><span>'+esc(loaded.reason||'Connect an eligible analyst wallet or unlock both maintainer gates.')+'</span><div class="osi-wire-queue-recover"><button class="osi-report-action" type="button" onclick="wireOpenPublic()">Back to public Wire</button></div></div>';return loaded;}
+    state.privateView='queue';
     if(host)host.innerHTML='<div class="osi-case-note"><button class="osi-report-action" type="button" onclick="wireOpenPublic()">Back to public Wire</button><span>Restricted queue. The database rejects reviewing your own Wire, and rejects publishing it too, so your own submissions never appear here.</span></div><div class="osi-report-workspace">'+(state.queue.map(queueCard).join('')||'<div class="osi-report-empty"><b>No Wire versions await your review</b><span>Versions you wrote are never listed here. The database keeps an author out of both the review and the publication of their own Wire, so a version you submitted needs a different eligible analyst to review it and a different full maintainer to publish it.</span></div>')+'</div>';restoreQueueDraft();return loaded;
   }
   async function openWireQueueTarget(versionRef){
@@ -492,12 +578,18 @@
   // absent, which left a maintainer holding an unpublished version with no route
   // to it and nothing explaining why. Keep the authority check exactly as strict,
   // but show the control and say what unlocks it.
+  var WIRE_LOCK_ICON='<svg class="wire-lock" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
   function setWireQueueAction(allowed,unavailableReason){
     var queue=document.getElementById('osi-wire-queue-action');
     if(!queue)return;
     queue.hidden=false;
-    queue.disabled=!allowed;
-    queue.textContent=allowed?'Wire review queue':'Wire review queue (locked)';
+    // A locked queue stays focusable so a keyboard or screen-reader user can
+    // reach it and hear why it is locked; the click handler refuses to act
+    // while aria-disabled is true, and the reason is printed on the page.
+    queue.disabled=false;
+    queue.setAttribute('aria-disabled',allowed?'false':'true');
+    queue.setAttribute('aria-describedby','osi-wire-cta-note');
+    queue.innerHTML=(allowed?'':WIRE_LOCK_ICON)+'<span>Wire review queue</span>';
     queue.title=allowed
       ? 'Review submitted Wire versions, and publish one that passes its gates'
       : (unavailableReason||'Connect an eligible analyst wallet, or open both maintainer gates (the configured maintainer wallet, plus a sign-in from Operations Center in the wallet menu), to open this queue');
@@ -511,9 +603,19 @@
     var intake=document.getElementById('osi-wire-intake-action');
     var queue=document.getElementById('osi-wire-queue-action');
     if(intake&&intake.disabled&&intake.title&&!/^Checking/.test(intake.title))lines.push(t(intake.title));
-    if(queue&&queue.disabled&&!/^Checking/.test(queue.title||''))lines.push(t('Review queue: opens for an eligible analyst wallet or the full double-gated maintainer.'));
-    note.textContent=lines.join(' ');
+    else if(intake&&!intake.disabled&&intake.getAttribute('data-wallet-required')==='true')lines.push(t('Submitting starts by connecting a Solana wallet. Each version is anchored with one Memo transaction; OSI receives no funds.'));
+    var locked=queue&&(queue.disabled||queue.getAttribute('aria-disabled')==='true');
+    if(locked&&!/^Checking/.test(queue.title||''))lines.push(t('Review queue: opens for an eligible analyst wallet or the full double-gated maintainer.'));
+    note.innerHTML=lines.map(function(line){return'<span>'+esc(line)+'</span>';}).join('');
     note.hidden=!lines.length;
+  }
+  function applyIntakeCapability(result){
+    var button=document.getElementById('osi-wire-intake-action');if(!button)return;
+    var enabled=result&&result.wire_writes_enabled===true,needsWallet=enabled&&!walletPubkey;
+    button.disabled=!enabled;
+    button.setAttribute('data-wallet-required',needsWallet?'true':'false');
+    button.textContent=!enabled?'Wire intake unavailable':(needsWallet?'Connect wallet to submit':'Submit a Wire Report');
+    button.title=result&&result.prerequisite||(enabled?(needsWallet?'Connect a wallet to submit a Wire Report.':'Create an exact private Wire Report version'):'Wire intake is not enabled on this deployment.');
   }
 
   // Several surfaces refresh the Wire intake control on the same tick (boot,
@@ -532,8 +634,8 @@
   async function refreshCapabilityOnce(){
     var button=document.getElementById('osi-wire-intake-action');if(!button)return;
     var loadToken=++state.capabilityLoadToken,generation=privateGeneration(),requestedWallet=String(walletPubkey||'');
-    try{var result=await api({op:'capabilities',wallet:requestedWallet});if(loadToken!==state.capabilityLoadToken||generation!==privateGeneration()||requestedWallet!==String(walletPubkey||''))return;state.capabilities=result;button.disabled=result.wire_writes_enabled!==true;button.textContent=result.wire_writes_enabled===true?'Submit a Wire Report':'Wire intake unavailable';button.title=result.prerequisite||(result.wire_writes_enabled===true?'Create an exact private Wire Report version':'Wire intake is not enabled on this deployment.');setWireQueueAction(result.analyst_eligible===true||result.maintainer_access===true,null);}
-    catch(_){if(loadToken!==state.capabilityLoadToken||generation!==privateGeneration()||requestedWallet!==String(walletPubkey||''))return;button.disabled=true;button.textContent='Wire intake unavailable';button.title='Wire capability is temporarily unavailable';setWireQueueAction(false,'Wire capability is temporarily unavailable. Retry in a moment.');}
+    try{var result=await api({op:'capabilities',wallet:requestedWallet});if(loadToken!==state.capabilityLoadToken||generation!==privateGeneration()||requestedWallet!==String(walletPubkey||''))return;state.capabilities=result;applyIntakeCapability(result);setWireQueueAction(result.analyst_eligible===true||result.maintainer_access===true,null);}
+    catch(_){if(loadToken!==state.capabilityLoadToken||generation!==privateGeneration()||requestedWallet!==String(walletPubkey||''))return;button.disabled=true;button.removeAttribute('data-wallet-required');button.textContent='Wire intake unavailable';button.title='Wire capability is temporarily unavailable';setWireQueueAction(false,'Wire capability is temporarily unavailable. Retry in a moment.');}
   }
   function clearSessionState(reason){
     var preserve=reason==='expiry'||reason==='explicit_refresh';if(preserve)saveQueueDraft();
@@ -552,6 +654,9 @@
     setWireQueueAction(false,'Connect an eligible analyst wallet, or unlock both maintainer gates, to open this queue');
     document.body.classList.remove('cr-drawer-lock');syncBodyLock();
     if(typeof wireClearPrivateMode==='function')wireClearPrivateMode();
+    // A wallet change also changes what the hero controls may say (connect
+    // first, submit, queue access), so ask the server again for this wallet.
+    setTimeout(function(){refreshCapability();},0);
   }
   function trapFocus(event,root){if(event.key!=='Tab'||!root)return;var nodes=Array.prototype.filter.call(root.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])'),function(node){return node.offsetParent!==null;});if(!nodes.length)return;var first=nodes[0],last=nodes[nodes.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
   document.addEventListener('click',function(event){
@@ -571,6 +676,15 @@
   });
   document.addEventListener('keydown',function(event){var modal=document.getElementById('osi-wire-modal'),drawer=document.getElementById('osi-wire-drawer');if(modal&&modal.classList.contains('open')){if(event.key==='Escape'){event.preventDefault();closeWireForm();return;}trapFocus(event,modal);return;}if(!drawer||drawer.hidden)return;if(event.key==='Escape'){event.preventDefault();closePublicWireReport();return;}var tab=event.target&&event.target.closest?event.target.closest('[data-wire-tab]'):null;if(tab&&(event.key==='ArrowRight'||event.key==='ArrowLeft')){event.preventDefault();var nodes=Array.prototype.slice.call(document.querySelectorAll('#osi-wire-detail-tabs [data-wire-tab]')),index=nodes.indexOf(tab),next=(index+(event.key==='ArrowRight'?1:-1)+nodes.length)%nodes.length,key=nodes[next].dataset.wireTab;state.tab=key;renderDetail();var fresh=document.querySelector('#osi-wire-detail-tabs [data-wire-tab="'+key+'"]');if(fresh)fresh.focus();return;}trapFocus(event,drawer);});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',refreshCapability);else setTimeout(refreshCapability,0);
+  // Composed copy (version chips, counts, the private workspace and queue)
+  // repaints in the new language; static copy is translated in place.
+  if(typeof window.addEventListener==='function')window.addEventListener('osi:localechange',function(){
+    var drawer=document.getElementById('osi-wire-drawer');
+    if(state.current&&drawer&&!drawer.hidden)renderDetail();
+    if(typeof wireState==='undefined'||wireState.mode!=='private')return;
+    if(state.privateView==='mine'&&state.reports.length)drawWorkspace(state.reports);
+    else if(state.privateView==='queue'&&state.queue.length){saveQueueDraft();var host=document.getElementById('wire-cases');if(host)host.querySelectorAll('[data-wire-queue-card]').forEach(function(card){var ref=card.getAttribute('data-wire-queue-card');var item=state.queue.find(function(row){return row&&row.version_public_ref===ref;});if(item){var holder=document.createElement('div');holder.innerHTML=queueCard(item);if(holder.firstChild)card.replaceWith(holder.firstChild);}});restoreQueueDraft();}
+  });
 
   window.OSIWireUI={escapeHtml:esc,reportCard:reportCard,workspaceMarkup:workspaceMarkup,safeHttpsUrl:safeHttpsUrl,validTransactionSignature:validTx,publicEvidenceItem:publicEvidenceItem,verifiedPaymentProof:verifiedPaymentProof,proofHtml:publicProof,pendingProofUsable:pendingProofUsable,draftPublicSummary:draftPublicSummary};
   window.osiV2OpenWireForm=openWireForm;
@@ -600,6 +714,8 @@
       state.summaryDrafting=true;wireSummary.value=draftPublicSummary(wireAnalysis.value);wireSummary.setAttribute('data-auto-draft','true');state.summaryDrafting=false;
     });
     wireDraftForm.addEventListener('input',saveDraft);wireDraftForm.addEventListener('change',saveDraft);
+    var clearIfFixed=function(event){var field=event.target;if(field&&field.getAttribute&&field.getAttribute('aria-invalid')==='true'&&!fieldIncomplete(field))clearFieldError(field);};
+    wireDraftForm.addEventListener('input',clearIfFixed);wireDraftForm.addEventListener('change',clearIfFixed);
   }
   var wireWorkspace=document.getElementById('wire-cases');
   if(wireWorkspace){wireWorkspace.addEventListener('input',saveQueueDraft);wireWorkspace.addEventListener('change',saveQueueDraft);}

@@ -85,38 +85,71 @@ function crProofState(r){
   if(type==='system_event'&&verified) return {key:'system',label:'System event',tx_sig:'',verified:true};
   return {key:'legacy',label:'Legacy / not server-verified',tx_sig:'',verified:false};
 }
+// The status object keeps two names apart. `txt` is the stable logic key the
+// filters and counters compare; `pill` is what the reader sees. A maintainer
+// bootstrap outcome keeps its own key, but reads as "Published" or "Sealed"
+// next to a separate "Maintainer bootstrap" chip, so the cold-start channel is
+// always visible and never styled as if it were ordinary analyst quorum.
+var CR_BOOTSTRAP='maintainer_bootstrap';
+function crSealDetail(sealChannel,selectionChannel){
+  var seal=sealChannel===CR_BOOTSTRAP,selection=selectionChannel===CR_BOOTSTRAP;
+  if(seal&&selection) return 'The winning Report selection and the seal were maintainer bootstrap (cold-start) decisions, not independent analyst quorum.';
+  if(seal) return 'The seal was a maintainer bootstrap (cold-start) decision, not independent analyst quorum.';
+  if(selection) return 'The winning Report selection was a maintainer bootstrap (cold-start) decision. The seal followed the standard analyst seal quorum.';
+  return 'Sealed through the standard analyst seal quorum. The seal is Memo-anchored on Solana.';
+}
+var CR_REVIEWED_STAGE_DETAIL={
+  ready_for_finalization:'Analyst quorum reached. Selection of one exact Report version is open.',
+  resolution_proposed:'A winning Report version has been selected.',
+  in_challenge_window:'A winning Report version is selected and its seven-day challenge window is open.',
+  resolved:'Resolution reached. The process seal is still pending.',
+  archived:'Archived after its lifecycle ended.'
+};
 function crStatus(r){
   var proof=crProofState(r);
   if(r&&r.record_source==='native_case_report_dto'){
     if(proof.verified!==true)return { txt:'Publication proof unavailable', cls:'cr-pending', detail:'The server exposes this exact published version, but its public publication receipt is unavailable.' };
-    if(r.publication_channel==='maintainer_bootstrap') return { txt:'Maintainer bootstrap', cls:'cr-reviewed', detail:'Exact current Report version published through the labeled cold-start path' };
-    if(r.publication_channel==='standard')return { txt:'Published', cls:'cr-reviewed', detail:'Exact current Report version published through governed review' };
-    return { txt:'Published', cls:'cr-reviewed', detail:'Exact current Report version has a verified publication receipt; its decision channel is not present in the public projection.' };
+    if(r.publication_channel===CR_BOOTSTRAP) return { txt:'Maintainer bootstrap', pill:'Published', channel:CR_BOOTSTRAP, cls:'cr-reviewed', detail:'Published through the labeled maintainer bootstrap (cold-start) path, not independent analyst quorum.' };
+    if(r.publication_channel==='standard')return { txt:'Published', cls:'cr-reviewed', detail:'Published through independent analyst quorum for this exact version.' };
+    return { txt:'Published', cls:'cr-reviewed', detail:'This exact version has a verified publication receipt. The public projection does not state its decision channel.' };
   }
   if(r&&r.record_source==='native_wire_dto'){
-    if(r.challenge_state==='challenge_upheld_under_re_review') return { txt:'Under re-review', cls:'cr-pending', detail:'Published Wire challenge upheld; exact version preserved' };
-    if(r.is_current_published===false&&r.publication_channel==='maintainer_bootstrap') return { txt:'Superseded bootstrap', cls:'cr-reviewed', detail:'Prior immutable Wire publication via honestly labeled maintainer bootstrap; a later exact version is current' };
-    if(r.is_current_published===false) return { txt:'Superseded', cls:'cr-reviewed', detail:'Prior immutable Wire publication; a later exact version is current' };
-    if(r.publication_channel==='maintainer_bootstrap') return { txt:'Maintainer bootstrap', cls:'cr-reviewed', detail:'Wire publication via honestly labeled maintainer bootstrap' };
-    return { txt:'Reviewed', cls:'cr-reviewed', detail:'Wire publication via independent analyst quorum' };
+    var wireBoot=r.publication_channel===CR_BOOTSTRAP?CR_BOOTSTRAP:'';
+    if(r.challenge_state==='challenge_upheld_under_re_review') return { txt:'Under re-review', channel:wireBoot, cls:'cr-pending', detail:'A challenge to this published version was upheld. The exact version is preserved while it is reviewed again.' };
+    if(r.is_current_published===false&&wireBoot) return { txt:'Superseded bootstrap', pill:'Superseded', channel:CR_BOOTSTRAP, cls:'cr-reviewed', detail:'Earlier immutable Wire publication through the labeled maintainer bootstrap path. A later exact version is current.' };
+    if(r.is_current_published===false) return { txt:'Superseded', cls:'cr-reviewed', detail:'Earlier immutable Wire publication. A later exact version is current.' };
+    if(wireBoot) return { txt:'Maintainer bootstrap', pill:'Published', channel:CR_BOOTSTRAP, cls:'cr-reviewed', detail:'Wire publication through the labeled maintainer bootstrap (cold-start) path, not independent analyst quorum.' };
+    return { txt:'Reviewed', pill:'Published', cls:'cr-reviewed', detail:'Wire publication through independent analyst quorum.' };
   }
   if(r&&r.record_source==='native_public_dto'){
     var stage=String(r.native_stage||r.stage||'');
-    if(stage==='sealed'&&r.native_seal_verified===true&&proof.key==='memo') return { txt:'Sealed', cls:'cr-sealed', detail:'Native Memo-anchored record' };
-    if(stage==='sealed') return { txt:'Seal proof unavailable', cls:'cr-pending', detail:'Server stage is sealed; public Memo receipt unavailable' };
-    if(['ready_for_finalization','resolution_proposed','in_challenge_window','resolved','archived'].indexOf(stage)!==-1 && Number(r.native_review_count||0)>0){
-      return { txt:'Reviewed', cls:'cr-reviewed', detail:'Native reviewed lifecycle state' };
+    if(stage==='sealed'&&r.native_seal_verified===true&&proof.key==='memo'){
+      var sealBoot=r.seal_channel===CR_BOOTSTRAP||r.selection_channel===CR_BOOTSTRAP;
+      return { txt:'Sealed', cls:'cr-sealed', channel:sealBoot?CR_BOOTSTRAP:'', detail:crSealDetail(r.seal_channel,r.selection_channel) };
     }
-    if(stage==='open_public') return { txt:'Public investigation', cls:'cr-pending', detail:'Public Case; no reviewed outcome yet' };
-    if(stage==='in_review') return { txt:'Under review', cls:'cr-pending', detail:'Independent review in progress' };
-    if(stage==='reopened') return { txt:'Reopened', cls:'cr-pending', detail:'Returned to investigation' };
-    if(stage==='halted') return { txt:'Halted', cls:'cr-pending', detail:'Lifecycle halted by an authorized transition' };
-    return { txt:'Public Case', cls:'cr-pending', detail:'Native public lifecycle state' };
+    if(stage==='sealed') return { txt:'Seal proof unavailable', cls:'cr-pending', detail:'The server stage is sealed, but its public seal Memo receipt is unavailable.' };
+    if(['ready_for_finalization','resolution_proposed','in_challenge_window','resolved','archived'].indexOf(stage)!==-1 && Number(r.native_review_count||0)>0){
+      var selectionBoot=r.selection_channel===CR_BOOTSTRAP;
+      return { txt:'Reviewed', cls:'cr-reviewed', channel:selectionBoot?CR_BOOTSTRAP:'', detail:CR_REVIEWED_STAGE_DETAIL[stage]+(selectionBoot?' That selection was a maintainer bootstrap (cold-start) decision, not independent analyst quorum.':'') };
+    }
+    if(stage==='open_public') return { txt:'Public investigation', cls:'cr-pending', detail:'Public Case with no reviewed outcome yet.' };
+    if(stage==='in_review') return { txt:'Under review', cls:'cr-pending', detail:'Independent review is in progress.' };
+    if(stage==='reopened') return { txt:'Reopened', cls:'cr-pending', detail:'Returned to investigation.' };
+    if(stage==='halted') return { txt:'Halted', cls:'cr-pending', detail:'Lifecycle halted by an authorized transition.' };
+    return { txt:'Public Case', cls:'cr-pending', detail:'Public Case lifecycle state.' };
   }
-  if(proof.key==='legacy'&&crIsLegacyTestRecord(r)) return { txt:'Legacy test data', cls:'cr-pending', detail:'Imported test material; not a native-reviewed OSI finding' };
-  if(proof.key==='legacy') return { txt:'Legacy / unverified', cls:'cr-pending', detail:'Imported status and wording; not native-reviewed' };
-  if(r && r.sealed===true && proof.key==='memo') return { txt:'Sealed', cls:'cr-sealed', detail:'Native Memo-anchored record' };
-  return { txt:'Under review', cls:'cr-pending' };
+  if(proof.key==='legacy'&&crIsLegacyTestRecord(r)) return { txt:'Legacy test data', cls:'cr-pending', detail:'Imported test material, not a native-reviewed OSI finding.' };
+  if(proof.key==='legacy') return { txt:'Legacy / unverified', cls:'cr-pending', detail:'Imported status and wording, not native-reviewed.' };
+  if(r && r.sealed===true && proof.key==='memo') return { txt:'Sealed', cls:'cr-sealed', detail:'The seal is Memo-anchored on Solana.' };
+  return { txt:'Under review', cls:'cr-pending', detail:'Independent review is in progress.' };
+}
+// An open investigation is a public Case that has not reached a reviewed
+// outcome. Public Records is the archive of outcomes (published, reviewed,
+// resolved and sealed records); open investigations live in the Field Office.
+function crIsOpenInvestigation(r){
+  if(!r||r.record_source!=='native_public_dto') return false;
+  var status=crStatus(r).txt;
+  return status!=='Reviewed'&&status!=='Sealed'&&status!=='Seal proof unavailable';
 }
 function crIsLegacyTestRecord(r){
   if(!r||crProofState(r).key!=='legacy') return false;
@@ -142,6 +175,36 @@ function crNativeProofRank(receipt){
   var proof=crProofState({publication_proof:Object.assign({},receipt,{proof_source:'native_public_dto'})});
   return proof.key==='transfer'?5:(proof.key==='memo'?4:(proof.key==='wallet'?3:(proof.key==='system'?2:1)));
 }
+// A proof line names the event it anchors. Without the event a Verify button
+// on an open investigation pointed at the private CASE_SUBMITTED Memo and read
+// as proof of the public record itself.
+var CR_EVENT_LABELS={
+  CASE_SUBMITTED:'Case submitted',CASE_OPENED:'Case opened',CASE_RESUMED:'Case resumed',
+  CASE_REOPENED:'Case reopened',CASE_HALTED:'Case halted',CASE_RESOLVED:'Case resolved',
+  REPORT_PUBLISHED:'Report published',RESOLUTION_PROPOSED:'Resolution proposed',
+  REPORT_SELECTED_WINNING:'Winning Report selected',RECORD_SEALED:'Record sealed',
+  WIRE_REPORT_PUBLISHED:'Wire Report published'
+};
+// Within one proof strength, the receipt that says most about the record's
+// lifecycle leads: the seal, then the selection, then the public opening. The
+// private submission Memo comes last.
+var CR_EVENT_PRIORITY={
+  RECORD_SEALED:10,CASE_RESOLVED:9,REPORT_SELECTED_WINNING:8,RESOLUTION_PROPOSED:7,
+  CASE_REOPENED:6,CASE_HALTED:6,CASE_OPENED:5,CASE_RESUMED:4,REPORT_PUBLISHED:3,CASE_SUBMITTED:1
+};
+function crEventKey(receipt){ return String(receipt&&receipt.event_type||'').toUpperCase(); }
+function crEventLabel(type){ return CR_EVENT_LABELS[String(type||'').toUpperCase()]||''; }
+function crHeadlineReceipt(receipts){
+  return receipts.slice().sort(function(a,b){
+    return (crNativeProofRank(b)-crNativeProofRank(a))
+      || ((CR_EVENT_PRIORITY[crEventKey(b)]||0)-(CR_EVENT_PRIORITY[crEventKey(a)]||0))
+      || (Date.parse(b&&b.occurred_at||0)||0)-(Date.parse(a&&a.occurred_at||0)||0);
+  })[0]||null;
+}
+function crLatestReceipt(receipts,eventType){
+  return receipts.filter(function(receipt){ return crEventKey(receipt)===eventType; })
+    .sort(function(a,b){ return (Date.parse(b&&b.occurred_at||0)||0)-(Date.parse(a&&a.occurred_at||0)||0); })[0]||null;
+}
 // A voluntary transfer is real proof that SOL moved. It is not proof about
 // the record. Ranking it as the record's headline verification let a support
 // payment outrank the confirmed CASE_OPENED Memo, which is exactly the kind of
@@ -160,9 +223,14 @@ function crNativeCaseRecord(item){
     var proof=crProofState({publication_proof:Object.assign({},receipt,{proof_source:'native_public_dto'})});
     return eventType==='record_sealed'&&proof.key==='memo';
   })[0]||null;
-  var strongest=sealReceipt||receipts.slice().sort(function(a,b){return crNativeProofRank(b)-crNativeProofRank(a);})[0]||{label:'Legacy / not server-verified'};
+  var strongest=sealReceipt||crHeadlineReceipt(receipts)||{label:'Legacy / not server-verified'};
   var governance=item.governance&&typeof item.governance==='object'?item.governance:{};
   var challenges=Array.isArray(governance.challenges)?governance.challenges:[];
+  var resolution=governance.resolution&&typeof governance.resolution==='object'?governance.resolution:{};
+  var selectionReceipt=crLatestReceipt(receipts,'REPORT_SELECTED_WINNING');
+  var openedReceipt=crLatestReceipt(receipts,'CASE_OPENED');
+  var selectionChannel=(selectionReceipt&&selectionReceipt.decision_channel===CR_BOOTSTRAP)||resolution.decision_channel===CR_BOOTSTRAP
+    ? CR_BOOTSTRAP : (selectionReceipt||resolution.decision_channel ? 'standard' : '');
   return {
     id:String(item.public_ref||''),
     public_ref:String(item.public_ref||''),
@@ -178,6 +246,11 @@ function crNativeCaseRecord(item){
     native_review_count:Array.isArray(item.reviews)?item.reviews.length:0,
     native_challenge_count:challenges.filter(function(challenge){return ['open','under_review'].indexOf(String(challenge&&challenge.state||''))!==-1;}).length,
     native_seal_verified:!!sealReceipt,
+    seal_channel:sealReceipt?(sealReceipt.decision_channel===CR_BOOTSTRAP?CR_BOOTSTRAP:'standard'):'',
+    selection_channel:selectionChannel,
+    opened_at:openedReceipt&&crValidDate(openedReceipt.occurred_at)?openedReceipt.occurred_at:null,
+    sealed_receipt_at:sealReceipt&&crValidDate(sealReceipt.occurred_at)?sealReceipt.occurred_at:null,
+    proof_event:crEventKey(strongest),
     publication_proof:Object.assign({},strongest,{proof_source:'native_public_dto'})
   };
 }
@@ -191,6 +264,12 @@ function crNativeCaseReportRecords(item){
   var caseRef=String(item.public_ref||'');
   if(!/^OSI-[0-9A-Z]{6,20}$/.test(caseRef))return [];
   var proofLog=Array.isArray(item.proof_log)?item.proof_log:[];
+  var governance=item.governance&&typeof item.governance==='object'?item.governance:{};
+  var resolution=governance.resolution&&typeof governance.resolution==='object'?governance.resolution:null;
+  var winningRef=resolution&&resolution.winning_report_version_ref?String(resolution.winning_report_version_ref):'';
+  var blocking=(Array.isArray(governance.challenges)?governance.challenges:[]).filter(function(challenge){
+    return ['open','under_review'].indexOf(String(challenge&&challenge.state||''))!==-1;
+  }).length;
   return (Array.isArray(item.reports)?item.reports:[]).filter(function(report){
     var version=report&&report.current_version;
     return report&&report.published===true&&version
@@ -216,12 +295,16 @@ function crNativeCaseReportRecords(item){
       version_public_ref:versionRef,
       case_public_ref:caseRef,
       company:String(item.title||'Published Case Report'),
+      case_title:String(item.title||''),
       summary:String(report.content_public_safe||''),
       category:String(item.category||''),
       native_stage:String(item.stage||''),
       created_at:version.published_at,
       record_source:'native_case_report_dto',
       native_review_count:reviewCount,
+      selection_state:!resolution?'none':(winningRef===versionRef?'winning':(winningRef?'other':'open')),
+      native_challenge_count:winningRef===versionRef?blocking:0,
+      proof_event:'REPORT_PUBLISHED',
       publication_channel:publication?String(publication.decision_channel||'unavailable'):'unavailable',
       publication_proof:Object.assign({},publication||{}, {proof_source:'native_public_dto'})
     };
@@ -236,8 +319,10 @@ function crNativeWireRecord(item){
     company:String(item.title||'Published Wire Report'),
     summary:String(item.summary||''),
     wallet:String(item.author&&item.author.wallet||''),
+    author_handle:String(item.author&&item.author.handle||''),
     created_at:item.published_at||null,
     record_source:'native_wire_dto',
+    proof_event:String(item.publication_proof&&item.publication_proof.event_type||'WIRE_REPORT_PUBLISHED').toUpperCase(),
     native_evidence_count:Number(item.evidence_count||0),
     native_review_count:Number(item.review_count||0),
     native_challenge_count:Number(item.challenge_count||0),
@@ -289,6 +374,7 @@ async function renderCaseRecords(){
   if(!supabaseAvailable&&!nativeAvailable){
     window.__crList = []; window.__crRecords = {}; window.__crPacks = {};
     window.__crChallenged = {}; window.__crChallengeCounts = {}; window.__crOpenChallengeCount = 0;
+    window.__crOpenInvestigations = 0;
     window.__crSourceState = 'unavailable'; window.__crVouchesLoaded = false;
     crPaint(); return;
   }
@@ -318,6 +404,12 @@ async function renderCaseRecords(){
       }catch(_legacyError){ sourceFailures++; legacyReports=[]; }
     }
     var nativeIds={};nativeCases.concat(nativeCaseReports,nativeWireReports).forEach(function(row){nativeIds[String(row.id)]=true;});
+    // Public Records is the archive of outcomes. A public Case that has not
+    // reached a reviewed outcome is an open investigation: it stays in the
+    // Field Office and is named here only as a count with a link there.
+    var openInvestigations=nativeCases.filter(crIsOpenInvestigation);
+    nativeCases=nativeCases.filter(function(row){ return !crIsOpenInvestigation(row); });
+    window.__crOpenInvestigations=openInvestigations.length;
     var reports=nativeCases.concat(nativeCaseReports,nativeWireReports,legacyReports.filter(function(row){return !nativeIds[String(row.id)];}));
     var packs = [];
     if(reports.length){
@@ -332,6 +424,10 @@ async function renderCaseRecords(){
     if(supabaseAvailable){try{ await loadVouches(); window.__crVouchesLoaded = true; }catch(_e){ window.__crVouchesLoaded = false; }}else window.__crVouchesLoaded=false;
     var challengeState=crNativeChallengeState(nativeCases);
     nativeWireReports.forEach(function(row){var count=Number(row.native_challenge_count||0);if(count>0){challengeState.challenged[String(row.id)]=1;challengeState.counts[String(row.id)]=count;challengeState.total+=count;}});
+    // A resolution challenge targets the selected winning version, so that
+    // Report row carries the same open count. The total already counted it on
+    // the parent Case and is not increased a second time.
+    nativeCaseReports.forEach(function(row){var count=Number(row.native_challenge_count||0);if(count>0){challengeState.challenged[String(row.id)]=1;challengeState.counts[String(row.id)]=count;}});
     try{
       if(!supabaseAvailable)throw new Error('legacy source unavailable');
       var ch = await supaGet('challenges?select=item_id&item_type=eq.report&status=eq.open') || [];
@@ -345,6 +441,7 @@ async function renderCaseRecords(){
   }catch(e){
     window.__crList = []; window.__crRecords = {}; window.__crPacks = {};
     window.__crChallenged = {}; window.__crChallengeCounts = {}; window.__crOpenChallengeCount = 0;
+    window.__crOpenInvestigations = 0;
     window.__crSourceState = 'error'; window.__crVouchesLoaded = false;
     crPaint();
   }
@@ -362,10 +459,16 @@ function crResetFilters(){
   var sort=document.getElementById('cr-sort-sel');if(sort)sort.value='newest';
   document.querySelectorAll('#cr-fils .rf-tab').forEach(function(button){var active=button.dataset.f==='all';button.classList.toggle('active',active);button.setAttribute('aria-pressed',active?'true':'false');});
   crPaint();
+  // The control that was pressed is gone after the repaint; keep the reader
+  // where the next action starts instead of dropping focus to the page.
+  if(search&&typeof search.focus==='function') search.focus({preventScroll:true});
 }
 function crPage(p){
   crState.page=p|0; crPaint();
   var h=document.getElementById('case-records'); if(h){ try{ h.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
+  // Announce the new page and keep keyboard focus on the result summary.
+  var count=document.getElementById('cr-count');
+  if(count&&typeof count.focus==='function'){ count.setAttribute('tabindex','-1'); count.focus({preventScroll:true}); }
 }
 function osiStatIcon(name){
   var paths={
@@ -390,27 +493,44 @@ function crRenderStats(){
   var reviewed = sourceOk ? reports.filter(crIsNativeReviewed).length : null;
   var memo = sourceOk ? reports.filter(crHasMemo).length : null;
   var openCh = sourceOk ? (window.__crOpenChallengeCount||0) : null;
-  var val = function(v, cls){ return '<div class="fo-op-n'+(cls?(' '+cls):'')+'">'+(v==null ? 'Not available yet' : v)+'</div>'; };
+  var val = function(v, cls){ return '<div class="fo-op-n'+(cls?(' '+cls):'')+'">'+(v==null ? escapeHtml(crT('Not available yet')) : v)+'</div>'; };
+  // Four counts of what the archive holds. The network is a fact about every
+  // proof, so it is stated once in the page introduction, not as a fifth tile.
   host.innerHTML =
-      '<div class="fo-op"><div class="fo-op-ic">'+osiStatIcon('archive')+'</div>'+val(publicRecords, publicRecords==null?'cr-stat-na':'')+'<div class="fo-op-l">Public Records</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic sol">'+osiStatIcon('review')+'</div>'+val(reviewed, reviewed==null?'cr-stat-na':'sol')+'<div class="fo-op-l">Native reviewed</div></div>'
+      '<div class="fo-op"><div class="fo-op-ic">'+osiStatIcon('archive')+'</div>'+val(publicRecords, publicRecords==null?'cr-stat-na':'')+'<div class="fo-op-l">Records</div></div>'
+    + '<div class="fo-op"><div class="fo-op-ic">'+osiStatIcon('review')+'</div>'+val(reviewed, reviewed==null?'cr-stat-na':'')+'<div class="fo-op-l">Reviewed or published</div></div>'
     + '<div class="fo-op"><div class="fo-op-ic">'+osiStatIcon('memo')+'</div>'+val(memo, memo==null?'cr-stat-na':'')+'<div class="fo-op-l">Memo-anchored</div></div>'
-    + '<div class="fo-op"><div class="fo-op-ic warn">'+osiStatIcon('challenge')+'</div>'+val(openCh, openCh==null?'cr-stat-na':(openCh>0?'warn':''))+'<div class="fo-op-l">Open challenges</div></div>'
-    + '<div class="fo-op net"><div class="fo-op-ic sol">'+osiStatIcon('network')+'</div><div class="fo-op-n fo-op-text">Mainnet</div><div class="fo-op-l">Solana network</div></div>';
+    + '<div class="fo-op"><div class="fo-op-ic warn">'+osiStatIcon('challenge')+'</div>'+val(openCh, openCh==null?'cr-stat-na':(openCh>0?'warn':''))+'<div class="fo-op-l">Open challenges</div></div>';
+}
+function crSearchHaystack(r){
+  var proof=crProofState(r);
+  return [r.company,r.case_title,r.summary,r.wallet,r.author_handle,r.id,r.public_ref,r.case_public_ref,r.report_public_ref,r.version_public_ref,r.wire_report_public_ref,r.tx,r.onchain,proof.tx_sig,crLegacyTxSig(r),osiCaseId(r.id)]
+    .map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
+}
+function crPaintOpenNote(){
+  var note=document.getElementById('cr-open-note'); if(!note) return;
+  var open=Number(window.__crOpenInvestigations||0);
+  if(!open){ note.hidden=true; note.innerHTML=''; return; }
+  note.hidden=false;
+  note.innerHTML='<span>'+escapeHtml(crT(open===1?'This archive lists outcomes only. {count} public Case without a reviewed outcome is an open investigation in the Field Office.':'This archive lists outcomes only. {count} public Cases without a reviewed outcome are open investigations in the Field Office.',{count:open}))+'</span>'
+    +'<button class="cr-link" type="button" onclick="osiNavigate(&quot;field&quot;)">'+escapeHtml(crT('Open the Field Office'))+'</button>';
 }
 function crPaint(){
   var host = document.getElementById('case-records'); if(!host) return;
   host.setAttribute('aria-busy','false');
   crRenderStats();
+  crPaintOpenNote();
   var reports = (window.__crList || []).slice();
   var chSet = window.__crChallenged || {};
   var q = crState.q;
   if(q){
-    reports = reports.filter(function(r){
-      var hay=[r.company,r.summary,r.wallet,r.id,r.public_ref,r.case_public_ref,r.report_public_ref,r.version_public_ref,r.wire_report_public_ref,r.tx,r.onchain,osiCaseId(r.id)].map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
-      return hay.indexOf(q)!==-1;
-    });
+    reports = reports.filter(function(r){ return crSearchHaystack(r).indexOf(q)!==-1; });
   }
+  // Each filter shows how many records it would return for the current
+  // search, so an empty result is predictable before it is pressed.
+  var filterCounts={all:reports.length,reviewed:reports.filter(crIsNativeReviewed).length,memo:reports.filter(crHasMemo).length,challenged:reports.filter(function(r){ return !!chSet[String(r.id)]; }).length,sealed:reports.filter(crIsNativeSealed).length};
+  var listLoaded=window.__crSourceState==='loaded'||window.__crSourceState==='partial'||window.__crSourceState==='empty';
+  document.querySelectorAll('#cr-fils [data-cr-n]').forEach(function(node){ node.textContent=listLoaded?String(filterCounts[node.getAttribute('data-cr-n')]||0):''; });
   if(crState.filter==='sealed') reports = reports.filter(crIsNativeSealed);
   else if(crState.filter==='reviewed') reports = reports.filter(crIsNativeReviewed);
   else if(crState.filter==='memo') reports = reports.filter(crHasMemo);
@@ -426,12 +546,12 @@ function crPaint(){
     ?'<div class="cr-source-warning" role="status"><div><b>'+escapeHtml(crT('Some public record sources are temporarily unavailable.'))+'</b><span>'+escapeHtml(crT('The records shown are verified results from the sources that answered. Published Reports may be incomplete until the Case registry recovers.'))+'</span></div><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Retry all sources'))+'</button></div>'
     :'';
   var emptyHtml = (sourceState === 'error' || sourceState === 'unavailable')
-    ? '<div class="cr-noyet" role="alert"><div class="cr-noyet-ic">SRC</div><b>'+escapeHtml(crT('Public records source unavailable.'))+'</b><span>'+escapeHtml(crT('Unable to load reviewed records right now. Private or cached data is never used as a fallback.'))+'</span><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Try again'))+'</button></div>'
-    : '<div class="cr-noyet"><div class="cr-noyet-ic">ARC</div><b>'+escapeHtml(crT('No published or sealed records yet.'))+'</b><span>'+escapeHtml(crT('Exact published Report versions and governed public outcomes will appear here. Open investigations remain available in the Field Office.'))+'</span><button class="cr-btn outline" type="button" onclick="osiNavigate(&quot;field&quot;)">'+escapeHtml(crT('Browse public Cases'))+'</button></div>';
+    ? '<div class="cr-noyet" role="alert"><b>'+escapeHtml(crT('Public records source unavailable.'))+'</b><span>'+escapeHtml(crT('Unable to load reviewed records right now. Private or cached data is never used as a fallback.'))+'</span><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Try again'))+'</button></div>'
+    : '<div class="cr-noyet"><b>'+escapeHtml(crT('No published or sealed records yet.'))+'</b><span>'+escapeHtml(crT('Exact published Report versions and governed public outcomes will appear here. Open investigations remain available in the Field Office.'))+'</span><button class="cr-btn outline" type="button" onclick="osiNavigate(&quot;field&quot;)">'+escapeHtml(crT('Browse public Cases'))+'</button></div>';
   host.innerHTML = partialHtml+(page.length
     ? page.map(function(r){ return crCard(r, (window.__crPacks||{})[r.id] || []); }).join('')
     : ((window.__crList||[]).length
-        ? '<div class="cr-noyet"><div class="cr-noyet-ic">0</div><b>'+escapeHtml(crT('No records match these filters.'))+'</b><span>'+escapeHtml(crT('Clear the search and filters to return to the complete public archive.'))+'</span><button class="cr-btn outline" type="button" onclick="crResetFilters()">'+escapeHtml(crT('Clear filters'))+'</button></div>'
+        ? '<div class="cr-noyet"><b>'+escapeHtml(crT('No records match these filters.'))+'</b><span>'+escapeHtml(crT('Clear the search and filters to return to the complete public archive.'))+'</span><button class="cr-btn outline" type="button" onclick="crResetFilters()">'+escapeHtml(crT('Clear filters'))+'</button></div>'
         : emptyHtml));
   var cnt=document.getElementById('cr-count');
   if(cnt) cnt.textContent = reports.length ? crT(reports.length===1?'Showing {from}-{to} of {total} record':'Showing {from}-{to} of {total} records',{from:from+1,to:from+page.length,total:reports.length}) : '';
@@ -439,9 +559,12 @@ function crPaint(){
   if(pn){
     if(totalPages<=1){ pn.innerHTML=''; }
     else{
-      var ph='<button class="fo-pg" type="button" '+(crState.page<=1?'disabled':'')+' onclick="crPage('+(crState.page-1)+')" aria-label="Previous page">&lsaquo;</button>';
-      for(var pi=1; pi<=totalPages; pi++){ ph+='<button class="fo-pg n'+(pi===crState.page?' active':'')+'" type="button" onclick="crPage('+pi+')">'+pi+'</button>'; }
-      ph+='<button class="fo-pg" type="button" '+(crState.page>=totalPages?'disabled':'')+' onclick="crPage('+(crState.page+1)+')" aria-label="Next page">&rsaquo;</button>';
+      var ph='<button class="fo-pg" type="button" '+(crState.page<=1?'disabled':'')+' onclick="crPage('+(crState.page-1)+')" aria-label="'+escapeHtml(crT('Previous page'))+'">&lsaquo;</button>';
+      for(var pi=1; pi<=totalPages; pi++){
+        var current=pi===crState.page;
+        ph+='<button class="fo-pg n'+(current?' active':'')+'" type="button"'+(current?' aria-current="page"':'')+' aria-label="'+escapeHtml(crT('Page {n}',{n:pi}))+'" onclick="crPage('+pi+')">'+pi+'</button>';
+      }
+      ph+='<button class="fo-pg" type="button" '+(crState.page>=totalPages?'disabled':'')+' onclick="crPage('+(crState.page+1)+')" aria-label="'+escapeHtml(crT('Next page'))+'">&rsaquo;</button>';
       pn.innerHTML=ph;
     }
   }
@@ -548,14 +671,32 @@ function crShort(v){
   if(typeof short === 'function') return short(v);
   return v.length > 10 ? (v.slice(0,4) + '...' + v.slice(-4)) : v;
 }
+function crIsoDate(v){ return crValidDate(String(v||''))?new Date(v).toISOString():''; }
+// The date a record shows is the one its label claims: when a Case was opened
+// to the public (or sealed), when a Report or Wire version was published.
+function crRecordDate(r,proof){
+  if(proof.key==='legacy') return {key:'Legacy record date {date}',value:r.created_at};
+  if(r.record_source==='native_public_dto'){
+    if(crIsNativeSealed(r)&&(r.sealed_at||r.sealed_receipt_at)) return {key:'Sealed {date}',value:r.sealed_at||r.sealed_receipt_at};
+    if(r.opened_at) return {key:'Opened {date}',value:r.opened_at};
+    return {key:'Submitted {date}',value:r.created_at};
+  }
+  return {key:'Published {date}',value:r.created_at};
+}
+function crMetaCell(label,value,cls){
+  return '<div class="cr-meta-cell"><dt class="cr-meta-k">'+escapeHtml(crT(label))+'</dt><dd class="cr-meta-v'+(cls?' '+cls:'')+'">'+value+'</dd></div>';
+}
 function crCard(r, packs){
   var st = crStatus(r);
   var proof = crProofState(r);
   var isCaseReport=r.record_source==='native_case_report_dto';
+  var isWire=r.record_source==='native_wire_dto';
   var cid = isCaseReport?String(r.version_public_ref||r.public_ref||''):(r.public_ref ? String(r.public_ref) : osiCaseId(r.id));
-  var titleRaw = r.company || ('Case ' + String(r.id).slice(0,6));
+  var titleRaw = isCaseReport ? crT('Report on {title}',{title:r.case_title||r.company||''}) : (r.company || ('Case ' + String(r.id).slice(0,6)));
   var title = escapeHtml(titleRaw);
-  var date = crDate(r.created_at);
+  var recordDate = crRecordDate(r,proof);
+  var date = crDate(recordDate.value);
+  var dateIso = crIsoDate(recordDate.value);
   var updated = r.updated_at ? crDate(r.updated_at) : '';
   var txSig = crTxSig(r);
   var legacyTxSig = proof.key==='legacy' ? crLegacyTxSig(r) : '';
@@ -564,52 +705,67 @@ function crCard(r, packs){
   var challengeCount = crChallengeCount(r.id);
   var challenged = challengeCount > 0;
   // A public Case projection deliberately omits the submitting wallet, so
-  // "Wallet unavailable" read as a lookup failure on a record where the
-  // omission is the rule. Only a wallet the projection genuinely publishes,
-  // such as a Wire author, gets a line at all.
-  var wallet = r.wallet ? '<div class="cr-wallet mono">'+escapeHtml(crShort(r.wallet))+'</div>' : '';
-  var cls = 'cr-card' + (isCaseReport ? ' case-report' : '') + (crIsNativeSealed(r) ? ' sealed' : '') + (challenged ? ' challenged' : '');
+  // only a wallet the projection genuinely publishes, such as a Wire author,
+  // gets an attribution line at all.
+  var authorName = r.author_handle ? '@'+String(r.author_handle) : (r.wallet ? crShort(r.wallet) : '');
+  var wallet = authorName ? '<div class="cr-wallet" data-osi-user-content title="'+escapeHtml(String(r.wallet||''))+'">'+escapeHtml(crT('by {name}',{name:authorName}))+'</div>' : '';
+  var cls = 'cr-card' + (isCaseReport ? ' case-report' : '') + (isWire ? ' wire' : '') + (crIsNativeSealed(r) ? ' sealed' : '') + (challenged ? ' challenged' : '');
   var displayedSig=txSig||legacyTxSig;
   var displayedSigShort=displayedSig?(String(displayedSig).slice(0,5)+'...'+String(displayedSig).slice(-5)):'';
   var copyBtn = displayedSig ? ('<button class="cr-copy" type="button" title="'+crAttr(crT('Copy transaction signature'))+'" aria-label="'+crAttr(crT('Copy transaction signature {signature}',{signature:displayedSigShort}))+'" onclick="event.stopPropagation();crCopyTx(&quot;'+crAttr(displayedSig)+'&quot;,this)">'+escapeHtml(crT('Copy'))+'</button>') : '';
-  var verifyBtn = txSig ? ('<button class="cr-btn outline" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(txSig)+'&quot;)">Verify on Solana</button>') : (legacyTxSig?'<button class="cr-btn outline" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(legacyTxSig)+'&quot;)">Inspect transaction</button>':'');
-  var evValue = isCaseReport?'<span class="cr-meta-v na">Case detail</span>':(evCount ? String(evCount) : '<span class="cr-meta-v na">Evidence not indexed</span>');
-  var evSub = isCaseReport?'Exact public manifest':(evCount ? (evCount===1?'Public reference':'Public references') : 'No indexed evidence count');
-  var revValue = revCount==null ? '<span class="cr-meta-v na">Review data unavailable</span>' : String(revCount);
-  var revSub = revCount==null ? 'Analyst tally unavailable' : (revCount===1?'Analyst review':'Analyst reviews');
-  var chValue = isCaseReport?'<span class="cr-meta-v na">Case detail</span>':(challengeCount ? String(challengeCount) : '<span class="cr-meta-v na">No open challenges</span>');
-  var chSub = isCaseReport?'Exact-version challenge path':(challengeCount ? (challengeCount===1?'Open challenge':'Open challenges') : 'Challenge status clear');
-  var recordDateLabel=proof.key==='legacy'?'Legacy record date {date}':'Published {date}';
-  var isWire=r.record_source==='native_wire_dto';
-  var recordKind=isWire?'Wire Report':(isCaseReport?'Published Case Report':'Case');
-  var canonicalCaseRef=String(r.case_public_ref||(!isWire&&r.record_source==='native_public_dto'?r.public_ref:'')||'');
-  var canonicalLink=canonicalCaseRef&&/^OSI-[0-9A-Z]{6,20}$/.test(canonicalCaseRef)
+  var verifyBtn = txSig ? ('<button class="cr-verify" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(txSig)+'&quot;)">Verify on Solana</button>') : (legacyTxSig?'<button class="cr-verify" type="button" onclick="event.stopPropagation();crVerify(&quot;'+crAttr(legacyTxSig)+'&quot;)">Inspect transaction</button>':'');
+  var none = '<span class="na">'+escapeHtml(crT('None'))+'</span>';
+  var unavailable = '<span class="na">'+escapeHtml(crT('Unavailable'))+'</span>';
+  var meta;
+  var reviewsValue = revCount==null ? unavailable : String(revCount);
+  var challengeValue = challengeCount ? String(challengeCount) : none;
+  if(isCaseReport){
+    var selection = {winning:'Winning version',other:'Another version won',open:'Selection open',none:'No selection yet'}[r.selection_state]||'No selection yet';
+    meta = crMetaCell('Analyst reviews',reviewsValue)
+      + crMetaCell('Resolution','<span class="'+(r.selection_state==='winning'?'':'na')+'">'+escapeHtml(crT(selection))+'</span>')
+      + crMetaCell('Open challenges',challengeValue,challengeCount?'warn':'');
+  }else{
+    var evidenceLabel = proof.key==='legacy' ? 'Evidence references' : 'Public evidence';
+    meta = crMetaCell(evidenceLabel,proof.key==='legacy'&&!evCount?unavailable:String(evCount))
+      + crMetaCell('Analyst reviews',reviewsValue)
+      + crMetaCell('Open challenges',challengeValue,challengeCount?'warn':'');
+  }
+  var isWireRecord=isWire;
+  var canonicalCaseRef=String(r.case_public_ref||(!isWireRecord&&r.record_source==='native_public_dto'?r.public_ref:'')||'');
+  var validCaseRef=canonicalCaseRef&&/^OSI-[0-9A-Z]{6,20}$/.test(canonicalCaseRef);
+  var canonicalLink=validCaseRef
     ?'<a class="cr-btn primary" href="#case/'+crAttr(canonicalCaseRef)+'" onclick="event.stopPropagation();event.preventDefault();crOpenNativeCase(&quot;'+crAttr(canonicalCaseRef)+'&quot;,&quot;'+(isCaseReport?'reports':'overview')+'&quot;)">'+escapeHtml(crT(isCaseReport?'Open published Report':'Open Case'))+'</a>'
-    :'<button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)">'+escapeHtml(crT('View {kind}',{kind:isWire?'Wire Report':'Record'}))+'</button>';
-  var proofDetail=proof.key==='legacy'
-    ? (legacyTxSig?'Unverified transaction reference '+escapeHtml(String(legacyTxSig).slice(0,5)+'...'+String(legacyTxSig).slice(-5))+' '+copyBtn:'No native proof receipt')
-    : (txSig?'Tx '+escapeHtml(String(txSig).slice(0,5)+'...'+String(txSig).slice(-5))+' '+copyBtn:'Server receipt; no on-chain transaction');
+    :'<button class="cr-btn primary" type="button" onclick="event.stopPropagation();openCaseRecord(&quot;'+crAttr(r.id)+'&quot;)">'+escapeHtml(crT(isWireRecord?'View Wire Report':'View record'))+'</button>';
+  var parentLine = isCaseReport&&validCaseRef
+    ? '<div class="cr-record-parent"><span>'+escapeHtml(crT('In Case'))+'</span> <a class="cr-parent-link" href="#case/'+crAttr(canonicalCaseRef)+'" onclick="event.stopPropagation();event.preventDefault();crOpenNativeCase(&quot;'+crAttr(canonicalCaseRef)+'&quot;,&quot;overview&quot;)"><code>'+escapeHtml(canonicalCaseRef)+'</code></a> <code class="cr-parent-ref">'+escapeHtml(String(r.report_public_ref||''))+'</code></div>'
+    : '';
+  var eventLabel = proof.key==='legacy' ? '' : crEventLabel(r.proof_event);
+  var proofTx = proof.key==='legacy'
+    ? (legacyTxSig?'<div class="cr-proof-tx"><span>'+escapeHtml(crT('Unverified transaction reference'))+'</span> <code>'+escapeHtml(displayedSigShort)+'</code>'+copyBtn+verifyBtn+'</div>':'<div class="cr-proof-tx"><span>'+escapeHtml(crT('No native proof receipt'))+'</span></div>')
+    : (txSig?'<div class="cr-proof-tx"><span>Tx</span> <code>'+escapeHtml(displayedSigShort)+'</code>'+copyBtn+verifyBtn+'</div>':'<div class="cr-proof-tx"><span>'+escapeHtml(crT('Server receipt; no on-chain transaction'))+'</span></div>');
+  var pill = crT(st.pill||st.txt);
+  var bootstrapChip = st.channel===CR_BOOTSTRAP ? '<span class="cr-status cr-bootstrap">'+escapeHtml(crT('Maintainer bootstrap'))+'</span>' : '';
+  var kind = isWireRecord ? 'Wire Report' : (isCaseReport ? 'Published Case Report' : (proof.key==='legacy' ? 'Legacy record' : 'Case'));
   return '<article class="'+cls+'" data-cid="'+crAttr(r.id)+'">'
     + '<div class="cr-card-main">'
-      + '<span class="cr-record-id">'+escapeHtml(cid)+(isWire?' | '+escapeHtml(crT('Wire Report')):(isCaseReport?' | '+escapeHtml(crT('Published Case Report')):''))+'</span>'
-      + '<div class="cr-title" data-osi-user-content>'+title+'</div>'
-      + (isCaseReport?'<div class="cr-record-parent mono">'+escapeHtml(crT('Parent Case'))+' '+escapeHtml(canonicalCaseRef)+' | '+escapeHtml(String(r.report_public_ref||''))+'</div>':'')
+      + '<div class="cr-card-head"><div class="cr-ident" data-osi-i18n-ui><span class="cr-record-kind">'+escapeHtml(crT(kind))+'</span><code class="cr-record-id">'+escapeHtml(cid)+'</code></div>'
+      + '<div class="cr-states"><span class="cr-status '+st.cls+'">'+escapeHtml(pill)+'</span>'+bootstrapChip+'</div></div>'
+      + '<h3 class="cr-title" data-osi-user-content>'+title+'</h3>'
+      + parentLine
       + wallet
-      + (r.summary?'<div class="cr-summary" data-osi-user-content>'+escapeHtml(String(r.summary).slice(0,220))+'</div>':'<div class="cr-summary">No public summary provided.</div>')
-      + '<div class="cr-date mono">'+(date ? escapeHtml(crT(recordDateLabel,{date:date})) : 'Record date unavailable')+(updated ? (' <span class="sep">|</span> '+escapeHtml(crT('Updated {date}',{date:updated}))) : '')+'</div>'
+      + (r.summary?'<p class="cr-summary" data-osi-user-content>'+escapeHtml(String(r.summary).slice(0,220))+'</p>':'<p class="cr-summary">'+escapeHtml(crT('No public summary provided.'))+'</p>')
+      + '<p class="cr-status-note">'+escapeHtml(crT(st.detail||'Lifecycle state pending.'))+'</p>'
+      + '<div class="cr-date">'+(date ? '<time datetime="'+escapeHtml(dateIso)+'">'+escapeHtml(crT(recordDate.key,{date:date}))+'</time>' : escapeHtml(crT('Record date unavailable')))+(updated ? (' <span class="sep">|</span> '+escapeHtml(crT('Updated {date}',{date:updated}))) : '')+'</div>'
     + '</div>'
-    + '<div class="cr-card-meta" data-osi-i18n-ui>'
-      + '<div class="cr-meta-cell"><div class="cr-meta-k">Status</div><div class="cr-meta-v"><span class="cr-status '+st.cls+'">'+escapeHtml(crT(st.txt))+'</span></div><div class="cr-meta-sub">'+escapeHtml(crT(st.detail||'Native lifecycle pending'))+'</div></div>'
-      + '<div class="cr-meta-cell"><div class="cr-meta-k">Evidence</div><div class="cr-meta-v">'+evValue+'</div><div class="cr-meta-sub">'+evSub+'</div></div>'
-      + '<div class="cr-meta-cell"><div class="cr-meta-k">Reviews</div><div class="cr-meta-v">'+revValue+'</div><div class="cr-meta-sub">'+revSub+'</div></div>'
-      + '<div class="cr-meta-cell"><div class="cr-meta-k">Challenges</div><div class="cr-meta-v '+(challengeCount?'warn':'')+'">'+chValue+'</div><div class="cr-meta-sub">'+chSub+'</div></div>'
-    + '</div>'
-    + '<div class="cr-card-proof">'
-      + '<div><div class="cr-meta-k">Proof Log</div>' + (proof.verified
-        ? '<div class="cr-proof-state ok">'+escapeHtml(proof.label)+'</div><div class="cr-meta-sub">'+proofDetail+'</div>'
-        : '<div class="cr-proof-state mut">'+escapeHtml(proof.label)+'</div><div class="cr-meta-sub">'+proofDetail+'</div>') + '</div>'
-      + '<div class="cr-actions">'+canonicalLink+verifyBtn+'</div>'
-      + '<div class="cr-actions secondary">'+(isCaseReport?'<a class="cr-btn chx" href="#case/'+crAttr(canonicalCaseRef)+'" onclick="event.stopPropagation();event.preventDefault();crOpenNativeCase(&quot;'+crAttr(canonicalCaseRef)+'&quot;,&quot;overview&quot;)">'+escapeHtml(crT('Open parent Case'))+'</a>':'<button class="cr-btn chx" type="button" onclick="event.stopPropagation();osiNavigate(&quot;'+(isWire?'wire':'field')+'&quot;)">'+escapeHtml(crT(isWire?'Open The Wire':'Open Case workspace'))+'</button>')+'</div>'
+    + '<div class="cr-card-side">'
+      + '<dl class="cr-card-meta" data-osi-i18n-ui>'+meta+'</dl>'
+      + '<div class="cr-card-proof">'
+        + '<div class="cr-meta-k">'+escapeHtml(crT('Proof'))+'</div>'
+        + '<div class="cr-proof-state '+(proof.verified?(proof.key==='memo'||proof.key==='transfer'?'ok':'srv'):'mut')+'">'+escapeHtml(proof.label)+'</div>'
+        + (eventLabel?'<div class="cr-proof-event">'+escapeHtml(crT(eventLabel))+'</div>':'')
+        + proofTx
+      + '</div>'
+      + '<div class="cr-actions">'+canonicalLink+'</div>'
     + '</div>'
   + '</article>';
 }
@@ -645,16 +801,16 @@ function crDrawerHtml(r, packs){
     ? '<div class="crd-legacy-note" role="note"><strong>'+(crIsLegacyTestRecord(r)?'Imported test material':'Imported legacy record')+'</strong><span>Historical wording and conclusions are not native-reviewed OSI findings. Treat certainty claims as unverified.</span></div>'
     : '';
   return ''
-    + '<div class="crd-head"><span class="cr-cid mono">' + escapeHtml(cid) + '</span><span class="cr-status ' + st.cls + '">' + st.txt + '</span></div>'
+    + '<div class="crd-head"><span class="cr-cid mono">' + escapeHtml(cid) + '</span><span class="cr-status ' + st.cls + '">' + escapeHtml(crT(st.pill||st.txt)) + '</span></div>'
     + '<h3 class="crd-title" id="cr-drawer-title" data-osi-user-content>' + title + '</h3>'
     + '<div class="crd-meta mono">' + (date ? escapeHtml(crT(proof.key==='legacy'?'Legacy record date {date}':'Published {date}',{date:date})) : 'Record date unavailable') + (updated ? (' | ' + escapeHtml(crT('Updated {date}',{date:updated}))) : '') + '</div>'
     + legacyNotice
-    + '<div class="crd-block"><div class="crd-h">VERIFICATION</div>' + verifyRow + '</div>'
-    + '<div class="crd-block"><div class="crd-h">SUMMARY</div>' + (r.summary ? '<p class="crd-sum" data-osi-user-content>' + escapeHtml(r.summary) + '</p>' : '<p class="crd-sum">No public summary provided.</p>') + '</div>'
-    + '<div class="crd-block"><div class="crd-h">EVIDENCE</div><div class="crd-ev">' + escapeHtml(ev) + '</div></div>'
-    + '<div class="crd-block"><div class="crd-h">ANALYST REVIEW</div><div class="crd-rev"><span class="crd-rev-dot"></span>' + escapeHtml(rev) + '</div></div>'
-    + '<div class="crd-block"><div class="crd-h">CHALLENGE STATUS</div><div class="crd-ev">' + escapeHtml(ch) + '</div></div>'
-    + '<div class="crd-block"><div class="crd-h">ESCALATION PACKS <span class="crd-h-sub">Public metadata only</span></div>' + packRows + '</div>'
+    + '<div class="crd-block"><div class="crd-h">Verification</div>' + verifyRow + '</div>'
+    + '<div class="crd-block"><div class="crd-h">Summary</div>' + (r.summary ? '<p class="crd-sum" data-osi-user-content>' + escapeHtml(r.summary) + '</p>' : '<p class="crd-sum">No public summary provided.</p>') + '</div>'
+    + '<div class="crd-block"><div class="crd-h">Evidence</div><div class="crd-ev">' + escapeHtml(ev) + '</div></div>'
+    + '<div class="crd-block"><div class="crd-h">Analyst review</div><div class="crd-rev"><span class="crd-rev-dot"></span>' + escapeHtml(rev) + '</div></div>'
+    + '<div class="crd-block"><div class="crd-h">Challenge status</div><div class="crd-ev">' + escapeHtml(ch) + '</div></div>'
+    + '<div class="crd-block"><div class="crd-h">Escalation packs <span class="crd-h-sub">Public metadata only</span></div>' + packRows + '</div>'
     + '<div class="crd-actions">'
       + (displayedSig ? '<a class="crd-act '+(txSig?'primary':'')+'" href="' + escapeHtml(solUrl) + '" target="_blank" rel="noopener noreferrer">'+(txSig?'Verify on Solana':'Inspect transaction')+'</a>' : '')
       + '<button class="crd-act" type="button" onclick="crCopySummary(&quot;' + crAttr(r.id) + '&quot;)">Copy summary</button>'

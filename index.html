@@ -280,50 +280,24 @@
   <div class="wrap cr-hwrap">
     <div class="cr-hero">
       <div class="cr-hero-copy">
-        <div class="cr-kicker mono">OSI &gt; Public Records</div>
         <h1 class="cr-title">Public Records</h1>
-        <p class="cr-sub">Public Cases, exact current published Case Report versions, and published Wire findings with their lifecycle and proof status.</p>
-        <div class="cr-chips" aria-label="Public record trust anchors">
-          <span>Reviewed records</span>
-          <span>Public evidence</span>
-          <span>Challengeable</span>
-          <span>Memo-verifiable</span>
-        </div>
-      </div>
-      <div class="cr-hero-card" aria-hidden="true">
-        <div class="cr-hero-lines"></div>
-        <svg class="osi-hero-eye" viewBox="52 50 566 378" role="img" aria-label="OSI">
-          <defs>
-            <linearGradient id="osi-records-eye" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#fffdf8"/><stop offset=".48" stop-color="#f5f0e8"/><stop offset="1" stop-color="#b9c0ca"/>
-            </linearGradient>
-          </defs>
-          <g fill="none" stroke="url(#osi-records-eye)" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M72 144C185 43 350 55 472 122c54 30 98 39 126 35" stroke-width="26"/>
-            <path d="M74 236c104-91 231-106 347-30 57 37 111 45 177 31-41 39-88 56-145 55-77-1-132 42-221 25-63-12-111-42-158-81Z" stroke-width="19"/>
-            <circle cx="260" cy="232" r="65" stroke-width="20"/>
-            <path d="M230 293c-2 46 5 86 24 118M278 297c45 82 115 119 181 72 37-26 48-60 26-84" stroke-width="21"/>
-            <path d="M457 369c21 9 42 1 50-17 8-19-1-39-19-47-18-7-38 1-46 19-6 14-2 29 7 38" stroke-width="17"/>
-          </g>
-          <path class="osi-hero-eye-signal" d="M105 171c113-75 249-66 369-8 48 23 87 31 120 26" fill="none" stroke="#ff4d5f" stroke-width="15" stroke-linecap="round"/>
-          <circle class="osi-hero-eye-iris" cx="260" cy="232" r="33" fill="#ff4d5f"/>
-          <circle cx="274" cy="219" r="14" fill="#0b0d12"/>
-        </svg>
+        <p class="cr-sub">The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Each Memo proof links to its Solana mainnet transaction.</p>
+        <p class="cr-boundary"><span>Records are process, not verdict. They stay challengeable and promise no legal certainty, recovery or custody.</span> <button class="cr-link" type="button" onclick="osiNavigate('methodology')">Read what OSI does not promise</button></p>
       </div>
     </div>
     <div class="cr-stats" id="cr-stats"></div>
     <div class="cr-console">
       <div class="cr-maincol">
         <div class="cr-toolbar">
-          <div class="cr-search-wrap"><input class="cr-search" id="cr-search" type="search" aria-label="Search public records" placeholder="Search by Case, Report, or Wire ID, wallet, title, or tx hash..." oninput="crSearch(this.value)"></div>
-          <div class="rf-tabs cr-fils" id="cr-fils">
-            <button class="rf-tab active" data-f="all" type="button" aria-pressed="true" onclick="crFilter('all')">All</button>
-            <button class="rf-tab" data-f="reviewed" type="button" aria-pressed="false" onclick="crFilter('reviewed')">Reviewed</button>
-            <button class="rf-tab" data-f="memo" type="button" aria-pressed="false" onclick="crFilter('memo')">Memo-linked</button>
-            <button class="rf-tab" data-f="challenged" type="button" aria-pressed="false" onclick="crFilter('challenged')">Challenged</button>
-            <button class="rf-tab" data-f="sealed" type="button" aria-pressed="false" onclick="crFilter('sealed')">Sealed</button>
+          <div class="cr-search-wrap"><input class="cr-search" id="cr-search" type="search" aria-label="Search public records" placeholder="Search refs, titles, wallets or tx" oninput="crSearch(this.value)"></div>
+          <div class="rf-tabs cr-fils" id="cr-fils" role="group" aria-label="Filter records">
+            <button class="rf-tab active" data-f="all" type="button" aria-pressed="true" onclick="crFilter('all')">All <span class="rf-n" data-cr-n="all"></span></button>
+            <button class="rf-tab" data-f="reviewed" type="button" aria-pressed="false" onclick="crFilter('reviewed')">Reviewed or published <span class="rf-n" data-cr-n="reviewed"></span></button>
+            <button class="rf-tab" data-f="memo" type="button" aria-pressed="false" onclick="crFilter('memo')">Memo-anchored <span class="rf-n" data-cr-n="memo"></span></button>
+            <button class="rf-tab" data-f="challenged" type="button" aria-pressed="false" onclick="crFilter('challenged')">Open challenges <span class="rf-n" data-cr-n="challenged"></span></button>
+            <button class="rf-tab" data-f="sealed" type="button" aria-pressed="false" onclick="crFilter('sealed')">Sealed <span class="rf-n" data-cr-n="sealed"></span></button>
           </div>
-          <label class="fo-sel"><span class="fo-sel-l mono">Sort</span>
+          <label class="fo-sel"><span class="fo-sel-l">Sort</span>
             <select id="cr-sort-sel" onchange="crSortChange(this.value)" aria-label="Sort records">
               <option value="newest" selected>Latest</option>
               <option value="reviewed">Most reviewed</option>
@@ -331,48 +305,24 @@
             </select>
           </label>
         </div>
+        <p class="cr-open-note" id="cr-open-note" hidden></p>
         <div id="case-records" aria-busy="true"></div>
-        <div class="fo-pager"><span class="fo-count mono" id="cr-count" aria-live="polite"></span><div class="fo-pnav" id="cr-pnav" role="navigation" aria-label="Record pages"></div></div>
-        <div class="cr-disclaimer">
-          <span>OSI records are informational only.</span>
-          <span>No legal certainty.</span>
-          <span>No recovery promise.</span>
-          <span>No custody of funds or private keys.</span>
-          <span>Public evidence and analyst conclusions may still be challenged.</span>
-        </div>
+        <div class="fo-pager"><span class="fo-count" id="cr-count" aria-live="polite"></span><div class="fo-pnav" id="cr-pnav" role="navigation" aria-label="Record pages"></div></div>
       </div>
       <aside class="cr-aside" aria-label="Public Records trust console" tabindex="0">
         <div class="cr-side-card">
-          <div class="cr-side-title">How a record becomes public</div>
-          <div class="cr-flow">
-            <div><span>1</span><b>Evidence submitted</b><em>Public case material is filed for review.</em></div>
-            <div><span>2</span><b>Weighted analyst quorum</b><em>Eligible analysts select one exact Report version.</em></div>
-            <div><span>3</span><b>Challenge window</b><em>New material can challenge the selected version for seven days.</em></div>
-            <div><span>4</span><b>Process seal</b><em>The standard path requires analyst seal quorum and both maintainer gates. An eligible cold-start finalization is labeled separately.</em></div>
-            <div><span>5</span><b>Public archive</b><em>The result remains attributable and challenge history stays visible.</em></div>
-          </div>
+          <h2 class="cr-side-title">How a record becomes public</h2>
+          <ol class="cr-flow">
+            <li><span aria-hidden="true">1</span><b>Evidence submitted</b><em>Public case material is filed for review.</em></li>
+            <li><span aria-hidden="true">2</span><b>Weighted analyst quorum</b><em>Eligible analysts select one exact Report version.</em></li>
+            <li><span aria-hidden="true">3</span><b>Challenge window</b><em>New material can challenge the selected version for seven days.</em></li>
+            <li><span aria-hidden="true">4</span><b>Process seal</b><em>The standard path requires analyst seal quorum and both maintainer gates. An eligible cold-start finalization is labeled separately.</em></li>
+            <li><span aria-hidden="true">5</span><b>Public archive</b><em>The result remains attributable and challenge history stays visible.</em></li>
+          </ol>
+          <p class="cr-side-note">A Wire Report becomes public through its own independent review and a confirmed publication Memo.</p>
         </div>
         <div class="cr-side-card">
-          <div class="cr-side-title">Record Integrity</div>
-          <div class="cr-checks">
-            <div><i></i>Public evidence only</div>
-            <div><i></i>Independent analyst review</div>
-            <div><i></i>Challengeable by the community</div>
-            <div><i></i>Memo-linked when available</div>
-            <div><i></i>Version history where applicable</div>
-          </div>
-        </div>
-        <div class="cr-side-card">
-          <div class="cr-side-title">Safety Boundaries</div>
-          <div class="cr-warnings">
-            <div>Informational only</div>
-            <div>Not legal advice</div>
-            <div>No recovery promise</div>
-            <div>No custody of funds or keys</div>
-          </div>
-        </div>
-        <div class="cr-side-card">
-          <div class="cr-side-title">Need something?</div>
+          <h2 class="cr-side-title">Need something?</h2>
           <div class="cr-actions-panel">
             <button type="button" onclick="osiOpenCase()"><b>Open a Case</b><span>Report a new incident</span></button>
             <button type="button" onclick="osiAnalystOpenWorkspace('applications')"><b>Join as Analyst</b><span>Open the signed application flow</span></button>
@@ -733,20 +683,23 @@
 
 <div class="fo-modal osi-report-modal" id="osi-wire-modal" role="dialog" aria-modal="true" aria-labelledby="osi-wire-modal-title" aria-describedby="osi-wire-modal-copy" onclick="if(event.target===this)osiV2CloseWireForm()">
   <form class="fo-form" id="osi-wire-form" onsubmit="osiV2SubmitWire(event)" novalidate>
-    <button class="fo-x" type="button" onclick="osiV2CloseWireForm()" aria-label="Close Wire Report form">&times;</button>
-    <div class="fo-form-head">
+    <div class="wire-form-top">
       <span class="fo-form-eyebrow">Wallet-authored standalone finding</span>
+      <button class="fo-x" type="button" onclick="osiV2CloseWireForm()" aria-label="Close Wire Report form">&times;</button>
+    </div>
+    <div class="fo-form-head">
       <h2 id="osi-wire-modal-title">Submit an exact Wire Report version</h2>
       <p id="osi-wire-modal-copy">This version and its evidence remain private until an authorized publication transition. This action anchors only the exact version hash and safe reference on Solana.</p>
+      <p class="fo-required-note">Fields marked with an asterisk (*) are required.</p>
     </div>
     <div class="osi-report-context" id="osi-wire-context" aria-live="polite"></div>
     <label class="fo-label" for="osi-wire-title">Public-safe title <span aria-hidden="true">*</span></label>
-    <input class="wire-in" id="osi-wire-title" type="text" minlength="3" maxlength="160" required placeholder="Treasury movement pattern for independent review">
+    <input class="wire-in" id="osi-wire-title" type="text" minlength="3" maxlength="160" required aria-required="true" placeholder="Treasury movement pattern for independent review">
     <label class="fo-label" for="osi-wire-summary">Public-safe summary (auto-drafted, editable) <span aria-hidden="true">*</span></label>
-    <textarea id="osi-wire-summary" rows="3" minlength="10" maxlength="10000" required></textarea>
+    <textarea id="osi-wire-summary" aria-required="true" rows="3" minlength="10" maxlength="10000" required></textarea>
     <span class="fo-hint">Drafted locally from the analysis until you edit it. The title and summary remain private until publication.</span>
     <label class="fo-label" for="osi-wire-analysis">Detailed analysis <span aria-hidden="true">*</span></label>
-    <textarea id="osi-wire-analysis" rows="9" minlength="20" maxlength="100000" required></textarea>
+    <textarea id="osi-wire-analysis" aria-required="true" rows="9" minlength="20" maxlength="100000" required></textarea>
     <label class="fo-label" for="osi-wire-uncertainties">Uncertainties and limits (optional)</label>
     <textarea id="osi-wire-uncertainties" rows="4" maxlength="10000"></textarea>
     <fieldset class="osi-report-evidence">
@@ -776,8 +729,8 @@
     <section class="osi-submission-receipt" id="osi-wire-receipt" role="status" aria-live="polite" tabindex="-1" hidden></section>
     <div class="osi-form-status mono" id="osi-wire-form-status" role="status" aria-live="polite"></div>
     <div class="fo-form-actions">
-      <button class="btn-ghost" type="button" onclick="osiV2CloseWireForm()">Cancel</button>
-      <button class="btn-fill" id="osi-wire-submit" type="submit">Prepare exact Memo</button>
+      <button class="btn-ghost wire-form-cancel" type="button" onclick="osiV2CloseWireForm()">Cancel</button>
+      <button class="btn-fill wire-form-submit" id="osi-wire-submit" type="submit">Prepare exact Memo</button>
     </div>
   </form>
 </div>
@@ -785,7 +738,7 @@
 <div class="osi-case-drawer" id="osi-wire-drawer" role="dialog" aria-modal="true" aria-labelledby="osi-wire-detail-title" hidden>
   <button class="osi-case-scrim" type="button" tabindex="-1" onclick="osiV2CloseWireReport()" aria-label="Close Wire Report detail"></button>
   <article class="osi-case-panel">
-    <header class="osi-case-panel-head"><div><div class="mono osi-case-ref" id="osi-wire-detail-ref"></div><h2 id="osi-wire-detail-title">Wire Report</h2><div class="osi-case-state" id="osi-wire-detail-state"></div></div><button class="osi-case-close" type="button" onclick="osiV2CloseWireReport()" aria-label="Close">&#10005;</button></header>
+    <header class="osi-case-panel-head"><div><div class="mono osi-case-ref" id="osi-wire-detail-ref"></div><h2 id="osi-wire-detail-title" data-osi-user-content>Wire Report</h2><div class="osi-case-state" id="osi-wire-detail-state"></div></div><button class="osi-case-close" type="button" onclick="osiV2CloseWireReport()" aria-label="Close">&#10005;</button></header>
     <nav class="osi-case-tabs" id="osi-wire-detail-tabs" aria-label="Wire Report detail sections"></nav>
     <div class="osi-case-content" id="osi-wire-detail-content"></div>
     <footer class="osi-case-actions" id="osi-wire-detail-actions"></footer>
@@ -803,51 +756,48 @@
 </div>
 
 
-<section class="sec" data-view="wire" id="wire-view">
+<section class="sec" data-view="wire" id="wire-view" data-wire-mode="public">
   <div class="wrap">
-    <div class="vsub">
+    <nav class="vsub" aria-label="Field Office and The Wire">
       <button class="vsub-b" type="button" onclick="osiNavigate('field')">Field Office</button>
-      <button class="vsub-b active" onclick="osiNavigate('wire')">The Wire</button>
-    </div>
+      <button class="vsub-b active" type="button" aria-current="page" onclick="osiNavigate('wire')">The Wire</button>
+    </nav>
     <div class="wire-hero">
-      <div class="wire-eyebrow"><span class="wire-live"></span>Open intelligence</div>
-      <h1 class="wire-title">The Wire</h1>
-      <p class="wire-sub">Reviewed standalone findings and community-filed intelligence signals.</p>
-      <div class="wire-ops" id="wire-stats"></div>
-      <div class="wire-actions"><button class="wire-cta" id="osi-wire-intake-action" type="button" disabled title="Checking native Wire intake availability" onclick="osiV2OpenWireForm()">Checking Wire intake</button> <button class="wire-cta" id="osi-wire-queue-action" type="button" onclick="osiV2OpenWireQueue()" disabled title="Checking Wire review availability">Wire review queue</button><p class="wire-cta-note" id="osi-wire-cta-note" aria-live="polite"></p></div>
+      <div class="wire-hero-copy">
+        <div class="wire-eyebrow" id="wire-eyebrow">Open intelligence</div>
+        <h1 class="wire-title" id="wire-title">The Wire</h1>
+        <p class="wire-sub" id="wire-sub">Standalone findings filed by wallet authors and made public only after independent review. Unpublished versions stay private.</p>
+        <div class="wire-actions"><button class="wire-cta" id="osi-wire-intake-action" type="button" disabled title="Checking native Wire intake availability" onclick="osiV2OpenWireForm()">Checking Wire intake</button> <button class="wire-cta secondary" id="osi-wire-queue-action" type="button" onclick="if(this.getAttribute('aria-disabled')!=='true')osiV2OpenWireQueue()" disabled title="Checking Wire review availability">Wire review queue</button><p class="wire-cta-note" id="osi-wire-cta-note" aria-live="polite"></p></div>
+      </div>
+      <div class="wire-steps">
+        <h2 class="wire-steps-h">How a Wire Report becomes public</h2>
+        <ol>
+          <li><b>Write privately</b><span>Your exact version and its evidence stay private. One Solana Memo anchors the version hash.</span></li>
+          <li><b>Independent review</b><span>Eligible analysts who did not write it review that exact version.</span></li>
+          <li><b>Publication</b><span>A confirmed publication Memo makes the public-safe summary readable. While the analyst network is small, a maintainer bootstrap publication is labeled as such.</span></li>
+        </ol>
+      </div>
     </div>
 
     <div class="wire-shell">
       <div class="wire-main">
         <div class="wire-bar">
-          <div class="wire-bar-l">Intelligence feed</div>
-          <div class="wire-sorts" id="wire-sorts">
-            <span class="wire-sort-order">Newest first</span>
-          </div>
+          <h2 class="wire-bar-l">Published findings</h2>
+          <p class="wire-count" id="wire-stats" hidden></p>
+          <span class="wire-sort-order">Newest first</span>
         </div>
 
         <div class="wire-feed" id="wire-cases"></div>
       </div>
       <aside class="wire-side" aria-label="Wire guide" tabindex="0">
         <div class="wire-side-card">
-          <div class="wire-side-h mono">Wire Guide</div>
-          <div class="wire-guide-list">
-            <span>Public evidence only</span>
-            <span>Wallets and tx links preferred</span>
-            <span>Community interest signals are neutral information</span>
-            <span>Strong signals may become formal cases</span>
-            <span>No private accusations or recovery promises</span>
-          </div>
-        </div>
-        <div class="wire-side-card">
-          <div class="wire-side-h mono">Signal Types</div>
-          <div class="wire-types">
-            <span class="wire-type">Wallet activity</span>
-            <span class="wire-type">Public filing</span>
-            <span class="wire-type">Exploit trace</span>
-            <span class="wire-type">Exchange outflow</span>
-            <span class="wire-type">Scam cluster</span>
-          </div>
+          <h2 class="wire-side-h">What belongs on The Wire</h2>
+          <ul class="wire-guide-list">
+            <li>Public evidence only: wallets, transactions and sources a reader can check.</li>
+            <li>No accusations, doxxing, private keys or recovery promises.</li>
+            <li>A published finding stays challengeable, and an eligible analyst or maintainer can promote it to a private Case.</li>
+            <li>Wire Reports carry no reward. Voluntary support never changes review, ranking or governance.</li>
+          </ul>
         </div>
       </aside>
     </div>
