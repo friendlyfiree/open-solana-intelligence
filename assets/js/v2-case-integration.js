@@ -1613,6 +1613,9 @@
     function rowFor(){return isCaseRef(ref)?(document.querySelector('.osi-v2-row[data-case-ref="'+ref+'"]')||document.querySelector('[data-case-ref="'+ref+'"]')):null;}
     function attempt(){
       var active=document.activeElement;var drawer=document.getElementById('osi-case-drawer');
+      // A drawer opened again in the meantime is a newer intent; its focus
+      // is never pulled back to the list behind it.
+      if(drawer&&!drawer.hidden)return;
       // Focus still parked inside the drawer that just closed counts as lost.
       var idle=!active||active===document.body||active===document.documentElement||!active.isConnected||!!(drawer&&drawer.contains(active));
       if(!idle&&active!==placed)return;
