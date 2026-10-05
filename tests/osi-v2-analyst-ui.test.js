@@ -141,9 +141,9 @@ ok(walletWorkspace.includes("['My Cases','Private and public Cases authorized fo
   && walletWorkspace.includes("['My Reports','Exact immutable Report version history.',\"osiV2OpenMyReports()\"]")
   && walletWorkspace.includes("['Report Review Queue','Exact unpublished Report versions awaiting review.',\"osiV2OpenReportQueue()\"]"),
   'wallet and analyst cards route through the real V2 private-read functions');
-ok(walletWorkspace.includes("['Operations Center','Double-gated lifecycle and publication controls.',\"admOpen()\"]")
-  && walletWorkspace.includes("['Analyst Applications','Double-gated application review queue.',\"admOpen()\"]"),
-  'maintainer cards enter the double-gated native Operations surface');
+ok(walletWorkspace.includes("['Operations Center','Double-gated overview, flags, AI Pack and SAS status, and the analyst application queue.',\"admOpen()\"]")
+  && (walletWorkspace.match(/admOpen\(\)"\]/g) || []).length === 1,
+  'maintainer cards enter the double-gated native Operations surface, which holds the application queue, through one card');
 ok(walletWorkspace.includes('Profile and privacy settings require a dedicated server-authorized mutation')
   && !walletWorkspace.includes('Use the existing Profile view'),
   'settings state truthfully reports the unavailable server-authorized mutation');
