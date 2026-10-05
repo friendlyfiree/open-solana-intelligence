@@ -6366,3 +6366,109 @@ body .osi-status.maintainer {
     color: #000 !important;
   }
 }
+
+/* --- Analyst application modal ------------------------------------------- */
+/* The dialog fits the viewport with its own scroll, so the bottom border and
+ * the submit row are never cut off behind a second scroll container. */
+#apx-modal.open {
+  padding: clamp(16px, 6vh, 72px) 16px !important;
+}
+
+#apx-modal .fo-form {
+  max-height: calc(100dvh - 2 * clamp(16px, 6vh, 72px));
+}
+
+#apx-modal .fo-x {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 16px;
+  z-index: 3;
+}
+
+#apx-modal .rec-sec-h {
+  letter-spacing: 0;
+  text-transform: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+
+#apx-modal .osi-analyst-form label > span,
+#apx-modal .osi-expertise legend {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 13px;
+}
+
+/* The safety box sits on the line of the sentence it confirms. */
+#apx-modal .osi-analyst-form > label.osi-report-safety {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+#apx-modal .osi-analyst-form > label.osi-report-safety input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+}
+
+#apx-modal .osi-handle-preview {
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+#apx-modal .osi-handle-preview:empty {
+  display: none;
+}
+
+#apx-modal .rec-go {
+  border: 1px solid var(--lamp);
+  background: var(--brand-spectrum);
+  color: var(--lamp-ink);
+}
+
+/* --- Analyst workspace ----------------------------------------------------- */
+.osi-workspace-kicker {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.osi-application-card > header > div > span:first-child {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+
+.osi-workspace-head .osi-workspace-kicker {
+  color: var(--ink-faint);
+  letter-spacing: 0;
+}
+
+/* Workspace and application actions use the action colour, never green. */
+.osi-analyst-workspace .osi-primary-action {
+  border-color: var(--lamp);
+  background: var(--brand-spectrum);
+  color: var(--lamp-ink);
+}
+
+#apx-modal .osi-application-steps {
+  border-color: var(--line);
+  background: rgba(245, 240, 232, .025);
+}
+
+#apx-modal .osi-application-steps b {
+  border-color: var(--lamp-line);
+  color: var(--lamp);
+}

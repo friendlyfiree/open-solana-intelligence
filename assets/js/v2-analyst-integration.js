@@ -804,32 +804,41 @@
   function latestVersion(application){return application&&application.versions&&application.versions.slice().sort(function(a,b){return Number(b.version_no)-Number(a.version_no);})[0]||null;}
   function workspaceNav(){
     return '<div class="osi-workspace-tabs" role="tablist" aria-label="Analyst workspace sections">'
-      +'<button type="button" role="tab" id="osi-workspace-tab-profile" aria-controls="osi-workspace-panel-profile" aria-selected="'+(state.workspaceTab==='profile'?'true':'false')+'" tabindex="'+(state.workspaceTab==='profile'?'0':'-1')+'" class="'+(state.workspaceTab==='profile'?'active':'')+'" data-workspace-tab="profile">My Profile</button>'
-      +'<button type="button" role="tab" id="osi-workspace-tab-applications" aria-controls="osi-workspace-panel-applications" aria-selected="'+(state.workspaceTab==='applications'?'true':'false')+'" tabindex="'+(state.workspaceTab==='applications'?'0':'-1')+'" class="'+(state.workspaceTab==='applications'?'active':'')+'" data-workspace-tab="applications">My Applications</button></div>'
-      +'<nav class="osi-workspace-tabs" aria-label="Related private work"><button type="button" onclick="osiV2OpenMyCases()">My Cases</button><button type="button" onclick="osiV2OpenMyReports()">My Reports</button><button type="button" onclick="osiV2OpenReviewQueue()">My Reviews</button></nav>';
+      +'<button type="button" role="tab" id="osi-workspace-tab-profile" aria-controls="osi-workspace-panel-profile" aria-selected="'+(state.workspaceTab==='profile'?'true':'false')+'" tabindex="'+(state.workspaceTab==='profile'?'0':'-1')+'" class="'+(state.workspaceTab==='profile'?'active':'')+'" data-workspace-tab="profile">'+esc(t('My Profile'))+'</button>'
+      +'<button type="button" role="tab" id="osi-workspace-tab-applications" aria-controls="osi-workspace-panel-applications" aria-selected="'+(state.workspaceTab==='applications'?'true':'false')+'" tabindex="'+(state.workspaceTab==='applications'?'0':'-1')+'" class="'+(state.workspaceTab==='applications'?'active':'')+'" data-workspace-tab="applications">'+esc(t('My Applications'))+'</button></div>'
+      +'<nav class="osi-workspace-tabs" aria-label="Related private work"><button type="button" onclick="osiV2OpenMyCases()">'+esc(t('My Cases'))+'</button><button type="button" onclick="osiV2OpenMyReports()">'+esc(t('My Reports'))+'</button><button type="button" onclick="osiV2OpenReviewQueue()">'+esc(t('My Reviews'))+'</button></nav>';
   }
   function profilePane(){
     var profile=state.workspace&&state.workspace.profile,application=latestApplication();
-    if(!profile)return empty('No analyst profile yet','Create an immutable wallet-signed application version to begin.')+'<button class="osi-primary-action" type="button" onclick="apxOpen()">Start analyst application</button>';
-    var links=(profile.links_public||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(link.label)+'</a>':'';}).join(''),identity=profile.handle?'@'+profile.handle:short(profile.wallet);
+    if(!profile)return empty(t('No analyst profile yet'),t('Create an immutable wallet-signed application version to begin.'))+'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+esc(t('Start analyst application'))+'</button>';
+    var links=(profile.links_public||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(linkLabel(link.label,url))+'</a>':'';}).join(''),identity=profile.handle?'@'+profile.handle:short(profile.wallet);
     var applicationAction=application&&application.status==='revision_requested'
-      ?'<button class="osi-primary-action" type="button" onclick="apxOpen()">Submit requested revision</button>'
-      :(application?'<div class="osi-callout"><b>Application '+esc(label(application.status))+'</b><span>No new version is needed now. Open My Applications for the exact status and review history.</span></div><button class="osi-secondary-action" type="button" onclick="osiAnalystOpenWorkspace(\'applications\')">Open My Applications</button>':'');
+      ?'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+esc(t('Submit requested revision'))+'</button>'
+      :(application?'<div class="osi-callout"><b>'+esc(t('Application status: {status}',{status:statusText(application.status)}))+'</b><span>'+esc(t('No new version is needed now. Open My Applications for the exact status and review history.'))+'</span></div><button class="osi-secondary-action" type="button" onclick="osiAnalystOpenWorkspace(\'applications\')">'+esc(t('Open My Applications'))+'</button>':'');
     return '<div class="osi-workspace-profile"><header>'+avatar(profile,58)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(profile.display_name||profile.handle||short(profile.wallet))+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
-      +'<div class="osi-profile-facts"><div><span>Profile status</span>'+statusBadge(profile.status)+'</div><div><span>Tier</span><b>'+esc(label(profile.tier_code))+'</b></div><div><span>Server-derived weight</span><b>'+Number(profile.weight_cached||0).toFixed(2)+'</b></div></div>'
-      +'<section><h4>Expertise</h4><div class="osi-tag-list">'+(profile.expertise_public||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section>'
-      +(links?'<section><h4>Public links</h4><div class="osi-safe-links">'+links+'</div></section>':'')
+      +'<div class="osi-profile-facts"><div><span>'+esc(t('Profile status'))+'</span>'+statusBadge(profile.status)+'</div><div><span>'+esc(t('Tier'))+'</span><b>'+esc(t(label(profile.tier_code)))+'</b></div><div><span>'+esc(t('Server-derived weight'))+'</span><b class="mono">'+esc(weightText(profile.weight_cached))+'</b></div></div>'
+      +'<section><h4>'+esc(t('Expertise'))+'</h4><div class="osi-tag-list">'+expertiseChips(profile.expertise_public)+'</div></section>'
+      +(links?'<section><h4>'+esc(t('Public links'))+'</h4><div class="osi-safe-links">'+links+'</div></section>':'')
       +applicationAction+'</div>';
   }
-  function reviewHistory(review){return '<div class="osi-review-history"><b>'+esc(label(review.decision))+'</b><span>'+esc(label(review.reason_code))+' / weight '+Number(review.weight||0).toFixed(2)+'</span><time>'+esc(dateText(review.created_at))+'</time></div>';}
+  // An application review is a maintainer decision. It carries no analyst
+  // weight, so none is printed; the decision and its reason are words.
+  var DECISION_LABELS={approve:'Approved',reject:'Rejected',request_revision:'Revision requested',abstain:'Abstained'};
+  function sentence(code){var text=String(code||'').replace(/_/g,' ').trim();return text?text.charAt(0).toUpperCase()+text.slice(1):'';}
+  function reviewHistory(review){return '<div class="osi-review-history"><b>'+esc(t(DECISION_LABELS[String(review.decision||'')]||sentence(review.decision)))+'</b><span>'+esc(t(sentence(review.reason_code)))+'</span><time>'+esc(dateText(review.created_at))+'</time></div>';}
   function applicationPane(){
     var applications=state.workspace&&state.workspace.applications||[];
-    if(!applications.length)return empty('No applications yet','Start an analyst application to create version 1 with exact wallet proof.')+'<button class="osi-primary-action" type="button" onclick="apxOpen()">Start analyst application</button>';
+    if(!applications.length)return empty(t('No applications yet'),t('Start an analyst application to create version 1 with exact wallet proof.'))+'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+esc(t('Start analyst application'))+'</button>';
     return applications.map(function(application){
       var versions=(application.versions||[]).slice().sort(function(a,b){return Number(b.version_no)-Number(a.version_no);});
-      var history=versions.map(function(version){var details=version.details_restricted||{};return '<article class="osi-version-card"><header><div><span class="mono">'+esc(version.version_ref)+'</span><h4>Version '+Number(version.version_no)+'</h4></div><span class="osi-proof-badge signed">Wallet-signed and server-verified</span></header><p><b>Motivation:</b> '+esc(details.motivation||'Not recorded')+'</p><p><b>Experience:</b> '+esc(details.experience||'Not recorded')+'</p><div class="osi-tag-list">'+(version.expertise_public||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div><div class="osi-version-meta"><span>Submitted '+esc(dateText(version.submitted_at||version.created_at))+'</span>'+(version.supersedes_version_id?'<span>Supersedes '+esc(short(version.supersedes_version_id))+'</span>':'')+'</div>'+((version.reviews||[]).length?'<div class="osi-review-list">'+version.reviews.map(reviewHistory).join('')+'</div>':'')+'</article>';}).join('');
-      var revision=application.status==='revision_requested'?'<div class="osi-callout warning"><b>Revision requested</b><span>Submit a new immutable version. Prior versions and decisions stay visible.</span></div>':'';
-      return '<section class="osi-application-card"><header><div><span class="mono">Application '+esc(short(application.id))+'</span><h3>Current version '+Number(latestVersion(application).version_no)+'</h3></div>'+statusBadge(application.status)+'</header>'+revision+history+(application.status==='revision_requested'?'<button class="osi-primary-action" type="button" onclick="apxOpen()">Submit revision</button>':'')+'</section>';
+      // A superseded version is named by its public reference, never by an
+      // internal id the reader cannot look up anywhere.
+      var refs={};versions.forEach(function(version){if(version&&version.id)refs[String(version.id)]=version.version_ref||'';});
+      var first=versions[versions.length-1]||{};
+      var history=versions.map(function(version){var details=version.details_restricted||{};var superseded=version.supersedes_version_id?(refs[String(version.supersedes_version_id)]||t('an earlier version')):'';return '<article class="osi-version-card"><header><div><span class="mono">'+esc(version.version_ref)+'</span><h4>'+esc(t('Version {number}',{number:Number(version.version_no)}))+'</h4></div><span class="osi-proof-badge signed">'+esc(t('Wallet-signed and server-verified'))+'</span></header><p><b>'+esc(t('Motivation'))+':</b> '+esc(details.motivation||t('Not recorded'))+'</p><p><b>'+esc(t('Experience'))+':</b> '+esc(details.experience||t('Not recorded'))+'</p><div class="osi-tag-list">'+expertiseChips(version.expertise_public)+'</div><div class="osi-version-meta"><span>'+esc(t('Submitted {date}',{date:dateText(version.submitted_at||version.created_at)}))+'</span>'+(superseded?'<span>'+esc(t('Supersedes {ref}',{ref:superseded}))+'</span>':'')+'</div>'+((version.reviews||[]).length?'<div class="osi-review-list">'+version.reviews.map(reviewHistory).join('')+'</div>':'')+'</article>';}).join('');
+      var revision=application.status==='revision_requested'?'<div class="osi-callout warning"><b>'+esc(t('Revision requested'))+'</b><span>'+esc(t('Submit a new immutable version. Prior versions and decisions stay visible.'))+'</span></div>':'';
+      var started=first.submitted_at||first.created_at||application.created_at;
+      return '<section class="osi-application-card"><header><div><span>'+esc(started?t('Analyst application, started {date}',{date:dateText(started)}):t('Analyst application'))+'</span><h3>'+esc(t('Current version {number}',{number:Number(latestVersion(application).version_no)}))+'</h3></div>'+statusBadge(application.status)+'</header>'+revision+history+(application.status==='revision_requested'?'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+esc(t('Submit revision'))+'</button>':'')+'</section>';
     }).join('');
   }
   function setWorkspaceTab(tab,focusTab){
@@ -857,18 +866,37 @@
   }
   function renderWorkspace(){
     var host=document.getElementById('identity-body');if(!host)return;
-    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="mono">MY OSI / ANALYST</span><h2>Analyst workspace</h2><p>One wallet signature starts a bounded private working session that renews silently while you are active.</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Refresh data</button></header>'+workspaceNav()+'<main><section id="osi-workspace-panel-profile" role="tabpanel" aria-labelledby="osi-workspace-tab-profile" data-workspace-panel="profile"'+(state.workspaceTab==='profile'?'':' hidden')+'>'+profilePane()+'</section><section id="osi-workspace-panel-applications" role="tabpanel" aria-labelledby="osi-workspace-tab-applications" data-workspace-panel="applications"'+(state.workspaceTab==='applications'?'':' hidden')+'>'+applicationPane()+'</section></main></div>';
+    host.innerHTML='<div class="osi-analyst-workspace"><header class="osi-workspace-head"><div><span class="osi-workspace-kicker">'+esc(t('My OSI'))+'</span><h2>'+esc(t('Analyst workspace'))+'</h2><p>'+esc(t('One wallet signature starts a bounded private working session that renews silently while you are active.'))+'</p></div><button type="button" class="osi-secondary-action" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">'+esc(t('Refresh data'))+'</button></header>'+workspaceNav()+'<main><section id="osi-workspace-panel-profile" role="tabpanel" aria-labelledby="osi-workspace-tab-profile" data-workspace-panel="profile"'+(state.workspaceTab==='profile'?'':' hidden')+'>'+profilePane()+'</section><section id="osi-workspace-panel-applications" role="tabpanel" aria-labelledby="osi-workspace-tab-applications" data-workspace-panel="applications"'+(state.workspaceTab==='applications'?'':' hidden')+'>'+applicationPane()+'</section></main></div>';
     host.querySelectorAll('[data-workspace-tab]').forEach(function(button){button.addEventListener('click',function(){setWorkspaceTab(button.dataset.workspaceTab,false);});button.addEventListener('keydown',workspaceTabKeydown);});
   }
   function showNativeWorkspaceView(){
     if(typeof window.osiNavigate==='function')window.osiNavigate('identity',{render:false,focus:false});
     else{document.body.dataset.view='identity';window.scrollTo({top:0,behavior:'auto'});}
   }
-  async function openWorkspace(tab){
+  // Navigating to the private workspace never opens the wallet. A live read
+  // session is reused silently; without one the page says what opening it
+  // costs, and only the explicit control below connects and signs.
+  function workspaceLocked(){
+    var connected=!!walletPubkey;
+    return workspaceShell(empty(t('Analyst workspace is private'),t('Opening it costs one wallet message signature and no Solana transaction. The signature is wallet-signed and server-verified, never an on-chain transaction.'))
+      +'<div class="osi-workspace-recover"><button class="osi-primary-action" type="button" data-ws-unlock>'+esc(connected?t('Authorize private read'):t('Connect wallet and authorize private read'))+'</button></div>');
+  }
+  async function hasLiveWorkspaceSession(){
+    if(!walletPubkey||typeof window.osiV2ReadSession!=='function')return false;
+    try{await window.osiV2ReadSession(['analyst:workspace'],{allowUnlock:false});return true;}
+    catch(error){return String(error&&error.message||'')!=='read_session_required';}
+  }
+  async function openWorkspace(tab,options){
+    options=options||{};
     state.workspaceTab=tab==='applications'?'applications':'profile';showNativeWorkspaceView();
-    var host=document.getElementById('identity-body');if(host)host.innerHTML=workspaceShell('<div class="osi-activation-loading">Unlocking the shared private read session...</div>');
+    var host=document.getElementById('identity-body');
+    if(options.unlock!==true&&!(await hasLiveWorkspaceSession())){
+      if(host){host.innerHTML=workspaceLocked();var unlock=host.querySelector('[data-ws-unlock]');if(unlock)unlock.addEventListener('click',function(){openWorkspace(state.workspaceTab,{unlock:true});});}
+      return;
+    }
+    if(host)host.innerHTML=workspaceShell('<div class="osi-activation-loading">'+esc(t('Unlocking the shared private read session...'))+'</div>');
     try{var wallet=await ensureWallet();var result=await sessionRead('analyst:workspace','my_workspace');state.workspace=result;state.workspaceWallet=wallet;renderWorkspace();}
-    catch(error){if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=workspaceShell(empty('Analyst workspace unavailable',userError(error))+'<div class="osi-workspace-recover"><button class="osi-secondary-action" type="button" onclick="'+(refresh?'osiAnalystRefreshWorkspace(\''+esc(state.workspaceTab)+'\')':'osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')')+'">'+(refresh?'Refresh private access':'Try again')+'</button></div>');}}
+    catch(error){if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML=workspaceShell(empty(t('Analyst workspace unavailable'),userError(error))+'<div class="osi-workspace-recover"><button class="osi-secondary-action" type="button" onclick="'+(refresh?'osiAnalystRefreshWorkspace(\''+esc(state.workspaceTab)+'\')':'osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')')+'">'+esc(refresh?t('Refresh private access'):t('Try again'))+'</button></div>');}}
   }
 
   function setApplicationStatus(text,kind){var node=document.getElementById('an-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
@@ -895,7 +923,16 @@
     Object.keys(values).forEach(function(id){var node=document.getElementById(id);if(node)node.value=values[id]||'';});
     var link=(profile&&profile.links_public||[]).find(function(item){return item&&item.label!=='X / Twitter';});var ll=document.getElementById('an-link-label'),lu=document.getElementById('an-link-url');if(ll)ll.value=link&&link.label||'';if(lu)lu.value=link&&link.url||'';
     var expertise=profile&&profile.expertise_public||version&&version.expertise_public||[];document.querySelectorAll('input[name="an-expertise"]').forEach(function(box){box.checked=expertise.indexOf(box.value)!==-1;});
-    var title=document.getElementById('osi-application-title');if(title)title.textContent=application?'Submit immutable application version '+(Number(version&&version.version_no||0)+1):'Create your analyst profile';
+    var title=document.getElementById('osi-application-title');if(title)title.textContent=application?t('Submit immutable application version {number}',{number:Number(version&&version.version_no||0)+1}):t('Create your analyst profile');
+    updateHandlePreview();
+  }
+  // The handle becomes this deployment's own profile address, so the applicant
+  // sees the exact URL they will share, built from the page they are on.
+  function updateHandlePreview(){
+    var node=document.querySelector('[data-an-permalink-preview]'),input=document.getElementById('an-handle');if(!node)return;
+    var handle=String(input&&input.value||'').trim().replace(/^@/,'');
+    var base=window.location.origin+window.location.pathname;
+    node.textContent=/^[A-Za-z0-9_]{2,32}$/.test(handle)?t('Your profile address: {url}',{url:base+'#analyst/'+handle.toLowerCase()}):t('Your profile address will be {url}',{url:base+'#analyst/your_handle'});
   }
   async function openApplication(){
     var generation;
@@ -907,8 +944,8 @@
       var wallet=await ensureWallet();
       generation=privateGeneration();
       assertPrivateGeneration(generation);
-      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();var restored=restoreApplicationDraft(wallet),optional=document.getElementById('analyst-optional-details');if(optional)optional.open=!!latestApplication()||(restored&&hasOptionalApplicationData(applicationDraft()));state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');setApplicationStatus('');
-      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(typeof showToast==='function')showToast('Application ready. Only the final exact message needs one wallet signature.');setTimeout(function(){var target=document.getElementById('an-bio');var host=document.getElementById('apx-modal');if(!target)return;if(host&&document.activeElement&&host.contains(document.activeElement))return;target.focus();},50);
+      var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();var restored=restoreApplicationDraft(wallet),optional=document.getElementById('analyst-optional-details');if(optional)optional.open=!!latestApplication()||(restored&&hasOptionalApplicationData(applicationDraft()));state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');setApplicationStatus('');updateHandlePreview();
+      var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(typeof showToast==='function')showToast(t('Application ready. Only the final exact message needs one wallet signature.'));setTimeout(function(){var target=document.getElementById('an-bio');var host=document.getElementById('apx-modal');if(!target)return;if(host&&document.activeElement&&host.contains(document.activeElement))return;target.focus();},50);
     }catch(error){if((generation==null||generation===privateGeneration())&&typeof showToast==='function')showToast(userError(error));}
   }
   function closeApplication(){var modal=document.getElementById('apx-modal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}document.body.style.overflow='';if(state.receipt){state.receipt=null;var form=document.getElementById('analyst-form');if(form)form.reset();if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');}if(state.returnFocus&&typeof state.returnFocus.focus==='function')state.returnFocus.focus();state.returnFocus=null;}
@@ -924,12 +961,12 @@
     state.receipt=application;
     var access=typeof resolveMaintainerAccess==='function'?resolveMaintainerAccess():{allowed:false};
     if(typeof window.osiV2RenderSubmissionReceipt==='function')window.osiV2RenderSubmissionReceipt('osi-analyst-receipt',{
-      title:'Analyst application version saved',publicRef:application.version_ref,
-      copyValue:application.version_ref||application.id,stage:label(application.status||'submitted'),visibility:'Private',
-      where:'My Applications, in the immutable application version history.',
-      reviewers:'Full double-gated maintainers. The applicant cannot review or activate their own application.',
-      next:'A full maintainer reviews this exact version. Approval does not activate an analyst until a separate confirmed ANALYST_PROBATION Memo is finalized.',
-      openLabel:'Open My Applications',
+      title:t('Analyst application version saved'),publicRef:application.version_ref,
+      copyValue:application.version_ref||application.id,stage:statusText(application.status||'submitted'),visibility:t('Private'),
+      where:t('My Applications, in the immutable application version history.'),
+      reviewers:t('Full double-gated maintainers. The applicant cannot review or activate their own application.'),
+      next:t('A full maintainer reviews this exact version. Approval does not activate an analyst until a separate confirmed ANALYST_PROBATION Memo is finalized.'),
+      openLabel:t('Open My Applications'),
       onOpen:function(){closeApplication();openWorkspace('applications');},
       canOpenQueue:access.allowed===true,
       onQueue:function(){closeApplication();if(typeof window.osiV2OpenReviewQueue==='function')window.osiV2OpenReviewQueue();},
@@ -1162,7 +1199,7 @@
   window.osiAnalystLoadMaintainerQueue=loadQueue;
   window.osiAnalystLoadReviewTasks=loadMaintainerQueueData;
   window.osiAnalystOpenMaintainerApplication=function(id,expectedVersionRef){return openMaintainerApplication(id,expectedVersionRef).catch(function(error){if(typeof showToast==='function')showToast(userError(error));throw error;});};
-  window.osiAnalystRefreshWorkspace=function(tab){return window.osiV2RefreshReadSession(['analyst:workspace']).then(function(){return openWorkspace(tab);});};
+  window.osiAnalystRefreshWorkspace=function(tab){return window.osiV2RefreshReadSession(['analyst:workspace']).then(function(){return openWorkspace(tab,{unlock:true});});};
   window.osiAnalystRefreshMaintainerQueue=function(){return window.osiV2RefreshReadSession(['analyst:maintainer']).then(loadQueue);};
   window.osiAnalystDecision=reviewApplication;
   window.osiAnalystActivate=activateProbation;
@@ -1180,7 +1217,7 @@
   }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('analyst',clearPrivateAnalystCache);
   var analystDraftForm=document.getElementById('analyst-form');
-  if(analystDraftForm){analystDraftForm.addEventListener('input',saveApplicationDraft);analystDraftForm.addEventListener('change',saveApplicationDraft);}
+  if(analystDraftForm){analystDraftForm.addEventListener('input',saveApplicationDraft);analystDraftForm.addEventListener('input',function(event){if(event.target&&event.target.id==='an-handle')updateHandlePreview();});analystDraftForm.addEventListener('change',saveApplicationDraft);}
 
   function trapModalFocus(event,modal){
     if(event.key!=='Tab'||!modal)return;

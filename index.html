@@ -1079,12 +1079,12 @@
 <div class="fo-modal" id="apx-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="osi-application-title" onclick="if(event.target===this)apxClose()">
 <div class="fo-form">
 <button class="fo-x" type="button" onclick="apxClose()" aria-label="Close">✕</button>
-<div class="rec-sec-h" style="margin-top:2px">SIGNED ANALYST APPLICATION</div>
+<div class="rec-sec-h" style="margin-top:2px">Signed analyst application</div>
 <form class="osi-analyst-form" id="analyst-form" onsubmit="osiAnalystSubmit(event)">
   <h3 id="osi-application-title">Create your analyst profile</h3>
   <p class="lead">Apply in about one minute. Your wallet is the applicant identity and you approve one exact message. No SOL transfer or network fee is required.</p>
   <div class="osi-application-steps" aria-label="Application steps"><span><b>1</b> Choose a handle and bio</span><span><b>2</b> Confirm safety</span><span><b>3</b> Sign once</span></div>
-  <label><span>Short public bio (required)</span><textarea id="an-bio" minlength="10" maxlength="600" required placeholder="What you investigate and how you work with public evidence."></textarea><small>What you investigate and how you work with public evidence.</small></label><label><span>Public OSI handle</span><input id="an-handle" required minlength="2" maxlength="32" pattern="[A-Za-z0-9_]{2,32}" spellcheck="false" autocomplete="off" placeholder="chain_sleuth"><small>Required. This becomes your public address, osi.app/#analyst/your_handle, and it cannot be changed later.</small></label>
+  <label><span>Short public bio (required)</span><textarea id="an-bio" minlength="10" maxlength="600" required placeholder="What you investigate and how you work with public evidence."></textarea><small>10 to 600 characters. Shown on your public analyst profile.</small></label><label><span>Public OSI handle</span><input id="an-handle" required minlength="2" maxlength="32" pattern="[A-Za-z0-9_]{2,32}" spellcheck="false" autocomplete="off" placeholder="chain_sleuth"><small>Required. This becomes the permanent address of your public profile and cannot be changed later.</small><small class="osi-handle-preview" data-an-permalink-preview aria-live="polite"></small></label>
   <details class="osi-application-optional" id="analyst-optional-details">
     <summary><span><b>Add optional profile and work evidence</b><small>Display name, expertise, links, image and experience</small></span><i aria-hidden="true">+</i></summary>
     <div class="osi-application-optional-body">

@@ -1508,7 +1508,7 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
 
     if (role === 'analyst_candidate') {
       await page.evaluate(() => window.osiAnalystOpenWorkspace('applications'));
-      await expect(page.locator('#identity-body')).toContainText('In Review');
+      await expect(page.locator('#identity-body')).toContainText('In review');
       await expect(page.locator('#identity-body')).toContainText('Current version 1');
     }
 
