@@ -8102,3 +8102,217 @@ body .osi-status.maintainer {
     grid-template-columns: 1fr;
   }
 }
+
+/* Intelligence Passport: the shell is the page, cards are the one framed
+ * level, and counters are a hairline list rather than tiles in a card. */
+#identity-view .identity-shell {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+
+#identity-view .identity-hero {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#identity-view .identity-hero::before,
+#identity-view .identity-hero::after,
+#identity-view .identity-mark {
+  display: none;
+}
+
+#identity-view .identity-kicker::before {
+  background: var(--lamp);
+  box-shadow: none;
+}
+
+#identity-view .identity-tabs {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#identity-view .identity-tab {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+#identity-view .identity-content {
+  padding: 20px 0 0;
+}
+
+#identity-view .identity-card,
+#identity-view .identity-sidebar-panel,
+#identity-view .identity-passport {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+  box-shadow: none;
+}
+
+#identity-view .identity-passport::before {
+  content: none;
+}
+
+#identity-view .identity-card-title,
+#identity-view .identity-side-title {
+  font: 650 15px/1.3 var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+#identity-view .identity-pow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 0 24px;
+  margin: 0;
+}
+
+#identity-view .identity-pow-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  min-height: 0;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+
+#identity-view .identity-pow-card::before {
+  content: none;
+}
+
+#identity-view .identity-pow-k {
+  margin: 0;
+  font-size: 14px;
+  text-transform: none;
+  color: var(--ink);
+}
+
+#identity-view .identity-pow-v {
+  margin: 0;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  text-align: right;
+}
+
+#identity-view .identity-pow-v.unavailable {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+}
+
+#identity-view .identity-pow-s {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+#identity-view .identity-bio {
+  border-top: 1px solid var(--line);
+}
+
+#identity-view .identity-bio.is-missing {
+  color: var(--ink-faint);
+}
+
+#identity-view .identity-seal-code,
+#identity-view .identity-avatar::after {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+#identity-view .identity-status-row span:first-child,
+#identity-view .identity-status-row b,
+#identity-view .identity-side-row,
+#identity-view .identity-side-row b,
+#identity-view .identity-record-row,
+#identity-view .identity-record-row > b {
+  font-size: 13px;
+}
+
+#identity-view .identity-status-row b.mono,
+#identity-view .identity-record-row > b.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-ligatures: none;
+}
+
+#identity-view .identity-wallet-short {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+}
+
+#identity-view .identity-copy {
+  min-height: 40px;
+}
+
+#identity-view .identity-status-pill {
+  border-color: var(--lamp-line);
+  background: rgba(255, 176, 32, .08);
+  color: var(--lamp);
+}
+
+#identity-view .identity-note.is-verified {
+  border-color: var(--line-bright);
+  background: none;
+  color: var(--ink);
+}
+
+#identity-view .identity-act-row {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  padding: 12px 0;
+}
+
+#identity-view .identity-act-row a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--lamp);
+}
+
+#identity-view .identity-action {
+  min-height: 44px;
+  font-size: 13px;
+}
+
+#identity-view .identity-start p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-dim);
+}
+
+#identity-view .identity-role.analyst {
+  border-color: var(--line-bright);
+  background: none;
+  color: var(--ink);
+}
+
+#identity-view .identity-role.analyst::before {
+  background: var(--lamp);
+  box-shadow: none;
+}
+
+@media (max-width: 1060px) {
+  #identity-view .identity-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  #identity-view .identity-sidebar {
+    grid-template-columns: 1fr;
+  }
+}
+
+#identity-view .identity-sidebar-panel .identity-readonly {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
