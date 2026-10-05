@@ -521,6 +521,19 @@ body.osi-case-open{overflow:hidden}
 #osi-case-drawer .osi-form-status{font:500 13px/1.5 var(--font-sans)}
 #osi-case-drawer .osi-form-status.success{color:var(--ink)}
 
+/* A review in a governance timeline: who and what on the first line with
+   the proof type beside it, then the facts and the rationale at full width. */
+#osi-case-drawer .osi-governance-event .osi-proof-label{grid-column:2;grid-row:1;align-self:start;max-width:none}
+#osi-case-drawer .osi-governance-event>p{grid-column:1/-1}
+#osi-case-drawer .osi-governance-event .osi-proof-meta>span,#osi-case-drawer .osi-governance-event .osi-proof-meta>time{color:var(--ink-dim);font-size:13px}
+#osi-case-drawer .osi-governance-event .osi-proof-meta>.osi-sep{margin:0 7px;color:var(--ink-faint)}
+#osi-case-drawer .osi-governance-event [data-osi-user-content]{color:var(--ink)!important;font-size:14px!important;line-height:1.6!important}
+/* A gate this outcome never used keeps its numbers, quietly, with no bar. */
+#osi-case-drawer .osi-quorum.unused{padding:12px 14px;border:1px dashed var(--line-bright);border-radius:10px}
+#osi-case-drawer .osi-quorum.unused .osi-quorum-title{color:var(--ink-dim)!important;font-weight:500!important}
+#osi-case-drawer .osi-quorum.unused>div{color:var(--ink-faint)}
+.osi-outcome-step-meta>time,.osi-outcome-step-meta>span{color:var(--ink-dim)}
+
 /* Proof Log rows. */
 .osi-proof-list{counter-reset:none}
 .osi-proof-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0}
@@ -573,6 +586,16 @@ body.osi-case-open{overflow:hidden}
 .osi-solana-pay-timer{margin:10px 0 0;color:var(--lamp-strong);font:600 14px/1.4 var(--font-sans);font-variant-numeric:tabular-nums}
 .osi-action-group{display:inline-flex;flex-wrap:wrap;gap:8px}
 .osi-action-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+
+/* On a desktop the action row stays at the foot of the card while the
+   transfer details scroll, so "Check payment" and the wallet routes are
+   always one move away. Phones keep the natural order. */
+@media(min-width:641px){
+  .osi-payment-review-card{padding-bottom:0}
+  .osi-payment-review-card>.osi-payment-actions:last-child{position:sticky;bottom:0;z-index:1;margin:14px -24px 0;padding:14px 24px 20px;border-top:1px solid var(--line);background:var(--bg-deep)}
+}
+.osi-solana-pay-key dd.mono{font-size:13.5px;line-height:1.5}
+.osi-payment-review-card .osi-solana-pay-detail dd.mono,.osi-payment-review-card dl dd.mono{font-size:12.5px;line-height:1.55}
 
 /* The amount dialog the support buttons open. */
 #sol-ask .sol-ask-card{border-radius:14px;background:var(--bg-deep);padding:28px 24px 22px}

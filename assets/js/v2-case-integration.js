@@ -1817,10 +1817,14 @@
   }
   // Count gate and weight gate side by side. The bar fills to the lower of
   // the two, because both must be met; a met quorum is marked in words too.
-  function progress(count,weight,requiredCount,requiredWeight,title){
+  // An unused gate (a maintainer-bootstrap outcome never went through analyst
+  // quorum) keeps its numbers for the record but drops the bar, so an empty
+  // meter never reads as a gate that still applies.
+  function progress(count,weight,requiredCount,requiredWeight,title,options){
+    options=options||{};
     var value=Math.min(100,Math.min(requiredCount?count/requiredCount:0,requiredWeight?weight/requiredWeight:0)*100);
-    var ready=value>=100;
-    return '<div class="osi-quorum'+(ready?' ready':'')+'">'+(title?'<p class="osi-quorum-title">'+esc(t(title))+(ready?' · '+esc(t('met')):'')+'</p>':'')+'<div><span>'+esc(t('{count} / {required} analysts',{count:count,required:requiredCount}))+'</span><span>'+esc(t('{weight} / {required} weight',{weight:Number(weight||0).toFixed(2),required:Number(requiredWeight||0).toFixed(2)}))+'</span></div><div class="osi-quorum-track" role="presentation"><i style="width:'+value+'%"></i></div></div>';
+    var ready=!options.unused&&value>=100;
+    return '<div class="osi-quorum'+(ready?' ready':'')+(options.unused?' unused':'')+'">'+(title?'<p class="osi-quorum-title">'+esc(t(title))+(ready?' · '+esc(t('met')):'')+'</p>':'')+'<div><span>'+esc(t('{count} / {required} analysts',{count:count,required:requiredCount}))+'</span><span>'+esc(t('{weight} / {required} weight',{weight:Number(weight||0).toFixed(2),required:Number(requiredWeight||0).toFixed(2)}))+'</span></div>'+(options.unused?'':'<div class="osi-quorum-track" role="presentation"><i style="width:'+value+'%"></i></div>')+'</div>';
   }
   function governanceTimeline(rows){
     if(!rows||!rows.length)return'<div class="osi-v2-empty compact"><b>'+esc(t('No reviews recorded yet'))+'</b><span>'+esc(t('Only eligible, independent analyst reviews count.'))+'</span></div>';
@@ -1828,7 +1832,10 @@
       var role=row.reviewer_role||row.actor_role||'';
       var serverAuthority=!!(row.sas_authority&&row.sas_authority.enforced===true);
       var rationale=row.public_rationale?'<p data-osi-user-content>'+esc(row.public_rationale)+'</p>':'<p class="osi-case-quiet">'+esc(t('No public rationale recorded.'))+'</p>';
-      return'<div class="osi-governance-event">'+proofLabelHtml(row.proof_label||'Wallet-signed & server-verified')+'<b>'+reviewerIdentity(row.reviewer_wallet)+(serverAuthority?'':sasSlot(row.reviewer_wallet,role))+' &middot; '+esc(reviewDecisionLabel(row.decision))+'</b><p>'+(row.target_version_ref?'<span class="mono">'+esc(row.target_version_ref)+'</span>':esc(t(sentence(row.phase))))+' &middot; '+esc(t('weight {weight}',{weight:Number(row.weight||0).toFixed(2)}))+sasAuthority(row)+' &middot; '+esc(dateText(row.created_at))+'</p>'+rationale+'</div>';
+      var meta=[row.target_version_ref?'<span class="mono">'+esc(row.target_version_ref)+'</span>':'<span>'+esc(t(sentence(row.phase)))+'</span>','<span>'+esc(t('weight {weight}',{weight:Number(row.weight||0).toFixed(2)}))+'</span>'];
+      var authority=sasAuthority(row);if(authority)meta.push(authority.replace(/^ /,''));
+      meta.push('<time datetime="'+esc(String(row.created_at||''))+'">'+esc(dateText(row.created_at))+'</time>');
+      return'<div class="osi-governance-event">'+proofLabelHtml(row.proof_label||'Wallet-signed & server-verified')+'<b>'+reviewerIdentity(row.reviewer_wallet)+(serverAuthority?'':sasSlot(row.reviewer_wallet,role))+' &middot; '+esc(reviewDecisionLabel(row.decision))+'</b><p class="osi-proof-meta">'+meta.join('<span class="osi-sep" aria-hidden="true">·</span>')+'</p>'+rationale+'</div>';
     }).join('')+'</div>';
   }
   function bootstrapReason(code){
@@ -1855,13 +1862,15 @@
   // One anchored outcome step: what happened, when, and the Memo a stranger
   // can pull from mainnet. A link is printed only for a validated Solscan
   // transaction URL; otherwise the step says no confirmed Memo is public.
-  function outcomeStep(title,proofRow,fallbackDate){
+  // linkText names exactly what the transaction anchored, so the link never
+  // reads as a generic "proof" of the outcome itself.
+  function outcomeStep(title,proofRow,fallbackDate,linkText){
     var url=solscanTx(proofRow&&proofRow.solscan_url);
     var when=proofRow&&proofRow.occurred_at||fallbackDate;
     return'<li class="osi-outcome-step'+(url?' anchored':'')+'"><div class="osi-outcome-step-head"><b>'+esc(t(title))+'</b>'+(isBootstrap(proofRow)?bootstrapChip():'')+'</div>'
-      +'<p class="osi-outcome-step-meta">'+(when?'<time datetime="'+esc(String(when))+'">'+esc(dateText(when))+'</time>':esc(t('Time not recorded')))
-      +(proofRow&&proofRow.label?' · '+proofLabelHtml(proofRow.label):'')+'</p>'
-      +(url?'<a class="osi-proof-link" href="'+esc(url)+'" target="_blank" rel="noopener" aria-label="'+esc(t('Verify on Solscan')+': '+t(title))+'">'+esc(t('Verify on Solscan'))+'</a>':'<span class="osi-outcome-step-none">'+esc(t('No confirmed Memo is public for this step.'))+'</span>')
+      +'<p class="osi-outcome-step-meta">'+(when?'<time datetime="'+esc(String(when))+'">'+esc(dateText(when))+'</time>':'<span>'+esc(t('Time not recorded'))+'</span>')
+      +(proofRow&&proofRow.label?proofLabelHtml(proofRow.label):'')+'</p>'
+      +(url?'<a class="osi-proof-link" href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(t(linkText||'Verify on Solscan'))+'</a>':'<span class="osi-outcome-step-none">'+esc(t('No confirmed Memo is public for this step.'))+'</span>')
       +'</li>';
   }
   function resolution(item){
@@ -1926,9 +1935,9 @@
     var steps='';
     if(row&&(row.final_proof||row.seal_proof||sealed)){
       steps='<ol class="osi-outcome-steps">'
-        +(row.final_proof||row.winning_report_version_ref?outcomeStep('Primary Report selected',row.final_proof,null):'')
+        +(row.final_proof||row.winning_report_version_ref?outcomeStep('Primary Report selected',row.final_proof,null,'Verify the selection Memo on Solscan'):'')
         +(row.challenge_window_opens_at?'<li class="osi-outcome-step"><div class="osi-outcome-step-head"><b>'+esc(t('Challenge window'))+'</b></div><p class="osi-outcome-step-meta">'+esc(t('{opens} to {closes}',{opens:dateText(row.challenge_window_opens_at),closes:dateText(row.challenge_window_closes_at)}))+'</p></li>':'')
-        +(sealed?outcomeStep('Record sealed',row.seal_proof,row.sealed_at||item.sealed_at):'')
+        +(sealed?outcomeStep('Record sealed',row.seal_proof,row.sealed_at||item.sealed_at,'Verify the seal Memo on Solscan'):'')
         +'</ol>';
     }
     var selectionReviews=row&&row.reviews?row.reviews.filter(function(review){return review.phase==='selection';}):[];
@@ -1941,7 +1950,7 @@
       +(bootstrap?bootstrapNotice(row&&row.decision_channel_label?row:(row&&row.final_proof)||row):'')
       +steps
       +'<div class="osi-resolution-primary"><span>'+esc(t(row&&row.winning_report_version_ref?'Primary Report version':'Leading Report version'))+'</span><b class="'+(primaryValue?'mono':'')+'">'+esc(primaryValue||t('Awaiting a unique quorum leader'))+'</b></div>'
-      +progress(quorum.leader_count||0,quorum.leader_weight||0,quorum.required_count||2,quorum.required_weight||2.5,meterTitle)
+      +progress(quorum.leader_count||0,quorum.leader_weight||0,quorum.required_count||2,quorum.required_weight||2.5,meterTitle,{unused:bootstrap&&!Number(quorum.leader_count||0)})
       +(quorum.tie_unresolved&&!sealed?'<div class="osi-state-message warning"><b>'+esc(t('Tie unresolved'))+'</b><span>'+esc(t('More independent review is required. A maintainer cannot choose between tied candidates.'))+'</span></div>':'')
       +timeline
       +conflictNotice+taskNotice+selectionForm+(finalize?'<div class="osi-governance-actions">'+finalize+'</div>':'')+seal+observerNote
@@ -2002,6 +2011,7 @@
     var decision=decisionText(row.decision);
     var meta=[actor];
     if(decision)meta.push('<span>'+esc(decision)+'</span>');
+    if(row.weight!=null&&row.weight!==''&&isFinite(Number(row.weight)))meta.push('<span>'+esc(t('weight {weight}',{weight:Number(row.weight).toFixed(2)}))+'</span>');
     meta.push('<time datetime="'+esc(String(row.occurred_at||''))+'">'+esc(dateText(row.occurred_at))+'</time>');
     var payment=row.payment_proof;
     var paymentDetail=payment?'<dl class="osi-payment-proof"><div><dt>'+esc(t('Payer'))+'</dt><dd class="mono" title="'+esc(payment.payer_wallet)+'">'+esc(short(payment.payer_wallet))+'</dd></div><div><dt>'+esc(t('Exact amount'))+'</dt><dd><span class="mono">'+esc(solFromLamports(payment.total_lamports))+'</span> SOL / <span class="mono">'+esc(payment.total_lamports)+'</span> lamports</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd class="mono">'+esc(payment.target_public_ref)+'</dd></div><div><dt>'+esc(t('Finality'))+'</dt><dd>'+esc(t(sentence(payment.finality)))+' · '+esc(t('slot'))+' <span class="mono">'+esc(payment.slot)+'</span></dd></div><div><dt>'+esc(t('Block time'))+'</dt><dd>'+esc(dateText(payment.block_time))+'</dd></div><div><dt>'+esc(t('Server verification'))+'</dt><dd>'+esc(payment.memo_verified&&payment.transfers_verified?t('Memo and transfers verified'):t('Unavailable'))+'</dd></div></dl><div class="osi-evidence-ref"><span>'+esc(t('Memo'))+'</span> <span class="mono">'+esc(row.memo||t('Canonical Memo verified'))+'</span></div><ul class="osi-payment-proof-recipients">'+(payment.recipient_manifest||[]).map(function(recipient){return'<li><span class="mono" title="'+esc(recipient.wallet)+'">'+esc(short(recipient.wallet))+'</span> · <span class="mono">'+esc(solFromLamports(recipient.amount_lamports))+'</span> SOL · '+esc(t(sentence(recipient.recipient_type)))+'</li>';}).join('')+'</ul>':'';
@@ -2556,6 +2566,9 @@
       banner.className='osi-state-message'+(kind==='error'||kind==='warning'?' warning':'');
       banner.innerHTML='<b>'+esc(t(kind==='error'?'Payment not completed':'Payment status'))+'</b><span>'+esc(text)+'</span>'
         +(state.paymentPending&&state.tab!=='reward'?'<button class="osi-action" type="button" data-case-goto="reward">'+esc(t('Go to Rewards & Support'))+'</button>':'');
+      // The reader may be scrolled far from where the banner landed (a closed
+      // dialog returns no focus), so bring it into the reading area.
+      try{banner.scrollIntoView({block:'nearest'});}catch(_){}
       return;
     }
     if(typeof showToast==='function')showToast(text);
@@ -2690,7 +2703,7 @@
     // the payment) is the primary action and the connected wallet is the
     // alternative.
     var phantom=connected?'<button class="osi-action" type="button" data-solana-pay-phantom>'+esc(t('Use connected Phantom'))+'</button>':'';
-    modal.innerHTML='<div class="osi-payment-review-card osi-solana-pay-card"><span class="osi-eyebrow">'+esc(t('Single-use · mainnet-beta'))+'</span><h3 id="osi-solana-pay-title">'+esc(t('Pay with Solana Pay'))+'</h3><div class="osi-solana-pay-grid"><div class="osi-solana-pay-qr" data-solana-pay-qr></div><div class="osi-solana-pay-key"><dl><div class="wide"><dt>'+esc(t('Recipient'))+'</dt><dd class="mono">'+esc(recipient.wallet)+'</dd></div><div class="wide"><dt>'+esc(t('Exact amount'))+'</dt><dd>'+esc(recipient.amount_sol)+' SOL / '+esc(recipient.amount_lamports)+' lamports</dd></div><div class="wide"><dt>'+esc(t('Purpose'))+'</dt><dd>'+esc(t(label(prepared.payment_kind)))+'</dd></div></dl><p class="osi-solana-pay-timer" data-solana-pay-timer aria-live="off"></p></div></div><dl class="osi-solana-pay-detail"><div class="wide"><dt>'+esc(t('Pay from this wallet'))+'</dt><dd class="mono">'+esc(prepared.payer_wallet)+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div><div><dt>'+esc(t('Reference'))+'</dt><dd class="mono">'+esc(prepared.solana_pay.reference)+'</dd></div><div class="wide"><dt>'+esc(t('Canonical Memo'))+'</dt><dd class="mono" data-solana-pay-memo>'+esc(prepared.memo)+'</dd></div></dl><div class="osi-state-message" data-solana-pay-state role="status" aria-live="polite"><b>'+esc(t('Ready'))+'</b><span>'+esc(t('Scan the QR code or explicitly open a compatible wallet. Verify the recipient, amount, network and Memo before approving.'))+'</span></div><div class="osi-payment-actions osi-solana-pay-actions"><button class="osi-action" type="button" data-solana-pay-close>'+esc(t('Close'))+'</button><span class="osi-action-group"><button class="osi-action" type="button" data-solana-pay-copy>'+esc(t('Copy link'))+'</button><button class="osi-action" type="button" data-solana-pay-copy-memo>'+esc(t('Copy Memo'))+'</button></span>'+phantom+'<button class="osi-action primary" type="button" data-solana-pay-retry>'+esc(t('Check payment'))+'</button><a class="osi-action osi-action-link" data-solana-pay-open href="'+esc(url)+'">'+esc(t(mobile?'Open compatible wallet':'Open compatible wallet app'))+'</a></div><div class="osi-case-note">'+esc(t('This direct mainnet transfer is irreversible. Native SOL goes directly to the server-derived recipient. OSI has no custody or escrow. The connected Phantom button reuses this exact prepared intent. A QR, copied link, or deep link only offers it to a compatible wallet; OSI does not claim an app was detected. Nothing is marked paid until finalized server verification succeeds.'))+'</div></div>';
+    modal.innerHTML='<div class="osi-payment-review-card osi-solana-pay-card"><span class="osi-eyebrow">'+esc(t('Single-use · mainnet-beta'))+'</span><h3 id="osi-solana-pay-title">'+esc(t('Pay with Solana Pay'))+'</h3><div class="osi-solana-pay-grid"><div class="osi-solana-pay-qr" data-solana-pay-qr></div><div class="osi-solana-pay-key"><dl><div class="wide"><dt>'+esc(t('Recipient'))+'</dt><dd class="mono">'+esc(recipient.wallet)+'</dd></div><div class="wide"><dt>'+esc(t('Exact amount'))+'</dt><dd>'+esc(recipient.amount_sol)+' SOL / '+esc(recipient.amount_lamports)+' lamports</dd></div><div class="wide"><dt>'+esc(t('Purpose'))+'</dt><dd>'+esc(t(label(prepared.payment_kind)))+'</dd></div></dl><p class="osi-solana-pay-timer" data-solana-pay-timer aria-live="off"></p></div></div><dl class="osi-solana-pay-detail"><div class="wide"><dt>'+esc(t('Pay from this wallet'))+'</dt><dd class="mono">'+esc(prepared.payer_wallet)+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd class="mono">'+esc(prepared.target_public_ref)+'</dd></div><div><dt>'+esc(t('Reference'))+'</dt><dd class="mono">'+esc(prepared.solana_pay.reference)+'</dd></div><div class="wide"><dt>'+esc(t('Canonical Memo'))+'</dt><dd class="mono" data-solana-pay-memo>'+esc(prepared.memo)+'</dd></div></dl><div class="osi-state-message" data-solana-pay-state role="status" aria-live="polite"><b>'+esc(t('Ready'))+'</b><span>'+esc(t('Scan the QR code or explicitly open a compatible wallet. Verify the recipient, amount, network and Memo before approving.'))+'</span></div><div class="osi-case-note">'+esc(t('This direct mainnet transfer is irreversible. Native SOL goes directly to the server-derived recipient. OSI has no custody or escrow. The connected Phantom button reuses this exact prepared intent. A QR, copied link, or deep link only offers it to a compatible wallet; OSI does not claim an app was detected. Nothing is marked paid until finalized server verification succeeds.'))+'</div><div class="osi-payment-actions osi-solana-pay-actions"><button class="osi-action" type="button" data-solana-pay-close>'+esc(t('Close'))+'</button><span class="osi-action-group"><button class="osi-action" type="button" data-solana-pay-copy>'+esc(t('Copy link'))+'</button><button class="osi-action" type="button" data-solana-pay-copy-memo>'+esc(t('Copy Memo'))+'</button></span>'+phantom+'<button class="osi-action primary" type="button" data-solana-pay-retry>'+esc(t('Check payment'))+'</button><a class="osi-action osi-action-link" data-solana-pay-open href="'+esc(url)+'">'+esc(t(mobile?'Open compatible wallet':'Open compatible wallet app'))+'</a></div></div>';
     document.body.appendChild(modal);
     window.osiSolanaPay.renderQr(modal.querySelector('[data-solana-pay-qr]'),url);
     var prior=document.activeElement;var stopped=false;var polling=false;var timerId=0;var countdownId=0;
@@ -2973,7 +2986,7 @@
       address:address,
       action:'Review transfer →',
       note:targetType==='report_author'
-        ?'Recipient: the wallet that authored '+String(targetRef||'')+'. OSI never publishes that wallet, so the server derives the exact recipient and Memo when the transfer is prepared and you approve one transaction in your wallet. Direct wallet-to-wallet in native SOL. No custody. Support never changes review, ranking, weight, eligibility, or publication.'
+        ?t('Recipient: the wallet that authored {version}. OSI never publishes that wallet, so the server derives the exact recipient and Memo when the transfer is prepared and you approve one transaction in your wallet. Direct wallet-to-wallet in native SOL. No custody. Support never changes review, ranking, weight, eligibility, or publication.',{version:String(targetRef||'')})
         :undefined
     });
     if(generation!==privateGeneration())return;
@@ -3201,7 +3214,10 @@
     var nodes=Array.prototype.filter.call(root.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],summary,[tabindex]:not([tabindex="-1"])'),function(node){return node.offsetParent!==null&&node.tabIndex>=0&&!node.classList.contains('osi-case-scrim');});
     if(!nodes.length)return;
     var first=nodes[0],last=nodes[nodes.length-1];
-    if(nodes.indexOf(document.activeElement)<0){event.preventDefault();(event.shiftKey?last:first).focus();}
+    // Focus that has left the dialog altogether comes back in at the edge the
+    // key points to. Focus on a programmatic target inside it (a heading or a
+    // review card with tabindex -1) keeps the browser's natural order.
+    if(!root.contains(document.activeElement)){event.preventDefault();(event.shiftKey?last:first).focus();}
     else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
   }

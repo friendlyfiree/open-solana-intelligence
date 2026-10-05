@@ -231,3 +231,7 @@
   .osi-report-actions .osi-report-chain-link{justify-content:flex-start}
 }
 .osi-report-public-evidence>.osi-ref-sections{display:grid;grid-template-columns:minmax(0,1fr);padding:0;border:0;font:inherit}
+/* Publication quorum: words in sans, numbers tabular, the met count in ink
+   rather than an accent, since a number is not an action. */
+#osi-case-drawer .osi-report-quorum span{display:inline-flex;align-items:center;gap:4px;min-height:32px;border-radius:999px;padding:4px 12px;color:var(--ink-dim);font:500 13px/1.4 var(--font-sans);font-variant-numeric:tabular-nums}
+#osi-case-drawer .osi-report-quorum b{color:var(--ink);font-weight:600}
