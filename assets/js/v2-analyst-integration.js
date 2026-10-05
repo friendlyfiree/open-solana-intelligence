@@ -563,6 +563,9 @@
       handle:'',
       display_name:profile.display_name||'',
       bio:profile.bio||'',
+      // The roster row already shows the published portrait; the modal used to
+      // drop it and draw a generated letter for the same person.
+      avatar_url:profile.avatar_url||'',
       status:'maintainer',
       tier_code:'',
       weight:0,

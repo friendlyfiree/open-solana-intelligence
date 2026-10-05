@@ -5809,3 +5809,127 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 
 /* Rail groups: a gap separates the public registry from private work. */
 #field-view .fo-rail .fr-g-private { margin-top: 18px; }
+
+/* === Analyst Network pass === */
+
+/* --- Analyst profile: a right-hand reading drawer -------------------------
+ * The profile is a long record (facts, work record, support, proof
+ * history), so it reads in the same right-hand drawer shape as a Case
+ * instead of a centred modal. The card no longer scrolls; only the body
+ * does, so the close control stays put at the top while the record moves
+ * underneath it. */
+#ap-modal {
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+}
+
+#ap-modal .ap-modal-bg {
+  background: rgba(4, 5, 8, .72);
+}
+
+#ap-modal .ap-modal-card {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100vw) !important;
+  height: 100%;
+  max-height: none;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 0;
+  border-left: 1px solid var(--line-bright);
+  border-radius: 0;
+  background: var(--bg-deep);
+  box-shadow: -28px 0 80px rgba(0, 0, 0, .5);
+  transform: translateX(24px);
+  transition: transform 180ms var(--ease-out);
+}
+
+#ap-modal.open .ap-modal-card {
+  transform: none;
+}
+
+#ap-modal .ap-modal-x {
+  top: 14px;
+  right: 16px;
+  z-index: 70;
+  border: 1px solid var(--line-bright);
+  border-radius: 10px;
+  background: var(--bg-raised);
+  color: var(--ink-dim);
+  font-size: 24px;
+}
+
+#ap-modal .ap-modal-x:hover {
+  border-color: var(--lamp-line);
+  color: var(--ink);
+}
+
+#ap-modal .ap-modal-x:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-color: var(--lamp);
+}
+
+#ap-modal .ap-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 32px 36px 56px;
+}
+
+/* A legacy type selector made every <header> sticky, translucent and z50.
+ * Inside these records it pinned the profile heading over the close control
+ * and over scrolling content, so each record heading is put back in flow. */
+.osi-public-profile > header,
+.osi-workspace-profile > header,
+.osi-workspace-head,
+.osi-application-card > header,
+.osi-version-card > header,
+.osi-ops-application > header {
+  position: static;
+  top: auto;
+  z-index: auto;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.osi-application-card > header,
+.osi-version-card > header {
+  border-bottom: 0;
+}
+
+/* The heading never runs under the close control. */
+#ap-modal .osi-public-profile > header {
+  padding-right: 56px;
+}
+
+/* Generated avatars keep their drawn size inside flex rows. */
+svg.osi-av {
+  flex: none;
+}
+
+@media (max-width: 760px) {
+  #ap-modal .ap-modal-card {
+    width: 100vw !important;
+    border-left: 0;
+  }
+
+  #ap-modal .ap-modal-body {
+    padding: 20px 16px calc(40px + env(safe-area-inset-bottom));
+  }
+
+  #ap-modal .ap-modal-x {
+    top: 10px;
+    right: 10px;
+  }
+}
+
+@media print {
+  #ap-modal.open .ap-modal-card {
+    display: block !important;
+    height: auto !important;
+  }
+}

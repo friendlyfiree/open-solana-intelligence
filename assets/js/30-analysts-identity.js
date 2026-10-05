@@ -88,7 +88,11 @@ function lbList(){
   return rows;
 }
 // ===== identity: serious geometric avatar (deterministic gradient monogram; custom upload wins) =====
-var OSI_AV_PAL=[['#22d3ee','#0e7490'],['#a78bfa','#5b21b6'],['#14f195','#047857'],['#fb923c','#9a3412'],['#38bdf8','#1e40af'],['#e879f9','#86198f']];
+// Muted identity tones. A generated avatar tells people apart; it must never
+// borrow a semantic colour (lamp amber for actions, crimson for the signal,
+// green for chain-confirmed proof), so every pair here is a quiet neutral.
+var OSI_AV_PAL=[['#c3cfe0','#4d5d78'],['#e2bdb2','#7d4c42'],['#c4d2b8','#56684d'],['#d2c9df','#5f5672'],['#dcd5c8','#6f685c'],['#dcbcc8','#70505d']];
+var OSI_AV_SEQ=0;
 function osiAvatarUrl(wallet, a){
   try{ var loc=localStorage.getItem('stw_avatar_'+String(wallet||'')); if(loc) return loc; }catch(e){}
   if(a && a.avatar_url) return String(a.avatar_url);
@@ -99,13 +103,18 @@ function osiAvatarSvg(seed, size, name, url){
   size=size||40;
   if(url){ return '<img class="osi-av" src="'+escapeHtml(String(url))+'" alt="" width="'+size+'" height="'+size+'" style="width:'+size+'px;height:'+size+'px" loading="lazy">'; }
   var h=pfHash(String(seed||'osi'));
+  // The same wallet is often drawn on two surfaces at once (the roster, kept
+  // in a hidden view, and the workspace). A gradient id derived from the
+  // wallet alone was then duplicated, url(#id) resolved to the hidden copy and
+  // the visible avatar rendered blank, so every render gets its own id.
+  var gid='osi-av-g'+h+'-'+(++OSI_AV_SEQ);
   var p=OSI_AV_PAL[h % OSI_AV_PAL.length];
   var rot=(h>>3)%360;
   var ch=(String(name||'').trim().charAt(0) || String(seed||'?').charAt(0) || '?').toUpperCase();
   var fs=Math.round(size*0.42), r=Math.round(size*0.3);
   return '<svg class="osi-av" width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" role="img" aria-hidden="true">'
-    +'<defs><linearGradient id="g'+h+'" gradientTransform="rotate('+rot+' .5 .5)"><stop offset="0" stop-color="'+p[0]+'"/><stop offset="1" stop-color="'+p[1]+'"/></linearGradient></defs>'
-    +'<rect x="1" y="1" width="'+(size-2)+'" height="'+(size-2)+'" rx="'+r+'" fill="url(#g'+h+')" opacity=".92"/>'
+    +'<defs><linearGradient id="'+gid+'" gradientTransform="rotate('+rot+' .5 .5)"><stop offset="0" stop-color="'+p[0]+'"/><stop offset="1" stop-color="'+p[1]+'"/></linearGradient></defs>'
+    +'<rect x="1" y="1" width="'+(size-2)+'" height="'+(size-2)+'" rx="'+r+'" fill="url(#'+gid+')"/>'
     +'<rect x="1" y="1" width="'+(size-2)+'" height="'+(size-2)+'" rx="'+r+'" fill="none" stroke="rgba(255,255,255,.14)"/>'
     +'<text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="Archivo,sans-serif" font-weight="800" font-size="'+fs+'" fill="rgba(6,10,18,.9)">'+escapeHtml(ch)+'</text>'
   +'</svg>';
