@@ -281,7 +281,7 @@
     <div class="cr-hero">
       <div class="cr-hero-copy">
         <h1 class="cr-title">Public Records</h1>
-        <p class="cr-sub">The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Each Memo proof links to its Solana mainnet transaction.</p>
+        <p class="cr-sub">The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Public Cases without an outcome are listed separately under Open investigations. Each Memo proof links to its Solana mainnet transaction.</p>
         <p class="cr-boundary"><span>Records are process, not verdict. They stay challengeable and promise no legal certainty, recovery or custody.</span> <button class="cr-link" type="button" onclick="osiNavigate('methodology')">Read what OSI does not promise</button></p>
       </div>
     </div>
@@ -291,11 +291,12 @@
         <div class="cr-toolbar">
           <div class="cr-search-wrap"><input class="cr-search" id="cr-search" type="search" aria-label="Search public records" placeholder="Search refs, titles, wallets or tx" oninput="crSearch(this.value)"></div>
           <div class="rf-tabs cr-fils" id="cr-fils" role="group" aria-label="Filter records">
-            <button class="rf-tab active" data-f="all" type="button" aria-pressed="true" onclick="crFilter('all')">All <span class="rf-n" data-cr-n="all"></span></button>
+            <button class="rf-tab active" data-f="all" type="button" aria-pressed="true" onclick="crFilter('all')">All outcomes <span class="rf-n" data-cr-n="all"></span></button>
             <button class="rf-tab" data-f="reviewed" type="button" aria-pressed="false" onclick="crFilter('reviewed')">Reviewed or published <span class="rf-n" data-cr-n="reviewed"></span></button>
             <button class="rf-tab" data-f="memo" type="button" aria-pressed="false" onclick="crFilter('memo')">Memo-anchored <span class="rf-n" data-cr-n="memo"></span></button>
             <button class="rf-tab" data-f="challenged" type="button" aria-pressed="false" onclick="crFilter('challenged')">Open challenges <span class="rf-n" data-cr-n="challenged"></span></button>
             <button class="rf-tab" data-f="sealed" type="button" aria-pressed="false" onclick="crFilter('sealed')">Sealed <span class="rf-n" data-cr-n="sealed"></span></button>
+            <button class="rf-tab rf-tab-open" data-f="open" type="button" aria-pressed="false" onclick="crFilter('open')" hidden>Open investigations <span class="rf-n" data-cr-n="open"></span></button>
           </div>
           <label class="fo-sel"><span class="fo-sel-l">Sort</span>
             <select id="cr-sort-sel" onchange="crSortChange(this.value)" aria-label="Sort records">
@@ -795,7 +796,7 @@
           <ul class="wire-guide-list">
             <li>Public evidence only: wallets, transactions and sources a reader can check.</li>
             <li>No accusations, doxxing, private keys or recovery promises.</li>
-            <li>A published finding stays challengeable, and an eligible analyst or maintainer can promote it to a private Case.</li>
+            <li>A published finding stays challengeable. An eligible analyst or maintainer can promote it into a new Case, which starts private and follows the normal Case review.</li>
             <li>Wire Reports carry no reward. Voluntary support never changes review, ranking or governance.</li>
           </ul>
         </div>

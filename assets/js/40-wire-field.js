@@ -107,8 +107,10 @@ function wireCard(d){
     chips.push('<span class="wr-st legacy">'+escapeHtml(wireT('Legacy'))+'</span>');
     chips.push('<span class="wr-st legacy">'+escapeHtml(wireT(d.premium?'Flagship study':'Community dispatch'))+'</span>');
   }
+  // The chip already says Published; the activity line speaks only when it
+  // adds a lifecycle fact (a challenge, a promotion, a later version).
   const activity = d.native
-    ? escapeHtml(wireT(d.contested_at?'Challenge upheld':(d.promoted?'Promoted to Case':(d.is_current_published===false?'Immutable publication history':'Published finding'))))
+    ? escapeHtml(d.contested_at?wireT('Challenge upheld'):(d.promoted?wireT('Promoted to Case'):(d.is_current_published===false?wireT('A later version is current'):'')))
     : '<span class="b-reward"><span class="n">'+count+'</span></span> '+escapeHtml(wireT('interest signals'));
   const when = d.native && d.created_at && !isNaN(new Date(d.created_at).getTime())
     ? '<time class="wr-when" datetime="'+escapeHtml(new Date(d.created_at).toISOString())+'">'+escapeHtml(wireT('Published {date}',{date:new Date(d.created_at).toLocaleDateString(wireLocale(),{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'})}))+'</time>'
@@ -128,7 +130,7 @@ function wireCard(d){
   // `bounty` stays only as the hook the legacy interest action looks up; the
   // card's own layout is the Wire card, not the retired bounty grid.
   return '<article class="wire-card bounty'+(d.premium?' premium':'')+(d.native?' native':' legacy')+'" data-bid="'+id+'">'
-    + '<div class="wr-head">'+chips.join('')+'<span class="wr-back">'+activity+'</span></div>'
+    + '<div class="wr-head">'+chips.join('')+(activity?'<span class="wr-back">'+activity+'</span>':'')+'</div>'
     + '<h3 class="fc-title b-target wr-title" data-osi-user-content>'+subject+'</h3>'
     + '<div class="wr-meta">'+attribution+when+'</div>'
     + (snippet ? '<p class="wr-snip" data-osi-user-content>'+snippet+'</p>' : '')
@@ -162,7 +164,7 @@ document.addEventListener('click',function(event){
 // feed chrome and say plainly that what follows is visible only to this wallet.
 var WIRE_MODE_COPY={
   public:{eyebrow:'Open intelligence',title:'The Wire',sub:'Standalone findings filed by wallet authors and made public only after independent review. Unpublished versions stay private.'},
-  mine:{eyebrow:'Private workspace',title:'My Wire Reports',sub:'Private author workspace. Only this wallet can see these versions after a signed read; nothing here is public until it is published.'},
+  mine:{eyebrow:'Private workspace',title:'My Wire Reports',sub:'Only this wallet can see these versions, after a signed read. Nothing here is public until an exact version is published.'},
   queue:{eyebrow:'Restricted queue',title:'Wire review queue',sub:'Restricted queue for eligible analysts and the full maintainer. Authors never see or review their own versions here.'}
 };
 function wireSetMode(kind){

@@ -216,7 +216,14 @@
         if(host&&document.activeElement&&host.contains(document.activeElement))return;
         target.focus();
       },40);
-    }catch(error){if(generation==null||generation===privateGeneration()){status('');if(typeof showToast==='function')showToast(userError(error));if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;}}
+    }catch(error){if(generation==null||generation===privateGeneration()){
+      status('');
+      // With no wallet in the browser the wallet dialog already explains what
+      // to do and holds focus; a second toast and a focus jump would fight it.
+      var walletDialog=document.getElementById('osi-wallet-missing')&&!walletPubkey;
+      if(!walletDialog&&typeof showToast==='function')showToast(userError(error));
+      if(!walletDialog&&state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;
+    }}
   }
   function closeWireForm(){var modal=document.getElementById('osi-wire-modal');if(modal)modal.classList.remove('open');syncBodyLock();if(state.receipt){state.receipt=null;var form=document.getElementById('osi-wire-form');if(form)form.reset();if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-wire-receipt');}if(state.returnFocus&&document.contains(state.returnFocus))state.returnFocus.focus();state.returnFocus=null;}
   async function commitWithConfirmation(body,generation){

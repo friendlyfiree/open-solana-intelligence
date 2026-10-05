@@ -5940,6 +5940,19 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 }
 #records-hero .rf-n:empty { display: none; }
 #records-hero .rf-tab.active .rf-n { color: var(--lamp); }
+#records-hero .rf-tab[hidden] { display: none !important; }
+/* Open investigations are not outcomes: their filter sits apart from the
+ * outcome filters, after a divider. */
+#records-hero .rf-tab-open { position: relative; margin-left: 13px; }
+#records-hero .rf-tab-open::before {
+  content: "";
+  position: absolute;
+  left: -11px;
+  top: 9px;
+  bottom: 9px;
+  width: 1px;
+  background: var(--line-bright);
+}
 #records-hero .fo-sel { border-color: var(--line-bright) !important; background: var(--bg) !important; }
 #records-hero .fo-sel-l {
   color: var(--ink-faint) !important;
@@ -6143,13 +6156,24 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 }
 #records-hero .cr-verify:hover { color: var(--lamp-strong); text-decoration-color: var(--lamp-strong); }
 #records-hero .cr-card .cr-actions { margin-top: auto; padding: 0 !important; border: 0 !important; display: flex; }
+/* A list carries one action per record, so it takes the secondary tier: an
+ * ink outline that lights with the lamp on hover. Solid lamp stays for the
+ * page-level action. */
 #records-hero .cr-card .cr-actions .cr-btn.primary {
   flex: 1 1 auto;
+  justify-content: center;
   min-height: 44px !important;
   padding: 0 18px !important;
+  border: 1px solid var(--line-bright) !important;
   border-radius: 8px !important;
-  font-size: 14px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--ink) !important;
+  font: 600 14px/1 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
 }
+#records-hero .cr-card .cr-actions .cr-btn.primary:hover { border-color: var(--lamp) !important; color: var(--lamp-strong) !important; filter: none !important; }
 #records-hero .cr-btn.outline {
   min-height: 44px !important;
   padding: 0 16px !important;
@@ -6236,7 +6260,7 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
   #records-hero .cr-parent-ref,
   #records-hero .cr-card-proof > .cr-meta-k { display: none !important; }
   #records-hero .cr-parent-link { min-height: 44px; }
-  #records-hero .cr-card-proof { display: flex !important; flex-wrap: wrap; align-items: baseline; gap: 2px 10px !important; }
+  #records-hero .cr-card-proof { display: flex !important; flex-direction: row !important; flex-wrap: wrap; align-items: baseline; gap: 2px 10px !important; }
   #records-hero .cr-proof-tx { flex: 1 1 100%; }
   #records-hero .cr-toolbar .fo-sel { justify-self: stretch; width: 100%; box-sizing: border-box; justify-content: space-between; }
 }
@@ -6451,8 +6475,8 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
   letter-spacing: 0 !important;
   box-shadow: none !important;
 }
-#wire-view .wr-act.primary { border: 1px solid var(--lamp) !important; background: var(--lamp) !important; color: var(--lamp-ink) !important; }
-#wire-view .wr-act.primary:hover { background: var(--lamp-strong) !important; filter: none !important; }
+#wire-view .wr-act.primary { border: 1px solid var(--line-bright) !important; background: transparent !important; color: var(--ink) !important; }
+#wire-view .wr-act.primary:hover { border-color: var(--lamp) !important; color: var(--lamp-strong) !important; filter: none !important; }
 #wire-view .wr-act.ghost { border: 1px solid var(--line-bright) !important; background: transparent !important; color: var(--ink) !important; }
 #wire-view .wire-empty { padding: 40px 24px !important; border-radius: 10px !important; }
 #wire-view .wire-empty-h { color: var(--ink) !important; font: 700 18px/1.3 var(--font-display) !important; }
@@ -6649,9 +6673,9 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
     border-inline: 0 !important;
   }
   #osi-wire-modal .wire-form-top { margin: -20px -20px 12px; padding: 10px 12px 10px 20px; border-radius: 0; }
-  #osi-wire-modal .fo-form-actions { margin: 20px -20px -20px; padding: 12px 20px; border-radius: 0; }
-  #osi-wire-modal .wire-form-submit,
-  #osi-wire-modal .wire-form-cancel { flex: 1 1 auto; }
+  #osi-wire-modal .fo-form-actions { flex-direction: row !important; flex-wrap: nowrap; margin: 20px -20px -20px; padding: 12px 20px; border-radius: 0; }
+  #osi-wire-modal .wire-form-cancel { flex: 0 0 auto; width: auto !important; }
+  #osi-wire-modal .wire-form-submit { flex: 1 1 auto; width: auto !important; }
 }
 
 /* ---------- Wire Report detail drawer ---------- */
@@ -6744,7 +6768,21 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 #wire-view .osi-report-card > .osi-case-note { margin-bottom: 16px; }
 #wire-view .osi-report-card-kicker { color: var(--ink-dim) !important; font: 500 12.5px/1.4 var(--font-mono) !important; }
 #wire-view .osi-report-card-meta { color: var(--ink-faint) !important; font: 400 13.5px/1.55 var(--font-sans) !important; }
-#wire-view .osi-report-state { text-transform: none !important; letter-spacing: 0 !important; font: 600 12.5px/1.25 var(--font-sans) !important; }
+#wire-view .osi-report-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 9px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 999px !important;
+  color: var(--ink) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font: 600 12.5px/1.25 var(--font-sans) !important;
+  white-space: nowrap;
+}
+#wire-view .osi-report-state::before { content: ""; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: var(--ink-dim); }
+#osi-wire-drawer .osi-report-version-head > .mono { color: var(--ink-faint); font: 500 12.5px/1.4 var(--font-mono) !important; overflow-wrap: anywhere; }
 #wire-view .osi-payment-compose { margin: 16px; border: 1px solid var(--line) !important; border-radius: 10px; background: var(--bg-deep) !important; }
 #wire-view .osi-payment-compose label { color: var(--ink) !important; font: 600 14px/1.4 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; }
 #wire-view .osi-payment-compose label > span { display: block; color: var(--ink-faint); font: 400 13px/1.45 var(--font-sans); }

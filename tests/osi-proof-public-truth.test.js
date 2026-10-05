@@ -406,16 +406,17 @@ ok('About describes both explicit quorum and clearly labeled cold-start review',
 ok('truthful cold-start copy remains localized in Turkish',
   i18nSource.includes('Uygun bir soğuk başlangıç sonuçlandırması ayrıca etiketlenir.')
     && i18nSource.includes('açıkça etiketlenmiş bir soğuk başlangıç süreciyle incelenir.'));
-// Public Records lists outcomes only (published Case Report versions,
-// published Wire Reports, reviewed and sealed Cases); open investigations are
-// counted and linked to the Field Office. The copy must name exactly that set
-// and never call the archive "sealed outcomes" alone.
-ok('Public Records copy names the outcomes it lists without calling them all sealed',
+// Public Records is the archive of outcomes (published Case Report versions,
+// published Wire Reports, reviewed and sealed Cases). Open public Cases are
+// still listed, but separately under their own Open investigations filter and
+// never in an outcome count, and the copy never calls them sealed outcomes.
+ok('Public Records copy includes open public Cases without calling them sealed outcomes',
   index.includes('Public Cases and governed findings')
-    && index.includes('The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal.')
+    && index.includes('The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Public Cases without an outcome are listed separately under Open investigations.')
+    && index.includes('data-f="open"')
     && !index.includes('<span>Reviewed and sealed outcomes</span>')
-    && recordsSource.includes('nativeCases.filter(crIsOpenInvestigation)')
-    && recordsSource.includes('This archive lists outcomes only.'));
+    && recordsSource.includes('reports=reports.filter(crIsOutcome);')
+    && recordsSource.includes("if(crState.filter==='open') reports = openRows;"));
 
 console.log((fail ? 'FAILED: ' + fail : 'OK') +
   ' (' + pass + ' assertions passed, ' + fail + ' failed)');

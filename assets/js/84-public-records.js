@@ -145,12 +145,16 @@ function crStatus(r){
 }
 // An open investigation is a public Case that has not reached a reviewed
 // outcome. Public Records is the archive of outcomes (published, reviewed,
-// resolved and sealed records); open investigations live in the Field Office.
+// resolved and sealed records), so the default view and every count leave
+// open investigations out. They stay listed, separately and under their own
+// name, behind the Open investigations filter; their work happens in the
+// Field Office.
 function crIsOpenInvestigation(r){
   if(!r||r.record_source!=='native_public_dto') return false;
   var status=crStatus(r).txt;
   return status!=='Reviewed'&&status!=='Sealed'&&status!=='Seal proof unavailable';
 }
+function crIsOutcome(r){ return !crIsOpenInvestigation(r); }
 function crIsLegacyTestRecord(r){
   if(!r||crProofState(r).key!=='legacy') return false;
   var text=[r.company,r.summary,r.title,r.description].map(function(v){return String(v||'');}).join(' ').toLowerCase();
@@ -404,12 +408,9 @@ async function renderCaseRecords(){
       }catch(_legacyError){ sourceFailures++; legacyReports=[]; }
     }
     var nativeIds={};nativeCases.concat(nativeCaseReports,nativeWireReports).forEach(function(row){nativeIds[String(row.id)]=true;});
-    // Public Records is the archive of outcomes. A public Case that has not
-    // reached a reviewed outcome is an open investigation: it stays in the
-    // Field Office and is named here only as a count with a link there.
-    var openInvestigations=nativeCases.filter(crIsOpenInvestigation);
-    nativeCases=nativeCases.filter(function(row){ return !crIsOpenInvestigation(row); });
-    window.__crOpenInvestigations=openInvestigations.length;
+    // Open investigations stay in the list but never in an outcome count;
+    // crPaint shows them only behind their own filter.
+    window.__crOpenInvestigations=nativeCases.filter(crIsOpenInvestigation).length;
     var reports=nativeCases.concat(nativeCaseReports,nativeWireReports,legacyReports.filter(function(row){return !nativeIds[String(row.id)];}));
     var packs = [];
     if(reports.length){
@@ -487,7 +488,7 @@ function osiStatIcon(name){
 }
 function crRenderStats(){
   var host=document.getElementById('cr-stats'); if(!host) return;
-  var reports=window.__crList||[];
+  var reports=(window.__crList||[]).filter(crIsOutcome);
   var sourceOk = (window.__crSourceState === 'loaded' || window.__crSourceState === 'empty');
   var publicRecords = sourceOk ? reports.length : null;
   var reviewed = sourceOk ? reports.filter(crIsNativeReviewed).length : null;
@@ -507,12 +508,13 @@ function crSearchHaystack(r){
   return [r.company,r.case_title,r.summary,r.wallet,r.author_handle,r.id,r.public_ref,r.case_public_ref,r.report_public_ref,r.version_public_ref,r.wire_report_public_ref,r.tx,r.onchain,proof.tx_sig,crLegacyTxSig(r),osiCaseId(r.id)]
     .map(function(x){ return String(x||'').toLowerCase(); }).join(' ');
 }
+// The Open investigations filter says what it lists, so a public Case with no
+// outcome is never mistaken for a record of one.
 function crPaintOpenNote(){
   var note=document.getElementById('cr-open-note'); if(!note) return;
-  var open=Number(window.__crOpenInvestigations||0);
-  if(!open){ note.hidden=true; note.innerHTML=''; return; }
+  if(crState.filter!=='open'){ note.hidden=true; note.innerHTML=''; return; }
   note.hidden=false;
-  note.innerHTML='<span>'+escapeHtml(crT(open===1?'This archive lists outcomes only. {count} public Case without a reviewed outcome is an open investigation in the Field Office.':'This archive lists outcomes only. {count} public Cases without a reviewed outcome are open investigations in the Field Office.',{count:open}))+'</span>'
+  note.innerHTML='<span>'+escapeHtml(crT('Open investigations are public Cases with no reviewed outcome yet. They are not outcome records, and their work happens in the Field Office.'))+'</span>'
     +'<button class="cr-link" type="button" onclick="osiNavigate(&quot;field&quot;)">'+escapeHtml(crT('Open the Field Office'))+'</button>';
 }
 function crPaint(){
@@ -527,11 +529,17 @@ function crPaint(){
     reports = reports.filter(function(r){ return crSearchHaystack(r).indexOf(q)!==-1; });
   }
   // Each filter shows how many records it would return for the current
-  // search, so an empty result is predictable before it is pressed.
-  var filterCounts={all:reports.length,reviewed:reports.filter(crIsNativeReviewed).length,memo:reports.filter(crHasMemo).length,challenged:reports.filter(function(r){ return !!chSet[String(r.id)]; }).length,sealed:reports.filter(crIsNativeSealed).length};
+  // search, so an empty result is predictable before it is pressed. Every
+  // outcome filter counts outcomes only; open investigations have their own.
+  var openRows=reports.filter(crIsOpenInvestigation);
+  reports=reports.filter(crIsOutcome);
+  var filterCounts={all:reports.length,reviewed:reports.filter(crIsNativeReviewed).length,memo:reports.filter(crHasMemo).length,challenged:reports.filter(function(r){ return !!chSet[String(r.id)]; }).length,sealed:reports.filter(crIsNativeSealed).length,open:openRows.length};
   var listLoaded=window.__crSourceState==='loaded'||window.__crSourceState==='partial'||window.__crSourceState==='empty';
   document.querySelectorAll('#cr-fils [data-cr-n]').forEach(function(node){ node.textContent=listLoaded?String(filterCounts[node.getAttribute('data-cr-n')]||0):''; });
-  if(crState.filter==='sealed') reports = reports.filter(crIsNativeSealed);
+  var openTab=document.querySelector('#cr-fils [data-f="open"]');
+  if(openTab) openTab.hidden=!openRows.length&&crState.filter!=='open';
+  if(crState.filter==='open') reports = openRows;
+  else if(crState.filter==='sealed') reports = reports.filter(crIsNativeSealed);
   else if(crState.filter==='reviewed') reports = reports.filter(crIsNativeReviewed);
   else if(crState.filter==='memo') reports = reports.filter(crHasMemo);
   else if(crState.filter==='challenged') reports = reports.filter(function(r){ return !!chSet[String(r.id)]; });
@@ -548,9 +556,15 @@ function crPaint(){
   var emptyHtml = (sourceState === 'error' || sourceState === 'unavailable')
     ? '<div class="cr-noyet" role="alert"><b>'+escapeHtml(crT('Public records source unavailable.'))+'</b><span>'+escapeHtml(crT('Unable to load reviewed records right now. Private or cached data is never used as a fallback.'))+'</span><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Try again'))+'</button></div>'
     : '<div class="cr-noyet"><b>'+escapeHtml(crT('No published or sealed records yet.'))+'</b><span>'+escapeHtml(crT('Exact published Report versions and governed public outcomes will appear here. Open investigations remain available in the Field Office.'))+'</span><button class="cr-btn outline" type="button" onclick="osiNavigate(&quot;field&quot;)">'+escapeHtml(crT('Browse public Cases'))+'</button></div>';
+  // With no outcome yet but open investigations listed, the archive says so
+  // and points at them instead of reading as a broken filter.
+  var noOutcomeHtml = '<div class="cr-noyet"><b>'+escapeHtml(crT('No published or sealed records yet.'))+'</b><span>'+escapeHtml(crT('Exact published Report versions and governed public outcomes will appear here. Public Cases without an outcome are listed under Open investigations.'))+'</span><button class="cr-btn outline" type="button" onclick="crFilter(&quot;open&quot;)">'+escapeHtml(crT('Show open investigations'))+'</button></div>';
+  var anyOutcome=(window.__crList||[]).some(crIsOutcome);
   host.innerHTML = partialHtml+(page.length
     ? page.map(function(r){ return crCard(r, (window.__crPacks||{})[r.id] || []); }).join('')
-    : ((window.__crList||[]).length
+    : (!anyOutcome&&openRows.length&&!q&&crState.filter==='all')
+      ? noOutcomeHtml
+      : ((window.__crList||[]).length
         ? '<div class="cr-noyet"><b>'+escapeHtml(crT('No records match these filters.'))+'</b><span>'+escapeHtml(crT('Clear the search and filters to return to the complete public archive.'))+'</span><button class="cr-btn outline" type="button" onclick="crResetFilters()">'+escapeHtml(crT('Clear filters'))+'</button></div>'
         : emptyHtml));
   var cnt=document.getElementById('cr-count');
@@ -725,8 +739,11 @@ function crCard(r, packs){
       + crMetaCell('Resolution','<span class="'+(r.selection_state==='winning'?'':'na')+'">'+escapeHtml(crT(selection))+'</span>')
       + crMetaCell('Open challenges',challengeValue,challengeCount?'warn':'');
   }else{
+    // A native projection that returns no public evidence is a real zero, not
+    // a failed lookup; only a legacy row can have an unknown count.
     var evidenceLabel = proof.key==='legacy' ? 'Evidence references' : 'Public evidence';
-    meta = crMetaCell(evidenceLabel,proof.key==='legacy'&&!evCount?unavailable:String(evCount))
+    var evidenceValue = evCount ? String(evCount) : (proof.key==='legacy' ? unavailable : '<span class="na">'+escapeHtml(crT('None listed'))+'</span>');
+    meta = crMetaCell(evidenceLabel,evidenceValue)
       + crMetaCell('Analyst reviews',reviewsValue)
       + crMetaCell('Open challenges',challengeValue,challengeCount?'warn':'');
   }
