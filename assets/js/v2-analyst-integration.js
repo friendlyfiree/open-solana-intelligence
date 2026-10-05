@@ -31,7 +31,10 @@
     var locale=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():document.documentElement.lang;
     return String(locale||'en').toLowerCase().indexOf('tr')===0?'tr-TR':'en-US';
   }
-  function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?'Not recorded':date.toLocaleString(analystLocale(),{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})+' UTC';}
+  function dateText(value){var date=new Date(value||'');return isNaN(date.getTime())?t('Not recorded'):date.toLocaleString(analystLocale(),{dateStyle:'medium',timeStyle:'short',hourCycle:'h23',timeZone:'UTC'})+' UTC';}
+  // Server-derived weight in the reader's number format (0,50 in Turkish),
+  // matching the reference rules beside the roster.
+  function weightText(value){var number=Number(value||0);try{return number.toLocaleString(analystLocale(),{minimumFractionDigits:2,maximumFractionDigits:2});}catch(_){return number.toFixed(2);}}
   function randomKey(prefix){var id=crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2);return prefix+':'+id.replace(/[^A-Za-z0-9.-]/g,'');}
   function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
   function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
@@ -176,11 +179,11 @@
     var proofs=(profile.proof_history||[]).length;
     var identity=profile.handle?'@'+profile.handle:short(profile.wallet);
     var name=profile.display_name||profile.handle||short(profile.wallet);
-    var weight=Number(profile.weight||0).toFixed(2);
+    var weight=weightText(profile.weight);
     return '<button class="osi-analyst-row" type="button" data-analyst-wallet="'+esc(profile.wallet)+'" aria-label="'+esc(rowLabel(name,statusText(profile.status),contributions,weight,proofs))+'">'
       +'<span class="osi-analyst-person">'+avatar(profile,38)+'<span><b data-osi-user-content>'+esc(name)+'</b><em class="mono">'+esc(identity)+'</em></span></span>'
       +'<span>'+statusBadge(profile.status)+'</span><span class="osi-expertise-list">'+(expertise||'<em>'+esc(t('Not listed'))+'</em>')+'</span>'
-      +'<span class="mono osi-records"><small class="osi-cell-label">'+esc(t('Public records'))+'</small>'+contributions+'</span><span class="mono osi-weight"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+weight+'</span><span class="mono osi-proofs"><small class="osi-cell-label">'+esc(t('Proof'))+'</small>'+proofs+'</span></button>';
+      +'<span class="osi-records"><small class="osi-cell-label">'+esc(t('Records'))+'</small>'+contributions+'</span><span class="mono osi-weight"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+weight+'</span><span class="osi-proofs"><small class="osi-cell-label">'+esc(t('Proof'))+'</small>'+proofs+'</span></button>';
   }
   function renderPublicProfiles(){
     var host=document.getElementById('lb-body'),count=document.getElementById('lb-count'),pager=document.getElementById('lb-pnav');
@@ -253,9 +256,9 @@
       +'<span><b data-osi-user-content>'+esc(name)+'</b><em class="mono">'+esc(short(profile.wallet))+'</em></span></span>'
       +'<span><span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span></span>'
       +'<span class="osi-expertise-list">'+(expertise||'<em>'+esc(t('Not listed'))+'</em>')+'</span>'
-      +'<span class="mono osi-records"><small class="osi-cell-label">'+esc(t('Public records'))+'</small>'+String(publicWorkCount(profile))+'</span>'
-      +'<span class="mono osi-weight osi-weight-none"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+esc(t('None'))+'</span>'
-      +'<span class="mono osi-proofs"><small class="osi-cell-label">'+esc(t('Proof'))+'</small>'+String(proofs)+'</span></button>';
+      +'<span class="osi-records"><small class="osi-cell-label">'+esc(t('Records'))+'</small>'+String(publicWorkCount(profile))+'</span>'
+      +'<span class="osi-weight osi-weight-none"><small class="osi-cell-label">'+esc(t('Weight'))+'</small>'+esc(t('None'))+'</span>'
+      +'<span class="osi-proofs"><small class="osi-cell-label">'+esc(t('Proof'))+'</small>'+String(proofs)+'</span></button>';
   }
   function renderMaintainerProfile(profile){
     var host=document.getElementById('osi-maintainer-profile');
@@ -723,7 +726,7 @@
         +'<div><span>'+esc(t('Review weight'))+'</span><b>'+esc(t('None'))+'</b></div>'
         +'<div><span>'+esc(t('Quorum vote'))+'</span><b>'+esc(t('None'))+'</b></div>'
       : '<div><span>'+esc(t('Status'))+'</span>'+statusBadge(profile.status)+'</div>'
-        +'<div><span>'+esc(t('Review weight'))+'</span><b class="mono">'+Number(profile.weight||0).toFixed(2)+'</b><small>'+esc(t('Server-derived from the live tier'))+'</small></div>'
+        +'<div><span>'+esc(t('Review weight'))+'</span><b class="mono">'+esc(weightText(profile.weight))+'</b><small>'+esc(t('Server-derived from the live tier'))+'</small></div>'
         // The tier repeated the status word for word, so the third cell says
         // when the current standing began, read from the public activation
         // receipt itself (profile creation is the application date, not the
