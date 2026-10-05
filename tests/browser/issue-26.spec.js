@@ -3406,7 +3406,13 @@ test('user identity, analyst workspace and Operations gate use one accessible pr
   await expect(identityLastTab).toBeFocused();
   await expect(identityLastTab).toHaveAttribute('aria-selected', 'true');
 
+  // Navigating to the private workspace never signs on its own: with no live
+  // read session it states the cost, and only the explicit control unlocks it.
   await page.evaluate(() => window.osiAnalystOpenWorkspace('profile'));
+  const unlockWorkspace = page.locator('#identity-body [data-ws-unlock]');
+  await expect(unlockWorkspace).toBeVisible();
+  await expect(page.locator('#identity-body')).toContainText('one wallet message signature and no Solana transaction');
+  await unlockWorkspace.click();
   await expect(page.locator('#osi-workspace-tab-profile')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#identity-body')).toContainText('Server-derived weight');
 
