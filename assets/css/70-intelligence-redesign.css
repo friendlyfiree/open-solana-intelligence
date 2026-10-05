@@ -7661,3 +7661,309 @@ body .osi-status.maintainer {
     grid-template-columns: 1fr;
   }
 }
+
+/* === Operations and My OSI pass === */
+
+/* Operations Center header and sign-in: sentence case, nothing under 12px. */
+#admin-view .adm-top {
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+#admin-view .adm-clr,
+#admin-view .adm-access-tag {
+  font: 600 12.5px/1.3 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#admin-view .adm-field label {
+  font: 600 13px/1.4 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-dim);
+}
+
+#admin-view .adm-go,
+#admin-view .adm-out {
+  min-height: 44px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 14px;
+}
+
+#admin-view .adm-go {
+  background: var(--lamp);
+  color: #170f02;
+}
+
+#admin-view .adm-go:hover {
+  background: var(--lamp-strong);
+  filter: none;
+}
+
+#admin-view .adm-lock-actions .adm-go {
+  width: auto;
+  flex: 1 1 200px;
+  margin-top: 0;
+}
+
+#admin-view .adm-lock-actions .adm-out {
+  flex: 0 1 auto;
+}
+
+#admin-view .adm-missing {
+  margin: 4px 0 8px;
+  color: var(--lamp);
+  font-weight: 600;
+}
+
+#admin-view .adm-lock-note b.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* The native overview is one surface with plain sections, not the legacy
+ * three-column console grid it used to inherit. */
+#admin-view .osi-native-ops {
+  display: block;
+  border: 1px solid var(--line) !important;
+  border-radius: 14px;
+  background: var(--bg-raised) !important;
+  box-shadow: none !important;
+}
+
+#admin-view .osi-native-ops::before {
+  content: none;
+}
+
+#admin-view .osi-native-ops .moc-section-head {
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+#admin-view .osi-ops-head-actions .moc-action,
+#admin-view .osi-ops-applications .moc-action {
+  min-height: 40px;
+  padding: 8px 14px;
+  font: 600 13px/1.2 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#osi-native-ops-overview .osi-native-updated {
+  margin: 0 0 4px;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+}
+
+#osi-native-ops-overview .osi-native-block {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+#osi-native-ops-overview .osi-native-block > h4 {
+  margin: 0 0 4px;
+  font: 650 16px/1.3 var(--font-sans);
+  color: var(--ink);
+}
+
+#osi-native-ops-overview .osi-native-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#osi-native-ops-overview .osi-native-metrics > div {
+  min-height: 0;
+  padding: 14px 16px;
+  background: var(--bg);
+}
+
+#osi-native-ops-overview .osi-native-metric span {
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+#osi-native-ops-overview .osi-native-metric strong {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+#osi-native-ops-overview .osi-native-flags {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 0 24px;
+  margin: 8px 0 0;
+  padding: 0;
+  background: none;
+}
+
+#osi-native-ops-overview .osi-native-flag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+}
+
+#osi-native-ops-overview .osi-native-flag dt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+#osi-native-ops-overview .osi-native-flag-name {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+#osi-native-ops-overview .osi-native-flag-key,
+#osi-native-ops-overview .osi-native-ref {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+#osi-native-ops-overview .osi-native-flag-state {
+  flex: none;
+  margin: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--line-bright);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+
+#osi-native-ops-overview .osi-native-flag-state.enabled {
+  border-color: var(--lamp-line, rgba(255, 176, 32, .45));
+  color: var(--lamp);
+}
+
+#osi-native-ops-overview .moc-feed {
+  margin-top: 12px;
+}
+
+#osi-native-ops-overview .moc-feed-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#osi-native-ops-overview .moc-feed-row > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+#osi-native-ops-overview .moc-feed-row b {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+#osi-native-ops-overview .moc-feed-row b .osi-native-title {
+  overflow-wrap: anywhere;
+}
+
+#osi-native-ops-overview .moc-feed-row > div > span {
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#osi-native-ops-overview .moc-feed-row .moc-action {
+  min-height: 40px;
+  padding: 8px 14px;
+  font: 600 13px/1.2 var(--font-sans);
+  letter-spacing: 0;
+}
+
+#osi-native-ops-overview .moc-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: var(--line-bright);
+  box-shadow: none;
+}
+
+#osi-native-ops-overview .osi-native-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 0 24px;
+  margin: 12px 0 0;
+}
+
+#osi-native-ops-overview .osi-native-facts > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#osi-native-ops-overview .osi-native-facts dt {
+  color: var(--ink-faint);
+  font-size: 12.5px;
+}
+
+#osi-native-ops-overview .osi-native-facts dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+#osi-native-ops-overview .osi-native-facts dd.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+#osi-native-ops-overview .osi-native-note {
+  margin: 12px 0 0;
+  color: var(--ink-faint);
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 72ch;
+}
+
+@media (max-width: 600px) {
+  #osi-native-ops-overview .moc-feed-row {
+    grid-template-columns: 10px minmax(0, 1fr);
+  }
+
+  #osi-native-ops-overview .moc-feed-row .moc-action {
+    grid-column: 2;
+    justify-self: start;
+    min-height: 44px;
+  }
+
+  #admin-view .osi-ops-head-actions .moc-action,
+  #admin-view .osi-ops-applications .moc-action,
+  #admin-view .osi-ops-decision button {
+    min-height: 44px;
+  }
+
+  /* The maintainer lock pushed the phone header past the screen edge. The
+   * Operations Center stays one tap away in the wallet menu. */
+  .osi-global-header #admLockBtn {
+    display: none !important;
+  }
+}

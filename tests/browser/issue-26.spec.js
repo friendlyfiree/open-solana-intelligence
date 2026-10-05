@@ -3420,7 +3420,7 @@ test('user identity, analyst workspace and Operations gate use one accessible pr
   await page.evaluate(() => window.osiNavigate('admin'));
   expect(await page.evaluate(() => window.location.hash)).toBe('#admin');
   await expect(page.locator('#admin-view')).toBeVisible();
-  await expect(page.getByRole('heading', { name: /OPERATIONS CENTER/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Operations Center/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Access denied' })).toBeVisible();
   await expect(page.locator('#admLocked')).toContainText('Connected wallet is not authorized');
   await expect(page.locator('#admLogin form.adm-card')).toBeHidden();
