@@ -803,7 +803,7 @@ function crDrawerHtml(r, packs){
   var displayedSig=txSig||legacyTxSig;
   var solUrl = displayedSig ? ((typeof solscanTx === 'function') ? solscanTx(displayedSig) : ('https://solscan.io/tx/' + encodeURIComponent(displayedSig))) : '';
   var verifyRow = displayedSig
-    ? '<div class="crd-verify"><span class="crd-vk">'+escapeHtml(proof.label)+'</span><a class="crd-vlink" href="' + escapeHtml(solUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(String(displayedSig).slice(0,16)) + '... '+(txSig?'Verify on Solana':'Inspect unverified reference')+'</a></div>'
+    ? '<div class="crd-verify"><span class="crd-vk">'+escapeHtml(proof.label)+'</span><a class="crd-vlink" href="' + escapeHtml(solUrl) + '" target="_blank" rel="noopener noreferrer">' + '<code>' + escapeHtml(String(displayedSig).slice(0,16)) + '...</code> <span>'+(txSig?'Verify on Solana':'Inspect unverified reference')+'</span></a></div>'
     : '<div class="crd-verify"><span class="crd-vk">'+escapeHtml(proof.label)+'</span><span class="mono" style="color:var(--ink-faint);font-size:12.5px">No native proof receipt</span></div>';
   var packRows = packs.length
     ? packs.map(function(p,i){ return '<div class="crd-pack"><div><div class="crd-pack-t">' + escapeHtml(escPackLabel(p.pack_type)) + '</div><div class="crd-pack-d">Public escalation pack metadata</div></div><button class="crd-dl" type="button" onclick="crDownloadPack(&quot;' + crAttr(r.id) + '&quot;,' + i + ')">Download</button></div>'; }).join('')
@@ -811,9 +811,9 @@ function crDrawerHtml(r, packs){
   var evCount = crEvidenceCount(r);
   var revCount = crAnalystReviews(r);
   var challengeCount = crChallengeCount(r.id);
-  var ev = evCount ? (evCount + ' public evidence reference' + (evCount===1?'':'s') + ' indexed from record fields.') : 'Evidence not indexed.';
-  var rev = revCount==null ? 'Review data unavailable.' : (revCount + ' analyst review' + (revCount===1?'':'s') + ' indexed.');
-  var ch = challengeCount ? (challengeCount + ' open challenge' + (challengeCount===1?'':'s') + '.') : 'No open challenges.';
+  var ev = evCount ? crT(evCount===1?'{count} public evidence reference indexed from record fields.':'{count} public evidence references indexed from record fields.',{count:evCount}) : crT('Evidence not indexed.');
+  var rev = revCount==null ? crT('Review data unavailable.') : crT(revCount===1?'{count} analyst review indexed.':'{count} analyst reviews indexed.',{count:revCount});
+  var ch = challengeCount ? crT(challengeCount===1?'{count} open challenge.':'{count} open challenges.',{count:challengeCount}) : crT('No open challenges.');
   var legacyNotice=proof.key==='legacy'
     ? '<div class="crd-legacy-note" role="note"><strong>'+(crIsLegacyTestRecord(r)?'Imported test material':'Imported legacy record')+'</strong><span>Historical wording and conclusions are not native-reviewed OSI findings. Treat certainty claims as unverified.</span></div>'
     : '';

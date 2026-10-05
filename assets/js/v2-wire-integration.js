@@ -99,7 +99,7 @@
     if(maintainerAccess!==true)return'';
     var reason=String(item&&item.maintainer_bootstrap_reason_code||'').trim();
     return reason
-      ? 'Maintainer bootstrap is unavailable for this exact Wire version: '+reason.replace(/_/g,' ')+'.'
+      ? (typeof t==='function'?t:function(key,vars){return key.replace('{reason}',vars.reason);})('Maintainer bootstrap is unavailable for this exact Wire version: {reason}.',{reason:reason.replace(/_/g,' ')})
       : 'Maintainer bootstrap is unavailable for this exact Wire version because the server did not explicitly authorize it.';
   }
   async function ensureWallet(){
@@ -234,7 +234,7 @@
     var lastError;
     for(var attempt=0;attempt<5;attempt++){
       assertPrivateGeneration(generation);
-      try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){lastError=error;if(['transaction_not_confirmed','rpc_unavailable'].indexOf(String(error.message))<0)throw error;assertPrivateGeneration(generation);status('Waiting for Solana RPC confirmation. Retry '+(attempt+1)+' of 5...');await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}
+      try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){lastError=error;if(['transaction_not_confirmed','rpc_unavailable'].indexOf(String(error.message))<0)throw error;assertPrivateGeneration(generation);status(t('Waiting for Solana RPC confirmation. Retry {n} of 5.',{n:attempt+1}));await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}
     }
     throw lastError;
   }
@@ -320,8 +320,8 @@
       status('Confirming mainnet, signer, exact Memo, freshness, nonce, and payload hash...');
       var committed=await commitWithConfirmation({op:'commit_wire',wallet:wallet,wire:wire,nonce:state.pending.prepared.nonce,memo:state.pending.prepared.memo,tx_sig:state.pending.txSig},generation);
       assertPrivateGeneration(generation);
-      status('Version '+committed.version_no+' is submitted with a server-verified Solana Memo receipt.','success');
-      if(typeof showToast==='function')showToast(committed.wire_report_public_ref+' version '+committed.version_no+' is Memo-anchored on Solana.');
+      status(t('Version {n} is submitted with a server-verified Solana Memo receipt.',{n:committed.version_no}),'success');
+      if(typeof showToast==='function')showToast(t('{ref} version {n} is Memo-anchored on Solana.',{ref:committed.wire_report_public_ref,n:committed.version_no}));
       state.pending=null;state.idempotency='';state.cacheWallet='';state.reports=[];
       if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(draftKey(wallet,state.reportRef));
       showWireReceipt(committed);
@@ -486,6 +486,13 @@
     document.getElementById('osi-wire-detail-ref').textContent=state.current.version_public_ref;document.getElementById('osi-wire-detail-title').textContent=state.current.title;document.getElementById('osi-wire-detail-state').textContent=state.current.challenge_state==='challenge_upheld_under_re_review'?'Challenge upheld, under re-review':state.current.is_current_published!==true?(state.current.publication&&state.current.publication.decision_channel==='maintainer_bootstrap'?'Superseded maintainer bootstrap publication':'Superseded publication record'):state.current.publication&&state.current.publication.decision_channel==='maintainer_bootstrap'?'Maintainer bootstrap publication':'Reviewed publication';renderDetail();if(drawer){drawer.hidden=false;requestAnimationFrame(function(){drawer.classList.add('open');});setTimeout(function(){var close=drawer.querySelector('.osi-case-close');if(close)close.focus();},30);}document.body.classList.add('cr-drawer-lock');return result;
   }
   function closePublicWireReport(){state.detailLoadToken+=1;var drawer=document.getElementById('osi-wire-drawer');if(drawer){drawer.classList.remove('open');drawer.hidden=true;}document.body.classList.remove('cr-drawer-lock');state.current=null;if(state.detailFocus&&document.contains(state.detailFocus))state.detailFocus.focus();state.detailFocus=null;}
+  // What a governance action did, in words a reader knows, followed by the
+  // proof label of the receipt the server verified for it.
+  var WIRE_ACTION_DONE={
+    wire_promote:'Promotion to a private Case recorded.',challenge_submit:'Challenge submitted.',
+    challenge_admit:'Admissibility decision recorded.',challenge_withdraw:'Challenge withdrawn.',
+    challenge_review:'Challenge review recorded.',challenge_finalize:'Challenge quorum finalized.'
+  };
   async function wireGovernance(action,targetRef,payload){
     if(state.governanceBusy)return;var generation=privateGeneration();state.governanceBusy=true;
     try{
@@ -501,7 +508,7 @@
         body.signature=await signMessage(prepared.proof_text);assertPrivateGeneration(generation);
         await api(body);assertPrivateGeneration(generation);
       }
-      showToast(label(prepared.purpose)+' recorded with '+(prepared.proof_type==='solana_memo'?'Memo proof.':'wallet-signed proof.'));
+      showToast(t(WIRE_ACTION_DONE[action]||'Action recorded.')+' '+t(prepared.proof_type==='solana_memo'?'Memo-anchored on Solana.':'Wallet-signed and server-verified.'));
       if(state.current){await openPublicWireReport(state.current.version_public_ref);assertPrivateGeneration(generation);}
     }catch(error){if(generation===privateGeneration())showToast(userError(error));}
     finally{if(generation===privateGeneration())state.governanceBusy=false;}
@@ -510,7 +517,7 @@
     if(state.reviewBusy||!validVersion(versionRef))return;
     var root=document.querySelector('[data-wire-queue-card="'+versionRef+'"]');if(!root)return;
     var decision=root.querySelector('[data-wire-review-decision]').value,rationaleField=root.querySelector('[data-wire-review-rationale]'),rationale=String(rationaleField.value||'').trim(),note=String(root.querySelector('[data-wire-review-note]').value||'').trim(),requiresRationale=decision==='reject'||decision==='request_revision';
-    rationaleField.setCustomValidity('');if(requiresRationale&&rationale.length<10){rationaleField.setCustomValidity('Add a public-safe rationale of at least 10 characters for this decision.');rationaleField.reportValidity();rationaleField.focus();return;}
+    rationaleField.setCustomValidity('');if(requiresRationale&&rationale.length<10){rationaleField.setCustomValidity(t('Add a public-safe rationale of at least 10 characters for this decision.'));rationaleField.reportValidity();rationaleField.focus();return;}
     if(!rationale)rationale=decision==='approve'?'The exact Wire version and its evidence were reviewed.':'The analyst abstained from a weighted decision on this version.';
     var reasonCode=decision==='approve'?'wire_evidence_reviewed':decision==='reject'?'wire_evidence_insufficient':decision==='request_revision'?'wire_revision_requested':'wire_analyst_abstained',generation=privateGeneration();
     state.reviewBusy=true;
@@ -693,7 +700,7 @@
     if(action==='admit'){wireGovernance('challenge_admit',ref,{decision:target.dataset.decision});}
     else if(action==='withdraw'){wireGovernance('challenge_withdraw',ref,{});}
     else if(action==='finalize'){wireGovernance('challenge_finalize',ref,{});}
-    else if(action==='review'){var decision=target.dataset.decision,rationale=window.prompt('Public-safe challenge review rationale.','The linked evidence was reviewed against the exact published Wire version.');if(rationale===null)return;rationale=String(rationale).trim();if(rationale.length<10){showToast('The rationale must be at least 10 characters.');return;}wireGovernance('challenge_review',ref,{decision:decision,reason_code:decision==='accept'?'material_issue_confirmed':'published_version_preserved',public_rationale:rationale,private_note:null});}
+    else if(action==='review'){var decision=target.dataset.decision,rationale=window.prompt(t('Public-safe challenge review rationale.'),'The linked evidence was reviewed against the exact published Wire version.');if(rationale===null)return;rationale=String(rationale).trim();if(rationale.length<10){showToast('The rationale must be at least 10 characters.');return;}wireGovernance('challenge_review',ref,{decision:decision,reason_code:decision==='accept'?'material_issue_confirmed':'published_version_preserved',public_rationale:rationale,private_note:null});}
   });
   document.addEventListener('keydown',function(event){var modal=document.getElementById('osi-wire-modal'),drawer=document.getElementById('osi-wire-drawer');if(modal&&modal.classList.contains('open')){if(event.key==='Escape'){event.preventDefault();closeWireForm();return;}trapFocus(event,modal);return;}if(!drawer||drawer.hidden)return;if(event.key==='Escape'){event.preventDefault();closePublicWireReport();return;}var tab=event.target&&event.target.closest?event.target.closest('[data-wire-tab]'):null;if(tab&&(event.key==='ArrowRight'||event.key==='ArrowLeft')){event.preventDefault();var nodes=Array.prototype.slice.call(document.querySelectorAll('#osi-wire-detail-tabs [data-wire-tab]')),index=nodes.indexOf(tab),next=(index+(event.key==='ArrowRight'?1:-1)+nodes.length)%nodes.length,key=nodes[next].dataset.wireTab;state.tab=key;renderDetail();var fresh=document.querySelector('#osi-wire-detail-tabs [data-wire-tab="'+key+'"]');if(fresh)fresh.focus();return;}trapFocus(event,drawer);});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',refreshCapability);else setTimeout(refreshCapability,0);
