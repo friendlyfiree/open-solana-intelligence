@@ -5856,6 +5856,7 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
   text-underline-offset: 4px;
 }
 #records-hero .cr-link:hover { color: var(--lamp-strong); text-decoration-color: var(--lamp-strong); }
+#records-hero .cr-link { text-align: left; }
 
 /* ---------- Public Records: counts ---------- */
 #records-hero .cr-stats {
@@ -5942,17 +5943,9 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 #records-hero .rf-tab.active .rf-n { color: var(--lamp); }
 #records-hero .rf-tab[hidden] { display: none !important; }
 /* Open investigations are not outcomes: their filter sits apart from the
- * outcome filters, after a divider. */
-#records-hero .rf-tab-open { position: relative; margin-left: 13px; }
-#records-hero .rf-tab-open::before {
-  content: "";
-  position: absolute;
-  left: -11px;
-  top: 9px;
-  bottom: 9px;
-  width: 1px;
-  background: var(--line-bright);
-}
+ * outcome filters, at the far end of the row, in a dashed outline. */
+#records-hero .rf-tab-open { margin-left: auto; border-style: dashed !important; }
+#records-hero .rf-tab-open.active { border-style: solid !important; }
 #records-hero .fo-sel { border-color: var(--line-bright) !important; background: var(--bg) !important; }
 #records-hero .fo-sel-l {
   color: var(--ink-faint) !important;
@@ -6267,16 +6260,19 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 
 @media (max-width: 720px) {
   #records-hero .cr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  /* Icon and number share the first row; the label gets the full card width
+   * so a long Turkish label wraps between words, never inside one. */
   #records-hero .cr-stats .fo-op {
     display: grid !important;
     grid-template-columns: 30px minmax(0, 1fr);
     column-gap: 12px;
     align-content: start;
+    align-items: center;
     padding: 14px !important;
   }
-  #records-hero .cr-stats .fo-op-ic { grid-row: span 2; margin: 0 !important; }
+  #records-hero .cr-stats .fo-op-ic { margin: 0 !important; }
   #records-hero .cr-stats .fo-op-n { font-size: 24px !important; }
-  #records-hero .cr-stats .fo-op-l { margin-top: 2px !important; }
+  #records-hero .cr-stats .fo-op-l { grid-column: 1 / -1; margin-top: 8px !important; word-break: normal !important; overflow-wrap: normal !important; hyphens: manual; }
   /* Reference cards stack instead of hiding in a sideways strip. */
   #records-hero .cr-aside,
   #wire-view .wire-side {
@@ -6789,3 +6785,19 @@ a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; alig
 #wire-view .osi-payment-compose textarea,
 #wire-view .osi-payment-compose select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line-bright) !important; border-radius: 8px !important; background: var(--bg) !important; color: var(--ink) !important; }
 #wire-view .osi-payment-compose .osi-action { justify-self: start; min-height: 44px; padding: 0 20px; border-radius: 8px; font-size: 14px !important; }
+#wire-view .osi-report-evidence-item {
+  display: grid;
+  grid-template-columns: 32px 150px minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  color: var(--ink-dim);
+  font: 400 14px/1.45 var(--font-sans);
+}
+#wire-view .osi-report-evidence-item > span:nth-child(3),
+#wire-view .osi-report-evidence-item > a { min-width: 0; overflow-wrap: anywhere; font: 500 13px/1.45 var(--font-mono); }
+@media (max-width: 640px) {
+  #wire-view .osi-report-evidence-item { grid-template-columns: 28px minmax(0, 1fr); }
+  #wire-view .osi-report-evidence-item > span:nth-child(3),
+  #wire-view .osi-report-evidence-item > a { grid-column: 2; }
+}

@@ -182,7 +182,7 @@
       assertPrivateGeneration(generation);
       applyIntakeCapability(capability);syncWireActionNote();
       if(capability.wire_writes_enabled!==true)throw new Error('wire_writes_disabled');
-      var form=document.getElementById('osi-wire-form');form.reset();
+      var form=document.getElementById('osi-wire-form');form.reset();localizePlaceholders();
       Object.keys(WIRE_FIELD_MESSAGES).forEach(function(id){clearFieldError(document.getElementById(id));});
       state.summaryManual=false;
       var summaryInput=document.getElementById('osi-wire-summary');if(summaryInput)summaryInput.removeAttribute('data-auto-draft');
@@ -254,6 +254,10 @@
       onDismiss:closeWireForm
     });
   }
+  // The page translator leaves textareas alone (they hold what people type),
+  // which also skips their placeholders; these two are set in the UI language.
+  var WIRE_PLACEHOLDERS={'osi-wire-wallets':'One address per line','osi-wire-transactions':'One signature per line'};
+  function localizePlaceholders(){Object.keys(WIRE_PLACEHOLDERS).forEach(function(id){var field=document.getElementById(id);if(field)field.setAttribute('placeholder',t(WIRE_PLACEHOLDERS[id]));});}
   // Inline validation: every incomplete field says what it needs right under
   // itself, in the page language, instead of one browser bubble on the first.
   var WIRE_FIELD_MESSAGES={
@@ -691,6 +695,7 @@
   // repaints in the new language; static copy is translated in place.
   if(typeof window.addEventListener==='function')window.addEventListener('osi:localechange',function(){
     var drawer=document.getElementById('osi-wire-drawer');
+    localizePlaceholders();
     if(state.current&&drawer&&!drawer.hidden)renderDetail();
     if(typeof wireState==='undefined'||wireState.mode!=='private')return;
     if(state.privateView==='mine'&&state.reports.length)drawWorkspace(state.reports);
