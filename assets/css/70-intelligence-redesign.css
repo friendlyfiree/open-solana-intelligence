@@ -6518,3 +6518,30 @@ body .osi-status.maintainer {
     align-items: start;
   }
 }
+
+/* The maintainer's role note is a boundary statement, marked by a neutral
+ * rule rather than an off-palette violet. */
+#ap-modal .osi-profile-role-note {
+  border-left-color: var(--platinum-cool);
+  font-size: 13px;
+}
+
+/* Work-record counts read as a two-column list of label and number, so a
+ * seventh count never sits alone on a row of its own. */
+#ap-modal .osi-cv-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#ap-modal .osi-cv-summary > div {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 13px;
+}
+
+@media (max-width: 520px) {
+  #ap-modal .osi-cv-summary {
+    grid-template-columns: 1fr;
+  }
+}
