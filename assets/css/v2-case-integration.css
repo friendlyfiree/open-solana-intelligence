@@ -161,7 +161,7 @@ a.osi-proof-label[data-sas-badge]:hover,a.osi-proof-label[data-sas-badge]:focus-
 
 .osi-review-form{display:grid;gap:11px}
 .osi-review-form label{display:grid;gap:6px;font-family:var(--font-sans);font-size:12.5px;text-transform:uppercase;color:var(--ink-faint)}
-.osi-review-form select{width:100%;background:var(--bg);border:1px solid var(--line-bright);color:var(--ink);padding:10px;font:12px var(--font-sans)}
+.osi-review-form select,.osi-review-form input[type="text"]{width:100%;background:var(--bg);border:1px solid var(--line-bright);color:var(--ink);padding:10px;font:12px var(--font-sans)}
 .osi-review-route{padding:10px;border:1px solid var(--line);color:var(--ink-dim);font-size:13px;line-height:1.5}
 .osi-review-lanes{display:grid;gap:16px}
 .osi-review-lane{border:1px solid var(--line);background:rgba(8,12,22,.52)}
@@ -523,7 +523,7 @@ a.osi-proof-label[data-sas-badge="verified"]::after{content:"";position:absolute
 #osi-case-drawer .osi-governance-event p{font-size:13px!important;color:var(--ink-dim)}
 #osi-case-drawer .osi-governance-compose,#osi-case-drawer .osi-payment-compose{border:1px solid var(--line);border-radius:10px;background:var(--bg-raised)}
 #osi-case-drawer .osi-governance-compose label,#osi-case-drawer .osi-payment-compose label,#osi-case-drawer .osi-review-form label{color:var(--ink-dim);font:500 13px/1.4 var(--font-sans);letter-spacing:0;text-transform:none}
-#osi-case-drawer .osi-governance-compose :is(select,input,textarea),#osi-case-drawer .osi-payment-compose :is(select,input),#osi-case-drawer .osi-review-form select{min-height:44px;border-radius:8px;font:14px/1.5 var(--font-sans)}
+#osi-case-drawer .osi-governance-compose :is(select,input,textarea),#osi-case-drawer .osi-payment-compose :is(select,input),#osi-case-drawer .osi-review-form select,#osi-case-drawer .osi-review-form input[type="text"]{min-height:44px;border-radius:8px;font:14px/1.5 var(--font-sans)}
 #osi-case-drawer .osi-review-route{border-radius:8px;font-size:14px}
 #osi-case-drawer .osi-form-status{font:500 13px/1.5 var(--font-sans)}
 #osi-case-drawer .osi-form-status.success{color:var(--ink)}

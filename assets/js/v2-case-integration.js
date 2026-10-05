@@ -2310,14 +2310,14 @@
       assertPrivateGeneration(generation);
       route=route||activeOpeningRoute(state.current);
       if(!route)throw new Error('not_eligible_reviewer');
-      showToast('Preparing the canonical CASE_OPENED Memo...');
+      showToast(t('Preparing the opening Memo...'));
       var prepared=await api(WRITE_URL,{op:'prepare_open',wallet:wallet,route:route,case_ref:ref,idempotency_key:randomKey('open')});
       assertPrivateGeneration(generation);
       var txSig=await castOnchainVote(prepared.memo);
       assertPrivateGeneration(generation);
       var committed=await commitWithConfirmation({op:'commit_open',wallet:wallet,route:route,case_ref:ref,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},WRITE_URL,generation);
       assertPrivateGeneration(generation);
-      showToast('Case '+committed.case.public_ref+' is now public with confirmed Memo proof.');
+      showToast(t('Case {ref} is now public with confirmed Memo proof.',{ref:committed.case.public_ref}));
       closeCase();
       var anchorDrawerToken=state.drawerLoadToken;
       await loadPublicCases();assertPrivateGeneration(generation);
@@ -2332,7 +2332,7 @@
     var generation=privateGeneration();state.reviewBusy=true;
     try{
       var wallet=await ensureWallet(),ref=state.current.public_ref;assertPrivateGeneration(generation);
-      showToast('Preparing the canonical CASE_INITIAL_REVIEW_REJECTED Memo...');
+      showToast(t('Preparing the rejection Memo...'));
       var prepared=await api(WRITE_URL,{op:'prepare_rejection',wallet:wallet,case_ref:ref,idempotency_key:randomKey('case-reject')});
       assertPrivateGeneration(generation);var txSig=await castOnchainVote(prepared.memo);assertPrivateGeneration(generation);
       await commitWithConfirmation({op:'commit_rejection',wallet:wallet,case_ref:ref,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},WRITE_URL,generation);
@@ -2344,7 +2344,10 @@
 
   function composeCaseAppeal(){
     var host=document.getElementById('osi-case-actions'),item=state.current;if(!host||!item||item.stage!=='initial_rejected')return;
-    host.innerHTML='<div class="osi-review-form"><div class="osi-review-route">Appeal starts a fresh review cycle and appends one new private evidence reference. It does not erase the rejection or rewrite the original Case.</div><label>Appeal reason<select id="osi-appeal-reason"><option value="new_evidence">New evidence</option><option value="scope_clarified">Scope clarified</option><option value="submission_corrected">Submission corrected</option></select></label><label>Evidence type<select id="osi-appeal-evidence-kind"><option value="url">HTTPS URL</option><option value="onchain_tx">Solana transaction</option><option value="wallet">Wallet address</option></select></label><label>New evidence reference<input id="osi-appeal-evidence-ref" type="text" maxlength="4096" autocomplete="off" placeholder="https://..." required></label><button class="osi-action primary" id="osi-appeal-submit" type="button">Sign and submit appeal</button><button class="osi-action" id="osi-appeal-cancel" type="button">Cancel</button><div class="osi-form-status mono" id="osi-appeal-status" role="status"></div></div>';
+    // Appeal starts a fresh review cycle; the form says so before anything
+    // is signed. Cancel sits before the one primary action, as in every
+    // other drawer form.
+    host.innerHTML='<div class="osi-review-form osi-appeal-form"><div class="osi-review-route">'+esc(t('Appeal starts a fresh review cycle and appends one new private evidence reference. It does not erase the rejection or rewrite the original Case.'))+'</div><label>'+esc(t('Appeal reason'))+'<select id="osi-appeal-reason"><option value="new_evidence">'+esc(t('New evidence'))+'</option><option value="scope_clarified">'+esc(t('Scope clarified'))+'</option><option value="submission_corrected">'+esc(t('Submission corrected'))+'</option></select></label><label>'+esc(t('Evidence type'))+'<select id="osi-appeal-evidence-kind"><option value="url">'+esc(t('HTTPS URL'))+'</option><option value="onchain_tx">'+esc(t('Solana transaction'))+'</option><option value="wallet">'+esc(t('Wallet address'))+'</option></select></label><label>'+esc(t('New evidence reference'))+'<input id="osi-appeal-evidence-ref" type="text" maxlength="4096" autocomplete="off" placeholder="https://..." required></label><div class="osi-governance-actions"><button class="osi-action" id="osi-appeal-cancel" type="button">'+esc(t('Cancel'))+'</button><button class="osi-action primary" id="osi-appeal-submit" type="button">'+esc(t('Sign and submit appeal'))+'</button></div><div class="osi-form-status" id="osi-appeal-status" role="status"></div></div>';
     document.getElementById('osi-appeal-submit').addEventListener('click',submitCaseAppeal);
     document.getElementById('osi-appeal-cancel').addEventListener('click',renderActions);
     document.getElementById('osi-appeal-evidence-ref').focus();
@@ -2392,18 +2395,18 @@
       if(prepared.already_committed){showToast('This exact governance action was already committed.');if(typeof options.afterCommit==='function')await options.afterCommit();else if(caseRef)await reloadGovernanceCase(caseRef);assertPrivateGeneration(generation);return;}
       var body={op:'commit',action:action,wallet:wallet,nonce:prepared.nonce,payload:payload,proof_text:prepared.proof_text};
       if(prepared.proof_type==='solana_memo'){
-        showToast('Approve the exact '+prepared.purpose+' Memo. Only the network fee is requested.');
+        showToast(t('Approve the exact {purpose} Memo in your wallet. Only the network fee is requested.',{purpose:eventTitle(prepared.purpose)}));
         body.tx_sig=await castOnchainVote(prepared.proof_text);
         assertPrivateGeneration(generation);
         await commitWithConfirmation(body,GOVERNANCE_URL,generation);
       }else{
-        showToast('Sign the exact '+prepared.purpose+' message. This is not an on-chain transaction.');
+        showToast(t('Sign the exact {purpose} message in your wallet. This is not an on-chain transaction.',{purpose:eventTitle(prepared.purpose)}));
         body.signature=await signMessage(prepared.proof_text);
         assertPrivateGeneration(generation);
         await api(GOVERNANCE_URL,body);
       }
       assertPrivateGeneration(generation);
-      showToast(label(prepared.purpose)+' recorded with '+(prepared.proof_type==='solana_memo'?'Memo proof.':'wallet-signed proof.'));
+      showToast(t(prepared.proof_type==='solana_memo'?'{purpose} recorded with a confirmed Memo.':'{purpose} recorded with a wallet-signed, server-verified proof.',{purpose:eventTitle(prepared.purpose)}));
       if(typeof options.afterCommit==='function')await options.afterCommit();else if(caseRef)await reloadGovernanceCase(caseRef);
       assertPrivateGeneration(generation);
     }catch(error){if(generation===privateGeneration())showToast(userError(error));}
@@ -2548,7 +2551,7 @@
       if(pending.txSig&&pending.prepared&&pending.prepared.payment_kind!=='wire_support'){
         showToast(t('Re-verifying the existing transaction signature. No new wallet request will open.'));
         try{await verifyPreparedPayment(pending,true,privateGeneration());}
-        catch(error){paymentStatus(userError(error)+' '+t('The existing signature remains available for another verification attempt; do not send a replacement payment.'),'error');}
+        catch(error){paymentStatus(t(userError(error))+' '+t('The existing signature remains available for another verification attempt; do not send a replacement payment.'),'error');}
         return true;
       }
       showToast(t('An earlier Solana Pay request is still active. Checking the same reference prevents a duplicate payment.'));
@@ -2903,12 +2906,12 @@
         return;
       }
       var secondsLeft=Math.max(1,Math.round((deadline-Date.now())/1000));
-      paymentStatus('Transaction submitted. Waiting for Solana finality, then trusted server verification. Checking again automatically for up to '+secondsLeft+' seconds. Do not send another payment.','warning');
+      paymentStatus(t('Transaction submitted. Waiting for Solana finality, then trusted server verification. Checking again automatically for up to {seconds} seconds. Do not send another payment.',{seconds:secondsLeft}),'warning');
       verifyPreparedPayment(pending,false,generation,{automatic:true}).then(function(result){
         if(result&&result.state==='awaiting_finality')window.setTimeout(attempt,FINALITY_RETRY_DELAY_MS);
       }).catch(function(error){
         if(generation!==privateGeneration())return;
-        paymentStatus(userError(error)+' The exact signature stays available; use Re-verify existing signature rather than paying again.','error');
+        paymentStatus(t(userError(error))+' '+t('The exact signature stays available; use Re-verify existing signature rather than paying again.'),'error');
       });
     }
     window.setTimeout(attempt,FINALITY_RETRY_DELAY_MS);
@@ -2980,7 +2983,7 @@
       });assertPrivateGeneration(generation);pending.txSig=txSig;pending.recovery_state='broadcast';
       persistPaymentPending(pending);paymentStatus('Transaction submitted. Verifying mainnet finality, signer, transfers, Memo, freshness, and replay binding...');
       await verifyPreparedPayment(pending,false,generation);
-    }catch(error){if(generation===privateGeneration()){paymentStatus(userError(error)+(state.paymentPending?(state.paymentPending.method==='solana_pay'?' Resume the same Solana Pay request; do not start another.':' Do not pay again; use Re-verify existing signature.') :''),'error');showToast(userError(error));if(state.current&&state.paymentPending)selectTab('reward');}}
+    }catch(error){if(generation===privateGeneration()){paymentStatus(t(userError(error))+(state.paymentPending?' '+t(state.paymentPending.method==='solana_pay'?'Resume the same Solana Pay request; do not start another.':'Do not pay again; use Re-verify existing signature.'):''),'error');showToast(userError(error));if(state.current&&state.paymentPending)selectTab('reward');}}
     finally{if(generation===privateGeneration())state.paymentBusy=false;}
   }
   async function pledge(action){
@@ -2996,7 +2999,7 @@
       assertPrivateGeneration(generation);
       await api(PAYMENT_URL,{op:'commit_pledge',action:action,wallet:wallet,nonce:prepared.nonce,proof_text:prepared.proof_text,signature:signature});
       assertPrivateGeneration(generation);
-      paymentStatus('Reward pledge '+(action==='withdraw'?'withdrawn':action+'d')+' with wallet-signed server proof.','success');showToast('Reward pledge updated. No SOL moved.');
+      paymentStatus(t(action==='withdraw'?'Reward pledge withdrawn with a wallet-signed, server-verified proof.':action==='revise'?'Reward pledge revised with a wallet-signed, server-verified proof.':'Reward pledge created with a wallet-signed, server-verified proof.'),'success');showToast('Reward pledge updated. No SOL moved.');
       await reloadPaymentCase(state.current.public_ref);
       assertPrivateGeneration(generation);
     }catch(error){if(generation===privateGeneration())paymentStatus(userError(error),'error');}finally{if(generation===privateGeneration())state.paymentBusy=false;}
@@ -3103,9 +3106,9 @@
     }catch(error){
       if(generation!==privateGeneration())return;
       if(error.status===410||['unknown_solana_pay_reference','solana_pay_intent_expired'].indexOf(String(error.message))>=0){
-        paymentStatus(userError(error)+' No wallet was opened from browser storage.','warning');return 'expired';
+        paymentStatus(t(userError(error))+' '+t('No wallet was opened from browser storage.'),'warning');return 'expired';
       }
-      paymentStatus(userError(error)+' No wallet was opened; retry this same server check.','error');
+      paymentStatus(t(userError(error))+' '+t('No wallet was opened; retry this same server check.'),'error');
       return 'error';
     }
   }
@@ -3113,17 +3116,17 @@
     if(!state.paymentPending)return;
     var generation=privateGeneration();
     if(state.paymentPending.method==='solana_pay'&&state.paymentPending.restored_from_storage===true){
-      if(state.paymentPending.txSig&&state.paymentPending.prepared&&state.paymentPending.prepared.payment_kind!=='wire_support'){verifyPreparedPayment(state.paymentPending,true,generation).catch(function(error){if(generation===privateGeneration())paymentStatus(userError(error)+' '+t('The existing signature remains available for another verification attempt; do not send a replacement payment.'),'error');});}
+      if(state.paymentPending.txSig&&state.paymentPending.prepared&&state.paymentPending.prepared.payment_kind!=='wire_support'){verifyPreparedPayment(state.paymentPending,true,generation).catch(function(error){if(generation===privateGeneration())paymentStatus(t(userError(error))+' '+t('The existing signature remains available for another verification attempt; do not send a replacement payment.'),'error');});}
       else pollRestoredSolanaPay(state.paymentPending,generation);return;
     }
     try{exactPaymentProvider(state.paymentPending.prepared,state.paymentPending.wallet,generation);}
     catch(error){clearPaymentState();paymentStatus(userError(error),'error');return;}
     if(state.paymentPending.method==='solana_pay'){
-      try{openSolanaPay(state.paymentPending);}catch(error){paymentStatus(userError(error)+' The bound reference remains available until its exact expiry.','error');}
+      try{openSolanaPay(state.paymentPending);}catch(error){paymentStatus(t(userError(error))+' '+t('The bound reference remains available until its exact expiry.'),'error');}
       return;
     }
     if(!state.paymentPending.txSig){paymentStatus('The wallet did not return a transaction signature. Do not start a replacement payment until you have checked the intended payer wallet history.','warning');return;}
-    verifyPreparedPayment(state.paymentPending,true,generation).catch(function(error){if(generation===privateGeneration())paymentStatus(userError(error)+' The existing signature remains available for another verification attempt; do not send a replacement payment.','error');});
+    verifyPreparedPayment(state.paymentPending,true,generation).catch(function(error){if(generation===privateGeneration())paymentStatus(t(userError(error))+' '+t('The existing signature remains available for another verification attempt; do not send a replacement payment.'),'error');});
   }
 
   var legacyAdminUpdate=window.updateAdminButton;
