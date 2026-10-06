@@ -61,9 +61,9 @@ ok("every server action code is mapped (submit_* are internal and never returned
     && issuer.includes("action: decision.action") && issuer.includes('action: "error"'));
 
 const outcomes = [
-  [{ action: "satisfied", reason: "already_verified" }, "neutral", "The live SAS credential already matches this analyst status. No Solana transaction was sent."],
+  [{ action: "satisfied", reason: "already_verified" }, "neutral", "A valid live SAS credential already exists for this wallet under the OSI credential, schema and issuer. The tier recorded inside it was not compared. No Solana transaction was sent."],
   [{ action: "satisfied", reason: "already_absent" }, "neutral", "No live SAS credential exists, and none is expected for this analyst status. No Solana transaction was sent."],
-  [{ action: "satisfied", reason: "other" }, "neutral", "The live SAS state already matches the server-derived analyst status. No Solana transaction was sent."],
+  [{ action: "satisfied", reason: "other" }, "neutral", "The server found nothing to change for this analyst status. No Solana transaction was sent."],
   [{ action: "issue", reason: "analyst_tier", tx_sig: SIG, submitted_on_chain: true }, "pending", "The server submitted a transaction to issue this wallet's SAS credential."],
   [{ action: "revoke", reason: "not_analyst_tier", tx_sig: SIG, submitted_on_chain: true }, "pending", "The server submitted a transaction to close this wallet's SAS credential."],
   [{ action: "issue", reason: "analyst_tier", tx_sig: null }, "warning", "The server tried to issue this wallet's SAS credential, but the transaction could not be submitted. The ledger records the failure."],
@@ -98,6 +98,17 @@ ok("a failed submission replaces the server's generic no-write next step with a 
 ok("a server error replaces the generic no-write next step too",
   sas.outcome({ action: "error", next_step: "No additional on-chain write is required." }).nextStep
     === "Run this check again to read the live state before any repair.");
+for (const reason of ["issuance_disabled", "not_configured"]) {
+  const unconfigured = sas.outcome({ action: "noop_unconfigured", reason, next_step: "No additional on-chain write is required." });
+  ok(`noop_unconfigured (${reason}) never repeats the server's no-write claim, because the chain was not read`,
+    unconfigured.nextStep === "Turn on and fully configure SAS issuance on the server, then run this check again."
+      && unconfigured.nextStepFromServer === false);
+}
+ok("an already-valid credential is never said to match the analyst tier",
+  /tier recorded inside it was not compared/.test(sas.outcome({ action: "satisfied", reason: "already_verified" }).message)
+    && !/matches/.test(sas.outcome({ action: "satisfied", reason: "already_verified" }).message));
+ok("a missing or unreadable analyst profile is not stated as a definite absence",
+  /or could not read it/.test(sas.error("analyst_profile_not_found").message));
 ok("no outcome message claims confirmation, verification or anchoring",
   outcomes.every(([input]) => !/confirmed|verified on|anchored|Memo/i.test(sas.outcome(input).message)));
 ok("repair reasons cover every live-state mismatch the core can report",

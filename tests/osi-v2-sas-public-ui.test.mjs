@@ -298,7 +298,7 @@ const aboutEnd = index.indexOf('</section>', aboutStart);
 const about = index.slice(aboutStart, aboutEnd);
 ok('About SAS separates tier from on-chain review authority in one plain sentence',
   aboutStart > 0
-  && about.includes('Tier and on-chain review authority are separate. A probationary analyst can hold a current SAS credential; the tier, not the credential, sets how much a review weighs.')
+  && about.includes('Tier and on-chain review authority are separate. A probationary analyst can hold a current SAS credential. The tier sets the weight of a review, and a review counts only while the credential is current.')
   && about.includes('<code translate="no">OSI_VERIFIED_ANALYST</code>')
   && !about.includes('OSI verified analyst credential')
   && !/\u2014/.test(about));
@@ -310,11 +310,11 @@ const legacyConsole = readFileSync(new URL('../assets/js/54-maintainer-console.j
 const operations = readFileSync(new URL('../assets/js/88-functional-surface.js', import.meta.url), 'utf8');
 const passport = readFileSync(new URL('../assets/js/60-wallet-workspace.js', import.meta.url), 'utf8');
 ok('Operations labels count current SAS credentials, not verified ones',
-  legacyConsole.includes("admStatCard('Current SAS credentials'")
+  legacyConsole.includes("admStatCard('Credentials valid at last check'")
   && !legacyConsole.includes("'SAS Verified'")
-  && operations.includes("opsText('Current SAS credentials')")
+  && operations.includes("opsText('Credentials valid at last check')")
   && !operations.includes("'Verified credentials'")
-  && /SAS_STATES=\{verified:'Current credential'/.test(operations));
+  && /SAS_STATES=\{verified:'Valid at last check'/.test(operations));
 ok('passport separates roster membership from the Verified analyst tier',
   passport.includes("<span>Public analyst roster</span>")
   && passport.includes("'On the roster' : 'Not on the roster'")

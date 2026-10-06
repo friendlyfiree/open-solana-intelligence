@@ -3932,7 +3932,7 @@ test('SAS reconcile: the inline confirmation is keyboard reachable and sends not
   const confirmation = row.getByRole('group', { name: /Reconcile 1111\.\.\.1116 with its live SAS credential\?/ });
   await expect(confirmation).toBeVisible();
   await expect(confirmation).toBeFocused();
-  await expect(confirmation).toContainText("The server compares this wallet's analyst status with its live SAS credential. If they differ, it may submit a Solana transaction signed by the OSI issuer. You cannot choose the result.");
+  await expect(confirmation).toContainText("The server checks that this wallet holds a valid live SAS credential if its status is an analyst tier, and none if it is not. If that does not hold, it may submit a Solana transaction signed by the OSI issuer. You cannot choose the result.");
   await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toHaveAttribute('aria-expanded', 'true');
   await captureSasEvidence(page, 'confirm-desktop');
 
@@ -3962,7 +3962,7 @@ test('SAS reconcile: the inline confirmation is keyboard reachable and sends not
   await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
   await row.getByRole('button', { name: 'Confirm', exact: true }).click();
   const result = row.getByRole('status');
-  await expect(result).toContainText('The live SAS credential already matches this analyst status. No Solana transaction was sent.');
+  await expect(result).toContainText('A valid live SAS credential already exists for this wallet under the OSI credential, schema and issuer. The tier recorded inside it was not compared. No Solana transaction was sent.');
   await expect(result).toContainText(`Next step: ${SAS_NO_WRITE_STEP}`);
   await expect(result).toContainText('Server-derived analyst status: Verified analyst');
   await expect(result.locator('a')).toHaveCount(0);
@@ -4112,7 +4112,7 @@ test('SAS reconcile: server gate refusals, a missing profile, and an unreachable
 
   await second.getByRole('button', { name: 'Reconcile with live SAS' }).click();
   await second.getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect(second.getByRole('status')).toContainText('This wallet has no analyst profile, so the server has no status to compare. Nothing was checked.');
+  await expect(second.getByRole('status')).toContainText('The server did not find an analyst profile for this wallet, or could not read it. Nothing was checked.');
   // Neither refusal re-reads the ledger.
   expect(log.statusCalls).toBe(1);
 
@@ -4353,9 +4353,9 @@ test('HA-25: Operations counts current SAS credentials without calling them veri
   await page.evaluate(() => window.osiNavigate('admin'));
   const operations = page.locator('#osi-native-ops-overview');
   const sas = operations.locator('.osi-native-sas');
-  await expect(sas).toContainText('Current SAS credentials');
+  await expect(sas).toContainText('Credentials valid at last check');
   const row = sas.locator('.moc-feed-row').first();
-  await expect(row).toContainText('Current credential');
+  await expect(row).toContainText('Valid at last check');
   await expect(row).toContainText(/Probationary analyst/i);
   expect(await sas.innerText()).not.toMatch(/Verified credentials|SAS Verified|\bVerified\b/);
   await sas.scrollIntoViewIfNeeded();
@@ -4425,9 +4425,53 @@ test('Public Records cards stay compact on a phone without dropping a fact', asy
   const tx = memoCard.locator('.cr-proof-tx');
   const code = await tx.locator('code').boundingBox();
   const copy = await tx.locator('.cr-copy').boundingBox();
+  // The In Case link keeps a 44px touch target that nothing paints over.
+  const parentLinks = page.locator('#case-records .cr-parent-link');
+  for (let i = 0; i < await parentLinks.count(); i += 1) {
+    const link = parentLinks.nth(i);
+    await link.scrollIntoViewIfNeeded();
+    const linkBox = await link.boundingBox();
+    expect(linkBox.height).toBeGreaterThanOrEqual(44);
+    const covered = await link.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      const x = rect.left + Math.min(20, rect.width / 2);
+      let misses = 0;
+      for (let y = rect.top + 1; y < rect.bottom - 1; y += 2) {
+        const hit = document.elementFromPoint(x, y);
+        if (!hit || !node.contains(hit)) misses += 1;
+      }
+      return misses;
+    });
+    expect(covered).toBe(0);
+  }
   // The transaction code and its Copy button never overlap.
   expect(code.x + code.width).toBeLessThanOrEqual(copy.x + 0.5);
   expect(copy.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  expectCleanRuntime(page);
+});
+
+// Review findings on the item-6 pass, kept as regressions.
+test('a maintainer link resolves the maintainer even when the analyst roster read fails', async ({ page }) => {
+  await ready(page, { publicFailure: true });
+  await page.evaluate(() => window.osiPublicReadInvalidate && window.osiPublicReadInvalidate());
+  await page.evaluate((wallet) => window.openAnalystProfile(wallet), ROLE_WALLETS.maintainer);
+  const body = page.locator('#ap-modal-body');
+  await expect(body.locator('.osi-public-profile-maintainer')).toBeVisible();
+  await expect(body).not.toContainText('Analyst profile unavailable');
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(1);
+  expectCleanRuntime(page);
+});
+
+test('a language switch after a private-cache clear never claims an empty public registry', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator('#field-cases .osi-v2-row')).toHaveCount(1);
+  await page.evaluate(() => window.osiV2ClearReadSession('wallet_changed'));
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.waitForTimeout(300);
+  await expect(page.locator('#field-cases')).not.toContainText('Henüz kamusal Vaka yok');
+  await expect(page.locator('#field-cases')).not.toContainText('No public Cases yet');
+  await page.evaluate(() => window.osiSetLanguage('en'));
   expectCleanRuntime(page);
 });

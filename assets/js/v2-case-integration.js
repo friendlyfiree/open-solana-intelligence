@@ -969,6 +969,7 @@
       Array.prototype.forEach.call(host.querySelectorAll('[data-case-ref]'),function(button){
         button.addEventListener('click',function(){osiV2OpenCase(button.getAttribute('data-case-ref'));});
       });
+      host.setAttribute('data-drawn-mode',state.mode);
     }
     var count=document.getElementById('fo-count');
     if(count) count.textContent=rows.length!==state.cases.length
@@ -1299,6 +1300,8 @@
       if(String(field.value||'')!=='')return;
       field.value=String(values[id]||'');
     });
+    // A restored title gets the same hint a typed one would.
+    setTimeout(paintIntakeTitleHint,0);
   }
   // Mirrors the server's evidence rules so a malformed line is named on its own
   // field before any wallet request, instead of coming back as a raw server
@@ -1454,7 +1457,9 @@
   function publicCaseList(){
     return publicRead({op:'list_public_cases'}).then(function(result){return Array.isArray(result&&result.cases)?result.cases:[];}).catch(function(){return[];});
   }
+  var sameTitlePaint=0;
   function paintSameTitle(item){
+    var token=++sameTitlePaint;
     var stateNode=document.getElementById('osi-case-state');if(!stateNode||!stateNode.parentNode)return;
     var slot=document.getElementById('osi-case-same-title');
     if(!slot){slot=document.createElement('p');slot.id='osi-case-same-title';slot.className='osi-case-same-title';stateNode.parentNode.insertBefore(slot,stateNode.nextSibling);}
@@ -1463,7 +1468,10 @@
     var ref=item.public_ref,title=item.title;
     publicCaseList().then(function(list){
       var refNode=document.getElementById('osi-case-ref');
-      if(!refNode||refNode.textContent!==ref)return;
+      // A later paint (the loaded Case after its cached row, or a language
+      // switch) owns the slot; an earlier answer arriving late adds nothing.
+      if(token!==sameTitlePaint||!refNode||refNode.textContent!==ref)return;
+      slot.textContent='';
       var matches=sameTitleCases(title,list,ref);if(!matches.length)return;
       var other=matches[0],day=other.created_at?dayText(other.created_at):'';
       var text=document.createElement('span');
@@ -1512,6 +1520,11 @@
   document.addEventListener('input',function(event){
     if(!event.target||event.target.id!=='v2-case-title')return;
     clearTimeout(intakeTitleTimer);intakeTitleTimer=setTimeout(paintIntakeTitleHint,250);
+  });
+  // A form reset fires no input event, so the hint is re-read after one.
+  document.addEventListener('reset',function(event){
+    if(!event.target||event.target.id!=='field-form')return;
+    clearTimeout(intakeTitleTimer);intakeTitleTimer=setTimeout(paintIntakeTitleHint,0);
   });
   function pushCaseRoute(publicRef){
     if(!isCaseRef(publicRef))return;
@@ -3405,7 +3418,10 @@
     if(host&&state.mode==='review')drawReviewTasks(host);
     // Case rows compose dates, counts and the same-title note in the active
     // language, so a drawn list is drawn again rather than left half English.
-    else if(host&&!state.locked&&host.querySelector('.osi-v2-row'))drawCases();
+    // Only rows this state drew are redrawn: after a private-cache clear the
+    // old owner rows can still be on screen while state already holds an
+    // empty public list, and redrawing that would claim an empty registry.
+    else if(host&&!state.locked&&state.cases.length&&host.querySelector('.osi-v2-row')&&host.getAttribute('data-drawn-mode')===state.mode)drawCases();
     if(state.current){drawTabs();renderTab();renderActions();paintSameTitle(state.current);}
     var titleHint=document.getElementById('v2-case-title-match');
     if(titleHint&&!titleHint.hidden)paintIntakeTitleHint();

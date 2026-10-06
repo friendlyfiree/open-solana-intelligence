@@ -644,18 +644,11 @@
       return;
     }
     var profile=state.profiles.find(function(row){return String(row.wallet)===wallet;});
-    if(!profile){
-      try{await loadPublicProfiles({throwOnError:true});}catch(error){
-        if(state.profileIntent!==wallet)return;
-        body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),userError(error))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
-        var retry=body.querySelector('[data-profile-retry]');if(retry)retry.addEventListener('click',function(){openPublicProfile(wallet,{preserveReturnFocus:true});});return;
-      }
-      if(state.profileIntent!==wallet)return;
-      profile=state.profiles.find(function(row){return String(row.wallet)===wallet;});
-    }
     if(!profile&&!state.maintainerProfileLoaded){
       // The maintainer record is read lazily, so a link that names the
-      // maintainer before the Analyst Network was opened asks for it here.
+      // maintainer before the Analyst Network was opened asks for it here,
+      // before the analyst roster: a roster failure must not hide the
+      // maintainer, whose own endpoint may be healthy.
       await ensureMaintainerProfile();
       if(state.profileIntent!==wallet)return;
       var lateMaintainer=state.maintainerProfile;
@@ -664,6 +657,15 @@
         renderProfileModal(body,maintainerModalProfile(lateMaintainer),{maintainer:true});
         return;
       }
+    }
+    if(!profile){
+      try{await loadPublicProfiles({throwOnError:true});}catch(error){
+        if(state.profileIntent!==wallet)return;
+        body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),userError(error))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
+        var retry=body.querySelector('[data-profile-retry]');if(retry)retry.addEventListener('click',function(){openPublicProfile(wallet,{preserveReturnFocus:true});});return;
+      }
+      if(state.profileIntent!==wallet)return;
+      profile=state.profiles.find(function(row){return String(row.wallet)===wallet;});
     }
     if(!profile){
       body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),t('This wallet is not in the current public analyst directory.'))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
@@ -766,7 +768,7 @@
       // server-derived status; the credential is the live public verifier's
       // answer, in its own labelled cell.
       : '<div class="osi-profile-fact-tier"><span>'+esc(t('Tier'))+'</span>'+statusBadge(profile.status)+'<small>'+esc(t('Sets how much a review weighs'))+'</small></div>'
-        +'<div class="osi-profile-fact-authority"><span>'+esc(t('On-chain review authority'))+'</span>'+sasSlot(profile.wallet,profile.status)+'<small>'+esc(t('Solana Attestation Service credential'))+'</small></div>'
+        +'<div class="osi-profile-fact-authority"><span>'+esc(t('On-chain review authority'))+'</span>'+sasSlot(profile.wallet,profile.status)+'<small>'+esc(t('A review counts only while this is current'))+'</small></div>'
         +'<div><span>'+esc(t('Review weight'))+'</span><b class="mono">'+esc(weightText(profile.weight))+'</b><small>'+esc(t('Server-derived from the live tier'))+'</small></div>'
         // When the current standing began, read from the public activation
         // receipt itself (profile creation is the application date, not the

@@ -56,6 +56,9 @@
   });
   var NO_TRANSACTION='No Solana transaction was sent.';
   var RECHECK_FIRST='Run this check again to read the live state before any repair.';
+  // With issuance off or SAS not configured the server never read the chain,
+  // so its generic "no additional write" sentence would claim too much.
+  var CONFIGURE_FIRST='Turn on and fully configure SAS issuance on the server, then run this check again.';
   function codeText(value){return String(value==null?'':value).replace(/[^A-Za-z0-9_ .:-]/g,'').slice(0,64);}
   function sasReconcileOutcome(result){
     result=result&&typeof result==='object'?result:{};
@@ -70,9 +73,9 @@
       attestation:isWalletAddress(result.attestation)?result.attestation:''
     };
     if(action==='satisfied'){
-      out.message=reason==='already_verified'?'The live SAS credential already matches this analyst status. '+NO_TRANSACTION
+      out.message=reason==='already_verified'?'A valid live SAS credential already exists for this wallet under the OSI credential, schema and issuer. The tier recorded inside it was not compared. '+NO_TRANSACTION
         :reason==='already_absent'?'No live SAS credential exists, and none is expected for this analyst status. '+NO_TRANSACTION
-        :'The live SAS state already matches the server-derived analyst status. '+NO_TRANSACTION;
+        :'The server found nothing to change for this analyst status. '+NO_TRANSACTION;
     }else if((action==='issue'||action==='revoke')&&submitted){
       out.tone='pending';
       out.message=action==='issue'?'The server submitted a transaction to issue this wallet\'s SAS credential.'
@@ -96,6 +99,7 @@
     }else if(action==='noop_unconfigured'){
       out.message=reason==='issuance_disabled'?'SAS credential issuance is off, so the server made no live check. '+NO_TRANSACTION
         :'SAS is not fully configured on the server, so it made no live check. '+NO_TRANSACTION;
+      out.nextStep=CONFIGURE_FIRST;out.nextStepFromServer=false;
     }else if(action==='noop'){
       out.message='No change is needed for this wallet. '+NO_TRANSACTION;
     }else if(action==='error'){
@@ -116,7 +120,7 @@
     if(value==='half_maintainer_auth_only')return{message:'The server accepted the Supabase maintainer sign-in but not this wallet. Either credential alone is denied. Connect the configured admin wallet, then retry.',refresh:false};
     if(value==='maintainer_denied')return{message:'The server denied maintainer access. Nothing was checked.',refresh:false};
     if(value==='maintainer_access_required'||value==='full_maintainer_required')return{message:'Both maintainer gates are required. Nothing was sent.',refresh:false};
-    if(value==='analyst_profile_not_found')return{message:'This wallet has no analyst profile, so the server has no status to compare. Nothing was checked.',refresh:false};
+    if(value==='analyst_profile_not_found')return{message:'The server did not find an analyst profile for this wallet, or could not read it. Nothing was checked.',refresh:false};
     if(value==='bad_wallet')return{message:'The server rejected a wallet address in this request. Nothing was checked.',refresh:false};
     if(value==='wallet_mismatch')return{message:'The server answered for a different wallet, so that answer is not shown. Check again.',refresh:true};
     if(value==='not_configured')return{message:'The analyst service is not configured on the server. Nothing was checked.',refresh:false};
@@ -277,7 +281,7 @@
   // A ledger row sits beside the analyst tier ("Analyst status: Probationary
   // analyst"), so the credential state never uses the word "Verified", which
   // is itself a tier. The state codes are unchanged; only their words are.
-  var SAS_STATES={verified:'Current credential',pending:'Check pending',pending_verification:'Check pending',unchecked:'Not checked yet',expired:'Expired',invalid:'Invalid',revoked:'Revoked',unavailable:'Unavailable'};
+  var SAS_STATES={verified:'Valid at last check',pending:'Check pending',pending_verification:'Check pending',unchecked:'Not checked yet',expired:'Expired',invalid:'Invalid',revoked:'Revoked',unavailable:'Unavailable'};
   var SAS=window.OSIFunctionalSurfaceCore.sas;
   var sasRuns={},sasGeneration=0,sasRefreshFailedAt=null;
   function sasRun(wallet){return sasRuns[wallet]||(sasRuns[wallet]={phase:'idle',outcome:null});}
@@ -370,7 +374,7 @@
     box.setAttribute('role','group');box.tabIndex=-1;box.setAttribute('data-ops-sas-focus','confirm');
     var title=make('p','osi-sas-confirm-title',opsText('Reconcile {wallet} with its live SAS credential?',{wallet:shortWallet(wallet)}));
     title.id='osi-sas-confirm-title-'+wallet;
-    var text=make('p','osi-sas-confirm-text',opsText('The server compares this wallet\'s analyst status with its live SAS credential. If they differ, it may submit a Solana transaction signed by the OSI issuer. You cannot choose the result.'));
+    var text=make('p','osi-sas-confirm-text',opsText('The server checks that this wallet holds a valid live SAS credential if its status is an analyst tier, and none if it is not. If that does not hold, it may submit a Solana transaction signed by the OSI issuer. You cannot choose the result.'));
     text.id='osi-sas-confirm-text-'+wallet;
     box.setAttribute('aria-labelledby',title.id);box.setAttribute('aria-describedby',text.id);
     var actions=make('div','osi-sas-confirm-actions');
@@ -540,7 +544,7 @@
     appendMetric(summary,opsText('Issuance'),opsText(settings.issuance_enabled?'On':'Off'));
     appendMetric(summary,opsText('Enforcement'),opsText(settings.enforcement_enabled?'On':'Off'));
     var credentials=Array.isArray(status.credentials)?status.credentials:[];
-    appendMetric(summary,opsText('Current SAS credentials'),credentials.filter(function(row){return row.verification_state==='verified';}).length);
+    appendMetric(summary,opsText('Credentials valid at last check'),credentials.filter(function(row){return row.verification_state==='verified';}).length);
     section.appendChild(summary);
     var facts=make('dl','osi-native-facts');
     [['Program',settings.program_id],['Credential',settings.credential],['Schema',settings.schema],['Issuer',settings.issuer]].forEach(function(pair){

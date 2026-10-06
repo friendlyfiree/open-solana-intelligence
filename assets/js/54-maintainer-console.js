@@ -506,7 +506,7 @@ function admRenderConsole(model){
     + admStatCard('Analyst Applications',model.counts.analysts,'analyst','Analyst onboarding')
     + admStatCard('Open Challenges',model.counts.challenges,'danger','Open disputes')
     + admStatCard('Private AI Drafts',model.counts.aiPrivateDrafts,'ok','Maintainer-only, unpublished')
-    + admStatCard('Current SAS credentials',model.counts.sasVerified,'system','Live attestation ledger')
+    + admStatCard('Credentials valid at last check',model.counts.sasVerified,'system','Live attestation ledger')
     + '</div></section>'+admV2GovernanceHtml(model)+(filter==='ai'?admAiPackHtml(model):'')+(filter==='sas'?admSasHtml(model):'')+'<section class="moc-sec">'+(special?'':admQueueHtml(items,window.__admSelectedKey))+admBottomHtml(model)+'</section></main>'
     + (special?'':admSelectedHtml(selected));
 }

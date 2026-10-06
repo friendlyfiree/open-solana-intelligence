@@ -268,7 +268,10 @@ async function installFixture(page, options = {}) {
       const listed = options.sameTitle
         ? [publicCase, sameTitleSecondCase]
         : options.hostileTwin ? [hostileCase, { ...hostileTwin, title: hostileCase.title }] : [publicCase, secondCase];
-      if (body.op === 'list_public_cases') payload = { ok: true, cases: listed };
+      if (body.op === 'list_public_cases') {
+        if (options.publicListDelayMs) await new Promise((resolve) => setTimeout(resolve, options.publicListDelayMs));
+        payload = { ok: true, cases: listed };
+      }
       else if (body.op === 'get_public_case') {
         if (publicCaseDelayMs) await new Promise((resolve) => setTimeout(resolve, publicCaseDelayMs));
         const match = listed.concat([hostileCase]).find((item) => item.public_ref === body.public_ref);
@@ -703,6 +706,33 @@ test.describe('same-title public Cases', () => {
     await expect(note).toBeVisible();
     await expect(note.getByRole('button', { name: `Open ${CASE_REF}` })).toBeVisible();
     expect(page.__runtimeErrors).toEqual([]);
+  });
+
+  test('a slow public list never paints the drawer note twice', async ({ page }) => {
+    await boot(page, { wallet: 'none', sameTitle: true, publicListDelayMs: 1500 });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await expect(page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`)).toBeVisible();
+    await page.evaluate(() => window.osiPublicReadInvalidate());
+    await page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`).click();
+    await page.evaluate(() => window.osiSetLanguage('tr'));
+    await page.evaluate(() => window.osiSetLanguage('en'));
+    const note = page.locator('#osi-case-same-title');
+    await expect(note).toBeVisible({ timeout: 8000 });
+    await page.waitForTimeout(2500);
+    await expect(note.locator('button')).toHaveCount(1);
+    await expect(note.locator('span')).toHaveCount(1);
+  });
+
+  test('the intake hint clears when the form is reset', async ({ page }) => {
+    await boot(page, { wallet: 'none', sameTitle: true });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await page.evaluate(() => { document.getElementById('fo-modal').classList.add('open'); });
+    await page.locator('#v2-case-title').fill('Forward industries');
+    const hint = page.locator('#v2-case-title-match');
+    await expect(hint).toBeVisible();
+    await page.evaluate(() => document.getElementById('field-form').reset());
+    await expect(hint).toBeHidden();
+    await expect(page.locator('#v2-case-title')).not.toHaveAttribute('aria-describedby', 'v2-case-title-match');
   });
 
   test('Cases with different titles carry no note', async ({ page }) => {
