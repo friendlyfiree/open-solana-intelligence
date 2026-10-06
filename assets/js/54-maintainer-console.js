@@ -21,9 +21,15 @@ function updateMaintainerAccessUI(){
   var badge=document.getElementById('maintainerAccessBadge');
   var menu=document.getElementById('maintainerAccessMenu');
   var ctx=resolveMaintainerAccess();
-  if(menu) menu.style.display=ctx.isMaintainerWallet?'':'none';
+  if(menu){
+    menu.style.display=ctx.isMaintainerWallet?'':'none';
+    // The menu names where it leads: the sign-in until both gates hold, then
+    // the Operations Center itself. The badge counts gates in words.
+    var label=menu.firstChild;
+    if(label&&label.nodeType===3) label.nodeValue=(ctx.allowed?'Operations Center':'Maintainer sign in')+' ';
+  }
   if(badge){
-    badge.textContent=ctx.allowed?'unlocked':(ctx.passwordAuthenticated?'1 of 2':'2 gates');
+    badge.textContent=ctx.allowed?'Open':(ctx.isMaintainerWallet&&ctx.passwordAuthenticated?'Verifying':(ctx.isMaintainerWallet||ctx.passwordAuthenticated?'1 of 2 gates':'0 of 2 gates'));
     badge.classList.toggle('ready',ctx.allowed);
   }
   if(document.body && document.body.dataset.view==='admin'){
@@ -89,28 +95,50 @@ function admGateRows(ctx){
   var walletOk=ctx.isMaintainerWallet;
   var authOk=ctx.passwordAuthenticated;
   var full=ctx.allowed;
+  // Each gate says in words whether it holds. A Supabase session alone is
+  // never shown as a passed gate: the server only verifies it together with
+  // the admin wallet, so until then it reads as present and waiting.
+  var walletText=walletOk?'Connected and matched':(ctx.walletConnected?'Connected wallet is not authorized':'Connect the configured wallet');
+  var authText=full?'Identity verified by the server'
+    :!authOk?'Sign in with the authority account'
+    :!walletOk?'Signed in. Waiting for the admin wallet before the server can verify it'
+    :ctx.state==='auth_rejected'?'Signed in, but the server rejected this identity'
+    :'Signed in. Server verification in progress';
+  var authState=full?'ok':(authOk?'partial':'');
   return '<div class="adm-gates" aria-label="Maintainer access status">'
-    +'<div class="adm-gate '+(walletOk?'ok':'')+'"><span>1</span><div><b>Admin wallet</b><small>'+(walletOk?'Connected and matched':(ctx.walletConnected?'Connected wallet is not authorized':'Connect the configured wallet'))+'</small></div></div>'
-    +'<div class="adm-gate '+(authOk?'ok':'')+'"><span>2</span><div><b>Supabase maintainer sign-in</b><small>'+(full?'Identity verified by the server':(authOk?'Session restored, server verification required':'Sign in with the authority account'))+'</small></div></div>'
+    +'<div class="adm-gate '+(walletOk?'ok':'')+'"><span aria-hidden="true">1</span><div><b>Admin wallet</b><small>'+walletText+'</small></div></div>'
+    +'<div class="adm-gate '+authState+'"><span aria-hidden="true">2</span><div><b>Supabase maintainer sign-in</b><small>'+authText+'</small></div></div>'
     +'</div>';
 }
 function admLockedHtml(ctx){
-  var title = ctx.state === 'checking' ? 'Verifying both gates' : (ctx.state === 'auth_rejected' ? 'Authority identity denied' : (ctx.state === 'wrong_wallet' ? 'Access denied' : 'Maintainer Access Required'));
-  var body = ctx.state === 'no_wallet'
-    ? 'Both independent gates are required. Start by connecting the configured admin wallet.'
+  var authOnly = ctx.passwordAuthenticated && !ctx.isMaintainerWallet;
+  var title = ctx.state === 'checking' ? 'Verifying both gates'
+    : ctx.state === 'auth_rejected' ? 'Authority identity denied'
+    : ctx.state === 'wrong_wallet' ? 'Access denied'
+    : authOnly ? 'Admin wallet missing'
+    : 'Maintainer access required';
+  // Either credential alone is a half-maintainer and is denied. The card
+  // names the credential that is missing, not only that access failed.
+  var body = ctx.state === 'no_wallet' && authOnly
+    ? 'The Supabase maintainer sign-in is present, but the configured admin wallet is not connected. Either credential alone is denied. Connect the admin wallet to continue.'
+    : ctx.state === 'no_wallet'
+    ? 'Both credentials are required: the configured admin wallet and the Supabase maintainer sign-in. Either one alone is denied. Start by connecting the admin wallet.'
+    : ctx.state === 'wrong_wallet' && authOnly
+    ? 'The Supabase maintainer sign-in is present, but the connected wallet is not the configured admin wallet. Either credential alone is denied. Switch to the admin wallet in Phantom.'
     : ctx.state === 'auth_rejected'
     ? 'The wallet matches, but the server did not accept this Supabase identity. Sign out and use the configured authority account.'
     : ctx.state === 'checking'
     ? 'OSI is asking the server to independently verify the wallet and current Supabase session.'
     : 'This wallet is not authorized for maintainer operations.';
-  var note = ctx.wallet ? '<div class="adm-lock-note">Connected wallet<br><b>' + admEsc(maintainerShortWallet(ctx.wallet)) + '</b></div>' : '';
+  var note = ctx.wallet ? '<div class="adm-lock-note">Connected wallet<br><b class="mono">' + admEsc(maintainerShortWallet(ctx.wallet)) + '</b></div>' : '';
+  var signOut = ctx.passwordAuthenticated ? '<button class="adm-out" type="button" onclick="admLogout()">Sign out of Supabase</button>' : '';
   var action = ctx.state === 'no_wallet'
-    ? '<button class="adm-go" type="button" onclick="toggleWallet().then(function(){if(typeof renderAdminAccess===\'function\')renderAdminAccess({clear:true});})">Connect maintainer wallet</button>'
+    ? '<button class="adm-go" type="button" onclick="toggleWallet().then(function(){if(typeof renderAdminAccess===\'function\')renderAdminAccess({clear:true});})">Connect maintainer wallet</button>' + signOut
     : ctx.state === 'checking'
     ? '<button class="adm-go" type="button" disabled>Checking server</button>'
     : ctx.state === 'auth_rejected'
     ? '<button class="adm-out" type="button" onclick="admLogout()">Sign out</button><button class="adm-go" type="button" onclick="refreshMaintainerGate()">Retry</button>'
-    : '<button class="adm-out" type="button" onclick="disconnectWallet()">Disconnect wallet</button>';
+    : '<button class="adm-out" type="button" onclick="disconnectWallet()">Disconnect wallet</button>' + signOut;
   return '<div class="adm-card locked"><div class="adm-access-tag">Double gate</div><h3>' + title + '</h3><p>' + body + '</p>' + admGateRows(ctx) + note + '<div class="adm-lock-actions">' + action + '</div></div>';
 }
 function admLockedHost(){
@@ -151,7 +179,6 @@ function renderAdminAccess(opts){
       login.style.display = 'block';
       var gateHost=document.getElementById('admGateStatus'); if(gateHost) gateHost.innerHTML=admGateRows(ctx);
       var msg = document.getElementById('admMsg');
-      if(msg && !msg.textContent) msg.textContent = 'Authority login required. Sign in to continue.';
     } else {
       login.style.display = 'none';
       if(locked){ locked.innerHTML = admLockedHtml(ctx); locked.style.display = 'block'; }

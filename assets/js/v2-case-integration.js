@@ -755,11 +755,17 @@
   // A lane can be refused for a reason the server names with a code. Turn the
   // known codes into the same plain sentences the rest of the queue uses, and
   // fall back to the generic authorization sentence for anything unknown.
+  // Only someone holding one maintainer credential is a half-maintainer who
+  // can act on the gate sentence. Everyone else is told whose lane it is.
+  function maintainerCredentialHeld(){
+    var access=typeof window.resolveMaintainerAccess==='function'?window.resolveMaintainerAccess():null;
+    return !!(access&&(access.isMaintainerWallet||access.passwordAuthenticated));
+  }
   function laneReasonMessage(reason){
     var code=String(reason||'');
     if(!code)return t('This lane is not available to the current role.');
     var known={
-      full_maintainer_required:t('Both maintainer gates are required for this lane. Connect the configured admin wallet and sign in from the Operations Center.'),
+      full_maintainer_required:maintainerCredentialHeld()?t('Both maintainer gates are required for this lane. Connect the configured admin wallet and sign in from the Operations Center.'):t('This lane is reviewed by the maintainer in the Operations Center.'),
       analyst_required:t('This lane requires an eligible server-derived analyst.'),
       not_eligible_reviewer:t('This wallet is not an eligible V2 analyst and does not have full maintainer access.'),
       analyst_writes_disabled:t('Analyst application review is safely disabled while rollout checks are incomplete.')
@@ -778,8 +784,10 @@
     var updated=state.reviewUpdatedAt?dateText(state.reviewUpdatedAt):t('Refresh in progress');
     host.innerHTML='<div class="osi-review-queue-tools"><div><p>'+esc(t('One queue, eight server-authorized lanes. Errors never become empty results.'))+'</p><time>'+esc(t('Last refreshed: {time}',{time:updated}))+'</time></div><button class="osi-action" type="button" data-review-refresh>'+esc(t('Refresh queue'))+'</button></div><div class="osi-review-lanes">'+reviewLaneDefinitions.map(function(definition){
       var lane=state.reviewLanes[definition[0]]||{status:'loading',tasks:[]},tasks=lane.tasks||[];
-      var count=lane.status==='success'?String(tasks.length):lane.status==='loading'?'…':'-';
-      return'<section class="osi-review-lane" data-review-lane-section="'+esc(definition[0])+'"><header><h3>'+esc(t(definition[1]))+'</h3><span>'+esc(count)+'</span></header>'+(lane.status==='success'&&tasks.length?tasks.map(reviewTaskMarkup).join(''):laneStateMarkup(lane))+'</section>';
+      // The lane badge says what happened in words: a refused lane and a
+      // failed lane used to share the same '-' and read as the same thing.
+      var count=lane.status==='success'?String(tasks.length):lane.status==='loading'?t('Loading'):lane.status==='unauthorized'?t('Not available'):t('Error');
+      return'<section class="osi-review-lane" data-review-lane-section="'+esc(definition[0])+'" data-lane-status="'+esc(lane.status)+'"><header><h3>'+esc(t(definition[1]))+'</h3><span class="osi-review-lane-count">'+esc(count)+'</span></header>'+(lane.status==='success'&&tasks.length?tasks.map(reviewTaskMarkup).join(''):laneStateMarkup(lane))+'</section>';
     }).join('')+'</div>';
     var refresh=host.querySelector('[data-review-refresh]');if(refresh)refresh.addEventListener('click',loadUnifiedReviewQueue);
     Array.prototype.forEach.call(host.querySelectorAll('[data-review-lane-retry]'),function(button){button.addEventListener('click',function(){var section=button.closest('[data-review-lane-section]');if(section)retryReviewLane(section.getAttribute('data-review-lane-section'));});});

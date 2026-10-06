@@ -817,27 +817,28 @@
 <section class="sec" data-view="admin" id="admin-view">
 <div class="wrap"><div class="adm-wrap">
   <div class="adm-top">
-    <h1 class="adm-title">OPERATIONS CENTER // <b>OSI</b></h1>
-    <div class="adm-clr">MAINTAINER ONLY</div>
+    <h1 class="adm-title">Operations Center</h1>
+    <div class="adm-clr">Maintainer only</div>
   </div>
   <div id="admLogin">
     <form class="adm-card" onsubmit="event.preventDefault();admLogin()">
       <div id="admGateStatus"></div>
       <h3>Maintainer sign in</h3>
-      <p>The admin wallet is connected. Complete the independent Supabase authority gate. The server verifies both gates again for every protected operation.</p>
-      <div class="adm-field"><label for="admEmail">EMAIL</label><input id="admEmail" type="email" autocomplete="username" placeholder="you@example.com"></div>
-      <div class="adm-field"><label for="admPw">PASSWORD</label><input id="admPw" type="password" autocomplete="current-password" placeholder="password"></div>
-      <div class="adm-lock-actions"><button class="adm-go" type="submit">SIGN IN</button><button class="adm-out" type="button" onclick="refreshMaintainerGate()">RETRY</button></div>
+      <p class="adm-missing">Admin wallet matched. Supabase maintainer sign-in missing.</p>
+      <p>Either credential alone is denied. Sign in with the authority account to complete the second gate. The server verifies both gates again for every protected operation.</p>
+      <div class="adm-field"><label for="admEmail">Email</label><input id="admEmail" type="email" autocomplete="username" placeholder="you@example.com"></div>
+      <div class="adm-field"><label for="admPw">Password</label><input id="admPw" type="password" autocomplete="current-password" placeholder="Password"></div>
+      <div class="adm-lock-actions"><button class="adm-go" type="submit">Sign in</button><button class="adm-out" type="button" onclick="refreshMaintainerGate()">Check both gates again</button></div>
       <div class="adm-msg" id="admMsg" role="status" aria-live="polite"></div>
     </form>
   </div>
   <div id="admPanel" style="display:none">
     <section class="osi-ops-applications" aria-labelledby="osi-ops-title">
-      <div class="moc-section-head"><div><span class="mono">NATIVE V2</span><h3 id="osi-ops-title">Analyst application queue</h3></div><button class="moc-action" type="button" onclick="osiAnalystLoadMaintainerQueue()">Refresh queue</button></div>
+      <div class="moc-section-head"><div><span>Exact application versions</span><h3 id="osi-ops-title">Analyst application queue</h3></div><button class="moc-action" type="button" onclick="osiAnalystLoadMaintainerQueue()">Refresh queue</button></div>
       <div id="osi-analyst-ops"><div class="moc-loading">Unlock both maintainer gates to load exact application versions.</div></div>
     </section>
-    <section class="moc-shell osi-native-ops" aria-labelledby="osi-native-ops-title">
-      <div class="moc-section-head"><div><span class="mono">SERVER-DERIVED</span><h3 id="osi-native-ops-title">Operations and review overview</h3></div><div class="osi-ops-head-actions"><button class="moc-action" type="button" onclick="osiV2OpenReviewQueue()">Open unified queue</button><button class="moc-action" type="button" onclick="osiNativeOpsRefresh()">Refresh overview</button></div></div>
+    <section class="osi-native-ops" aria-labelledby="osi-native-ops-title">
+      <div class="moc-section-head"><div><span>Server-derived</span><h3 id="osi-native-ops-title">Operations and review overview</h3></div><div class="osi-ops-head-actions"><button class="moc-action" type="button" onclick="osiV2OpenReviewQueue()">Open unified queue</button><button class="moc-action" type="button" onclick="osiNativeOpsRefresh()">Refresh overview</button></div></div>
       <div id="osi-native-ops-overview" aria-live="polite"><div class="moc-loading">Unlock both maintainer gates to load the native Case overview.</div></div>
     </section>
     <div id="admConsole" hidden>
