@@ -8395,3 +8395,91 @@ body .osi-status.maintainer {
     gap: 8px;
   }
 }
+
+/* === Item-6 wording pass === */
+/* Tier and on-chain review authority are two labelled facts on the analyst
+ * profile. Four cells read as a 2 by 2 grid so the SAS badge keeps one line;
+ * with no standing date the third cell takes the full row. A phone stacks
+ * them in one column. */
+.osi-profile-facts.osi-profile-facts-authority {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.osi-profile-facts-authority > div {
+  min-width: 0;
+  border-right: 0;
+  border-bottom: 1px solid var(--osi-border);
+}
+
+.osi-profile-facts-authority > div:nth-child(odd) {
+  border-right: 1px solid var(--osi-border);
+}
+
+.osi-profile-facts-authority > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  border-right: 0;
+}
+
+.osi-profile-facts-authority > div:last-child,
+.osi-profile-facts-authority > div:nth-last-child(2):nth-child(odd) {
+  border-bottom: 0;
+}
+
+.osi-profile-fact-tier > .osi-status,
+.osi-profile-fact-authority [data-sas-wallet] > * {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.osi-profile-fact-authority [data-sas-wallet] {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+}
+
+@media (max-width: 600px) {
+  .osi-profile-facts.osi-profile-facts-authority {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .osi-profile-facts-authority > div,
+  .osi-profile-facts-authority > div:nth-child(odd) {
+    border-right: 0;
+    border-bottom: 1px solid var(--osi-border);
+  }
+
+  .osi-profile-facts-authority > div:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* One plain sentence on the About SAS section separating the analyst tier
+ * from the on-chain credential. It reads as a note, not as another claim. */
+.osi-about-heading > p.osi-about-tier-note {
+  margin-top: 14px;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--verified, #34f5a4);
+  color: var(--ink) !important;
+}
+
+/* The passport's on-chain authority row holds the shared SAS badge. The row's
+ * first-span label rule must not restyle the badge's own chip. */
+#identity-view .identity-sas-row .identity-sas-slot {
+  display: inline-flex;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 70%;
+}
+
+#identity-view .identity-sas-row .identity-sas-slot [data-sas-badge] {
+  font-size: 12px;
+  text-align: right;
+}
+
+#identity-view .identity-sas-row .identity-sas-slot .osi-chip {
+  color: var(--ink-dim);
+}
+
+#identity-view .identity-sas-row .identity-sas-slot .osi-chip.warning {
+  color: var(--lamp-strong);
+}

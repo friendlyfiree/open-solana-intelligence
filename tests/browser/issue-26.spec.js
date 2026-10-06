@@ -1463,7 +1463,7 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
     await expect(page.locator('#about-hero')).toBeVisible();
     await page.locator('#sas-verifier-wallet').fill(OTHER);
     await page.locator('#sas-verifier-form').getByRole('button', { name: 'Verify wallet' }).click();
-    await expect(page.locator('#sas-verifier-status')).toContainText('Verified:');
+    await expect(page.locator('#sas-verifier-status')).toContainText('Current SAS review authority:');
 
     await openPlatformItem(page, 'Resolution lifecycle');
     await expect(page.getByLabel('Filter by status')).toHaveValue('resolution_selection');

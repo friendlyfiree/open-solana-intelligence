@@ -164,7 +164,10 @@
   // SAS status is read-only here. The live reconcile control stays out of the
   // console until it is separately approved; this panel only shows what the
   // protected status endpoint reports, with the time of each check.
-  var SAS_STATES={verified:'Verified',pending:'Verification pending',expired:'Expired',invalid:'Invalid',revoked:'Revoked',unavailable:'Unavailable'};
+  // A ledger row sits beside the analyst's tier ("Analyst status: Probationary
+  // analyst"), so the credential state never uses the word "Verified", which
+  // is itself a tier. The state codes are unchanged; only their words are.
+  var SAS_STATES={verified:'Current credential',pending:'Check pending',pending_verification:'Check pending',expired:'Expired',invalid:'Invalid',revoked:'Revoked',unavailable:'Unavailable'};
   function renderSasOperations(host,status){
     var section=make('section','osi-native-block osi-native-sas');
     section.appendChild(make('h4','',opsText('SAS Authority Operations')));
@@ -177,7 +180,7 @@
     appendMetric(summary,opsText('Issuance'),opsText(settings.issuance_enabled?'On':'Off'));
     appendMetric(summary,opsText('Enforcement'),opsText(settings.enforcement_enabled?'On':'Off'));
     var credentials=Array.isArray(status.credentials)?status.credentials:[];
-    appendMetric(summary,opsText('Verified credentials'),credentials.filter(function(row){return row.verification_state==='verified';}).length);
+    appendMetric(summary,opsText('Current SAS credentials'),credentials.filter(function(row){return row.verification_state==='verified';}).length);
     section.appendChild(summary);
     var facts=make('dl','osi-native-facts');
     [['Program',settings.program_id],['Credential',settings.credential],['Schema',settings.schema],['Issuer',settings.issuer]].forEach(function(pair){

@@ -90,8 +90,35 @@ ok('Turkish covers dynamic Analyst profile and timestamped SAS authority copy',
     && i18n.includes("'Probationary': 'Deneme süreci'")
     && i18n.includes("'Support analyst with SOL': 'Analisti SOL ile destekle'")
     && i18n.includes("'No public contributions recorded': 'Kaydedilmiş kamusal katkı yok'")
-    && i18n.includes("'SAS verified': 'SAS doğrulandı'")
-    && i18n.includes("'SAS analyst review authority verified. Last checked {checked}. Read the Solana Attestation Service explanation.'"));
+    && i18n.includes("'SAS review authority · checked {checked}': 'SAS inceleme yetkisi · kontrol: {checked}'")
+    && i18n.includes("'Current on-chain SAS review authority. Last checked {checked}. This is separate from the analyst tier. Read the Solana Attestation Service explanation.'"));
+
+// HA-25: the tier and the SAS credential are separate facts in both
+// languages. Every new review-authority string has a Turkish entry, and none
+// of the Turkish credential strings reuse "doğrulanmış", the tier's word.
+const authorityKeys = [
+  'SAS check pending',
+  'No current SAS review authority',
+  'Current SAS review authority: this wallet holds a valid OSI_VERIFIED_ANALYST credential.',
+  'No current SAS review authority. No valid OSI_VERIFIED_ANALYST credential was returned for this wallet.',
+  'The verifier is temporarily unavailable. No review authority badge is shown.',
+  'Tier and on-chain review authority are separate. A probationary analyst can hold a current SAS credential; the tier, not the credential, sets how much a review weighs.',
+  'On-chain review authority',
+  'Sets how much a review weighs',
+  'Current SAS credentials',
+  'Current credential',
+  'On the roster',
+  'Not on the roster',
+  'This wallet is on the public analyst roster.',
+];
+const authorityEntries = authorityKeys.map((key) => {
+  const match = i18n.match(new RegExp("^    '" + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "': '([^']*)',?$", 'm'));
+  return match ? match[1] : null;
+});
+ok('Turkish separates the SAS review authority copy from the Verified analyst tier',
+  authorityEntries.every((value) => typeof value === 'string' && value.length > 0)
+    && authorityEntries.every((value) => !/doğrulanmış/i.test(value))
+    && i18n.includes("'On-chain review authority': 'Zincir üstü inceleme yetkisi'"));
 
 ok('Turkish covers persistent receipts, unified queue recovery, and connected Phantom payment copy',
   i18n.includes("'Saved successfully': 'Başarıyla kaydedildi'")

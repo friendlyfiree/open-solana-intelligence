@@ -2586,7 +2586,30 @@
     'In Review': 'İncelemede',
     'Application': 'Başvuru',
     'My OSI overview': 'OSI alanıma genel bakış',
-    'Your maintainer session does not include this view yet. Use Refresh private access to request it again.': 'Sürdürücü oturumunuz henüz bu görünümü kapsamıyor. Yeniden istemek için Özel erişimi yenile\'yi kullanın.'
+    'Your maintainer session does not include this view yet. Use Refresh private access to request it again.': 'Sürdürücü oturumunuz henüz bu görünümü kapsamıyor. Yeniden istemek için Özel erişimi yenile\'yi kullanın.',
+    'SAS review authority · checked {checked}': 'SAS inceleme yetkisi · kontrol: {checked}',
+    'Current on-chain SAS review authority. Last checked {checked}. This is separate from the analyst tier. Read the Solana Attestation Service explanation.': 'Güncel zincir üstü SAS inceleme yetkisi. Son kontrol: {checked}. Bu, analist kademesinden ayrıdır. Solana Attestation Service açıklamasını okuyun.',
+    'SAS check pending': 'SAS kontrolü bekleniyor',
+    'No current SAS review authority': 'Güncel SAS inceleme yetkisi yok',
+    'Current SAS review authority: this wallet holds a valid OSI_VERIFIED_ANALYST credential.': 'Güncel SAS inceleme yetkisi: bu cüzdan geçerli bir OSI_VERIFIED_ANALYST kimlik bilgisine sahip.',
+    'No current SAS review authority. No valid OSI_VERIFIED_ANALYST credential was returned for this wallet.': 'Güncel SAS inceleme yetkisi yok. Bu cüzdan için geçerli bir OSI_VERIFIED_ANALYST kimlik bilgisi döndürülmedi.',
+    'The verifier is temporarily unavailable. No review authority badge is shown.': 'Doğrulayıcı geçici olarak kullanılamıyor. İnceleme yetkisi rozeti gösterilmez.',
+    'Current': 'Güncel',
+    'Check pending': 'Kontrol bekleniyor',
+    'The Solana Attestation Service credential confirms that one wallet currently has OSI review authority under OSI\'s exact credential, schema, and issuer. It is not KYC, proof of a person\'s identity, an endorsement, or proof that a review is correct.': 'Solana Attestation Service kimlik bilgisi, bir cüzdanın OSI\'nin kesin kimlik bilgisi, şeması ve düzenleyicisi kapsamında şu anda OSI inceleme yetkisine sahip olduğunu doğrular. KYC, kişi kimliği kanıtı, destek beyanı veya bir incelemenin doğru olduğunun kanıtı değildir.',
+    'Tier and on-chain review authority are separate. A probationary analyst can hold a current SAS credential; the tier, not the credential, sets how much a review weighs.': 'Kademe ve zincir üstü inceleme yetkisi ayrıdır. Deneme sürecindeki bir analist güncel bir SAS kimlik bilgisine sahip olabilir; bir incelemenin ne kadar ağırlık taşıdığını kimlik bilgisi değil, kademe belirler.',
+    'On-chain review authority': 'Zincir üstü inceleme yetkisi',
+    'Sets how much a review weighs': 'Bir incelemenin ağırlığını belirler',
+    'Solana Attestation Service credential': 'Solana Attestation Service kimlik bilgisi',
+    'This wallet is not in the current public analyst directory.': 'Bu cüzdan güncel kamusal analist dizininde değil.',
+    'Loading server-derived analyst profiles...': 'Sunucunun belirlediği analist profilleri yükleniyor...',
+    'Current SAS credentials': 'Güncel SAS kimlik bilgileri',
+    'Current credential': 'Güncel kimlik bilgisi',
+    'On the roster': 'Listede',
+    'Not on the roster': 'Listede değil',
+    'This wallet is on the public analyst roster.': 'Bu cüzdan kamusal analist listesinde.',
+    'This wallet is not currently on the public analyst roster.': 'Bu cüzdan şu anda kamusal analist listesinde değil.',
+    'Analyst workspace for review, votes, reports, and reputation.': 'İnceleme, oylar, raporlar ve itibar için analist çalışma alanı.'
   };
 
   var translations = { en: {}, tr: turkish };

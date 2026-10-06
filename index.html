@@ -982,7 +982,13 @@
       <div class="osi-about-heading">
         <p class="osi-kicker">Analyst authority</p>
         <h2 id="sas-verifier-title">Verify an OSI analyst credential on Solana.</h2>
-        <p>The Solana Attestation Service credential confirms that one wallet currently has OSI review authority under the exact OSI verified analyst credential, schema, and issuer. It is not KYC, proof of a person's identity, an endorsement, or proof that a review is correct.</p>
+        <p>The Solana Attestation Service credential confirms that one wallet currently has OSI review authority under OSI's exact credential, schema, and issuer. It is not KYC, proof of a person's identity, an endorsement, or proof that a review is correct.</p>
+        <!-- Checked against reconcileIssuance in osi-v2-sas-core.mjs: the
+             credential is issued for the probationary, verified and senior
+             analyst tiers alike and revoked for every other status, while the
+             review weight follows the tier. So the credential never means the
+             "Verified analyst" tier. -->
+        <p class="osi-about-tier-note" id="sas-tier-note">Tier and on-chain review authority are separate. A probationary analyst can hold a current SAS credential; the tier, not the credential, sets how much a review weighs.</p>
         <p class="osi-about-credential"><span>Credential name</span> <code translate="no">OSI_VERIFIED_ANALYST</code></p>
       </div>
       <div class="osi-about-boundary-grid">
