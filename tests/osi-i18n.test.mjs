@@ -110,6 +110,7 @@ const authorityKeys = [
   'On the roster',
   'Not on the roster',
   'This wallet is on the public analyst roster.',
+  'Counted: SAS review authority confirmed',
 ];
 const authorityEntries = authorityKeys.map((key) => {
   const match = i18n.match(new RegExp("^    '" + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "': '([^']*)',?$", 'm'));

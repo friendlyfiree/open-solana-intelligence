@@ -8467,11 +8467,19 @@ body .osi-status.maintainer {
 
 /* The passport's on-chain authority row holds the shared SAS badge. The row's
  * first-span label rule must not restyle the badge's own chip. */
+/* When the label and the badge do not fit on one line, the badge drops to its
+ * own line, still right-aligned, instead of breaking mid-phrase. */
+#identity-view .identity-sas-row {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
 #identity-view .identity-sas-row .identity-sas-slot {
   display: inline-flex;
   justify-content: flex-end;
   min-width: 0;
-  max-width: 70%;
+  max-width: 100%;
+  margin-left: auto;
 }
 
 #identity-view .identity-sas-row .identity-sas-slot [data-sas-badge] {

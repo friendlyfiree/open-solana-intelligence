@@ -3897,6 +3897,7 @@ test('HA-25: a probationary analyst shows tier and on-chain review authority as 
   expect(text).not.toMatch(/SAS verified/i);
   expect(await tier.innerText()).not.toMatch(/verified/i);
   expect(await authority.innerText()).not.toMatch(/verified/i);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-probation-en');
 
   // Turkish keeps the same two facts apart and never uses the tier's word
   // ("doğrulanmış") for the credential.
@@ -3906,6 +3907,7 @@ test('HA-25: a probationary analyst shows tier and on-chain review authority as 
   await expect(authority).toContainText('Zincir üstü inceleme yetkisi');
   await expect(authority.locator('[data-sas-badge="verified"]')).toHaveText(/^SAS inceleme yetkisi · kontrol: \d{2}:\d{2} UTC$/);
   expect(await authority.innerText()).not.toMatch(/doğrula/i);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-probation-tr');
   await page.selectOption('#osi-language-select', 'en');
   await expect(authority.locator('[data-sas-badge="verified"]')).toHaveText(/^SAS review authority · checked /);
 
@@ -3915,6 +3917,7 @@ test('HA-25: a probationary analyst shows tier and on-chain review authority as 
   expect(overflow).toBeLessThanOrEqual(1);
   const [tierPhone, authorityPhone] = await Promise.all([tier.boundingBox(), authority.boundingBox()]);
   expect(authorityPhone.y).toBeGreaterThan(tierPhone.y);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-probation-390');
   await page.setViewportSize({ width: 1280, height: 720 });
   expectCleanRuntime(page);
 });
@@ -3932,6 +3935,7 @@ test('HA-25: a profile with no current credential keeps its tier and states miss
   await expect(chip).toHaveClass(/osi-chip warning/);
   await expect(authority.locator('[data-sas-badge="verified"]')).toHaveCount(0);
   expect(await authority.innerText()).not.toMatch(/verified/i);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-nosas-en');
   expectCleanRuntime(page);
 });
 
@@ -3964,10 +3968,14 @@ test('HA-25: the passport keeps roster membership, tier and on-chain review auth
   expect(statusText).not.toMatch(/Verified analyst|Not verified|SAS verified/);
   await page.locator('#identity-tab-analyst').click();
   await expect(page.locator('#identity-panel-analyst .identity-note')).toHaveText('This wallet is on the public analyst roster.');
+  await page.locator('#identity-tab-overview').click();
+  await captureRepairEvidence(page, 'i6-wording-mock-passport-en');
 
   await page.selectOption('#osi-language-select', 'tr');
+  await expect(overview.locator('.identity-role')).toHaveText('Analist');
   await expect(overview.locator('.identity-status-row').filter({ hasText: 'Kamusal analist listesi' })).toContainText('Listede');
   await expect(overview.locator('.identity-sas-row')).toContainText('Zincir üstü inceleme yetkisi');
+  await captureRepairEvidence(page, 'i6-wording-mock-passport-tr');
   await page.selectOption('#osi-language-select', 'en');
   expectCleanRuntime(page);
 });
@@ -3993,5 +4001,7 @@ test('HA-25: Operations counts current SAS credentials without calling them veri
   await expect(row).toContainText('Current credential');
   await expect(row).toContainText(/Probationary analyst/i);
   expect(await sas.innerText()).not.toMatch(/Verified credentials|SAS Verified|\bVerified\b/);
+  await sas.scrollIntoViewIfNeeded();
+  await captureRepairEvidence(page, 'i6-wording-mock-ops-sas-en');
   expectCleanRuntime(page);
 });

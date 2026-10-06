@@ -644,3 +644,21 @@ test.describe('degraded public reads', () => {
     expectNoWalletApproval(await walletCalls(page));
   });
 });
+
+// HA-25: a counted review's label sits beside the reviewer's tier, so it says
+// what was confirmed on chain, review authority, and never "verified", which
+// is also an analyst tier.
+test.describe('tier and SAS review authority wording', () => {
+  test('a counted review reads as confirmed SAS review authority, not as verified', async ({ page }) => {
+    await boot(page, { wallet: 'none' });
+    await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+    await expect(page.locator('#osi-case-ref')).toHaveText(CASE_REF);
+    await page.locator('#osi-case-tabs [data-tab="reviews"]').click();
+    const counted = page.locator('#osi-case-content [data-sas-authority="counted"]').first();
+    await expect(counted).toHaveText('Counted: SAS review authority confirmed');
+    await expect(page.locator('#osi-case-content')).not.toContainText('Authority verified on Solana');
+    await expect(page.locator('#osi-case-content')).not.toContainText(/SAS verified/i);
+    expectNoWalletApproval(await walletCalls(page));
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+});

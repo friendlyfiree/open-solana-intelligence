@@ -2616,7 +2616,8 @@
     'not supplied': 'sağlanmadı',
     'No credential exists for this wallet': 'Bu cüzdan için kimlik bilgisi yok',
     'The credential has expired': 'Kimlik bilginin süresi doldu',
-    'The credential was revoked': 'Kimlik bilgisi iptal edildi'
+    'The credential was revoked': 'Kimlik bilgisi iptal edildi',
+    'Counted: SAS review authority confirmed': 'Sayıldı: SAS inceleme yetkisi onaylandı'
   };
 
   var translations = { en: {}, tr: turkish };

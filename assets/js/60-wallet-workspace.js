@@ -668,7 +668,9 @@ function identityPassport(m){
     + '<div class="identity-operator">'+av+'<div>'
     + '<h2 class="identity-name"'+(named ? ' data-osi-user-content' : '')+'>'+escapeHtml(name)+'</h2>'
     + '<div class="identity-wallet-line"><span class="identity-wallet-short" title="'+escapeHtml(m.wallet || '')+'">'+escapeHtml(m.walletShort || '')+'</span><button class="identity-copy" type="button" onclick="pfCopy(walletPubkey)">Copy address</button></div>'
-    + '<span class="identity-role '+identityRoleClass(ctx)+'">'+escapeHtml(identityRoleLabel(ctx))+'</span>'
+    // A one-word role ("Analyst") is translated only in an interface context,
+    // so the chip says it is one rather than staying English in Turkish.
+    + '<span class="identity-role '+identityRoleClass(ctx)+'" data-osi-i18n-ui>'+escapeHtml(identityRoleLabel(ctx))+'</span>'
     + '</div></div>' + bio + '</div>';
 }
 // Profile settings are live: My Profile edits the wallet profile with one
@@ -964,7 +966,7 @@ function renderWorkspace(){
 
   var wallet = ctx.wallet ? workspaceShort(ctx.wallet) : '';
   var side = '<aside class="osi-ws-side" aria-label="Workspace context" data-osi-i18n-ui>'
-    + '<div class="osi-ws-side-row"><div class="l">Access</div><div class="v">'+escapeHtml(workspaceAccessLabel(ctx))+'</div></div>'
+    + '<div class="osi-ws-side-row"><div class="l">Access</div><div class="v" data-osi-i18n-ui>'+escapeHtml(workspaceAccessLabel(ctx))+'</div></div>'
     + '<div class="osi-ws-side-row"><div class="l">Wallet</div><div class="v'+(wallet?' mono':'')+'">'+(wallet?escapeHtml(wallet):'Not connected')+'</div></div>'
     + '</aside>';
   var body = '<div class="osi-ws-body">' + workspaceIdentityCard(ctx) + cards + '</div>';

@@ -391,8 +391,11 @@ const reportUi = read("assets/js/v2-report-integration.js");
 for (const [name, source] of [["case", caseUi], ["report", reportUi]]) {
   ok(name + " UI renders nothing unless enforcement is actually on",
     /if\(!a\|\|a\.enforced!==true\)return'';/.test(source));
-  ok(name + " UI states plainly that a counted review was verified on chain",
-    /Authority verified on Solana/.test(source));
+  // HA-25: the counted label says what was confirmed on chain, review
+  // authority, without the word "verified", which is an analyst tier.
+  ok(name + " UI states plainly that a counted review's authority was confirmed on chain",
+    /Counted: SAS review authority confirmed/.test(source)
+      && !/Authority verified on Solana/.test(source));
   ok(name + " UI states plainly why a review did not count",
     /Not counted: no valid SAS credential/.test(source)
       && /Not counted: SAS credential not confirmed/.test(source));
