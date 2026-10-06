@@ -8443,7 +8443,8 @@ body .osi-status.maintainer {
   }
 
   .osi-profile-facts-authority > div,
-  .osi-profile-facts-authority > div:nth-child(odd) {
+  .osi-profile-facts-authority > div:nth-child(odd),
+  .osi-profile-facts-authority > div:nth-last-child(2):nth-child(odd) {
     border-right: 0;
     border-bottom: 1px solid var(--osi-border);
   }
@@ -8458,7 +8459,9 @@ body .osi-status.maintainer {
 .osi-about-heading > p.osi-about-tier-note {
   margin-top: 14px;
   padding: 2px 0 2px 14px;
-  border-left: 2px solid var(--verified, #34f5a4);
+  /* The About accent, not the proof green: this is an explanation, not a
+   * credential state. */
+  border-left: 2px solid var(--about-accent, #ffb020);
   color: var(--ink) !important;
 }
 

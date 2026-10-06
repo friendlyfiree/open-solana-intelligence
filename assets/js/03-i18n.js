@@ -2609,7 +2609,14 @@
     'Not on the roster': 'Listede değil',
     'This wallet is on the public analyst roster.': 'Bu cüzdan kamusal analist listesinde.',
     'This wallet is not currently on the public analyst roster.': 'Bu cüzdan şu anda kamusal analist listesinde değil.',
-    'Analyst workspace for review, votes, reports, and reputation.': 'İnceleme, oylar, raporlar ve itibar için analist çalışma alanı.'
+    'Analyst workspace for review, votes, reports, and reputation.': 'İnceleme, oylar, raporlar ve itibar için analist çalışma alanı.',
+    'Recent cached read': 'Yakın tarihli önbellek okuması',
+    'Live Solana read': 'Canlı Solana okuması',
+    'Not returned': 'Döndürülmedi',
+    'not supplied': 'sağlanmadı',
+    'No credential exists for this wallet': 'Bu cüzdan için kimlik bilgisi yok',
+    'The credential has expired': 'Kimlik bilginin süresi doldu',
+    'The credential was revoked': 'Kimlik bilgisi iptal edildi'
   };
 
   var translations = { en: {}, tr: turkish };

@@ -1260,7 +1260,16 @@
     if(state.workspace&&document.querySelector('#identity-body .osi-analyst-workspace [data-workspace-tab]'))renderWorkspace();
     var profileModal=document.getElementById('ap-modal');
     if(profileModal&&profileModal.classList.contains('open')&&state.profileIntent){
-      openPublicProfile(state.profileIntent,{preserveReturnFocus:true,preserveFocus:true});
+      // A profile opened from a shared #analyst/<handle> link before the roster
+      // loaded is remembered by handle, not by wallet. Reopening it as a wallet
+      // turned a language switch into "Analyst profile unavailable".
+      var handleIntent=/^handle:([a-z0-9_]{2,32})$/.exec(String(state.profileIntent));
+      if(handleIntent){
+        var cached=state.profiles.find(function(row){return String(row.handle||'').toLowerCase()===handleIntent[1];});
+        if(cached)openPublicProfile(String(cached.wallet),{preserveReturnFocus:true,preserveFocus:true});
+        else openProfileByHandle(handleIntent[1]);
+      }
+      else openPublicProfile(state.profileIntent,{preserveReturnFocus:true,preserveFocus:true});
     }
     if(state.workspace)renderWorkspace();
     if(state.queue.length)renderQueue();

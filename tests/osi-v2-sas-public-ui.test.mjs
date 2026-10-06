@@ -303,4 +303,24 @@ ok('About SAS separates tier from on-chain review authority in one plain sentenc
   && !about.includes('OSI verified analyst credential')
   && !/\u2014/.test(about));
 
+// Operations and the passport name the credential count and roster
+// membership without the tier's word. Visible strings only; state codes and
+// function names such as isVerifiedAnalyst are internal and unchanged.
+const legacyConsole = readFileSync(new URL('../assets/js/54-maintainer-console.js', import.meta.url), 'utf8');
+const operations = readFileSync(new URL('../assets/js/88-functional-surface.js', import.meta.url), 'utf8');
+const passport = readFileSync(new URL('../assets/js/60-wallet-workspace.js', import.meta.url), 'utf8');
+ok('Operations labels count current SAS credentials, not verified ones',
+  legacyConsole.includes("admStatCard('Current SAS credentials'")
+  && !legacyConsole.includes("'SAS Verified'")
+  && operations.includes("opsText('Current SAS credentials')")
+  && !operations.includes("'Verified credentials'")
+  && /SAS_STATES=\{verified:'Current credential'/.test(operations));
+ok('passport separates roster membership from the Verified analyst tier',
+  passport.includes("<span>Public analyst roster</span>")
+  && passport.includes("'On the roster' : 'Not on the roster'")
+  && passport.includes('data-sas-role="passport"')
+  && !passport.includes("return 'Verified Analyst'")
+  && !passport.includes("<span>Verified analyst</span>")
+  && !passport.includes('verified analyst roster'));
+
 console.log(`\n${passed} SAS public UI assertions passed.`);
