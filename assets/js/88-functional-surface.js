@@ -274,7 +274,10 @@
   // is sent until both maintainer gates hold again and the maintainer
   // confirms inside the row. Each row keeps its last answer, keyed by wallet,
   // across refreshes until maintainer access ends or private data is cleared.
-  var SAS_STATES={verified:'Verified',pending:'Verification pending',pending_verification:'Verification pending',unchecked:'Not checked yet',expired:'Expired',invalid:'Invalid',revoked:'Revoked',unavailable:'Unavailable'};
+  // A ledger row sits beside the analyst tier ("Analyst status: Probationary
+  // analyst"), so the credential state never uses the word "Verified", which
+  // is itself a tier. The state codes are unchanged; only their words are.
+  var SAS_STATES={verified:'Current credential',pending:'Check pending',pending_verification:'Check pending',unchecked:'Not checked yet',expired:'Expired',invalid:'Invalid',revoked:'Revoked',unavailable:'Unavailable'};
   var SAS=window.OSIFunctionalSurfaceCore.sas;
   var sasRuns={},sasGeneration=0,sasRefreshFailedAt=null;
   function sasRun(wallet){return sasRuns[wallet]||(sasRuns[wallet]={phase:'idle',outcome:null});}
@@ -537,7 +540,7 @@
     appendMetric(summary,opsText('Issuance'),opsText(settings.issuance_enabled?'On':'Off'));
     appendMetric(summary,opsText('Enforcement'),opsText(settings.enforcement_enabled?'On':'Off'));
     var credentials=Array.isArray(status.credentials)?status.credentials:[];
-    appendMetric(summary,opsText('Verified credentials'),credentials.filter(function(row){return row.verification_state==='verified';}).length);
+    appendMetric(summary,opsText('Current SAS credentials'),credentials.filter(function(row){return row.verification_state==='verified';}).length);
     section.appendChild(summary);
     var facts=make('dl','osi-native-facts');
     [['Program',settings.program_id],['Credential',settings.credential],['Schema',settings.schema],['Issuer',settings.issuer]].forEach(function(pair){

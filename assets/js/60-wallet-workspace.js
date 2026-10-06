@@ -482,7 +482,9 @@ function showView(v){
 function identityRoleLabel(ctx){
   var role = (ctx && ctx.workspaceRole) || 'public';
   if(role === 'maintainer') return 'Maintainer';
-  if(role === 'analyst') return 'Verified Analyst';
+  // On the public roster, at any tier. "Verified analyst" is one of those
+  // tiers, so the role chip never uses it for a probationary analyst.
+  if(role === 'analyst') return 'Analyst';
   if(role === 'wallet') return 'Connected Wallet';
   return 'Public';
 }
@@ -619,12 +621,21 @@ function identityActivity(m){
 }
 function identityAnalystRows(m){
   var ctx = m.ctx || {};
-  var rows = '<div class="identity-status-row"><span>Verified analyst</span><b>'+escapeHtml(ctx.isVerifiedAnalyst ? 'Verified' : 'Not verified')+'</b></div>';
+  // Roster membership, tier and on-chain review authority are three separate
+  // facts. The first row used to read "Verified analyst: Verified" for a
+  // probationary analyst, which named a tier the wallet does not hold.
+  var rows = '<div class="identity-status-row"><span>Public analyst roster</span><b>'+escapeHtml(ctx.isVerifiedAnalyst ? 'On the roster' : 'Not on the roster')+'</b></div>';
   // Weight, tier and status are the server-derived values from the public
   // analyst projection. No local score is computed for a governance figure.
   var word = function(value){ var text = String(value || '').replace(/_/g,' '); return text.charAt(0).toUpperCase() + text.slice(1); };
   if(m.analystStatus){ rows += '<div class="identity-status-row"><span>Analyst status</span><b>'+escapeHtml(word(m.analystStatus))+'</b></div>'; }
   if(m.analystTier){ rows += '<div class="identity-status-row"><span>Analyst tier</span><b>'+escapeHtml(word(m.analystTier))+'</b></div>'; }
+  // The credential is the public verifier's live answer for this wallet, in
+  // its own labelled row, so it is never read as the tier above it. The slot
+  // only renders for a well-formed wallet; 96-sas-public.js validates it again.
+  if(m.analystStatus && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(m.wallet || ''))){
+    rows += '<div class="identity-status-row identity-sas-row"><span>On-chain review authority</span><span class="identity-sas-slot" data-sas-wallet="'+escapeHtml(m.wallet)+'" data-sas-role="passport"></span></div>';
+  }
   if(m.analystWeight !== null && m.analystWeight !== undefined){ rows += '<div class="identity-status-row"><span>Counted review weight</span><b class="mono">'+escapeHtml(Number(m.analystWeight).toFixed(2))+'</b></div>'; }
   return rows;
 }
@@ -657,7 +668,9 @@ function identityPassport(m){
     + '<div class="identity-operator">'+av+'<div>'
     + '<h2 class="identity-name"'+(named ? ' data-osi-user-content' : '')+'>'+escapeHtml(name)+'</h2>'
     + '<div class="identity-wallet-line"><span class="identity-wallet-short" title="'+escapeHtml(m.wallet || '')+'">'+escapeHtml(m.walletShort || '')+'</span><button class="identity-copy" type="button" onclick="pfCopy(walletPubkey)">Copy address</button></div>'
-    + '<span class="identity-role '+identityRoleClass(ctx)+'">'+escapeHtml(identityRoleLabel(ctx))+'</span>'
+    // A one-word role ("Analyst") is translated only in an interface context,
+    // so the chip says it is one rather than staying English in Turkish.
+    + '<span class="identity-role '+identityRoleClass(ctx)+'" data-osi-i18n-ui>'+escapeHtml(identityRoleLabel(ctx))+'</span>'
     + '</div></div>' + bio + '</div>';
 }
 // Profile settings are live: My Profile edits the wallet profile with one
@@ -848,7 +861,7 @@ function identityConnectedHtml(m){
   var pow = '<div class="identity-pane" id="identity-panel-pow" role="tabpanel" aria-labelledby="identity-tab-pow" data-pane="pow" hidden>'+card('Signed activity', 'Latest public receipts', identityActivity(m)+'<p class="identity-readonly identity-section-note">Each row is a public receipt. Memo-anchored rows open their Solana transaction.</p>')+'</div>';
   // A confirmed roster answer is a state, not an empty result, so it gets a
   // solid note with its own tone instead of the dashed placeholder box.
-  var analystNote = m.ctx.isVerifiedAnalyst ? 'This wallet is on the verified analyst roster.' : 'This wallet is not currently on the verified analyst roster.';
+  var analystNote = m.ctx.isVerifiedAnalyst ? 'This wallet is on the public analyst roster.' : 'This wallet is not currently on the public analyst roster.';
   var analyst = '<div class="identity-pane" id="identity-panel-analyst" role="tabpanel" aria-labelledby="identity-tab-analyst" data-pane="analyst" hidden>'+card('Analyst status', 'Server-derived roster', '<div class="identity-note'+(m.ctx.isVerifiedAnalyst?' is-verified':'')+'">'+escapeHtml(analystNote)+'</div>'+identityAnalystRows(m)+'<div class="osi-ws-actions"><button class="osi-ws-cta" type="button" onclick="osiAnalystOpenWorkspace(\'profile\')">Open analyst workspace</button><button class="osi-ws-cta" type="button" onclick="osiAnalystOpenWorkspace(\'applications\')">My applications</button></div>')+'</div>';
   var cases = '<div class="identity-pane" id="identity-panel-cases" role="tabpanel" aria-labelledby="identity-tab-cases" data-pane="cases" hidden>'+card('Cases &amp; Reports', 'Authorized V2 reads', identityPowGrid(m, ['casesFiled','reportsSubmitted','publicRecords'])+'<div class="identity-readonly identity-section-note">Private Case and unpublished Report details are available only through their scoped wallet-authorized reads.</div><div class="osi-ws-actions"><button class="osi-ws-cta" type="button" onclick="osiV2OpenMyCases()">Open My Cases</button><button class="osi-ws-cta" type="button" onclick="osiV2OpenMyReports()">Open My Reports</button></div>')+'</div>';
   var settings = '<div class="identity-pane" id="identity-panel-settings" role="tabpanel" aria-labelledby="identity-tab-settings" data-pane="settings" hidden>'+card('Settings', 'Managed in My Profile', '<p class="identity-readonly">Your wallet profile, its public visibility and Case attribution are edited in My Profile with one wallet message signature (wallet-signed and server-verified, not an on-chain transaction).</p><div class="osi-ws-actions"><button class="osi-ws-cta primary" type="button" onclick="osiV2OpenMyProfile()">Open My Profile</button></div>')+'</div>';
@@ -895,7 +908,7 @@ function workspaceIdentityCard(ctx){
 function workspaceAccessLabel(ctx){
   var role = (ctx && ctx.workspaceRole) || 'public';
   if(role === 'maintainer') return 'Maintainer, both gates verified';
-  if(role === 'analyst') return 'Verified analyst';
+  if(role === 'analyst') return 'Analyst';
   if(role === 'wallet') return 'Connected wallet';
   return 'Public visitor';
 }
@@ -923,7 +936,7 @@ function renderWorkspace(){
     ]);
   } else if(role === 'analyst'){
     title = 'Analyst Desk';
-    msg = 'Verified analyst workspace for review, votes, reports, and reputation.';
+    msg = 'Analyst workspace for review, votes, reports, and reputation.';
     cards = workspaceCards([
       ['My Reviews','Cases authorized for your typed review.',"osiV2OpenReviewQueue()"],
       ['My Challenges','Own challenge state, deadlines, and withdrawal.',"osiV2OpenMyChallenges()"],
@@ -953,7 +966,7 @@ function renderWorkspace(){
 
   var wallet = ctx.wallet ? workspaceShort(ctx.wallet) : '';
   var side = '<aside class="osi-ws-side" aria-label="Workspace context" data-osi-i18n-ui>'
-    + '<div class="osi-ws-side-row"><div class="l">Access</div><div class="v">'+escapeHtml(workspaceAccessLabel(ctx))+'</div></div>'
+    + '<div class="osi-ws-side-row"><div class="l">Access</div><div class="v" data-osi-i18n-ui>'+escapeHtml(workspaceAccessLabel(ctx))+'</div></div>'
     + '<div class="osi-ws-side-row"><div class="l">Wallet</div><div class="v'+(wallet?' mono':'')+'">'+(wallet?escapeHtml(wallet):'Not connected')+'</div></div>'
     + '</aside>';
   var body = '<div class="osi-ws-body">' + workspaceIdentityCard(ctx) + cards + '</div>';

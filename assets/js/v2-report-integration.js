@@ -17,7 +17,9 @@
     // The maintainer path is weight 0 by design and is not SAS-based; saying it
     // has no valid credential would state a governance fact that is not true.
     if(String(review.reviewer_role||review.actor_role||'').toLowerCase()==='maintainer')return' <span class="osi-chip" data-sas-authority="not_applicable">'+esc(t('Maintainer path, not an analyst vote'))+'</span>';
-    if(a.counted===true)return' <span class="osi-proof-label" data-sas-authority="counted">'+esc(t('Authority verified on Solana'))+'</span>';
+    // Parallel to the two "Not counted" labels, and without "verified": the
+    // reviewer's tier sits beside this label and "Verified analyst" is a tier.
+    if(a.counted===true)return' <span class="osi-proof-label" data-sas-authority="counted">'+esc(t('Counted: SAS review authority confirmed'))+'</span>';
     var pending=String(a.state||'')==='pending_verification';
     return' <span class="osi-chip warning" data-sas-authority="excluded">'+
       esc(t(pending?'Not counted: SAS credential not confirmed':'Not counted: no valid SAS credential'))+'</span>';

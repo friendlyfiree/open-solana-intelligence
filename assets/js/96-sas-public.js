@@ -54,7 +54,9 @@
   }
   // Server codes are shown as reviewed words; an unknown code is shown as is
   // rather than guessed at.
-  var STATE_TEXT={verified:'Verified',invalid:'Not verified',expired:'Expired',revoked:'Revoked',unavailable:'Unavailable',pending_verification:'Pending verification'};
+  // The credential's states are named for what they say about the credential.
+  // "Verified" is also an analyst tier, so the credential never borrows it.
+  var STATE_TEXT={verified:'Current',invalid:'Invalid',expired:'Expired',revoked:'Revoked',unavailable:'Unavailable',pending_verification:'Check pending'};
   var REASON_TEXT={valid:'Current credential',absent:'No credential exists for this wallet',expired:'The credential has expired',revoked:'The credential was revoked'};
   var SOURCE_TEXT={live:'Live Solana read',cache:'Recent cached read',cached:'Recent cached read'};
   function stateText(value){value=String(value||'unavailable');return STATE_TEXT[value]?tr(STATE_TEXT[value]):value;}
@@ -110,9 +112,13 @@
       // The badge carries its own padding now, so the old leading space that
       // separated a bare inline label from the wallet beside it would only
       // push the text off centre inside the chip.
-      badge.textContent=tr('SAS verified')+' \u00b7 '+tr('checked {checked}',{checked:checkedShort(result)});
+      // It names what the credential is, on-chain review authority, and never
+      // says "verified": that word is an analyst tier, and a probationary
+      // analyst holds this same credential. The attribute value stays the
+      // verifier's state code so styling and tests keep one meaning.
+      badge.textContent=tr('SAS review authority · checked {checked}',{checked:checkedShort(result)});
       badge.setAttribute('data-sas-badge','verified');
-      badge.setAttribute('aria-label',tr('SAS analyst review authority verified. Last checked {checked}. Read the Solana Attestation Service explanation.',{checked:checkedText(result)}));
+      badge.setAttribute('aria-label',tr('Current on-chain SAS review authority. Last checked {checked}. This is separate from the analyst tier. Read the Solana Attestation Service explanation.',{checked:checkedText(result)}));
       badge.addEventListener('click',function(event){
         event.preventDefault();
         event.stopPropagation();
@@ -131,10 +137,10 @@
       badge=doc.createElement('span');
       badge.className='osi-chip warning';
       badge.setAttribute('data-sas-badge',state);
-      if(state==='pending_verification')badge.textContent=tr('SAS verification pending');
+      if(state==='pending_verification')badge.textContent=tr('SAS check pending');
       else if(state==='expired')badge.textContent=tr('SAS expired')+' \u00b7 '+checkedText(result);
       else if(state==='revoked')badge.textContent=tr('SAS revoked')+' \u00b7 '+checkedText(result);
-      else if(state==='invalid')badge.textContent=tr('SAS invalid / not verified')+' \u00b7 '+checkedText(result);
+      else if(state==='invalid')badge.textContent=tr('No current SAS review authority')+' \u00b7 '+checkedText(result);
       // A failed client read says nothing about counting: the server's own
       // authority record decides that. Only the live check is unavailable.
       else{badge.className='osi-chip';badge.textContent=tr('Live SAS check unavailable');}
@@ -183,10 +189,10 @@
     clearNode(resultHost);
     resultHost.hidden=false;
     if(isPositive(result)){
-      setStatus(status,'Verified: current OSI_VERIFIED_ANALYST credential.','success');
+      setStatus(status,'Current SAS review authority: this wallet holds a valid OSI_VERIFIED_ANALYST credential.','success');
       resultHost.appendChild(paragraph(doc,'This wallet has current OSI review authority under the configured SAS credential, schema, and issuer. This does not prove identity, endorsement, truth, or review correctness.'));
     }else{
-      setStatus(status,'Not verified. No current OSI_VERIFIED_ANALYST credential was returned for this wallet.','');
+      setStatus(status,'No current SAS review authority. No valid OSI_VERIFIED_ANALYST credential was returned for this wallet.','');
       resultHost.appendChild(paragraph(doc,'No badge is shown. State: {state}. Reason: {reason}.',{
         state:stateText(result&&result.state),
         reason:reasonText(result&&result.reason)
@@ -241,7 +247,7 @@
       presentResult(result,nodes);
       return result;
     },function(){
-      setStatus(nodes.status,'Verification is temporarily unavailable. No verified badge is shown.','error');
+      setStatus(nodes.status,'The verifier is temporarily unavailable. No review authority badge is shown.','error');
       if(nodes.result){nodes.result.hidden=false;nodes.result.appendChild(paragraph(nodes.result.ownerDocument||document,'The verifier did not return an authoritative answer. Try again later.'))}
       return null;
     });

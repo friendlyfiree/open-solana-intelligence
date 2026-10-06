@@ -214,7 +214,7 @@
     options=options||{};
     if(state.profilesPromise)return state.profilesPromise;
     var host=document.getElementById('lb-body');
-    if(host){host.setAttribute('aria-busy','true');host.innerHTML='<div class="osi-activation-loading" role="status">'+esc(t('Loading verified server-derived profiles...'))+'</div>';}
+    if(host){host.setAttribute('aria-busy','true');host.innerHTML='<div class="osi-activation-loading" role="status">'+esc(t('Loading server-derived analyst profiles...'))+'</div>';}
     state.profilesPromise=(async function(){
       try{
         var body={op:'list_public_profiles'};
@@ -635,7 +635,7 @@
       profile=state.profiles.find(function(row){return String(row.wallet)===wallet;});
     }
     if(!profile){
-      body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),t('This wallet is not in the current verified analyst directory.'))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
+      body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),t('This wallet is not in the current public analyst directory.'))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';
       var missingRetry=body.querySelector('[data-profile-retry]');if(missingRetry)missingRetry.addEventListener('click',function(){openPublicProfile(wallet,{preserveReturnFocus:true});});return;
     }
     // A profile with no public handle has no shareable address, so the page
@@ -728,18 +728,25 @@
       ? '<div><span>'+esc(t('Analyst standing'))+'</span><b>'+esc(t('None'))+'</b></div>'
         +'<div><span>'+esc(t('Review weight'))+'</span><b>'+esc(t('None'))+'</b></div>'
         +'<div><span>'+esc(t('Quorum vote'))+'</span><b>'+esc(t('None'))+'</b></div>'
-      : '<div><span>'+esc(t('Status'))+'</span>'+statusBadge(profile.status)+'</div>'
+      // Tier and on-chain review authority are two facts with two labels, side
+      // by side. The SAS credential is issued to probationary, verified and
+      // senior analysts alike, so a badge beside the name read as the
+      // "Verified analyst" tier for a probationary analyst. The tier is the
+      // server-derived status; the credential is the live public verifier's
+      // answer, in its own labelled cell.
+      : '<div class="osi-profile-fact-tier"><span>'+esc(t('Tier'))+'</span>'+statusBadge(profile.status)+'<small>'+esc(t('Sets how much a review weighs'))+'</small></div>'
+        +'<div class="osi-profile-fact-authority"><span>'+esc(t('On-chain review authority'))+'</span>'+sasSlot(profile.wallet,profile.status)+'<small>'+esc(t('Solana Attestation Service credential'))+'</small></div>'
         +'<div><span>'+esc(t('Review weight'))+'</span><b class="mono">'+esc(weightText(profile.weight))+'</b><small>'+esc(t('Server-derived from the live tier'))+'</small></div>'
-        // The tier repeated the status word for word, so the third cell says
-        // when the current standing began, read from the public activation
+        // When the current standing began, read from the public activation
         // receipt itself (profile creation is the application date, not the
-        // standing). With no such receipt the tier is shown instead.
+        // standing). With no such receipt the cell is left out rather than
+        // repeating the tier.
         +(standingSince(profile)
           ?'<div><span>'+esc(t('Standing since'))+'</span><b>'+esc(standingSince(profile))+'</b></div>'
-          :'<div><span>'+esc(t('Tier'))+'</span><b>'+esc(t(label(profile.tier_code)))+'</b></div>');
+          :'');
     var badge=isMaintainer
       ? '<span class="osi-status maintainer">'+esc(t('Maintainer'))+'</span>'
-      : sasSlot(profile.wallet,profile.status);
+      : '';
     var role=isMaintainer
       ? '<p class="osi-profile-role-note">'+esc(t('Operates the deployment: schema migrations, function rollouts and configuration. Standard publication uses independent analyst quorum; constitutionally limited cold-start outcomes are labelled maintainer bootstrap.'))+'</p>'
       : '';
@@ -763,7 +770,7 @@
       +'</div>';
     body.removeAttribute('aria-busy');
     body.innerHTML='<div class="osi-public-profile'+(isMaintainer?' osi-public-profile-maintainer':'')+'"><header>'+avatar(profile,64)+'<div><span class="mono">'+esc(identity)+'</span><h3 data-osi-user-content>'+esc(displayName)+badge+'</h3><p data-osi-user-content>'+esc(profile.bio||'')+'</p></div></header>'
-      +'<div class="osi-profile-facts">'+facts+'</div>'+role+shareRow
+      +'<div class="osi-profile-facts'+(isMaintainer?'':' osi-profile-facts-authority')+'">'+facts+'</div>'+role+shareRow
       +(expertise?'<section><h4>'+esc(t('Expertise'))+'</h4><div class="osi-tag-list">'+expertise+'</div></section>':'')
       +(links?'<section><h4>'+esc(t('Safe public links'))+'</h4><div class="osi-safe-links">'+links+'</div></section>':'')
       +workSection(profile)
@@ -1253,7 +1260,16 @@
     if(state.workspace&&document.querySelector('#identity-body .osi-analyst-workspace [data-workspace-tab]'))renderWorkspace();
     var profileModal=document.getElementById('ap-modal');
     if(profileModal&&profileModal.classList.contains('open')&&state.profileIntent){
-      openPublicProfile(state.profileIntent,{preserveReturnFocus:true,preserveFocus:true});
+      // A profile opened from a shared #analyst/<handle> link before the roster
+      // loaded is remembered by handle, not by wallet. Reopening it as a wallet
+      // turned a language switch into "Analyst profile unavailable".
+      var handleIntent=/^handle:([a-z0-9_]{2,32})$/.exec(String(state.profileIntent));
+      if(handleIntent){
+        var cached=state.profiles.find(function(row){return String(row.handle||'').toLowerCase()===handleIntent[1];});
+        if(cached)openPublicProfile(String(cached.wallet),{preserveReturnFocus:true,preserveFocus:true});
+        else openProfileByHandle(handleIntent[1]);
+      }
+      else openPublicProfile(state.profileIntent,{preserveReturnFocus:true,preserveFocus:true});
     }
     if(state.workspace)renderWorkspace();
     if(state.queue.length)renderQueue();

@@ -1463,7 +1463,7 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
     await expect(page.locator('#about-hero')).toBeVisible();
     await page.locator('#sas-verifier-wallet').fill(OTHER);
     await page.locator('#sas-verifier-form').getByRole('button', { name: 'Verify wallet' }).click();
-    await expect(page.locator('#sas-verifier-status')).toContainText('Verified:');
+    await expect(page.locator('#sas-verifier-status')).toContainText('Current SAS review authority:');
 
     await openPlatformItem(page, 'Resolution lifecycle');
     await expect(page.getByLabel('Filter by status')).toHaveValue('resolution_selection');
@@ -4004,7 +4004,7 @@ test('SAS reconcile: a submitted transaction stays unconfirmed, links to Solscan
   await expect(solscan).toHaveAttribute('target', '_blank');
   await expect(solscan).toHaveAttribute('rel', 'noopener noreferrer');
   await expect(result).toContainText(`Next step: ${SAS_WAIT_STEP}`);
-  await expect(result).toContainText('Ledger credential state: Verification pending');
+  await expect(result).toContainText('Ledger credential state: Check pending');
   await expect(result).toContainText('Attestation account: 1111...1119');
   const resultText = await result.innerText();
   // "Verified analyst" is the server-derived status; nothing claims the
@@ -4013,7 +4013,7 @@ test('SAS reconcile: a submitted transaction stays unconfirmed, links to Solscan
 
   // The panel re-reads the ledger and keeps this row's answer in place.
   await expect.poll(() => log.statusCalls).toBe(2);
-  await expect(row.locator('.osi-native-title')).toHaveText('Verification pending');
+  await expect(row.locator('.osi-native-title')).toHaveText('Check pending');
   await expect(row).not.toHaveAttribute('aria-busy', 'true');
   await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toBeEnabled();
   await expect(row.getByRole('status')).toContainText('Transaction submitted. Not yet confirmed on Solana.');
@@ -4185,3 +4185,180 @@ for (const role of ['maintainer_wallet_only', 'maintainer_auth_only', 'ordinary_
     expectCleanRuntime(page);
   });
 }
+
+
+// ---- HA-25: tier versus SAS credential wording --------------------------
+// The SAS credential is issued to probationary, verified and senior analysts
+// alike (reconcileIssuance), so a badge that said "SAS verified" beside a
+// probationary analyst read as the "Verified analyst" tier. The badge now
+// names on-chain review authority, and the profile shows the tier and the
+// credential as two labelled facts.
+const HA25_PROBATION = '1111111111111111111111111111111A';
+const HA25_NO_SAS = '1111111111111111111111111111111B';
+
+async function routeHa25Fixtures(page) {
+  await page.route('**/functions/v1/**', async (route) => {
+    const url = route.request().url();
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) { body = {}; }
+    const profile = (wallet, handle, name) => ({
+      wallet, handle, display_name: name, bio: 'HA-25 tier and credential fixture.',
+      status: 'probationary_analyst', tier_code: 'probationary', weight: 0.5,
+      expertise: ['onchain_tracing'], links: [], contributions: [], proof_history: [],
+    });
+    let payload = null;
+    if (url.includes('/osi-v2-analyst') && body.op === 'get_public_profile' && body.handle === 'ha25_probation') {
+      payload = { ok: true, analyst: profile(HA25_PROBATION, 'ha25_probation', 'Probationary credential holder') };
+    } else if (url.includes('/osi-v2-analyst') && body.op === 'get_public_profile' && body.handle === 'ha25_nosas') {
+      payload = { ok: true, analyst: profile(HA25_NO_SAS, 'ha25_nosas', 'Probationary without credential') };
+    } else if (url.includes('/osi-v2-proof') && body.mode === 'sas_verify' && body.wallet === HA25_PROBATION) {
+      payload = { ok: true, wallet: HA25_PROBATION, valid: true, state: 'verified', reason: 'valid', source: 'live', credential: OTHER, schema: ROLE_WALLETS.verified_analyst, checked_at: iso(0) };
+    } else if (url.includes('/osi-v2-proof') && body.mode === 'sas_verify' && body.wallet === HA25_NO_SAS) {
+      payload = { ok: true, wallet: HA25_NO_SAS, valid: false, state: 'invalid', reason: 'absent', source: 'live', credential: OTHER, schema: ROLE_WALLETS.verified_analyst, checked_at: iso(0) };
+    } else if (url.includes('/osi-v2-analyst') && body.op === 'sas_operations_status') {
+      payload = {
+        ok: true,
+        settings: { issuance_enabled: true, enforcement_enabled: true, program_id: OTHER, credential: OTHER, schema: ROLE_WALLETS.verified_analyst, issuer: ROLE_WALLETS.maintainer },
+        credentials: [{ wallet: HA25_PROBATION, verification_state: 'verified', last_checked_at: iso(0) }],
+        profiles: [{ wallet: HA25_PROBATION, status: 'probationary_analyst' }],
+      };
+    }
+    if (!payload) return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(payload) });
+  });
+}
+
+test('HA-25: a probationary analyst shows tier and on-chain review authority as two labelled facts', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await routeHa25Fixtures(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.evaluate(() => window.osiOpenAnalystByHandle('ha25_probation'));
+  const body = page.locator('#ap-modal-body');
+  const tier = body.locator('.osi-profile-fact-tier');
+  const authority = body.locator('.osi-profile-fact-authority');
+  await expect(tier).toContainText('Tier');
+  await expect(tier).toContainText('Probationary analyst');
+  await expect(tier).toContainText('Sets how much a review weighs');
+  await expect(authority).toContainText('On-chain review authority');
+  const badge = authority.locator('[data-sas-badge="verified"]');
+  await expect(badge).toHaveText(/^SAS review authority · checked \d{2}:\d{2} UTC$/);
+  await expect(badge).toHaveAttribute('aria-label', /separate from the analyst tier/);
+  // The badge no longer sits beside the name, where it read as a tier.
+  await expect(body.locator('h3 [data-sas-wallet], h3 [data-sas-badge]')).toHaveCount(0);
+  // The two facts sit side by side, each with its own label.
+  const [tierBox, authorityBox] = await Promise.all([tier.boundingBox(), authority.boundingBox()]);
+  expect(Math.abs(tierBox.y - authorityBox.y)).toBeLessThanOrEqual(1);
+  expect(authorityBox.x).toBeGreaterThan(tierBox.x);
+  const text = await body.innerText();
+  expect(text).not.toMatch(/SAS verified/i);
+  expect(await tier.innerText()).not.toMatch(/verified/i);
+  expect(await authority.innerText()).not.toMatch(/verified/i);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-probation-en');
+
+  // Turkish keeps the same two facts apart and never uses the tier's word
+  // ("doğrulanmış") for the credential.
+  await page.selectOption('#osi-language-select', 'tr');
+  await expect(tier).toContainText('Kademe');
+  await expect(tier).toContainText('Deneme sürecindeki analist');
+  await expect(authority).toContainText('Zincir üstü inceleme yetkisi');
+  await expect(authority.locator('[data-sas-badge="verified"]')).toHaveText(/^SAS inceleme yetkisi · kontrol: \d{2}:\d{2} UTC$/);
+  expect(await authority.innerText()).not.toMatch(/doğrula/i);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-probation-tr');
+  await page.selectOption('#osi-language-select', 'en');
+  await expect(authority.locator('[data-sas-badge="verified"]')).toHaveText(/^SAS review authority · checked /);
+
+  // On a phone the facts stack without overflow.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  const [tierPhone, authorityPhone] = await Promise.all([tier.boundingBox(), authority.boundingBox()]);
+  expect(authorityPhone.y).toBeGreaterThan(tierPhone.y);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-probation-390');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  expectCleanRuntime(page);
+});
+
+test('HA-25: a profile with no current credential keeps its tier and states missing review authority', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await routeHa25Fixtures(page);
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.evaluate(() => window.osiOpenAnalystByHandle('ha25_nosas'));
+  const body = page.locator('#ap-modal-body');
+  await expect(body.locator('.osi-profile-fact-tier')).toContainText('Probationary analyst');
+  const authority = body.locator('.osi-profile-fact-authority');
+  const chip = authority.locator('[data-sas-badge="invalid"]');
+  await expect(chip).toHaveText(/^No current SAS review authority · /);
+  await expect(chip).toHaveClass(/osi-chip warning/);
+  await expect(authority.locator('[data-sas-badge="verified"]')).toHaveCount(0);
+  expect(await authority.innerText()).not.toMatch(/verified/i);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-nosas-en');
+  expectCleanRuntime(page);
+});
+
+test('HA-25: the maintainer profile carries no analyst tier or on-chain review authority cell', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  const row = page.locator('#osi-maintainer-profile [data-maintainer-wallet]');
+  await expect(row).toBeVisible();
+  await row.click();
+  const body = page.locator('#ap-modal-body');
+  await expect(body.locator('.osi-public-profile-maintainer')).toBeVisible();
+  await expect(body.locator('.osi-profile-facts')).toContainText('Analyst standing');
+  await expect(body.locator('.osi-profile-fact-authority, .osi-profile-fact-tier, [data-sas-wallet]')).toHaveCount(0);
+  await expect(body.locator('.osi-profile-facts-authority')).toHaveCount(0);
+  expectCleanRuntime(page);
+});
+
+test('HA-25: the passport keeps roster membership, tier and on-chain review authority apart', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiNavigate('identity'));
+  const overview = page.locator('#identity-panel-overview');
+  await expect(overview.locator('.identity-role')).toHaveText('Analyst');
+  await expect(overview.locator('.identity-status-row').filter({ hasText: 'Public analyst roster' })).toContainText('On the roster');
+  const sasRow = overview.locator('.identity-sas-row');
+  await expect(sasRow).toContainText('On-chain review authority');
+  await expect(sasRow.locator('[data-sas-badge="verified"]')).toHaveText(/^SAS review authority · checked /);
+  // The fixture's own display name is user content; the status rows and the
+  // role chip are what the product says about the wallet.
+  const statusText = (await overview.locator('.identity-status-row').allInnerTexts()).join('\n');
+  expect(statusText).not.toMatch(/Verified analyst|Not verified|SAS verified/);
+  await page.locator('#identity-tab-analyst').click();
+  await expect(page.locator('#identity-panel-analyst .identity-note')).toHaveText('This wallet is on the public analyst roster.');
+  await page.locator('#identity-tab-overview').click();
+  await captureRepairEvidence(page, 'i6-wording-mock-passport-en');
+
+  await page.selectOption('#osi-language-select', 'tr');
+  await expect(overview.locator('.identity-role')).toHaveText('Analist');
+  await expect(overview.locator('.identity-status-row').filter({ hasText: 'Kamusal analist listesi' })).toContainText('Listede');
+  await expect(overview.locator('.identity-sas-row')).toContainText('Zincir üstü inceleme yetkisi');
+  await captureRepairEvidence(page, 'i6-wording-mock-passport-tr');
+  await page.selectOption('#osi-language-select', 'en');
+  expectCleanRuntime(page);
+});
+
+test('HA-25: a wallet off the roster gets no review authority row in its passport', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('identity'));
+  const overview = page.locator('#identity-panel-overview');
+  await expect(overview.locator('.identity-status-row').filter({ hasText: 'Public analyst roster' })).toContainText('Not on the roster');
+  await expect(overview.locator('.identity-sas-row')).toHaveCount(0);
+  await expect(overview.locator('[data-sas-wallet]')).toHaveCount(0);
+  expectCleanRuntime(page);
+});
+
+test('HA-25: Operations counts current SAS credentials without calling them verified', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await routeHa25Fixtures(page);
+  await page.evaluate(() => window.osiNavigate('admin'));
+  const operations = page.locator('#osi-native-ops-overview');
+  const sas = operations.locator('.osi-native-sas');
+  await expect(sas).toContainText('Current SAS credentials');
+  const row = sas.locator('.moc-feed-row').first();
+  await expect(row).toContainText('Current credential');
+  await expect(row).toContainText(/Probationary analyst/i);
+  expect(await sas.innerText()).not.toMatch(/Verified credentials|SAS Verified|\bVerified\b/);
+  await sas.scrollIntoViewIfNeeded();
+  await captureRepairEvidence(page, 'i6-wording-mock-ops-sas-en');
+  expectCleanRuntime(page);
+});
