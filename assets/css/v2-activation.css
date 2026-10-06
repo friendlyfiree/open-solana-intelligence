@@ -40,8 +40,10 @@
 .adm-gate.ok>span{border-color:rgba(255,176,32,.7);background:rgba(255,176,32,.14);color:var(--lamp,#ffb020)}
 .adm-gate.partial{border-style:dashed;border-color:rgba(255,176,32,.35)}
 .adm-gate.partial>span{border-style:dashed;border-color:rgba(255,176,32,.55);color:var(--lamp,#ffb020)}
-.osi-menu-lock{margin-left:auto;font:700 12px var(--font-sans);color:var(--amber);text-transform:uppercase}
-.osi-menu-lock.ready{color:var(--sol)}
+/* Gate count in words, sentence case. 'Open' is a place you can go (lamp),
+ * not chain proof, so it never uses verified green. */
+.osi-menu-lock{margin-left:auto;font:600 12px var(--font-sans);color:var(--ink-faint);text-transform:none;letter-spacing:0}
+.osi-menu-lock.ready{color:var(--lamp,#ffb020)}
 
 /* Public analyst directory uses only the least-privilege public DTO. */
 #analysts .lb-board{overflow:hidden}
