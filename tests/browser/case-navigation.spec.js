@@ -777,3 +777,24 @@ test.describe('same-title public Cases', () => {
     expect(page.__runtimeErrors).toEqual([]);
   });
 });
+
+// The public registry opens on every stage. Defaulting the Status filter to
+// "Public investigation" hid sealed and reviewed Cases until a reader found
+// the filter; "All" shows the whole public registry and the rail narrows it.
+test('the Field Office public list opens with the Status filter on All', async ({ page }) => {
+  await boot(page, { wallet: 'none', hostileTwin: true });
+  await page.evaluate(() => window.osiNavigate('field'));
+  const status = page.locator('#field-view select[onchange*="fieldFilter"]');
+  await expect(status).toHaveValue('all');
+  // A sealed Case and an open one are both listed without touching a filter.
+  await expect(page.locator(`#field-cases [data-case-ref="${HOSTILE_REF}"]`)).toBeVisible();
+  await expect(page.locator('#field-cases [data-case-ref="OSI-0000000000AA"]')).toBeVisible();
+
+  // A stage link narrows the list; returning to Cases restores All.
+  await page.evaluate(() => window.osiNavigateFieldStage('challenge_active'));
+  await expect(status).toHaveValue('challenge_active');
+  await page.locator('#fr-fieldoffice').click();
+  await expect(status).toHaveValue('all');
+  await expect(page.locator('#field-cases .osi-v2-row')).toHaveCount(2);
+  expect(page.__runtimeErrors).toEqual([]);
+});

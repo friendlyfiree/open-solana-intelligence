@@ -11,7 +11,7 @@
   var PAYMENT_RECOVERY_KEY = 'osi:v2:payment-recovery:1';
   var PAYMENT_RECOVERY_PREFIX = 'osi:v2:payment-recovery:2:';
   var state = {
-    cases: [], challenges: [], mode: 'public', locked: null, actorRole: 'public', currentActorRole: '', query: '', stage: 'open_public',
+    cases: [], challenges: [], mode: 'public', locked: null, actorRole: 'public', currentActorRole: '', query: '', stage: 'all',
     sort: 'newest', page: 1, loadToken: 0, drawerLoadToken: 0, current: null, tab: 'overview',
     capabilities: null, caseIdempotency: '', reviewBusy: false, reviewTasks: {},
     reviewLanes: {}, reviewUpdatedAt: null, reviewLoadToken: 0, caseReceipt: null,
@@ -3268,7 +3268,9 @@
   window.fieldCloseForm=fieldCloseFormV2;
   // The Cases item always returns to the default public registry view, so a
   // Resolutions or Challenges filter never survives into it.
-  window.fieldMine=function(mine){if(mine)return openSignedCollection('mine');state.stage='open_public';state.query='';state.page=1;return loadPublicCases();};
+  // The public registry opens on every stage, so a sealed or reviewed Case is
+  // as easy to find as an open one; the rail and the Status filter narrow it.
+  window.fieldMine=function(mine){if(mine)return openSignedCollection('mine');state.stage='all';state.query='';state.page=1;return loadPublicCases();};
   window.fieldSearch=function(value){state.query=String(value||'');state.page=1;drawCases();};
   // Resolutions and Challenges are stage filters over the same public Case
   // list, so the rail marker follows the stage rather than the click that set
