@@ -371,7 +371,7 @@ function resolveWorkspaceContext(){
 }
 function getWorkspaceRoleLabel(ctx){
   var role = (ctx && ctx.workspaceRole) || 'public';
-  if(role === 'maintainer') return 'Maintainer Console';
+  if(role === 'maintainer') return 'Maintainer workspace';
   if(role === 'analyst') return 'Analyst Desk';
   if(role === 'wallet') return 'Wallet Workspace';
   return 'Public Registry';
@@ -934,8 +934,10 @@ function renderWorkspace(){
       ['My Profile','Display name, public visibility and Case attribution.',"osiV2OpenMyProfile()"]
     ]);
   } else if(role === 'maintainer'){
-    title = 'Maintainer Console';
-    msg = 'Maintainer workspace for publishing, moderation, analyst applications, and safety review.';
+    // Every control that leads here calls it the Operations Center, so the
+    // workspace does not invent a third name ('Maintainer Console').
+    title = 'Maintainer workspace';
+    msg = 'Publishing, moderation, analyst applications and safety review. Protected actions open in the Operations Center.';
     cards = workspaceCards([
       ['Operations Center','Double-gated overview, flags, AI Pack and SAS status, and the analyst application queue.',"admOpen()"],
       ['My Reviews','Every server-authorized review lane in one queue.',"osiV2OpenReviewQueue()"],

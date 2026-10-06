@@ -8365,3 +8365,13 @@ body .osi-status.maintainer {
 #identity-view .identity-passport::after {
   content: none;
 }
+
+/* A card title never breaks mid-phrase on a phone: the note drops below. */
+#identity-view .identity-card-head {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+#identity-view .identity-card-title {
+  white-space: nowrap;
+}

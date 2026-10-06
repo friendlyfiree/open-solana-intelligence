@@ -1439,7 +1439,7 @@ const readinessRoles = [
   ['ordinary_wallet', 'My OSI', false, false],
   ['analyst_candidate', 'My OSI', false, false],
   ['verified_analyst', 'Analyst Desk', true, false],
-  ['maintainer', 'Maintainer Console', false, true],
+  ['maintainer', 'Maintainer workspace', false, true],
 ];
 
 for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
