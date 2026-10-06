@@ -797,21 +797,41 @@ let SOL_PRICE = 0;
 
 // fetch live balances for a card's wallets via Solana RPC
 
-// live SOL price for the USD stat
-async function loadPrice(){
-  try{
-    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana,bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true');
-    const j = await r.json();
-    SOL_PRICE = j.solana.usd;
-    const sp=document.getElementById('s-price'); if(sp) sp.textContent = `at $${SOL_PRICE.toLocaleString()} / SOL`;
-    if(window.__declared){ const su=document.getElementById('s-usd'); if(su) su.textContent = '$'+fmt(window.__declared*SOL_PRICE); }
-    setTk('sol', j.solana.usd, j.solana.usd_24h_change);
-    if(j.bitcoin)  setTk('btc', j.bitcoin.usd,  j.bitcoin.usd_24h_change);
-    if(j.ethereum) setTk('eth', j.ethereum.usd, j.ethereum.usd_24h_change);
-  }catch(e){
-    const su=document.getElementById('s-usd'); if(su) su.textContent='-';
-    const sp=document.getElementById('s-price'); if(sp) sp.textContent='price unavailable';
-  }
+// Live SOL price. It feeds one optional line: the approximate USD value in the
+// legacy support dialog (legacy.html). It used to be fetched on every page
+// load, where the free CoinGecko API often answers 429 and printed a console
+// error on every surface for a figure no V2 page shows. Now it is fetched only
+// when that dialog opens: one request at a time, reused for five minutes, and
+// after a failure not asked again for a minute. A failure leaves the line empty.
+var SOL_PRICE_TTL_MS = 5 * 60 * 1000;
+var SOL_PRICE_RETRY_MS = 60 * 1000;
+var solPriceAt = 0, solPriceFailedAt = 0, solPriceInflight = null;
+function loadPrice(){
+  var now = Date.now();
+  if(SOL_PRICE && now - solPriceAt < SOL_PRICE_TTL_MS) return Promise.resolve(SOL_PRICE);
+  if(solPriceInflight) return solPriceInflight;
+  if(solPriceFailedAt && now - solPriceFailedAt < SOL_PRICE_RETRY_MS) return Promise.resolve(SOL_PRICE);
+  solPriceInflight = (async function(){
+    try{
+      const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana,bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true');
+      if(!r.ok) throw new Error('price_http_'+r.status);
+      const j = await r.json();
+      if(!j || !j.solana || !(Number(j.solana.usd) > 0)) throw new Error('price_unavailable');
+      SOL_PRICE = Number(j.solana.usd);
+      solPriceAt = Date.now(); solPriceFailedAt = 0;
+      const sp=document.getElementById('s-price'); if(sp) sp.textContent = `at $${SOL_PRICE.toLocaleString()} / SOL`;
+      if(window.__declared){ const su=document.getElementById('s-usd'); if(su) su.textContent = '$'+fmt(window.__declared*SOL_PRICE); }
+      setTk('sol', j.solana.usd, j.solana.usd_24h_change);
+      if(j.bitcoin)  setTk('btc', j.bitcoin.usd,  j.bitcoin.usd_24h_change);
+      if(j.ethereum) setTk('eth', j.ethereum.usd, j.ethereum.usd_24h_change);
+    }catch(e){
+      solPriceFailedAt = Date.now();
+      const su=document.getElementById('s-usd'); if(su) su.textContent='-';
+      const sp=document.getElementById('s-price'); if(sp) sp.textContent='price unavailable';
+    }
+    return SOL_PRICE;
+  })().finally(function(){ solPriceInflight = null; });
+  return solPriceInflight;
 }
 
 // ===== WSJ-style ticker (all tabs): live SOL/BTC/ETH + declared treasury holdings =====

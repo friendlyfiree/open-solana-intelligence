@@ -223,7 +223,7 @@
           : await api(body);
         state.profiles=Array.isArray(result.analysts)?result.analysts:[];state.profilesError=null;
         syncAnalystMaps(state.profiles);renderPublicProfiles();
-        loadMaintainerProfile();
+        if(maintainerCardWanted())ensureMaintainerProfile();
         return state.profiles;
       }catch(error){
         state.profiles=[];state.profilesError=error;syncAnalystMaps([]);
@@ -278,6 +278,24 @@
     var row=host.querySelector('[data-maintainer-wallet]');
     if(row)row.addEventListener('click',function(){openPublicProfile(row.dataset.maintainerWallet);});
   }
+  // The operator card is drawn only in the Analyst Network, so its record is
+  // read when that view opens, when this browser holds the maintainer gates,
+  // or when a profile link names the maintainer, not on every page load.
+  function maintainerCardWanted(){
+    var view=document.body&&document.body.dataset?document.body.dataset.view:'';
+    return view==='analysts'||state.maintainerAccess===true;
+  }
+  function ensureMaintainerProfile(){
+    if(state.maintainerProfileLoaded)return Promise.resolve(state.maintainerProfile||null);
+    if(!state.maintainerProfilePromise){
+      state.maintainerProfilePromise=loadMaintainerProfile().finally(function(){state.maintainerProfilePromise=null;});
+    }
+    return state.maintainerProfilePromise;
+  }
+  if(typeof MutationObserver==='function'&&document.body){
+    new MutationObserver(function(){if(maintainerCardWanted())ensureMaintainerProfile();})
+      .observe(document.body,{attributes:true,attributeFilter:['data-view']});
+  }
   async function loadMaintainerProfile(){
     var host=document.getElementById('osi-maintainer-profile');
     if(!host)return null;
@@ -288,6 +306,7 @@
         : await api(body);
       renderMaintainerProfile(result&&result.profile);
       attachMaintainerEditor(result&&result.profile);
+      state.maintainerProfileLoaded=true;
       return result&&result.profile;
     }catch(_){
       // An unavailable operator card is not worth an error banner over the
@@ -633,6 +652,18 @@
       }
       if(state.profileIntent!==wallet)return;
       profile=state.profiles.find(function(row){return String(row.wallet)===wallet;});
+    }
+    if(!profile&&!state.maintainerProfileLoaded){
+      // The maintainer record is read lazily, so a link that names the
+      // maintainer before the Analyst Network was opened asks for it here.
+      await ensureMaintainerProfile();
+      if(state.profileIntent!==wallet)return;
+      var lateMaintainer=state.maintainerProfile;
+      if(lateMaintainer&&String(lateMaintainer.wallet)===wallet){
+        adoptProfileRoute('maintainer');
+        renderProfileModal(body,maintainerModalProfile(lateMaintainer),{maintainer:true});
+        return;
+      }
     }
     if(!profile){
       body.removeAttribute('aria-busy');body.innerHTML=empty(t('Analyst profile unavailable'),t('This wallet is not in the current public analyst directory.'))+'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>';

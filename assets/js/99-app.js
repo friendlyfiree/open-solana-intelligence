@@ -50,4 +50,5 @@ loadAnalysts().then(function(){ try{ renderAnalysts(); }catch(e){} try{ renderRe
 window.addEventListener('hashchange', function(){ if(typeof updateAdminButton==='function') updateAdminButton(); });
 renderTicker();
 renderActivity();
-loadPrice();
+// The SOL price is not fetched at boot. The legacy support dialog asks for it
+// when it opens (see loadPrice in 44-prooflog-deck.js).

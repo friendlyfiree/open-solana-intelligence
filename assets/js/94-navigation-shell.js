@@ -604,6 +604,11 @@
   var homeCache = { cases: null, analysts: null };
 
   function loadHomeData() {
+    // Home reads the full public Case projection although it draws only a few
+    // fields. That is deliberate: the Field Office, Public Records and the Proof
+    // Log read the same projection through the shared cache in
+    // 04-public-read.js, so one answer serves every view. A separate summary
+    // read for Home would add a request on the first navigation.
     var caseRequest = publicApi('osi-v2-case-read', { op: 'list_public_cases' })
       .then(function (result) {
         var cases = Array.isArray(result.cases) ? result.cases : [];

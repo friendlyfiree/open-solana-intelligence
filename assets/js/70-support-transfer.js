@@ -168,6 +168,14 @@ function openTip(wallet, label, amount, title, meta){
   updateTipUsd();
   resetSolanaPay();
   refreshTipSendState();
+  // The USD estimate is optional. Its price is fetched only now, and the line
+  // fills in if the answer arrives while this dialog is still open.
+  if(typeof loadPrice==='function'){
+    loadPrice().then(function(){
+      var open=document.getElementById('tip-modal');
+      if(open && open.classList.contains('open')) updateTipUsd();
+    }).catch(function(){});
+  }
   var m=document.getElementById('tip-modal');
   if(m){
     tipReturnFocus = document.activeElement && typeof document.activeElement.focus==='function' ? document.activeElement : null;

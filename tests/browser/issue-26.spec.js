@@ -4362,3 +4362,37 @@ test('HA-25: Operations counts current SAS credentials without calling them veri
   await captureRepairEvidence(page, 'i6-wording-mock-ops-sas-en');
   expectCleanRuntime(page);
 });
+
+// The SOL price feeds only the legacy support dialog, and the maintainer card
+// is drawn only in the Analyst Network. Neither is read on a Home load, so the
+// free price API's 429 answers no longer reach a V2 console.
+test('Home reads neither the SOL price nor the maintainer profile until a view needs it', async ({ page }) => {
+  const priceRequests = [];
+  page.on('request', (request) => { if (request.url().startsWith('https://api.coingecko.com/')) priceRequests.push(request.url()); });
+  await ready(page);
+  await expect(page.locator('body')).toHaveAttribute('data-view', 'registry');
+  await page.waitForTimeout(400);
+  expect(priceRequests).toHaveLength(0);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(0);
+
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await expect(page.locator('#osi-maintainer-profile [data-maintainer-wallet]')).toBeVisible();
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(1);
+  await page.evaluate(() => window.osiNavigate('registry'));
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await expect(page.locator('#osi-maintainer-profile [data-maintainer-wallet]')).toBeVisible();
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(1);
+  expect(priceRequests).toHaveLength(0);
+  expectCleanRuntime(page);
+});
+
+test('a maintainer profile link opened before the Analyst Network still resolves the maintainer', async ({ page }) => {
+  await ready(page);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(0);
+  await page.evaluate((wallet) => window.openAnalystProfile(wallet), ROLE_WALLETS.maintainer);
+  const body = page.locator('#ap-modal-body');
+  await expect(body.locator('.osi-public-profile-maintainer')).toBeVisible();
+  await expect(body).not.toContainText('Analyst profile unavailable');
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(1);
+  expectCleanRuntime(page);
+});
