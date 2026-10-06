@@ -82,6 +82,20 @@ const secondCase = {
   proof_log: [],
 };
 
+// Production has two open public Cases titled "Forward Industries". This
+// variant keeps the second Case's own ref and date but gives it that same
+// title, spaced and cased differently, as the registry may hold it.
+const sameTitleSecondCase = {
+  ...secondCase,
+  title: '  forward   INDUSTRIES ',
+  created_at: '2026-07-26T08:00:00+00:00',
+};
+const hostileTwin = {
+  ...secondCase,
+  public_ref: 'OSI-0000000000AA',
+  created_at: '2026-07-20T08:00:00+00:00',
+};
+
 const publishedReport = {
   report_public_ref: REPORT_REF,
   version_public_ref: VERSION_REF,
@@ -251,10 +265,13 @@ async function installFixture(page, options = {}) {
     let payload = { ok: true };
 
     if (endpoint === 'osi-v2-case-read') {
-      if (body.op === 'list_public_cases') payload = { ok: true, cases: [publicCase, secondCase] };
+      const listed = options.sameTitle
+        ? [publicCase, sameTitleSecondCase]
+        : options.hostileTwin ? [hostileCase, { ...hostileTwin, title: hostileCase.title }] : [publicCase, secondCase];
+      if (body.op === 'list_public_cases') payload = { ok: true, cases: listed };
       else if (body.op === 'get_public_case') {
         if (publicCaseDelayMs) await new Promise((resolve) => setTimeout(resolve, publicCaseDelayMs));
-        const match = [publicCase, secondCase, hostileCase].find((item) => item.public_ref === body.public_ref);
+        const match = listed.concat([hostileCase]).find((item) => item.public_ref === body.public_ref);
         if (match) payload = { ok: true, case: match };
         else { status = 404; payload = { ok: false, error: 'not_found_or_private' }; }
       } else { status = 401; payload = { ok: false, error: 'wallet_not_connected' }; }
@@ -659,6 +676,74 @@ test.describe('tier and SAS review authority wording', () => {
     await expect(page.locator('#osi-case-content')).not.toContainText('Authority verified on Solana');
     await expect(page.locator('#osi-case-content')).not.toContainText(/SAS verified/i);
     expectNoWalletApproval(await walletCalls(page));
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+});
+
+// Two public Cases can share a title. The registry has no merge transition and
+// a public record is never rewritten, so both stay; a neutral note tells them
+// apart and the intake suggests checking the existing Case first.
+test.describe('same-title public Cases', () => {
+  test('rows and the drawer name the other Case without calling it a duplicate', async ({ page }) => {
+    await boot(page, { wallet: 'none', sameTitle: true });
+    await page.evaluate(() => window.osiNavigate('field'));
+    const first = page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`);
+    const second = page.locator(`#field-cases [data-case-ref="${SECOND_CASE_REF}"]`);
+    await expect(first.locator('.osi-same-title')).toHaveText(`Same title as ${SECOND_CASE_REF}, opened Jul 26, 2026`);
+    await expect(second.locator('.osi-same-title')).toHaveText(`Same title as ${CASE_REF}, opened Jul 29, 2026`);
+    await expect(first).toHaveAttribute('aria-label', new RegExp(`Same title as ${SECOND_CASE_REF}`));
+    expect(await page.locator('#field-cases').innerText()).not.toMatch(/duplicate/i);
+
+    await first.click();
+    const note = page.locator('#osi-case-same-title');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('Another public Case has the same title. It opened Jul 26, 2026.');
+    await note.getByRole('button', { name: `Open ${SECOND_CASE_REF}` }).click();
+    await expect(page.locator('#osi-case-ref')).toHaveText(SECOND_CASE_REF);
+    await expect(note).toBeVisible();
+    await expect(note.getByRole('button', { name: `Open ${CASE_REF}` })).toBeVisible();
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+
+  test('Cases with different titles carry no note', async ({ page }) => {
+    await boot(page, { wallet: 'none' });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await expect(page.locator(`#field-cases [data-case-ref="${SECOND_CASE_REF}"]`)).toBeVisible();
+    await expect(page.locator('#field-cases .osi-same-title')).toHaveCount(0);
+    await page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`).click();
+    await expect(page.locator('#osi-case-ref')).toHaveText(CASE_REF);
+    await expect(page.locator('#osi-case-same-title')).toBeHidden();
+  });
+
+  test('a hostile shared title stays text in the row and the drawer note', async ({ page }) => {
+    await boot(page, { wallet: 'none', hostileTwin: true });
+    await page.evaluate(() => window.osiNavigate('field'));
+    const row = page.locator('#field-cases [data-case-ref="OSI-0000000000AA"]');
+    await expect(row.locator('.osi-same-title')).toContainText(`Same title as ${HOSTILE_REF}`);
+    await row.click();
+    await expect(page.locator('#osi-case-same-title')).toBeVisible();
+    expect(await page.evaluate(() => window.__osiXss === undefined && !document.querySelector('#field-cases img, #osi-case-drawer img[src="x"]'))).toBe(true);
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+
+  test('the Case intake hints at an existing public Case with the same title and never blocks', async ({ page }) => {
+    await boot(page, { wallet: 'none', sameTitle: true });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await page.evaluate(() => { const m = document.getElementById('fo-modal'); m.classList.add('open'); });
+    const title = page.locator('#v2-case-title');
+    await title.fill('Forward industries');
+    const hint = page.locator('#v2-case-title-match');
+    await expect(hint).toBeVisible();
+    await expect(hint).toContainText(`A public Case with this title already exists: ${CASE_REF}.`);
+    await expect(title).toHaveAttribute('aria-describedby', 'v2-case-title-match');
+    await title.fill('Forward Industries treasury wallets');
+    await expect(hint).toBeHidden();
+    await title.fill('FORWARD   industries');
+    await expect(hint).toBeVisible();
+    await hint.getByRole('button', { name: `Open ${CASE_REF}` }).click();
+    await expect(page.locator('#osi-case-ref')).toHaveText(CASE_REF);
+    // The typed draft is still in the form after looking at the other Case.
+    await expect(title).toHaveValue('FORWARD   industries');
     expect(page.__runtimeErrors).toEqual([]);
   });
 });

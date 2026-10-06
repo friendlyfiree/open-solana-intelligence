@@ -2684,7 +2684,14 @@
     'No credential exists for this wallet': 'Bu cüzdan için kimlik bilgisi yok',
     'The credential has expired': 'Kimlik bilginin süresi doldu',
     'The credential was revoked': 'Kimlik bilgisi iptal edildi',
-    'Counted: SAS review authority confirmed': 'Sayıldı: SAS inceleme yetkisi onaylandı'
+    'Counted: SAS review authority confirmed': 'Sayıldı: SAS inceleme yetkisi onaylandı',
+    'Same title as {count} other public Cases': '{count} başka kamusal Vaka ile aynı başlık',
+    'Same title as {ref}, opened {date}': '{ref} ile aynı başlık, açılış: {date}',
+    'Same title as {ref}': '{ref} ile aynı başlık',
+    'Another public Case has the same title. It opened {date}.': 'Başka bir kamusal Vaka aynı başlığı taşıyor. {date} tarihinde açıldı.',
+    'Another public Case has the same title.': 'Başka bir kamusal Vaka aynı başlığı taşıyor.',
+    'Open {ref}': '{ref} Vakasını aç',
+    'A public Case with this title already exists: {ref}. Open it to check before filing a new Case.': 'Bu başlıkla kamusal bir Vaka zaten var: {ref}. Yeni bir Vaka açmadan önce kontrol etmek için onu açın.'
   };
 
   var translations = { en: {}, tr: turkish };

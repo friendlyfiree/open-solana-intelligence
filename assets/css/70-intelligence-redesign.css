@@ -8758,3 +8758,61 @@ body .osi-status.maintainer {
   #analysts > .lb-shell { width: auto !important; max-width: none !important; margin-inline: 0 !important; padding-inline: 16px !important; }
 }
 /* === end Item-6 rec pass === */
+
+/* === Item-6 dup pass === */
+/* Same-title notes: neutral, small, and never styled as a warning. Two public
+ * Cases may share a title; the note only helps a reader tell them apart. */
+#field-cases .osi-v2-title .osi-same-title {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font: 500 12.5px/1.4 var(--font-sans);
+}
+.osi-case-same-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  margin: 8px 0 0;
+  color: var(--ink-dim);
+  font: 400 13.5px/1.45 var(--font-sans);
+}
+.osi-case-same-title[hidden],
+.osi-same-title-hint[hidden] { display: none; }
+.osi-case-same-title-open,
+.osi-same-title-open {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--lamp);
+  cursor: pointer;
+  font: 600 13.5px/1.2 var(--font-sans);
+  text-decoration: underline;
+  text-decoration-color: var(--lamp-line);
+  text-underline-offset: 4px;
+}
+.osi-case-same-title-open:hover,
+.osi-same-title-open:hover { color: var(--lamp-strong); text-decoration-color: var(--lamp-strong); }
+.osi-case-same-title-open:focus-visible,
+.osi-same-title-open:focus-visible { outline: 2px solid var(--focus, var(--lamp)); outline-offset: 2px; border-radius: 4px; }
+.osi-same-title-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--lamp-line);
+  border-radius: 0 6px 6px 0;
+  background: var(--lamp-soft);
+  color: var(--ink-dim);
+  font: 400 13.5px/1.45 var(--font-sans);
+}
+@media (max-width: 600px) {
+  .osi-case-same-title-open,
+  .osi-same-title-open { min-height: 44px; }
+}
+/* === end Item-6 dup pass === */

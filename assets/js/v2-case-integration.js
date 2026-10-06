@@ -954,11 +954,13 @@
         var proof=t(hasOpenProof(item)?'Memo anchored':((item.proof_log||[]).length?'Proof recorded':'Awaiting proof'));
         var rewardState=item.money&&item.money.reward&&item.money.reward.status;
         var published=(item.reports||[]).filter(function(report){return report&&report.published===true;}).length;
+        var sameTitle=state.mode==='public'?sameTitleText(sameTitleCases(item.title,state.cases,item.public_ref)):'';
         var rowLabel=t('Open Case detail')+': '+String(item.public_ref)+', '+String(item.title||'')
-          +' ('+stageLabel(item.stage,item)+', '+(published?t(published===1?'{count} published Report':'{count} published Reports',{count:published}):t('no published Report'))+')';
+          +' ('+stageLabel(item.stage,item)+', '+(published?t(published===1?'{count} published Report':'{count} published Reports',{count:published}):t('no published Report'))+')'
+          +(sameTitle?'. '+sameTitle:'');
         return '<button class="osi-v2-row" type="button" data-case-ref="'+esc(item.public_ref)+'" aria-label="'+esc(rowLabel)+'">'
           +'<span class="osi-v2-id">'+esc(item.public_ref)+(item.created_at&&dayText(item.created_at)?'<small class="osi-v2-date">'+esc(dayText(item.created_at))+'</small>':'')+'</span>'
-          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+(state.mode==='mine'?'<span class="osi-case-submitter"><span class="osi-case-submitter-copy"><small>'+esc(t('Case submitter'))+'</small><b>'+esc(t('You'))+'</b></span></span>':submitterIdentity(item,false))+(published?'<em class="osi-published-chip">'+esc(t(published===1?'{count} published Report':'{count} published Reports',{count:published}))+'</em>':'')+(rewardState&&REWARD_CHIP[rewardState]?'<em class="osi-reward-chip" data-tone="'+REWARD_CHIP[rewardState][1]+'">'+esc(t(REWARD_CHIP[rewardState][0]))+'</em>':'')+'</span>'
+          +'<span class="osi-v2-title"><b data-osi-user-content>'+esc(item.title)+'</b><span data-osi-user-content>'+esc(item.summary)+'</span>'+(sameTitle?'<small class="osi-same-title">'+esc(sameTitle)+'</small>':'')+(state.mode==='mine'?'<span class="osi-case-submitter"><span class="osi-case-submitter-copy"><small>'+esc(t('Case submitter'))+'</small><b>'+esc(t('You'))+'</b></span></span>':submitterIdentity(item,false))+(published?'<em class="osi-published-chip">'+esc(t(published===1?'{count} published Report':'{count} published Reports',{count:published}))+'</em>':'')+(rewardState&&REWARD_CHIP[rewardState]?'<em class="osi-reward-chip" data-tone="'+REWARD_CHIP[rewardState][1]+'">'+esc(t(REWARD_CHIP[rewardState][0]))+'</em>':'')+'</span>'
           +'<span class="osi-v2-stage '+stageClass(item)+'">'+esc(stageLabel(item.stage,item))+'</span>'
           +'<span class="osi-v2-category">'+esc(label(item.category))+'</span>'
           +'<span class="osi-v2-reviews">'+countActiveReviews(item)+'</span>'
@@ -1429,6 +1431,88 @@
   // never a token, nonce, wallet or any other private value.
   var CASE_ROUTE_PREFIX='#case/';
   function isCaseRef(value){return /^OSI-[0-9A-Z]{6,20}$/.test(String(value||''));}
+  // Two public Cases can carry the same title. The registry has no merge
+  // transition and a public record is never rewritten, so both stay. A small
+  // neutral line names the other Case and when it opened, so a reader can tell
+  // them apart; it never calls either one a duplicate. Titles are compared
+  // trimmed, case-insensitive and with inner whitespace collapsed.
+  function titleKey(value){return String(value||'').trim().replace(/\s+/g,' ').toLowerCase();}
+  function sameTitleCases(title,list,exceptRef){
+    var key=titleKey(title);if(!key)return[];
+    return(list||[]).filter(function(other){
+      return other&&isCaseRef(other.public_ref)&&other.public_ref!==exceptRef&&titleKey(other.title)===key;
+    });
+  }
+  function sameTitleText(matches){
+    if(!matches.length)return'';
+    if(matches.length>1)return t('Same title as {count} other public Cases',{count:matches.length});
+    var day=matches[0].created_at?dayText(matches[0].created_at):'';
+    return day?t('Same title as {ref}, opened {date}',{ref:matches[0].public_ref,date:day}):t('Same title as {ref}',{ref:matches[0].public_ref});
+  }
+  // The shared public list (04-public-read.js caches it for every view), so a
+  // note never costs its own request when the list was read moments ago.
+  function publicCaseList(){
+    return publicRead({op:'list_public_cases'}).then(function(result){return Array.isArray(result&&result.cases)?result.cases:[];}).catch(function(){return[];});
+  }
+  function paintSameTitle(item){
+    var stateNode=document.getElementById('osi-case-state');if(!stateNode||!stateNode.parentNode)return;
+    var slot=document.getElementById('osi-case-same-title');
+    if(!slot){slot=document.createElement('p');slot.id='osi-case-same-title';slot.className='osi-case-same-title';stateNode.parentNode.insertBefore(slot,stateNode.nextSibling);}
+    slot.hidden=true;slot.textContent='';
+    if(!item||item.visibility!=='public'||!isCaseRef(item.public_ref))return;
+    var ref=item.public_ref,title=item.title;
+    publicCaseList().then(function(list){
+      var refNode=document.getElementById('osi-case-ref');
+      if(!refNode||refNode.textContent!==ref)return;
+      var matches=sameTitleCases(title,list,ref);if(!matches.length)return;
+      var other=matches[0],day=other.created_at?dayText(other.created_at):'';
+      var text=document.createElement('span');
+      text.textContent=matches.length>1?sameTitleText(matches):(day?t('Another public Case has the same title. It opened {date}.',{date:day}):t('Another public Case has the same title.'));
+      var open=document.createElement('button');open.type='button';open.className='osi-case-same-title-open';
+      open.textContent=t('Open {ref}',{ref:other.public_ref});
+      open.addEventListener('click',function(){openCase(other.public_ref);});
+      slot.appendChild(text);slot.appendChild(document.createTextNode(' '));slot.appendChild(open);
+      slot.hidden=false;
+    });
+  }
+  // Case intake: a title that matches a public Case gets a hint under the
+  // field. It never blocks submission; the server decides what is filed.
+  var intakeTitleTimer=0;
+  function intakeTitleHintNode(){
+    var input=document.getElementById('v2-case-title');if(!input)return null;
+    var hint=document.getElementById('v2-case-title-match');
+    if(!hint){
+      var label=input.closest('label')||input;
+      hint=document.createElement('p');hint.id='v2-case-title-match';hint.className='osi-same-title-hint';hint.hidden=true;
+      hint.setAttribute('role','status');
+      label.parentNode.insertBefore(hint,label.nextSibling);
+    }
+    return hint;
+  }
+  function paintIntakeTitleHint(){
+    var input=document.getElementById('v2-case-title'),hint=intakeTitleHintNode();if(!input||!hint)return;
+    var typed=input.value;
+    if(titleKey(typed).length<3){hint.hidden=true;hint.textContent='';input.removeAttribute('aria-describedby');return;}
+    publicCaseList().then(function(list){
+      if(input.value!==typed)return;
+      var matches=sameTitleCases(typed,list,'');
+      hint.textContent='';
+      if(!matches.length){hint.hidden=true;if(input.getAttribute('aria-describedby')==='v2-case-title-match')input.removeAttribute('aria-describedby');return;}
+      var other=matches[0];
+      var text=document.createElement('span');
+      text.textContent=t('A public Case with this title already exists: {ref}. Open it to check before filing a new Case.',{ref:other.public_ref});
+      var open=document.createElement('button');open.type='button';open.className='osi-same-title-open';
+      open.textContent=t('Open {ref}',{ref:other.public_ref});
+      open.addEventListener('click',function(){fieldCloseFormV2();openCase(other.public_ref);});
+      hint.appendChild(text);hint.appendChild(document.createTextNode(' '));hint.appendChild(open);
+      hint.hidden=false;
+      if(!input.getAttribute('aria-describedby'))input.setAttribute('aria-describedby','v2-case-title-match');
+    });
+  }
+  document.addEventListener('input',function(event){
+    if(!event.target||event.target.id!=='v2-case-title')return;
+    clearTimeout(intakeTitleTimer);intakeTitleTimer=setTimeout(paintIntakeTitleHint,250);
+  });
   function pushCaseRoute(publicRef){
     if(!isCaseRef(publicRef))return;
     var next=CASE_ROUTE_PREFIX+publicRef;
@@ -1455,6 +1539,7 @@
       ?'<span class="osi-chip visibility-'+esc(item.visibility)+'">'+esc(t(sentence(item.visibility)))+'</span><span class="osi-chip stage">'+esc(t(stageLabel(item.stage,item)))+'</span>'+(item.category?'<span class="osi-chip">'+esc(t(categoryLabel(item.category)))+'</span>':'')
       :unavailable?'<span class="osi-chip warning">'+esc(t('Unavailable'))+'</span>'
       :'<span class="osi-chip" aria-busy="true">'+esc(t('Loading'))+'</span>';
+    paintSameTitle(item);
   }
   // The drawer is revealed before any network call so a Case row click always
   // produces immediate, visible feedback instead of looking like a dead button.
@@ -3318,7 +3403,12 @@
     });
     var host=document.getElementById('field-cases');
     if(host&&state.mode==='review')drawReviewTasks(host);
-    if(state.current){drawTabs();renderTab();renderActions();}
+    // Case rows compose dates, counts and the same-title note in the active
+    // language, so a drawn list is drawn again rather than left half English.
+    else if(host&&!state.locked&&host.querySelector('.osi-v2-row'))drawCases();
+    if(state.current){drawTabs();renderTab();renderActions();paintSameTitle(state.current);}
+    var titleHint=document.getElementById('v2-case-title-match');
+    if(titleHint&&!titleHint.hidden)paintIntakeTitleHint();
   });
   setAdminVisibility(false);
   setReviewNavigationVisibility(false);
