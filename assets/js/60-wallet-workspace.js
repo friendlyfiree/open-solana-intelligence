@@ -844,7 +844,7 @@ function identityConnectedHtml(m){
     + identityRow('Wallet', m.wallet || 'Not connected', !m.wallet, false, true)
     + identityRow('Role', identityRoleLabel(m.ctx), false)
     + identityRow('Operator note', m.bio || 'No public operator note yet.', !m.bio, true);
-  var identity = '<div class="identity-pane" id="identity-panel-identity" role="tabpanel" aria-labelledby="identity-tab-identity" data-pane="identity" hidden>'+card('Identity record', 'Edited in My Profile', '<div class="identity-record">'+identityRecord+'</div><div class="osi-ws-actions"><button class="osi-ws-cta" type="button" onclick="osiV2OpenMyProfile()">Open My Profile</button></div>')+'</div>';
+  var identity = '<div class="identity-pane" id="identity-panel-identity" role="tabpanel" aria-labelledby="identity-tab-identity" data-pane="identity" hidden>'+card('Identity record', 'Edited in My Profile', '<div class="identity-record" data-osi-i18n-ui>'+identityRecord+'</div><div class="osi-ws-actions"><button class="osi-ws-cta" type="button" onclick="osiV2OpenMyProfile()">Open My Profile</button></div>')+'</div>';
   var pow = '<div class="identity-pane" id="identity-panel-pow" role="tabpanel" aria-labelledby="identity-tab-pow" data-pane="pow" hidden>'+card('Signed activity', 'Latest public receipts', identityActivity(m)+'<p class="identity-readonly identity-section-note">Each row is a public receipt. Memo-anchored rows open their Solana transaction.</p>')+'</div>';
   // A confirmed roster answer is a state, not an empty result, so it gets a
   // solid note with its own tone instead of the dashed placeholder box.

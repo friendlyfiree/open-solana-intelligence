@@ -8375,3 +8375,23 @@ body .osi-status.maintainer {
 #identity-view .identity-card-title {
   white-space: nowrap;
 }
+
+/* Operations figures sit two to a row on a phone instead of one tall tile
+ * each; an odd last figure takes the full row so no empty cell shows. */
+@media (max-width: 600px) {
+  #osi-native-ops-overview .osi-native-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #osi-native-ops-overview .osi-native-metrics > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  /* Section actions start under the heading instead of drifting right. */
+  #admin-view .osi-ops-head-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+}
