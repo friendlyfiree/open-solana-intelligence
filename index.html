@@ -109,6 +109,7 @@
       <button class="wallet-btn" id="walletBtn" type="button" onclick="walletButtonClick()" aria-label="Connect Wallet" aria-haspopup="menu" aria-expanded="false" aria-controls="wbMenu" title="Connect, profile, or disconnect"><span class="wb-dot" aria-hidden="true"></span><span id="wbText">Connect Wallet</span></button>
       <div class="wb-menu" id="wbMenu" role="menu" aria-label="Wallet and workspace">
         <div class="wb-menu-label">My work</div>
+        <button class="wb-mi" type="button" role="menuitem" onclick="osiNavigate('workspace');closeWalletMenu();">My OSI overview</button>
         <button class="wb-mi" type="button" role="menuitem" onclick="osiV2OpenMyCases();closeWalletMenu();">My Cases</button>
         <button class="wb-mi" type="button" role="menuitem" data-endpoint="osi-v2-case-read:list_my_challenges" onclick="osiV2OpenMyChallenges();closeWalletMenu();">My Challenges</button>
         <button class="wb-mi" type="button" role="menuitem" data-action-contract="report" data-endpoint="osi-v2-report-read:list_my_reports" onclick="osiRunLiveAction('report');closeWalletMenu();">My Reports</button>
