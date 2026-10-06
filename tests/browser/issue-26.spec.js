@@ -2483,7 +2483,8 @@ test('canonical workspace navigation and support dialog preserve keyboard access
   await walletButton.focus();
   await walletButton.press('ArrowDown');
   await expect(walletButton).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByRole('menuitem', { name: 'My Cases' })).toBeFocused();
+  // ArrowDown lands on the first item of the wallet menu, the My OSI overview.
+  await expect(page.getByRole('menuitem', { name: 'My OSI overview' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(walletButton).toBeFocused();
 
@@ -3339,6 +3340,9 @@ test('Wire private fixture and revision form fit desktop and 390px', async ({ pa
     await expect(page.locator('#osi-wire-context')).toContainText('Next version 3');
     await expect(page.locator('#osi-wire-title')).toHaveValue('Wire fixture version 2');
     await expect(page.locator('#osi-wire-modal-copy')).toContainText('remain private');
+    // The sheet slides in over 0.18s; a rect read mid-transform carries float
+    // noise (390.00001px), so measure the settled layout.
+    await page.locator('#osi-wire-modal .fo-form').evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
     const box = await page.locator('#osi-wire-modal .fo-form').boundingBox();
     expect(box).not.toBeNull();
