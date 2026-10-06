@@ -8715,3 +8715,46 @@ body .osi-status.maintainer {
 #identity-view .identity-sas-row .identity-sas-slot .osi-chip.warning {
   color: var(--lamp-strong);
 }
+
+/* === Item-6 rec pass === */
+/* Public Records on a phone: the same facts in about four fifths of the
+ * height. Kind and reference share one line, the proof state and its event
+ * share one line, and the transaction, Copy and Verify share a row when they
+ * fit (a longer label wraps Verify to the next line, never over the code). The
+ * "In Case" link keeps a 44px touch target through padding that overlaps the
+ * lines around it instead of adding height. Nothing is hidden: the status
+ * chips, the bootstrap note and the full proof label stay visible. */
+@media (max-width: 760px) {
+  #records-hero .cr-card { gap: 10px !important; padding: 14px 14px 14px 16px !important; }
+  #records-hero .cr-card-main { gap: 6px; }
+  #records-hero .cr-card-head { gap: 6px 10px; }
+  #records-hero .cr-ident { gap: 4px 8px; }
+  #records-hero .cr-record-kind { font-size: 12.5px; }
+  #records-hero .cr-record-id { padding: 2px 6px !important; font-size: 11.5px !important; }
+  #records-hero .cr-status { padding: 3px 9px 3px 8px !important; font-size: 12px !important; }
+  #records-hero .cr-record-parent { gap: 0 6px; font-size: 13px !important; line-height: 1.4 !important; }
+  #records-hero .cr-parent-link { min-height: 0; padding: 11px 0; margin: -11px 0; }
+  #records-hero .cr-status-note { font-size: 13px; line-height: 1.45; }
+  #records-hero .cr-date { font-size: 12.5px !important; }
+  #records-hero .cr-card-side { gap: 10px; padding-top: 10px; }
+  #records-hero .cr-card-meta { gap: 8px !important; }
+  #records-hero .cr-meta-k { font-size: 12px !important; line-height: 1.3 !important; }
+  #records-hero .cr-meta-v { font-size: 13.5px !important; }
+  #records-hero .cr-card-proof { align-items: center; gap: 2px 8px !important; }
+  #records-hero .cr-proof-state { font-size: 13.5px !important; }
+  #records-hero .cr-proof-event { font-size: 13px; }
+  #records-hero .cr-proof-tx { flex-wrap: wrap; gap: 0 8px; min-width: 0; }
+  #records-hero .cr-proof-tx > span:first-child { flex: 0 0 auto; }
+  #records-hero .cr-proof-tx code { flex: 0 0 auto; font-size: 12px; overflow-wrap: normal; white-space: nowrap; }
+  #records-hero .cr-copy { flex: 0 0 auto; padding: 0 9px !important; font-size: 12.5px !important; }
+  #records-hero .cr-verify { flex: 0 0 auto; min-height: 44px; font-size: 13px; white-space: nowrap; }
+}
+/* Phones: Public Records, The Wire and the Analyst Network use the same 16px
+ * gutter as the Field Office and the Proof Log. They had 40 to 46px, which
+ * left a record card 310px wide on a 390px screen. */
+@media (max-width: 720px) {
+  #records-hero > .wrap,
+  #wire-view > .wrap,
+  #analysts > .lb-shell { width: auto !important; max-width: none !important; margin-inline: 0 !important; padding-inline: 16px !important; }
+}
+/* === end Item-6 rec pass === */

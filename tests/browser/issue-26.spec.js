@@ -4396,3 +4396,38 @@ test('a maintainer profile link opened before the Analyst Network still resolves
   expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(1);
   expectCleanRuntime(page);
 });
+
+// On a phone a record card keeps every fact (kind, reference, status, title,
+// summary, proof label, transaction, Copy, Verify and the open action) in a
+// compact card, and the page uses the same 16px gutter as the Field Office.
+test('Public Records cards stay compact on a phone without dropping a fact', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ready(page);
+  await page.evaluate(() => window.osiNavigate('records'));
+  await expect(page.locator('#case-records')).toContainText(CASE_REF);
+  const cards = page.locator('#case-records .cr-card');
+  const count = await cards.count();
+  expect(count).toBeGreaterThan(0);
+  for (let i = 0; i < count; i += 1) {
+    const card = cards.nth(i);
+    const box = await card.boundingBox();
+    expect(box.x).toBeLessThanOrEqual(17);
+    expect(box.width).toBeGreaterThanOrEqual(356);
+    expect(box.height).toBeLessThanOrEqual(520);
+    await expect(card.locator('.cr-record-kind')).toBeVisible();
+    await expect(card.locator('.cr-record-id')).toBeVisible();
+    await expect(card.locator('.cr-title')).toBeVisible();
+    await expect(card.locator('.cr-status').first()).toBeVisible();
+    await expect(card.locator('.cr-proof-state')).toBeVisible();
+    await expect(card.locator('.cr-actions .cr-btn')).toBeVisible();
+  }
+  const memoCard = page.locator(`[data-cid="${CASE_REF}"]`);
+  const tx = memoCard.locator('.cr-proof-tx');
+  const code = await tx.locator('code').boundingBox();
+  const copy = await tx.locator('.cr-copy').boundingBox();
+  // The transaction code and its Copy button never overlap.
+  expect(code.x + code.width).toBeLessThanOrEqual(copy.x + 0.5);
+  expect(copy.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  expectCleanRuntime(page);
+});
