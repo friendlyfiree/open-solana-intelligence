@@ -141,12 +141,15 @@ ok(walletWorkspace.includes("['My Cases','Private and public Cases authorized fo
   && walletWorkspace.includes("['My Reports','Exact immutable Report version history.',\"osiV2OpenMyReports()\"]")
   && walletWorkspace.includes("['Report Review Queue','Exact unpublished Report versions awaiting review.',\"osiV2OpenReportQueue()\"]"),
   'wallet and analyst cards route through the real V2 private-read functions');
-ok(walletWorkspace.includes("['Operations Center','Double-gated lifecycle and publication controls.',\"admOpen()\"]")
-  && walletWorkspace.includes("['Analyst Applications','Double-gated application review queue.',\"admOpen()\"]"),
-  'maintainer cards enter the double-gated native Operations surface');
-ok(walletWorkspace.includes('Profile and privacy settings require a dedicated server-authorized mutation')
+ok(walletWorkspace.includes("['Operations Center','Double-gated overview, flags, AI Pack and SAS status, and the analyst application queue.',\"admOpen()\"]")
+  && (walletWorkspace.match(/admOpen\(\)"\]/g) || []).length === 1,
+  'maintainer cards enter the double-gated native Operations surface, which holds the application queue, through one card');
+ok(walletWorkspace.includes('are edited in My Profile with one wallet message signature (wallet-signed and server-verified, not an on-chain transaction)')
+  && walletWorkspace.includes('onclick="osiV2OpenMyProfile()">Open My Profile</button>')
+  && !walletWorkspace.includes('Profile and privacy settings require a dedicated server-authorized mutation')
+  && !walletWorkspace.includes('<b>Not configured</b>')
   && !walletWorkspace.includes('Use the existing Profile view'),
-  'settings state truthfully reports the unavailable server-authorized mutation');
+  'settings state points to the live, signed My Profile write instead of claiming it is unavailable');
 ok(analyst.includes('permitted') === false || !analyst.includes('abstain_available:true'), 'UI never invents an abstain transition');
 ok(analyst.includes('Abstain is unavailable'), 'Operations Center explains the canonical abstain limitation');
 ok(analyst.includes('Standard publication uses independent analyst quorum; constitutionally limited cold-start outcomes are labelled maintainer bootstrap.')

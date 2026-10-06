@@ -1,6 +1,6 @@
 .osi-report-modal .fo-form{max-width:760px;padding:28px;background:var(--panel,#0f1722)}
 .osi-report-modal .fo-form-head{max-width:66ch;margin:0 0 24px}
-.osi-report-modal .fo-form-eyebrow{display:block;margin-bottom:8px;color:var(--cyan);font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.osi-report-modal .fo-form-eyebrow{display:block;margin-bottom:8px;color:var(--cyan);font:600 12px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase}
 .osi-report-modal .fo-form h2{margin:0 0 8px;font-size:26px;line-height:1.2}
 .osi-report-modal .fo-form p{margin:0;color:var(--muted);line-height:1.65}
 .osi-report-modal .fo-label{display:block;margin:18px 0 6px;color:var(--text);font-size:13px;font-weight:650}
@@ -8,7 +8,7 @@
 .osi-report-modal select{resize:none}
 .osi-report-modal textarea:focus-visible,.osi-report-modal select:focus-visible,.osi-report-modal input:focus-visible,.osi-report-modal button:focus-visible,.osi-report-action:focus-visible,.osi-report-card button:focus-visible,.osi-report-card summary:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .osi-report-modal .fo-hint{display:block;margin-top:6px;color:var(--muted);font-size:12px;line-height:1.55}
-.osi-report-context{display:flex;gap:10px;align-items:center;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(34,211,238,.04);color:var(--muted);font:500 12px/1.5 var(--mono)}
+.osi-report-context{display:flex;gap:10px;align-items:center;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(255,176,32,.04);color:var(--muted);font:500 12px/1.5 var(--font-sans)}
 .osi-report-evidence{margin:22px 0 0;padding:16px;border:1px solid var(--line);border-radius:10px}
 .osi-report-evidence legend{padding:0 7px;color:var(--text);font-size:13px;font-weight:700}
 .osi-report-safety{display:flex;align-items:flex-start;gap:10px;margin:20px 0;padding:14px;border:1px solid rgba(245,158,11,.3);border-radius:8px;background:rgba(245,158,11,.05);color:var(--text);font-size:12px;line-height:1.6}
@@ -22,15 +22,15 @@
 .osi-report-modal .fo-form-actions button{min-height:44px}
 .osi-report-action-row{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}
 .osi-report-action-copy{max-width:58ch;color:var(--muted);font-size:13px;line-height:1.6}
-.osi-report-action{flex:0 0 auto;min-height:42px;padding:0 16px;border:1px solid var(--cyan);border-radius:7px;background:rgba(34,211,238,.08);color:var(--cyan);font-weight:700;cursor:pointer}
+.osi-report-action{flex:0 0 auto;min-height:42px;padding:0 16px;border:1px solid var(--cyan);border-radius:7px;background:rgba(255,176,32,.08);color:var(--cyan);font-weight:700;cursor:pointer}
 .osi-report-action:disabled{border-color:var(--line);background:transparent;color:var(--muted);cursor:not-allowed}
 .osi-report-workspace{display:grid;gap:12px;width:100%}
 .osi-report-card{border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
 .osi-report-card-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:16px}
-.osi-report-card-kicker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:7px;color:var(--cyan);font:600 12px/1.4 var(--mono)}
+.osi-report-card-kicker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:7px;color:var(--cyan);font:600 12px/1.4 var(--font-sans)}
 .osi-report-card h3{margin:0 0 5px;font-size:17px}
 .osi-report-card-meta{color:var(--muted);font-size:12px;line-height:1.55}
-.osi-report-state{align-self:start;padding:5px 8px;border:1px solid rgba(245,158,11,.32);border-radius:99px;color:#f8c767;font:600 12px/1.3 var(--mono)}
+.osi-report-state{align-self:start;padding:5px 8px;border:1px solid rgba(245,158,11,.32);border-radius:99px;color:#f8c767;font:600 12px/1.3 var(--font-sans)}
 .osi-report-card details{border-top:1px solid var(--line)}
 .osi-report-card summary{min-height:44px;padding:13px 16px;color:var(--text);cursor:pointer;font-weight:650}
 .osi-report-version{padding:16px;border-top:1px solid var(--line)}
@@ -41,7 +41,7 @@
 .osi-report-proof{display:flex;flex-wrap:wrap;align-items:center;gap:9px;color:var(--muted);font-size:12px}
 .osi-report-proof a{color:var(--cyan);text-decoration:underline;text-underline-offset:3px}
 .osi-report-evidence-list{display:grid;gap:6px;margin-top:12px}
-.osi-report-evidence-item{display:grid;grid-template-columns:28px 90px minmax(0,1fr);gap:8px;color:var(--muted);font:500 12px/1.5 var(--mono)}
+.osi-report-evidence-item{display:grid;grid-template-columns:28px 90px minmax(0,1fr);gap:8px;color:var(--muted);font:500 12px/1.5 var(--font-sans)}
 .osi-report-evidence-item span:last-child{overflow-wrap:anywhere;color:var(--text)}
 .osi-report-empty{padding:32px 18px;text-align:center;color:var(--muted)}
 /* An empty queue often needs a reason, not just a count. Give the explanation
@@ -52,12 +52,12 @@
 .osi-report-public-card{padding:18px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 .osi-report-public-card .osi-list-item-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
 .osi-report-public-card .osi-list-item-head div{display:grid;gap:4px}
-.osi-report-public-card small{color:var(--muted);font:500 11px/1.5 var(--mono)}
+.osi-report-public-card small{color:var(--muted);font:500 12.5px/1.5 var(--font-sans)}
 /* The published finding is the reason this card exists, so it gets real
    reading typography and real paragraphs. `pre-wrap` is gone because the
    summary is now emitted as escaped <p> blocks rather than one raw string. */
 .osi-report-public-body{max-width:68ch;margin:16px 0 4px;color:var(--text);font-size:15px;line-height:1.75}
-.osi-report-public-body h4{margin-bottom:10px;color:var(--cyan);font:600 11px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.osi-report-public-body h4{margin-bottom:10px;color:var(--cyan);font:600 12.5px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase}
 .osi-report-public-body p+p{margin-top:12px}
 .osi-report-public-body[role="note"]{color:var(--muted);font-size:14px}
 .osi-report-public-body[role="note"] b{color:var(--text)}
@@ -69,12 +69,12 @@
 .osi-report-timeline h4,.osi-report-public-evidence h4,.osi-report-review-controls h4{margin:0;color:var(--text);font-size:14px}
 .osi-report-timeline-item,.osi-report-review-row{padding:12px;border-left:2px solid var(--line-bright);background:rgba(255,255,255,.015)}
 .osi-report-timeline-item>div,.osi-report-review-row>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
-.osi-report-timeline-item span,.osi-report-review-row span{color:var(--muted);font:500 11px/1.5 var(--mono)}
+.osi-report-timeline-item span,.osi-report-review-row span{color:var(--muted);font:500 12.5px/1.5 var(--font-sans)}
 .osi-report-timeline-item p,.osi-report-review-row p{margin:8px 0;color:var(--text);font-size:13px;line-height:1.65}
 .osi-report-timeline-item small,.osi-report-review-row small{color:var(--muted)}
 .osi-report-process-note{margin:16px 0 0;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.6}
 .osi-report-chain-link{display:inline-flex;align-items:center;min-height:40px;margin-top:14px;color:var(--cyan);text-decoration:underline;text-underline-offset:3px}
-.osi-report-publication-channel{display:grid;gap:5px;margin-top:12px;padding:10px 12px;border:1px solid var(--line-bright);border-radius:7px;background:rgba(34,211,238,.035);color:var(--muted);font-size:12px;line-height:1.55}
+.osi-report-publication-channel{display:grid;gap:5px;margin-top:12px;padding:10px 12px;border:1px solid var(--line-bright);border-radius:7px;background:rgba(255,176,32,.035);color:var(--muted);font-size:12px;line-height:1.55}
 .osi-report-publication-channel.bootstrap{border-color:rgba(155,123,255,.42);background:rgba(155,123,255,.07)}
 .osi-report-publication-channel b{color:var(--text)}
 .osi-report-publication-channel p{margin:0}
@@ -82,9 +82,9 @@
 .osi-report-projection>h4{margin:0;color:var(--text);font-size:14px}
 .osi-report-projection.restricted{padding-top:18px;border-top:1px solid var(--line-bright)}
 .osi-report-public-evidence{display:grid;gap:8px;margin-top:16px}
-.osi-report-public-evidence>div{display:grid;grid-template-columns:140px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font:500 12px/1.55 var(--mono)}
+.osi-report-public-evidence>div{display:grid;grid-template-columns:140px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font:500 12px/1.55 var(--font-sans)}
 .osi-report-public-evidence a{color:var(--cyan);overflow-wrap:anywhere}
-.osi-report-review-controls{margin:20px -16px -16px;padding:18px 16px;border-top:1px solid var(--line-bright);background:rgba(34,211,238,.025)}
+.osi-report-review-controls{margin:20px -16px -16px;padding:18px 16px;border-top:1px solid var(--line-bright);background:rgba(255,176,32,.025)}
 .osi-report-review-controls>p{margin:8px 0 14px;color:var(--muted);font-size:12px;line-height:1.6}
 .osi-report-review-controls form>label,.osi-report-review-grid label{display:grid;gap:6px;margin-top:12px;color:var(--text);font-size:12px;font-weight:650}
 .osi-report-review-controls label span{color:var(--muted);font-weight:400}
@@ -100,16 +100,16 @@
 .osi-report-card:focus-visible,.osi-report-version:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
 .osi-report-publish{min-height:42px;padding:0 16px;border:1px solid #9b7bff;border-radius:7px;background:rgba(155,123,255,.1);color:#c8b6ff;font-weight:700;cursor:pointer}
 .osi-report-publish:disabled{border-color:var(--line);background:transparent;color:var(--muted);cursor:not-allowed}
-.osi-report-recovery{display:grid;gap:10px;margin:0 -16px 16px;padding:16px;border:1px solid rgba(155,123,255,.44);border-radius:8px;background:linear-gradient(135deg,rgba(155,123,255,.1),rgba(34,211,238,.035))}
+.osi-report-recovery{display:grid;gap:10px;margin:0 -16px 16px;padding:16px;border:1px solid rgba(155,123,255,.44);border-radius:8px;background:linear-gradient(135deg,rgba(155,123,255,.1),rgba(255,176,32,.035))}
 .osi-report-recovery h4{margin:0;color:var(--text);font-size:14px}
 .osi-report-recovery>p,.osi-report-recovery small{max-width:70ch;margin:0;color:var(--muted);font-size:12px;line-height:1.65}
-.osi-report-recovery a{width:max-content;max-width:100%;color:var(--cyan);font:600 12px/1.5 var(--mono);overflow-wrap:anywhere;text-decoration:underline;text-underline-offset:3px}
+.osi-report-recovery a{width:max-content;max-width:100%;color:var(--cyan);font:600 12px/1.5 var(--font-sans);overflow-wrap:anywhere;text-decoration:underline;text-underline-offset:3px}
 .osi-report-recovery-error{padding:9px 10px;border:1px solid rgba(255,107,125,.35);border-radius:6px;background:rgba(255,107,125,.06);color:var(--red,#ff6b7d);font-size:12px;line-height:1.55}
 .osi-report-recovery-candidate{display:grid;gap:8px;padding:13px;border:1px solid var(--line-bright);border-radius:7px;background:rgba(7,12,20,.34)}
 .osi-report-recovery-candidate>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px}
-.osi-report-recovery-candidate span{color:var(--muted);font:500 11px/1.55 var(--mono)}
+.osi-report-recovery-candidate span{color:var(--muted);font:500 12.5px/1.55 var(--font-sans)}
 .osi-report-recovery-candidate label{color:var(--text);font-size:12px;font-weight:650}
-.osi-report-recovery-candidate input{width:100%;min-width:0;min-height:42px;border:1px solid var(--line-bright);border-radius:7px;background:var(--surface,#0b111b);color:var(--text);font:500 12px/1.5 var(--mono);padding:9px 10px}
+.osi-report-recovery-candidate input{width:100%;min-width:0;min-height:42px;border:1px solid var(--line-bright);border-radius:7px;background:var(--surface,#0b111b);color:var(--text);font:500 12px/1.5 var(--font-sans);padding:9px 10px}
 .osi-report-recovery-candidate input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .osi-report-recovery-actions{display:flex;flex-wrap:wrap;gap:10px}
 .osi-review-status{min-height:22px;margin-top:10px;color:var(--muted);font-size:12px;line-height:1.55}
@@ -151,14 +151,14 @@
 .osi-report-public-head{width:100%;min-height:44px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .osi-report-public-head:hover .osi-report-public-toggle,.osi-report-public-head:focus-visible .osi-report-public-toggle{border-color:var(--cyan);color:var(--cyan)}
 .osi-report-public-head:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
-.osi-report-public-toggle{align-self:center;flex:0 0 auto;padding:5px 10px;border:1px solid var(--line-bright);border-radius:20px;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;line-height:1.4}
+.osi-report-public-toggle{align-self:center;flex:0 0 auto;padding:5px 10px;border:1px solid var(--line-bright);border-radius:20px;color:var(--ink-dim);font-family:var(--font-sans);font-size:12.5px;font-weight:600;line-height:1.4}
 .osi-report-public-head[aria-expanded="true"] .osi-report-public-toggle{border-color:var(--cyan);color:var(--cyan)}
 .osi-report-public-detail{margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:9px;background:var(--bg-raised)}
 .osi-report-proof-detail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;margin:0}
 .osi-report-proof-detail>div{display:grid;gap:3px;min-width:0}
-.osi-report-proof-detail dt{color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;line-height:1.4;text-transform:uppercase;letter-spacing:.04em}
+.osi-report-proof-detail dt{color:var(--ink-dim);font-family:var(--font-sans);font-size:12.5px;font-weight:600;line-height:1.4;text-transform:uppercase;letter-spacing:.04em}
 .osi-report-proof-detail dd{margin:0;color:var(--ink);font-size:13px;line-height:1.55;overflow-wrap:anywhere}
-.osi-report-proof-sig{margin-top:12px;padding:9px 11px;border:1px solid var(--line);border-radius:7px;color:var(--ink-dim);font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+.osi-report-proof-sig{margin-top:12px;padding:9px 11px;border:1px solid var(--line);border-radius:7px;color:var(--ink-dim);font-size:12.5px;line-height:1.6;overflow-wrap:anywhere}
 @media(max-width:640px){
   .osi-report-proof-detail{grid-template-columns:1fr}
   .osi-report-public-head{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
@@ -184,7 +184,7 @@
 .osi-report-full{margin:18px 0 4px;border-top:1px solid var(--line);padding-top:14px}
 .osi-report-full>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:6px 0}
 .osi-report-full>summary::-webkit-details-marker{display:none}
-.osi-report-full>summary::before{content:"▾";font-size:11px;color:var(--ink-dim);transition:transform .15s ease}
+.osi-report-full>summary::before{content:"▾";font-size:12.5px;color:var(--ink-dim);transition:transform .15s ease}
 .osi-report-full:not([open])>summary::before{transform:rotate(-90deg)}
 .osi-report-full>summary b{font-size:13px;letter-spacing:.02em;text-transform:uppercase;color:var(--text)}
 .osi-report-full>summary small{color:var(--ink-dim);font-size:12px}
@@ -193,3 +193,60 @@
 .osi-report-full-body p{margin:0 0 14px}
 .osi-report-full-body p:last-child{margin-bottom:0}
 @media (prefers-reduced-motion:reduce){.osi-report-full>summary::before{transition:none}}
+
+/* Case drawer pass: the published Report reads as part of the drawer, one
+   surface deep, with sentence-case labels and lamp actions. */
+.osi-report-action-row h3{margin:0}
+.osi-report-action-row .osi-report-action-copy{margin:6px 0 0;font-size:13.5px}
+#osi-case-drawer .osi-report-action-row{display:block}
+.osi-report-action{border-radius:8px;min-height:44px;font-size:14px}
+#osi-case-drawer .osi-report-public-list{gap:0}
+#osi-case-drawer .osi-report-public-card{padding:20px 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}
+#osi-case-drawer .osi-report-public-card:first-child{border-top:0;padding-top:4px}
+.osi-report-public-body h4{color:var(--ink-dim);font:600 13px/1.4 var(--font-sans);letter-spacing:0;text-transform:none}
+.osi-report-full>summary b{letter-spacing:0;text-transform:none;font-size:14px}
+.osi-report-proof-detail dt{letter-spacing:0;text-transform:none;font-weight:500;color:var(--ink-faint)}
+.osi-report-proof-detail dd{font-size:13.5px}
+.osi-report-public-detail{border-radius:10px;margin:12px 0 4px}
+.osi-report-proof-sig{display:grid;gap:4px;border-radius:8px}
+.osi-report-proof-sig span{color:var(--ink-faint);font:500 12.5px/1.4 var(--font-sans)}
+.osi-report-proof-sig code{color:var(--ink);font-size:12.5px;overflow-wrap:anywhere}
+.osi-tech-code{display:inline-block;margin-left:4px;padding:0 6px;border:1px solid var(--line);border-radius:5px;color:var(--ink-faint);font:12px/1.6 var(--font-mono);overflow-wrap:anywhere}
+.osi-report-publication-channel{border-radius:10px;font-size:13px;background:rgba(245,240,232,.03)}
+.osi-report-publication-channel.bootstrap{border-color:var(--lamp-line);background:var(--lamp-soft)}
+.osi-report-publication-channel.bootstrap b{color:var(--lamp-strong)}
+.osi-report-publication-channel span{color:var(--ink-dim)}
+.osi-report-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-top:14px}
+.osi-report-actions .osi-report-chain-link{margin-top:0;color:var(--lamp);font-weight:600;text-decoration-color:var(--lamp-line)}
+.osi-report-public-toggle{border-radius:999px}
+.osi-report-timeline-item span{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px}
+.osi-report-timeline-item small{display:block;margin-top:4px;font-size:12.5px;line-height:1.5}
+.osi-report-loading{display:grid;gap:4px;margin-bottom:12px}
+.osi-report-loading b{font-size:15px;color:var(--ink)}
+.osi-report-loading span{font-size:14px;color:var(--ink-faint)}
+#osi-case-drawer .osi-report-projection>h4{font-size:15px}
+#osi-case-drawer .osi-report-process-note{font-size:13px}
+@media(max-width:600px){
+  .osi-report-actions{flex-direction:column;align-items:stretch}
+  .osi-report-actions .osi-report-chain-link{justify-content:flex-start}
+}
+.osi-report-public-evidence>.osi-ref-sections{display:grid;grid-template-columns:minmax(0,1fr);padding:0;border:0;font:inherit}
+/* Publication quorum: words in sans, numbers tabular, the met count in ink
+   rather than an accent, since a number is not an action. */
+#osi-case-drawer .osi-report-quorum span{display:inline-flex;align-items:center;gap:4px;min-height:32px;border-radius:999px;padding:4px 12px;color:var(--ink-dim);font:500 13px/1.4 var(--font-sans);font-variant-numeric:tabular-nums}
+#osi-case-drawer .osi-report-quorum b{color:var(--ink);font-weight:600}
+/* Reference on the left, its state and the proof toggle together on the
+   right, instead of the chip floating in the middle of the row. */
+#osi-case-drawer .osi-report-public-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px 12px}
+#osi-case-drawer .osi-report-publication-channel span,#osi-case-drawer .osi-report-publication-channel p{margin:0;font-size:13px;line-height:1.55;color:var(--ink-dim)}
+@media(max-width:600px){
+  #osi-case-drawer .osi-report-public-head{display:flex}
+  /* The state chip and the proof toggle share one row under the reference
+     instead of stacking as two separate lines. */
+  #osi-case-drawer .osi-report-public-head{flex-direction:row;flex-wrap:wrap;align-items:center}
+  #osi-case-drawer .osi-report-public-head>div{flex:1 1 100%}
+  #osi-case-drawer .osi-report-public-toggle{align-self:center}
+}
+/* Inside the drawer the proof detail is already the second surface, so the
+   transaction signature is a plain full-width row, not a third box. */
+#osi-case-drawer .osi-report-proof-sig{margin-top:12px;padding:12px 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}

@@ -139,7 +139,33 @@ function plMemo(ev){
     challenge_review_revised:{tag:'CHALLENGE_REVIEW_REVISED',title:'Challenge Review Revised',cls:'challenge'},
     challenge_accepted:{tag:'CHALLENGE_ACCEPTED',title:'Challenge Accepted',cls:'challenge'},
     challenge_rejected:{tag:'CHALLENGE_REJECTED',title:'Challenge Rejected',cls:'challenge'},
-    challenge_withdrawn:{tag:'CHALLENGE_WITHDRAWN',title:'Challenge Withdrawn',cls:'challenge'}
+    challenge_withdrawn:{tag:'CHALLENGE_WITHDRAWN',title:'Challenge Withdrawn',cls:'challenge'},
+    challenge_expired:{tag:'CHALLENGE_EXPIRED',title:'Challenge Expired',cls:'challenge'},
+    challenge_bad_faith_review_cast:{tag:'CHALLENGE_BAD_FAITH_REVIEW_CAST',title:'Bad-Faith Review Cast',cls:'challenge'},
+    challenge_bad_faith_review_revised:{tag:'CHALLENGE_BAD_FAITH_REVIEW_REVISED',title:'Bad-Faith Review Revised',cls:'challenge'},
+    challenge_bad_faith_confirmed:{tag:'CHALLENGE_BAD_FAITH_CONFIRMED',title:'Bad-Faith Finding Confirmed',cls:'challenge'},
+    challenge_bad_faith_dismissed:{tag:'CHALLENGE_BAD_FAITH_DISMISSED',title:'Bad-Faith Finding Dismissed',cls:'challenge'},
+    case_quorum_ready:{tag:'CASE_QUORUM_READY',title:'Resolution Selection Opened',cls:'case'},
+    case_halted:{tag:'CASE_HALTED',title:'Case Halted',cls:'case'},
+    case_safety_blocked:{tag:'CASE_SAFETY_BLOCKED',title:'Safety Block Applied',cls:'case'},
+    case_safety_lifted:{tag:'CASE_SAFETY_LIFTED',title:'Safety Block Lifted',cls:'case'},
+    owner_status_proof:{tag:'OWNER_STATUS_PROOF',title:'Owner Status Proof',cls:'case'},
+    reward_pledged:{tag:'REWARD_PLEDGED',title:'Reward Pledged',cls:'support'},
+    reward_assigned:{tag:'REWARD_ASSIGNED',title:'Reward Assigned',cls:'support'},
+    reward_paid:{tag:'REWARD_PAID',title:'Reward Paid',cls:'support'},
+    support_sent:{tag:'SUPPORT_SENT',title:'Support Sent',cls:'support'},
+    analyst_candidate:{tag:'ANALYST_CANDIDATE',title:'Analyst Candidate',cls:'other'},
+    wallet_profile_updated:{tag:'WALLET_PROFILE_UPDATED',title:'Wallet Profile Updated',cls:'other'},
+    config_changed:{tag:'CONFIG_CHANGED',title:'Configuration Changed',cls:'other'},
+    pack_submitted:{tag:'PACK_SUBMITTED',title:'AI Pack Submitted',cls:'other'},
+    pack_attached:{tag:'PACK_ATTACHED',title:'AI Pack Attached',cls:'other'},
+    pack_superseded:{tag:'PACK_SUPERSEDED',title:'AI Pack Superseded',cls:'other'},
+    pack_stale:{tag:'PACK_STALE',title:'AI Pack Marked Stale',cls:'other'},
+    ai_pack_review_cast:{tag:'AI_PACK_REVIEW_CAST',title:'AI Pack Review Cast',cls:'review'},
+    ai_pack_review_revised:{tag:'AI_PACK_REVIEW_REVISED',title:'AI Pack Review Revised',cls:'review'},
+    ai_pack_approved:{tag:'AI_PACK_APPROVED',title:'AI Pack Approved',cls:'review'},
+    ai_pack_rejected:{tag:'AI_PACK_REJECTED',title:'AI Pack Rejected',cls:'review'},
+    ai_pack_owner_feedback_submitted:{tag:'AI_PACK_OWNER_FEEDBACK_SUBMITTED',title:'AI Pack Owner Feedback',cls:'other'}
   };
   var eventType=String(ev&&ev.event_type||'').toLowerCase();
   if(exact[eventType]) return exact[eventType];
@@ -153,9 +179,13 @@ function plMemo(ev){
     other:     { title:'Signed Action',    cls:'other' }
   };
   var fallback=map[plGroup(ev)] || map.other;
+  // An event type this list does not name keeps its own name as the title.
+  // Borrowing the group title made an unrelated receipt read as, for
+  // example, a second "Case Opened".
+  var humanTitle=eventType?eventType.split('_').map(function(word){return word.charAt(0).toUpperCase()+word.slice(1);}).join(' '):'';
   return {
     tag:eventType ? eventType.toUpperCase() : 'SIGNED_ACTION',
-    title:fallback.title,
+    title:humanTitle||fallback.title,
     cls:fallback.cls
   };
 }
@@ -165,7 +195,9 @@ function plCleanLabel(ev){
   // said the same thing twice, so the recorded decision is used instead.
   if(ev && ev.proof_source === 'native_public_dto'){
     var decision = String(ev.decision || '').trim();
-    return decision ? ('Decision: ' + decision.replace(/_/g,' ')) : '';
+    // Known decisions have their own translated key; any other decision
+    // keeps the recorded English word rather than an invented label.
+    return decision ? plT('Decision: ' + decision.replace(/_/g,' ')) : '';
   }
   var label = String((ev && ev.label) || '').trim();
   if(!label) return '';
@@ -206,9 +238,13 @@ function plSasSlot(ev){
 }
 function plJsString(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\r?\n/g,' '); }
 function plShortSig(sig){ sig=String(sig||''); return sig ? (sig.slice(0,5)+'...'+sig.slice(-5)) : ''; }
+function plLocale(){
+  var locale=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():'en';
+  return String(locale||'en').toLowerCase().indexOf('tr')===0?'tr-TR':'en-US';
+}
 function plFullDate(ts){
   var t = new Date(ts||''); if(isNaN(t.getTime())) return '';
-  var d = t.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+  var d = t.toLocaleDateString(plLocale(),{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
   var tm = t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'});
   return d+' '+tm+' UTC';
 }
@@ -322,13 +358,16 @@ function plTimelineCard(ev){
   var sig=proof.tx_sig||proof.legacy_tx_sig||'';
   var wallet = ev.actor_wallet ? String(ev.actor_wallet) : '';
   var walletCell = wallet
-    ? '<span class="plc-wallet-id" title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet address" aria-label="Copy wallet address '+escapeHtml(raShortW(wallet))+'" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">copy</button>'+plSasSlot(ev)
+    ? '<span class="plc-wallet-id" title="'+escapeHtml(wallet)+'">'+escapeHtml(raShortW(wallet))+'</span><button class="plc-copy" type="button" title="Copy wallet address" aria-label="'+escapeHtml(plT('Copy wallet address {short}',{short:raShortW(wallet)}))+'" onclick="plCopyProofValue(\''+plJsString(wallet)+'\',\'Wallet\')">Copy</button>'+plSasSlot(ev)
     : '<span>Wallet unavailable</span>';
   var label = plCleanLabel(ev);
   var when = plFullDate(ev.created_at);
-  var ago = plAgo(ev.created_at);
+  // Past a month the relative helper falls back to a short date, which only
+  // repeated the full date printed beneath it.
+  var age = Date.now() - new Date(ev.created_at||'').getTime();
+  var ago = age >= 0 && age < 30*86400000 ? plAgo(ev.created_at) : '';
   var txHtml = sig
-    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy transaction signature" aria-label="Copy transaction signature '+escapeHtml(plShortSig(sig))+'" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
+    ? '<div class="plc-tx-row"><code class="mono" title="'+escapeHtml(sig)+'">Tx '+escapeHtml(plShortSig(sig))+'</code><button class="plc-copy" type="button" title="Copy transaction signature" aria-label="'+escapeHtml(plT('Copy transaction signature {signature}',{signature:plShortSig(sig)}))+'" onclick="plCopyProofValue(\''+plJsString(sig)+'\',\'Transaction signature\')">Copy</button><a class="plc-verify" href="'+solscanTx(sig)+'" target="_blank" rel="noopener">'+(proof.onchain?'Verify on Solana':'Inspect transaction')+'</a></div>'
     : '<span class="plc-no-tx">No transaction link</span>';
   return '<div class="plc type-'+m.cls+'" data-g="'+plGroup(ev)+'">'
     + '<span class="plc-dot" aria-hidden="true"></span>'
@@ -336,17 +375,32 @@ function plTimelineCard(ev){
       + '<div class="plc-head">'
         + '<div><span class="plc-badge">'+escapeHtml(m.tag)+'</span></div>'
         + '<div><div class="plc-title">'+m.title+plChannelChip(ev)+'</div><div class="plc-ref">'+(label?(escapeHtml(label)+' - '):'')+plReferenceHtml(ev)+'</div></div>'
-        + '<div class="plc-time">'+(ago?escapeHtml(ago):'Timestamp unavailable')+(when?('<br>'+escapeHtml(when)):'')+'</div>'
+        + '<div class="plc-time">'+(ago?escapeHtml(ago)+(when?'<br>':''):'')+(when?escapeHtml(when):(ago?'':'Timestamp unavailable'))+'</div>'
       + '</div>'
-      + '<div class="plc-grid">'
+      + '<div class="plc-grid" data-osi-i18n-ui>'
         + '<div><div class="plc-meta-k">Wallet</div><div class="plc-meta-v">'+walletCell+'</div></div>'
         + '<div><div class="plc-meta-k">Wallet role</div><div class="plc-meta-v">'+escapeHtml(plSignerRole(ev))+'</div></div>'
         + plWeightCell(ev)
-        + '<div><div class="plc-meta-k">Proof status</div><div class="plc-meta-v '+(proof.key!=='legacy'?'ok':'')+'">'+escapeHtml(proof.label)+'</div></div>'
+        + '<div><div class="plc-meta-k">Proof status</div><div class="plc-meta-v '+(proof.onchain?'ok':(proof.key==='wallet'?'signed':''))+'">'+escapeHtml(proof.label)+'</div></div>'
         + '<div class="plc-action"><div class="plc-meta-k">Transaction</div>'+txHtml+'</div>'
       + '</div>'
     + '</div>'
   + '</div>';
+}
+function plStatIcon(name){
+  var paths={
+    archive:'<path d="M3 7h18v4H3z"/><path d="M5 11v8h14v-8"/><path d="M10 15h4"/>',
+    review:'<path d="M20 6 9 17l-5-5"/>',
+    memo:'<circle cx="12" cy="5" r="2"/><path d="M12 7v14"/><path d="M5 13a7 7 0 0 0 14 0"/><path d="M8 11h8"/>',
+    challenge:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+    network:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+    all:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
+    signature:'<path d="M4 20h4L18 10l-4-4L4 16z"/><path d="m13 7 4 4"/>',
+    transfer:'<path d="M7 7h12l-3-3"/><path d="M17 17H5l3 3"/>',
+    system:'<rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><path d="M8 7.5h.01"/><path d="M8 16.5h.01"/>',
+    legacy:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  };
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+(paths[name]||'')+'</svg>';
 }
 function plDashRender(){
   var host=document.getElementById('pl-dash'); if(!host) return;
@@ -362,13 +416,13 @@ function plDashRender(){
   var proofs=evs.map(plProofState);
   function proofCount(key){ return proofs.filter(function(proof){ return proof.key===key; }).length; }
   host.innerHTML =
-      stat('signed','ALL','Proof Events',val(total),'Explicitly classified receipts')
-    + stat('review','SIG','Wallet verified',val(proofCount('wallet')),'Server-verified, not on-chain')
-    + stat('memo','MEM','Memo anchored',val(proofCount('memo')),'Confirmed Solana Memo receipts')
-    + stat('seal','SOL','SOL transfers',val(proofCount('transfer')),'Memo and transfers verified')
-    + stat('case','SYS','System events',val(proofCount('system')),'Server-originated process events')
-    + stat('challenge','LEG','Legacy / unverified',val(proofCount('legacy')),'No native verification claim')
-    + stat('net','SOL','Network','Solana','Mainnet');
+      stat('signed',plStatIcon('all'),'Proof events',val(total),'Explicitly classified receipts')
+    + stat('review',plStatIcon('signature'),'Wallet verified',val(proofCount('wallet')),'Server-verified, not on-chain')
+    + stat('memo',plStatIcon('memo'),'Memo anchored',val(proofCount('memo')),'Confirmed Solana Memo receipts')
+    + stat('seal',plStatIcon('transfer'),'SOL transfers',val(proofCount('transfer')),'Confirmed wallet-to-wallet transfers')
+    + stat('case',plStatIcon('system'),'System events',val(proofCount('system')),'Server-originated process events')
+    + stat('challenge',plStatIcon('legacy'),'Legacy / unverified',val(proofCount('legacy')),'No native verification claim')
+    + stat('net',plStatIcon('network'),'Network','Mainnet','Solana mainnet-beta');
 }
 function plSchemaRender(){
   var host=document.getElementById('pl-schema'); if(!host) return;
@@ -743,21 +797,41 @@ let SOL_PRICE = 0;
 
 // fetch live balances for a card's wallets via Solana RPC
 
-// live SOL price for the USD stat
-async function loadPrice(){
-  try{
-    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana,bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true');
-    const j = await r.json();
-    SOL_PRICE = j.solana.usd;
-    const sp=document.getElementById('s-price'); if(sp) sp.textContent = `at $${SOL_PRICE.toLocaleString()} / SOL`;
-    if(window.__declared){ const su=document.getElementById('s-usd'); if(su) su.textContent = '$'+fmt(window.__declared*SOL_PRICE); }
-    setTk('sol', j.solana.usd, j.solana.usd_24h_change);
-    if(j.bitcoin)  setTk('btc', j.bitcoin.usd,  j.bitcoin.usd_24h_change);
-    if(j.ethereum) setTk('eth', j.ethereum.usd, j.ethereum.usd_24h_change);
-  }catch(e){
-    const su=document.getElementById('s-usd'); if(su) su.textContent='-';
-    const sp=document.getElementById('s-price'); if(sp) sp.textContent='price unavailable';
-  }
+// Live SOL price. It feeds one optional line: the approximate USD value in the
+// legacy support dialog (legacy.html). It used to be fetched on every page
+// load, where the free CoinGecko API often answers 429 and printed a console
+// error on every surface for a figure no V2 page shows. Now it is fetched only
+// when that dialog opens: one request at a time, reused for five minutes, and
+// after a failure not asked again for a minute. A failure leaves the line empty.
+var SOL_PRICE_TTL_MS = 5 * 60 * 1000;
+var SOL_PRICE_RETRY_MS = 60 * 1000;
+var solPriceAt = 0, solPriceFailedAt = 0, solPriceInflight = null;
+function loadPrice(){
+  var now = Date.now();
+  if(SOL_PRICE && now - solPriceAt < SOL_PRICE_TTL_MS) return Promise.resolve(SOL_PRICE);
+  if(solPriceInflight) return solPriceInflight;
+  if(solPriceFailedAt && now - solPriceFailedAt < SOL_PRICE_RETRY_MS) return Promise.resolve(SOL_PRICE);
+  solPriceInflight = (async function(){
+    try{
+      const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana,bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true');
+      if(!r.ok) throw new Error('price_http_'+r.status);
+      const j = await r.json();
+      if(!j || !j.solana || !(Number(j.solana.usd) > 0)) throw new Error('price_unavailable');
+      SOL_PRICE = Number(j.solana.usd);
+      solPriceAt = Date.now(); solPriceFailedAt = 0;
+      const sp=document.getElementById('s-price'); if(sp) sp.textContent = `at $${SOL_PRICE.toLocaleString()} / SOL`;
+      if(window.__declared){ const su=document.getElementById('s-usd'); if(su) su.textContent = '$'+fmt(window.__declared*SOL_PRICE); }
+      setTk('sol', j.solana.usd, j.solana.usd_24h_change);
+      if(j.bitcoin)  setTk('btc', j.bitcoin.usd,  j.bitcoin.usd_24h_change);
+      if(j.ethereum) setTk('eth', j.ethereum.usd, j.ethereum.usd_24h_change);
+    }catch(e){
+      solPriceFailedAt = Date.now();
+      const su=document.getElementById('s-usd'); if(su) su.textContent='-';
+      const sp=document.getElementById('s-price'); if(sp) sp.textContent='price unavailable';
+    }
+    return SOL_PRICE;
+  })().finally(function(){ solPriceInflight = null; });
+  return solPriceInflight;
 }
 
 // ===== WSJ-style ticker (all tabs): live SOL/BTC/ETH + declared treasury holdings =====
@@ -794,10 +868,10 @@ function setTk(cls, price, chg){
 function raTimeAgo(ts){
   if(!ts) return '';
   const diff=Date.now()-new Date(ts).getTime(); const m=Math.floor(diff/60000);
-  if(m<1) return 'just now'; if(m<60) return m+'m ago';
-  const h=Math.floor(m/60); if(h<24) return h+'h ago';
-  const d=Math.floor(h/24); if(d<30) return d+'d ago';
-  try{ return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return ''; }
+  if(m<1) return plT('just now'); if(m<60) return plT('{count}m ago',{count:m});
+  const h=Math.floor(m/60); if(h<24) return plT('{count}h ago',{count:h});
+  const d=Math.floor(h/24); if(d<30) return plT('{count}d ago',{count:d});
+  try{ return new Date(ts).toLocaleDateString(plLocale(),{month:'short',day:'numeric',timeZone:'UTC'}); }catch(e){ return ''; }
 }
 function raItem(kind, title, sub, ts){
   const ic = kind==='rep' ? '<span class="ra-ic rep">\u25a4</span>'
@@ -831,3 +905,6 @@ async function renderActivity(){
     host.innerHTML='<div class="ra-feed">'+signed+live+raCaseSeed('Case file:')+'</div>';
   }catch(e){ /* keep the seed view on failure */ }
 }
+// Dates, relative times and recorded decisions are composed in script, so a
+// language switch repaints the already loaded receipts instead of refetching.
+if(typeof window.addEventListener==='function') window.addEventListener('osi:localechange',function(){ if(document.getElementById('pl-body')&&window.__plEvents) try{ plPaint(); }catch(e){} });

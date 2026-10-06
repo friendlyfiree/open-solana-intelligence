@@ -48,7 +48,7 @@ vm.createContext(wireContext);
 vm.runInContext(wireSource, wireContext);
 
 const firstRender = wireContext.renderWire();
-ok('The Wire exposes an explicit loading state before its source resolves', wireHost.innerHTML.includes('Opening the live wire'));
+ok('The Wire exposes an explicit loading state before its source resolves', wireHost.innerHTML.includes('Loading published Wire Reports') && wireHost.innerHTML.includes('role="status"'));
 releaseRows([]);
 await firstRender;
 ok('an available source with zero rows renders a genuine public empty state without leaking private intake', wireHost.innerHTML.includes('The wire is quiet') && wireHost.innerHTML.includes('Unpublished submissions remain private') && !wireHost.innerHTML.includes('wireOpenForm'));
@@ -76,6 +76,10 @@ ok('Wire interest uses the dedicated stateful action hook', unattributed.include
 const governed = vm.runInContext("wireCard({id:'OSI-WV-A1B2C3D4E5F60718',version_public_ref:'OSI-WV-A1B2C3D4E5F60718',subject:'Reviewed finding',body:'Public-safe governed summary',author:'11111111111111111111111111111112',native:true,contested_at:'2026-07-18T12:00:00Z'})", wireContext);
 ok('governed Wire cards show real lifecycle state instead of a dormant interest count', governed.includes('Challenge upheld') && !governed.includes('interest signals'));
 
+const hostileWire = vm.runInContext("wireCard({id:'OSI-WV-A1B2C3D4E5F60719',version_public_ref:'OSI-WV-A1B2C3D4E5F60719',subject:'\\\"><img src=x onerror=alert(1)>',body:'<script>alert(1)</script>',author:'11111111111111111111111111111112',author_handle:'<b>x</b>',native:true,publication_channel:'maintainer_bootstrap',created_at:'2026-07-18T12:00:00Z'})", wireContext);
+ok('Wire cards escape hostile titles, summaries and handles and mark them as user content',
+  !hostileWire.includes('<img') && !hostileWire.includes('<script>') && !hostileWire.includes('<b>x</b>')
+    && hostileWire.includes('data-osi-user-content') && hostileWire.includes('Maintainer bootstrap'));
 const supportSource = readFileSync(new URL('../assets/js/70-support-transfer.js', import.meta.url), 'utf8');
 const saved = {};
 let providerCalls = 0;

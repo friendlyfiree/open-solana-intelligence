@@ -26,6 +26,20 @@
     'MEMO_ANCHORED',
     'SOL_TRANSFER_VERIFIED'
   ];
+  // The panel is an explanatory example, so it shows readable labels that
+  // carry their own condition instead of raw codes that read as live proof.
+  var SIGNAL_LABELS = {
+    WALLET_SIGNED: 'Wallet-signed and server-verified',
+    REVIEW_QUORUM: 'Independent review quorum reached',
+    CHALLENGE_WINDOW: 'Seven-day challenge window open',
+    MEMO_ANCHORED: 'Memo-anchored, only after the transaction confirms',
+    SOL_TRANSFER_VERIFIED: 'SOL transfer, only after RPC verification'
+  };
+  function signalLabel(index) {
+    var key = SIGNAL_STATES[index];
+    var text = SIGNAL_LABELS[key] || key;
+    return typeof window.osiT === 'function' ? window.osiT(text) : text;
+  }
 
   function paintPointer() {
     frame = 0;
@@ -58,29 +72,35 @@
     signalTimer = 0;
   }
 
+  // One pass through the example, then rest on the first step: a calm,
+  // single orchestrated moment rather than a loop for the whole visit.
+  var signalPlayed = false;
   function advanceSignalSequence() {
     stopSignalSequence();
     if (!signalText || reduceMotion.matches || document.hidden) return;
     signalIndex = (signalIndex + 1) % SIGNAL_STATES.length;
     signalText.classList.remove('is-changing');
     window.requestAnimationFrame(function () {
-      signalText.textContent = SIGNAL_STATES[signalIndex];
+      signalText.textContent = signalLabel(signalIndex);
       signalText.classList.add('is-changing');
     });
+    if (signalIndex === 0) { signalPlayed = true; return; }
     signalTimer = window.setTimeout(advanceSignalSequence, SIGNAL_TIMING.step);
   }
 
   function syncSignalSequence() {
     stopSignalSequence();
     if (!signalText) return;
-    if (reduceMotion.matches) {
+    if (reduceMotion.matches || signalPlayed) {
       signalIndex = 0;
-      signalText.textContent = SIGNAL_STATES[0];
+      signalText.textContent = signalLabel(0);
       signalText.classList.remove('is-changing');
       return;
     }
+    signalText.textContent = signalLabel(signalIndex);
     signalTimer = window.setTimeout(advanceSignalSequence, SIGNAL_TIMING.step);
   }
+  window.addEventListener('osi:localechange', function () { if (signalText) signalText.textContent = signalLabel(signalIndex); });
 
   function revealSections() {
     var sections = Array.prototype.slice.call(document.querySelectorAll('[data-signal-reveal]'));

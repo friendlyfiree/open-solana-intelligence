@@ -82,6 +82,20 @@ const secondCase = {
   proof_log: [],
 };
 
+// Production has two open public Cases titled "Forward Industries". This
+// variant keeps the second Case's own ref and date but gives it that same
+// title, spaced and cased differently, as the registry may hold it.
+const sameTitleSecondCase = {
+  ...secondCase,
+  title: '  forward   INDUSTRIES ',
+  created_at: '2026-07-26T08:00:00+00:00',
+};
+const hostileTwin = {
+  ...secondCase,
+  public_ref: 'OSI-0000000000AA',
+  created_at: '2026-07-20T08:00:00+00:00',
+};
+
 const publishedReport = {
   report_public_ref: REPORT_REF,
   version_public_ref: VERSION_REF,
@@ -100,6 +114,79 @@ const publishedReport = {
   },
   published_at: '2026-08-01T09:02:46+00:00',
   process_notice: 'Publication records a reviewed OSI process outcome. It is not proof of truth, guilt, legal certainty, recovery, custody, or guaranteed payment.',
+};
+
+// Hostile server text for the drawer's rendering paths. Every field a drawer
+// tab prints, as text or inside an attribute, carries markup or a script URL.
+// The record is reachable only by its reference, never listed.
+const HOSTILE_REF = 'OSI-BADBADBAD001';
+const HOSTILE_VERSION_REF = 'OSI-RV-BADBADBADBAD0001';
+const XSS = '<img src=x onerror="window.__osiXss=1">';
+const XSS_ATTR = '"><svg onload="window.__osiXss=2"></svg>';
+const XSS_URL = 'javascript:window.__osiXss=3';
+const hostileProof = {
+  label: XSS, event_type: XSS_ATTR, public_ref: XSS, actor_wallet: XSS_ATTR, actor_role: XSS,
+  decision: XSS, weight: null, occurred_at: XSS, decision_channel: 'maintainer_bootstrap',
+  decision_channel_label: XSS, tx_sig: XSS_ATTR, solscan_url: XSS_URL, memo: XSS,
+};
+const hostileCase = {
+  ...publicCase,
+  public_ref: HOSTILE_REF,
+  title: XSS,
+  summary: XSS_ATTR,
+  category: XSS,
+  stage: 'sealed',
+  sealed_at: XSS,
+  reports: [],
+  evidence: [],
+  evidence_sections: {
+    wallets: [{ kind: 'wallet', ref: XSS_ATTR, network: XSS, sha256: XSS, link_url: XSS_URL }],
+    transactions: [], links: [{ kind: 'url', ref: XSS, link_url: XSS_URL }], other: [], networks: [XSS],
+  },
+  reviews: [{
+    reviewer_wallet: XSS_ATTR, decision: XSS, reviewer_role: XSS, weight: XSS, is_active: true,
+    created_at: '2026-07-29T13:07:51+00:00', proof_label: XSS, reason_code: XSS_ATTR,
+    sas_authority: { enforced: true, counted: false, state: XSS },
+  }],
+  governance: {
+    resolution: {
+      public_ref: XSS, state: 'sealed', decision_channel: 'maintainer_bootstrap', decision_channel_label: XSS,
+      winning_report_version_ref: XSS_ATTR, challenge_window_opens_at: XSS, challenge_window_closes_at: XSS, sealed_at: XSS,
+      selection_quorum: { leader_count: 0, leader_weight: 0, required_count: 2, required_weight: 2.5 },
+      final_proof: hostileProof, seal_proof: { ...hostileProof, solscan_url: `https://solscan.io/tx/${OPEN_TX}` },
+      reviews: [{ phase: 'selection', reviewer_wallet: XSS_ATTR, reviewer_role: XSS, decision: XSS, weight: 1,
+        target_version_ref: XSS_ATTR, created_at: XSS, public_rationale: XSS, proof_label: XSS,
+        sas_authority: { enforced: true, counted: true, state: 'verified' } }],
+    },
+    challenges: [{ public_ref: XSS_ATTR, state: XSS, blocking: false, public_safe_summary: XSS,
+      admissibility_deadline_at: XSS, review_deadline_at: XSS, reviews: [], outcome_quorum: {}, challenger_wallet: XSS }],
+  },
+  money: {
+    reward: { state: 'pledged', status: XSS, amount_lamports: '1000', confirmed_lamports: '0', outstanding_lamports: '1000',
+      winning_report_author_wallet: XSS_ATTR, winning_report_version_ref: XSS_ATTR,
+      payments: [{ amount_lamports: '5', state: XSS, confirmed_at: XSS, solscan_url: XSS_URL }] },
+    support_options: [{ target_type: XSS_ATTR, target_ref: XSS_ATTR, wallet: XSS_ATTR, label: XSS }],
+    confirmed_support: [{ support_type: 'report_author', amount_lamports: '5', state: 'confirmed', confirmed_at: XSS, solscan_url: XSS_URL }],
+  },
+  proof_log: [
+    hostileProof,
+    { ...hostileProof, actor_wallet: '', decision: null, label: 'SOL transfer verified on Solana',
+      payment_proof: { payer_wallet: XSS_ATTR, total_lamports: XSS, target_public_ref: XSS, finality: XSS, slot: XSS,
+        block_time: XSS, memo_verified: true, transfers_verified: true,
+        recipient_manifest: [{ wallet: XSS_ATTR, amount_lamports: XSS, recipient_type: XSS }] } },
+  ],
+};
+const hostileReport = {
+  report_public_ref: XSS_ATTR, version_public_ref: HOSTILE_VERSION_REF, version_no: XSS, state: 'published',
+  content_public_safe: XSS, public_body: XSS_ATTR,
+  evidence: [{ kind: 'url', ref: XSS, ordinal: XSS, link_url: XSS_URL }],
+  quorum: { approve_count: XSS, approve_weight: 0, required_count: XSS, required_weight: 2 },
+  review_timeline: [{ reviewer_wallet: XSS_ATTR, reviewer_handle: XSS, reviewer_display_name: XSS, decision: XSS, weight: 1,
+    tier_snapshot: XSS, public_rationale: XSS, actor_role: XSS, proof_type: XSS, created_at: XSS, is_active: true,
+    sas_authority: { enforced: true, counted: false, state: XSS } }],
+  publication_proof: { event_type: XSS_ATTR, actor_wallet: XSS_ATTR, actor_role: XSS, proof_type: XSS, server_verified: true,
+    tx_sig: XSS_ATTR, occurred_at: XSS, decision_channel: 'maintainer_bootstrap', decision_channel_label: XSS },
+  published_at: XSS, process_notice: XSS,
 };
 
 // Install a fixture backend. `options.wallet` decides whether a Phantom-like
@@ -178,10 +265,16 @@ async function installFixture(page, options = {}) {
     let payload = { ok: true };
 
     if (endpoint === 'osi-v2-case-read') {
-      if (body.op === 'list_public_cases') payload = { ok: true, cases: [publicCase, secondCase] };
+      const listed = options.sameTitle
+        ? [publicCase, sameTitleSecondCase]
+        : options.hostileTwin ? [hostileCase, { ...hostileTwin, title: hostileCase.title }] : [publicCase, secondCase];
+      if (body.op === 'list_public_cases') {
+        if (options.publicListDelayMs) await new Promise((resolve) => setTimeout(resolve, options.publicListDelayMs));
+        payload = { ok: true, cases: listed };
+      }
       else if (body.op === 'get_public_case') {
         if (publicCaseDelayMs) await new Promise((resolve) => setTimeout(resolve, publicCaseDelayMs));
-        const match = [publicCase, secondCase].find((item) => item.public_ref === body.public_ref);
+        const match = listed.concat([hostileCase]).find((item) => item.public_ref === body.public_ref);
         if (match) payload = { ok: true, case: match };
         else { status = 404; payload = { ok: false, error: 'not_found_or_private' }; }
       } else { status = 401; payload = { ok: false, error: 'wallet_not_connected' }; }
@@ -191,7 +284,9 @@ async function installFixture(page, options = {}) {
         // carries a restricted body field.
         payload = body.case_ref === CASE_REF
           ? { ok: true, case_public_ref: CASE_REF, reports: [publishedReport] }
-          : { ok: true, case_public_ref: body.case_ref, reports: [] };
+          : body.case_ref === HOSTILE_REF
+            ? { ok: true, case_public_ref: HOSTILE_REF, reports: [hostileReport] }
+            : { ok: true, case_public_ref: body.case_ref, reports: [] };
       } else { status = 401; payload = { ok: false, error: 'wallet_not_connected' }; }
     } else if (endpoint === 'osi-v2-report-write' && body.op === 'capabilities') {
       payload = { ok: true, report_writes_enabled: false, case_eligible: false, prerequisite: 'Connect a wallet to submit a Report.' };
@@ -432,6 +527,45 @@ test.describe('public projection privacy', () => {
   });
 });
 
+test.describe('hostile server text', () => {
+  test('every drawer tab renders hostile server text as text and never as markup or a script link', async ({ page }) => {
+    await boot(page, { wallet: 'none' });
+    await page.evaluate((ref) => window.osiV2OpenCase(ref), HOSTILE_REF);
+    await expect(page.locator('#osi-case-ref')).toHaveText(HOSTILE_REF);
+    // The title is user content and arrives as literal characters.
+    await expect(page.locator('#osi-case-title')).toHaveText(XSS);
+    const tabs = await page.locator('#osi-case-tabs [data-tab]').evaluateAll((nodes) => nodes.map((node) => node.dataset.tab));
+    expect(tabs).toEqual(expect.arrayContaining(['overview', 'reviews', 'evidence', 'reports', 'resolution', 'challenges', 'reward', 'proof']));
+    for (const tab of tabs) {
+      await page.locator(`#osi-case-tabs [data-tab="${tab}"]`).click();
+      if (tab === 'reports') {
+        await expect(page.locator(`[data-report-version-public-ref="${HOSTILE_VERSION_REF}"]`)).toBeVisible();
+        await page.locator(`[data-report-detail-toggle="${HOSTILE_VERSION_REF}"]`).click();
+      }
+      const audit = await page.evaluate(() => {
+        const root = document.getElementById('osi-case-drawer');
+        return {
+          handlers: root.querySelectorAll('[onerror],[onload]').length,
+          images: root.querySelectorAll('img[src="x"]').length,
+          scriptLinks: Array.from(root.querySelectorAll('a[href]')).filter((node) => !/^https:\/\//.test(node.getAttribute('href'))).map((node) => node.getAttribute('href')),
+          fired: window.__osiXss || null,
+        };
+      });
+      expect(audit, tab).toEqual({ handlers: 0, images: 0, scriptLinks: [], fired: null });
+    }
+    // The resolution still names the maintainer bootstrap channel and keeps
+    // the one validated Solscan link while dropping the script URL.
+    await page.locator('#osi-case-tabs [data-tab="resolution"]').click();
+    await expect(page.locator('#osi-case-content [data-decision-channel="maintainer_bootstrap"]').first()).toBeVisible();
+    await expect(page.locator(`#osi-case-content a[href="https://solscan.io/tx/${OPEN_TX}"]`)).toHaveCount(1);
+    await page.locator('#osi-case-tabs [data-tab="proof"]').click();
+    await expect(page.locator('#osi-case-content')).toContainText(XSS);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => window.__osiXss || null)).toBeNull();
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+});
+
 test.describe('accessibility and mobile', () => {
   test('a Case row opens with Enter and with Space and keeps a visible focus ring', async ({ page }) => {
     await boot(page, { wallet: 'none' });
@@ -528,5 +662,118 @@ test.describe('degraded public reads', () => {
     await expect(page.locator('#osi-case-content')).toContainText('Case detail unavailable');
     await expect(page.locator('#osi-case-content [data-case-retry]')).toBeVisible();
     expectNoWalletApproval(await walletCalls(page));
+  });
+});
+
+// HA-25: a counted review's label sits beside the reviewer's tier, so it says
+// what was confirmed on chain, review authority, and never "verified", which
+// is also an analyst tier.
+test.describe('tier and SAS review authority wording', () => {
+  test('a counted review reads as confirmed SAS review authority, not as verified', async ({ page }) => {
+    await boot(page, { wallet: 'none' });
+    await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+    await expect(page.locator('#osi-case-ref')).toHaveText(CASE_REF);
+    await page.locator('#osi-case-tabs [data-tab="reviews"]').click();
+    const counted = page.locator('#osi-case-content [data-sas-authority="counted"]').first();
+    await expect(counted).toHaveText('Counted: SAS review authority confirmed');
+    await expect(page.locator('#osi-case-content')).not.toContainText('Authority verified on Solana');
+    await expect(page.locator('#osi-case-content')).not.toContainText(/SAS verified/i);
+    expectNoWalletApproval(await walletCalls(page));
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+});
+
+// Two public Cases can share a title. The registry has no merge transition and
+// a public record is never rewritten, so both stay; a neutral note tells them
+// apart and the intake suggests checking the existing Case first.
+test.describe('same-title public Cases', () => {
+  test('rows and the drawer name the other Case without calling it a duplicate', async ({ page }) => {
+    await boot(page, { wallet: 'none', sameTitle: true });
+    await page.evaluate(() => window.osiNavigate('field'));
+    const first = page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`);
+    const second = page.locator(`#field-cases [data-case-ref="${SECOND_CASE_REF}"]`);
+    await expect(first.locator('.osi-same-title')).toHaveText(`Same title as ${SECOND_CASE_REF}, opened Jul 26, 2026`);
+    await expect(second.locator('.osi-same-title')).toHaveText(`Same title as ${CASE_REF}, opened Jul 29, 2026`);
+    await expect(first).toHaveAttribute('aria-label', new RegExp(`Same title as ${SECOND_CASE_REF}`));
+    expect(await page.locator('#field-cases').innerText()).not.toMatch(/duplicate/i);
+
+    await first.click();
+    const note = page.locator('#osi-case-same-title');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('Another public Case has the same title. It opened Jul 26, 2026.');
+    await note.getByRole('button', { name: `Open ${SECOND_CASE_REF}` }).click();
+    await expect(page.locator('#osi-case-ref')).toHaveText(SECOND_CASE_REF);
+    await expect(note).toBeVisible();
+    await expect(note.getByRole('button', { name: `Open ${CASE_REF}` })).toBeVisible();
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+
+  test('a slow public list never paints the drawer note twice', async ({ page }) => {
+    await boot(page, { wallet: 'none', sameTitle: true, publicListDelayMs: 1500 });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await expect(page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`)).toBeVisible();
+    await page.evaluate(() => window.osiPublicReadInvalidate());
+    await page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`).click();
+    await page.evaluate(() => window.osiSetLanguage('tr'));
+    await page.evaluate(() => window.osiSetLanguage('en'));
+    const note = page.locator('#osi-case-same-title');
+    await expect(note).toBeVisible({ timeout: 8000 });
+    await page.waitForTimeout(2500);
+    await expect(note.locator('button')).toHaveCount(1);
+    await expect(note.locator('span')).toHaveCount(1);
+  });
+
+  test('the intake hint clears when the form is reset', async ({ page }) => {
+    await boot(page, { wallet: 'none', sameTitle: true });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await page.evaluate(() => { document.getElementById('fo-modal').classList.add('open'); });
+    await page.locator('#v2-case-title').fill('Forward industries');
+    const hint = page.locator('#v2-case-title-match');
+    await expect(hint).toBeVisible();
+    await page.evaluate(() => document.getElementById('field-form').reset());
+    await expect(hint).toBeHidden();
+    await expect(page.locator('#v2-case-title')).not.toHaveAttribute('aria-describedby', 'v2-case-title-match');
+  });
+
+  test('Cases with different titles carry no note', async ({ page }) => {
+    await boot(page, { wallet: 'none' });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await expect(page.locator(`#field-cases [data-case-ref="${SECOND_CASE_REF}"]`)).toBeVisible();
+    await expect(page.locator('#field-cases .osi-same-title')).toHaveCount(0);
+    await page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`).click();
+    await expect(page.locator('#osi-case-ref')).toHaveText(CASE_REF);
+    await expect(page.locator('#osi-case-same-title')).toBeHidden();
+  });
+
+  test('a hostile shared title stays text in the row and the drawer note', async ({ page }) => {
+    await boot(page, { wallet: 'none', hostileTwin: true });
+    await page.evaluate(() => window.osiNavigate('field'));
+    const row = page.locator('#field-cases [data-case-ref="OSI-0000000000AA"]');
+    await expect(row.locator('.osi-same-title')).toContainText(`Same title as ${HOSTILE_REF}`);
+    await row.click();
+    await expect(page.locator('#osi-case-same-title')).toBeVisible();
+    expect(await page.evaluate(() => window.__osiXss === undefined && !document.querySelector('#field-cases img, #osi-case-drawer img[src="x"]'))).toBe(true);
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+
+  test('the Case intake hints at an existing public Case with the same title and never blocks', async ({ page }) => {
+    await boot(page, { wallet: 'none', sameTitle: true });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await page.evaluate(() => { const m = document.getElementById('fo-modal'); m.classList.add('open'); });
+    const title = page.locator('#v2-case-title');
+    await title.fill('Forward industries');
+    const hint = page.locator('#v2-case-title-match');
+    await expect(hint).toBeVisible();
+    await expect(hint).toContainText(`A public Case with this title already exists: ${CASE_REF}.`);
+    await expect(title).toHaveAttribute('aria-describedby', 'v2-case-title-match');
+    await title.fill('Forward Industries treasury wallets');
+    await expect(hint).toBeHidden();
+    await title.fill('FORWARD   industries');
+    await expect(hint).toBeVisible();
+    await hint.getByRole('button', { name: `Open ${CASE_REF}` }).click();
+    await expect(page.locator('#osi-case-ref')).toHaveText(CASE_REF);
+    // The typed draft is still in the form after looking at the other Case.
+    await expect(title).toHaveValue('FORWARD   industries');
+    expect(page.__runtimeErrors).toEqual([]);
   });
 });

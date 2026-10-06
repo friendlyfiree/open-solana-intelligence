@@ -304,6 +304,37 @@ ok('published Case Report card never renders private, unpublished or superseded 
     && !publishedCaseReportCard.includes('UNPUBLISHED EXISTENCE MUST NOT RENDER')
     && !publishedCaseReportCard.includes('OSI-RV-OLDVERSION0001')
     && !publishedCaseReportCard.includes('INVALID IDENTIFIER MUST NOT RENDER'));
+// Untrusted titles, summaries and author handles reach crCard. Each must be
+// escaped for HTML and marked as user content so translation never rewrites it.
+const XSS = '"><img src=x onerror=alert(1)>';
+const hostileWire = records.crNativeWireRecord({
+  version_public_ref: 'OSI-WV-A1B2C3D4E5F60719', wire_report_public_ref: 'OSI-WR-A1B2C3D4E5F6',
+  title: XSS, summary: XSS, author: { wallet: '11111111111111111111111111111112', handle: XSS },
+  published_at: '2026-07-18T12:00:00Z', publication_channel: 'standard',
+  publication_proof: { event_type: 'WIRE_REPORT_PUBLISHED', label: 'Memo-anchored on Solana', tx_sig: TX },
+});
+const hostileCard = records.crCard(hostileWire, []);
+ok('record cards escape hostile titles, summaries and author handles',
+  !hostileCard.includes('<img') && hostileCard.includes('&lt;img src=x onerror=alert(1)&gt;')
+    && /<h3 class="cr-title" data-osi-user-content>/.test(hostileCard)
+    && /<p class="cr-summary" data-osi-user-content>/.test(hostileCard)
+    && /<div class="cr-wallet" data-osi-user-content/.test(hostileCard));
+const hostileReport = records.crCard({ ...publishedCaseReports[0], case_title: XSS, company: XSS }, []);
+ok('a published Report card escapes its parent Case title inside "Report on"',
+  !hostileReport.includes('<img') && hostileReport.includes('Report on &quot;&gt;&lt;img'));
+// A record's proof line names the event it anchors, so an open Case never
+// presents its private submission Memo as proof of the public record.
+const openCase = records.crNativeCaseRecord({
+  public_ref: 'OSI-00CB089E5105', title: 'Open Case', stage: 'open_public',
+  proof_log: [
+    { event_type: 'CASE_SUBMITTED', label: 'Memo-anchored on Solana', tx_sig: '2'.repeat(88), occurred_at: '2026-07-29T10:00:00Z' },
+    { event_type: 'CASE_OPENED', label: 'Memo-anchored on Solana', tx_sig: '3'.repeat(88), occurred_at: '2026-07-29T13:11:00Z' },
+  ],
+});
+const openCard = records.crCard(openCase, []);
+ok('an open Case headlines its CASE_OPENED Memo and names that event',
+  records.crTxSig(openCase) === '3'.repeat(88) && openCard.includes('Case opened') && !openCard.includes('Case submitted')
+    && records.crIsOpenInvestigation(openCase) && !records.crIsOutcome(openCase));
 const noPublicationProof = { ...publishedCaseReports[0], publication_proof: { proof_source: 'native_public_dto' }, publication_channel: 'unavailable' };
 ok('published Case Report never claims governed publication when its receipt is absent',
   records.crStatus(noPublicationProof).txt === 'Publication proof unavailable'
@@ -391,9 +422,9 @@ records.__crList = [legacy, nativeReviewed, nativeSealed];
 records.__crOpenChallengeCount = 0;
 records.crRenderStats();
 ok('Public Records stats name native review and Memo anchoring explicitly',
-  stats.innerHTML.includes('Native reviewed') && stats.innerHTML.includes('Memo-anchored'));
+  stats.innerHTML.includes('Reviewed or published') && stats.innerHTML.includes('Memo-anchored'));
 ok('legacy row cannot inflate native reviewed or Memo counters',
-  /<div class="fo-op-n sol">2<\/div><div class="fo-op-l">Native reviewed<\/div>/.test(stats.innerHTML)
+  /<div class="fo-op-n">2<\/div><div class="fo-op-l">Reviewed or published<\/div>/.test(stats.innerHTML)
     && /<div class="fo-op-n">1<\/div><div class="fo-op-l">Memo-anchored<\/div>/.test(stats.innerHTML));
 ok('Proof Log copy distinguishes wallet, Memo, transfer, system, and legacy proof',
   index.includes('How proof labels work')
@@ -406,10 +437,18 @@ ok('About describes both explicit quorum and clearly labeled cold-start review',
 ok('truthful cold-start copy remains localized in Turkish',
   i18nSource.includes('Uygun bir soğuk başlangıç sonuçlandırması ayrıca etiketlenir.')
     && i18nSource.includes('açıkça etiketlenmiş bir soğuk başlangıç süreciyle incelenir.'));
-ok('Public Records copy includes open public Cases without calling them sealed outcomes',
-  index.includes('Public Cases and governed findings')
-    && index.includes('Public Cases, exact current published Case Report versions, and published Wire findings with their lifecycle and proof status.')
-    && !index.includes('<span>Reviewed and sealed outcomes</span>'));
+// Public Records is the archive of outcomes (published Case Report versions,
+// published Wire Reports, reviewed and sealed Cases). Open public Cases are not
+// records yet: they are never listed or counted here, and the page says how
+// many there are and links to the Field Office, where their work happens.
+ok('Public Records lists outcomes only and points open investigations to the Field Office',
+  index.includes('<span>Published and sealed outcomes</span>')
+    && index.includes('The archive of reviewed outcomes: exact published Case Report versions, published Wire Reports, and Cases that reached resolution or seal. Open investigations stay in the Field Office until they reach an outcome.')
+    && !index.includes('data-f="open"')
+    && !index.includes('<span>Reviewed and sealed outcomes</span>')
+    && recordsSource.includes('reports=reports.filter(crIsOutcome);')
+    && !recordsSource.includes('reports = openRows')
+    && recordsSource.includes("They have no reviewed outcome yet, so they are in the Field Office, not here."));
 
 console.log((fail ? 'FAILED: ' + fail : 'OK') +
   ' (' + pass + ' assertions passed, ' + fail + ' failed)');

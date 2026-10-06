@@ -3,8 +3,98 @@
  * This layer preserves the existing application views and replaces the visual shell.
  */
 
+/* Self-hosted type (SIL OFL 1.1, licenses in assets/fonts). Latin covers
+ * English; latin-ext adds the Turkish letters. The legacy family names
+ * ('Archivo', 'JetBrains Mono') are registered too, so every older rule that
+ * names them now renders the intended face on every operating system. */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2-variations"), url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2-variations"), url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Archivo Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("../fonts/archivo-latin-standard-normal.woff2") format("woff2-variations"), url("../fonts/archivo-latin-standard-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("../fonts/archivo-latin-ext-standard-normal.woff2") format("woff2-variations"), url("../fonts/archivo-latin-ext-standard-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("../fonts/archivo-latin-standard-normal.woff2") format("woff2-variations"), url("../fonts/archivo-latin-standard-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("../fonts/archivo-latin-ext-standard-normal.woff2") format("woff2-variations"), url("../fonts/archivo-latin-ext-standard-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("../fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations"), url("../fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("../fonts/jetbrains-mono-latin-ext-wght-normal.woff2") format("woff2-variations"), url("../fonts/jetbrains-mono-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("../fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations"), url("../fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("../fonts/jetbrains-mono-latin-ext-wght-normal.woff2") format("woff2-variations"), url("../fonts/jetbrains-mono-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 :root {
   color-scheme: dark;
+  /* Surfaces: near-black paper and two raised levels. */
   --bg: #08090d;
   --bg-deep: #0b0d12;
   --bg-raised: #10141b;
@@ -12,33 +102,55 @@
   --bg-soft: #1b222d;
   --line: #2a303a;
   --line-bright: #59616d;
-  --line-active: rgba(255, 77, 95, .68);
+  /* Ink. Every text token clears 4.5:1 on every surface above. */
   --ink: #f5f0e8;
   --ink-dim: #c2bdb4;
   --ink-faint: #9296a0;
-  --cyan: #ff4d5f;
-  --cyan-strong: #ff8792;
-  --teal: #34f5a4;
-  --violet: #d8e0ea;
-  --warning: #ffb86a;
-  --danger: #ff7380;
+  /* Lamp amber is the action and navigation identity: what you can act on
+   * and where you are. Dark ink sits on it (10:1). */
+  --lamp: #ffb020;
+  --lamp-strong: #ffc24d;
+  --lamp-deep: #e0960f;
+  --lamp-ink: #16110a;
+  --lamp-soft: rgba(255, 176, 32, .12);
+  --lamp-line: rgba(255, 176, 32, .42);
+  /* Crimson is the signal: the brand mark, a live signal, a boundary or a
+   * danger. It is never a primary action. */
   --signal: #ff4d5f;
   --signal-deep: #d92f49;
   --signal-soft: rgba(255, 77, 95, .12);
+  /* Verified green appears only for chain-confirmed proof. */
+  --verified: #34f5a4;
+  --teal: var(--verified);
+  --warning: #ffc24d;
+  --danger: #ff7380;
   --platinum: #f5f0e8;
   --platinum-cool: #d8e0ea;
-  --verified: #34f5a4;
-  --focus: #ff8792;
-  --acc: var(--signal);
-  --orange: var(--signal);
+  --violet: #d8e0ea;
+  --line-active: rgba(255, 176, 32, .62);
+  --focus: var(--lamp-strong);
+  /* Legacy accent names used by the route stylesheets resolve to the same
+   * single identity instead of the two retired accent themes. */
+  --cyan: var(--lamp);
+  --cyan-strong: var(--lamp-strong);
+  --acc: var(--lamp);
+  --acc-deep: var(--lamp-deep);
+  --acc-soft: var(--lamp-soft);
+  --acc-line: var(--lamp-line);
+  --acc-glow: rgba(255, 176, 32, .3);
+  --amber: var(--lamp);
+  --orange: var(--lamp);
   --orange2: var(--verified);
   --gold: var(--warning);
-  --font-sans: "Segoe UI Variable", "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
-  --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Archivo Variable", "Archivo", var(--font-sans);
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --sans: var(--font-sans);
+  --mono: var(--font-mono);
   --header-h: 72px;
   --shell: min(1424px, calc(100vw - 96px));
   --ease-out: cubic-bezier(.23, 1, .32, 1);
-  --brand-spectrum: linear-gradient(110deg, var(--signal-deep), var(--signal) 56%, #ff7b89);
+  --brand-spectrum: linear-gradient(180deg, var(--lamp-strong), var(--lamp) 58%, var(--lamp-deep));
 }
 
 html {
@@ -53,7 +165,7 @@ body {
   padding: var(--header-h) 0 0 !important;
   overflow-x: clip;
   background:
-    radial-gradient(circle at 86% -8%, rgba(255, 77, 95, .1), transparent 31%),
+    radial-gradient(circle at 86% -8%, rgba(255, 176, 32, .1), transparent 31%),
     radial-gradient(circle at 12% 12%, rgba(245, 240, 232, .035), transparent 26%),
     var(--bg) !important;
   color: var(--ink);
@@ -104,10 +216,10 @@ button {
   clip-path: inset(50%) !important;
 }
 
-.mono,
-.osi-kicker,
-.fo-eyebrow,
-.cr-kicker {
+/* Monospace is reserved for machine data: hashes, wallets, references,
+ * transaction ids and Memo names. Labels, eyebrows and buttons use the UI
+ * face so the interface reads as a product, not a terminal. */
+.mono {
   font-family: var(--font-mono) !important;
 }
 
@@ -220,8 +332,8 @@ button {
 
 .osi-brand-copy small {
   color: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   letter-spacing: .07em;
   text-transform: uppercase;
 }
@@ -251,8 +363,8 @@ button {
 .osi-nav-link[aria-current="page"],
 .osi-platform-trigger[aria-expanded="true"] {
   color: var(--ink);
-  background: rgba(255, 77, 95, .07);
-  text-shadow: 0 0 18px rgba(255, 77, 95, .22);
+  background: rgba(255, 176, 32, .07);
+  text-shadow: 0 0 18px rgba(255, 176, 32, .22);
 }
 
 .osi-nav-link[aria-current="page"]::after,
@@ -263,8 +375,8 @@ button {
   bottom: 0;
   left: 14px;
   height: 2px;
-  background: var(--signal);
-  box-shadow: 0 0 16px rgba(255, 77, 95, .54);
+  background: var(--lamp);
+  box-shadow: 0 0 16px rgba(255, 176, 32, .54);
 }
 
 .osi-platform-wrap {
@@ -298,11 +410,13 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   transform: translateX(-50%);
   border: 1px solid var(--line-bright);
-  border-top-color: var(--signal);
+  border-top-color: var(--lamp);
   border-radius: 0 0 14px 14px;
+  /* Fully opaque: under the header's backdrop filter even a 98% alpha
+   * layer let the hero headline read through the menu. */
   background:
-    radial-gradient(circle at 8% 0%, rgba(255, 77, 95, .1), transparent 34%),
-    rgba(13, 15, 21, .98);
+    radial-gradient(circle at 8% 0%, rgba(255, 176, 32, .08), transparent 34%),
+    #0d0f15;
   box-shadow: 0 30px 80px rgba(3, 4, 7, .62);
   overflow: hidden;
   animation: osi-menu-enter 170ms var(--ease-out);
@@ -325,8 +439,8 @@ button {
 .osi-platform-group > p {
   margin: 0 8px 8px;
   color: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   letter-spacing: .12em;
   text-transform: uppercase;
 }
@@ -349,7 +463,7 @@ button {
 
 .osi-platform-group button:hover,
 .osi-platform-group button:focus-visible {
-  background: var(--signal-soft);
+  background: var(--lamp-soft);
 }
 
 .osi-platform-group button strong {
@@ -359,7 +473,7 @@ button {
 
 .osi-platform-group button span {
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.35;
 }
 
@@ -411,7 +525,7 @@ button {
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 650;
 }
@@ -435,18 +549,18 @@ button {
 
 .osi-header-case {
   padding: 0 16px;
-  border: 1px solid var(--signal);
+  border: 1px solid var(--lamp);
   background: var(--brand-spectrum);
   color: #18090d;
   font-size: 13px;
   font-weight: 750;
-  box-shadow: 0 10px 26px rgba(255, 77, 95, .16);
+  box-shadow: 0 10px 26px rgba(255, 176, 32, .16);
   transition: transform 150ms var(--ease-out), box-shadow 150ms ease;
 }
 
 .osi-header-case:hover {
   transform: translateY(-1px);
-  box-shadow: 0 13px 34px rgba(255, 77, 95, .27), 0 0 18px rgba(255, 77, 95, .16);
+  box-shadow: 0 13px 34px rgba(255, 176, 32, .27), 0 0 18px rgba(255, 176, 32, .16);
 }
 
 .osi-global-header .wallet-btn {
@@ -495,7 +609,7 @@ button {
 }
 
 .osi-global-header .wb-mi:hover {
-  background: var(--signal-soft);
+  background: var(--lamp-soft);
   color: var(--ink);
 }
 
@@ -510,6 +624,12 @@ button {
 
 .osi-mobile-nav-toggle,
 .osi-nav-scrim {
+  display: none;
+}
+
+/* Direct section links exist for the mobile drawer only. The desktop bar
+ * keeps its four entries and reaches the same sections through Platform. */
+.osi-global-nav > .osi-nav-quick {
   display: none;
 }
 
@@ -664,7 +784,7 @@ button {
   position: absolute;
   inset: 5px;
   border: 1px solid transparent;
-  border-top-color: var(--signal);
+  border-top-color: var(--lamp);
   border-radius: 50%;
   animation: osi-spin 900ms linear infinite;
 }
@@ -691,12 +811,12 @@ button {
   background: transparent;
   color: var(--ink-dim);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .osi-home-live-state > button:hover,
 .osi-list-loading > button:hover {
-  border-color: var(--signal);
+  border-color: var(--lamp);
   color: var(--platinum);
 }
 
@@ -775,7 +895,7 @@ button {
 .osi-public-row small {
   margin-top: 3px;
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .osi-public-row button {
@@ -786,11 +906,11 @@ button {
   background: transparent;
   color: var(--ink-dim);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .osi-public-row button:hover {
-  border-color: var(--signal);
+  border-color: var(--lamp);
   color: var(--platinum);
 }
 
@@ -857,9 +977,9 @@ button {
 }
 
 .osi-kicker {
-  color: var(--signal);
+  color: var(--lamp);
   font-family: var(--font-sans) !important;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 760;
   letter-spacing: .15em;
 }
@@ -909,15 +1029,15 @@ button {
 }
 
 .osi-button-primary {
-  border-color: var(--signal);
+  border-color: var(--lamp);
   background: var(--brand-spectrum);
   color: #19090d;
-  box-shadow: 0 14px 34px rgba(255, 77, 95, .2), inset 0 1px rgba(255, 255, 255, .34);
+  box-shadow: 0 14px 34px rgba(255, 176, 32, .2), inset 0 1px rgba(255, 255, 255, .34);
 }
 
 .osi-button-primary:hover {
   background: linear-gradient(110deg, #ec3c55, #ff6070 56%, #ff8d98);
-  box-shadow: 0 18px 44px rgba(255, 77, 95, .3), 0 0 22px rgba(255, 77, 95, .14);
+  box-shadow: 0 18px 44px rgba(255, 176, 32, .3), 0 0 22px rgba(255, 176, 32, .14);
 }
 
 .osi-button-secondary {
@@ -953,12 +1073,12 @@ button {
   margin: 68px 0 0 auto;
   padding: 22px;
   border: 1px solid rgba(245, 240, 232, .2);
-  border-top-color: rgba(255, 77, 95, .74);
+  border-top-color: rgba(255, 176, 32, .74);
   border-radius: 14px;
   background:
     linear-gradient(145deg, rgba(25, 27, 34, .88), rgba(10, 12, 17, .8)),
     rgba(8, 9, 13, .78);
-  box-shadow: 0 34px 90px rgba(3, 4, 7, .54), 0 0 52px rgba(255, 77, 95, .08), inset 0 1px rgba(255, 255, 255, .05);
+  box-shadow: 0 34px 90px rgba(3, 4, 7, .54), 0 0 52px rgba(255, 176, 32, .08), inset 0 1px rgba(255, 255, 255, .05);
   backdrop-filter: blur(18px) saturate(1.12);
   transform: perspective(1200px) rotateY(-2.2deg) rotateX(.6deg);
   transform-origin: 50% 100%;
@@ -966,8 +1086,8 @@ button {
 }
 
 .osi-home-hero .osi-hero-panel:hover {
-  border-color: rgba(255, 77, 95, .55);
-  box-shadow: 0 38px 100px rgba(3, 4, 7, .62), 0 0 64px rgba(255, 77, 95, .12), inset 0 1px rgba(255, 255, 255, .07);
+  border-color: rgba(255, 176, 32, .55);
+  box-shadow: 0 38px 100px rgba(3, 4, 7, .62), 0 0 64px rgba(255, 176, 32, .12), inset 0 1px rgba(255, 255, 255, .07);
   transform: perspective(1200px) rotateY(-1deg) translateY(-3px);
 }
 
@@ -984,9 +1104,9 @@ button {
 .osi-panel-topline > div > span,
 .osi-model-label,
 .osi-signal-caption {
-  color: var(--signal);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  color: var(--lamp);
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .11em;
   text-transform: uppercase;
@@ -1049,8 +1169,8 @@ button {
 
 .osi-lifecycle-track button:hover,
 .osi-lifecycle-track button:focus-visible {
-  border-color: rgba(255, 77, 95, .28);
-  background: rgba(255, 77, 95, .065);
+  border-color: rgba(255, 176, 32, .28);
+  background: rgba(255, 176, 32, .065);
   transform: translateY(-2px);
 }
 
@@ -1064,17 +1184,17 @@ button {
   border-radius: 50%;
   background: #11141a;
   color: var(--platinum);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   box-shadow: 0 0 0 5px rgba(8, 9, 13, .76);
   transition: border-color 150ms ease, box-shadow 150ms ease, color 150ms ease;
 }
 
 .osi-lifecycle-track button:hover .osi-lifecycle-index,
 .osi-lifecycle-track button:focus-visible .osi-lifecycle-index {
-  border-color: var(--signal);
-  color: var(--signal);
-  box-shadow: 0 0 0 5px rgba(8, 9, 13, .76), 0 0 18px rgba(255, 77, 95, .32);
+  border-color: var(--lamp);
+  color: var(--lamp);
+  box-shadow: 0 0 0 5px rgba(8, 9, 13, .76), 0 0 18px rgba(255, 176, 32, .32);
 }
 
 .osi-lifecycle-track strong {
@@ -1085,7 +1205,7 @@ button {
 
 .osi-lifecycle-track small {
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -1133,7 +1253,7 @@ button {
 .osi-panel-note {
   margin: 12px 2px 0;
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.55;
 }
 
@@ -1144,7 +1264,7 @@ button {
 
 .osi-home-route {
   background:
-    radial-gradient(circle at 6% 12%, rgba(255, 77, 95, .13), transparent 31%),
+    radial-gradient(circle at 6% 12%, rgba(255, 176, 32, .13), transparent 31%),
     radial-gradient(circle at 88% 78%, rgba(255, 184, 106, .075), transparent 28%),
     linear-gradient(180deg, #0c0e14, #08090d);
 }
@@ -1187,7 +1307,7 @@ button {
   border: 1px solid rgba(245, 240, 232, .19);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 50% -12%, rgba(255, 77, 95, .1), transparent 38%),
+    radial-gradient(circle at 50% -12%, rgba(255, 176, 32, .1), transparent 38%),
     linear-gradient(160deg, rgba(29, 33, 42, .97), rgba(11, 13, 18, .98));
   box-shadow: 0 18px 52px rgba(3, 4, 7, .18), inset 0 1px rgba(255, 255, 255, .035);
   transition: transform 170ms var(--ease-out), border-color 170ms ease, box-shadow 170ms ease;
@@ -1207,8 +1327,8 @@ button {
 
 .osi-route-card:hover,
 .osi-route-card:focus-within {
-  border-color: rgba(255, 77, 95, .42);
-  box-shadow: 0 24px 68px rgba(3, 4, 7, .3), 0 0 34px rgba(255, 77, 95, .08), inset 0 1px rgba(255, 255, 255, .05);
+  border-color: rgba(255, 176, 32, .42);
+  box-shadow: 0 24px 68px rgba(3, 4, 7, .3), 0 0 34px rgba(255, 176, 32, .08), inset 0 1px rgba(255, 255, 255, .05);
   transform: translateY(-4px);
 }
 
@@ -1216,7 +1336,7 @@ button {
 .osi-route-card:focus-within::before {
   right: 4%;
   left: 4%;
-  background: linear-gradient(90deg, transparent, var(--signal), transparent);
+  background: linear-gradient(90deg, transparent, var(--lamp), transparent);
 }
 
 .osi-route-art {
@@ -1226,7 +1346,7 @@ button {
   overflow: hidden;
   border-bottom: 1px solid rgba(245, 240, 232, .1);
   background:
-    radial-gradient(circle at 50% 42%, rgba(255, 77, 95, .18), transparent 42%),
+    radial-gradient(circle at 50% 42%, rgba(255, 176, 32, .18), transparent 42%),
     linear-gradient(180deg, #1c1f28, #0e1117);
 }
 
@@ -1263,8 +1383,8 @@ button {
 }
 
 .osi-route-art .art-front {
-  fill: rgba(255, 77, 95, .055);
-  stroke: rgba(255, 77, 95, .62);
+  fill: rgba(255, 176, 32, .055);
+  stroke: rgba(255, 176, 32, .62);
 }
 
 .osi-route-art .art-line,
@@ -1281,9 +1401,9 @@ button {
 
 .osi-route-art .art-scan {
   fill: none;
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-width: 2;
-  filter: drop-shadow(0 0 8px rgba(255, 77, 95, .62));
+  filter: drop-shadow(0 0 8px rgba(255, 176, 32, .62));
   transform: translateY(-22px);
   transition: transform 320ms var(--ease-out);
 }
@@ -1295,11 +1415,11 @@ button {
 
 .osi-route-art .art-route {
   fill: none;
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-width: 2;
   stroke-dasharray: .18 .82;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 7px rgba(255, 77, 95, .46));
+  filter: drop-shadow(0 0 7px rgba(255, 176, 32, .46));
 }
 
 .osi-route-card:hover .art-route,
@@ -1325,14 +1445,14 @@ button {
 
 .osi-route-card:hover .art-lens,
 .osi-route-card:focus-within .art-lens {
-  stroke: var(--signal);
+  stroke: var(--lamp);
   transform: translate(3px, -3px);
 }
 
 .osi-route-art .art-check {
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-width: 2.5;
-  filter: drop-shadow(0 0 8px rgba(255, 77, 95, .46));
+  filter: drop-shadow(0 0 8px rgba(255, 176, 32, .46));
 }
 
 .osi-route-art .art-ring {
@@ -1341,7 +1461,7 @@ button {
 }
 
 .osi-route-art .art-ring-inner {
-  stroke: rgba(255, 77, 95, .58);
+  stroke: rgba(255, 176, 32, .58);
   stroke-dasharray: 5 7;
   transition: transform 360ms var(--ease-out);
 }
@@ -1358,7 +1478,7 @@ button {
 }
 
 .osi-route-art .art-seal {
-  stroke: rgba(255, 77, 95, .56);
+  stroke: rgba(255, 176, 32, .56);
 }
 
 .osi-route-copy {
@@ -1367,9 +1487,9 @@ button {
 }
 
 .osi-route-copy > span {
-  color: var(--signal);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  color: var(--lamp);
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .12em;
 }
@@ -1410,14 +1530,14 @@ button {
 }
 
 .osi-route-card > button span {
-  color: var(--signal);
+  color: var(--lamp);
   font-size: 17px;
   transition: transform 150ms var(--ease-out);
 }
 
 .osi-route-card > button:hover,
 .osi-route-card > button:focus-visible {
-  border-bottom-color: var(--signal);
+  border-bottom-color: var(--lamp);
   color: #fffaf4;
 }
 
@@ -1428,7 +1548,7 @@ button {
 
 .osi-home-live {
   background:
-    radial-gradient(circle at 92% 0%, rgba(255, 77, 95, .11), transparent 31%),
+    radial-gradient(circle at 92% 0%, rgba(255, 176, 32, .11), transparent 31%),
     radial-gradient(circle at 8% 88%, rgba(52, 245, 164, .035), transparent 26%),
     #0a0c11;
 }
@@ -1449,7 +1569,7 @@ button {
 
 .osi-home-live-state[aria-busy="true"] .osi-state-mark::after,
 .osi-list-loading > span::after {
-  border-top-color: var(--signal);
+  border-top-color: var(--lamp);
 }
 
 .osi-home-live-state strong,
@@ -1461,7 +1581,7 @@ button {
 .osi-home-live-state small,
 .osi-list-loading small {
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12.5px;
 }
 
 .osi-live-grid {
@@ -1496,9 +1616,9 @@ button {
 }
 
 .osi-live-pane > header span {
-  color: var(--signal);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  color: var(--lamp);
+  font-family: var(--font-sans);
+  font-size: 12px;
   letter-spacing: .09em;
   text-transform: uppercase;
 }
@@ -1518,14 +1638,14 @@ button {
   background: rgba(245, 240, 232, .035);
   color: var(--ink-dim);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12.5px;
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
 }
 
 .osi-live-pane > header button:hover,
 .osi-live-pane > header button:focus-visible {
-  border-color: var(--signal);
-  background: var(--signal-soft);
+  border-color: var(--lamp);
+  background: var(--lamp-soft);
   color: var(--platinum);
 }
 
@@ -1545,7 +1665,7 @@ button {
 }
 
 .osi-public-row > span {
-  color: var(--signal);
+  color: var(--lamp);
 }
 
 .osi-public-row button {
@@ -1554,7 +1674,7 @@ button {
 
 .osi-public-row button:hover,
 .osi-public-row button:focus-visible {
-  border-color: var(--signal);
+  border-color: var(--lamp);
 }
 
 .osi-proof-legend {
@@ -1564,9 +1684,9 @@ button {
   margin-top: 18px;
   padding: 20px;
   border: 1px solid rgba(245, 240, 232, .14);
-  border-left-color: rgba(255, 77, 95, .7);
+  border-left-color: rgba(255, 176, 32, .7);
   border-radius: 13px;
-  background: linear-gradient(120deg, rgba(255, 77, 95, .07), rgba(245, 240, 232, .025) 36%, rgba(12, 14, 19, .92));
+  background: linear-gradient(120deg, rgba(255, 176, 32, .07), rgba(245, 240, 232, .025) 36%, rgba(12, 14, 19, .92));
 }
 
 .osi-proof-legend-heading {
@@ -1578,9 +1698,9 @@ button {
 
 .osi-proof-legend-heading > span,
 .osi-proof-legend-items > div > span {
-  color: var(--signal);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  color: var(--lamp);
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .11em;
   text-transform: uppercase;
@@ -1605,13 +1725,13 @@ button {
   background: transparent;
   color: var(--platinum);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 680;
 }
 
 .osi-proof-legend-heading button:hover,
 .osi-proof-legend-heading button:focus-visible {
-  border-bottom-color: var(--signal);
+  border-bottom-color: var(--lamp);
 }
 
 .osi-proof-legend-items {
@@ -1644,14 +1764,14 @@ button {
 
 .osi-proof-legend-items small {
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
 .osi-public-boundary {
   margin: 16px 0 0;
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.55;
 }
 
@@ -1717,7 +1837,7 @@ footer > .wrap {
 .fo-rail {
   border-color: var(--line) !important;
   background:
-    radial-gradient(circle at 0 0, rgba(255, 77, 95, .075), transparent 28%),
+    radial-gradient(circle at 0 0, rgba(255, 176, 32, .075), transparent 28%),
     var(--bg-deep) !important;
   box-shadow: 14px 0 44px rgba(3, 4, 7, .16) !important;
 }
@@ -1736,7 +1856,7 @@ footer > .wrap {
 
 .fr-i:hover,
 .fr-i.active {
-  background: rgba(255, 77, 95, .085) !important;
+  background: rgba(255, 176, 32, .085) !important;
   color: var(--ink) !important;
 }
 
@@ -1748,8 +1868,8 @@ footer > .wrap {
 .fr-index {
   width: 24px;
   color: var(--cyan);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
 }
 
 .fo-toolbar,
@@ -1778,7 +1898,7 @@ footer > .wrap {
 .an-card:hover,
 .proof-card:hover {
   border-color: var(--line-active) !important;
-  box-shadow: 0 22px 58px rgba(3, 4, 7, .3), 0 0 28px rgba(255, 77, 95, .055), inset 0 1px rgba(255, 77, 95, .08) !important;
+  box-shadow: 0 22px 58px rgba(3, 4, 7, .3), 0 0 28px rgba(255, 176, 32, .055), inset 0 1px rgba(255, 176, 32, .08) !important;
 }
 
 :where(.fo-cta, .cr-btn, .osi-action, .moc-action, .rf-tab, .fo-fil, .fo-sort):disabled {
@@ -1840,19 +1960,19 @@ footer > .wrap {
   padding-top: 16px;
   border-top: 1px solid var(--line);
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
 /* One material system across every product workspace. */
 #field-view {
-  --fo-cyan: rgba(255, 77, 95, .88);
-  --fo-edge-hot: rgba(255, 77, 95, .46);
-  --fo-orange: var(--signal);
+  --fo-cyan: rgba(255, 176, 32, .88);
+  --fo-edge-hot: rgba(255, 176, 32, .46);
+  --fo-orange: var(--lamp);
 }
 
 #wire-view {
-  --wire-cyan: rgba(255, 77, 95, .88);
+  --wire-cyan: rgba(255, 176, 32, .88);
   --wire-green: rgba(52, 245, 164, .86);
   --wire-amber: rgba(255, 184, 106, .86);
 }
@@ -1883,31 +2003,31 @@ footer > .wrap {
 #records-hero .cr-btn.primary,
 #analysts .lb-cta:not(.ghost),
 #about-hero .abt-b.primary {
-  border-color: var(--signal) !important;
+  border-color: var(--lamp) !important;
   background: var(--brand-spectrum) !important;
   color: #19090d !important;
-  box-shadow: 0 12px 28px rgba(255, 77, 95, .18) !important;
+  box-shadow: 0 12px 28px rgba(255, 176, 32, .18) !important;
 }
 
 #wire-view .wire-retry {
   min-height: 40px;
   margin-top: 14px;
   padding: 0 15px;
-  border: 1px solid rgba(255, 77, 95, .38);
+  border: 1px solid rgba(255, 176, 32, .38);
   border-radius: 8px;
-  background: rgba(255, 77, 95, .07);
+  background: rgba(255, 176, 32, .07);
   color: var(--platinum);
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
   font-weight: 700;
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
 }
 
 #wire-view .wire-retry:hover,
 #wire-view .wire-retry:focus-visible {
-  border-color: var(--signal);
-  background: rgba(255, 77, 95, .13);
+  border-color: var(--lamp);
+  background: rgba(255, 176, 32, .13);
   color: #fffaf4;
 }
 
@@ -1921,8 +2041,8 @@ footer > .wrap {
 #records-hero .cr-chips span:not(:first-child),
 #analysts .lb-trust-chips span,
 #prooflog .pl-chips span {
-  border-color: rgba(255, 77, 95, .26) !important;
-  background: rgba(255, 77, 95, .065) !important;
+  border-color: rgba(255, 176, 32, .26) !important;
+  background: rgba(255, 176, 32, .065) !important;
   color: var(--platinum-cool) !important;
 }
 
@@ -1945,7 +2065,7 @@ footer > .wrap {
 .abt-hero {
   border-color: rgba(245, 240, 232, .14) !important;
   background:
-    radial-gradient(circle at 86% 12%, rgba(255, 77, 95, .12), transparent 30%),
+    radial-gradient(circle at 86% 12%, rgba(255, 176, 32, .12), transparent 30%),
     radial-gradient(circle at 8% 100%, rgba(245, 240, 232, .045), transparent 30%),
     linear-gradient(135deg, #151922, #0b0d12) !important;
   box-shadow: 0 24px 72px rgba(3, 4, 7, .2), inset 0 1px rgba(255, 255, 255, .035) !important;
@@ -2003,7 +2123,7 @@ footer > .wrap {
   border: 1px solid rgba(245, 240, 232, .15);
   border-radius: 12px;
   background:
-    radial-gradient(circle at 50% 22%, rgba(255, 77, 95, .11), transparent 34%),
+    radial-gradient(circle at 50% 22%, rgba(255, 176, 32, .11), transparent 34%),
     linear-gradient(160deg, rgba(23, 27, 35, .88), rgba(10, 12, 17, .95));
   box-shadow: inset 0 1px rgba(255, 255, 255, .035);
 }
@@ -2014,13 +2134,13 @@ footer > .wrap {
   width: 42px;
   height: 42px;
   margin-bottom: 8px;
-  border: 1px solid rgba(255, 77, 95, .62);
+  border: 1px solid rgba(255, 176, 32, .62);
   border-radius: 50%;
   background:
-    radial-gradient(circle, var(--signal) 0 3px, transparent 4px),
+    radial-gradient(circle, var(--lamp) 0 3px, transparent 4px),
     linear-gradient(90deg, transparent 49%, rgba(245, 240, 232, .22) 50%, transparent 51%),
     linear-gradient(transparent 49%, rgba(245, 240, 232, .22) 50%, transparent 51%);
-  box-shadow: 0 0 0 7px rgba(255, 77, 95, .035), 0 0 28px rgba(255, 77, 95, .14);
+  box-shadow: 0 0 0 7px rgba(255, 176, 32, .035), 0 0 28px rgba(255, 176, 32, .14);
 }
 
 #field-view .osi-v2-empty b,
@@ -2042,21 +2162,21 @@ footer > .wrap {
   min-height: 44px;
   margin-top: 12px;
   padding: 0 18px;
-  border: 1px solid var(--signal);
+  border: 1px solid var(--lamp);
   border-radius: 7px;
   background: var(--brand-spectrum);
   color: #19090d;
   cursor: pointer;
   font-size: 12px;
   font-weight: 750;
-  box-shadow: 0 12px 28px rgba(255, 77, 95, .18);
+  box-shadow: 0 12px 28px rgba(255, 176, 32, .18);
   transition: transform 150ms var(--ease-out), box-shadow 150ms ease;
 }
 
 #analysts .osi-empty-cta:hover,
 #analysts .osi-empty-cta:focus-visible {
   transform: translateY(-1px);
-  box-shadow: 0 16px 34px rgba(255, 77, 95, .26);
+  box-shadow: 0 16px 34px rgba(255, 176, 32, .26);
 }
 
 @media (min-width: 900px) {
@@ -2103,10 +2223,10 @@ footer > .wrap {
     margin: 24px 0 !important;
     padding: 28px !important;
     border: 1px solid rgba(245, 240, 232, .14) !important;
-    border-top-color: rgba(255, 77, 95, .58) !important;
+    border-top-color: rgba(255, 176, 32, .58) !important;
     border-radius: 12px;
     background:
-      radial-gradient(circle at 50% 0%, rgba(255, 77, 95, .12), transparent 40%),
+      radial-gradient(circle at 50% 0%, rgba(255, 176, 32, .12), transparent 40%),
       rgba(245, 240, 232, .025) !important;
     color: var(--ink-dim);
     font-family: var(--font-sans) !important;
@@ -2116,9 +2236,9 @@ footer > .wrap {
 
   #field-view .fo-prev-empty::before {
     content: "CASE CONTEXT";
-    color: var(--signal);
-    font-family: var(--font-mono);
-    font-size: 10px;
+    color: var(--lamp);
+    font-family: var(--font-sans);
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: .13em;
   }
@@ -2128,17 +2248,17 @@ footer > .wrap {
 .cr-btn.primary,
 .osi-action.primary,
 #about-hero .abt-b.primary {
-  border-color: var(--signal) !important;
+  border-color: var(--lamp) !important;
   background: var(--brand-spectrum) !important;
   color: #19090d !important;
-  box-shadow: 0 12px 30px rgba(255, 77, 95, .18) !important;
+  box-shadow: 0 12px 30px rgba(255, 176, 32, .18) !important;
 }
 
 #about-hero .abt-cta {
-  border-color: rgba(255, 77, 95, .34) !important;
+  border-color: rgba(255, 176, 32, .34) !important;
   background:
-    radial-gradient(circle at 8% 50%, rgba(255, 77, 95, .12), transparent 32%),
-    linear-gradient(90deg, rgba(255, 77, 95, .06), rgba(11, 14, 20, .96)) !important;
+    radial-gradient(circle at 8% 50%, rgba(255, 176, 32, .12), transparent 32%),
+    linear-gradient(90deg, rgba(255, 176, 32, .06), rgba(11, 14, 20, .96)) !important;
 }
 
 /* Functional labels stay legible; only purely decorative indices may be micro-sized. */
@@ -2161,7 +2281,7 @@ footer > .wrap {
 #analysts .lp-tier,
 #prooflog .plc-meta-k,
 #prooflog #pl-count {
-  font-size: 10px !important;
+  font-size: 12px !important;
   line-height: 1.4;
 }
 
@@ -2213,42 +2333,93 @@ footer > .wrap {
   background: var(--bg-raised) !important;
 }
 
+/* Two columns filled top to bottom, every entry the same 40px row, so a
+ * button and a link line up exactly. */
 .osi-global-footer .links {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(4, auto);
+  grid-auto-flow: column;
   align-content: start;
-  gap: 13px 24px;
+  gap: 2px 32px;
 }
 
 .osi-global-footer .links a,
 .osi-global-footer .links button {
-  color: var(--ink-dim);
-}
-
-.osi-global-footer .links button {
   min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
   border: 0;
   background: transparent;
-  padding: 0;
+  color: var(--ink-dim) !important;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px !important;
+  line-height: 1.3;
+  text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: color 150ms ease-out;
 }
 
-.osi-global-footer .links button:hover {
-  color: var(--sol);
+.osi-global-footer .links a:hover,
+.osi-global-footer .links a:focus-visible,
+.osi-global-footer .links button:hover,
+.osi-global-footer .links button:focus-visible {
+  color: var(--lamp) !important;
 }
 
+/* The floating Feedback control sits in the page gutter as a compact icon
+ * and only widens to show its label on hover or focus, so it never covers
+ * content at rest. Below 1180px the gutter is too narrow and the footer
+ * keeps the same action. */
 .fb-btn {
-  right: 18px !important;
+  display: none !important;
+  right: 6px !important;
   bottom: 18px !important;
-  min-height: 42px;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  justify-content: center;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
   border-color: var(--line-bright) !important;
-  border-radius: 4px !important;
+  border-radius: 999px !important;
   background: var(--bg-raised) !important;
-  color: var(--ink) !important;
+  color: var(--ink-dim) !important;
   box-shadow: 0 12px 32px rgba(0, 5, 10, .35) !important;
+  transition: width 180ms var(--ease-out), color 150ms ease, border-color 150ms ease !important;
+}
+
+.fb-btn span {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 180ms var(--ease-out);
+}
+
+.fb-btn:hover,
+.fb-btn:focus-visible {
+  width: auto;
+  gap: 8px !important;
+  padding: 0 14px !important;
+  border-color: var(--lamp-line) !important;
+  color: var(--ink) !important;
+}
+
+.fb-btn:hover span,
+.fb-btn:focus-visible span {
+  max-width: 120px;
+}
+
+@media (max-width: 1180px) {
+  .fb-btn {
+    display: none !important;
+  }
 }
 
 @media (max-width: 1180px) {
@@ -2401,6 +2572,44 @@ footer > .wrap {
     min-height: 58px;
   }
 
+  /* Drawer order follows the accepted primary navigation; the Platform
+   * group follows as the full action catalogue. */
+  body.nav-open .osi-global-nav > .osi-nav-quick {
+    display: flex;
+    align-items: center;
+  }
+
+  .osi-global-nav > [data-global-view="registry"] { order: 1; }
+  .osi-global-nav > [data-global-view="field"] { order: 2; }
+  .osi-global-nav > [data-global-view="wire"] { order: 3; }
+  .osi-global-nav > [data-global-view="records"] { order: 4; }
+  .osi-global-nav > [data-global-view="analysts"] { order: 5; }
+  .osi-global-nav > [data-global-view="prooflog"] { order: 6; }
+  .osi-global-nav > [data-global-view="methodology"] { order: 7; }
+  .osi-global-nav > .osi-platform-wrap {
+    order: 8;
+    margin-top: 10px;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+
+  .osi-global-nav > .osi-nav-link {
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+  }
+
+  /* The trigger opens the action catalogue here; the current section is
+   * already marked by its own entry above. */
+  .osi-platform-trigger[aria-current="page"]:not([aria-expanded="true"]) {
+    background: transparent;
+    text-shadow: none;
+  }
+
+  .osi-platform-trigger[aria-current="page"]:not([aria-expanded="true"])::after {
+    display: none;
+  }
+
   .osi-nav-scrim {
     position: fixed;
     z-index: 2090;
@@ -2545,7 +2754,7 @@ footer > .wrap {
   .osi-language-control select {
     min-width: 24px;
     padding-right: 8px;
-    font-size: 11px;
+    font-size: 12.5px;
   }
 
   .osi-global-header #wbText {
@@ -3133,7 +3342,7 @@ footer > .wrap {
     #about-hero .abt-rules,
     #about-hero .abt-aside
   ):focus-visible {
-    outline: 2px solid var(--signal);
+    outline: 2px solid var(--lamp);
     outline-offset: 4px;
   }
 
@@ -3191,7 +3400,7 @@ footer > .wrap {
   #prooflog .plc-meta-k,
   #prooflog .plc-copy,
   #prooflog .pl-side-title {
-    font-size: 10px !important;
+    font-size: 12px !important;
     line-height: 1.45;
   }
 
@@ -3201,7 +3410,7 @@ footer > .wrap {
   #prooflog .plc-tx-row code,
   #records-hero .cr-actions-panel span,
   #records-hero .cr-disclaimer {
-    font-size: 11px !important;
+    font-size: 12.5px !important;
     line-height: 1.5;
   }
 }
@@ -3225,7 +3434,7 @@ footer > .wrap {
   }
 
   .osi-hero-copy .osi-kicker {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .osi-hero-copy h1 {
@@ -3298,7 +3507,7 @@ footer > .wrap {
 .osi-route-report .art-version-label {
   fill: rgba(216, 224, 234, .76);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .08em;
 }
@@ -3316,14 +3525,14 @@ footer > .wrap {
 }
 
 .osi-route-report .art-bind {
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-dasharray: .18 .82;
-  filter: drop-shadow(0 0 5px rgba(255, 77, 95, .44));
+  filter: drop-shadow(0 0 5px rgba(255, 176, 32, .44));
 }
 
 .osi-route-report .art-manifest {
-  fill: rgba(255, 77, 95, .055);
-  stroke: rgba(255, 77, 95, .7);
+  fill: rgba(255, 176, 32, .055);
+  stroke: rgba(255, 176, 32, .7);
   stroke-width: 1.2;
 }
 
@@ -3333,8 +3542,8 @@ footer > .wrap {
 }
 
 .osi-route-report .art-manifest-label {
-  fill: var(--signal);
-  font-size: 10px;
+  fill: var(--lamp);
+  font-size: 12px;
 }
 
 .osi-route-report .art-version {
@@ -3355,9 +3564,9 @@ footer > .wrap {
 
 .osi-route-report .art-hash-ring {
   fill: #11151c;
-  stroke: var(--signal);
+  stroke: var(--lamp);
   stroke-width: 1.3;
-  filter: drop-shadow(0 0 8px rgba(255, 77, 95, .4));
+  filter: drop-shadow(0 0 8px rgba(255, 176, 32, .4));
 }
 
 .osi-route-report .art-lock {
@@ -3371,7 +3580,7 @@ footer > .wrap {
 
 .osi-route-report:hover .art-version-current,
 .osi-route-report:focus-within .art-version-current {
-  stroke: var(--signal);
+  stroke: var(--lamp);
 }
 
 @keyframes osi-report-bind {
@@ -3452,7 +3661,7 @@ footer > .wrap {
   gap: 10px;
   margin: 0 0 18px;
   color: var(--about-accent);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .18em;
   text-transform: uppercase;
@@ -3505,8 +3714,8 @@ footer > .wrap {
 
 .osi-about-contract dt {
   color: var(--about-accent);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -3563,8 +3772,8 @@ footer > .wrap {
   min-height: 48px;
   padding: 0 16px;
   border-bottom: 1px solid rgba(245, 240, 232, .1);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   letter-spacing: .1em;
   text-transform: uppercase;
 }
@@ -3636,8 +3845,8 @@ footer > .wrap {
   max-width: 38ch;
   margin-top: -16px;
   color: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   letter-spacing: .08em;
   line-height: 1.5;
   text-align: center;
@@ -3675,8 +3884,8 @@ footer > .wrap {
   border: 1px solid var(--about-accent-line);
   border-radius: 50%;
   color: var(--about-accent);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -3694,7 +3903,7 @@ footer > .wrap {
 .osi-about-model-steps small {
   margin-top: 4px;
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -3715,7 +3924,7 @@ footer > .wrap {
 .osi-about-cta .osi-kicker {
   margin: 0 0 12px;
   color: var(--about-accent);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .16em;
   text-transform: uppercase;
@@ -3779,8 +3988,8 @@ footer > .wrap {
   border-radius: 999px;
   border-color: var(--about-accent-line);
   color: var(--about-accent);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -3849,8 +4058,8 @@ footer > .wrap {
 
 #sas-verifier-form .osi-field > span {
   color: var(--ink-dim);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .11em;
   text-transform: uppercase;
@@ -3869,8 +4078,8 @@ footer > .wrap {
 
 #sas-verifier-form .fo-in:focus {
   outline: none;
-  border-color: var(--signal);
-  box-shadow: 0 0 0 3px rgba(255, 77, 95, .16);
+  border-color: var(--lamp);
+  box-shadow: 0 0 0 3px rgba(255, 176, 32, .16);
 }
 
 #sas-verifier-form > p {
@@ -3888,7 +4097,7 @@ footer > .wrap {
 #sas-verifier-form .osi-form-status {
   margin: 0;
   color: var(--ink-dim);
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.5;
 }
 
@@ -3952,8 +4161,8 @@ footer > .wrap {
 
 .osi-about-proof-grid span {
   color: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .12em;
 }
@@ -4009,8 +4218,8 @@ footer > .wrap {
   border: 1px solid var(--about-accent-line);
   border-radius: 50%;
   color: var(--about-accent);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -4081,15 +4290,15 @@ footer > .wrap {
   border-radius: 10px;
   background: rgba(245, 240, 232, .02);
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
 .osi-about-notice strong {
   flex: 0 0 auto;
   color: var(--platinum-cool);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   letter-spacing: .1em;
   text-transform: uppercase;
 }
@@ -4101,27 +4310,27 @@ footer > .wrap {
 }
 
 #admin-view .adm-title b {
-  color: var(--signal);
+  color: var(--lamp);
 }
 
 #admin-view .adm-card {
   border: 1px solid rgba(245, 240, 232, .16);
-  border-left: 2px solid var(--signal);
+  border-left: 2px solid var(--lamp);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 6% 0%, rgba(255, 77, 95, .1), transparent 42%),
+    radial-gradient(circle at 6% 0%, rgba(255, 176, 32, .1), transparent 42%),
     linear-gradient(150deg, rgba(24, 28, 36, .96), rgba(10, 12, 17, .98));
   box-shadow: 0 24px 70px rgba(3, 4, 7, .28), inset 0 1px rgba(255, 255, 255, .035);
 }
 
 #admin-view .adm-field input:focus {
-  border-color: var(--signal);
+  border-color: var(--lamp);
 }
 
 #admin-view .adm-go {
   background: var(--brand-spectrum);
   color: #19090d;
-  box-shadow: 0 12px 28px rgba(255, 77, 95, .16);
+  box-shadow: 0 12px 28px rgba(255, 176, 32, .16);
 }
 
 #admin-view .adm-go:hover {
@@ -4374,3 +4583,4236 @@ footer > .wrap {
     align-items: stretch;
   }
 }
+
+/* =========================================================================
+ * Foundation layer
+ * One display face for page and section titles, one label style, one
+ * button shape. It sits last on purpose: it settles the earlier layers
+ * instead of adding another competing variant.
+ * ========================================================================= */
+
+:is(#main-content, #global-header, body) :is(
+  #osi-home-title,
+  #osi-about-title,
+  #osi-route-title,
+  #osi-live-title,
+  #osi-about-boundaries-title,
+  #osi-about-proof-title,
+  #osi-about-principles-title,
+  #sas-verifier-title,
+  h1.fo-title,
+  h1.cr-title,
+  h1.lb-title,
+  h1.pl-title,
+  h1.wire-title,
+  h1.adm-title,
+  .osi-section-heading h2,
+  .osi-about-heading h2,
+  .osi-about-cta h2
+) {
+  font-family: var(--font-display) !important;
+  font-stretch: 104%;
+  font-weight: 780 !important;
+  letter-spacing: -.032em !important;
+  text-wrap: balance;
+}
+
+#main-content #osi-home-title {
+  font-stretch: 108%;
+  font-weight: 800 !important;
+  letter-spacing: -.04em !important;
+}
+
+/* Every product view title sits on the same scale, so moving between views
+ * never makes one feel louder than another. */
+:is(#main-content, body) :is(h1.fo-title, h1.cr-title, h1.lb-title, h1.pl-title, h1.wire-title, h1.adm-title) {
+  font-size: clamp(34px, 3.2vw, 48px) !important;
+  line-height: 1.02 !important;
+}
+
+/* Eyebrows: one quiet amber label style instead of six competing ones. */
+:is(#main-content, #global-header, body) :is(
+  .osi-kicker,
+  .fo-eyebrow,
+  .cr-kicker,
+  .pl-kicker,
+  .sec-eyebrow,
+  .wire-eyebrow,
+  .osi-ws-kicker,
+  .identity-kicker,
+  .osi-profile-eyebrow,
+  .osi-maintainer-kicker
+) {
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  letter-spacing: .11em !important;
+}
+
+/* Numbers that are read as quantities line up and use the display face. */
+:is(#main-content, body) :is(.fo-op-n, .wire-op-n, .cr-stat-n, .pl-stat-val, .lb-stat-n, .osi-stat b, .fp-stat .n, .pf-stat .n) {
+  font-family: var(--font-display) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Buttons share one shape and one typographic voice. */
+:is(#main-content, #global-header, body) :is(
+  .osi-button,
+  .osi-header-case,
+  .wallet-btn,
+  .fo-cta,
+  .cr-btn,
+  .lb-cta,
+  .wire-cta,
+  .wire-pub-btn,
+  .osi-action,
+  .osi-empty-cta,
+  .adm-go,
+  .tip-send,
+  .tip-cancel,
+  .fo-cancel,
+  .og-cancel,
+  .osi-ws-cta,
+  .osi-ws-id-btn,
+  .identity-action,
+  .identity-connect
+) {
+  font-family: var(--font-sans) !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* Case drawer: one calm reading surface. Wide enough for its eight
+ * sections at desktop sizes, a 44px close target, a display-face title,
+ * and a fade on whichever edge of the tab strip still hides tabs. */
+.osi-case-panel {
+  width: min(880px, 94vw) !important;
+  background: var(--bg-deep) !important;
+}
+
+.osi-case-panel-head {
+  gap: 16px;
+}
+
+.osi-case-panel-head h2 {
+  font-family: var(--font-display);
+  font-stretch: 102%;
+  font-weight: 760;
+  font-size: clamp(22px, 2.3vw, 30px) !important;
+  letter-spacing: -.025em !important;
+  text-wrap: balance;
+}
+
+.osi-case-close {
+  flex: 0 0 auto;
+  width: 44px !important;
+  height: 44px !important;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 18px !important;
+}
+
+.osi-case-tab {
+  min-height: 48px;
+  padding: 14px 12px !important;
+  font-size: 13.5px !important;
+}
+
+.osi-case-tab.active {
+  color: var(--ink) !important;
+  border-bottom-color: var(--lamp) !important;
+}
+
+.osi-case-tabs[data-osi-more="end"] {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent);
+}
+
+.osi-case-tabs[data-osi-more="start"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 56px);
+  mask-image: linear-gradient(90deg, transparent, #000 56px);
+}
+
+.osi-case-tabs[data-osi-more="both"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+}
+
+@media (max-width: 720px) {
+  .osi-case-panel-head {
+    padding: 16px 16px 12px !important;
+  }
+
+  .osi-case-panel-head h2 {
+    margin: 4px 0 8px !important;
+    font-size: 21px !important;
+    line-height: 1.15 !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .osi-case-ref {
+    font-size: 12px !important;
+  }
+
+  .osi-case-content {
+    padding: 18px 16px 32px !important;
+  }
+
+  /* The action bar keeps the explanation on one short line and puts the
+   * buttons side by side, so the reading area keeps most of the screen. */
+  .osi-case-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .osi-case-actions > .osi-action-help {
+    flex: 1 1 100% !important;
+    width: 100%;
+    max-width: none !important;
+    margin: 0 !important;
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+  }
+
+  .osi-case-actions > :not(.osi-action-help) {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+
+  .osi-case-actions .osi-action {
+    min-height: 44px;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+  }
+
+  /* Short facts sit two to a row instead of one tall stack. */
+  .osi-case-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 721px) {
+  .osi-case-tab {
+    padding-inline: 11px !important;
+  }
+}
+
+/* Analyst roster. The per-cell label only appears where the column header
+ * is hidden, so a phone still says what 0.50 means. */
+#analysts .osi-cell-label {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  #analysts .osi-analyst-row {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "person weight"
+      "status status"
+      "skills skills";
+    align-items: center;
+    gap: 10px 12px !important;
+    padding: 16px !important;
+  }
+
+  #analysts .osi-analyst-row > .osi-analyst-person {
+    grid-area: person;
+  }
+
+  #analysts .osi-analyst-row > span:nth-child(2) {
+    grid-area: status;
+  }
+
+  #analysts .osi-analyst-row > span:nth-child(3) {
+    grid-area: skills;
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  #analysts .osi-analyst-row > span:nth-child(4),
+  #analysts .osi-analyst-row > span:nth-child(6) {
+    display: none !important;
+  }
+
+  #analysts .osi-analyst-row > span:nth-child(5) {
+    grid-area: weight;
+    display: grid !important;
+    justify-items: end;
+    text-align: right;
+  }
+
+  #analysts .osi-cell-label {
+    display: block;
+    color: var(--ink-faint);
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+
+  #analysts .osi-analyst-person b {
+    font-size: 15px;
+  }
+
+  #analysts .osi-analyst-row .osi-an-avatar {
+    --osi-avatar-size: 44px;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+  }
+}
+
+/* Home live panes: a reference stays on one line in the data face, and an
+ * analyst tier reads as the same status chip the Analyst Network uses. */
+.osi-public-row > .osi-public-ref {
+  color: var(--ink-dim) !important;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.osi-public-row > .osi-public-tier {
+  justify-self: start;
+  padding: 5px 10px;
+  border: 1px solid rgba(52, 245, 164, .34);
+  border-radius: 999px;
+  background: rgba(52, 245, 164, .07);
+  color: var(--verified) !important;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.osi-home-live-state .osi-live-label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--lamp);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* Stat tiles carry a drawn icon instead of a three-letter code, and the
+ * network tile reads as a fact rather than a number. */
+.fo-op-ic svg,
+.pl-stat-ic svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+#records-hero .fo-op-ic,
+#prooflog .pl-stat-ic {
+  font-size: 0 !important;
+  letter-spacing: 0 !important;
+}
+
+#records-hero .fo-op .fo-op-text {
+  font-size: 20px !important;
+  color: var(--ink) !important;
+}
+
+/* Public Records cards. The reference chip wraps inside its own column
+ * instead of running into Status, and the three actions read as one
+ * hierarchy: primary, outline, then a quiet text link. */
+#records-hero .cr-record-id {
+  width: auto !important;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+#records-hero .cr-actions.secondary .cr-btn.chx {
+  min-height: 36px;
+  padding: 0 2px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ink-dim) !important;
+  opacity: 1 !important;
+  text-decoration: underline;
+  text-decoration-color: var(--line-bright);
+  text-underline-offset: 4px;
+}
+
+#records-hero .cr-actions.secondary .cr-btn.chx:hover,
+#records-hero .cr-actions.secondary .cr-btn.chx:focus-visible {
+  color: var(--lamp) !important;
+  text-decoration-color: var(--lamp);
+}
+
+@media (max-width: 560px) {
+  /* Four short facts read as a 2 x 2 grid instead of a tall single column. */
+  #records-hero .cr-card-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0 !important;
+    padding: 0 !important;
+  }
+
+  #records-hero .cr-meta-cell {
+    padding: 12px !important;
+    border-right: 1px solid var(--line) !important;
+    border-bottom: 1px solid var(--line) !important;
+  }
+
+  #records-hero .cr-meta-cell:nth-child(2n) {
+    border-right: 0 !important;
+  }
+
+  #records-hero .cr-meta-cell:nth-last-child(-n + 2) {
+    border-bottom: 0 !important;
+  }
+}
+
+/* The Wire: a locked or unavailable action looks unavailable and says why
+ * on the page; the single sort reads as a statement, not a toggle; the hero
+ * keeps only the decoration that carries meaning. */
+#wire-view .wire-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+#wire-view .wire-actions .wire-cta {
+  margin-top: 0 !important;
+}
+
+#wire-view .wire-cta:disabled {
+  border: 1px dashed var(--line-bright) !important;
+  background: transparent !important;
+  color: var(--ink-faint) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  cursor: not-allowed;
+}
+
+#wire-view .wire-cta-note {
+  flex: 1 1 100%;
+  max-width: 62ch;
+  margin: 2px 0 0;
+  color: var(--ink-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#wire-view .wire-cta-note[hidden],
+#wire-view .wire-cta-note:empty {
+  display: none;
+}
+
+#wire-view .wire-sorts .wire-sort.active:only-of-type {
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--ink-dim) !important;
+  cursor: default;
+}
+
+#wire-view .wire-hero::before {
+  display: none !important;
+}
+
+#wire-view .wire-op {
+  justify-content: flex-start !important;
+  gap: 4px;
+}
+
+@media (max-width: 600px) {
+  /* Narrow stat tiles: labels wrap as words instead of spilling into the
+   * neighbouring tile. */
+  #wire-view .wire-op-l,
+  #field-view .fo-op-l,
+  #records-hero .fo-op-l {
+    letter-spacing: .02em !important;
+    text-transform: none !important;
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Reference strips stay horizontal (no card wall), but the next card now
+   * visibly peeks in, so the strip reads as scrollable. */
+  #records-hero .cr-aside,
+  #analysts .lb-aside,
+  #prooflog .pl-aside,
+  #wire-view .wire-side {
+    grid-auto-columns: 84% !important;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), rgba(0, 0, 0, .35));
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), rgba(0, 0, 0, .35));
+  }
+
+  #prooflog .pl-dash {
+    grid-auto-columns: 46% !important;
+  }
+
+  /* The card that holds the only action (start an application) comes first
+   * instead of hiding three swipes away. */
+  #analysts .lb-aside > .lb-card:has(.lb-cta) {
+    order: -1;
+  }
+}
+
+/* Proof Log: the wallet, its copy control and the SAS badge share one
+ * aligned row instead of the address sinking below a floating button. */
+#prooflog .plc-meta-v:has(> .plc-wallet-id) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+#prooflog .plc-meta-v > .plc-wallet-id {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+#prooflog .plc-meta-v > [data-sas-wallet] {
+  flex: 1 1 100%;
+  margin-top: 2px !important;
+}
+
+#prooflog .plc-copy {
+  min-width: 0 !important;
+  min-height: 32px !important;
+  margin-left: 0 !important;
+  padding: 0 10px !important;
+  color: var(--ink-dim) !important;
+}
+
+#prooflog .plc-tx-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Green is kept for chain-confirmed proof; a server-verified signature
+ * reads as signed, and a system event stays neutral. */
+#prooflog .plc-meta-v.signed {
+  color: var(--platinum-cool);
+}
+
+/* Field Office list: fixed columns so the header and every row line up
+ * (the first column used to size itself per row), room for the longer
+ * Turkish headers, and the filing date under each reference so two Cases
+ * with the same title can be told apart. */
+@media (min-width: 1181px) {
+  .osi-v2-head,
+  .osi-v2-row {
+    grid-template-columns: 170px minmax(220px, 1fr) 150px 104px 96px 136px 24px !important;
+  }
+}
+
+.osi-v2-head > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: .06em !important;
+}
+
+.osi-v2-id {
+  display: grid !important;
+  gap: 4px;
+  align-content: center;
+}
+
+.osi-v2-id .osi-v2-date {
+  color: var(--ink-faint);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+
+/* Missing wallet dialog. */
+.osi-wallet-missing {
+  position: fixed;
+  z-index: var(--z-modal, 4400);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.osi-wallet-missing-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(3, 4, 7, .72);
+  backdrop-filter: blur(4px);
+  cursor: default;
+}
+
+.osi-wallet-missing-card {
+  position: relative;
+  width: min(460px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line-bright);
+  border-top: 2px solid var(--lamp);
+  border-radius: 14px;
+  background: #0d0f15;
+  box-shadow: 0 30px 80px rgba(3, 4, 7, .6);
+}
+
+.osi-wallet-missing-card h2 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+
+.osi-wallet-missing-card p {
+  margin: 0 0 10px;
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.osi-wallet-missing-card .osi-wallet-missing-hint {
+  color: var(--ink-faint);
+  font-size: 13.5px;
+}
+
+.osi-wallet-missing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.osi-wallet-missing-actions .osi-button {
+  min-height: 44px;
+  text-decoration: none;
+}
+
+/* Wallet menu: quiet group labels above the items they name, real
+ * separators, and items in the interface face. */
+.osi-global-header .wb-menu-label {
+  padding: 10px 11px 4px;
+  color: var(--ink-faint);
+  font: 600 12px/1.3 var(--font-sans);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.osi-global-header .wb-menu-rule {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--line);
+}
+
+.osi-global-header .wb-mi {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 11px;
+  font: 500 14px/1.3 var(--font-sans) !important;
+  text-align: left;
+}
+
+.osi-global-header .wb-mi.danger {
+  color: var(--danger);
+}
+
+
+/* Navigation states: "where you are" and "menu open" are different facts.
+ * Only the current page carries the lamp underline; an open menu gets a
+ * quiet tint, so two items never look current at once. */
+.osi-platform-trigger[aria-expanded="true"]:not([aria-current="page"]) {
+  background: rgba(245, 240, 232, .05);
+  text-shadow: none;
+}
+
+.osi-platform-trigger[aria-expanded="true"]:not([aria-current="page"])::after {
+  content: none;
+}
+
+.osi-nav-link[aria-current="page"]::after {
+  background: var(--lamp) !important;
+  box-shadow: none !important;
+}
+
+.osi-platform-trigger > span {
+  color: var(--ink-faint);
+}
+
+/* The header signal line is drawn once, then rests; it no longer loops for
+ * the whole visit, and under reduced motion it rests centred. */
+.osi-global-header::after {
+  animation: osi-header-signal-once 1.8s var(--ease-out) 1 both !important;
+}
+
+@keyframes osi-header-signal-once {
+  from { background-position: 100% 0; }
+  to { background-position: 50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .osi-global-header::after {
+    animation: none !important;
+    background-size: 100% 100% !important;
+    background-position: 0 0 !important;
+  }
+}
+
+.osi-global-footer {
+  margin-top: 0 !important;
+}
+
+.osi-global-footer .brand .dot {
+  background: var(--signal) !important;
+  box-shadow: 0 0 10px rgba(255, 77, 95, .45) !important;
+  animation: none !important;
+}
+
+.osi-global-header .adm-lock {
+  width: 44px !important;
+  height: 44px !important;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px !important;
+  color: var(--lamp) !important;
+}
+
+/* Home hero: two deliberate headline lines, a readable example step with
+ * no blinking cursor, a flat panel at rest, and visible trust markers. */
+#osi-home-title .osi-h1-line {
+  display: block;
+}
+
+.osi-signal-readout strong {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.osi-signal-readout strong::after {
+  display: none !important;
+}
+
+.osi-signal-caption {
+  font-family: var(--font-sans) !important;
+}
+
+.osi-home-hero .osi-hero-panel {
+  transform: none !important;
+}
+
+.osi-home-hero .osi-hero-panel:hover {
+  transform: translateY(-3px) !important;
+}
+
+.osi-trust-line li::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lamp);
+  opacity: .8;
+}
+
+.osi-trust-line li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-dim) !important;
+  font-size: 13px !important;
+}
+
+@media (max-width: 720px) {
+  .osi-trust-line {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px 16px !important;
+  }
+}
+
+/* Section headings: the lede sits under its heading instead of drifting to
+ * the far edge of the page. */
+.osi-section-heading {
+  grid-template-columns: 1fr !important;
+  gap: 12px !important;
+  max-width: 780px;
+}
+
+.osi-section-heading > p {
+  max-width: 60ch;
+  font-size: 16px !important;
+  color: var(--ink-dim) !important;
+}
+
+/* The loading spinner's box is not left behind as an empty gap once the
+ * strip has loaded. */
+.osi-home-live-state[aria-busy="false"] .osi-state-mark {
+  display: none;
+}
+
+#main-content #osi-home-title {
+  max-width: 22ch !important;
+}
+
+@media (min-width: 721px) and (max-width: 980px) {
+  #main-content #osi-home-title {
+    font-size: clamp(46px, 6.6vw, 60px) !important;
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1280px) {
+  #main-content #osi-home-title {
+    font-size: clamp(40px, 4.2vw, 52px) !important;
+  }
+}
+
+/* About: one framed surface in the hero, headings above their content, a
+ * caption that sits under the emblem, proof kinds without false numbering,
+ * one primary and one secondary action with the rest as text links, and
+ * verifier states that read differently. */
+.osi-about-hero {
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.osi-about-hero::before,
+.osi-about-hero::after {
+  display: none !important;
+}
+
+.osi-about-wordmark figcaption {
+  position: static !important;
+  margin-top: 12px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12.5px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  line-height: 1.45 !important;
+}
+
+.osi-about-section {
+  grid-template-columns: 1fr !important;
+  gap: 28px !important;
+}
+
+.osi-about-heading {
+  max-width: 72ch;
+}
+
+.osi-about-heading h2 {
+  max-width: 26ch !important;
+  font-size: clamp(28px, 2.7vw, 40px) !important;
+  line-height: 1.08 !important;
+}
+
+.osi-about-heading > p:not(.osi-kicker) {
+  max-width: 64ch !important;
+  color: var(--ink-dim) !important;
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+}
+
+.osi-about-heading code {
+  font-family: var(--font-mono);
+  font-size: .88em;
+  color: var(--ink);
+}
+
+.osi-about-principle-list article > span {
+  display: none !important;
+}
+
+.osi-about-proof-grid article > span {
+  letter-spacing: .08em !important;
+}
+
+.osi-about-cta .osi-about-actions > .osi-button:nth-child(n + 3) {
+  min-height: 40px !important;
+  padding: 0 4px !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--ink-dim) !important;
+  text-decoration: underline;
+  text-decoration-color: var(--line-bright);
+  text-underline-offset: 4px;
+}
+
+.osi-about-cta .osi-about-actions > .osi-button:nth-child(n + 3):hover,
+.osi-about-cta .osi-about-actions > .osi-button:nth-child(n + 3):focus-visible {
+  color: var(--lamp) !important;
+  text-decoration-color: var(--lamp);
+}
+
+.osi-about-cta .osi-about-actions > .osi-button {
+  white-space: nowrap;
+}
+
+#sas-verifier-form .osi-form-status.success {
+  color: var(--verified) !important;
+}
+
+#sas-verifier-form .osi-form-status.error {
+  color: var(--danger) !important;
+}
+
+#sas-verifier-form .osi-form-status {
+  font-size: 14px !important;
+}
+
+#sas-verifier-form .osi-case-note {
+  padding: 14px 0 0 !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(245, 240, 232, .12) !important;
+  border-radius: 0 !important;
+  background: none !important;
+  font-size: 14px !important;
+}
+
+#sas-verifier-form .osi-case-note .osi-button {
+  min-height: 36px;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  color: var(--lamp) !important;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+#sas-verifier-wallet[aria-invalid="true"] {
+  border-color: var(--danger) !important;
+}
+
+/* Decorative loops play once. */
+.osi-eye-signal,
+.osi-eye-iris,
+.osi-hero-light-lamp,
+.osi-hero-light {
+  animation-iteration-count: 1 !important;
+}
+
+.osi-hero-light-lamp,
+.osi-about-wordmark .osi-eye-signal,
+.osi-about-wordmark .osi-eye-iris {
+  animation-fill-mode: both !important;
+}
+
+/* The untranslated brand name inside the About kicker is text, not the
+ * kicker's dot. */
+.osi-about-copy .osi-kicker span[lang] {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* Principles are not a sequence: with the numbers gone the copy takes the
+ * full card width. */
+.osi-about-principle-list article {
+  grid-template-columns: minmax(0, 1fr) !important;
+  min-height: 0 !important;
+}
+
+/* The credential name sits on its own line so both languages read as whole sentences. */
+.osi-about-credential { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 12px; color: var(--ink-faint); font-size: 14px; }
+.osi-about-credential code { font-family: var(--font-mono); font-size: 13px; color: var(--ink); background: var(--soft, #1b222d); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+
+/* The Wire lists newest first; there is one order, so it is stated, not offered as a control. */
+.wire-sort-order { font-family: var(--font-sans); font-size: 12.5px; font-weight: 500; color: var(--ink-faint); }
+
+/* Stat tile labels read as words in both languages: sentence case, no tracking.
+ * Uppercase tracking stays only on small column headers. */
+#prooflog .pl-stat-label,
+#wire-view .wire-op-l,
+#field-view .fo-op-l,
+#records-hero .fo-op-l,
+.osi-stat span {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  color: var(--ink-dim) !important;
+}
+#prooflog .pl-stat-top { justify-content: flex-start; }
+/* Values line up across tiles: the label row reserves two lines and the value follows it. */
+#prooflog .pl-stat { justify-content: flex-start !important; gap: 12px; }
+#prooflog .pl-stat-top { align-items: flex-start !important; min-height: 34px; }
+
+/* Loading notes stack their headline and explanation instead of running together. */
+.osi-report-loading { display: grid; gap: 4px; margin-bottom: 12px; }
+.osi-report-loading b { display: block; font-size: 15px; color: var(--ink); }
+.osi-report-loading span { display: block; font-size: 14px; color: var(--ink-faint); }
+
+/* Touch targets: every control at least 40px tall on desktop and 44px on phones.
+ * Text links that sit inside a sentence keep their line height. */
+#prooflog .rf-tab,
+#records-hero .rf-tab,
+#prooflog .plc-copy,
+#prooflog .plc-verify,
+#records-hero .cr-copy,
+#records-hero .cr-btn,
+.fo-pnav .fo-pg,
+.fo-rail .fr-i,
+#osi-home-live-state button,
+.osi-public-row button,
+#analysts .lb-link {
+  min-height: 40px !important;
+}
+.fo-pnav .fo-pg { min-width: 40px !important; }
+#analysts .lb-link { display: inline-flex; align-items: center; }
+a.osi-proof-label[data-sas-badge] { min-height: 32px; display: inline-flex; align-items: center; }
+
+@media (max-width: 600px) {
+  #prooflog .rf-tab,
+  #records-hero .rf-tab,
+  #prooflog .plc-copy,
+  #prooflog .plc-verify,
+  #records-hero .cr-copy,
+  #records-hero .cr-btn,
+  .fo-pnav .fo-pg,
+  #osi-home-live-state button,
+  .osi-public-row button,
+  #analysts .lb-link,
+  #analysts .lb-cta,
+  #wire-view .wire-cta,
+  .vsub .vsub-b,
+  #field-view select,
+  #field-view .fo-search,
+  #records-hero select,
+  #records-hero .cr-search,
+  #prooflog .cr-search,
+  #about-hero .fo-in,
+  #about-hero .osi-button,
+  .osi-global-footer .links a,
+  .osi-global-footer .links button,
+  .osi-nav-quick,
+  .osi-route-card > button,
+  .osi-live-pane > header button,
+  .osi-proof-legend-heading button {
+    min-height: 44px !important;
+  }
+  .fo-pnav .fo-pg { min-width: 44px !important; }
+  a.osi-proof-label[data-sas-badge] { min-height: 44px; }
+}
+
+/* The recorded decision is prose; only the reference beside it is machine data. */
+#prooflog .plc-ref { font-family: var(--font-sans) !important; font-size: 13px !important; }
+#prooflog .plc-ref .plc-ref-link,
+#prooflog .plc-ref a { font-family: var(--font-mono); font-size: 12.5px; }
+
+/* Field Office sub-navigation: the tab strip covers every width below the
+ * docked rail (it used to vanish between 981 and 1279px), stays on one
+ * scrollable row, and marks the current item in the lamp colour. */
+@media (max-width: 1279.98px) {
+  #field-view .vsub {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding-bottom: 0;
+    scrollbar-width: none;
+  }
+  #field-view .vsub::-webkit-scrollbar { display: none; }
+  #field-view .vsub-b { flex: 0 0 auto; min-height: 44px; white-space: nowrap; }
+}
+.vsub .vsub-b.active,
+.vsub .vsub-b[aria-current="true"] {
+  color: var(--ink) !important;
+  border-bottom: 2px solid var(--lamp) !important;
+  font-weight: 650;
+}
+
+/* Header cells share the row box exactly: same gap, same inline padding and
+ * the same 1px side border, so every label sits over its column. */
+#field-view .osi-v2-head {
+  column-gap: 12px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  border-left: 1px solid transparent !important;
+  border-right: 1px solid transparent !important;
+}
+
+/* The header has nothing to label while the list shows a state message. */
+#field-view .fo-main:has(#field-cases > .osi-v2-empty) .osi-v2-head,
+#field-view .fo-main:has(#field-cases > .osi-workspace-lock) .osi-v2-head {
+  display: none !important;
+}
+
+/* Pager */
+#field-view .fo-pnav { display: flex; align-items: center; gap: 8px; }
+#field-view .fo-pg-state { font-size: 13px; color: var(--ink-faint); padding: 0 4px; }
+#field-view .fo-pnav .fo-pg[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* Reward chip tones follow the money-honesty rule: only a verified payment is green. */
+.osi-reward-chip[data-tone] { border: 1px solid var(--line-bright) !important; background: transparent !important; color: var(--ink-dim) !important; }
+.osi-reward-chip[data-tone="lamp"] { border-color: var(--lamp-line, rgba(255,176,32,.42)) !important; color: var(--lamp) !important; }
+.osi-reward-chip[data-tone="signal"] { border-color: rgba(255,77,95,.42) !important; color: var(--signal, #ff4d5f) !important; }
+.osi-reward-chip[data-tone="verified"] { border-color: rgba(52,245,164,.4) !important; color: var(--verified, #34f5a4) !important; }
+.osi-reward-chip[data-tone="muted"] { color: var(--ink-faint) !important; }
+
+/* A locked or private panel does not butt against the hero above it. */
+#field-cases > .osi-workspace-lock { margin-top: 16px; }
+
+/* Field Office rows: stage, category and proof read as words in sentence case;
+ * a small dot carries the stage tone, and only the sealed stage is green. */
+#field-view .osi-v2-stage,
+#field-view .osi-v2-category,
+#field-view .osi-v2-proof {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+}
+#field-view .osi-v2-stage { color: var(--ink) !important; display: inline-flex; align-items: center; gap: 8px; }
+#field-view .osi-v2-stage::before { content: ""; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--lamp); }
+#field-view .osi-v2-stage.private::before { background: var(--ink-faint); }
+#field-view .osi-v2-stage.challenge::before { background: var(--signal, #ff4d5f); }
+#field-view .osi-v2-stage.sealed::before { background: var(--verified, #34f5a4); }
+#field-view .osi-v2-category,
+#field-view .osi-v2-proof { color: var(--ink-dim) !important; }
+.osi-published-chip {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: var(--ink) !important;
+  border-color: var(--line-bright) !important;
+  border-radius: 999px;
+  padding: 2px 10px !important;
+  font-size: 12.5px !important;
+}
+#field-view .fo-eyebrow::before { background: var(--lamp) !important; box-shadow: none !important; }
+#field-view .fo-sel-l { text-transform: none !important; letter-spacing: 0 !important; font-size: 12.5px !important; }
+
+/* Submitter: one quiet line under the summary. The placeholder avatar is
+ * dropped in the list; a real profile avatar still shows. */
+#field-cases .osi-v2-title .osi-case-submitter { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+#field-cases .osi-v2-title .osi-case-submitter-avatar.fallback { display: none; }
+#field-cases .osi-v2-title .osi-case-submitter-copy { display: flex; flex-direction: row; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+#field-cases .osi-v2-title .osi-case-submitter-copy small { font-size: 12.5px; color: var(--ink-faint); }
+#field-cases .osi-v2-title .osi-case-submitter-copy b { font-size: 13px; font-weight: 600; color: var(--ink-dim); }
+
+/* Phones: the Field Office uses the same 16px gutter as every other page. */
+@media (max-width: 720px) {
+  .sec[data-view="field"] > .wrap { width: auto !important; margin-inline: 0 !important; padding-inline: 16px !important; }
+  #field-view .osi-stat { min-width: 0; }
+  #field-view .osi-stat span { white-space: normal; }
+}
+
+/* Toolbar labels, counts and column headers are interface text: sans, not mono. */
+#field-view .fo-sel-l,
+#field-view .fo-count,
+#field-view .osi-v2-head,
+#field-view .fr-g {
+  font-family: var(--font-sans) !important;
+}
+#field-view .fo-count { letter-spacing: 0 !important; font-size: 13px !important; }
+#field-view .fr-g { letter-spacing: .06em !important; font-size: 12px !important; }
+
+/* The Field Office hero uses the shared warm surface, not the old navy fill. */
+#field-view .fo-hero {
+  background:
+    radial-gradient(circle at 86% 12%, rgba(255, 176, 32, .12), transparent 30%),
+    radial-gradient(circle at 8% 100%, rgba(245, 240, 232, .045), transparent 30%),
+    linear-gradient(135deg, #151922, #0b0d12) !important;
+}
+
+/* Case intake dialog: one scroller (the overlay), a title and close button
+ * that stay reachable, a footer that stays in view, and full screen on phones. */
+#fo-modal .osi-case-form { max-height: none !important; overflow: visible !important; }
+#fo-modal .fo-form-h,
+#fo-form-title {
+  margin: 0 56px 8px 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -.01em;
+}
+#fo-modal .fo-x { z-index: 3; }
+#fo-modal .fo-form-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 16px -24px -24px;
+  padding: 14px 24px;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 14px 14px;
+}
+.osi-case-fields > .osi-field,
+.osi-case-fields > .osi-evidence-set,
+.osi-case-fields > .osi-reward-field { margin-top: 16px; }
+.osi-evidence-set .fo-grid2 > .osi-field { margin-top: 0 !important; }
+.osi-evidence-set > .osi-field:last-child { margin-top: 12px; }
+.osi-case-form .fo-in:not(textarea) { min-height: 48px; }
+#v2-case-title, #v2-case-summary, #v2-case-details, #v2-case-reward { font-family: var(--font-sans) !important; }
+#v2-case-wallets, #v2-case-transactions, #v2-case-urls { font-family: var(--font-mono) !important; font-size: 13px !important; }
+.osi-field > span,
+.osi-evidence-set legend {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 13px !important;
+  font-weight: 600;
+  color: var(--ink) !important;
+}
+.osi-case-confirm input { width: 20px; height: 20px; flex: 0 0 20px; }
+.osi-case-fields.is-submitted { opacity: .55; }
+#field-form .osi-form-status { font: 500 14px/1.5 var(--font-sans) !important; }
+#field-form .osi-form-status.error { color: var(--signal, #ff4d5f); }
+.osi-field-error { display: block; color: var(--signal, #ff4d5f) !important; font-size: 13px !important; }
+.osi-case-form [aria-invalid="true"] { border-color: var(--signal, #ff4d5f) !important; }
+.fo-form-note { font-size: 13px !important; }
+@media (max-width: 640px) {
+  #fo-modal { padding: 0 !important; }
+  #fo-modal .osi-case-form {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 100dvh;
+    border-radius: 0 !important;
+    border-inline: 0 !important;
+  }
+  #fo-modal .fo-form-foot { margin: 16px -24px -24px; padding: 12px 24px; border-radius: 0; }
+}
+
+/* Disabled intake states its prerequisite beside the control. */
+#field-view .fo-cta.is-blocked {
+  background: var(--bg-soft, #1b222d) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--ink-dim) !important;
+  box-shadow: none !important;
+}
+#field-view .fo-cta-note { margin: 8px 0 0; font-size: 14px; color: var(--ink-faint); max-width: 52ch; }
+
+/* Rail groups: a gap separates the public registry from private work. */
+#field-view .fo-rail .fr-g-private { margin-top: 18px; }
+
+/* === Wire and Public Records pass === */
+/* One quiet system for The Wire and Public Records: sans labels in sentence
+ * case, mono only for references, hashes and wallets, lamp for actions and
+ * the current location, crimson never as an action, green only for a
+ * chain-confirmed proof. Earlier layers set several of these properties with
+ * !important, so this block answers in kind where it has to. */
+
+/* ---------- Public Records: introduction ---------- */
+#records-hero .cr-hero {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  gap: 24px 40px;
+  align-items: start;
+  padding: clamp(24px, 3vw, 36px) clamp(20px, 3vw, 36px) !important;
+  border-radius: 12px !important;
+}
+#records-hero .cr-hero-copy > .cr-title { margin: 0 !important; color: var(--ink); }
+#records-hero .cr-sub {
+  margin: 14px 0 0;
+  max-width: 72ch;
+  color: var(--ink-dim);
+  font: 400 16px/1.6 var(--font-sans);
+}
+#records-hero .cr-boundary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 14px;
+  margin: 14px 0 0;
+  max-width: 80ch;
+  color: var(--ink-faint);
+  font: 400 14px/1.55 var(--font-sans);
+}
+#records-hero .cr-link,
+#wire-view .wire-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--lamp);
+  cursor: pointer;
+  font: 600 14px/1.3 var(--font-sans);
+  text-decoration: underline;
+  text-decoration-color: var(--lamp-line);
+  text-underline-offset: 4px;
+}
+#records-hero .cr-link:hover { color: var(--lamp-strong); text-decoration-color: var(--lamp-strong); }
+#records-hero .cr-link { text-align: left; }
+
+/* ---------- Public Records: counts ---------- */
+#records-hero .cr-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  margin: 16px 0 !important;
+}
+#records-hero .cr-stats > :last-child:nth-child(odd) { grid-column: auto !important; }
+#records-hero .cr-stats .fo-op {
+  min-width: 0 !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 16px 18px !important;
+  border-radius: 10px !important;
+}
+#records-hero .cr-stats .fo-op-ic,
+#records-hero .cr-stats .fo-op-ic.warn {
+  width: 30px !important;
+  height: 30px !important;
+  margin: 0 0 12px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  background: var(--bg-soft) !important;
+  color: var(--ink-dim) !important;
+}
+#records-hero .cr-stats .fo-op-n {
+  color: var(--ink) !important;
+  font-size: 28px !important;
+  line-height: 1.1 !important;
+}
+#records-hero .cr-stats .fo-op-n.warn { color: var(--lamp) !important; }
+#records-hero .cr-stats .fo-op-n.cr-stat-na { font-size: 15px !important; color: var(--ink-faint) !important; }
+#records-hero .cr-stats .fo-op-l { margin-top: 6px !important; }
+
+/* ---------- Public Records: search, filters, sort ---------- */
+#records-hero .cr-toolbar {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "search sort" "filters filters";
+  gap: 10px !important;
+  padding: 12px !important;
+  border-radius: 10px !important;
+}
+#records-hero .cr-toolbar .cr-search-wrap { grid-area: search; min-width: 0; }
+#records-hero .cr-toolbar .cr-fils { grid-area: filters; display: flex; flex-wrap: wrap; gap: 8px; }
+#records-hero .cr-toolbar .fo-sel { grid-area: sort; justify-self: end; min-height: 44px; }
+#records-hero .cr-search {
+  min-height: 44px;
+  padding: 10px 14px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 8px !important;
+  background: var(--bg) !important;
+  color: var(--ink) !important;
+  font: 400 16px/1.4 var(--font-sans) !important;
+}
+#records-hero .cr-search::placeholder { color: var(--ink-faint); opacity: 1; }
+#records-hero .cr-search:focus { border-color: var(--lamp-line) !important; }
+#records-hero .rf-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--ink-dim) !important;
+  font: 500 14px/1 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#records-hero .rf-tab:hover { color: var(--ink) !important; border-color: var(--ink-faint) !important; }
+#records-hero .rf-tab.active {
+  border-color: var(--lamp) !important;
+  background: var(--lamp-soft) !important;
+  color: var(--ink) !important;
+}
+#records-hero .rf-n {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+#records-hero .rf-n:empty { display: none; }
+#records-hero .rf-tab.active .rf-n { color: var(--lamp); }
+#records-hero .rf-tab[hidden] { display: none !important; }
+/* Open investigations are not outcomes: their filter sits apart from the
+ * outcome filters, at the far end of the row, in a dashed outline. */
+#records-hero .rf-tab-open { margin-left: auto; border-style: dashed !important; }
+#records-hero .rf-tab-open.active { border-style: solid !important; }
+#records-hero .fo-sel { border-color: var(--line-bright) !important; background: var(--bg) !important; }
+#records-hero .fo-sel-l {
+  color: var(--ink-faint) !important;
+  font: 500 13px/1 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#records-hero .fo-sel select { font: 600 14px/1.2 var(--font-sans) !important; min-height: 42px; }
+#records-hero .cr-open-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 14px;
+  margin: 12px 0 0;
+  padding: 4px 14px;
+  border-left: 2px solid var(--line-bright);
+  color: var(--ink-dim);
+  font: 400 14px/1.5 var(--font-sans);
+}
+#records-hero .cr-open-note[hidden] { display: none; }
+
+/* ---------- Public Records: a record ---------- */
+#records-hero #case-records { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 12px !important; margin-top: 14px !important; }
+#records-hero .cr-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 280px);
+  gap: 18px 28px !important;
+  align-items: stretch;
+  padding: 20px 22px 20px 24px !important;
+  border-radius: 10px !important;
+  cursor: default;
+}
+#records-hero .cr-card:hover { transform: none !important; }
+#records-hero .cr-card::before { background: var(--line-bright) !important; top: 18px !important; bottom: 18px !important; }
+#records-hero .cr-card.sealed::before { background: var(--verified) !important; }
+#records-hero .cr-card.challenged::before { background: var(--lamp) !important; }
+#records-hero .cr-card-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+#records-hero .cr-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+#records-hero .cr-ident { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+#records-hero .cr-record-kind { color: var(--ink-dim); font: 600 13px/1.3 var(--font-sans); }
+#records-hero .cr-record-id {
+  display: inline-block !important;
+  width: auto !important;
+  max-width: 100%;
+  padding: 3px 7px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 6px !important;
+  background: var(--bg-soft) !important;
+  color: var(--ink-dim) !important;
+  font: 500 12.5px/1.35 var(--font-mono) !important;
+  overflow-wrap: anywhere;
+}
+#records-hero .cr-states { display: flex; flex-wrap: wrap; gap: 6px; }
+#records-hero .cr-status {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 7px;
+  width: auto !important;
+  padding: 4px 10px 4px 9px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  font: 600 12.5px/1.25 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  white-space: nowrap;
+}
+#records-hero .cr-status::before { content: ""; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: currentColor; }
+#records-hero .cr-status.cr-sealed { color: var(--verified) !important; border-color: rgba(52, 245, 164, .42) !important; background: rgba(52, 245, 164, .06) !important; }
+#records-hero .cr-status.cr-bootstrap { color: var(--lamp) !important; border-color: var(--lamp-line) !important; background: var(--lamp-soft) !important; }
+#records-hero .cr-status.cr-pending { color: var(--ink-dim) !important; }
+#records-hero .cr-card .cr-title {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-display) !important;
+  font-size: 19px !important;
+  font-weight: 720 !important;
+  line-height: 1.28 !important;
+  letter-spacing: -.01em !important;
+  overflow-wrap: anywhere;
+}
+#records-hero .cr-record-parent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  color: var(--ink-faint);
+  font: 400 13.5px/1.5 var(--font-sans) !important;
+}
+#records-hero .cr-record-parent code,
+#records-hero .cr-proof-tx code { font: 500 12.5px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+#records-hero .cr-parent-ref { color: var(--ink-faint); }
+#records-hero .cr-parent-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--lamp);
+  text-decoration: underline;
+  text-decoration-color: var(--lamp-line);
+  text-underline-offset: 4px;
+}
+#records-hero .cr-parent-link:hover { text-decoration-color: var(--lamp); }
+#records-hero .cr-wallet { display: block !important; color: var(--ink-dim) !important; font: 400 13.5px/1.4 var(--font-sans) !important; overflow-wrap: anywhere; }
+#records-hero .cr-summary {
+  margin: 0;
+  color: var(--ink-dim) !important;
+  font: 400 15px/1.55 var(--font-sans) !important;
+  -webkit-line-clamp: 3;
+}
+#records-hero .cr-status-note { margin: 0; max-width: 72ch; color: var(--ink-faint); font: 400 13.5px/1.5 var(--font-sans); }
+#records-hero .cr-date { color: var(--ink-faint) !important; font: 400 13px/1.4 var(--font-sans) !important; }
+#records-hero .cr-card-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+#records-hero .cr-card-meta {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0 !important;
+  margin: 0;
+  padding: 0 !important;
+  border: 0 !important;
+}
+#records-hero .cr-meta-cell {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+#records-hero .cr-meta-cell:last-child { border-bottom: 0 !important; }
+#records-hero .cr-meta-k {
+  margin: 0 !important;
+  color: var(--ink-faint) !important;
+  font: 500 13px/1.35 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#records-hero .cr-meta-v {
+  margin: 0;
+  color: var(--ink) !important;
+  font: 600 14px/1.35 var(--font-sans) !important;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+#records-hero .cr-meta-v .na { color: var(--ink-faint); font-weight: 500; font-size: 13.5px; }
+#records-hero .cr-meta-v.warn { color: var(--lamp) !important; }
+#records-hero .cr-card-proof { display: grid !important; gap: 4px !important; justify-content: stretch !important; }
+#records-hero .cr-card-proof > .cr-meta-k { margin-bottom: 2px !important; }
+#records-hero .cr-proof-state { color: var(--ink-dim) !important; font: 600 14px/1.35 var(--font-sans) !important; }
+#records-hero .cr-proof-state.ok { color: var(--verified) !important; }
+#records-hero .cr-proof-state.srv { color: var(--ink) !important; }
+#records-hero .cr-proof-state.mut { color: var(--ink-faint) !important; }
+#records-hero .cr-proof-event { color: var(--ink-dim); font: 400 13.5px/1.4 var(--font-sans); }
+#records-hero .cr-proof-tx {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  color: var(--ink-faint);
+  font: 400 13px/1.4 var(--font-sans);
+}
+#records-hero .cr-proof-tx code { color: var(--ink-dim); }
+#records-hero .cr-copy {
+  min-width: 0 !important;
+  padding: 0 10px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: var(--ink-dim) !important;
+  font: 500 13px/1 var(--font-sans) !important;
+}
+#records-hero .cr-copy:hover { color: var(--ink) !important; border-color: var(--ink-faint) !important; }
+#records-hero .cr-verify {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--lamp);
+  cursor: pointer;
+  font: 600 13.5px/1.2 var(--font-sans);
+  text-decoration: underline;
+  text-decoration-color: var(--lamp-line);
+  text-underline-offset: 4px;
+}
+#records-hero .cr-verify:hover { color: var(--lamp-strong); text-decoration-color: var(--lamp-strong); }
+#records-hero .cr-card .cr-actions { margin-top: auto; padding: 0 !important; border: 0 !important; display: flex; }
+/* A list carries one action per record, so it takes the secondary tier: an
+ * ink outline that lights with the lamp on hover. Solid lamp stays for the
+ * page-level action. */
+#records-hero .cr-card .cr-actions .cr-btn.primary {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 44px !important;
+  padding: 0 18px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--ink) !important;
+  font: 600 14px/1 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#records-hero .cr-card .cr-actions .cr-btn.primary:hover { border-color: var(--lamp) !important; color: var(--lamp-strong) !important; filter: none !important; }
+#records-hero .cr-btn.outline {
+  min-height: 44px !important;
+  padding: 0 16px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  font: 600 14px/1 var(--font-sans) !important;
+}
+#records-hero .cr-noyet { gap: 10px; padding: 40px 24px; border-radius: 10px; }
+#records-hero .cr-noyet b { color: var(--ink); font: 700 18px/1.3 var(--font-display); }
+#records-hero .cr-noyet span { max-width: 52ch; color: var(--ink-dim); font: 400 14px/1.6 var(--font-sans); }
+#records-hero .fo-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+#records-hero .fo-count { color: var(--ink-faint); font: 400 14px/1.4 var(--font-sans) !important; letter-spacing: 0 !important; }
+#records-hero .fo-count:focus { outline: none; }
+#records-hero .fo-count:focus-visible { outline: 2px solid var(--focus) !important; outline-offset: 4px; }
+#records-hero .fo-pg { border-color: var(--line-bright); color: var(--ink-dim); font: 600 14px/1 var(--font-sans); }
+#records-hero .fo-pg.active { border-color: var(--lamp) !important; background: var(--lamp-soft) !important; color: var(--ink) !important; }
+
+/* ---------- Public Records: reference column ---------- */
+#records-hero .cr-side-card { padding: 18px !important; border-radius: 10px !important; }
+#records-hero .cr-side-title {
+  margin: 0 0 14px !important;
+  color: var(--ink) !important;
+  font: 650 15px/1.35 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#records-hero .cr-flow { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+#records-hero .cr-flow li { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 10px; }
+#records-hero .cr-flow li > span {
+  grid-row: span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 50%;
+  background: transparent !important;
+  color: var(--ink-dim) !important;
+  font: 600 12px/1 var(--font-sans) !important;
+}
+#records-hero .cr-flow b { grid-column: 2; color: var(--ink); font: 600 14px/1.35 var(--font-sans) !important; }
+#records-hero .cr-flow em { grid-column: 2; margin: 2px 0 0 !important; color: var(--ink-faint); font: 400 13.5px/1.5 var(--font-sans) !important; font-style: normal; }
+#records-hero .cr-side-note { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-faint); font: 400 13.5px/1.5 var(--font-sans); }
+#records-hero .cr-actions-panel button { min-height: 48px; padding: 10px 14px !important; border-color: var(--line) !important; }
+#records-hero .cr-actions-panel button:hover { border-color: var(--lamp-line) !important; }
+#records-hero .cr-actions-panel b { color: var(--ink); font: 600 14px/1.3 var(--font-sans) !important; }
+#records-hero .cr-actions-panel span { color: var(--ink-faint) !important; font: 400 13px/1.35 var(--font-sans) !important; text-align: right; }
+
+@media (max-width: 1179px) {
+  #records-hero .cr-console { grid-template-columns: minmax(0, 1fr) !important; }
+  #records-hero .cr-aside { position: static !important; display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+}
+
+@media (max-width: 760px) {
+  #records-hero .cr-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px !important;
+    padding: 16px 16px 16px 18px !important;
+  }
+  #records-hero .cr-card-side {
+    gap: 12px;
+    padding: 12px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  #records-hero .cr-card .cr-title { font-size: 17px !important; }
+  #records-hero .cr-summary { -webkit-line-clamp: 2; font-size: 14.5px !important; }
+  #records-hero .cr-card-meta { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 10px !important; }
+  #records-hero .cr-meta-cell {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 2px;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+  #records-hero .cr-meta-cell:nth-child(n) { border: 0 !important; padding: 0 !important; }
+  #records-hero .cr-meta-v { text-align: left; }
+  #records-hero .cr-toolbar { grid-template-columns: minmax(0, 1fr); grid-template-areas: "search" "filters" "sort"; }
+  #records-hero .cr-card-main { gap: 8px; }
+  #records-hero .cr-parent-ref,
+  #records-hero .cr-card-proof > .cr-meta-k { display: none !important; }
+  #records-hero .cr-parent-link { min-height: 44px; }
+  #records-hero .cr-card-proof { display: flex !important; flex-direction: row !important; flex-wrap: wrap; align-items: baseline; gap: 2px 10px !important; }
+  #records-hero .cr-proof-tx { flex: 1 1 100%; }
+  #records-hero .cr-toolbar .fo-sel { justify-self: stretch; width: 100%; box-sizing: border-box; justify-content: space-between; }
+}
+
+@media (max-width: 720px) {
+  #records-hero .cr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  /* Icon and number share the first row; the label gets the full card width
+   * so a long Turkish label wraps between words, never inside one. */
+  #records-hero .cr-stats .fo-op {
+    display: grid !important;
+    grid-template-columns: 30px minmax(0, 1fr);
+    column-gap: 12px;
+    align-content: start;
+    align-items: center;
+    padding: 14px !important;
+  }
+  #records-hero .cr-stats .fo-op-ic { margin: 0 !important; }
+  #records-hero .cr-stats .fo-op-n { font-size: 24px !important; }
+  #records-hero .cr-stats .fo-op-l { grid-column: 1 / -1; margin-top: 8px !important; word-break: normal !important; overflow-wrap: normal !important; hyphens: manual; }
+  /* Reference cards stack instead of hiding in a sideways strip. */
+  #records-hero .cr-aside,
+  #wire-view .wire-side {
+    display: grid !important;
+    grid-auto-flow: row !important;
+    grid-auto-columns: auto !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+    scroll-snap-type: none !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+  #records-hero .cr-hero { padding: 22px 18px !important; }
+  #records-hero .cr-sub { font-size: 15px; }
+}
+
+/* ---------- The Wire: introduction ---------- */
+#wire-view .wire-hero {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  gap: 24px 40px !important;
+  align-items: start !important;
+  padding: clamp(22px, 3vw, 36px) !important;
+  border-radius: 12px !important;
+}
+#wire-view .wire-hero::before,
+#wire-view .wire-hero::after { content: none !important; display: none !important; }
+#wire-view .wire-hero > * { grid-column: auto !important; grid-row: auto !important; }
+#wire-view .wire-hero-copy { min-width: 0; }
+#wire-view .wire-eyebrow {
+  display: block;
+  color: var(--ink-dim) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#wire-view .wire-title { margin: 8px 0 0 !important; color: var(--ink) !important; }
+#wire-view .wire-sub {
+  max-width: 60ch !important;
+  margin: 14px 0 0 !important;
+  color: var(--ink-dim) !important;
+  font: 400 16px/1.6 var(--font-sans) !important;
+}
+#wire-view .wire-actions { margin-top: 22px; gap: 10px; }
+#wire-view .wire-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 0 18px !important;
+  border: 1px solid var(--lamp) !important;
+  border-radius: 8px !important;
+  background: var(--lamp) !important;
+  color: var(--lamp-ink) !important;
+  font-size: 14px !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+#wire-view .wire-cta:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--lamp-strong) !important; border-color: var(--lamp-strong) !important; }
+#wire-view .wire-cta.secondary { border-color: var(--line-bright) !important; background: transparent !important; color: var(--ink) !important; }
+#wire-view .wire-cta.secondary:hover:not(:disabled):not([aria-disabled="true"]) { background: transparent !important; border-color: var(--ink-faint) !important; }
+#wire-view .wire-cta:disabled,
+#wire-view .wire-cta[aria-disabled="true"] {
+  border: 1px dashed var(--line-bright) !important;
+  background: transparent !important;
+  color: var(--ink-faint) !important;
+  cursor: not-allowed;
+  opacity: 1 !important;
+}
+#wire-view .wire-lock { flex: 0 0 auto; }
+#wire-view .wire-cta-note span { display: block; }
+#wire-view .wire-cta-note { margin-top: 4px !important; color: var(--ink-faint) !important; font-size: 14px !important; line-height: 1.55 !important; }
+#wire-view .wire-steps { min-width: 0; padding-left: 28px; border-left: 1px solid var(--line); }
+#wire-view .wire-steps-h { margin: 0 0 14px; color: var(--ink); font: 650 15px/1.35 var(--font-sans); }
+#wire-view .wire-steps ol { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; counter-reset: wire-step; }
+#wire-view .wire-steps li { display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 12px; counter-increment: wire-step; }
+#wire-view .wire-steps li::before {
+  content: counter(wire-step);
+  grid-row: span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line-bright);
+  border-radius: 50%;
+  color: var(--ink-dim);
+  font: 600 12.5px/1 var(--font-sans);
+}
+#wire-view .wire-steps b { color: var(--ink); font: 600 14px/1.35 var(--font-sans); }
+#wire-view .wire-steps span { margin-top: 2px; color: var(--ink-faint); font: 400 13.5px/1.5 var(--font-sans); }
+
+/* ---------- The Wire: feed ---------- */
+#wire-view .wire-bar {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px !important;
+  margin: 0 0 12px !important;
+  padding: 12px 16px !important;
+  border-radius: 10px !important;
+}
+#wire-view .wire-bar[hidden] { display: none !important; }
+#wire-view .wire-bar-l {
+  margin: 0;
+  color: var(--ink) !important;
+  font: 650 15px/1.35 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#wire-view .wire-count { margin: 0; color: var(--ink-dim); font: 400 14px/1.4 var(--font-sans); }
+#wire-view .wire-count[hidden] { display: none; }
+#wire-view .wire-sort-order { margin-left: auto; color: var(--ink-faint); font: 400 13.5px/1.4 var(--font-sans); }
+#wire-view .wire-feed { display: grid !important; gap: 12px !important; }
+#wire-view .wire-card,
+#wire-view .wire-card.bounty {
+  display: flex !important;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px 18px 22px !important;
+  border-radius: 10px !important;
+}
+#wire-view .wire-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18px;
+  bottom: 18px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line-bright);
+}
+#wire-view .wr-head {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px !important;
+  margin: 0 !important;
+}
+#wire-view .wr-st {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 9px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  font: 600 12.5px/1.25 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  white-space: nowrap;
+}
+#wire-view .wr-st::before { content: ""; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: currentColor; }
+#wire-view .wr-st.boot { color: var(--lamp) !important; border-color: var(--lamp-line) !important; background: var(--lamp-soft) !important; }
+#wire-view .wr-st.old,
+#wire-view .wr-st.legacy { color: var(--ink-dim) !important; }
+#wire-view .wr-back {
+  margin-left: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  color: var(--ink-faint) !important;
+  font: 400 13.5px/1.4 var(--font-sans) !important;
+}
+#wire-view .wr-back .b-reward .n { color: var(--ink) !important; font-size: 13.5px !important; }
+#wire-view .wr-title {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  color: var(--ink) !important;
+  font-family: var(--font-display) !important;
+  font-size: 19px !important;
+  font-weight: 720 !important;
+  line-height: 1.28 !important;
+  overflow-wrap: anywhere;
+}
+#wire-view .wr-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; color: var(--ink-faint); font: 400 13.5px/1.4 var(--font-sans); }
+#wire-view .wr-by { overflow: visible !important; color: var(--ink-dim) !important; font-size: 13.5px !important; white-space: normal !important; overflow-wrap: anywhere; }
+#wire-view .wr-snip {
+  margin: 0 !important;
+  color: var(--ink-dim) !important;
+  font: 400 15px/1.55 var(--font-sans) !important;
+  -webkit-line-clamp: 3 !important;
+}
+#wire-view .wr-acts { display: flex; flex-wrap: wrap; gap: 8px !important; margin-top: 4px; }
+#wire-view .wr-act {
+  min-height: 44px !important;
+  padding: 0 18px !important;
+  border-radius: 8px !important;
+  font: 600 14px/1 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+#wire-view .wr-act.primary { border: 1px solid var(--line-bright) !important; background: transparent !important; color: var(--ink) !important; }
+#wire-view .wr-act.primary:hover { border-color: var(--lamp) !important; color: var(--lamp-strong) !important; filter: none !important; }
+#wire-view .wr-act.ghost { border: 1px solid var(--line-bright) !important; background: transparent !important; color: var(--ink) !important; }
+#wire-view .wire-empty { padding: 40px 24px !important; border-radius: 10px !important; }
+#wire-view .wire-empty-h { color: var(--ink) !important; font: 700 18px/1.3 var(--font-display) !important; }
+#wire-view .wire-empty p { max-width: 52ch !important; color: var(--ink-dim); font: 400 14px/1.6 var(--font-sans) !important; }
+
+/* ---------- The Wire: guide ---------- */
+#wire-view .wire-side-card { padding: 18px !important; border-radius: 10px !important; }
+#wire-view .wire-side-h {
+  margin: 0 0 12px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  color: var(--ink) !important;
+  font: 650 15px/1.35 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#wire-view .wire-guide-list { display: grid !important; gap: 10px; margin: 0; padding: 0 !important; list-style: none; }
+#wire-view .wire-guide-list li { position: relative; padding-left: 16px; color: var(--ink-dim); font: 400 14px/1.5 var(--font-sans); }
+#wire-view .wire-guide-list li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint); }
+
+/* ---------- The Wire: private workspace and review queue ---------- */
+#wire-view:not([data-wire-mode="public"]) .wire-side,
+#wire-view:not([data-wire-mode="public"]) .wire-sort-order,
+#wire-view:not([data-wire-mode="public"]) .wire-bar-l { display: none !important; }
+#wire-view:not([data-wire-mode="public"]) .wire-shell { grid-template-columns: minmax(0, 1fr) !important; }
+#wire-view .osi-case-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 12px;
+  color: var(--ink-dim);
+  font: 400 14px/1.55 var(--font-sans);
+}
+#wire-view .osi-report-action {
+  min-height: 40px;
+  padding: 0 14px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  font: 600 14px/1 var(--font-sans) !important;
+}
+#wire-view .osi-report-action:hover { border-color: var(--ink-faint) !important; }
+#wire-view .osi-report-card details > summary {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  cursor: pointer;
+  color: var(--ink);
+  font: 600 14px/1.4 var(--font-sans) !important;
+}
+#wire-view .osi-report-card code,
+#wire-view .osi-report-version-ref code { font: 500 12.5px/1.4 var(--font-mono); color: var(--ink-dim); overflow-wrap: anywhere; }
+
+@media (max-width: 1020px) {
+  #wire-view .wire-hero { grid-template-columns: minmax(0, 1fr) !important; }
+  #wire-view .wire-steps { padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+
+@media (max-width: 640px) {
+  #wire-view .wire-hero { padding: 22px 18px !important; }
+  #wire-view .wire-sub { font-size: 15px !important; }
+  #wire-view .wire-actions .wire-cta { flex: 1 1 100%; justify-content: center; }
+  #wire-view .wire-card,
+  #wire-view .wire-card.bounty { padding: 16px 16px 16px 18px !important; }
+  #wire-view .wr-title { font-size: 17px !important; }
+  #wire-view .wr-back { flex: 1 1 100%; margin-left: 0 !important; }
+  #wire-view .wr-act { flex: 1 1 auto; }
+  #wire-view .wire-sort-order { margin-left: 0; flex: 1 1 100%; }
+}
+
+/* ---------- Wire intake form ---------- */
+/* A long form reads as a sheet, not a pop-up: it docks to the right edge at
+ * full height (the whole screen on a phone) and scrolls inside itself. The
+ * eyebrow and the 44px close sit in one bar pinned to its top, and the
+ * actions in one bar pinned to its foot, so closing or submitting never means
+ * scrolling. The sheet has no vertical padding, so both bars pin flush to
+ * its edges and nothing scrolls past above or below them. */
+#osi-wire-modal {
+  align-items: stretch !important;
+  justify-content: flex-end !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+#osi-wire-modal .fo-form {
+  box-sizing: border-box;
+  width: min(720px, 100vw) !important;
+  max-width: none !important;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0 !important;
+  padding: 0 32px !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 0 !important;
+  border-left: 1px solid var(--line-bright) !important;
+  border-radius: 0 !important;
+  background: var(--bg-raised) !important;
+  box-shadow: -24px 0 80px rgba(0, 0, 0, .5) !important;
+  animation: osiWireSheetIn .18s ease-out;
+}
+@keyframes osiWireSheetIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #osi-wire-modal .fo-form { animation: none; } }
+#osi-wire-modal .wire-form-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -32px 20px;
+  padding: 12px 16px 12px 32px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+}
+#osi-wire-modal .fo-x {
+  position: static !important;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0 !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 8px !important;
+  background: var(--bg-raised) !important;
+  color: var(--ink) !important;
+  font: 400 22px/1 var(--font-sans) !important;
+}
+#osi-wire-modal .fo-form-head { padding-right: 0; }
+#osi-wire-modal .fo-form-eyebrow {
+  margin: 0 !important;
+  color: var(--ink-dim) !important;
+  font: 600 13px/1.4 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#osi-wire-modal .fo-required-note { margin: 10px 0 0 !important; color: var(--ink-faint) !important; font: 400 13.5px/1.5 var(--font-sans); }
+#osi-wire-modal .fo-label { color: var(--ink) !important; font: 600 14px/1.4 var(--font-sans) !important; }
+#osi-wire-modal .fo-hint { display: block; margin-top: 6px; color: var(--ink-faint); font: 400 13.5px/1.5 var(--font-sans) !important; }
+#osi-wire-modal .wire-in,
+#osi-wire-modal textarea,
+#osi-wire-modal select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0 !important;
+  padding: 11px 12px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 8px !important;
+  background: var(--bg) !important;
+  color: var(--ink) !important;
+  font: 400 16px/1.5 var(--font-sans) !important;
+}
+#osi-wire-modal .wire-in:focus,
+#osi-wire-modal textarea:focus,
+#osi-wire-modal select:focus { border-color: var(--lamp-line) !important; }
+#osi-wire-modal [aria-invalid="true"] { border-color: var(--signal) !important; }
+#osi-wire-modal .fo-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 6px 0 0;
+  color: var(--danger, #ff7380);
+  font: 500 13.5px/1.45 var(--font-sans);
+}
+#osi-wire-modal .fo-error::before {
+  content: "!";
+  flex: 0 0 18px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--signal);
+  color: #16080a;
+  font: 700 12px/1 var(--font-sans);
+}
+#osi-wire-modal .osi-form-status { font: 500 14px/1.5 var(--font-sans) !important; }
+#osi-wire-modal .osi-form-status.error { color: var(--danger, #ff7380) !important; }
+#osi-wire-modal .fo-form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 24px -32px 0;
+  padding: 14px 32px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-raised);
+}
+#osi-wire-modal .wire-form-submit,
+#osi-wire-modal .wire-form-cancel {
+  min-height: 44px !important;
+  padding: 0 20px !important;
+  border-radius: 8px !important;
+  font: 600 14px/1 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+}
+#osi-wire-modal .wire-form-submit { border: 1px solid var(--lamp) !important; background: var(--lamp) !important; color: var(--lamp-ink) !important; }
+#osi-wire-modal .wire-form-submit:hover:not(:disabled) { background: var(--lamp-strong) !important; }
+#osi-wire-modal .wire-form-cancel { border: 1px solid var(--line-bright) !important; background: transparent !important; color: var(--ink) !important; }
+
+@media (max-width: 640px) {
+  #osi-wire-modal .fo-form {
+    width: 100% !important;
+    padding: 0 20px !important;
+    border-left: 0 !important;
+    box-shadow: none !important;
+  }
+  #osi-wire-modal .wire-form-top { margin: 0 -20px 16px; padding: 10px 12px 10px 20px; }
+  #osi-wire-modal .fo-form-actions { flex-direction: row !important; flex-wrap: nowrap; margin: 20px -20px 0; padding: 12px 20px; }
+  #osi-wire-modal .wire-form-cancel { flex: 0 0 auto; width: auto !important; }
+  #osi-wire-modal .wire-form-submit { flex: 1 1 auto; width: auto !important; }
+}
+
+/* ---------- Wire Report detail drawer ---------- */
+#osi-wire-drawer .osi-section-heading {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px !important;
+  margin: 0 0 16px !important;
+  grid-template-columns: none !important;
+}
+#osi-wire-drawer .osi-section-heading > div { min-width: 0; }
+#osi-wire-drawer .osi-section-heading h3 { margin: 4px 0 0; }
+#osi-wire-drawer .osi-eyebrow { color: var(--ink-dim) !important; font: 600 13px/1.4 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; }
+#osi-wire-drawer .osi-chip {
+  flex: 0 0 auto;
+  width: auto !important;
+  min-height: 0 !important;
+  font: 600 12.5px/1.25 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+#osi-wire-drawer .wire-attribution {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+#osi-wire-drawer .osi-report-version .wire-attribution { margin: 0 0 10px; }
+#osi-wire-drawer .wire-attribution-role { flex: 1 0 100%; color: var(--ink-faint); font: 600 12.5px/1.3 var(--font-sans); }
+#osi-wire-drawer .wire-attribution b { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font: 600 15px/1.35 var(--font-sans); }
+#osi-wire-drawer .wire-attribution-handle { color: var(--ink-dim); font: 400 13.5px/1.35 var(--font-sans); }
+#osi-wire-drawer .wire-attribution-wallet { flex: 1 0 100%; color: var(--ink-dim); font: 500 12.5px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+#osi-wire-drawer .wire-review-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; color: var(--ink-dim); font: 400 14px/1.5 var(--font-sans); }
+#osi-wire-drawer .wire-review-line b { color: var(--ink); }
+#osi-wire-drawer .wire-review-line code { color: var(--ink-dim); font: 500 12.5px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+#osi-wire-drawer .osi-report-proof { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; margin: 8px 0 0; }
+#osi-wire-drawer .osi-report-proof a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--lamp);
+  text-decoration: underline;
+  text-decoration-color: var(--lamp-line);
+  text-underline-offset: 4px;
+}
+#osi-wire-drawer .osi-case-section h4 { margin: 16px 0 6px; color: var(--ink); font: 600 14px/1.4 var(--font-sans); }
+#osi-wire-drawer .osi-case-section > p { color: var(--ink-dim); font: 400 15px/1.6 var(--font-sans); }
+#osi-wire-modal .osi-report-context code { font: 500 12.5px/1.4 var(--font-mono); color: var(--ink-dim); }
+#osi-wire-drawer .osi-section-heading { width: 100%; max-width: none !important; }
+#osi-wire-drawer .osi-report-version-head b { text-transform: none !important; letter-spacing: 0 !important; font: 600 15px/1.35 var(--font-sans) !important; color: var(--ink); }
+#osi-wire-drawer .wire-channel { margin: 0 0 4px; color: var(--ink-dim); font: 400 14px/1.55 var(--font-sans); }
+#osi-wire-drawer .wire-channel.boot { padding-left: 10px; border-left: 2px solid var(--lamp); color: var(--ink); }
+#osi-wire-drawer .osi-report-evidence-item {
+  display: grid;
+  grid-template-columns: 32px 120px minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-dim);
+  font: 400 14px/1.45 var(--font-sans);
+}
+#osi-wire-drawer .osi-report-evidence-item > a,
+#osi-wire-drawer .osi-report-evidence-item > span:nth-child(3) { min-width: 0; overflow-wrap: anywhere; font: 500 13px/1.45 var(--font-mono); }
+#osi-wire-drawer .osi-report-evidence-item > a { color: var(--lamp); text-decoration: underline; text-decoration-color: var(--lamp-line); text-underline-offset: 3px; }
+#osi-wire-drawer .osi-report-evidence-item > code { grid-column: 3; color: var(--ink-faint); font: 500 12.5px/1.4 var(--font-mono); }
+#osi-wire-drawer .osi-case-actions .osi-action { min-height: 44px; }
+#wire-view .osi-report-proof a,
+#wire-view .osi-report-card a { display: inline-flex; align-items: center; min-height: 40px; color: var(--lamp); text-decoration: underline; text-decoration-color: var(--lamp-line); text-underline-offset: 3px; }
+#wire-view .osi-payment-compose textarea,
+#wire-view .osi-payment-compose select { min-height: 44px; font: 400 16px/1.5 var(--font-sans); }
+@media (max-width: 640px) {
+  #osi-wire-drawer .osi-report-evidence-item { grid-template-columns: 28px minmax(0, 1fr); }
+  #osi-wire-drawer .osi-report-evidence-item > a,
+  #osi-wire-drawer .osi-report-evidence-item > span:nth-child(3),
+  #osi-wire-drawer .osi-report-evidence-item > code { grid-column: 2; }
+}
+#osi-wire-modal .osi-report-safety span { color: var(--ink-dim); font: 400 14px/1.55 var(--font-sans) !important; }
+#wire-view .osi-report-card > p,
+#wire-view .osi-report-card > .osi-report-evidence-list,
+#wire-view .osi-report-card > .osi-case-note { margin-inline: 16px; }
+#wire-view .osi-report-card > p { color: var(--ink-dim); font: 400 15px/1.6 var(--font-sans); }
+#wire-view .osi-report-card > .osi-case-note { margin-bottom: 16px; }
+#wire-view .osi-report-card-kicker { color: var(--ink-dim) !important; font: 500 12.5px/1.4 var(--font-mono) !important; }
+#wire-view .osi-report-card-meta { color: var(--ink-faint) !important; font: 400 13.5px/1.55 var(--font-sans) !important; }
+#wire-view .osi-report-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 9px !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 999px !important;
+  color: var(--ink) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font: 600 12.5px/1.25 var(--font-sans) !important;
+  white-space: nowrap;
+}
+#wire-view .osi-report-state::before { content: ""; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: var(--ink-dim); }
+#osi-wire-drawer .osi-report-version-head > .mono { color: var(--ink-faint); font: 500 12.5px/1.4 var(--font-mono) !important; overflow-wrap: anywhere; }
+#wire-view .osi-payment-compose { margin: 16px; border: 1px solid var(--line) !important; border-radius: 10px; background: var(--bg-deep) !important; }
+#wire-view .osi-payment-compose label { color: var(--ink) !important; font: 600 14px/1.4 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; }
+#wire-view .osi-payment-compose label > span { display: block; color: var(--ink-faint); font: 400 13px/1.45 var(--font-sans); }
+#wire-view .osi-payment-compose textarea,
+#wire-view .osi-payment-compose select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line-bright) !important; border-radius: 8px !important; background: var(--bg) !important; color: var(--ink) !important; }
+#wire-view .osi-payment-compose .osi-action { justify-self: start; min-height: 44px; padding: 0 20px; border-radius: 8px; font-size: 14px !important; }
+#wire-view .osi-report-evidence-item {
+  display: grid;
+  grid-template-columns: 32px 150px minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  color: var(--ink-dim);
+  font: 400 14px/1.45 var(--font-sans);
+}
+#wire-view .osi-report-evidence-item > span:nth-child(3),
+#wire-view .osi-report-evidence-item > a { min-width: 0; overflow-wrap: anywhere; font: 500 13px/1.45 var(--font-mono); }
+@media (max-width: 640px) {
+  #wire-view .osi-report-evidence-item { grid-template-columns: 28px minmax(0, 1fr); }
+  #wire-view .osi-report-evidence-item > span:nth-child(3),
+  #wire-view .osi-report-evidence-item > a { grid-column: 2; }
+}
+
+/* Public Records introduction: what each proof label on a card means. */
+#records-hero .cr-legend { position: relative; z-index: 1; min-width: 0; padding-left: 28px; border-left: 1px solid var(--line); }
+#records-hero .cr-legend-h { margin: 0 0 14px; color: var(--ink); font: 650 15px/1.35 var(--font-sans); }
+#records-hero .cr-legend dl { display: grid; gap: 14px; margin: 0; }
+#records-hero .cr-legend-row { display: grid; grid-template-columns: 14px minmax(0, 1fr); column-gap: 10px; }
+#records-hero .cr-legend-row::before { content: ""; grid-row: span 2; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--ink-dim); }
+#records-hero .cr-legend-row[data-tone="proof"]::before { background: var(--verified); }
+#records-hero .cr-legend-row[data-tone="bootstrap"]::before { background: var(--lamp); }
+#records-hero .cr-legend dt { grid-column: 2; color: var(--ink); font: 600 14px/1.4 var(--font-sans); }
+#records-hero .cr-legend dd { grid-column: 2; margin: 2px 0 0; color: var(--ink-faint); font: 400 13.5px/1.5 var(--font-sans); }
+@media (max-width: 1020px) {
+  #records-hero .cr-hero { grid-template-columns: minmax(0, 1fr) !important; }
+  #records-hero .cr-legend { padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+/* The review queue is for analysts who already work the process; the hero
+ * keeps only its title, scope and controls there. */
+#wire-view[data-wire-mode="queue"] .wire-steps { display: none !important; }
+#wire-view[data-wire-mode="queue"] .wire-hero { grid-template-columns: minmax(0, 1fr) !important; }
+
+/* Wire Report drawer: the footer wraps instead of squeezing its note into a
+ * column, and stacks full width on a phone. */
+#osi-wire-drawer .osi-case-actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px !important;
+}
+#osi-wire-drawer .osi-case-actions > .osi-case-note { flex: 1 1 260px; min-width: 0; margin: 0; }
+#osi-wire-drawer .osi-case-actions .osi-action { padding: 0 18px; border-radius: 8px; font: 600 14px/1.2 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; }
+#osi-wire-drawer .osi-case-actions .osi-form-status:empty { display: none; }
+@media (max-width: 640px) {
+  #osi-wire-drawer .osi-case-actions { flex-direction: column; flex-wrap: nowrap !important; align-items: stretch !important; }
+  #osi-wire-drawer .osi-case-actions > * { flex: 0 0 auto !important; width: 100% !important; }
+  #osi-wire-drawer .osi-case-actions .osi-action { white-space: normal !important; }
+}
+/* A maintainer bootstrap chip beside a proof reads in the lamp tone it has
+ * everywhere else, never like a neutral state. */
+#osi-wire-drawer .osi-report-proof .osi-chip { color: var(--lamp) !important; border-color: var(--lamp-line) !important; background: var(--lamp-soft) !important; }
+#osi-wire-drawer .wire-lamports { color: var(--ink-faint); font: 500 12.5px/1.4 var(--font-mono); }
+/* The challenge form inside the drawer: one quiet surface, sentence-case
+ * labels, inputs that match every other field. */
+#osi-wire-drawer .osi-payment-compose {
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid var(--line) !important;
+  border-radius: 10px;
+  background: var(--bg) !important;
+  box-shadow: none !important;
+}
+#osi-wire-drawer .osi-payment-compose h4 { margin: 0; color: var(--ink); font: 600 15px/1.4 var(--font-sans); }
+#osi-wire-drawer .osi-payment-compose label { gap: 6px; color: var(--ink) !important; font: 600 14px/1.4 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; }
+#osi-wire-drawer .osi-payment-compose textarea,
+#osi-wire-drawer .osi-payment-compose select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 8px !important;
+  background: var(--bg-raised) !important;
+  color: var(--ink) !important;
+  font: 400 16px/1.5 var(--font-sans) !important;
+}
+#osi-wire-drawer .osi-payment-compose textarea { min-height: 88px; resize: vertical; }
+#osi-wire-drawer .osi-payment-compose .osi-action { justify-self: start; min-height: 44px; padding: 0 20px; border-radius: 8px; box-shadow: none !important; font: 600 14px/1.2 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; }
+
+/* The review queue does not offer a link to itself. */
+#wire-view[data-wire-mode="queue"] #osi-wire-queue-action { display: none !important; }
+
+/* Public Records on narrow screens: the open-investigations filter starts its
+ * own line at the left, and the help actions stack label over hint. */
+@media (max-width: 760px) {
+  #records-hero .rf-tab-open { margin-left: 0; }
+}
+@media (max-width: 720px) {
+  #records-hero .cr-actions-panel button { display: grid !important; justify-content: stretch; gap: 2px; text-align: left; }
+  #records-hero .cr-actions-panel span { text-align: left; }
+}
+
+/* Below the two-column layout the Wire guide is the only reference card, so
+ * it spans the width and sets its points in two columns instead of leaving
+ * half the row empty. */
+@media (max-width: 1020px) {
+  #wire-view .wire-side { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (min-width: 641px) and (max-width: 1020px) {
+  #wire-view .wire-guide-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; }
+}
+/* Inside the review form a note is plain text with a rule, not a third
+ * nested surface, and the sign action carries no glow. */
+#wire-view .osi-payment-compose .osi-case-note { margin: 0; padding: 2px 0 2px 12px; border: 0; border-left: 2px solid var(--line-bright); background: none !important; color: var(--ink-dim); }
+#wire-view .osi-payment-compose .osi-action { box-shadow: none !important; }
+/* The prerequisite note always starts its own line under the controls. */
+#wire-view .wire-actions { display: flex; flex-wrap: wrap; align-items: center; }
+#wire-view .wire-actions .wire-cta-note { flex: 1 1 100%; margin-bottom: 0; }
+
+/* === Analyst Network pass === */
+
+/* --- Analyst profile: a right-hand reading drawer -------------------------
+ * The profile is a long record (facts, work record, support, proof
+ * history), so it reads in the same right-hand drawer shape as a Case
+ * instead of a centred modal. The card no longer scrolls; only the body
+ * does, so the close control stays put at the top while the record moves
+ * underneath it. */
+#ap-modal {
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+}
+
+#ap-modal .ap-modal-bg {
+  background: rgba(4, 5, 8, .72);
+}
+
+#ap-modal .ap-modal-card {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100vw) !important;
+  height: 100%;
+  max-height: none;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 0;
+  border-left: 1px solid var(--line-bright);
+  border-radius: 0;
+  background: var(--bg-deep);
+  box-shadow: -28px 0 80px rgba(0, 0, 0, .5);
+  transform: translateX(24px);
+  transition: transform 180ms var(--ease-out);
+}
+
+#ap-modal.open .ap-modal-card {
+  transform: none;
+}
+
+#ap-modal .ap-modal-x {
+  top: 14px;
+  right: 16px;
+  z-index: 70;
+  border: 1px solid var(--line-bright);
+  border-radius: 10px;
+  background: var(--bg-raised);
+  color: var(--ink-dim);
+  font-size: 24px;
+}
+
+#ap-modal .ap-modal-x:hover {
+  border-color: var(--lamp-line);
+  color: var(--ink);
+}
+
+#ap-modal .ap-modal-x:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-color: var(--lamp);
+}
+
+#ap-modal .ap-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 32px 36px 56px;
+}
+
+/* A legacy type selector made every <header> sticky, translucent and z50.
+ * Inside these records it pinned the profile heading over the close control
+ * and over scrolling content, so each record heading is put back in flow. */
+.osi-public-profile > header,
+.osi-workspace-profile > header,
+.osi-workspace-head,
+.osi-application-card > header,
+.osi-version-card > header,
+.osi-ops-application > header {
+  position: static;
+  top: auto;
+  z-index: auto;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.osi-application-card > header,
+.osi-version-card > header {
+  border-bottom: 0;
+}
+
+/* The heading never runs under the close control. */
+#ap-modal .osi-public-profile > header {
+  padding-right: 56px;
+}
+
+/* Generated avatars keep their drawn size inside flex rows. */
+svg.osi-av {
+  flex: none;
+}
+
+@media (max-width: 760px) {
+  #ap-modal .ap-modal-card {
+    width: 100vw !important;
+    border-left: 0;
+  }
+
+  #ap-modal .ap-modal-body {
+    padding: 20px 16px calc(40px + env(safe-area-inset-bottom));
+  }
+
+  #ap-modal .ap-modal-x {
+    top: 10px;
+    right: 10px;
+  }
+}
+
+@media print {
+  #ap-modal.open .ap-modal-card {
+    display: block !important;
+    height: auto !important;
+  }
+}
+
+/* --- Analyst roster: labels, groups and legend ---------------------------
+ * One quiet label style: sentence case in the reading face. Uppercase
+ * tracking turned English words into dotted-I forms under Turkish case
+ * rules, so these labels keep the case they were written in. */
+#analysts .lb-thead,
+#analysts .osi-analyst-head {
+  font-family: var(--font-sans);
+  font-size: 12px !important;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+
+#analysts .osi-maintainer-kicker,
+#analysts .osi-roster-group {
+  margin: 0;
+  padding: 14px 15px 4px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-dim);
+}
+
+#analysts .lb-board .osi-maintainer-profile {
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#analysts .lb-board .osi-maintainer-rows {
+  border: 0;
+  border-radius: 0;
+  background: rgba(245, 240, 232, .025);
+}
+
+#analysts .lb-board .osi-maintainer-notice {
+  margin: 0;
+  padding: 0 15px 14px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+#analysts .lb-board .osi-maintainer-edit,
+#analysts .lb-board .osi-maintainer-editor-host,
+#analysts .lb-board .osi-maintainer-empty {
+  margin-inline: 15px;
+}
+
+#analysts .lb-board .osi-maintainer-edit {
+  margin-bottom: 14px;
+}
+
+/* The maintainer row is set apart by a neutral rule, not by a colour that
+ * means proof or action. */
+.osi-analyst-row-maintainer::before {
+  background: rgba(216, 224, 234, .45);
+}
+
+.osi-analyst-row-maintainer:hover,
+.osi-analyst-row:hover {
+  background: rgba(245, 240, 232, .035);
+}
+
+/* The board clips overflow, so the keyboard ring sits inside the row. */
+#analysts .osi-analyst-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+  background: rgba(255, 176, 32, .05);
+}
+
+/* Desktop columns: the status chip stays on one line and the three number
+ * columns are only as wide as their labels. */
+@media (min-width: 901px) {
+  #analysts .osi-analyst-head,
+  #analysts .osi-analyst-row {
+    grid-template-columns: minmax(180px, 1.1fr) minmax(200px, .9fr) minmax(170px, 1fr) 76px 64px 56px;
+  }
+}
+
+#analysts .osi-analyst-row .osi-records,
+#analysts .osi-analyst-row .osi-proofs {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+}
+
+#analysts .osi-analyst-row .osi-weight {
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+
+#analysts .osi-analyst-row .osi-weight-none {
+  color: var(--ink-faint);
+  font-family: var(--font-sans);
+}
+
+/* Where the column header is hidden, each number carries its own label. */
+@media (max-width: 900px) {
+  #analysts .osi-cell-label {
+    display: block;
+    color: var(--ink-faint);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  #analysts .osi-analyst-row > .osi-weight {
+    display: grid;
+    justify-items: end;
+  }
+}
+
+@media (max-width: 600px) {
+  #analysts .osi-cell-label {
+    font-size: 12px;
+  }
+}
+
+/* Status chips: sentence case and one line. Colour follows meaning: a
+ * standing is neutral, pending is a cool grey-blue, a rejection is the
+ * danger tone with a glyph, and green stays reserved for chain proof. */
+body .osi-status {
+  padding: 5px 9px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  color: var(--ink-dim);
+  border-color: rgba(245, 240, 232, .2);
+  background: rgba(245, 240, 232, .04);
+}
+
+body .osi-status.probationary_analyst,
+body .osi-status.verified_analyst,
+body .osi-status.senior_analyst,
+body .osi-status.approved {
+  color: var(--ink);
+  border-color: rgba(245, 240, 232, .32);
+  background: rgba(245, 240, 232, .06);
+}
+
+body .osi-status.in_review,
+body .osi-status.submitted {
+  color: #b9c8e0;
+  border-color: rgba(159, 180, 216, .42);
+  background: rgba(159, 180, 216, .08);
+}
+
+body .osi-status.revision_requested {
+  color: var(--warning);
+  border-color: rgba(255, 194, 77, .4);
+  background: rgba(255, 194, 77, .07);
+}
+
+body .osi-status.rejected,
+body .osi-status.revoked,
+body .osi-status.suspended {
+  color: var(--danger);
+  border-color: rgba(255, 115, 128, .42);
+  background: rgba(255, 115, 128, .07);
+}
+
+body .osi-status.rejected::before,
+body .osi-status.revoked::before {
+  content: "\2715";
+  margin-right: 6px;
+}
+
+body .osi-status.maintainer {
+  color: var(--platinum-cool);
+  border-style: dashed;
+  border-color: rgba(216, 224, 234, .5);
+  background: transparent;
+}
+
+/* Expertise is self-described, so it reads as plain neutral tags. */
+.osi-expertise-list span,
+.osi-tag-list span {
+  border-color: var(--line);
+  background: rgba(245, 240, 232, .04);
+  color: var(--ink-dim);
+}
+
+/* Proof labels legend, under the roster it explains. Shape and colour
+ * together: a filled green dot only for Memo-anchored proof, a hollow ring
+ * for a wallet signature, a dashed ring for legacy rows. */
+#analysts .lb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+#analysts .lb-legend-h {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink-dim);
+}
+
+#analysts .lb-legend .osi-proof-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+#analysts .lb-legend .osi-proof-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.osi-proof-key i,
+.osi-proof-dot {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin: 0;
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+.osi-proof-key i.memo,
+.osi-proof-dot.memo {
+  background: var(--verified);
+}
+
+.osi-proof-key i.signed,
+.osi-proof-dot.signed {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--platinum-cool);
+}
+
+.osi-proof-key i.legacy,
+.osi-proof-dot.legacy {
+  background: transparent;
+  border: 1.5px dashed var(--ink-faint);
+}
+
+.osi-proof-dot {
+  margin-right: 7px;
+  vertical-align: -1px;
+}
+
+/* Wallet-signed proof is a neutral fact, not an alarm or an action. */
+.osi-proof-badge.signed {
+  color: var(--platinum-cool);
+  border-color: rgba(216, 224, 234, .38);
+  background: rgba(216, 224, 234, .05);
+}
+
+/* --- Reference column ---------------------------------------------------- */
+#analysts .fd-h {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px !important;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-dim) !important;
+}
+
+#analysts .lb-rule b,
+#analysts .lb-rule b.ok {
+  color: var(--ink);
+  text-shadow: none;
+  font-weight: 600;
+}
+
+#analysts .lb-rule b.mut,
+#analysts .lb-cap,
+#analysts .lb-step span:not(.n),
+#analysts .lb-guide span {
+  color: var(--ink-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#analysts .lb-step .n {
+  border-color: var(--line-bright);
+  background: transparent;
+  color: var(--ink-dim);
+}
+
+/* A short roster leaves the reference cards below it in one row of three
+ * instead of a tall column beside a short table. */
+@media (min-width: 901px) {
+  #analysts .lb-console:has(#lb-body > .osi-analyst-row:first-child):not(:has(#lb-body > .osi-analyst-row:nth-child(8))) {
+    grid-template-columns: 1fr;
+  }
+
+  #analysts .lb-console:has(#lb-body > .osi-analyst-row:first-child):not(:has(#lb-body > .osi-analyst-row:nth-child(8))) .lb-maincol {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  #analysts .lb-console:has(#lb-body > .osi-analyst-row:first-child):not(:has(#lb-body > .osi-analyst-row:nth-child(8))) .lb-aside {
+    position: static;
+    grid-column: 1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+/* A failed directory read is not an empty roster: the application actions
+ * stay where they were. Only the empty state has its own start button. */
+#analysts .osi-activation-error::before {
+  border-color: rgba(255, 115, 128, .42);
+  color: var(--danger);
+}
+
+@media (min-width: 900px) {
+  #analysts .lb-console:has(#lb-body .osi-activation-error) .lb-aside .lb-cta,
+  #analysts .lb-console:has(#lb-body .osi-activation-empty) .lb-aside .lb-cta.ghost {
+    display: block;
+  }
+}
+
+/* Phones: the reference cards stack in reading order (the card with the
+ * application action first) instead of hiding in a sideways strip. */
+@media (max-width: 720px) {
+  #analysts .lb-aside {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+    overflow: visible;
+    padding-bottom: 0;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  #analysts .lb-aside > .lb-card:has(.lb-cta) {
+    order: -1;
+  }
+}
+
+/* --- Profile drawer content ---------------------------------------------- */
+#ap-modal .osi-profile-facts > div > span,
+#ap-modal .osi-cv-summary dt {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+
+#ap-modal .osi-profile-facts b {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+#ap-modal .osi-profile-facts small {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.osi-cv-summary {
+  margin: 0;
+}
+
+.osi-cv-summary dd {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.osi-cv-scope {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+
+.osi-cv-outcome {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Lifecycle outcomes are neutral; sealed is the one filled state. */
+.osi-cv-outcome[data-outcome=published],
+.osi-cv-outcome[data-outcome=resolved] {
+  color: var(--platinum-cool);
+  border-color: rgba(216, 224, 234, .38);
+}
+
+.osi-cv-outcome[data-outcome=sealed] {
+  color: var(--bg);
+  border-color: var(--platinum-cool);
+  background: var(--platinum-cool);
+}
+
+.osi-history-row > div > span {
+  display: block;
+  line-height: 1.5;
+}
+
+.osi-history-support > div > b {
+  color: var(--ink);
+}
+
+#ap-modal .osi-primary-action {
+  border-color: var(--lamp);
+  background: var(--brand-spectrum);
+  color: var(--lamp-ink);
+}
+
+@media print {
+  .osi-cv-summary dd {
+    color: #000 !important;
+  }
+}
+
+/* --- Analyst application modal ------------------------------------------- */
+/* The dialog fits the viewport with its own scroll, so the bottom border and
+ * the submit row are never cut off behind a second scroll container. */
+#apx-modal.open {
+  padding: clamp(16px, 6vh, 72px) 16px !important;
+}
+
+#apx-modal .fo-form {
+  max-height: calc(100dvh - 2 * clamp(16px, 6vh, 72px));
+}
+
+#apx-modal .fo-x {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 16px;
+  z-index: 3;
+}
+
+#apx-modal .rec-sec-h {
+  letter-spacing: 0;
+  text-transform: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+
+#apx-modal .osi-analyst-form label > span,
+#apx-modal .osi-expertise legend {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 13px;
+}
+
+/* The safety box sits on the line of the sentence it confirms. */
+#apx-modal .osi-analyst-form > label.osi-report-safety {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+#apx-modal .osi-analyst-form > label.osi-report-safety input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+}
+
+#apx-modal .osi-handle-preview {
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+#apx-modal .osi-handle-preview:empty {
+  display: none;
+}
+
+#apx-modal .rec-go {
+  border: 1px solid var(--lamp);
+  background: var(--brand-spectrum);
+  color: var(--lamp-ink);
+}
+
+/* --- Analyst workspace ----------------------------------------------------- */
+.osi-workspace-kicker {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.osi-application-card > header > div > span:first-child {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+
+.osi-workspace-head .osi-workspace-kicker {
+  color: var(--ink-faint);
+  letter-spacing: 0;
+}
+
+/* Workspace and application actions use the action colour, never green. */
+.osi-analyst-workspace .osi-primary-action {
+  border-color: var(--lamp);
+  background: var(--brand-spectrum);
+  color: var(--lamp-ink);
+}
+
+#apx-modal .osi-application-steps {
+  border-color: var(--line);
+  background: rgba(245, 240, 232, .025);
+}
+
+#apx-modal .osi-application-steps b {
+  border-color: var(--lamp-line);
+  color: var(--lamp);
+}
+
+/* The application receipt is a wallet-signed, server-verified save, not
+ * chain proof, so it is neutral. Its facts read as one definition list
+ * with hairlines rather than a third level of bordered boxes. */
+#apx-modal .osi-submission-receipt {
+  border-color: var(--line-bright);
+  background: rgba(245, 240, 232, .03);
+}
+
+#apx-modal .osi-receipt-head span,
+#apx-modal .osi-receipt-copy-state {
+  color: var(--ink-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#apx-modal .osi-receipt-grid {
+  gap: 0 18px;
+}
+
+#apx-modal .osi-receipt-grid div {
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+}
+
+#apx-modal .osi-receipt-grid dt {
+  text-transform: none;
+}
+
+/* The group labels keep the case they were written in (the foundation
+ * eyebrow style tracks them, which reads as an English-only shout). */
+#analysts .osi-maintainer-kicker {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Reference cards keep their own height; a short card is not stretched to
+ * match its neighbour. */
+@media (min-width: 721px) {
+  #analysts .lb-console .lb-aside {
+    align-items: start;
+  }
+}
+
+/* The maintainer's role note is a boundary statement, marked by a neutral
+ * rule rather than an off-palette violet. */
+#ap-modal .osi-profile-role-note {
+  border-left-color: var(--platinum-cool);
+  font-size: 13px;
+}
+
+/* Work-record counts read as a two-column list of label and number, so a
+ * seventh count never sits alone on a row of its own. */
+#ap-modal .osi-cv-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#ap-modal .osi-cv-summary > div {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 13px;
+}
+
+@media (max-width: 520px) {
+  #ap-modal .osi-cv-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === Operations and My OSI pass === */
+
+/* Operations Center header and sign-in: sentence case, nothing under 12px. */
+#admin-view .adm-top {
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+#admin-view .adm-clr,
+#admin-view .adm-access-tag {
+  font: 600 12.5px/1.3 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#admin-view .adm-field label {
+  font: 600 13px/1.4 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-dim);
+}
+
+#admin-view .adm-go,
+#admin-view .adm-out {
+  min-height: 44px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 14px;
+}
+
+#admin-view .adm-go {
+  background: var(--lamp);
+  color: #170f02;
+}
+
+#admin-view .adm-go:hover {
+  background: var(--lamp-strong);
+  filter: none;
+}
+
+#admin-view .adm-lock-actions .adm-go {
+  width: auto;
+  flex: 1 1 200px;
+  margin-top: 0;
+}
+
+#admin-view .adm-lock-actions .adm-out {
+  flex: 0 1 auto;
+}
+
+#admin-view .adm-missing {
+  margin: 4px 0 8px;
+  color: var(--lamp);
+  font-weight: 600;
+}
+
+#admin-view .adm-lock-note b.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* The native overview is one surface with plain sections, not the legacy
+ * three-column console grid it used to inherit. */
+#admin-view .osi-native-ops {
+  display: block;
+  border: 1px solid var(--line) !important;
+  border-radius: 14px;
+  background: var(--bg-raised) !important;
+  box-shadow: none !important;
+}
+
+#admin-view .osi-native-ops::before {
+  content: none;
+}
+
+#admin-view .osi-native-ops .moc-section-head {
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+#admin-view .osi-ops-head-actions .moc-action,
+#admin-view .osi-ops-applications .moc-action {
+  min-height: 40px;
+  padding: 8px 14px;
+  font: 600 13px/1.2 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#osi-native-ops-overview .osi-native-updated {
+  margin: 0 0 4px;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+}
+
+#osi-native-ops-overview .osi-native-block {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+#osi-native-ops-overview .osi-native-block > h4 {
+  margin: 0 0 4px;
+  font: 650 16px/1.3 var(--font-sans);
+  color: var(--ink);
+}
+
+#osi-native-ops-overview .osi-native-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#osi-native-ops-overview .osi-native-metrics > div {
+  min-height: 0;
+  padding: 14px 16px;
+  background: var(--bg);
+}
+
+#osi-native-ops-overview .osi-native-metric span {
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+#osi-native-ops-overview .osi-native-metric strong {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+#osi-native-ops-overview .osi-native-flags {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 0 24px;
+  margin: 8px 0 0;
+  padding: 0;
+  background: none;
+}
+
+#osi-native-ops-overview .osi-native-flag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+}
+
+#osi-native-ops-overview .osi-native-flag dt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+#osi-native-ops-overview .osi-native-flag-name {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+#osi-native-ops-overview .osi-native-flag-key,
+#osi-native-ops-overview .osi-native-ref {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+#osi-native-ops-overview .osi-native-flag-state {
+  flex: none;
+  margin: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--line-bright);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+
+#osi-native-ops-overview .osi-native-flag-state.enabled {
+  border-color: var(--lamp-line, rgba(255, 176, 32, .45));
+  color: var(--lamp);
+}
+
+#osi-native-ops-overview .moc-feed {
+  margin-top: 12px;
+}
+
+#osi-native-ops-overview .moc-feed-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#osi-native-ops-overview .moc-feed-row > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+#osi-native-ops-overview .moc-feed-row b {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+#osi-native-ops-overview .moc-feed-row b .osi-native-title {
+  overflow-wrap: anywhere;
+}
+
+#osi-native-ops-overview .moc-feed-row > div > span {
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#osi-native-ops-overview .moc-feed-row .moc-action {
+  min-height: 40px;
+  padding: 8px 14px;
+  font: 600 13px/1.2 var(--font-sans);
+  letter-spacing: 0;
+}
+
+#osi-native-ops-overview .moc-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: var(--line-bright);
+  box-shadow: none;
+}
+
+#osi-native-ops-overview .osi-native-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 0 24px;
+  margin: 12px 0 0;
+}
+
+#osi-native-ops-overview .osi-native-facts > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#osi-native-ops-overview .osi-native-facts dt {
+  color: var(--ink-faint);
+  font-size: 12.5px;
+}
+
+#osi-native-ops-overview .osi-native-facts dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+#osi-native-ops-overview .osi-native-facts dd.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+#osi-native-ops-overview .osi-native-note {
+  margin: 12px 0 0;
+  color: var(--ink-faint);
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 72ch;
+}
+
+@media (max-width: 600px) {
+  #osi-native-ops-overview .moc-feed-row {
+    grid-template-columns: 10px minmax(0, 1fr);
+  }
+
+  #osi-native-ops-overview .moc-feed-row .moc-action {
+    grid-column: 2;
+    justify-self: start;
+    min-height: 44px;
+  }
+
+  #admin-view .osi-ops-head-actions .moc-action,
+  #admin-view .osi-ops-applications .moc-action,
+  #admin-view .osi-ops-decision button {
+    min-height: 44px;
+  }
+
+  /* The maintainer lock pushed the phone header past the screen edge. The
+   * Operations Center stays one tap away in the wallet menu. */
+  .osi-global-header #admLockBtn {
+    display: none !important;
+  }
+}
+
+/* My OSI: the page is the surface. The head and the passport block sit on
+ * it directly and the cards are the only framed level, so there are never
+ * more than two nested surfaces and no competing accent borders. */
+#workspace-view .osi-ws {
+  overflow: visible;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+#workspace-view .osi-ws::before {
+  content: none;
+}
+
+#workspace-view .osi-ws-head {
+  padding: 0 0 28px;
+}
+
+#workspace-view .osi-ws-body {
+  padding: 28px 0 0;
+}
+
+#workspace-view .osi-ws-side {
+  display: grid;
+  gap: 12px;
+  min-width: 220px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+#workspace-view .osi-ws-side .l {
+  margin-bottom: 2px;
+  font: 500 12.5px/1.4 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+
+#workspace-view .osi-ws-side .v {
+  font: 600 14px/1.4 var(--font-sans);
+  color: var(--ink);
+  word-break: normal;
+}
+
+#workspace-view .osi-ws-side .v.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 13px;
+  font-variant-ligatures: none;
+}
+
+#workspace-view .osi-ws-identity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+}
+
+#workspace-view .osi-ws-identity::after {
+  content: none;
+}
+
+#workspace-view .osi-ws-id-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--lamp-line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--lamp);
+  font: 600 14px/1.2 var(--font-sans);
+}
+
+#workspace-view .osi-ws-id-btn:hover {
+  border-color: var(--lamp);
+  background: rgba(255, 176, 32, .08);
+}
+
+#workspace-view .osi-ws-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+}
+
+#workspace-view .osi-ws-card:hover {
+  border-color: var(--lamp-line);
+  background: var(--bg-raised);
+}
+
+#workspace-view .osi-ws-card span {
+  font-size: 13px;
+}
+
+#workspace-view .osi-ws-card i {
+  font: 600 13px/1.2 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--lamp);
+}
+
+@media (max-width: 760px) {
+  #workspace-view .osi-ws-head {
+    flex-direction: column;
+  }
+
+  #workspace-view .osi-ws-side {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #workspace-view .osi-ws-identity {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 900px) {
+  #workspace-view .osi-ws-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  #workspace-view .osi-ws-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Intelligence Passport: the shell is the page, cards are the one framed
+ * level, and counters are a hairline list rather than tiles in a card. */
+#identity-view .identity-shell {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+
+#identity-view .identity-hero {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#identity-view .identity-hero::before,
+#identity-view .identity-hero::after,
+#identity-view .identity-mark {
+  display: none;
+}
+
+#identity-view .identity-kicker::before {
+  background: var(--lamp);
+  box-shadow: none;
+}
+
+#identity-view .identity-tabs {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#identity-view .identity-tab {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+#identity-view .identity-content {
+  padding: 20px 0 0;
+}
+
+#identity-view .identity-card,
+#identity-view .identity-sidebar-panel,
+#identity-view .identity-passport {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+  box-shadow: none;
+}
+
+#identity-view .identity-passport::before {
+  content: none;
+}
+
+#identity-view .identity-card-title,
+#identity-view .identity-side-title {
+  font: 650 15px/1.3 var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+#identity-view .identity-pow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 0 24px;
+  margin: 0;
+}
+
+#identity-view .identity-pow-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  min-height: 0;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+
+#identity-view .identity-pow-card::before {
+  content: none;
+}
+
+#identity-view .identity-pow-k {
+  margin: 0;
+  font-size: 14px;
+  text-transform: none;
+  color: var(--ink);
+}
+
+#identity-view .identity-pow-v {
+  margin: 0;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  text-align: right;
+}
+
+#identity-view .identity-pow-v.unavailable {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+}
+
+#identity-view .identity-pow-s {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+#identity-view .identity-bio {
+  border-top: 1px solid var(--line);
+}
+
+#identity-view .identity-bio.is-missing {
+  color: var(--ink-faint);
+}
+
+#identity-view .identity-seal-code,
+#identity-view .identity-avatar::after {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+#identity-view .identity-status-row span:first-child,
+#identity-view .identity-status-row b,
+#identity-view .identity-side-row,
+#identity-view .identity-side-row b,
+#identity-view .identity-record-row,
+#identity-view .identity-record-row > b {
+  font-size: 13px;
+}
+
+#identity-view .identity-status-row b.mono,
+#identity-view .identity-record-row > b.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-ligatures: none;
+}
+
+#identity-view .identity-wallet-short {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+}
+
+#identity-view .identity-copy {
+  min-height: 40px;
+}
+
+#identity-view .identity-status-pill {
+  border-color: var(--lamp-line);
+  background: rgba(255, 176, 32, .08);
+  color: var(--lamp);
+}
+
+#identity-view .identity-note.is-verified {
+  border-color: var(--line-bright);
+  background: none;
+  color: var(--ink);
+}
+
+#identity-view .identity-act-row {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  padding: 12px 0;
+}
+
+#identity-view .identity-act-row a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--lamp);
+}
+
+#identity-view .identity-action {
+  min-height: 44px;
+  font-size: 13px;
+}
+
+#identity-view .identity-start p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-dim);
+}
+
+#identity-view .identity-role.analyst {
+  border-color: var(--line-bright);
+  background: none;
+  color: var(--ink);
+}
+
+#identity-view .identity-role.analyst::before {
+  background: var(--lamp);
+  box-shadow: none;
+}
+
+@media (max-width: 1060px) {
+  #identity-view .identity-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  #identity-view .identity-sidebar {
+    grid-template-columns: 1fr;
+  }
+}
+
+#identity-view .identity-sidebar-panel .identity-readonly {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+/* My Reviews: lane badges in words, facts in sentence case, and a clear
+ * conflict check in plain ink (green is reserved for chain proof). */
+.osi-review-lane > header .osi-review-lane-count {
+  min-width: 0;
+  padding: 2px 10px;
+  border: 1px solid var(--line-bright);
+  border-radius: 999px;
+  color: var(--ink-dim);
+  font: 600 12.5px/1.4 var(--font-sans);
+  white-space: nowrap;
+}
+
+.osi-review-lane[data-lane-status="success"] > header .osi-review-lane-count {
+  border-color: var(--lamp-line);
+  color: var(--lamp);
+  font-variant-numeric: tabular-nums;
+}
+
+.osi-review-lane[data-lane-status="error"] > header .osi-review-lane-count {
+  border-color: rgba(255, 77, 95, .45);
+  color: var(--signal);
+}
+
+.osi-review-task dt {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.osi-review-task dd {
+  font-size: 13px;
+}
+
+.osi-review-task dd.ok {
+  color: var(--ink);
+}
+
+.osi-review-task > div span:first-child {
+  font-family: var(--font-mono);
+}
+
+#identity-view .identity-sidebar {
+  align-items: start;
+}
+
+/* The decorative read-only stamp collided with long display names. */
+#identity-view .identity-passport::after {
+  content: none;
+}
+
+/* A card title never breaks mid-phrase on a phone: the note drops below. */
+#identity-view .identity-card-head {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+#identity-view .identity-card-title {
+  white-space: nowrap;
+}
+
+/* Operations figures sit two to a row on a phone instead of one tall tile
+ * each; an odd last figure takes the full row so no empty cell shows. */
+@media (max-width: 600px) {
+  #osi-native-ops-overview .osi-native-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #osi-native-ops-overview .osi-native-metrics > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  /* Section actions start under the heading instead of drifting right. */
+  #admin-view .osi-ops-head-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+}
+
+/* === Item-6 sas pass === */
+/* SAS reconcile control: the confirmation and the last answer sit inside the
+ * credential row they belong to, under the row's text and button. The answer
+ * region is always present so a screen reader hears it change; it takes no
+ * space while it is empty. Amber marks a submitted transaction that is still
+ * unconfirmed; verified green is never used here. */
+#osi-native-ops-overview .osi-sas-row {
+  row-gap: 0;
+}
+
+#osi-native-ops-overview .osi-sas-panel {
+  grid-column: 2 / -1;
+  display: grid;
+  min-width: 0;
+}
+
+#osi-native-ops-overview .osi-sas-panel > .osi-sas-confirm,
+#osi-native-ops-overview .osi-sas-panel > .osi-sas-result[data-tone] {
+  margin-top: 12px;
+}
+
+#osi-native-ops-overview .osi-sas-prerequisite {
+  color: var(--ink-faint);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+#osi-native-ops-overview .osi-sas-reconcile[aria-expanded="true"] {
+  border-color: var(--lamp-line);
+  color: var(--ink);
+}
+
+#osi-native-ops-overview .osi-sas-confirm {
+  display: grid;
+  gap: 8px;
+  max-width: 76ch;
+  padding: 14px 16px;
+  border: 1px solid var(--lamp-line);
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+
+#osi-native-ops-overview .osi-sas-confirm-title {
+  margin: 0;
+  font: 650 14px/1.4 var(--font-sans);
+  color: var(--ink);
+}
+
+#osi-native-ops-overview .osi-sas-confirm-text {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+#osi-native-ops-overview .osi-sas-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+#osi-native-ops-overview .osi-sas-confirm-actions button {
+  min-height: 40px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font: 600 13px/1.2 var(--font-sans);
+  cursor: pointer;
+}
+
+#osi-native-ops-overview .osi-sas-confirm-go {
+  border: 1px solid var(--lamp);
+  background: var(--lamp);
+  color: var(--lamp-ink);
+}
+
+#osi-native-ops-overview .osi-sas-confirm-go:hover {
+  border-color: var(--lamp-strong);
+  background: var(--lamp-strong);
+}
+
+#osi-native-ops-overview .osi-sas-confirm-cancel {
+  border: 1px solid var(--line-bright);
+  background: transparent;
+  color: var(--ink);
+}
+
+#osi-native-ops-overview .osi-sas-confirm-cancel:hover {
+  border-color: var(--lamp-line);
+}
+
+#osi-native-ops-overview .osi-sas-result[data-tone] {
+  display: grid;
+  gap: 6px;
+  max-width: 76ch;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink-faint);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+#osi-native-ops-overview .osi-sas-result[data-tone="running"] {
+  border-left-color: var(--line-bright);
+}
+
+#osi-native-ops-overview .osi-sas-result[data-tone="pending"] {
+  border-color: var(--lamp-line);
+  border-left-color: var(--lamp);
+  background: var(--lamp-soft);
+}
+
+#osi-native-ops-overview .osi-sas-result[data-tone="warning"] {
+  border-left-color: var(--warning);
+}
+
+#osi-native-ops-overview .osi-sas-result[data-tone="error"] {
+  border-color: rgba(255, 77, 95, .38);
+  border-left-color: var(--signal);
+  background: var(--signal-soft);
+}
+
+#osi-native-ops-overview .osi-sas-result p {
+  margin: 0;
+}
+
+#osi-native-ops-overview .osi-sas-result-time {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+#osi-native-ops-overview .osi-sas-result-message {
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+#osi-native-ops-overview .osi-sas-result[data-tone="running"] .osi-sas-result-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-dim);
+  font-weight: 500;
+}
+
+#osi-native-ops-overview .osi-sas-result[data-tone="running"] .osi-sas-result-message::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lamp);
+  animation: osi-sas-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes osi-sas-pulse {
+  0%, 100% { opacity: .35; transform: scale(.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #osi-native-ops-overview .osi-sas-result[data-tone="running"] .osi-sas-result-message::before {
+    animation: none;
+  }
+}
+
+#osi-native-ops-overview .osi-sas-result-detail,
+#osi-native-ops-overview .osi-sas-result-next {
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#osi-native-ops-overview .osi-sas-result-tx {
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#osi-native-ops-overview .osi-sas-result-tx strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+#osi-native-ops-overview .osi-sas-solscan {
+  color: var(--lamp);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+#osi-native-ops-overview .osi-sas-solscan:hover {
+  color: var(--lamp-strong);
+}
+
+#osi-native-ops-overview .osi-sas-result-sig {
+  display: block;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+#osi-native-ops-overview .osi-sas-refresh-note {
+  color: var(--warning);
+}
+
+@media (max-width: 600px) {
+  #osi-native-ops-overview .osi-sas-row .osi-sas-reconcile {
+    margin-top: 10px;
+  }
+
+  #osi-native-ops-overview .osi-sas-confirm-actions button {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+}
+/* === end Item-6 sas pass === */
+
+
+/* === Item-6 wording pass === */
+/* Tier and on-chain review authority are two labelled facts on the analyst
+ * profile. Four cells read as a 2 by 2 grid so the SAS badge keeps one line;
+ * with no standing date the third cell takes the full row. A phone stacks
+ * them in one column. */
+.osi-profile-facts.osi-profile-facts-authority {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.osi-profile-facts-authority > div {
+  min-width: 0;
+  border-right: 0;
+  border-bottom: 1px solid var(--osi-border);
+}
+
+.osi-profile-facts-authority > div:nth-child(odd) {
+  border-right: 1px solid var(--osi-border);
+}
+
+.osi-profile-facts-authority > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  border-right: 0;
+}
+
+.osi-profile-facts-authority > div:last-child,
+.osi-profile-facts-authority > div:nth-last-child(2):nth-child(odd) {
+  border-bottom: 0;
+}
+
+.osi-profile-fact-tier > .osi-status,
+.osi-profile-fact-authority [data-sas-wallet] > * {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.osi-profile-fact-authority [data-sas-wallet] {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+}
+
+@media (max-width: 600px) {
+  .osi-profile-facts.osi-profile-facts-authority {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .osi-profile-facts-authority > div,
+  .osi-profile-facts-authority > div:nth-child(odd),
+  .osi-profile-facts-authority > div:nth-last-child(2):nth-child(odd) {
+    border-right: 0;
+    border-bottom: 1px solid var(--osi-border);
+  }
+
+  .osi-profile-facts-authority > div:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* One plain sentence on the About SAS section separating the analyst tier
+ * from the on-chain credential. It reads as a note, not as another claim. */
+.osi-about-heading > p.osi-about-tier-note {
+  margin-top: 14px;
+  padding: 2px 0 2px 14px;
+  /* The About accent, not the proof green: this is an explanation, not a
+   * credential state. */
+  border-left: 2px solid var(--about-accent, #ffb020);
+  color: var(--ink) !important;
+}
+
+/* The passport's on-chain authority row holds the shared SAS badge. The row's
+ * first-span label rule must not restyle the badge's own chip. */
+/* When the label and the badge do not fit on one line, the badge drops to its
+ * own line, still right-aligned, instead of breaking mid-phrase. */
+#identity-view .identity-sas-row {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+#identity-view .identity-sas-row .identity-sas-slot {
+  display: inline-flex;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+#identity-view .identity-sas-row .identity-sas-slot [data-sas-badge] {
+  font-size: 12px;
+  text-align: right;
+}
+
+#identity-view .identity-sas-row .identity-sas-slot .osi-chip {
+  color: var(--ink-dim);
+}
+
+#identity-view .identity-sas-row .identity-sas-slot .osi-chip.warning {
+  color: var(--lamp-strong);
+}
+
+/* === Item-6 rec pass === */
+/* Public Records on a phone: the same facts in about four fifths of the
+ * height. Kind and reference share one line, the proof state and its event
+ * share one line, and the transaction, Copy and Verify share a row when they
+ * fit (a longer label wraps Verify to the next line, never over the code). The
+ * "In Case" link keeps a 44px touch target through padding that overlaps the
+ * lines around it instead of adding height. Nothing is hidden: the status
+ * chips, the bootstrap note and the full proof label stay visible. */
+@media (max-width: 760px) {
+  #records-hero .cr-card { gap: 10px !important; padding: 14px 14px 14px 16px !important; }
+  #records-hero .cr-card-main { gap: 6px; }
+  #records-hero .cr-card-head { gap: 6px 10px; }
+  #records-hero .cr-ident { gap: 4px 8px; }
+  #records-hero .cr-record-kind { font-size: 12.5px; }
+  #records-hero .cr-record-id { padding: 2px 6px !important; font-size: 11.5px !important; }
+  #records-hero .cr-status { padding: 3px 9px 3px 8px !important; font-size: 12px !important; }
+  #records-hero .cr-record-parent { gap: 0 6px; font-size: 13px !important; line-height: 1.4 !important; }
+  #records-hero .cr-parent-link { position: relative; z-index: 1; min-height: 44px; padding: 0; margin: -13px 0; box-sizing: border-box; }
+  #records-hero .cr-status-note { font-size: 13px; line-height: 1.45; }
+  #records-hero .cr-date { font-size: 12.5px !important; }
+  #records-hero .cr-card-side { gap: 10px; padding-top: 10px; }
+  #records-hero .cr-card-meta { gap: 8px !important; }
+  #records-hero .cr-meta-k { font-size: 12px !important; line-height: 1.3 !important; }
+  #records-hero .cr-meta-v { font-size: 13.5px !important; }
+  #records-hero .cr-card-proof { align-items: center; gap: 2px 8px !important; }
+  #records-hero .cr-proof-state { font-size: 13.5px !important; }
+  #records-hero .cr-proof-event { font-size: 13px; }
+  #records-hero .cr-proof-tx { flex-wrap: wrap; gap: 0 8px; min-width: 0; }
+  #records-hero .cr-proof-tx > span:first-child { flex: 0 0 auto; }
+  #records-hero .cr-proof-tx code { flex: 0 0 auto; font-size: 12px; overflow-wrap: normal; white-space: nowrap; }
+  #records-hero .cr-copy { flex: 0 0 auto; padding: 0 9px !important; font-size: 12.5px !important; }
+  #records-hero .cr-verify { flex: 0 0 auto; min-height: 44px; font-size: 13px; white-space: nowrap; }
+}
+/* Phones: Public Records, The Wire and the Analyst Network use the same 16px
+ * gutter as the Field Office and the Proof Log. They had 40 to 46px, which
+ * left a record card 310px wide on a 390px screen. */
+@media (max-width: 720px) {
+  #records-hero > .wrap,
+  #wire-view > .wrap,
+  #analysts > .lb-shell { width: auto !important; max-width: none !important; margin-inline: 0 !important; padding-inline: 16px !important; }
+}
+/* === end Item-6 rec pass === */
+
+/* === Item-6 dup pass === */
+/* Same-title notes: neutral, small, and never styled as a warning. Two public
+ * Cases may share a title; the note only helps a reader tell them apart. */
+#field-cases .osi-v2-title .osi-same-title {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font: 500 12.5px/1.4 var(--font-sans);
+}
+.osi-case-same-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  margin: 8px 0 0;
+  color: var(--ink-dim);
+  font: 400 13.5px/1.45 var(--font-sans);
+}
+.osi-case-same-title[hidden],
+.osi-same-title-hint[hidden] { display: none; }
+.osi-case-same-title-open,
+.osi-same-title-open {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--lamp);
+  cursor: pointer;
+  font: 600 13.5px/1.2 var(--font-sans);
+  text-decoration: underline;
+  text-decoration-color: var(--lamp-line);
+  text-underline-offset: 4px;
+}
+.osi-case-same-title-open:hover,
+.osi-same-title-open:hover { color: var(--lamp-strong); text-decoration-color: var(--lamp-strong); }
+.osi-case-same-title-open:focus-visible,
+.osi-same-title-open:focus-visible { outline: 2px solid var(--focus, var(--lamp)); outline-offset: 2px; border-radius: 4px; }
+.osi-same-title-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--lamp-line);
+  border-radius: 0 6px 6px 0;
+  background: var(--lamp-soft);
+  color: var(--ink-dim);
+  font: 400 13.5px/1.45 var(--font-sans);
+}
+@media (max-width: 600px) {
+  .osi-case-same-title-open,
+  .osi-same-title-open { min-height: 44px; }
+}
+/* === end Item-6 dup pass === */

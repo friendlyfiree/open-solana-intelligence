@@ -96,6 +96,6 @@ ok(earlyMaintainerAccess.state === 'no_wallet' && earlyMaintainerAccess.allowed 
 
 ok(html.includes('id="maintainerAccessMenu"'), 'Maintainer Access is present in the wallet menu');
 ok(html.includes('id="admGateStatus"'), 'Operations Center shows both gate states');
-ok(html.includes('RETRY'), 'Maintainer Access has a real retry control');
+ok(html.includes('onclick="refreshMaintainerGate()">Check both gates again</button>'), 'Maintainer Access has a real retry control');
 
 console.log('1..' + assertions);

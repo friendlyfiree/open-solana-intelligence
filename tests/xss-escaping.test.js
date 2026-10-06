@@ -95,5 +95,70 @@ ok('wallet profile and public profile rendering escape all HTML-significant char
     '&lt;img src=x onerror=&quot;alert(4)&quot;&gt;&#39;&amp;',
   escapeV2Profile('<img src=x onerror="alert(4)">\'&'));
 
+// Every drawer proof link, including the finalized payment receipt, is
+// printed only for a validated Solscan transaction URL. A server-supplied
+// script, data or look-alike URL never becomes an href.
+const caseSrc = fs.readFileSync(path.join(__dirname, '..', 'assets/js/v2-case-integration.js'), 'utf8');
+const solscanMatch = /var SOLSCAN_TX_RE=(\/[^\n]*?\/);/.exec(caseSrc);
+ok('the drawer declares one Solscan transaction pattern', !!solscanMatch);
+// eslint-disable-next-line no-eval
+const solscanRe = solscanMatch ? eval(solscanMatch[1]) : /$^/;
+const goodTx = 'https://solscan.io/tx/' + '5'.repeat(87) + 'A';
+ok('a canonical Solscan transaction URL is accepted', solscanRe.test(goodTx));
+for (const bad of [
+  'javascript:alert(1)',
+  'data:text/html,<script>alert(1)</script>',
+  'http://solscan.io/tx/' + '5'.repeat(88),
+  'https://solscan.io.evil.example/tx/' + '5'.repeat(88),
+  'https://solscan.io/tx/' + '5'.repeat(88) + '"><img src=x onerror=alert(1)>',
+  'https://solscan.io/tx/' + '0'.repeat(88),
+  goodTx + '?cluster=devnet',
+]) ok('a non-canonical proof URL is rejected: ' + JSON.stringify(bad).slice(0, 60), !solscanRe.test(bad));
+ok('the payment receipt link goes through the same validation',
+  caseSrc.includes('var receiptUrl=solscanTx(receipt.solscan_url);')
+    && !caseSrc.includes("href=\"'+esc(receipt.solscan_url)"));
+
+// Analyst roster, profile drawer and workspace: link labels, expertise and
+// application versions are owner-written text rendered through esc().
+const escapeV2Analyst = loadFn('assets/js/v2-analyst-integration.js', 'esc');
+const analystLinkLabel = loadFn('assets/js/v2-analyst-integration.js', 'linkLabel');
+ok('analyst profile rendering escapes all HTML-significant characters',
+  escapeV2Analyst('<img src=x onerror="alert(5)">\'&') ===
+    '&lt;img src=x onerror=&quot;alert(5)&quot;&gt;&#39;&amp;',
+  escapeV2Analyst('<img src=x onerror="alert(5)">\'&'));
+ok('an owner-written link label is returned verbatim for escaping, never as markup',
+  escapeV2Analyst(analystLinkLabel('<b onmouseover="x">me</b>', 'https://example.org/a')) ===
+    '&lt;b onmouseover=&quot;x&quot;&gt;me&lt;/b&gt;',
+  analystLinkLabel('<b onmouseover="x">me</b>', 'https://example.org/a'));
+ok('a bare host word for a known host reads as its proper name',
+  analystLinkLabel('twitter', 'https://x.com/someone') === 'X'
+    && analystLinkLabel('', 'https://www.example.org/p') === 'example.org',
+  analystLinkLabel('twitter', 'https://x.com/someone'));
+
+// Intelligence Passport: the display name and operator note are owner-written
+// text. They are escaped, marked as user content, and a hostile name never
+// becomes markup in the heading or the avatar seal.
+global.escapeHtml = escapeHtml;
+global.identityRoleClass = loadFn('assets/js/60-wallet-workspace.js', 'identityRoleClass');
+global.identityRoleLabel = loadFn('assets/js/60-wallet-workspace.js', 'identityRoleLabel');
+global.identityAvatarHtml = loadFn('assets/js/60-wallet-workspace.js', 'identityAvatarHtml');
+const identityPassport = loadFn('assets/js/60-wallet-workspace.js', 'identityPassport');
+const hostilePassport = identityPassport({
+  ctx: { workspaceRole: 'wallet' }, wallet: 'W"><img src=x onerror=alert(6)>', walletShort: '<b>W</b>',
+  displayName: '<img src=x onerror="alert(7)">', bio: '<script>alert(8)</script>', avatarUrl: '',
+});
+ok('passport never renders a hostile display name, bio or wallet as markup',
+  !/<img|<script|<b>/.test(hostilePassport)
+    && hostilePassport.includes('&lt;img src=x onerror=&quot;alert(7)&quot;&gt;')
+    && /class="identity-name" data-osi-user-content/.test(hostilePassport)
+    && /class="identity-bio" data-osi-user-content/.test(hostilePassport),
+  hostilePassport.slice(0, 200));
+// Native Operations draws server text (Case titles, SAS rows, flags) through
+// textContent only, so a hostile title can never become markup there.
+const functionalSurface = fs.readFileSync(path.join(__dirname, '..', 'assets/js/88-functional-surface.js'), 'utf8');
+ok('native Operations renders server text without innerHTML',
+  !/innerHTML|insertAdjacentHTML|outerHTML/.test(functionalSurface)
+    && functionalSurface.includes("title.setAttribute('data-osi-user-content','')"));
+
 console.log((fail ? 'FAILED: ' + fail : 'OK') + ' (' + pass + ' assertions passed, ' + fail + ' failed)');
 process.exit(fail ? 1 : 0);

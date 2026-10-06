@@ -56,7 +56,27 @@
     if (first) first.focus();
   }
 
+  var viewTitles = {
+    field: 'Field Office',
+    wire: 'The Wire',
+    records: 'Public Records',
+    analysts: 'Analyst Network',
+    prooflog: 'Proof Log',
+    methodology: 'About',
+    workspace: 'My OSI',
+    identity: 'OSI Identity',
+    admin: 'Operations Center'
+  };
+  function syncDocumentTitle(view) {
+    var home = 'Open Solana Intelligence | Public incident intelligence';
+    var t = typeof window.osiT === 'function' ? window.osiT : function (key) { return key; };
+    document.title = viewTitles[view] ? t(viewTitles[view]) + ' | Open Solana Intelligence' : t(home);
+  }
+
+  window.osiSyncDocumentTitle = function () { syncDocumentTitle(document.body.dataset.view || 'registry'); };
+
   function syncActiveNavigation(view) {
+    syncDocumentTitle(view);
     document.querySelectorAll('[data-global-view]').forEach(function (button) {
       if (button.getAttribute('data-global-view') === view) {
         button.setAttribute('aria-current', 'page');
@@ -173,7 +193,8 @@
 
   function trapMobileFocus(event) {
     if (event.key !== 'Tab' || !document.body.classList.contains('nav-open') || !globalNav) return;
-    var items = focusable(globalNav);
+    // The visible close control sits outside the drawer; keep it in the cycle.
+    var items = (mobileToggle ? [mobileToggle] : []).concat(focusable(globalNav));
     if (!items.length) return;
     var first = items[0];
     var last = items[items.length - 1];
@@ -218,6 +239,16 @@
       platformTrigger.addEventListener('focus', function () {
         if (document.documentElement.classList.contains('osi-keyboard-input')) setPlatform(true);
       });
+      // A menu opened by keyboard focus closes again when focus moves on, so
+      // it never sits over the control the reader has tabbed to.
+      if (platformWrap) {
+        platformWrap.addEventListener('focusout', function (event) {
+          if (document.body.classList.contains('nav-open')) return;
+          if (event.relatedTarget && platformWrap.contains(event.relatedTarget)) return;
+          if (platformIntent) platformIntent.cancel();
+          setPlatform(false);
+        });
+      }
       platformTrigger.addEventListener('keydown', function (event) {
         if (event.key === 'ArrowDown') {
           event.preventDefault();
@@ -263,13 +294,27 @@
       }
       trapMobileFocus(event);
       if (key === 'Escape') {
+        var walletMenuNode = document.getElementById('wbMenu');
         if (document.body.classList.contains('nav-open')) closeMobileNav(true);
         else if (platformTrigger && platformTrigger.getAttribute('aria-expanded') === 'true') {
           setPlatform(false);
           platformTrigger.focus();
+        } else if (walletMenuNode && walletMenuNode.classList.contains('open')) {
+          if (typeof window.closeWalletMenu === 'function') window.closeWalletMenu();
+          var walletButtonNode = document.getElementById('walletBtn');
+          if (walletButtonNode) walletButtonNode.focus();
         }
       }
     });
+    var skipLink = document.querySelector('.skip-link');
+    if (skipLink) {
+      skipLink.addEventListener('click', function (event) {
+        var main = document.getElementById('main-content');
+        if (!main) return;
+        event.preventDefault();
+        main.focus();
+      });
+    }
     document.addEventListener('pointerdown', function (event) {
       document.documentElement.classList.remove('osi-keyboard-input');
       if (!platformMenu || !platformTrigger || platformMenu.hidden) return;
@@ -331,8 +376,55 @@
     return text.slice(0, 10) + '...' + text.slice(-5);
   }
 
+  var ACRONYMS = { Osint: 'OSINT', Aml: 'AML', Kyc: 'KYC', Defi: 'DeFi', Nft: 'NFT', Mev: 'MEV', Dao: 'DAO', Cex: 'CEX', Dex: 'DEX', Rpc: 'RPC', Sas: 'SAS' };
   function titleCase(value) {
-    return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
+    return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, function (letter) { return letter.toUpperCase(); })
+      .replace(/\b[A-Z][a-z]+\b/g, function (word) { return ACRONYMS[word] || word; });
+  }
+
+  function uiLocale() {
+    var locale = window.OSI_I18N && typeof window.OSI_I18N.getLocale === 'function' ? window.OSI_I18N.getLocale() : document.documentElement.lang;
+    return String(locale || 'en').toLowerCase().indexOf('tr') === 0 ? 'tr-TR' : 'en-US';
+  }
+
+  function tr(key, variables) {
+    return typeof window.osiT === 'function' ? window.osiT(key, variables) : String(key).replace(/\{([a-zA-Z0-9_]+)\}/g, function (_, name) {
+      return variables && Object.prototype.hasOwnProperty.call(variables, name) ? String(variables[name]) : '{' + name + '}';
+    });
+  }
+
+  // Server enum values (stage, category, expertise) render as their English
+  // label; the label is then translated as one exact key for the UI language.
+  // Titles and names come from Case owners and analysts; they are never
+  // passed through the interface dictionary.
+  function userText(tag, className, text) {
+    var node = make(tag, className, text);
+    node.setAttribute('data-osi-user-content', '');
+    return node;
+  }
+
+  function enumLabel(value) {
+    return tr(titleCase(value));
+  }
+
+  // The same public stage names the Field Office list uses, so one Case never
+  // reads as "Open Public" on the home page and "Public investigation" there.
+  var STAGE_LABELS = {
+    draft: 'Private intake', submitted: 'Private intake', initial_review: 'Initial review',
+    initial_rejected: 'Initial review rejected', open_public: 'Public investigation',
+    in_review: 'Reports under review', ready_for_finalization: 'Resolution selection',
+    resolution_proposed: 'Resolution selection', in_challenge_window: 'Challenge window',
+    resolved: 'Seal ready', sealed: 'Sealed', reopened: 'Resolution selection'
+  };
+
+  function stageText(stage) {
+    return STAGE_LABELS[stage] ? tr(STAGE_LABELS[stage]) : enumLabel(stage);
+  }
+
+  function shortDate(value) {
+    var date = new Date(value || '');
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString(uiLocale(), { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
   }
 
   // One shared public reader for every surface. It de-duplicates concurrent
@@ -357,13 +449,16 @@
       host.appendChild(copy);
       return;
     }
-    var item = cases[0];
-    copy.appendChild(make('strong', '', item.title || shortRef(item.public_ref)));
-    copy.appendChild(make('small', '', shortRef(item.public_ref) + ' / ' + titleCase(item.stage)));
+    // Prefer the newest Case still in progress: sealed outcomes are already
+    // listed in the Public Records pane right below.
+    var item = cases.filter(function (row) { return row.stage !== 'sealed'; })[0] || cases[0];
+    copy.appendChild(make('span', 'osi-live-label', item.stage === 'sealed' ? 'Newest public Case' : 'Newest open public Case'));
+    copy.appendChild(userText('strong', '', item.title || shortRef(item.public_ref)));
+    copy.appendChild(make('small', '', shortRef(item.public_ref) + ' / ' + stageText(item.stage)));
     host.appendChild(copy);
     var open = make('button', '', 'Open Case');
     open.type = 'button';
-    open.setAttribute('aria-label', 'Open Case detail for ' + item.public_ref + ', ' + (item.title || ''));
+    open.setAttribute('aria-label', tr('Open Case detail for {ref}, {title}', { ref: item.public_ref, title: item.title || '' }));
     open.addEventListener('click', function () { openPublicCase(item.public_ref); });
     host.appendChild(open);
   }
@@ -371,7 +466,9 @@
   // Every public entry point routes through one canonical Case detail so the
   // same reference always resolves to the same drawer and the same URL.
   function openPublicCase(publicRef) {
-    navigate('field', { focus: false, preserveScroll: true });
+    // Only the #case/<ref> entry is pushed, so Back returns to where the
+    // reader came from instead of an intermediate Field Office entry.
+    navigate('field', { focus: false, preserveScroll: true, history: true });
     window.setTimeout(function () {
       if (typeof window.osiV2OpenCase === 'function') window.osiV2OpenCase(publicRef);
     }, 0);
@@ -421,10 +518,10 @@
     }
     analysts.slice(0, 3).forEach(function (analyst) {
       var row = make('div', 'osi-public-row');
-      row.appendChild(make('span', '', titleCase(analyst.tier_code || analyst.status)));
+      row.appendChild(make('span', 'osi-public-tier', enumLabel(analyst.tier_code || analyst.status)));
       var copy = make('div');
-      copy.appendChild(make('strong', '', analyst.display_name || analyst.handle || shortRef(analyst.wallet)));
-      var expertise = Array.isArray(analyst.expertise) ? analyst.expertise.slice(0, 3).join(', ') : '';
+      copy.appendChild(userText('strong', '', analyst.display_name || analyst.handle || shortRef(analyst.wallet)));
+      var expertise = Array.isArray(analyst.expertise) ? analyst.expertise.slice(0, 3).map(enumLabel).join(', ') : '';
       copy.appendChild(make('small', '', expertise || 'Public analyst profile'));
       row.appendChild(copy);
       row.appendChild(rowButton('View profile', function () {
@@ -475,10 +572,10 @@
     }
     sealed.slice(0, 3).forEach(function (item) {
       var row = make('div', 'osi-public-row');
-      row.appendChild(make('span', '', shortRef(item.public_ref)));
+      row.appendChild(make('span', 'osi-public-ref mono', shortRef(item.public_ref)));
       var copy = make('div');
-      copy.appendChild(make('strong', '', item.title || 'Sealed public record'));
-      copy.appendChild(make('small', '', titleCase(item.category) + ' / ' + (item.sealed_at ? new Date(item.sealed_at).toLocaleDateString() : 'Seal recorded')));
+      copy.appendChild(item.title ? userText('strong', '', item.title) : make('strong', '', 'Sealed public record'));
+      copy.appendChild(make('small', '', enumLabel(item.category) + ' / ' + (shortDate(item.sealed_at) || tr('Seal recorded'))));
       row.appendChild(copy);
       row.appendChild(rowButton('Inspect proof', function () { openPublicCase(item.public_ref); }));
       host.appendChild(row);
@@ -502,10 +599,20 @@
     host.appendChild(empty);
   }
 
+  // The last public lists, kept only so a language switch can redraw the
+  // same rows with translated labels and dates instead of refetching them.
+  var homeCache = { cases: null, analysts: null };
+
   function loadHomeData() {
+    // Home reads the full public Case projection although it draws only a few
+    // fields. That is deliberate: the Field Office, Public Records and the Proof
+    // Log read the same projection through the shared cache in
+    // 04-public-read.js, so one answer serves every view. A separate summary
+    // read for Home would add a request on the first navigation.
     var caseRequest = publicApi('osi-v2-case-read', { op: 'list_public_cases' })
       .then(function (result) {
         var cases = Array.isArray(result.cases) ? result.cases : [];
+        homeCache.cases = cases;
         renderHomeCaseState(cases);
         renderRecords(cases);
       })
@@ -515,17 +622,23 @@
       });
     var analystRequest = publicApi('osi-v2-analyst', { op: 'list_public_profiles' })
       .then(function (result) {
-        renderAnalysts(Array.isArray(result.analysts) ? result.analysts : []);
+        homeCache.analysts = Array.isArray(result.analysts) ? result.analysts : [];
+        renderAnalysts(homeCache.analysts);
       })
       .catch(renderAnalystError);
     return Promise.allSettled([caseRequest, analystRequest]);
   }
 
+  window.addEventListener('osi:localechange', function () {
+    if (homeCache.cases) { renderHomeCaseState(homeCache.cases); renderRecords(homeCache.cases); }
+    if (homeCache.analysts) renderAnalysts(homeCache.analysts);
+  });
+
   // #case/OSI-XXXXXXXXXXXX is the canonical, shareable public Case route. It
   // carries only a public reference, never a token, nonce or wallet value.
   function caseRouteRef(hash) {
-    var match = /^case\/(OSI-[0-9A-Z]{6,20})$/.exec(String(hash || ''));
-    return match ? match[1] : '';
+    var match = /^case\/(OSI-[0-9A-Z]{6,20})$/i.exec(String(hash || ''));
+    return match ? match[1].toUpperCase() : '';
   }
 
   // #analyst/<handle> and #maintainer address one public profile. The analyst
@@ -584,7 +697,15 @@
     }
     if (hashViews[hash]) navigate(hashViews[hash], { history: true, focus: false });
     else if (!hash) navigate('registry', { history: true, focus: false });
-    else syncActiveNavigation(document.body.dataset.view || 'registry');
+    else {
+      var current = document.body.dataset.view || 'registry';
+      syncActiveNavigation(current);
+      // An address that is neither a view nor an element on the page would
+      // otherwise stay in the bar and contradict what is shown.
+      if (!document.getElementById(hash) && viewHashes[current]) {
+        try { window.history.replaceState({ osiView: current }, '', '#' + viewHashes[current]); } catch (_) {}
+      }
+    }
   }
 
   function init() {
@@ -603,7 +724,7 @@
   window.osiNavigateSection = navigateSection;
   window.osiOpenCase = openCase;
   window.osiOpenPublicCase = openPublicCase;
-  window.osiBrowsePublicCases = function () { navigate('field', { focus: false }); };
+  window.osiBrowsePublicCases = function () { navigate('field'); };
   window.osiNavigateFieldStage = navigateFieldStage;
   window.osiPublicApi = publicApi;
   window.osiLoadHomeData = loadHomeData;

@@ -17,7 +17,12 @@ async function disconnectWallet(){
   if(document.body && document.body.dataset && document.body.dataset.view==='admin' && typeof renderAdminAccess==='function') renderAdminAccess({clear:true});
   if(document.body && document.body.dataset && document.body.dataset.view==='profile') showView('registry');
   else if(document.body && document.body.dataset && document.body.dataset.view==='identity' && typeof renderIdentity==='function') await renderIdentity();
-  if(typeof showToast==='function') showToast('Wallet disconnected.');
+  // My OSI shows the connected wallet's work; redraw it so the previous
+  // wallet's private workspace does not stay on screen after Disconnect.
+  else if(document.body && document.body.dataset && document.body.dataset.view==='workspace' && typeof renderWorkspace==='function') renderWorkspace();
+  if(typeof showToast==='function') showToast(typeof window.osiT==='function'?window.osiT('Wallet disconnected.'):'Wallet disconnected.');
+  var walletButton=document.getElementById('walletBtn');
+  if(walletButton&&typeof walletButton.focus==='function') walletButton.focus();
 }
 
 function pfHash(str){ let h=0; str=String(str); for(let i=0;i<str.length;i++){ h=(h<<5)-h+str.charCodeAt(i); h|=0; } return Math.abs(h); }

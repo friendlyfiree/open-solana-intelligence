@@ -40,7 +40,7 @@ function markAppliedUI(card, sig){
   btn.textContent = "✦ Apply again"; btn.disabled = false;
   if(sig && !card.querySelector('.apply-tx')){
     const note = document.createElement('div'); note.className = "apply-tx mono";
-    note.style.cssText = "font-size:9px;color:#b98cff;margin-top:4px";
+    note.style.cssText = "font-size:11.5px;color:#b98cff;margin-top:4px";
     note.innerHTML = `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener" style="color:#b98cff;text-decoration:none">↗ application on-chain ✓</a>`;
     btn.parentElement.appendChild(note);
   }
@@ -258,9 +258,10 @@ async function submitAnalystApplication(){
 function copyContact(e){
   if(e && e.preventDefault) e.preventDefault();
   osiCopyText(CONTACT_EMAIL).then(function(copied){
+    var tr=typeof window.osiT==='function'?window.osiT:function(key,vars){return String(key).replace('{email}',vars.email);};
     showToast(copied
-      ? "Contact email copied: " + CONTACT_EMAIL
-      : "Copy failed. Contact email: " + CONTACT_EMAIL);
+      ? tr('Contact email copied: {email}',{email:CONTACT_EMAIL})
+      : tr('Copy failed. Contact email: {email}',{email:CONTACT_EMAIL}));
   });
 }
 
@@ -273,7 +274,9 @@ function showToast(msg){
     t.setAttribute('role','status');
     t.setAttribute('aria-live','polite');
     t.setAttribute('aria-atomic','true');
-    t.style.cssText = "position:fixed;left:50%;bottom:74px;transform:translateX(-50%);z-index:80;background:var(--bg-raised);border:1px solid var(--sol);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 16px;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center";
+    // Above the Case drawer, modals and the payment review, so a message
+    // raised from inside them is actually seen.
+    t.style.cssText = "position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:5300;width:max-content;background:var(--bg-raised);border:1px solid var(--lamp-line);color:var(--ink);font-family:var(--font-sans);font-size:13.5px;padding:10px 16px;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;pointer-events:none;max-width:min(560px,calc(100vw - 32px));text-align:center;line-height:1.45";
     document.body.appendChild(t);
   }
   t.textContent = msg;

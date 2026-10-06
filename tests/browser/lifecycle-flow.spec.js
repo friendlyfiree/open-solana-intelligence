@@ -967,7 +967,9 @@ test('publishing from the ready state makes the finding public and readable', as
   await expect(card.locator('.osi-report-public-body p')).toHaveCount(2);
   await expect(card).not.toContainText(PRIVATE_SENTINEL);
   await expect(card.getByRole('button', { name: 'Support author with SOL' })).toBeVisible();
-  await expect(card.getByRole('link', { name: /Verify REPORT_PUBLISHED on Solscan/ })).toBeVisible();
+  // The link names what the transaction anchored in words; the raw event code
+  // stays in the proof detail for auditors.
+  await expect(card.getByRole('link', { name: /Verify the publication Memo on Solscan/ })).toBeVisible();
 
   expectClean(page);
 });
@@ -992,13 +994,15 @@ test('a published Report reads finding-first and never leaks the restricted body
   expect(bodyText.includes(PRIVATE_SENTINEL)).toBe(false);
 
   // Typography actually applies: an undefined --mono token used to invalidate
-  // the whole font shorthand and drop the designed size with it.
+  // the whole font shorthand and drop the designed size with it. The quorum
+  // reads as words with tabular numbers, so it resolves to the interface face.
   const font = await card.locator('.osi-report-quorum span').first().evaluate((node) => {
     const style = window.getComputedStyle(node);
-    return { family: style.fontFamily, size: style.fontSize };
+    return { family: style.fontFamily, size: style.fontSize, numeric: style.fontVariantNumeric };
   });
-  expect(font.family).toContain('JetBrains Mono');
-  expect(font.size).toBe('12px');
+  expect(font.family).toContain('Inter');
+  expect(font.size).toBe('13px');
+  expect(font.numeric).toContain('tabular-nums');
 
   expectClean(page);
 });
@@ -1016,10 +1020,13 @@ test('the Case approval that opened a public investigation is visible to anyone'
   await expect(outcome).toContainText('Approved for public investigation');
   await expect(outcome).toContainText('1 eligible analyst');
   await expect(outcome).toContainText('counted analyst weight 1.00');
-  await expect(outcome.getByRole('link', { name: /Verify CASE_OPENED on Solscan/ })).toHaveAttribute('href', `https://solscan.io/tx/${OPEN_TX}`);
+  await expect(outcome.getByRole('link', { name: /Verify the opening Memo on Solscan/ })).toHaveAttribute('href', `https://solscan.io/tx/${OPEN_TX}`);
   // The attributable row itself stays on the page under the summary.
-  await expect(page.locator('#osi-case-content')).toContainText('Approve Open');
-  await expect(page.locator('#osi-case-content')).toContainText('Reason code: public_scope_clear');
+  // Decision and reason read as words; the raw reason code stays on the row
+  // as its title for anyone matching it against the receipt.
+  await expect(page.locator('#osi-case-content')).toContainText('Approve public open');
+  await expect(page.locator('#osi-case-content')).toContainText('Reason: Public scope clear');
+  await expect(page.locator('#osi-case-content [title="public_scope_clear"]')).toHaveCount(1);
 
   expectClean(page);
 });

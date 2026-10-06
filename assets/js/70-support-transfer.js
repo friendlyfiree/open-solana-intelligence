@@ -168,6 +168,14 @@ function openTip(wallet, label, amount, title, meta){
   updateTipUsd();
   resetSolanaPay();
   refreshTipSendState();
+  // The USD estimate is optional. Its price is fetched only now, and the line
+  // fills in if the answer arrives while this dialog is still open.
+  if(typeof loadPrice==='function'){
+    loadPrice().then(function(){
+      var open=document.getElementById('tip-modal');
+      if(open && open.classList.contains('open')) updateTipUsd();
+    }).catch(function(){});
+  }
   var m=document.getElementById('tip-modal');
   if(m){
     tipReturnFocus = document.activeElement && typeof document.activeElement.focus==='function' ? document.activeElement : null;
@@ -328,7 +336,7 @@ function markBoostedUI(card, sig){
   btn.textContent = "✓ Boosted"; btn.style.background = "var(--sol)"; btn.style.color = "var(--bg)"; btn.disabled = true;
   if(sig && !card.querySelector('.boost-tx')){
     const note = document.createElement('div'); note.className = "boost-tx mono";
-    note.style.cssText = "font-size:9px;color:var(--sol);margin-top:4px";
+    note.style.cssText = "font-size:11.5px;color:var(--sol);margin-top:4px";
     note.innerHTML = `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener" style="color:var(--sol);text-decoration:none">↗ on-chain ✓</a>`;
     btn.parentElement.appendChild(note);
   }

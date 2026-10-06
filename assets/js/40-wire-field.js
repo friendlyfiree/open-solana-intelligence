@@ -28,7 +28,7 @@ async function renderWire(options){
           subject:row.title,body:row.summary,
           author:row.author&&row.author.wallet||'',author_handle:row.author&&row.author.handle||'',
           created_at:row.published_at,native:true,publication_channel:row.publication_channel,
-          contested_at:row.contested_at,support_lamports:row.support_lamports||0,
+          contested_at:row.contested_at,challenge_state:row.challenge_state||null,support_lamports:row.support_lamports||0,
           promoted:row.promoted===true,is_current_published:row.is_current_published!==false
         };
       });
@@ -60,11 +60,14 @@ async function renderWire(options){
   wireState.phase = wireState.sourceError ? 'error' : 'ready';
   drawWire();
 }
+// Locale-aware copy for strings this feed composes with values.
+function wireT(key,variables){return typeof window.osiT==='function'?window.osiT(key,variables):String(key||'').replace(/\{([a-zA-Z0-9_]+)\}/g,function(_,name){return variables&&Object.prototype.hasOwnProperty.call(variables,name)?String(variables[name]):'{'+name+'}';});}
+function wireShortWallet(value){value=String(value||'');return value.length>12?value.slice(0,4)+'…'+value.slice(-4):value;}
 function drawWire(){
   const host=document.getElementById('wire-cases'); if(!host) return;
   if(wireState.phase==='loading'){
     wireStats([]);
-    host.innerHTML = '<div class="wire-empty" role="status" aria-live="polite"><div class="wire-empty-h">Opening the live wire\u2026</div><p>Checking published dispatches and public reports.</p></div>';
+    host.innerHTML = '<div class="wire-empty" role="status" aria-live="polite"><div class="wire-empty-h">Loading published Wire Reports…</div><p>Checking reviewed publications and public legacy references.</p></div>';
     return;
   }
   wireStats(wireState.data);
@@ -87,53 +90,70 @@ function wireCard(d){
   const id = escapeHtml(d.id);
   const subject = escapeHtml(d.subject || 'Intel dispatch');
   const full = String(d.body || '');
-  const snippet = escapeHtml(full.slice(0,130)) + (full.length>130 ? '\u2026' : '');
+  const snippet = escapeHtml(full.slice(0,220)) + (full.length>220 ? '…' : '');
   const count = ((window.boostCounts||{})[d.id]) || 0;
   const authorRaw = String(d.author||'');
-  const author = authorRaw ? escapeHtml(authorRaw) : '';
+  // Attribution names the handle when the author published one, and a short
+  // wallet otherwise; the full wallet stays available in the title.
+  const nativeName = d.author_handle ? '@'+d.author_handle : (authorRaw ? wireShortWallet(authorRaw) : '');
   const attribution = d.native
-    ? ('by '+escapeHtml(d.author_handle?('@'+d.author_handle+' · '+authorRaw):authorRaw||'wallet unavailable'))
-    : (author ? ('by '+author) : 'source not attributed');
-  const status = d.premium ? 'flag' : 'open';
-  const statusLabel = d.native
-    ? (d.is_current_published===false
-      ? (d.publication_channel==='maintainer_bootstrap'?'SUPERSEDED · BOOTSTRAP':'SUPERSEDED · REVIEWED')
-      : (d.publication_channel==='maintainer_bootstrap'?'MAINTAINER BOOTSTRAP':'REVIEWED'))
-    : (d.premium ? 'FLAGSHIP · LEGACY' : 'DISPATCH · LEGACY');
+    ? (nativeName ? '<span class="wr-by" data-osi-user-content title="'+escapeHtml(authorRaw)+'">'+escapeHtml(wireT('by {name}',{name:nativeName}))+'</span>' : '<span class="wr-by">'+escapeHtml(wireT('Wallet unavailable'))+'</span>')
+    : (authorRaw ? '<span class="wr-by" data-osi-user-content>'+escapeHtml(wireT('by {name}',{name:authorRaw}))+'</span>' : '<span class="wr-by">source not attributed</span>');
+  const chips = [];
+  if(d.native){
+    // The same words Public Records uses for the same state: an upheld
+    // challenge puts the exact version under re-review before anything else.
+    const reReview = d.challenge_state==='challenge_upheld_under_re_review' || !!d.contested_at;
+    const stateWord = reReview ? 'Under re-review' : (d.is_current_published===false ? 'Superseded' : 'Published');
+    chips.push('<span class="wr-st '+(reReview||d.is_current_published===false?'old':'pub')+'">'+escapeHtml(wireT(stateWord))+'</span>');
+    if(d.publication_channel==='maintainer_bootstrap') chips.push('<span class="wr-st boot">'+escapeHtml(wireT('Maintainer bootstrap'))+'</span>');
+  }else{
+    chips.push('<span class="wr-st legacy">'+escapeHtml(wireT('Legacy'))+'</span>');
+    chips.push('<span class="wr-st legacy">'+escapeHtml(wireT(d.premium?'Flagship study':'Community dispatch'))+'</span>');
+  }
+  // The chip already says Published; the activity line speaks only when it
+  // adds a lifecycle fact (a challenge, a promotion, a later version).
   const activity = d.native
-    ? (d.contested_at?'Challenge upheld':(d.promoted?'Promoted to Case':(d.is_current_published===false?'Immutable publication history':'Published finding')))
-    : '<span class="b-reward"><span class="n">'+count+'</span></span> interest signals';
+    ? escapeHtml(d.contested_at?wireT('Challenge upheld'):(d.promoted?wireT('Promoted to Case'):(d.is_current_published===false?wireT('A later version is current'):'')))
+    : '<span class="b-reward"><span class="n">'+count+'</span></span> '+escapeHtml(wireT('interest signals'));
+  const when = d.native && d.created_at && !isNaN(new Date(d.created_at).getTime())
+    ? '<time class="wr-when" datetime="'+escapeHtml(new Date(d.created_at).toISOString())+'">'+escapeHtml(wireT('Published {date}',{date:new Date(d.created_at).toLocaleDateString(wireLocale(),{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'})}))+'</time>'
+    : '';
   let actions = '';
   if(d.native && /^OSI-WV-[0-9A-F]{16}$/.test(String(d.version_public_ref||''))){
-    actions += '<button class="wr-act primary" type="button" data-wire-version="'+escapeHtml(d.version_public_ref)+'">Open Wire Report \u2192</button>';
+    actions += '<button class="wr-act primary" type="button" data-wire-version="'+escapeHtml(d.version_public_ref)+'">'+escapeHtml(wireT('Open Wire Report'))+'</button>';
   } else if(d.premium && d._case){
-    actions += '<button class="wr-act primary" type="button" onclick="openReport(\'case\',\''+d._case+'\')">Read report \u2192</button>';
+    actions += '<button class="wr-act primary" type="button" onclick="openReport(\'case\',\''+d._case+'\')">'+escapeHtml(wireT('Read report'))+'</button>';
     // Voluntary support to the configured OSI wallet only (no per-dispatch wallet).
-    if(OSI_SUPPORT_WALLET && location.pathname.toLowerCase().endsWith('/legacy.html')){ actions += '<button class="wr-act ghost" type="button" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\'OSI project support\',0.5,\'\\u25ce Voluntary support\')">\u25ce Support</button>'; }
+    if(OSI_SUPPORT_WALLET && location.pathname.toLowerCase().endsWith('/legacy.html')){ actions += '<button class="wr-act ghost" type="button" onclick="openTip(\''+OSI_SUPPORT_WALLET+'\',\'OSI project support\',0.5,\'\\u25ce Voluntary support\')">◎ Support</button>'; }
   } else {
     actions += '<button class="wr-act ghost" type="button" data-wire-interest onclick="stakeBoost(this)">Signal interest</button>';
     // Stage 4: removed "Support the analyst" to a dispatch's self-declared wallet
     // (unverified, ambiguous). Support routes only to the configured OSI wallet.
   }
-  return '<div class="wire-card bounty'+(d.premium?' premium':'')+'" data-bid="'+id+'">'
-    + '<span class="fc-stripe"></span>'
-    + '<div class="wr-head"><span class="wr-st '+status+'">'+statusLabel+'</span><span class="wr-by mono">'+attribution+'</span><span class="wr-back mono">'+activity+'</span></div>'
-    + '<div class="fc-title b-target wr-title">'+subject+'</div>'
-    + (snippet ? '<div class="wr-snip">'+snippet+'</div>' : '')
+  // `bounty` stays only as the hook the legacy interest action looks up; the
+  // card's own layout is the Wire card, not the retired bounty grid.
+  return '<article class="wire-card bounty'+(d.premium?' premium':'')+(d.native?' native':' legacy')+'" data-bid="'+id+'">'
+    + '<div class="wr-head">'+chips.join('')+(activity?'<span class="wr-back">'+activity+'</span>':'')+'</div>'
+    + '<h3 class="fc-title b-target wr-title" data-osi-user-content>'+subject+'</h3>'
+    + '<div class="wr-meta">'+attribution+when+'</div>'
+    + (snippet ? '<p class="wr-snip" data-osi-user-content>'+snippet+'</p>' : '')
     + '<div class="wr-acts">'+actions+'</div>'
-  + '</div>';
+  + '</article>';
 }
+function wireLocale(){var selected=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'?window.OSI_I18N.getLocale():'en';return String(selected||'en').toLowerCase()==='tr'?'tr-TR':'en-US';}
+// One plain sentence of counts instead of three tiles; an empty Wire shows no
+// counter at all, so the empty state never reads as activity.
 function wireStats(list){
   const host=document.getElementById('wire-stats'); if(!host) return;
   const total = list.length;
   const published = list.filter(function(d){ return d.native; }).length;
   const legacy = total - published;
-  host.innerHTML =
-      // The lead count is not an alert. It reads in the same ink as the two
-      // beside it, so an empty wire is not coloured like a problem.
-      '<div class="wire-op"><div class="wire-op-n">'+total+'</div><div class="wire-op-l">Dispatches</div></div>'
-    + '<div class="wire-op"><div class="wire-op-n">'+published+'</div><div class="wire-op-l">Reviewed publications</div></div>'
-    + '<div class="wire-op"><div class="wire-op-n">'+legacy+'</div><div class="wire-op-l">Legacy references</div></div>';
+  const parts = [];
+  if(published) parts.push(wireT(published===1?'{count} published Wire Report':'{count} published Wire Reports',{count:published}));
+  if(legacy) parts.push(wireT(legacy===1?'{count} legacy reference':'{count} legacy references',{count:legacy}));
+  host.textContent = parts.join(', ');
+  host.hidden = !parts.length;
 }
 document.addEventListener('click',function(event){
   var button=event.target&&event.target.closest?event.target.closest('[data-wire-version]'):null;
@@ -143,10 +163,37 @@ document.addEventListener('click',function(event){
     window.osiV2OpenWireReport(ref);
   }
 });
-function wireSort(){ wireState.sort='newest'; document.querySelectorAll('.wire-sort').forEach(function(b){ b.classList.toggle('active', b.dataset.s==='newest'); }); drawWire(); }
-function wireEnterPrivateMode(){wireState.mode='private';wireState.renderToken++;}
-function wireOpenPublic(){wireState.mode='public';return renderWire({activatePublic:true});}
+// The section shows which Wire it is: the public feed, the author's private
+// workspace or the restricted review queue. The private modes hide the public
+// feed chrome and say plainly that what follows is visible only to this wallet.
+var WIRE_MODE_COPY={
+  public:{eyebrow:'Open intelligence',title:'The Wire',sub:'Standalone findings filed by wallet authors. Each version stays private until someone other than its author publishes it after review.'},
+  mine:{eyebrow:'Private workspace',title:'My Wire Reports',sub:'Only this wallet can see these versions, after a signed read. Nothing here is public until an exact version is published.'},
+  queue:{eyebrow:'Restricted queue',title:'Wire review queue',sub:'Restricted queue for eligible analysts and the full maintainer. Authors never see or review their own versions here.'}
+};
+function wireSetMode(kind){
+  var view=document.getElementById('wire-view');
+  var copy=WIRE_MODE_COPY[kind]||WIRE_MODE_COPY.public;
+  if(view&&view.setAttribute) view.setAttribute('data-wire-mode',WIRE_MODE_COPY[kind]?kind:'public');
+  var eyebrow=document.getElementById('wire-eyebrow');
+  var title=document.getElementById('wire-title');
+  var sub=document.getElementById('wire-sub');
+  if(eyebrow) eyebrow.textContent=copy.eyebrow;
+  if(title) title.textContent=copy.title;
+  if(sub) sub.textContent=copy.sub;
+  // The public count sentence does not describe a private surface; each
+  // private view writes its own counts, and the bar stays hidden until then.
+  var stats=document.getElementById('wire-stats');
+  var bar=stats&&stats.parentNode&&stats.parentNode.classList&&stats.parentNode.classList.contains('wire-bar')?stats.parentNode:null;
+  if(kind!=='public'&&WIRE_MODE_COPY[kind]){ if(stats){ stats.textContent=''; stats.hidden=true; } if(bar) bar.hidden=true; }
+  else if(bar) bar.hidden=false;
+}
+function wireEnterPrivateMode(kind){wireState.mode='private';wireState.renderToken++;wireSetMode(kind==='queue'?'queue':'mine');}
+function wireOpenPublic(){wireState.mode='public';wireSetMode('public');return renderWire({activatePublic:true});}
 function wireClearPrivateMode(){if(wireState.mode==='private')return wireOpenPublic();}
+// Cards and the count sentence are composed with values, so a language switch
+// repaints the public feed that is already on screen.
+if(typeof window!=='undefined'&&typeof window.addEventListener==='function') window.addEventListener('osi:localechange',function(){ if(wireState.mode==='public'&&wireState.phase!=='loading'&&wireState.phase!=='idle') drawWire(); });
 function wireOpenForm(){
   if(typeof window.osiV2OpenWireForm==='function')return window.osiV2OpenWireForm();
   if(typeof showToast==='function')showToast('Native Wire intake is safely unavailable.');

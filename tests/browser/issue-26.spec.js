@@ -1439,7 +1439,7 @@ const readinessRoles = [
   ['ordinary_wallet', 'My OSI', false, false],
   ['analyst_candidate', 'My OSI', false, false],
   ['verified_analyst', 'Analyst Desk', true, false],
-  ['maintainer', 'Maintainer Console', false, true],
+  ['maintainer', 'Maintainer workspace', false, true],
 ];
 
 for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
@@ -1463,7 +1463,7 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
     await expect(page.locator('#about-hero')).toBeVisible();
     await page.locator('#sas-verifier-wallet').fill(OTHER);
     await page.locator('#sas-verifier-form').getByRole('button', { name: 'Verify wallet' }).click();
-    await expect(page.locator('#sas-verifier-status')).toContainText('Verified:');
+    await expect(page.locator('#sas-verifier-status')).toContainText('Current SAS review authority:');
 
     await openPlatformItem(page, 'Resolution lifecycle');
     await expect(page.getByLabel('Filter by status')).toHaveValue('resolution_selection');
@@ -1508,7 +1508,7 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
 
     if (role === 'analyst_candidate') {
       await page.evaluate(() => window.osiAnalystOpenWorkspace('applications'));
-      await expect(page.locator('#identity-body')).toContainText('In Review');
+      await expect(page.locator('#identity-body')).toContainText('In review');
       await expect(page.locator('#identity-body')).toContainText('Current version 1');
     }
 
@@ -1674,7 +1674,7 @@ test('legacy-import private drafts stay out of maintainer DOM counts and rows', 
 test('launch readiness: public empty states are explanatory and contain no raw sentinel values', async ({ page }) => {
   await ready(page, { role: 'anonymous', empty: true });
   await page.evaluate(() => window.osiNavigate('field'));
-  await expect(page.locator('#field-cases')).toContainText('No public V2 Cases yet');
+  await expect(page.locator('#field-cases')).toContainText('No public Cases yet');
 
   await page.evaluate(async () => {
     window.CASE_STUDIES = [];
@@ -2112,7 +2112,7 @@ test('unified My Reviews composes all eight exact lanes, maintainer bootstrap, c
   await page.evaluate(() => window.osiV2CloseCase());
 
   await page.evaluate(() => window.osiV2OpenReviewQueue());
-  await expect(page.locator('#fo-count')).toHaveText('8 real tasks');
+  await expect(page.locator('#fo-count')).toHaveText('8 review tasks');
   for (const lane of ['initial_open', 'report_publication', 'analyst_applications', 'wire_reviews', 'resolution_selection', 'challenge_admissibility', 'challenge_adjudication', 'seal_reviews']) {
     await expect(page.locator(`[data-review-lane-section="${lane}"]`)).toBeVisible();
   }
@@ -2274,7 +2274,7 @@ for (const role of ['ordinary_wallet', 'report_author', 'verified_analyst']) {
 test('unified queue distinguishes a genuine all-lane empty result from errors', async ({ page }) => {
   await ready(page, { role: 'maintainer', reviewQueueEmpty: true });
   await page.evaluate(() => window.osiV2OpenReviewQueue());
-  await expect(page.locator('#fo-count')).toHaveText('0 real tasks');
+  await expect(page.locator('#fo-count')).toHaveText('0 review tasks');
   for (const lane of [
     'initial_open',
     'report_publication',
@@ -2483,7 +2483,8 @@ test('canonical workspace navigation and support dialog preserve keyboard access
   await walletButton.focus();
   await walletButton.press('ArrowDown');
   await expect(walletButton).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByRole('menuitem', { name: 'My Cases' })).toBeFocused();
+  // ArrowDown lands on the first item of the wallet menu, the My OSI overview.
+  await expect(page.getByRole('menuitem', { name: 'My OSI overview' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(walletButton).toBeFocused();
 
@@ -2954,7 +2955,8 @@ test('real product DOM renders lifecycle fixtures and keeps one shared private s
   await page.locator('[data-tab="challenges"]').click();
   await expect(page.locator('#osi-case-content')).toContainText('additional independent context');
   await page.locator('[data-tab="reward"]').click();
-  await expect(page.locator('#osi-case-content')).toContainText('Partially Fulfilled');
+  // Server-derived status words read in sentence case, like every drawer label.
+  await expect(page.locator('#osi-case-content')).toContainText('Partially fulfilled');
   await expect(page.locator('#osi-case-content')).toContainText('Voluntary support');
   await page.locator('[data-tab="proof"]').click();
   for (const label of ['Wallet-signed and server-verified', 'Memo-anchored on Solana', 'SOL transfer verified on Solana', 'System event']) {
@@ -3338,6 +3340,9 @@ test('Wire private fixture and revision form fit desktop and 390px', async ({ pa
     await expect(page.locator('#osi-wire-context')).toContainText('Next version 3');
     await expect(page.locator('#osi-wire-title')).toHaveValue('Wire fixture version 2');
     await expect(page.locator('#osi-wire-modal-copy')).toContainText('remain private');
+    // The sheet slides in over 0.18s; a rect read mid-transform carries float
+    // noise (390.00001px), so measure the settled layout.
+    await page.locator('#osi-wire-modal .fo-form').evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
     const box = await page.locator('#osi-wire-modal .fo-form').boundingBox();
     expect(box).not.toBeNull();
@@ -3406,14 +3411,20 @@ test('user identity, analyst workspace and Operations gate use one accessible pr
   await expect(identityLastTab).toBeFocused();
   await expect(identityLastTab).toHaveAttribute('aria-selected', 'true');
 
+  // Navigating to the private workspace never signs on its own: with no live
+  // read session it states the cost, and only the explicit control unlocks it.
   await page.evaluate(() => window.osiAnalystOpenWorkspace('profile'));
+  const unlockWorkspace = page.locator('#identity-body [data-ws-unlock]');
+  await expect(unlockWorkspace).toBeVisible();
+  await expect(page.locator('#identity-body')).toContainText('one wallet message signature and no Solana transaction');
+  await unlockWorkspace.click();
   await expect(page.locator('#osi-workspace-tab-profile')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#identity-body')).toContainText('Server-derived weight');
 
   await page.evaluate(() => window.osiNavigate('admin'));
   expect(await page.evaluate(() => window.location.hash)).toBe('#admin');
   await expect(page.locator('#admin-view')).toBeVisible();
-  await expect(page.getByRole('heading', { name: /OPERATIONS CENTER/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Operations Center/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Access denied' })).toBeVisible();
   await expect(page.locator('#admLocked')).toContainText('Connected wallet is not authorized');
   await expect(page.locator('#admLogin form.adm-card')).toBeHidden();
@@ -3816,5 +3827,651 @@ test('capture every populated main workspace for preview QA', async ({ page }) =
   await page.evaluate(() => window.osiV2OpenReportQueue());
   await expect(page.locator('#field-cases')).toContainText('Version history (3)');
   await capture('report-review-populated');
+  expectCleanRuntime(page);
+});
+
+// ---- Item-6: SAS reconcile control in the native Operations Center ----
+// The analyst endpoint fixture above answers sas_operations_status with an
+// empty ledger. These tests register a narrower route after ready(), which
+// Playwright consults first, so they own sas_operations_status and
+// reconcile_sas and fall back to the shared fixture for every other call.
+const SAS_FIRST = ROLE_WALLETS.verified_analyst;
+const SAS_SECOND = ROLE_WALLETS.analyst_candidate;
+const SAS_ATTESTATION = '11111111111111111111111111111119';
+const SAS_SUBMITTED_TX = '5'.repeat(88);
+const SAS_WAIT_STEP = 'Wait for confirmed on-chain state, then run this same idempotent reconciliation again.';
+const SAS_NO_WRITE_STEP = 'No additional on-chain write is required.';
+const SAS_REPAIR_STEP = 'Inspect the exact attestation account and use a focused issuer-authority repair; do not overwrite it blindly.';
+
+async function installSasOperationsFixture(page, replies = [], options = {}) {
+  const log = { statusCalls: 0, requests: [], headers: [] };
+  const queue = replies.slice();
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'sas_operations_status') {
+      log.statusCalls += 1;
+      const submitted = log.requests.length > 0 && options.pendingAfterReconcile === true;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          settings: {
+            configured: true,
+            issuance_enabled: options.issuanceEnabled !== false,
+            enforcement_enabled: true,
+            program_id: '22222222222222222222222222222222',
+            credential: '33333333333333333333333333333333',
+            schema: '44444444444444444444444444444444',
+            issuer: '66666666666666666666666666666666',
+            stale_seconds: 600,
+          },
+          credentials: [
+            { wallet: SAS_FIRST, verification_state: submitted ? 'pending_verification' : 'invalid', last_checked_at: iso(-1), last_error: null },
+            { wallet: SAS_SECOND, verification_state: 'verified', last_checked_at: iso(-0.5), last_error: null },
+          ],
+          profiles: [
+            { wallet: SAS_FIRST, status: 'verified_analyst' },
+            { wallet: SAS_SECOND, status: 'probationary_analyst' },
+          ],
+          authority_source: 'live_sas_attestation',
+          client_validity_accepted: false,
+        }),
+      });
+    }
+    if (body.op === 'reconcile_sas') {
+      log.requests.push(body);
+      log.headers.push(route.request().headers().authorization || '');
+      const reply = queue.shift() || { status: 500, body: { ok: false, error: 'unexpected_reconcile_call' } };
+      if (reply.delayMs) await new Promise((resolve) => setTimeout(resolve, reply.delayMs));
+      if (reply.abort) return route.abort('failed');
+      return route.fulfill({ status: reply.status || 200, contentType: 'application/json', body: JSON.stringify(reply.body) });
+    }
+    return route.fallback();
+  });
+  return log;
+}
+
+async function openSasOperations(page) {
+  await page.evaluate(() => window.osiNavigate('admin'));
+  await expect(page.locator('#admPanel')).toBeVisible();
+  const operations = page.locator('#osi-native-ops-overview');
+  await expect(operations.locator('.osi-native-sas')).toContainText('SAS Authority Operations');
+  await expect(sasRow(page, SAS_FIRST)).toBeVisible();
+  return operations;
+}
+
+function sasRow(page, wallet) {
+  return page.locator(`#osi-native-ops-overview .osi-sas-row[data-ops-sas-wallet="${wallet}"]`);
+}
+
+async function captureSasEvidence(page, name) {
+  const directory = process.env.OSI_SAS_SCREENSHOT_DIR;
+  if (!directory) return;
+  fs.mkdirSync(path.resolve(directory), { recursive: true });
+  await page.screenshot({ path: path.join(path.resolve(directory), `i6-sas-${name}.png`), fullPage: false });
+}
+
+test('SAS reconcile: the inline confirmation is keyboard reachable and sends nothing until confirmed', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [{
+    body: {
+      ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'satisfied',
+      reason: 'already_verified', verification_state: 'verified', attestation: SAS_ATTESTATION,
+      tx_sig: null, submitted_on_chain: false, next_step: SAS_NO_WRITE_STEP,
+    },
+  }]);
+  await openSasOperations(page);
+  const row = sasRow(page, SAS_FIRST);
+  const reconcile = row.getByRole('button', { name: 'Reconcile with live SAS' });
+  await expect(reconcile).toBeEnabled();
+  await expect(reconcile).toHaveAttribute('aria-expanded', 'false');
+
+  await reconcile.click();
+  const confirmation = row.getByRole('group', { name: /Reconcile 1111\.\.\.1116 with its live SAS credential\?/ });
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toBeFocused();
+  await expect(confirmation).toContainText("The server checks that this wallet holds a valid live SAS credential if its status is an analyst tier, and none if it is not. If that does not hold, it may submit a Solana transaction signed by the OSI issuer. You cannot choose the result.");
+  await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toHaveAttribute('aria-expanded', 'true');
+  await captureSasEvidence(page, 'confirm-desktop');
+
+  await page.keyboard.press('Escape');
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+  await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toBeFocused();
+
+  await page.keyboard.press('Enter');
+  await expect(row.locator('.osi-sas-confirm')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(row.getByRole('button', { name: 'Confirm', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(row.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+  await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toBeFocused();
+  expect(log.requests).toHaveLength(0);
+
+  // Opening a second row's confirmation closes the first one.
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await sasRow(page, SAS_SECOND).getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+  await expect(sasRow(page, SAS_SECOND).locator('.osi-sas-confirm')).toBeFocused();
+  await sasRow(page, SAS_SECOND).getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(log.requests).toHaveLength(0);
+
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await row.getByRole('button', { name: 'Confirm', exact: true }).click();
+  const result = row.getByRole('status');
+  await expect(result).toContainText('A valid live SAS credential already exists for this wallet under the OSI credential, schema and issuer. The tier recorded inside it was not compared. No Solana transaction was sent.');
+  await expect(result).toContainText(`Next step: ${SAS_NO_WRITE_STEP}`);
+  await expect(result).toContainText('Server-derived analyst status: Verified analyst');
+  await expect(result.locator('a')).toHaveCount(0);
+  await expect(result).not.toContainText('Transaction submitted');
+  expect(log.requests).toEqual([{ op: 'reconcile_sas', wallet: ROLE_WALLETS.maintainer, analyst_wallet: SAS_FIRST }]);
+  expect(log.headers).toEqual(['Bearer fixture-maintainer-session']);
+  await expect.poll(() => log.statusCalls).toBe(2);
+  expectCleanRuntime(page);
+});
+
+test('SAS reconcile: a submitted transaction stays unconfirmed, links to Solscan, and survives the status refresh', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [{
+    delayMs: 600,
+    body: {
+      ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'issue',
+      reason: 'analyst_tier', verification_state: 'pending_verification', attestation: SAS_ATTESTATION,
+      tx_sig: SAS_SUBMITTED_TX, submitted_on_chain: true, next_step: SAS_WAIT_STEP,
+    },
+  }], { pendingAfterReconcile: true });
+  await openSasOperations(page);
+  const row = sasRow(page, SAS_FIRST);
+  await expect(row.locator('.osi-native-title')).toHaveText('Invalid');
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await row.getByRole('button', { name: 'Confirm', exact: true }).click();
+
+  const busyButton = row.getByRole('button', { name: 'Reconcile with live SAS' });
+  await expect(row).toHaveAttribute('aria-busy', 'true');
+  await expect(busyButton).toBeDisabled();
+  await expect(row.getByRole('status')).toHaveText('Checking live SAS state...');
+  await expect(row.getByRole('status')).toBeFocused();
+  await captureSasEvidence(page, 'running-desktop');
+
+  const result = row.getByRole('status');
+  await expect(result).toContainText('The server submitted a transaction to issue this wallet\'s SAS credential.');
+  await expect(result).toContainText('Transaction submitted. Not yet confirmed on Solana.');
+  const solscan = result.getByRole('link', { name: /View on Solscan/ });
+  await expect(solscan).toHaveAttribute('href', `https://solscan.io/tx/${SAS_SUBMITTED_TX}`);
+  await expect(solscan).toHaveAttribute('target', '_blank');
+  await expect(solscan).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(result).toContainText(`Next step: ${SAS_WAIT_STEP}`);
+  await expect(result).toContainText('Ledger credential state: Check pending');
+  await expect(result).toContainText('Attestation account: 1111...1119');
+  const resultText = await result.innerText();
+  // "Verified analyst" is the server-derived status; nothing claims the
+  // submitted transaction itself is verified, confirmed or anchored.
+  expect(resultText).not.toMatch(/(?<!yet )confirmed on Solana|Memo-anchored|anchored on Solana|\bVerified\b(?! analyst)|transaction (?:is )?verified/i);
+
+  // The panel re-reads the ledger and keeps this row's answer in place.
+  await expect.poll(() => log.statusCalls).toBe(2);
+  await expect(row.locator('.osi-native-title')).toHaveText('Check pending');
+  await expect(row).not.toHaveAttribute('aria-busy', 'true');
+  await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toBeEnabled();
+  await expect(row.getByRole('status')).toContainText('Transaction submitted. Not yet confirmed on Solana.');
+  await expect(row.getByRole('status')).toBeFocused();
+  expect(log.requests).toEqual([{ op: 'reconcile_sas', wallet: ROLE_WALLETS.maintainer, analyst_wallet: SAS_FIRST }]);
+  await expectNoPageOverflow(page);
+  await captureSasEvidence(page, 'submitted-desktop');
+
+  // The full overview refresh keeps the answer too, and Turkish redraws it.
+  await page.getByRole('button', { name: 'Refresh overview' }).click();
+  await expect.poll(() => log.statusCalls).toBe(3);
+  await expect(sasRow(page, SAS_FIRST).getByRole('status')).toContainText('Transaction submitted. Not yet confirmed on Solana.');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  const turkish = sasRow(page, SAS_FIRST).getByRole('status');
+  await expect(turkish).toContainText('İşlem gönderildi. Henüz Solana üzerinde onaylanmadı.');
+  await expect(turkish).toContainText('Sonraki adım: Zincir üzerindeki durumun onaylanmasını bekleyin');
+  await expect(turkish.getByRole('link', { name: /Solscan'de görüntüle/ })).toHaveAttribute('href', `https://solscan.io/tx/${SAS_SUBMITTED_TX}`);
+  await expect(sasRow(page, SAS_FIRST).getByRole('button', { name: 'Canlı SAS ile uzlaştır' })).toBeVisible();
+  await sasRow(page, SAS_FIRST).scrollIntoViewIfNeeded();
+  await captureSasEvidence(page, 'submitted-tr-desktop');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await sasRow(page, SAS_FIRST).scrollIntoViewIfNeeded();
+  await expectNoPageOverflow(page);
+  const buttonBox = await sasRow(page, SAS_FIRST).getByRole('button', { name: 'Reconcile with live SAS' }).boundingBox();
+  expect(buttonBox.height).toBeGreaterThanOrEqual(44);
+  await captureSasEvidence(page, 'submitted-mobile');
+  await sasRow(page, SAS_SECOND).getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await sasRow(page, SAS_SECOND).scrollIntoViewIfNeeded();
+  await expectNoPageOverflow(page);
+  await captureSasEvidence(page, 'confirm-mobile');
+  expectCleanRuntime(page);
+});
+
+test('SAS reconcile: no-write, repair, failed-submission and malformed-signature results read as plain sentences', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [
+    { body: { ok: true, analyst_wallet: SAS_SECOND, server_derived_status: 'probationary_analyst', action: 'repair_required', reason: 'issuer_mismatch', verification_state: 'invalid', attestation: SAS_ATTESTATION, tx_sig: null, submitted_on_chain: false, next_step: SAS_REPAIR_STEP } },
+    { body: { ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'defer', reason: 'rpc_unavailable', verification_state: 'pending_verification', attestation: null, tx_sig: null, submitted_on_chain: false, next_step: 'Restore the trusted RPC or issuer secret and retry the same server-derived transition.' } },
+    { body: { ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'issue', reason: 'analyst_tier', verification_state: 'invalid', attestation: SAS_ATTESTATION, tx_sig: null, submitted_on_chain: false, next_step: SAS_NO_WRITE_STEP } },
+    { body: { ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'issue', reason: 'analyst_tier', verification_state: 'pending_verification', attestation: SAS_ATTESTATION, tx_sig: 'not-a-signature"><img src=x>', submitted_on_chain: true, next_step: SAS_WAIT_STEP } },
+  ]);
+  await openSasOperations(page);
+  const first = sasRow(page, SAS_FIRST);
+  const second = sasRow(page, SAS_SECOND);
+  const runCheck = async (row) => {
+    await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+    await row.getByRole('button', { name: 'Confirm', exact: true }).click();
+  };
+
+  await runCheck(second);
+  await expect(second.getByRole('status')).toContainText('The live SAS account does not match what OSI expects, so the server left it unchanged. No Solana transaction was sent.');
+  await expect(second.getByRole('status')).toContainText('Reason: The live account was signed by a different issuer.');
+  await expect(second.getByRole('status')).toContainText(`Next step: ${SAS_REPAIR_STEP}`);
+
+  await runCheck(first);
+  await expect(first.getByRole('status')).toContainText('The live SAS state could not be read because the trusted Solana RPC is unavailable. No Solana transaction was sent.');
+  // Each row keeps its own last answer, keyed by wallet.
+  await expect(second.getByRole('status')).toContainText('Reason: The live account was signed by a different issuer.');
+
+  await runCheck(first);
+  await expect(first.getByRole('status')).toContainText('The server tried to issue this wallet\'s SAS credential, but the transaction could not be submitted. The ledger records the failure.');
+  await expect(first.getByRole('status')).toContainText('Next step: Run this check again to read the live state before any repair.');
+  await expect(first.getByRole('status')).not.toContainText(SAS_NO_WRITE_STEP);
+  await expect(first.getByRole('status')).not.toContainText('Transaction submitted');
+
+  await runCheck(first);
+  await expect(first.getByRole('status')).toContainText('Transaction submitted. Not yet confirmed on Solana.');
+  await expect(first.getByRole('status')).toContainText('The transaction signature has an unexpected format, so no explorer link is shown.');
+  await expect(first.getByRole('status').locator('a')).toHaveCount(0);
+  await expect(page.locator('#osi-native-ops-overview img')).toHaveCount(0);
+  expect(log.requests.map((entry) => entry.analyst_wallet)).toEqual([SAS_SECOND, SAS_FIRST, SAS_FIRST, SAS_FIRST]);
+  expect(log.requests.every((entry) => entry.op === 'reconcile_sas' && entry.wallet === ROLE_WALLETS.maintainer && Object.keys(entry).length === 3)).toBe(true);
+  await captureSasEvidence(page, 'results-desktop');
+  expectCleanRuntime(page);
+});
+
+test('SAS reconcile: server gate refusals, a missing profile, and an unreachable service fail closed in the row', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [
+    { status: 403, body: { ok: false, error: 'half_maintainer_auth_only' } },
+    { status: 404, body: { ok: false, error: 'analyst_profile_not_found' } },
+    { abort: true },
+  ]);
+  await openSasOperations(page);
+  const first = sasRow(page, SAS_FIRST);
+  const second = sasRow(page, SAS_SECOND);
+
+  await first.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await first.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(first.getByRole('status')).toContainText('The server accepted the Supabase maintainer sign-in but not this wallet. Either credential alone is denied. Connect the configured admin wallet, then retry.');
+  await expect(first.getByRole('status')).toHaveAttribute('data-tone', 'error');
+  await expect(first.getByRole('status')).not.toContainText('half_maintainer');
+  await captureSasEvidence(page, 'gate-403-desktop');
+
+  await second.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await second.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(second.getByRole('status')).toContainText('The server did not find an analyst profile for this wallet, or could not read it. Nothing was checked.');
+  // Neither refusal re-reads the ledger.
+  expect(log.statusCalls).toBe(1);
+
+  await first.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await first.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(first.getByRole('status')).toContainText('The analyst service did not answer. If the request arrived, the server may still have acted. Check again to read the live state.');
+  await expect.poll(() => log.statusCalls).toBe(2);
+  expect(log.requests).toHaveLength(3);
+
+  const unexpected = page.__issue26Errors.filter((entry) => !(
+    /^http: 40[34] .*\/functions\/v1\/osi-v2-analyst$/.test(entry)
+    || /^console error: Failed to load resource: the server responded with a status of 40[34] /.test(entry)
+    || /^network: .*\/functions\/v1\/osi-v2-analyst net::ERR_FAILED$/.test(entry)
+    || entry === 'console error: Failed to load resource: net::ERR_FAILED'
+  ));
+  expect(unexpected).toEqual([]);
+});
+
+test('SAS reconcile: both maintainer gates are read again before the confirmation and before the request', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, []);
+  await openSasOperations(page);
+  const row = sasRow(page, SAS_FIRST);
+
+  // The server gate drops between drawing the panel and confirming.
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await page.evaluate(() => { OSI_MAINTAINER_SERVER_GATE = false; OSI_MAINTAINER_GATE_REASON = 'checking'; });
+  await row.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(row.getByRole('status')).toContainText('The server is still verifying both maintainer gates. Nothing was sent. Try again in a moment.');
+  await expect(row.getByRole('status')).toBeFocused();
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+
+  // The Supabase sign-in disappears: the confirmation does not even open.
+  await page.evaluate(() => { OSI_MAINTAINER_SERVER_GATE = true; OSI_MAINTAINER_GATE_REASON = 'full'; SUPA_AUTH_TOKEN = null; });
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+  await expect(row.getByRole('status')).toContainText('Sign in with the Supabase maintainer account to run this check. Nothing was sent.');
+  expect(log.requests).toHaveLength(0);
+  expectCleanRuntime(page);
+});
+
+test('SAS reconcile: issuance off disables the control with its prerequisite in visible text', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [], { issuanceEnabled: false });
+  await openSasOperations(page);
+  const row = sasRow(page, SAS_FIRST);
+  const reconcile = row.getByRole('button', { name: 'Reconcile with live SAS' });
+  await expect(reconcile).toBeDisabled();
+  await expect(row).toContainText('Reconcile is unavailable while SAS credential issuance is off.');
+  await expect(reconcile).toHaveAttribute('aria-describedby', `osi-sas-prerequisite-${SAS_FIRST}`);
+  expect(log.requests).toHaveLength(0);
+  expectCleanRuntime(page);
+});
+
+for (const role of ['maintainer_wallet_only', 'maintainer_auth_only', 'ordinary_wallet', 'verified_analyst']) {
+  test(`SAS reconcile: ${role} never sees the control or reaches the SAS endpoints`, async ({ page }) => {
+    await ready(page, { role });
+    const log = await installSasOperationsFixture(page, []);
+    await page.evaluate(() => window.osiNavigate('admin'));
+    await expect(page.locator('#admin-view')).toBeVisible();
+    await expect(page.locator('#admPanel')).toBeHidden();
+    await expect(page.locator('.osi-sas-reconcile')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Reconcile with live SAS' })).toHaveCount(0);
+    // A direct call is refused by the client gate before any request.
+    const outcome = await page.evaluate(() => typeof window.osiNativeOpsRefresh === 'function' ? window.osiNativeOpsRefresh() : 'missing');
+    expect(outcome).toBeNull();
+    await expect(page.locator('.osi-sas-reconcile')).toHaveCount(0);
+    expect(log.statusCalls).toBe(0);
+    expect(log.requests).toHaveLength(0);
+    expectCleanRuntime(page);
+  });
+}
+
+
+// ---- HA-25: tier versus SAS credential wording --------------------------
+// The SAS credential is issued to probationary, verified and senior analysts
+// alike (reconcileIssuance), so a badge that said "SAS verified" beside a
+// probationary analyst read as the "Verified analyst" tier. The badge now
+// names on-chain review authority, and the profile shows the tier and the
+// credential as two labelled facts.
+const HA25_PROBATION = '1111111111111111111111111111111A';
+const HA25_NO_SAS = '1111111111111111111111111111111B';
+
+async function routeHa25Fixtures(page) {
+  await page.route('**/functions/v1/**', async (route) => {
+    const url = route.request().url();
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) { body = {}; }
+    const profile = (wallet, handle, name) => ({
+      wallet, handle, display_name: name, bio: 'HA-25 tier and credential fixture.',
+      status: 'probationary_analyst', tier_code: 'probationary', weight: 0.5,
+      expertise: ['onchain_tracing'], links: [], contributions: [], proof_history: [],
+    });
+    let payload = null;
+    if (url.includes('/osi-v2-analyst') && body.op === 'get_public_profile' && body.handle === 'ha25_probation') {
+      payload = { ok: true, analyst: profile(HA25_PROBATION, 'ha25_probation', 'Probationary credential holder') };
+    } else if (url.includes('/osi-v2-analyst') && body.op === 'get_public_profile' && body.handle === 'ha25_nosas') {
+      payload = { ok: true, analyst: profile(HA25_NO_SAS, 'ha25_nosas', 'Probationary without credential') };
+    } else if (url.includes('/osi-v2-proof') && body.mode === 'sas_verify' && body.wallet === HA25_PROBATION) {
+      payload = { ok: true, wallet: HA25_PROBATION, valid: true, state: 'verified', reason: 'valid', source: 'live', credential: OTHER, schema: ROLE_WALLETS.verified_analyst, checked_at: iso(0) };
+    } else if (url.includes('/osi-v2-proof') && body.mode === 'sas_verify' && body.wallet === HA25_NO_SAS) {
+      payload = { ok: true, wallet: HA25_NO_SAS, valid: false, state: 'invalid', reason: 'absent', source: 'live', credential: OTHER, schema: ROLE_WALLETS.verified_analyst, checked_at: iso(0) };
+    } else if (url.includes('/osi-v2-analyst') && body.op === 'sas_operations_status') {
+      payload = {
+        ok: true,
+        settings: { issuance_enabled: true, enforcement_enabled: true, program_id: OTHER, credential: OTHER, schema: ROLE_WALLETS.verified_analyst, issuer: ROLE_WALLETS.maintainer },
+        credentials: [{ wallet: HA25_PROBATION, verification_state: 'verified', last_checked_at: iso(0) }],
+        profiles: [{ wallet: HA25_PROBATION, status: 'probationary_analyst' }],
+      };
+    }
+    if (!payload) return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(payload) });
+  });
+}
+
+test('HA-25: a probationary analyst shows tier and on-chain review authority as two labelled facts', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await routeHa25Fixtures(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.evaluate(() => window.osiOpenAnalystByHandle('ha25_probation'));
+  const body = page.locator('#ap-modal-body');
+  const tier = body.locator('.osi-profile-fact-tier');
+  const authority = body.locator('.osi-profile-fact-authority');
+  await expect(tier).toContainText('Tier');
+  await expect(tier).toContainText('Probationary analyst');
+  await expect(tier).toContainText('Sets how much a review weighs');
+  await expect(authority).toContainText('On-chain review authority');
+  const badge = authority.locator('[data-sas-badge="verified"]');
+  await expect(badge).toHaveText(/^SAS review authority · checked \d{2}:\d{2} UTC$/);
+  await expect(badge).toHaveAttribute('aria-label', /separate from the analyst tier/);
+  // The badge no longer sits beside the name, where it read as a tier.
+  await expect(body.locator('h3 [data-sas-wallet], h3 [data-sas-badge]')).toHaveCount(0);
+  // The two facts sit side by side, each with its own label.
+  const [tierBox, authorityBox] = await Promise.all([tier.boundingBox(), authority.boundingBox()]);
+  expect(Math.abs(tierBox.y - authorityBox.y)).toBeLessThanOrEqual(1);
+  expect(authorityBox.x).toBeGreaterThan(tierBox.x);
+  const text = await body.innerText();
+  expect(text).not.toMatch(/SAS verified/i);
+  expect(await tier.innerText()).not.toMatch(/verified/i);
+  expect(await authority.innerText()).not.toMatch(/verified/i);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-probation-en');
+
+  // Turkish keeps the same two facts apart and never uses the tier's word
+  // ("doğrulanmış") for the credential.
+  await page.selectOption('#osi-language-select', 'tr');
+  await expect(tier).toContainText('Kademe');
+  await expect(tier).toContainText('Deneme sürecindeki analist');
+  await expect(authority).toContainText('Zincir üstü inceleme yetkisi');
+  await expect(authority.locator('[data-sas-badge="verified"]')).toHaveText(/^SAS inceleme yetkisi · kontrol: \d{2}:\d{2} UTC$/);
+  expect(await authority.innerText()).not.toMatch(/doğrula/i);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-probation-tr');
+  await page.selectOption('#osi-language-select', 'en');
+  await expect(authority.locator('[data-sas-badge="verified"]')).toHaveText(/^SAS review authority · checked /);
+
+  // On a phone the facts stack without overflow.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  const [tierPhone, authorityPhone] = await Promise.all([tier.boundingBox(), authority.boundingBox()]);
+  expect(authorityPhone.y).toBeGreaterThan(tierPhone.y);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-probation-390');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  expectCleanRuntime(page);
+});
+
+test('HA-25: a profile with no current credential keeps its tier and states missing review authority', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await routeHa25Fixtures(page);
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.evaluate(() => window.osiOpenAnalystByHandle('ha25_nosas'));
+  const body = page.locator('#ap-modal-body');
+  await expect(body.locator('.osi-profile-fact-tier')).toContainText('Probationary analyst');
+  const authority = body.locator('.osi-profile-fact-authority');
+  const chip = authority.locator('[data-sas-badge="invalid"]');
+  await expect(chip).toHaveText(/^No current SAS review authority · /);
+  await expect(chip).toHaveClass(/osi-chip warning/);
+  await expect(authority.locator('[data-sas-badge="verified"]')).toHaveCount(0);
+  expect(await authority.innerText()).not.toMatch(/verified/i);
+  await captureRepairEvidence(page, 'i6-wording-mock-profile-nosas-en');
+  expectCleanRuntime(page);
+});
+
+test('HA-25: the maintainer profile carries no analyst tier or on-chain review authority cell', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  const row = page.locator('#osi-maintainer-profile [data-maintainer-wallet]');
+  await expect(row).toBeVisible();
+  await row.click();
+  const body = page.locator('#ap-modal-body');
+  await expect(body.locator('.osi-public-profile-maintainer')).toBeVisible();
+  await expect(body.locator('.osi-profile-facts')).toContainText('Analyst standing');
+  await expect(body.locator('.osi-profile-fact-authority, .osi-profile-fact-tier, [data-sas-wallet]')).toHaveCount(0);
+  await expect(body.locator('.osi-profile-facts-authority')).toHaveCount(0);
+  expectCleanRuntime(page);
+});
+
+test('HA-25: the passport keeps roster membership, tier and on-chain review authority apart', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiNavigate('identity'));
+  const overview = page.locator('#identity-panel-overview');
+  await expect(overview.locator('.identity-role')).toHaveText('Analyst');
+  await expect(overview.locator('.identity-status-row').filter({ hasText: 'Public analyst roster' })).toContainText('On the roster');
+  const sasRow = overview.locator('.identity-sas-row');
+  await expect(sasRow).toContainText('On-chain review authority');
+  await expect(sasRow.locator('[data-sas-badge="verified"]')).toHaveText(/^SAS review authority · checked /);
+  // The fixture's own display name is user content; the status rows and the
+  // role chip are what the product says about the wallet.
+  const statusText = (await overview.locator('.identity-status-row').allInnerTexts()).join('\n');
+  expect(statusText).not.toMatch(/Verified analyst|Not verified|SAS verified/);
+  await page.locator('#identity-tab-analyst').click();
+  await expect(page.locator('#identity-panel-analyst .identity-note')).toHaveText('This wallet is on the public analyst roster.');
+  await page.locator('#identity-tab-overview').click();
+  await captureRepairEvidence(page, 'i6-wording-mock-passport-en');
+
+  await page.selectOption('#osi-language-select', 'tr');
+  await expect(overview.locator('.identity-role')).toHaveText('Analist');
+  await expect(overview.locator('.identity-status-row').filter({ hasText: 'Kamusal analist listesi' })).toContainText('Listede');
+  await expect(overview.locator('.identity-sas-row')).toContainText('Zincir üstü inceleme yetkisi');
+  await captureRepairEvidence(page, 'i6-wording-mock-passport-tr');
+  await page.selectOption('#osi-language-select', 'en');
+  expectCleanRuntime(page);
+});
+
+test('HA-25: a wallet off the roster gets no review authority row in its passport', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('identity'));
+  const overview = page.locator('#identity-panel-overview');
+  await expect(overview.locator('.identity-status-row').filter({ hasText: 'Public analyst roster' })).toContainText('Not on the roster');
+  await expect(overview.locator('.identity-sas-row')).toHaveCount(0);
+  await expect(overview.locator('[data-sas-wallet]')).toHaveCount(0);
+  expectCleanRuntime(page);
+});
+
+test('HA-25: Operations counts current SAS credentials without calling them verified', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await routeHa25Fixtures(page);
+  await page.evaluate(() => window.osiNavigate('admin'));
+  const operations = page.locator('#osi-native-ops-overview');
+  const sas = operations.locator('.osi-native-sas');
+  await expect(sas).toContainText('Credentials valid at last check');
+  const row = sas.locator('.moc-feed-row').first();
+  await expect(row).toContainText('Valid at last check');
+  await expect(row).toContainText(/Probationary analyst/i);
+  expect(await sas.innerText()).not.toMatch(/Verified credentials|SAS Verified|\bVerified\b/);
+  await sas.scrollIntoViewIfNeeded();
+  await captureRepairEvidence(page, 'i6-wording-mock-ops-sas-en');
+  expectCleanRuntime(page);
+});
+
+// The SOL price feeds only the legacy support dialog, and the maintainer card
+// is drawn only in the Analyst Network. Neither is read on a Home load, so the
+// free price API's 429 answers no longer reach a V2 console.
+test('Home reads neither the SOL price nor the maintainer profile until a view needs it', async ({ page }) => {
+  const priceRequests = [];
+  page.on('request', (request) => { if (request.url().startsWith('https://api.coingecko.com/')) priceRequests.push(request.url()); });
+  await ready(page);
+  await expect(page.locator('body')).toHaveAttribute('data-view', 'registry');
+  await page.waitForTimeout(400);
+  expect(priceRequests).toHaveLength(0);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(0);
+
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await expect(page.locator('#osi-maintainer-profile [data-maintainer-wallet]')).toBeVisible();
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(1);
+  await page.evaluate(() => window.osiNavigate('registry'));
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await expect(page.locator('#osi-maintainer-profile [data-maintainer-wallet]')).toBeVisible();
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(1);
+  expect(priceRequests).toHaveLength(0);
+  expectCleanRuntime(page);
+});
+
+test('a maintainer profile link opened before the Analyst Network still resolves the maintainer', async ({ page }) => {
+  await ready(page);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(0);
+  await page.evaluate((wallet) => window.openAnalystProfile(wallet), ROLE_WALLETS.maintainer);
+  const body = page.locator('#ap-modal-body');
+  await expect(body.locator('.osi-public-profile-maintainer')).toBeVisible();
+  await expect(body).not.toContainText('Analyst profile unavailable');
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(1);
+  expectCleanRuntime(page);
+});
+
+// On a phone a record card keeps every fact (kind, reference, status, title,
+// summary, proof label, transaction, Copy, Verify and the open action) in a
+// compact card, and the page uses the same 16px gutter as the Field Office.
+test('Public Records cards stay compact on a phone without dropping a fact', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ready(page);
+  await page.evaluate(() => window.osiNavigate('records'));
+  await expect(page.locator('#case-records')).toContainText(CASE_REF);
+  const cards = page.locator('#case-records .cr-card');
+  const count = await cards.count();
+  expect(count).toBeGreaterThan(0);
+  for (let i = 0; i < count; i += 1) {
+    const card = cards.nth(i);
+    const box = await card.boundingBox();
+    expect(box.x).toBeLessThanOrEqual(17);
+    expect(box.width).toBeGreaterThanOrEqual(356);
+    expect(box.height).toBeLessThanOrEqual(520);
+    await expect(card.locator('.cr-record-kind')).toBeVisible();
+    await expect(card.locator('.cr-record-id')).toBeVisible();
+    await expect(card.locator('.cr-title')).toBeVisible();
+    await expect(card.locator('.cr-status').first()).toBeVisible();
+    await expect(card.locator('.cr-proof-state')).toBeVisible();
+    await expect(card.locator('.cr-actions .cr-btn')).toBeVisible();
+  }
+  const memoCard = page.locator(`[data-cid="${CASE_REF}"]`);
+  const tx = memoCard.locator('.cr-proof-tx');
+  const code = await tx.locator('code').boundingBox();
+  const copy = await tx.locator('.cr-copy').boundingBox();
+  // The In Case link keeps a 44px touch target that nothing paints over.
+  const parentLinks = page.locator('#case-records .cr-parent-link');
+  for (let i = 0; i < await parentLinks.count(); i += 1) {
+    const link = parentLinks.nth(i);
+    await link.scrollIntoViewIfNeeded();
+    const linkBox = await link.boundingBox();
+    expect(linkBox.height).toBeGreaterThanOrEqual(44);
+    const covered = await link.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      const x = rect.left + Math.min(20, rect.width / 2);
+      let misses = 0;
+      for (let y = rect.top + 1; y < rect.bottom - 1; y += 2) {
+        const hit = document.elementFromPoint(x, y);
+        if (!hit || !node.contains(hit)) misses += 1;
+      }
+      return misses;
+    });
+    expect(covered).toBe(0);
+  }
+  // The transaction code and its Copy button never overlap.
+  expect(code.x + code.width).toBeLessThanOrEqual(copy.x + 0.5);
+  expect(copy.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  expectCleanRuntime(page);
+});
+
+// Review findings on the item-6 pass, kept as regressions.
+test('a maintainer link resolves the maintainer even when the analyst roster read fails', async ({ page }) => {
+  await ready(page, { publicFailure: true });
+  await page.evaluate(() => window.osiPublicReadInvalidate && window.osiPublicReadInvalidate());
+  await page.evaluate((wallet) => window.openAnalystProfile(wallet), ROLE_WALLETS.maintainer);
+  const body = page.locator('#ap-modal-body');
+  await expect(body.locator('.osi-public-profile-maintainer')).toBeVisible();
+  await expect(body).not.toContainText('Analyst profile unavailable');
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'get_maintainer_profile')).toBe(1);
+  expectCleanRuntime(page);
+});
+
+test('a language switch after a private-cache clear never claims an empty public registry', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator('#field-cases .osi-v2-row')).toHaveCount(1);
+  await page.evaluate(() => window.osiV2ClearReadSession('wallet_changed'));
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.waitForTimeout(300);
+  await expect(page.locator('#field-cases')).not.toContainText('Henüz kamusal Vaka yok');
+  await expect(page.locator('#field-cases')).not.toContainText('No public Cases yet');
+  await page.evaluate(() => window.osiSetLanguage('en'));
   expectCleanRuntime(page);
 });
