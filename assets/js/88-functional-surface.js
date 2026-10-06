@@ -293,14 +293,14 @@
   function sasRowNode(scope,wallet){
     if(!scope)return null;
     var rows=scope.querySelectorAll('.osi-sas-row');
-    for(var i=0;i<rows.length;i+=1){if(rows[i].getAttribute('data-sas-wallet')===wallet)return rows[i];}
+    for(var i=0;i<rows.length;i+=1){if(rows[i].getAttribute('data-ops-sas-wallet')===wallet)return rows[i];}
     return null;
   }
   function sasFocusTarget(row,key){
     if(!row)return null;
-    var node=row.querySelector('[data-sas-focus="'+key+'"]');
+    var node=row.querySelector('[data-ops-sas-focus="'+key+'"]');
     if(node&&!node.disabled)return node;
-    node=row.querySelector('[data-sas-focus="result"]');
+    node=row.querySelector('[data-ops-sas-focus="result"]');
     return node;
   }
   // Describe where focus sits inside the SAS section so a redraw can put it
@@ -308,8 +308,8 @@
   function sasFocusDescriptor(){
     var active=document.activeElement,section=sasSection();
     if(!active||!section||!section.contains(active))return null;
-    var row=active.closest('.osi-sas-row');var key=active.getAttribute('data-sas-focus');
-    return row&&key?{wallet:row.getAttribute('data-sas-wallet'),key:key}:null;
+    var row=active.closest('.osi-sas-row');var key=active.getAttribute('data-ops-sas-focus');
+    return row&&key?{wallet:row.getAttribute('data-ops-sas-wallet'),key:key}:null;
   }
   function restoreSasFocus(descriptor){
     if(!descriptor)return;
@@ -350,7 +350,7 @@
         tx.appendChild(document.createTextNode(' '));
         var link=make('a','osi-sas-solscan',opsText('View on Solscan'));
         link.href='https://solscan.io/tx/'+encodeURIComponent(view.txSig);link.target='_blank';link.rel='noopener noreferrer';
-        link.setAttribute('data-sas-focus','solscan');
+        link.setAttribute('data-ops-sas-focus','solscan');
         link.appendChild(make('span','sr-only',' '+opsText('(opens in a new tab)')));
         tx.appendChild(link);
       }else{
@@ -364,16 +364,16 @@
   }
   function buildSasConfirm(wallet){
     var box=make('div','osi-sas-confirm');
-    box.setAttribute('role','group');box.tabIndex=-1;box.setAttribute('data-sas-focus','confirm');
+    box.setAttribute('role','group');box.tabIndex=-1;box.setAttribute('data-ops-sas-focus','confirm');
     var title=make('p','osi-sas-confirm-title',opsText('Reconcile {wallet} with its live SAS credential?',{wallet:shortWallet(wallet)}));
     title.id='osi-sas-confirm-title-'+wallet;
     var text=make('p','osi-sas-confirm-text',opsText('The server compares this wallet\'s analyst status with its live SAS credential. If they differ, it may submit a Solana transaction signed by the OSI issuer. You cannot choose the result.'));
     text.id='osi-sas-confirm-text-'+wallet;
     box.setAttribute('aria-labelledby',title.id);box.setAttribute('aria-describedby',text.id);
     var actions=make('div','osi-sas-confirm-actions');
-    var go=make('button','osi-sas-confirm-go',opsText('Confirm'));go.type='button';go.setAttribute('data-sas-focus','confirm-go');
+    var go=make('button','osi-sas-confirm-go',opsText('Confirm'));go.type='button';go.setAttribute('data-ops-sas-focus','confirm-go');
     go.addEventListener('click',function(){runSasReconcile(wallet);});
-    var cancel=make('button','osi-sas-confirm-cancel',opsText('Cancel'));cancel.type='button';cancel.setAttribute('data-sas-focus','cancel');
+    var cancel=make('button','osi-sas-confirm-cancel',opsText('Cancel'));cancel.type='button';cancel.setAttribute('data-ops-sas-focus','cancel');
     cancel.addEventListener('click',function(){cancelSasConfirm(wallet);});
     box.addEventListener('keydown',function(event){
       if(event.key!=='Escape')return;
@@ -389,7 +389,9 @@
     var run=valid?sasRun(wallet):{phase:'idle',outcome:null};
     var profile=profiles.find(function(item){return item&&item.wallet===wallet;})||{};
     var line=make('div','moc-feed-row osi-sas-row');
-    if(valid)line.setAttribute('data-sas-wallet',wallet);
+    // Not data-sas-wallet: 96-sas-public.js turns that attribute into a
+    // public badge slot and would replace this row.
+    if(valid)line.setAttribute('data-ops-sas-wallet',wallet);
     if(run.phase==='running')line.setAttribute('aria-busy','true');
     line.appendChild(make('i','moc-dot'));
     var detail=make('div','');
@@ -405,7 +407,7 @@
     if(prerequisite){note=make('span','osi-sas-prerequisite',opsText(prerequisite));detail.appendChild(note);}
     line.appendChild(detail);
     var button=make('button','moc-action osi-sas-reconcile',opsText('Reconcile with live SAS'));
-    button.type='button';button.setAttribute('data-sas-focus','reconcile');
+    button.type='button';button.setAttribute('data-ops-sas-focus','reconcile');
     button.disabled=!!prerequisite||run.phase==='running';
     if(note&&valid){note.id='osi-sas-prerequisite-'+wallet;button.setAttribute('aria-describedby',note.id);}
     if(valid){
@@ -418,7 +420,7 @@
       var panel=make('div','osi-sas-panel');panel.id='osi-sas-panel-'+wallet;
       if(run.phase==='confirm'&&!prerequisite)panel.appendChild(buildSasConfirm(wallet));
       var status=make('div','osi-sas-result');
-      status.setAttribute('role','status');status.tabIndex=-1;status.setAttribute('data-sas-focus','result');
+      status.setAttribute('role','status');status.tabIndex=-1;status.setAttribute('data-ops-sas-focus','result');
       fillSasResult(status,run);
       panel.appendChild(status);line.appendChild(panel);
     }

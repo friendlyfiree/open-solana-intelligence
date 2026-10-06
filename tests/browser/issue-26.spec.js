@@ -3829,3 +3829,359 @@ test('capture every populated main workspace for preview QA', async ({ page }) =
   await capture('report-review-populated');
   expectCleanRuntime(page);
 });
+
+// ---- Item-6: SAS reconcile control in the native Operations Center ----
+// The analyst endpoint fixture above answers sas_operations_status with an
+// empty ledger. These tests register a narrower route after ready(), which
+// Playwright consults first, so they own sas_operations_status and
+// reconcile_sas and fall back to the shared fixture for every other call.
+const SAS_FIRST = ROLE_WALLETS.verified_analyst;
+const SAS_SECOND = ROLE_WALLETS.analyst_candidate;
+const SAS_ATTESTATION = '11111111111111111111111111111119';
+const SAS_SUBMITTED_TX = '5'.repeat(88);
+const SAS_WAIT_STEP = 'Wait for confirmed on-chain state, then run this same idempotent reconciliation again.';
+const SAS_NO_WRITE_STEP = 'No additional on-chain write is required.';
+const SAS_REPAIR_STEP = 'Inspect the exact attestation account and use a focused issuer-authority repair; do not overwrite it blindly.';
+
+async function installSasOperationsFixture(page, replies = [], options = {}) {
+  const log = { statusCalls: 0, requests: [], headers: [] };
+  const queue = replies.slice();
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'sas_operations_status') {
+      log.statusCalls += 1;
+      const submitted = log.requests.length > 0 && options.pendingAfterReconcile === true;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          settings: {
+            configured: true,
+            issuance_enabled: options.issuanceEnabled !== false,
+            enforcement_enabled: true,
+            program_id: '22222222222222222222222222222222',
+            credential: '33333333333333333333333333333333',
+            schema: '44444444444444444444444444444444',
+            issuer: '66666666666666666666666666666666',
+            stale_seconds: 600,
+          },
+          credentials: [
+            { wallet: SAS_FIRST, verification_state: submitted ? 'pending_verification' : 'invalid', last_checked_at: iso(-1), last_error: null },
+            { wallet: SAS_SECOND, verification_state: 'verified', last_checked_at: iso(-0.5), last_error: null },
+          ],
+          profiles: [
+            { wallet: SAS_FIRST, status: 'verified_analyst' },
+            { wallet: SAS_SECOND, status: 'probationary_analyst' },
+          ],
+          authority_source: 'live_sas_attestation',
+          client_validity_accepted: false,
+        }),
+      });
+    }
+    if (body.op === 'reconcile_sas') {
+      log.requests.push(body);
+      log.headers.push(route.request().headers().authorization || '');
+      const reply = queue.shift() || { status: 500, body: { ok: false, error: 'unexpected_reconcile_call' } };
+      if (reply.delayMs) await new Promise((resolve) => setTimeout(resolve, reply.delayMs));
+      if (reply.abort) return route.abort('failed');
+      return route.fulfill({ status: reply.status || 200, contentType: 'application/json', body: JSON.stringify(reply.body) });
+    }
+    return route.fallback();
+  });
+  return log;
+}
+
+async function openSasOperations(page) {
+  await page.evaluate(() => window.osiNavigate('admin'));
+  await expect(page.locator('#admPanel')).toBeVisible();
+  const operations = page.locator('#osi-native-ops-overview');
+  await expect(operations.locator('.osi-native-sas')).toContainText('SAS Authority Operations');
+  await expect(sasRow(page, SAS_FIRST)).toBeVisible();
+  return operations;
+}
+
+function sasRow(page, wallet) {
+  return page.locator(`#osi-native-ops-overview .osi-sas-row[data-ops-sas-wallet="${wallet}"]`);
+}
+
+async function captureSasEvidence(page, name) {
+  const directory = process.env.OSI_SAS_SCREENSHOT_DIR;
+  if (!directory) return;
+  fs.mkdirSync(path.resolve(directory), { recursive: true });
+  await page.screenshot({ path: path.join(path.resolve(directory), `i6-sas-${name}.png`), fullPage: false });
+}
+
+test('SAS reconcile: the inline confirmation is keyboard reachable and sends nothing until confirmed', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [{
+    body: {
+      ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'satisfied',
+      reason: 'already_verified', verification_state: 'verified', attestation: SAS_ATTESTATION,
+      tx_sig: null, submitted_on_chain: false, next_step: SAS_NO_WRITE_STEP,
+    },
+  }]);
+  await openSasOperations(page);
+  const row = sasRow(page, SAS_FIRST);
+  const reconcile = row.getByRole('button', { name: 'Reconcile with live SAS' });
+  await expect(reconcile).toBeEnabled();
+  await expect(reconcile).toHaveAttribute('aria-expanded', 'false');
+
+  await reconcile.click();
+  const confirmation = row.getByRole('group', { name: /Reconcile 1111\.\.\.1116 with its live SAS credential\?/ });
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toBeFocused();
+  await expect(confirmation).toContainText("The server compares this wallet's analyst status with its live SAS credential. If they differ, it may submit a Solana transaction signed by the OSI issuer. You cannot choose the result.");
+  await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toHaveAttribute('aria-expanded', 'true');
+  await captureSasEvidence(page, 'confirm-desktop');
+
+  await page.keyboard.press('Escape');
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+  await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toBeFocused();
+
+  await page.keyboard.press('Enter');
+  await expect(row.locator('.osi-sas-confirm')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(row.getByRole('button', { name: 'Confirm', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(row.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+  await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toBeFocused();
+  expect(log.requests).toHaveLength(0);
+
+  // Opening a second row's confirmation closes the first one.
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await sasRow(page, SAS_SECOND).getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+  await expect(sasRow(page, SAS_SECOND).locator('.osi-sas-confirm')).toBeFocused();
+  await sasRow(page, SAS_SECOND).getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(log.requests).toHaveLength(0);
+
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await row.getByRole('button', { name: 'Confirm', exact: true }).click();
+  const result = row.getByRole('status');
+  await expect(result).toContainText('The live SAS credential already matches this analyst status. No Solana transaction was sent.');
+  await expect(result).toContainText(`Next step: ${SAS_NO_WRITE_STEP}`);
+  await expect(result).toContainText('Server-derived analyst status: Verified analyst');
+  await expect(result.locator('a')).toHaveCount(0);
+  await expect(result).not.toContainText('Transaction submitted');
+  expect(log.requests).toEqual([{ op: 'reconcile_sas', wallet: ROLE_WALLETS.maintainer, analyst_wallet: SAS_FIRST }]);
+  expect(log.headers).toEqual(['Bearer fixture-maintainer-session']);
+  await expect.poll(() => log.statusCalls).toBe(2);
+  expectCleanRuntime(page);
+});
+
+test('SAS reconcile: a submitted transaction stays unconfirmed, links to Solscan, and survives the status refresh', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [{
+    delayMs: 600,
+    body: {
+      ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'issue',
+      reason: 'analyst_tier', verification_state: 'pending_verification', attestation: SAS_ATTESTATION,
+      tx_sig: SAS_SUBMITTED_TX, submitted_on_chain: true, next_step: SAS_WAIT_STEP,
+    },
+  }], { pendingAfterReconcile: true });
+  await openSasOperations(page);
+  const row = sasRow(page, SAS_FIRST);
+  await expect(row.locator('.osi-native-title')).toHaveText('Invalid');
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await row.getByRole('button', { name: 'Confirm', exact: true }).click();
+
+  const busyButton = row.getByRole('button', { name: 'Reconcile with live SAS' });
+  await expect(row).toHaveAttribute('aria-busy', 'true');
+  await expect(busyButton).toBeDisabled();
+  await expect(row.getByRole('status')).toHaveText('Checking live SAS state...');
+  await expect(row.getByRole('status')).toBeFocused();
+  await captureSasEvidence(page, 'running-desktop');
+
+  const result = row.getByRole('status');
+  await expect(result).toContainText('The server submitted a transaction to issue this wallet\'s SAS credential.');
+  await expect(result).toContainText('Transaction submitted. Not yet confirmed on Solana.');
+  const solscan = result.getByRole('link', { name: /View on Solscan/ });
+  await expect(solscan).toHaveAttribute('href', `https://solscan.io/tx/${SAS_SUBMITTED_TX}`);
+  await expect(solscan).toHaveAttribute('target', '_blank');
+  await expect(solscan).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(result).toContainText(`Next step: ${SAS_WAIT_STEP}`);
+  await expect(result).toContainText('Ledger credential state: Verification pending');
+  await expect(result).toContainText('Attestation account: 1111...1119');
+  const resultText = await result.innerText();
+  // "Verified analyst" is the server-derived status; nothing claims the
+  // submitted transaction itself is verified, confirmed or anchored.
+  expect(resultText).not.toMatch(/(?<!yet )confirmed on Solana|Memo-anchored|anchored on Solana|\bVerified\b(?! analyst)|transaction (?:is )?verified/i);
+
+  // The panel re-reads the ledger and keeps this row's answer in place.
+  await expect.poll(() => log.statusCalls).toBe(2);
+  await expect(row.locator('.osi-native-title')).toHaveText('Verification pending');
+  await expect(row).not.toHaveAttribute('aria-busy', 'true');
+  await expect(row.getByRole('button', { name: 'Reconcile with live SAS' })).toBeEnabled();
+  await expect(row.getByRole('status')).toContainText('Transaction submitted. Not yet confirmed on Solana.');
+  await expect(row.getByRole('status')).toBeFocused();
+  expect(log.requests).toEqual([{ op: 'reconcile_sas', wallet: ROLE_WALLETS.maintainer, analyst_wallet: SAS_FIRST }]);
+  await expectNoPageOverflow(page);
+  await captureSasEvidence(page, 'submitted-desktop');
+
+  // The full overview refresh keeps the answer too, and Turkish redraws it.
+  await page.getByRole('button', { name: 'Refresh overview' }).click();
+  await expect.poll(() => log.statusCalls).toBe(3);
+  await expect(sasRow(page, SAS_FIRST).getByRole('status')).toContainText('Transaction submitted. Not yet confirmed on Solana.');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  const turkish = sasRow(page, SAS_FIRST).getByRole('status');
+  await expect(turkish).toContainText('İşlem gönderildi. Henüz Solana üzerinde onaylanmadı.');
+  await expect(turkish).toContainText('Sonraki adım: Zincir üzerindeki durumun onaylanmasını bekleyin');
+  await expect(turkish.getByRole('link', { name: /Solscan'de görüntüle/ })).toHaveAttribute('href', `https://solscan.io/tx/${SAS_SUBMITTED_TX}`);
+  await expect(sasRow(page, SAS_FIRST).getByRole('button', { name: 'Canlı SAS ile uzlaştır' })).toBeVisible();
+  await sasRow(page, SAS_FIRST).scrollIntoViewIfNeeded();
+  await captureSasEvidence(page, 'submitted-tr-desktop');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await sasRow(page, SAS_FIRST).scrollIntoViewIfNeeded();
+  await expectNoPageOverflow(page);
+  const buttonBox = await sasRow(page, SAS_FIRST).getByRole('button', { name: 'Reconcile with live SAS' }).boundingBox();
+  expect(buttonBox.height).toBeGreaterThanOrEqual(44);
+  await captureSasEvidence(page, 'submitted-mobile');
+  await sasRow(page, SAS_SECOND).getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await sasRow(page, SAS_SECOND).scrollIntoViewIfNeeded();
+  await expectNoPageOverflow(page);
+  await captureSasEvidence(page, 'confirm-mobile');
+  expectCleanRuntime(page);
+});
+
+test('SAS reconcile: no-write, repair, failed-submission and malformed-signature results read as plain sentences', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [
+    { body: { ok: true, analyst_wallet: SAS_SECOND, server_derived_status: 'probationary_analyst', action: 'repair_required', reason: 'issuer_mismatch', verification_state: 'invalid', attestation: SAS_ATTESTATION, tx_sig: null, submitted_on_chain: false, next_step: SAS_REPAIR_STEP } },
+    { body: { ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'defer', reason: 'rpc_unavailable', verification_state: 'pending_verification', attestation: null, tx_sig: null, submitted_on_chain: false, next_step: 'Restore the trusted RPC or issuer secret and retry the same server-derived transition.' } },
+    { body: { ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'issue', reason: 'analyst_tier', verification_state: 'invalid', attestation: SAS_ATTESTATION, tx_sig: null, submitted_on_chain: false, next_step: SAS_NO_WRITE_STEP } },
+    { body: { ok: true, analyst_wallet: SAS_FIRST, server_derived_status: 'verified_analyst', action: 'issue', reason: 'analyst_tier', verification_state: 'pending_verification', attestation: SAS_ATTESTATION, tx_sig: 'not-a-signature"><img src=x>', submitted_on_chain: true, next_step: SAS_WAIT_STEP } },
+  ]);
+  await openSasOperations(page);
+  const first = sasRow(page, SAS_FIRST);
+  const second = sasRow(page, SAS_SECOND);
+  const runCheck = async (row) => {
+    await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+    await row.getByRole('button', { name: 'Confirm', exact: true }).click();
+  };
+
+  await runCheck(second);
+  await expect(second.getByRole('status')).toContainText('The live SAS account does not match what OSI expects, so the server left it unchanged. No Solana transaction was sent.');
+  await expect(second.getByRole('status')).toContainText('Reason: The live account was signed by a different issuer.');
+  await expect(second.getByRole('status')).toContainText(`Next step: ${SAS_REPAIR_STEP}`);
+
+  await runCheck(first);
+  await expect(first.getByRole('status')).toContainText('The live SAS state could not be read because the trusted Solana RPC is unavailable. No Solana transaction was sent.');
+  // Each row keeps its own last answer, keyed by wallet.
+  await expect(second.getByRole('status')).toContainText('Reason: The live account was signed by a different issuer.');
+
+  await runCheck(first);
+  await expect(first.getByRole('status')).toContainText('The server tried to issue this wallet\'s SAS credential, but the transaction could not be submitted. The ledger records the failure.');
+  await expect(first.getByRole('status')).toContainText('Next step: Run this check again to read the live state before any repair.');
+  await expect(first.getByRole('status')).not.toContainText(SAS_NO_WRITE_STEP);
+  await expect(first.getByRole('status')).not.toContainText('Transaction submitted');
+
+  await runCheck(first);
+  await expect(first.getByRole('status')).toContainText('Transaction submitted. Not yet confirmed on Solana.');
+  await expect(first.getByRole('status')).toContainText('The transaction signature has an unexpected format, so no explorer link is shown.');
+  await expect(first.getByRole('status').locator('a')).toHaveCount(0);
+  await expect(page.locator('#osi-native-ops-overview img')).toHaveCount(0);
+  expect(log.requests.map((entry) => entry.analyst_wallet)).toEqual([SAS_SECOND, SAS_FIRST, SAS_FIRST, SAS_FIRST]);
+  expect(log.requests.every((entry) => entry.op === 'reconcile_sas' && entry.wallet === ROLE_WALLETS.maintainer && Object.keys(entry).length === 3)).toBe(true);
+  await captureSasEvidence(page, 'results-desktop');
+  expectCleanRuntime(page);
+});
+
+test('SAS reconcile: server gate refusals, a missing profile, and an unreachable service fail closed in the row', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [
+    { status: 403, body: { ok: false, error: 'half_maintainer_auth_only' } },
+    { status: 404, body: { ok: false, error: 'analyst_profile_not_found' } },
+    { abort: true },
+  ]);
+  await openSasOperations(page);
+  const first = sasRow(page, SAS_FIRST);
+  const second = sasRow(page, SAS_SECOND);
+
+  await first.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await first.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(first.getByRole('status')).toContainText('The server accepted the Supabase maintainer sign-in but not this wallet. Either credential alone is denied. Connect the configured admin wallet, then retry.');
+  await expect(first.getByRole('status')).toHaveAttribute('data-tone', 'error');
+  await expect(first.getByRole('status')).not.toContainText('half_maintainer');
+  await captureSasEvidence(page, 'gate-403-desktop');
+
+  await second.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await second.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(second.getByRole('status')).toContainText('This wallet has no analyst profile, so the server has no status to compare. Nothing was checked.');
+  // Neither refusal re-reads the ledger.
+  expect(log.statusCalls).toBe(1);
+
+  await first.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await first.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(first.getByRole('status')).toContainText('The analyst service did not answer. If the request arrived, the server may still have acted. Check again to read the live state.');
+  await expect.poll(() => log.statusCalls).toBe(2);
+  expect(log.requests).toHaveLength(3);
+
+  const unexpected = page.__issue26Errors.filter((entry) => !(
+    /^http: 40[34] .*\/functions\/v1\/osi-v2-analyst$/.test(entry)
+    || /^console error: Failed to load resource: the server responded with a status of 40[34] /.test(entry)
+    || /^network: .*\/functions\/v1\/osi-v2-analyst net::ERR_FAILED$/.test(entry)
+    || entry === 'console error: Failed to load resource: net::ERR_FAILED'
+  ));
+  expect(unexpected).toEqual([]);
+});
+
+test('SAS reconcile: both maintainer gates are read again before the confirmation and before the request', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, []);
+  await openSasOperations(page);
+  const row = sasRow(page, SAS_FIRST);
+
+  // The server gate drops between drawing the panel and confirming.
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await page.evaluate(() => { OSI_MAINTAINER_SERVER_GATE = false; OSI_MAINTAINER_GATE_REASON = 'checking'; });
+  await row.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(row.getByRole('status')).toContainText('The server is still verifying both maintainer gates. Nothing was sent. Try again in a moment.');
+  await expect(row.getByRole('status')).toBeFocused();
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+
+  // The Supabase sign-in disappears: the confirmation does not even open.
+  await page.evaluate(() => { OSI_MAINTAINER_SERVER_GATE = true; OSI_MAINTAINER_GATE_REASON = 'full'; SUPA_AUTH_TOKEN = null; });
+  await row.getByRole('button', { name: 'Reconcile with live SAS' }).click();
+  await expect(row.locator('.osi-sas-confirm')).toHaveCount(0);
+  await expect(row.getByRole('status')).toContainText('Sign in with the Supabase maintainer account to run this check. Nothing was sent.');
+  expect(log.requests).toHaveLength(0);
+  expectCleanRuntime(page);
+});
+
+test('SAS reconcile: issuance off disables the control with its prerequisite in visible text', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const log = await installSasOperationsFixture(page, [], { issuanceEnabled: false });
+  await openSasOperations(page);
+  const row = sasRow(page, SAS_FIRST);
+  const reconcile = row.getByRole('button', { name: 'Reconcile with live SAS' });
+  await expect(reconcile).toBeDisabled();
+  await expect(row).toContainText('Reconcile is unavailable while SAS credential issuance is off.');
+  await expect(reconcile).toHaveAttribute('aria-describedby', `osi-sas-prerequisite-${SAS_FIRST}`);
+  expect(log.requests).toHaveLength(0);
+  expectCleanRuntime(page);
+});
+
+for (const role of ['maintainer_wallet_only', 'maintainer_auth_only', 'ordinary_wallet', 'verified_analyst']) {
+  test(`SAS reconcile: ${role} never sees the control or reaches the SAS endpoints`, async ({ page }) => {
+    await ready(page, { role });
+    const log = await installSasOperationsFixture(page, []);
+    await page.evaluate(() => window.osiNavigate('admin'));
+    await expect(page.locator('#admin-view')).toBeVisible();
+    await expect(page.locator('#admPanel')).toBeHidden();
+    await expect(page.locator('.osi-sas-reconcile')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Reconcile with live SAS' })).toHaveCount(0);
+    // A direct call is refused by the client gate before any request.
+    const outcome = await page.evaluate(() => typeof window.osiNativeOpsRefresh === 'function' ? window.osiNativeOpsRefresh() : 'missing');
+    expect(outcome).toBeNull();
+    await expect(page.locator('.osi-sas-reconcile')).toHaveCount(0);
+    expect(log.statusCalls).toBe(0);
+    expect(log.requests).toHaveLength(0);
+    expectCleanRuntime(page);
+  });
+}
