@@ -2704,7 +2704,18 @@
     'This version is no longer under review. Reviews go to the current version.': 'Bu sürüm artık incelemede değil. İncelemeler güncel sürüme yapılır.',
     '{ref} is published via maintainer bootstrap. This is not independent analyst quorum.': '{ref} sürdürücü ilk başlatma yoluyla yayımlandı. Bu, bağımsız analist yeter sayısı değildir.',
     '{ref} is published through the standard analyst-quorum route.': '{ref} standart analist yeter sayısı yoluyla yayımlandı.',
-    '{ref} is rejected through the standard analyst-quorum route. It is not a finding of bad faith, and the author may submit a new revision.': '{ref} standart analist yeter sayısı yoluyla reddedildi. Bu bir kötü niyet bulgusu değildir; yazar yeni bir revizyon gönderebilir.'
+    '{ref} is rejected through the standard analyst-quorum route. It is not a finding of bad faith, and the author may submit a new revision.': '{ref} standart analist yeter sayısı yoluyla reddedildi. Bu bir kötü niyet bulgusu değildir; yazar yeni bir revizyon gönderebilir.',
+    'Accept challenge': 'İtirazı kabul et',
+    'Reject challenge, keep the selected Report': 'İtirazı reddet, seçilen Raporu koru',
+    'Vote: bad faith': 'Oy: kötü niyet',
+    'Vote: not bad faith': 'Oy: kötü niyet değil',
+    'Challenge merit review': 'İtiraz esas incelemesi',
+    'Bad-faith review': 'Kötü niyet incelemesi',
+    'Selection': 'Seçim',
+    'Seal': 'Mühür',
+    'Rejection quorum': 'Ret yeter sayısı',
+    'Memo-anchor outcome: challenge accepted': 'Sonucu Memo ile sabitle: itiraz kabul edildi',
+    'Memo-anchor outcome: challenge rejected': 'Sonucu Memo ile sabitle: itiraz reddedildi'
   };
 
   var translations = { en: {}, tr: turkish };

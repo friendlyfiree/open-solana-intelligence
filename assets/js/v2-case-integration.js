@@ -51,6 +51,18 @@
   function sentence(value){var text=String(value||'').replace(/_/g,' ').trim().toLowerCase();return text?text.charAt(0).toUpperCase()+text.slice(1):'';}
   var REVIEW_DECISION_LABELS={approve_open:'Approve public open',needs_more:'Needs more evidence',reject:'Reject normal investigation',approve:'Approve',request_changes:'Request changes',select:'Select as primary',object:'Object',abstain:'Abstain',accept:'Accept',withdraw:'Withdraw'};
   function reviewDecisionLabel(value){var key=String(value||'');return t(REVIEW_DECISION_LABELS[key]||sentence(key));}
+  // Challenge reviews share accept/reject with other lanes but mean something
+  // else: rejecting a challenge keeps the selected Report. The Case opening
+  // label "Reject normal investigation" must never stand for that.
+  var MERIT_DECISION_LABELS={accept:'Accept challenge',reject:'Reject challenge, keep the selected Report'};
+  var CHALLENGE_DECISION_LABELS={merit:MERIT_DECISION_LABELS,adjudication:MERIT_DECISION_LABELS,bad_faith:{bad_faith:'Vote: bad faith',not_bad_faith:'Vote: not bad faith'}};
+  var REVIEW_PHASE_LABELS={merit:'Challenge merit review',adjudication:'Challenge merit review',bad_faith:'Bad-faith review',selection:'Selection',seal:'Seal'};
+  function phasedDecisionLabel(row){
+    var phase=CHALLENGE_DECISION_LABELS[String(row&&row.phase||'')];
+    var key=String(row&&row.decision||'');
+    return phase&&phase[key]?t(phase[key]):reviewDecisionLabel(key);
+  }
+  function phaseLabel(value){var key=String(value||'');return t(REVIEW_PHASE_LABELS[key]||sentence(key));}
   var REASON_LABELS={public_scope_clear:'Public scope clear',needs_more_evidence:'Needs more evidence',unsafe_or_prohibited:'Unsafe or prohibited',duplicate_or_out_of_scope:'Duplicate or out of scope'};
   function reasonLabel(value){var key=String(value||'');return t(REASON_LABELS[key]||sentence(key));}
   var ROLE_LABELS={owner:'Case owner',case_owner:'Case owner',maintainer:'Maintainer',analyst:'Analyst',verified_analyst:'Verified analyst',senior_analyst:'Senior analyst',probationary_analyst:'Probationary analyst',service:'OSI service',system:'OSI service',challenger:'Challenger',supporter:'Supporter',report_author:'Report author'};
@@ -720,13 +732,16 @@
       var bootstrap=report.can_publish_via_maintainer_bootstrap===true||version.can_publish_via_maintainer_bootstrap===true;
       var standard=report.can_publish_via_standard_quorum===true||version.can_publish_via_standard_quorum===true;
       var analyst=report.can_cast_analyst_review===true||version.can_cast_analyst_review===true;
+      // The Report read DTO carries the reviewer's vote inside reviews, not as
+      // my_active_review (only the Wire queue sends that field).
+      var myVote=version.my_active_review||(version.reviews||[]).find(function(row){return row&&row.is_active===true&&String(row.reviewer_wallet||'')===String(walletPubkey||'');})||null;
       return normalizeReviewTask('report_publication',{
         target_kind:'report',case_public_ref:report.case_public_ref,report_public_ref:report.report_public_ref,
         version_ref:version.version_ref||report.current_version_ref,lifecycle_state:version.lifecycle_state,
         submitter_conflict:report.submitter_conflict===true,
         next_action:bootstrap?'Publish via maintainer bootstrap':standard?'Publish exact Report version from completed analyst quorum':analyst?'Review exact immutable Report version':'Inspect publication prerequisites',
-        deadline_at:version.review_deadline_at,current_active_vote:version.my_active_review&&version.my_active_review.decision,
-        weight_snapshot:version.my_active_review&&version.my_active_review.weight
+        deadline_at:version.review_deadline_at,current_active_vote:myVote&&myVote.decision,
+        weight_snapshot:myVote&&myVote.weight
       },'report');
     });
   }
@@ -1977,14 +1992,14 @@
       var serverAuthority=!!(row.sas_authority&&row.sas_authority.enforced===true);
       var rationale=row.public_rationale?'<p data-osi-user-content>'+esc(row.public_rationale)+'</p>':'<p class="osi-case-quiet">'+esc(t('No public rationale recorded.'))+'</p>';
       var replaced=isSuperseded(row);
-      var meta=[row.target_version_ref?'<span class="mono">'+esc(row.target_version_ref)+'</span>':'<span>'+esc(t(sentence(row.phase)))+'</span>'];
+      var meta=[row.target_version_ref?'<span class="mono">'+esc(row.target_version_ref)+'</span>':'<span>'+esc(phaseLabel(row.phase))+'</span>'];
       if(replaced)meta.push(supersededLabel().replace(/^ /,''));
       else{
         meta.push('<span>'+esc(t('weight {weight}',{weight:Number(row.weight||0).toFixed(2)}))+'</span>');
         var authority=sasAuthority(row);if(authority)meta.push(authority.replace(/^ /,''));
       }
       meta.push('<time datetime="'+esc(String(row.created_at||''))+'">'+esc(dateText(row.created_at))+'</time>');
-      return'<div class="osi-governance-event'+(replaced?' superseded':'')+'">'+proofLabelHtml(row.proof_label||'Wallet-signed & server-verified')+'<b>'+reviewerIdentity(row.reviewer_wallet)+(serverAuthority?'':sasSlot(row.reviewer_wallet,role))+' &middot; '+esc(reviewDecisionLabel(row.decision))+'</b><p class="osi-proof-meta">'+meta.join('<span class="osi-sep" aria-hidden="true">·</span>')+'</p>'+rationale+'</div>';
+      return'<div class="osi-governance-event'+(replaced?' superseded':'')+'">'+proofLabelHtml(row.proof_label||'Wallet-signed & server-verified')+'<b>'+reviewerIdentity(row.reviewer_wallet)+(serverAuthority?'':sasSlot(row.reviewer_wallet,role))+' &middot; '+esc(phasedDecisionLabel(row))+'</b><p class="osi-proof-meta">'+meta.join('<span class="osi-sep" aria-hidden="true">·</span>')+'</p>'+rationale+'</div>';
     }).join('')+'</div>';
   }
   function bootstrapReason(code){
@@ -2140,11 +2155,12 @@
       if(!conflicted&&admissibilityTask&&(row.state==='submitted'||row.state==='admissibility_review')&&(caps.analyst_eligible||caps.maintainer_access))controls='<button class="osi-action" type="button" onclick="osiV2GovernanceAdmitChallenge(\''+esc(row.public_ref)+'\',\'accept\',\''+route+'\')">'+esc(t('Admit'))+'</button><button class="osi-action" type="button" onclick="osiV2GovernanceAdmitChallenge(\''+esc(row.public_ref)+'\',\'reject\',\''+route+'\')">'+esc(t('Reject admission'))+'</button>';
       if(!conflicted&&adjudicationTask&&(row.state==='open'||row.state==='under_review')&&caps.analyst_eligible)controls+='<button class="osi-action" type="button" onclick="osiV2GovernanceReviewChallenge(\''+esc(row.public_ref)+'\',\'accept\')">'+esc(t('Accept review'))+'</button><button class="osi-action" type="button" onclick="osiV2GovernanceReviewChallenge(\''+esc(row.public_ref)+'\',\'reject\')">'+esc(t('Reject review'))+'</button>';
       if(row.challenger_wallet===walletPubkey&&['submitted','admissibility_review','open','under_review'].indexOf(row.state)>=0)controls+='<button class="osi-action" type="button" onclick="osiV2GovernanceWithdrawChallenge(\''+esc(row.public_ref)+'\')">'+esc(t('Withdraw'))+'</button>';
-      if(!conflicted&&adjudicationTask&&row.state==='under_review'&&caps.analyst_eligible&&challengeOutcome(row.outcome_quorum))controls+='<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeChallenge(\''+esc(row.public_ref)+'\')">'+esc(t('Memo-anchor quorum outcome'))+'</button>';
+      var reached=challengeOutcome(row.outcome_quorum);
+      if(!conflicted&&adjudicationTask&&row.state==='under_review'&&caps.analyst_eligible&&reached)controls+='<button class="osi-action primary" type="button" onclick="osiV2GovernanceFinalizeChallenge(\''+esc(row.public_ref)+'\')">'+esc(t(reached==='accept'?'Memo-anchor outcome: challenge accepted':'Memo-anchor outcome: challenge rejected'))+'</button>';
       var conflictNotice=conflicted?'<div class="osi-state-message warning" role="status"><b>'+esc(t('Conflict: this exact governance action is unavailable to this wallet.'))+'</b><span>'+esc(conflictMessage())+'</span></div>':'';
       var taskNotice=!conflicted&&(caps.analyst_eligible||caps.maintainer_access)&&(((row.state==='submitted'||row.state==='admissibility_review')&&!admissibilityTask)||((row.state==='open'||row.state==='under_review')&&!adjudicationTask))
         ?'<div class="osi-state-message" role="status"><b>'+esc(t('Review actions open from My Reviews'))+'</b><span>'+esc(reviewTaskRequiredMessage())+'</span></div>':'';
-      return'<article class="osi-challenge-record"><div class="osi-list-item-head"><b class="mono">'+esc(row.public_ref)+'</b><span class="osi-chip '+(row.blocking?'warning':'')+'">'+esc(t(CHALLENGE_STATE[row.state]||sentence(row.state)))+' &middot; '+esc(t(row.blocking?'Blocking':'Non-blocking'))+'</span></div><p data-osi-user-content>'+esc(row.public_safe_summary)+'</p><dl class="osi-case-facts"><div><dt>'+esc(t('Admissibility deadline'))+'</dt><dd>'+esc(dateText(row.admissibility_deadline_at))+'</dd></div><div><dt>'+esc(t('Review deadline'))+'</dt><dd>'+esc(dateText(row.review_deadline_at))+'</dd></div></dl>'+governanceTimeline(row.reviews)+progress(q.accept_count||0,q.accept_weight||0,q.required_count||2,q.required_weight||2.5,'Acceptance quorum')+conflictNotice+taskNotice+(controls?'<div class="osi-governance-actions">'+controls+'</div>':'')+'</article>';
+      return'<article class="osi-challenge-record"><div class="osi-list-item-head"><b class="mono">'+esc(row.public_ref)+'</b><span class="osi-chip '+(row.blocking?'warning':'')+'">'+esc(t(CHALLENGE_STATE[row.state]||sentence(row.state)))+' &middot; '+esc(t(row.blocking?'Blocking':'Non-blocking'))+'</span></div><p data-osi-user-content>'+esc(row.public_safe_summary)+'</p><dl class="osi-case-facts"><div><dt>'+esc(t('Admissibility deadline'))+'</dt><dd>'+esc(dateText(row.admissibility_deadline_at))+'</dd></div><div><dt>'+esc(t('Review deadline'))+'</dt><dd>'+esc(dateText(row.review_deadline_at))+'</dd></div></dl>'+governanceTimeline(row.reviews)+progress(q.accept_count||0,q.accept_weight||0,q.required_count||2,q.required_weight||2.5,'Acceptance quorum')+progress(q.reject_count||0,q.reject_weight||0,q.required_count||2,q.required_weight||2.5,'Rejection quorum')+conflictNotice+taskNotice+(controls?'<div class="osi-governance-actions">'+controls+'</div>':'')+'</article>';
     }).join('')+'</div>':'<div class="osi-v2-empty compact"><b>'+esc(t('No challenges recorded'))+'</b><span>'+esc(t('The challenge window and its dates stay independently verifiable.'))+'</span></div>';
     var windowLine=active
       ?t('{remaining} · closes {date}',{remaining:countdownText(resolution.challenge_window_closes_at),date:dateText(resolution.challenge_window_closes_at)})

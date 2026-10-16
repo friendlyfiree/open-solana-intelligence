@@ -1931,7 +1931,7 @@ test('launch readiness: verified analyst controls traverse Case, Wire, governanc
   await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'challenge_review');
   await page.waitForTimeout(200);
   await page.locator('[data-tab="challenges"]').click();
-  await page.getByRole('button', { name: 'Memo-anchor quorum outcome' }).click();
+  await page.getByRole('button', { name: 'Memo-anchor outcome: challenge accepted' }).click();
   await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'challenge_finalize');
   await page.waitForTimeout(200);
 
@@ -2267,7 +2267,7 @@ for (const role of ['ordinary_wallet', 'report_author', 'verified_analyst']) {
     await page.locator('[data-tab="challenges"]').click();
     await expect(page.getByRole('button', { name: 'Admit', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Accept review' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Memo-anchor quorum outcome' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Memo-anchor (quorum )?outcome/ })).toHaveCount(0);
     expect(fixtureOperationCount(page, 'osi-v2-governance-write', 'prepare')).toBe(0);
     expectCleanRuntime(page);
   });
@@ -4539,5 +4539,55 @@ test('revising a Report review keeps the reviewer\'s current decision selected',
   await expect(decision).toHaveValue('reject');
   await expect(page.locator(`#osi-review-rationale-${current.version_ref}`)).toHaveValue('The traced path skips one hop.');
   await expect(page.locator(`[data-report-version-ref="${current.version_ref}"]`).getByRole('button', { name: 'Revise my review' })).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// A challenge review is labelled as a challenge decision, and both outcome
+// gates are shown, so an adjudicator can see which outcome a Memo would anchor.
+test('challenge records name the challenge decision and show both outcome quorums', async ({ page }) => {
+  await ready(page);
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_case' || body.public_ref !== CASE_REF) return route.fallback();
+    const challenge = { ...richCase.governance.challenges[0],
+      reviews: [{ ...richCase.governance.challenges[0].reviews[0], phase: 'merit', decision: 'reject', is_active: true }],
+      outcome_quorum: { accept_count: 0, accept_weight: 0, reject_count: 3, reject_weight: 4.5, required_count: 3, required_weight: 4.5 } };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, case: { ...richCase, governance: { ...richCase.governance, challenges: [challenge] } } }) });
+  });
+  await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+  await page.locator('#osi-case-tabs [data-tab="challenges"]').click();
+  const record = page.locator('#osi-case-content .osi-challenge-record').first();
+  await expect(record).toContainText('Reject challenge, keep the selected Report');
+  await expect(record).not.toContainText('Reject normal investigation');
+  await expect(record).toContainText('Challenge merit review');
+  await expect(record.locator('.osi-quorum-title')).toHaveText([/Acceptance quorum/, /Rejection quorum · met/]);
+  expectCleanRuntime(page);
+});
+
+// My Reviews reads the analyst's own vote from the Report version's reviews;
+// the Report DTO has no my_active_review field.
+test('My Reviews shows the analyst\'s own Report vote and weight', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  const me = ROLE_WALLETS.verified_analyst;
+  const current = reportFixture.versions[2];
+  await page.route('**/functions/v1/osi-v2-report-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_review_queue') return route.fallback();
+    const version = { ...current, lifecycle_state: 'in_review', can_cast_analyst_review: true, reviews: [{
+      reviewer_wallet: me, decision: 'approve', reason_code: 'evidence_reviewed', weight: 1.5, is_active: true,
+      created_at: current.submitted_at, proof_label: 'Wallet-signed and server-verified',
+    }] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false,
+      reports: [{ ...reportFixture, access: 'analyst', can_cast_analyst_review: true, versions: [version] }],
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReviewQueue());
+  const task = page.locator('#field-cases .osi-review-task[data-review-kind="report"]').first();
+  await expect(task).toBeVisible();
+  await expect(task).toContainText('Approve');
+  await expect(task).not.toContainText('Not counted');
   expectCleanRuntime(page);
 });
