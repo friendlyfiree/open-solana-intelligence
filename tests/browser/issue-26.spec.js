@@ -240,7 +240,9 @@ function version(no, state, decisions) {
     body_private: `Restricted version ${no} narrative for authorized fixture rendering.`,
     content_public_safe: `Public-safe version ${no} summary.`, evidence_snapshot_hash: String(no).repeat(64),
     submitted_at: iso(-6 + no), evidence: [{ ordinal: 1, kind: 'onchain_tx', ref: TX }],
-    proof: { proof_type: 'solana_memo', server_verified: true, tx_sig: TX, occurred_at: iso(-6 + no) },
+    // Production shape: a version's proof is its submission receipt, and the
+    // server stamps every non-bootstrap receipt with decision_channel standard.
+    proof: { event_type: 'CASE_REPORT_VERSION_SUBMITTED', decision_channel: 'standard', decision_channel_label: null, proof_type: 'solana_memo', server_verified: true, tx_sig: TX, occurred_at: iso(-6 + no) },
     quorum: { approve_count: 3, approve_weight: 4.75, required_count: 3, required_weight: 4.5, approve_ready: true },
     publication_capability: {
       standard_quorum_ready: state === 'in_review',
@@ -4473,5 +4475,20 @@ test('a language switch after a private-cache clear never claims an empty public
   await expect(page.locator('#field-cases')).not.toContainText('Henüz kamusal Vaka yok');
   await expect(page.locator('#field-cases')).not.toContainText('No public Cases yet');
   await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+// A submission receipt carries decision_channel standard by default, so a
+// version that was only submitted must never read as published.
+test('a submitted Report version never says it was published through the analyst quorum', async ({ page }) => {
+  await ready(page, { role: 'report_author' });
+  await page.evaluate(() => window.osiV2OpenMyReports());
+  await expect(page.locator('#field-cases')).toContainText('Version history (3)');
+  await page.locator('#field-cases details summary').first().click();
+  const versions = page.locator('#field-cases .osi-report-version');
+  await expect(versions).toHaveCount(3);
+  await expect(page.locator('#field-cases .osi-report-version .osi-report-proof').first()).toContainText('Memo-anchored on Solana');
+  await expect(page.locator('#field-cases .osi-report-version [data-decision-channel]')).toHaveCount(0);
+  await expect(page.locator('#field-cases .osi-report-version')).not.toContainText(['Published through the standard analyst quorum']);
   expectCleanRuntime(page);
 });

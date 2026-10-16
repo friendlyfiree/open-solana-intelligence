@@ -779,7 +779,11 @@
   function proofHtml(proof){
     if(!proof)return'<span>Proof unavailable</span>';
     var link=/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(String(proof.tx_sig||''))?'<a href="https://solscan.io/tx/'+esc(proof.tx_sig)+'" target="_blank" rel="noopener">Verify on Solscan ↗</a>':'';
-    return'<div class="osi-report-proof"><b>'+esc(proof.proof_type==='solana_memo'?'Memo-anchored on Solana':'Proof recorded')+'</b><span>'+esc(dateText(proof.occurred_at))+'</span>'+publicationChannelHtml(proof)+link+'</div>';
+    // A version's proof is usually its submission receipt. Every receipt
+    // carries a decision channel (the column defaults to standard), so only a
+    // publication receipt may say how the version was published.
+    var channel=String(proof.event_type||'')==='REPORT_PUBLISHED'?publicationChannelHtml(proof):'';
+    return'<div class="osi-report-proof"><b>'+esc(proof.proof_type==='solana_memo'?'Memo-anchored on Solana':'Proof recorded')+'</b><span>'+esc(dateText(proof.occurred_at))+'</span>'+channel+link+'</div>';
   }
   function queueStatus(versionRef,text,kind){
     var node=document.getElementById('osi-review-status-'+versionRef);if(!node)return;

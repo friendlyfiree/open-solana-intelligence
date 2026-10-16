@@ -332,6 +332,14 @@
     if(['analyst','verified_analyst','senior_analyst','probationary_analyst'].indexOf(role)<0)return'';
     return'<span data-sas-wallet="'+esc(wallet)+'" data-sas-role="'+esc(role)+'"></span>';
   }
+  // A review counts unless the server enforced SAS and said it did not.
+  function sasCounted(review){
+    var a=review&&review.sas_authority;
+    return !a||a.enforced!==true||a.counted===true;
+  }
+  // A revised vote stays in the record but is no longer the reviewer's vote.
+  function isSuperseded(row){return !!row&&row.is_active===false;}
+  function supersededLabel(){return' <span class="osi-chip" data-review-superseded>'+esc(t('Superseded by a later vote'))+'</span>';}
   function sasAuthority(review){
     var a=review&&review.sas_authority;
     if(!a||a.enforced!==true)return'';
@@ -1878,7 +1886,12 @@
     var cycle=reviewCycleStartedAt(item);
     var approvals=(item.reviews||[]).filter(function(row){return row.is_active===true&&row.decision==='approve_open'&&new Date(row.created_at).getTime()>cycle;});
     var maintainer=approvals.some(function(row){return row.reviewer_role==='maintainer';});
-    var analysts=approvals.filter(function(row){return row.reviewer_role==='analyst';});
+    // An analyst approval counts only when the server counted it. With SAS
+    // enforcement on, an approval without a current credential carries no
+    // count and no weight, so it is named apart instead of being added in.
+    var analystRows=approvals.filter(function(row){return row.reviewer_role==='analyst';});
+    var analysts=analystRows.filter(sasCounted);
+    var uncounted=analystRows.length-analysts.length;
     var opened=(item.proof_log||[]).find(function(row){return row.event_type==='CASE_OPENED';});
     if(!approvals.length){
       return String(item.visibility||'')==='public'
@@ -1893,11 +1906,16 @@
     var anchor=openUrl
       ?'<a class="osi-proof-link" href="'+esc(openUrl)+'" target="_blank" rel="noopener">'+esc(t('Verify the opening Memo on Solscan'))+'</a>'
       :'<span class="osi-case-quiet">'+esc(t('No confirmed opening Memo is public for this Case yet.'))+'</span>';
-    var byline=analysts.length
+    var byline=!who.length?''
+      :analysts.length
       ?t('Approved by {who} · counted analyst weight {weight}.',{who:who.join(' '+t('and')+' '),weight:weight.toFixed(2)})
       :t('Approved by {who}.',{who:who.join(' '+t('and')+' ')});
+    var uncountedLine=uncounted?(uncounted===1
+      ?t('1 analyst approval was not counted: no current SAS review authority.')
+      :t('{count} analyst approvals were not counted: no current SAS review authority.',{count:uncounted})):'';
     return '<div class="osi-state-message approved" role="note"><b>'+esc(t('Approved for public investigation'))+'</b>'
-      +'<span>'+esc(byline)+'</span>'
+      +(byline?'<span>'+esc(byline)+'</span>':'')
+      +(uncountedLine?'<span>'+esc(uncountedLine)+'</span>':'')
       +(maintainer&&!analysts.length?'<span>'+esc(t('The full maintainer opening path carries analyst weight 0. It authorizes the opening; it is not an analyst vote.'))+'</span>':'')
       +'<span>'+esc(t('Approval authorizes public investigation only. It is not a truth, guilt or recovery decision.'))+'</span>'
       +anchor+'</div>';
@@ -1923,9 +1941,10 @@
     var rows=item.reviews||[],cycle=reviewCycleStartedAt(item);
     var list=rows.length?'<ol class="osi-list osi-initial-review-list">'+rows.map(function(row){
       var prior=new Date(row.created_at).getTime()<=cycle;
+      var replaced=isSuperseded(row);
       var serverAuthority=!!(row.sas_authority&&row.sas_authority.enforced===true);
-      return'<li class="osi-list-item"><div class="osi-list-item-head"><b>'+reviewerIdentity(row.reviewer_wallet)+(serverAuthority?'':sasSlot(row.reviewer_wallet,row.reviewer_role))+' &middot; '+esc(reviewDecisionLabel(row.decision))+'</b>'+(prior?'<span class="osi-proof-label legacy">'+esc(t('Previous review cycle'))+'</span>':proofLabelHtml(row.proof_label))+'</div>'
-        +'<p>'+esc(roleLabel(row.reviewer_role))+' &middot; '+esc(t('weight {weight}',{weight:Number(row.weight||0).toFixed(2)}))+(prior?'':sasAuthority(row))+' &middot; '+esc(dateText(row.created_at))+'</p>'
+      return'<li class="osi-list-item'+(replaced?' superseded':'')+'"><div class="osi-list-item-head"><b>'+reviewerIdentity(row.reviewer_wallet)+(serverAuthority?'':sasSlot(row.reviewer_wallet,row.reviewer_role))+' &middot; '+esc(reviewDecisionLabel(row.decision))+'</b>'+(prior?'<span class="osi-proof-label legacy">'+esc(t('Previous review cycle'))+'</span>':proofLabelHtml(row.proof_label))+'</div>'
+        +'<p>'+esc(roleLabel(row.reviewer_role))+(replaced?supersededLabel():' &middot; '+esc(t('weight {weight}',{weight:Number(row.weight||0).toFixed(2)}))+(prior?'':sasAuthority(row)))+' &middot; '+esc(dateText(row.created_at))+'</p>'
         +(row.reason_code?'<p title="'+esc(row.reason_code)+'">'+esc(t('Reason: {reason}',{reason:reasonLabel(row.reason_code)}))+'</p>':'')+'</li>';
     }).join('')+'</ol>':'';
     // With no rows the opening outcome above already says the Case is awaiting
@@ -1957,10 +1976,15 @@
       var role=row.reviewer_role||row.actor_role||'';
       var serverAuthority=!!(row.sas_authority&&row.sas_authority.enforced===true);
       var rationale=row.public_rationale?'<p data-osi-user-content>'+esc(row.public_rationale)+'</p>':'<p class="osi-case-quiet">'+esc(t('No public rationale recorded.'))+'</p>';
-      var meta=[row.target_version_ref?'<span class="mono">'+esc(row.target_version_ref)+'</span>':'<span>'+esc(t(sentence(row.phase)))+'</span>','<span>'+esc(t('weight {weight}',{weight:Number(row.weight||0).toFixed(2)}))+'</span>'];
-      var authority=sasAuthority(row);if(authority)meta.push(authority.replace(/^ /,''));
+      var replaced=isSuperseded(row);
+      var meta=[row.target_version_ref?'<span class="mono">'+esc(row.target_version_ref)+'</span>':'<span>'+esc(t(sentence(row.phase)))+'</span>'];
+      if(replaced)meta.push(supersededLabel().replace(/^ /,''));
+      else{
+        meta.push('<span>'+esc(t('weight {weight}',{weight:Number(row.weight||0).toFixed(2)}))+'</span>');
+        var authority=sasAuthority(row);if(authority)meta.push(authority.replace(/^ /,''));
+      }
       meta.push('<time datetime="'+esc(String(row.created_at||''))+'">'+esc(dateText(row.created_at))+'</time>');
-      return'<div class="osi-governance-event">'+proofLabelHtml(row.proof_label||'Wallet-signed & server-verified')+'<b>'+reviewerIdentity(row.reviewer_wallet)+(serverAuthority?'':sasSlot(row.reviewer_wallet,role))+' &middot; '+esc(reviewDecisionLabel(row.decision))+'</b><p class="osi-proof-meta">'+meta.join('<span class="osi-sep" aria-hidden="true">·</span>')+'</p>'+rationale+'</div>';
+      return'<div class="osi-governance-event'+(replaced?' superseded':'')+'">'+proofLabelHtml(row.proof_label||'Wallet-signed & server-verified')+'<b>'+reviewerIdentity(row.reviewer_wallet)+(serverAuthority?'':sasSlot(row.reviewer_wallet,role))+' &middot; '+esc(reviewDecisionLabel(row.decision))+'</b><p class="osi-proof-meta">'+meta.join('<span class="osi-sep" aria-hidden="true">·</span>')+'</p>'+rationale+'</div>';
     }).join('')+'</div>';
   }
   function bootstrapReason(code){

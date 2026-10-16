@@ -2694,7 +2694,10 @@
     'Turn on and fully configure SAS issuance on the server, then run this check again.': 'Sunucuda SAS düzenlemesini açıp tamamen yapılandırın, ardından bu denetimi yeniden çalıştırın.',
     'A review counts only while this is current': 'İnceleme yalnızca bu güncelken sayılır',
     'Current credential': 'Güncel kimlik bilgisi',
-    'A public Case with this title already exists: {ref}. Open it to check before filing a new Case.': 'Bu başlıkla kamusal bir Vaka zaten var: {ref}. Yeni bir Vaka açmadan önce kontrol etmek için onu açın.'
+    'A public Case with this title already exists: {ref}. Open it to check before filing a new Case.': 'Bu başlıkla kamusal bir Vaka zaten var: {ref}. Yeni bir Vaka açmadan önce kontrol etmek için onu açın.',
+    '1 analyst approval was not counted: no current SAS review authority.': '1 analist onayı sayılmadı: güncel SAS inceleme yetkisi yok.',
+    '{count} analyst approvals were not counted: no current SAS review authority.': '{count} analist onayı sayılmadı: güncel SAS inceleme yetkisi yok.',
+    'Superseded by a later vote': 'Daha sonraki bir oyla değiştirildi'
   };
 
   var translations = { en: {}, tr: turkish };

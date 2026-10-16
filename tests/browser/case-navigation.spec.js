@@ -265,9 +265,10 @@ async function installFixture(page, options = {}) {
     let payload = { ok: true };
 
     if (endpoint === 'osi-v2-case-read') {
+      const basePublic = options.caseOverride ? { ...publicCase, ...options.caseOverride } : publicCase;
       const listed = options.sameTitle
-        ? [publicCase, sameTitleSecondCase]
-        : options.hostileTwin ? [hostileCase, { ...hostileTwin, title: hostileCase.title }] : [publicCase, secondCase];
+        ? [basePublic, sameTitleSecondCase]
+        : options.hostileTwin ? [hostileCase, { ...hostileTwin, title: hostileCase.title }] : [basePublic, secondCase];
       if (body.op === 'list_public_cases') {
         if (options.publicListDelayMs) await new Promise((resolve) => setTimeout(resolve, options.publicListDelayMs));
         payload = { ok: true, cases: listed };
@@ -797,4 +798,72 @@ test('the Field Office public list opens with the Status filter on All', async (
   await expect(status).toHaveValue('all');
   await expect(page.locator('#field-cases .osi-v2-row')).toHaveCount(2);
   expect(page.__runtimeErrors).toEqual([]);
+});
+
+// Governance honesty. The opening outcome counts only the analyst approvals
+// the server counted, and a revised vote stays in the record without reading
+// as the reviewer's current, counted vote.
+test.describe('governance rows say what the server counted', () => {
+  const SECOND_ANALYST = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin';
+  const at = (minute) => `2026-07-29T13:${String(minute).padStart(2, '0')}:00+00:00`;
+  const review = (wallet, role, decision, active, counted, minute) => ({
+    reviewer_wallet: wallet, reviewer_role: role, decision, weight: role === 'maintainer' ? 0 : 1, is_active: active,
+    created_at: at(minute), proof_label: 'Wallet-signed and server-verified',
+    sas_authority: { enforced: true, counted, state: counted ? 'verified' : 'invalid' },
+  });
+
+  test('an approval without current SAS authority is named apart, not counted as eligible weight', async ({ page }) => {
+    await boot(page, { wallet: 'none', caseOverride: { reviews: [
+      review(ANALYST, 'analyst', 'approve_open', true, false, 7),
+      review(MAINTAINER, 'maintainer', 'approve_open', true, false, 8),
+    ] } });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`).click();
+    await page.locator('#osi-case-tabs [data-tab="reviews"]').click();
+    const outcome = page.locator('#osi-case-content .osi-state-message.approved');
+    await expect(outcome).toContainText('Approved by a full maintainer.');
+    await expect(outcome).toContainText('1 analyst approval was not counted: no current SAS review authority.');
+    await expect(outcome).not.toContainText('eligible analyst');
+    await expect(outcome).not.toContainText('counted analyst weight');
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+
+  test('a superseded initial review carries no weight or counted label', async ({ page }) => {
+    await boot(page, { wallet: 'none', caseOverride: { reviews: [
+      review(SECOND_ANALYST, 'analyst', 'needs_more', false, true, 5),
+      review(SECOND_ANALYST, 'analyst', 'approve_open', true, true, 7),
+    ] } });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`).click();
+    await page.locator('#osi-case-tabs [data-tab="reviews"]').click();
+    const rows = page.locator('#osi-case-content .osi-initial-review-list > li');
+    await expect(rows).toHaveCount(2);
+    const replaced = page.locator('#osi-case-content .osi-initial-review-list > li.superseded');
+    await expect(replaced).toHaveCount(1);
+    await expect(replaced).toContainText('Superseded by a later vote');
+    await expect(replaced.locator('[data-sas-authority="counted"]')).toHaveCount(0);
+    await expect(replaced).not.toContainText('weight');
+    await expect(page.locator('#osi-case-content .osi-initial-review-list > li:not(.superseded) [data-sas-authority="counted"]')).toHaveCount(1);
+    await expect(page.locator('#osi-case-content .osi-state-message.approved')).toContainText('Approved by 1 eligible analyst');
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+
+  test('a superseded selection vote is marked in the Resolution timeline', async ({ page }) => {
+    const selection = (decision, active, minute) => ({ ...review(SECOND_ANALYST, 'analyst', decision, active, true, minute), phase: 'selection', target_version_ref: VERSION_REF });
+    await boot(page, { wallet: 'none', caseOverride: { governance: { ...publicCase.governance, resolution: {
+      state: 'selection_open',
+      selection_quorum: { leader_version_ref: VERSION_REF, leader_count: 1, leader_weight: 1, required_count: 2, required_weight: 2.5 },
+      reviews: [selection('object', false, 5), selection('select', true, 7)],
+    } } } });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`).click();
+    await page.locator('#osi-case-tabs [data-tab="resolution"]').click();
+    const events = page.locator('#osi-case-content .osi-governance-event');
+    await expect(events).toHaveCount(2);
+    const replaced = page.locator('#osi-case-content .osi-governance-event.superseded');
+    await expect(replaced).toHaveCount(1);
+    await expect(replaced).toContainText('Superseded by a later vote');
+    await expect(replaced.locator('[data-sas-authority="counted"]')).toHaveCount(0);
+    expect(page.__runtimeErrors).toEqual([]);
+  });
 });
