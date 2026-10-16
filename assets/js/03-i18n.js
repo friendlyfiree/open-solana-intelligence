@@ -2697,7 +2697,14 @@
     'A public Case with this title already exists: {ref}. Open it to check before filing a new Case.': 'Bu başlıkla kamusal bir Vaka zaten var: {ref}. Yeni bir Vaka açmadan önce kontrol etmek için onu açın.',
     '1 analyst approval was not counted: no current SAS review authority.': '1 analist onayı sayılmadı: güncel SAS inceleme yetkisi yok.',
     '{count} analyst approvals were not counted: no current SAS review authority.': '{count} analist onayı sayılmadı: güncel SAS inceleme yetkisi yok.',
-    'Superseded by a later vote': 'Daha sonraki bir oyla değiştirildi'
+    'Superseded by a later vote': 'Daha sonraki bir oyla değiştirildi',
+    'This version is published. Reviews go to the current version.': 'Bu sürüm yayımlandı. İncelemeler güncel sürüme yapılır.',
+    'A newer version replaced this one. Reviews go to the current version.': 'Bu sürümün yerini daha yeni bir sürüm aldı. İncelemeler güncel sürüme yapılır.',
+    'This version was rejected. Reviews go to the current version.': 'Bu sürüm reddedildi. İncelemeler güncel sürüme yapılır.',
+    'This version is no longer under review. Reviews go to the current version.': 'Bu sürüm artık incelemede değil. İncelemeler güncel sürüme yapılır.',
+    '{ref} is published via maintainer bootstrap. This is not independent analyst quorum.': '{ref} sürdürücü ilk başlatma yoluyla yayımlandı. Bu, bağımsız analist yeter sayısı değildir.',
+    '{ref} is published through the standard analyst-quorum route.': '{ref} standart analist yeter sayısı yoluyla yayımlandı.',
+    '{ref} is rejected through the standard analyst-quorum route. It is not a finding of bad faith, and the author may submit a new revision.': '{ref} standart analist yeter sayısı yoluyla reddedildi. Bu bir kötü niyet bulgusu değildir; yazar yeni bir revizyon gönderebilir.'
   };
 
   var translations = { en: {}, tr: turkish };

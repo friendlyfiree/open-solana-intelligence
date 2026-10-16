@@ -887,7 +887,20 @@
   }
   function reviewControls(report,version,mode){
     var current=version.version_ref===report.current_version_ref;
-    var actionable=mode==='queue'&&current&&['submitted','in_review'].indexOf(version.lifecycle_state)>=0;
+    var reviewable=current&&['submitted','in_review'].indexOf(version.lifecycle_state)>=0;
+    var actionable=mode==='queue'&&reviewable;
+    // An older, published, superseded or rejected version keeps its approvals,
+    // so the server can still report its quorum as reached. It is no longer
+    // reviewed or published from here; say so instead of offering a form.
+    if(mode==='queue'&&!reviewable){
+      var closed=version.lifecycle_state==='published'?'This version is published. Reviews go to the current version.'
+        :version.lifecycle_state==='superseded'?'A newer version replaced this one. Reviews go to the current version.'
+        :version.lifecycle_state==='rejected'?'This version was rejected. Reviews go to the current version.'
+        :'This version is no longer under review. Reviews go to the current version.';
+      return publicationRecoveryHtml(version.version_ref)+rejectionRecoveryHtml(version.version_ref)
+        +'<section class="osi-report-review-closed"><h4>'+esc(t('Analyst review'))+'</h4><p>'+esc(t(closed))+'</p></section>'
+        +'<div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div>'+reviewHistoryHtml(version,true);
+    }
     var canAnalyst=actionable&&report.can_cast_analyst_review===true;
     var canBootstrap=actionable&&report.can_publish_via_maintainer_bootstrap===true;
     var mine=(version.reviews||[]).find(function(review){return review.is_active&&review.reviewer_wallet===String(walletPubkey||'');});
@@ -901,7 +914,7 @@
       ? 'Full maintainers may inspect restricted material. They do not cast analyst weight; any cold-start publication uses the separate maintainer bootstrap channel below.'
       : 'Review controls are unavailable for this wallet or version.';
     var standardReason=capability.standard_publication_reason_code||'Standard analyst quorum is not ready for publication.';
-    var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+readyBanner(version,canPublishStandard,standardReady,standardReason)+rejectBanner(version,canAnalyst,mine)+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'><option value="approve">Approve for publication</option><option value="reject">Reject</option><option value="request_revision">Request revision</option><option value="abstain">Abstain</option></select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="10000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="10000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
+    var analyst='<section class="osi-report-review-controls"><h4>Analyst review</h4>'+readyBanner(version,canPublishStandard,standardReady,standardReason)+rejectBanner(version,canAnalyst,mine)+quorumHtml(version)+'<p>'+esc(copy)+'</p><form onsubmit="osiV2SubmitReportReview(event,\''+esc(version.version_ref)+'\')"><div class="osi-report-review-grid"><label>Decision <span>Required</span><select id="osi-review-decision-'+esc(version.version_ref)+'"'+disabled+'>'+[['approve','Approve for publication'],['reject','Reject'],['request_revision','Request revision'],['abstain','Abstain']].map(function(option){return'<option value="'+option[0]+'"'+(mine&&mine.decision===option[0]?' selected':'')+'>'+option[1]+'</option>';}).join('')+'</select></label><label>Reason code <span>Required; safe default provided</span><input id="osi-review-reason-'+esc(version.version_ref)+'" value="'+esc(mine&&mine.reason_code||'evidence_reviewed')+'" pattern="[a-z][a-z0-9_:-]{0,95}" required'+disabled+'></label></div><label>Public-safe rationale <span>Required for reject or request revision; optional otherwise</span><textarea id="osi-review-rationale-'+esc(version.version_ref)+'" minlength="10" maxlength="10000"'+disabled+'>'+esc(mine&&mine.public_rationale||'')+'</textarea></label><label>Restricted analyst note <span>Optional; authorized analysts and full maintainer only</span><textarea id="osi-review-note-'+esc(version.version_ref)+'" maxlength="10000"'+disabled+'>'+esc(mine&&mine.private_note||'')+'</textarea></label><div class="osi-report-review-actions"><button class="osi-report-action" type="submit"'+disabled+'>'+(mine?'Revise my review':'Sign and cast review')+'</button><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'standard\')"'+(canPublishStandard?'':' disabled title="'+esc(standardReason)+'"')+'>Publish analyst-approved version</button></div></form></section>';
     var prerequisite=capability.maintainer_bootstrap_reason_code||report.bootstrap_prerequisite||'The current server-computed bootstrap tier is not satisfied.';
     var bootstrap='<section class="osi-report-bootstrap"><h4>Maintainer bootstrap publication</h4><p>This is not independent analyst quorum. The receipt is permanently labeled <span class="mono">decision_channel=maintainer_bootstrap</span>.</p><div class="osi-report-card-meta">'+esc(bootstrapRequirement(capability))+'</div><button class="osi-report-publish" type="button" onclick="osiV2PublishReport(\''+esc(version.version_ref)+'\',\'maintainer_bootstrap\')"'+(canBootstrap?'':' disabled title="'+esc(prerequisite)+'"')+'>Publish via maintainer bootstrap</button>'+(canBootstrap?'':'<p>'+esc(prerequisite)+'</p>')+'</section>';
     return publicationRecoveryHtml(version.version_ref)+rejectionRecoveryHtml(version.version_ref)+analyst+(mode==='queue'&&(report.access==='maintainer'||canBootstrap||capability.decision_channel==='maintainer_bootstrap')?bootstrap:'')+'<div id="osi-review-status-'+esc(version.version_ref)+'" class="osi-review-status" role="status" aria-live="polite"></div>'+reviewHistoryHtml(version,true);
@@ -988,6 +1001,10 @@
       var channel=committed.decision_channel||route;
       queueStatus(versionRef,(channel==='maintainer_bootstrap'?'Published via maintainer bootstrap; this is not independent analyst quorum. decision_channel=maintainer_bootstrap. ':'Published through the standard analyst-quorum route. ')+'The parent Case remains open and unchanged.','success');
       if(typeof showToast==='function')showToast(committed.version_public_ref+' is Memo-anchored and public.');
+      // The card still showed "ready to publish" with live buttons, and a
+      // second click blamed the analyst. Reload so the queue shows the result.
+      var publishedNotice=t(channel==='maintainer_bootstrap'?'{ref} is published via maintainer bootstrap. This is not independent analyst quorum.':'{ref} is published through the standard analyst-quorum route.',{ref:committed.version_public_ref});
+      setTimeout(function(){if(generation===privateGeneration())openReportWorkspace('queue',{authorize:true,notice:publishedNotice});},500);
     }catch(error){if(generation===privateGeneration()){
       var code=String(error.message||'');pending=state.publicationPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef);
       var terminal=['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo','stale_transaction','publication_transaction_outside_window'].indexOf(code)>=0;
@@ -1025,6 +1042,8 @@
       removePublicationPending(wallet,versionRef,'REPORT_REJECTED');
       queueStatus(versionRef,'This exact version is rejected through the standard analyst-quorum route. It is not a finding of bad faith, and the author may submit a new revision. The parent Case remains open.','success');
       if(typeof showToast==='function')showToast(committed.version_public_ref+' is rejected with a Memo-anchored receipt.');
+      var rejectedNotice=t('{ref} is rejected through the standard analyst-quorum route. It is not a finding of bad faith, and the author may submit a new revision.',{ref:committed.version_public_ref});
+      setTimeout(function(){if(generation===privateGeneration())openReportWorkspace('queue',{authorize:true,notice:rejectedNotice});},500);
     }catch(error){if(generation===privateGeneration()){
       var code=String(error.message||'');
       var current=state.rejectionPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef,'REPORT_REJECTED');
@@ -1159,7 +1178,7 @@
       var result=mode==='mine'?await sessionRead('report:mine','list_my_reports'):await loadReviewQueueData();
       if(mode==='mine'){state.cacheWallet=String(walletPubkey||'');state.myReports=result.reports||[];}
       if(mode==='queue')restorePublicationPending(result.reports||[],String(walletPubkey||''));
-      drawWorkspace(result.reports||[],mode,result.next_prerequisite||'');
+      drawWorkspace(result.reports||[],mode,options&&options.notice||result.next_prerequisite||'');
       restoreWorkspaceDraft();
     }catch(error){
       setWorkspaceCopy(mode,0);

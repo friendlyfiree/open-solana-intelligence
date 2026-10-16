@@ -4492,3 +4492,52 @@ test('a submitted Report version never says it was published through the analyst
   await expect(page.locator('#field-cases .osi-report-version')).not.toContainText(['Published through the standard analyst quorum']);
   expectCleanRuntime(page);
 });
+
+// Only the version under review is reviewed or published from the queue. An
+// older published or replaced version keeps its approvals, so its quorum can
+// still read as reached; it must not offer to be published again.
+test('the review queue offers review and publication only on the version under review', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const v1 = page.locator(`[data-report-version-ref="${reportFixture.versions[0].version_ref}"]`);
+  const v2 = page.locator(`[data-report-version-ref="${reportFixture.versions[1].version_ref}"]`);
+  const v3 = page.locator(`[data-report-version-ref="${reportFixture.current_version_ref}"]`);
+  await expect(v1).toContainText('This version is published. Reviews go to the current version.');
+  await expect(v2).toContainText('This version is no longer under review. Reviews go to the current version.');
+  for (const old of [v1, v2]) {
+    await expect(old.locator('.osi-report-ready')).toHaveCount(0);
+    await expect(old.locator('select, .osi-report-review-jump')).toHaveCount(0);
+    await expect(old).not.toContainText('ready to publish');
+  }
+  await expect(v3.locator('select[id^="osi-review-decision-"]')).toBeVisible();
+  await expect(v3.locator('.osi-report-review-jump')).toHaveCount(1);
+  expectCleanRuntime(page);
+});
+
+// Revising a review starts from the reviewer's own decision. It used to start
+// on Approve, so revising a Reject only to edit its rationale cast Approve.
+test('revising a Report review keeps the reviewer\'s current decision selected', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  const me = ROLE_WALLETS.verified_analyst;
+  const current = reportFixture.versions[2];
+  await page.route('**/functions/v1/osi-v2-report-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_review_queue') return route.fallback();
+    const version = { ...current, lifecycle_state: 'in_review', can_cast_analyst_review: true, reviews: [{
+      reviewer_wallet: me, reviewer_handle: 'me', decision: 'reject', reason_code: 'evidence_insufficient',
+      public_rationale: 'The traced path skips one hop.', private_note: '', weight: 1, is_active: true,
+      created_at: current.submitted_at, proof_label: 'Wallet-signed and server-verified',
+    }] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false,
+      reports: [{ ...reportFixture, access: 'analyst', can_cast_analyst_review: true, versions: [version] }],
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const decision = page.locator(`#osi-review-decision-${current.version_ref}`);
+  await expect(decision).toHaveValue('reject');
+  await expect(page.locator(`#osi-review-rationale-${current.version_ref}`)).toHaveValue('The traced path skips one hop.');
+  await expect(page.locator(`[data-report-version-ref="${current.version_ref}"]`).getByRole('button', { name: 'Revise my review' })).toBeVisible();
+  expectCleanRuntime(page);
+});

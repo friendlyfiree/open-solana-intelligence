@@ -950,7 +950,11 @@ test('publishing from the ready state makes the finding public and readable', as
   await ready.getByRole('button', { name: 'Publish this version now' }).click();
 
   await expect.poll(() => backend.state.reports[0].current_published_version_ref).toBe(VERSION_REF);
-  await expect(page.locator(`#osi-review-status-${VERSION_REF}`)).toContainText('standard analyst-quorum route');
+  // The queue reloads after the commit, so the card no longer offers to
+  // publish a version that is already public, and the result stays stated.
+  await expect(page.locator('#field-cases .osi-case-note')).toContainText(`${VERSION_REF} is published through the standard analyst-quorum route.`);
+  await expect(page.getByRole('button', { name: 'Publish this version now' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Publish analyst-approved version' })).toHaveCount(0);
 
   // Now read it as the public does.
   await page.reload();
