@@ -208,6 +208,9 @@
   }
   function privateGeneration(){return typeof window.osiV2PrivateCacheGeneration==='function'?window.osiV2PrivateCacheGeneration():0;}
   function assertPrivateGeneration(generation){if(generation!==privateGeneration())throw new Error('private_session_changed');}
+  // A queue reload scheduled after a write must not pull the reader back from
+  // a view they opened in the meantime (My Reviews, a Case, another lane).
+  function queueStillShows(versionRef){var host=document.getElementById('field-cases');return state.queueMode==='queue'&&!!host&&Array.prototype.some.call(host.querySelectorAll('[data-report-version-ref]'),function(node){return node.getAttribute('data-report-version-ref')===String(versionRef||'');});}
   function headers(){
     var token=typeof SUPA_AUTH_TOKEN==='string'&&SUPA_AUTH_TOKEN?SUPA_AUTH_TOKEN:SUPABASE_ANON_KEY;
     return{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
@@ -953,7 +956,7 @@
         queueStatus(versionRef,'Preparing exact version, analyst snapshot, nonce and payload hash...');
         var prepared=await api(WRITE_URL,{op:'prepare_review',wallet:wallet,review:review,idempotency_key:'report-review:'+(crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2))});
         assertPrivateGeneration(generation);
-        if(prepared.already_committed){queueStatus(versionRef,'This exact review was already committed. Reloading...','success');setTimeout(function(){if(generation===privateGeneration())openReportWorkspace('queue',{authorize:true});},350);return;}
+        if(prepared.already_committed){queueStatus(versionRef,'This exact review was already committed. Reloading...','success');setTimeout(function(){if(generation===privateGeneration()&&queueStillShows(versionRef))openReportWorkspace('queue',{authorize:true});},350);return;}
         pending={key:key,prepared:prepared,signature:''};state.reviewPending[versionRef]=pending;
       }
       if(!pending.signature){queueStatus(versionRef,'Approve the exact review message in Phantom. This is not an on-chain transaction.');pending.signature=await signMessage(pending.prepared.message);assertPrivateGeneration(generation);}
@@ -963,7 +966,7 @@
       delete state.reviewPending[versionRef];queueStatus(versionRef,'Review recorded at '+Number(committed.weight).toFixed(2)+' weight.','success');
       if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(workspaceDraftKey(wallet));
       if(typeof showToast==='function')showToast(committed.decision+' review is wallet-signed and server-verified.');
-      setTimeout(function(){if(generation===privateGeneration())openReportWorkspace('queue',{authorize:true});},500);
+      setTimeout(function(){if(generation===privateGeneration()&&queueStillShows(versionRef))openReportWorkspace('queue',{authorize:true});},500);
     }catch(error){if(generation===privateGeneration()){queueStatus(versionRef,userError(error),'error');if(['proof_binding_rejected','bad_signature','lineage_changed_retry'].indexOf(String(error.message))>=0)delete state.reviewPending[versionRef];}}
     finally{if(generation===privateGeneration())state.busy=false;}
   }
@@ -1004,7 +1007,7 @@
       // The card still showed "ready to publish" with live buttons, and a
       // second click blamed the analyst. Reload so the queue shows the result.
       var publishedNotice=t(channel==='maintainer_bootstrap'?'{ref} is published via maintainer bootstrap. This is not independent analyst quorum.':'{ref} is published through the standard analyst-quorum route.',{ref:committed.version_public_ref});
-      setTimeout(function(){if(generation===privateGeneration())openReportWorkspace('queue',{authorize:true,notice:publishedNotice});},500);
+      setTimeout(function(){if(generation===privateGeneration()&&queueStillShows(versionRef))openReportWorkspace('queue',{authorize:true,notice:publishedNotice});},500);
     }catch(error){if(generation===privateGeneration()){
       var code=String(error.message||'');pending=state.publicationPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef);
       var terminal=['proof_binding_rejected','lineage_changed_retry','transaction_failed','wrong_cluster','wrong_signer','wrong_memo','stale_transaction','publication_transaction_outside_window'].indexOf(code)>=0;
@@ -1043,7 +1046,7 @@
       queueStatus(versionRef,'This exact version is rejected through the standard analyst-quorum route. It is not a finding of bad faith, and the author may submit a new revision. The parent Case remains open.','success');
       if(typeof showToast==='function')showToast(committed.version_public_ref+' is rejected with a Memo-anchored receipt.');
       var rejectedNotice=t('{ref} is rejected through the standard analyst-quorum route. It is not a finding of bad faith, and the author may submit a new revision.',{ref:committed.version_public_ref});
-      setTimeout(function(){if(generation===privateGeneration())openReportWorkspace('queue',{authorize:true,notice:rejectedNotice});},500);
+      setTimeout(function(){if(generation===privateGeneration()&&queueStillShows(versionRef))openReportWorkspace('queue',{authorize:true,notice:rejectedNotice});},500);
     }catch(error){if(generation===privateGeneration()){
       var code=String(error.message||'');
       var current=state.rejectionPending[versionRef]||loadPublicationPending(String(walletPubkey||''),versionRef,'REPORT_REJECTED');
