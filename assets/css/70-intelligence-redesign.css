@@ -8811,3 +8811,36 @@ body .osi-status.maintainer {
   .osi-same-title-open { min-height: 44px; }
 }
 /* === end Item-6 dup pass === */
+
+/* A long Wire title is clamped in the drawer header on phones, so the
+   overview repeats it in full at that width only. */
+.osi-wire-full-title {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .osi-wire-full-title {
+    display: block;
+    margin: 0 0 12px;
+    color: var(--ink);
+    font: 700 16px/1.35 var(--font-sans);
+    overflow-wrap: anywhere;
+  }
+}
+
+/* The Proof Log source strip carries its retry control at the end. */
+#prooflog .pl-strip-retry {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 620px) {
+  #prooflog .pl-strip:has(.pl-strip-retry) {
+    flex-wrap: wrap;
+  }
+
+  #prooflog .pl-strip-retry {
+    width: 100%;
+    margin-left: 0;
+  }
+}

@@ -39,15 +39,33 @@ function plGoWire(versionRef){
 }
 function plCopyFallback(text, done){
   try{ var ta=document.createElement('textarea'); ta.value=String(text); ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
-  catch(e){ showToast('Could not copy automatically.'); }
+  catch(e){ showToast(plT('Could not copy automatically.')); }
 }
 function plFilter(f){
   plState.filter=f; plState.page=1;
-  document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f===f); });
+  plMarkFilter(f);
   plPaint();
 }
+function plMarkFilter(f){
+  document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ var active=b.dataset.f===f; b.classList.toggle('active', active); b.setAttribute('aria-pressed', active?'true':'false'); });
+}
 function plSearch(v){ plState.q=(v||'').trim().toLowerCase(); plState.page=1; plPaint(); }
-function plSetPage(p){ plState.page=p|0; plPaint(); var b=document.getElementById('pl-body'); if(b){ try{ b.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} } }
+function plSetPage(p){
+  plState.page=p|0; plPaint();
+  var b=document.getElementById('pl-body'); if(b){ try{ b.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
+  // The pressed page button is gone after the repaint; keep keyboard focus on
+  // the result summary, which also announces the new range.
+  var count=document.getElementById('pl-count');
+  if(count&&typeof count.focus==='function'){ count.setAttribute('tabindex','-1'); count.focus({preventScroll:true}); }
+}
+// Retrying replaces the control that was pressed, so focus moves to the
+// refreshed timeline instead of falling back to the page.
+function plRetry(){
+  return Promise.resolve(renderProofLog()).then(function(){
+    var body=document.getElementById('pl-body');
+    if(body&&typeof body.focus==='function'){ body.setAttribute('tabindex','-1'); body.focus({preventScroll:true}); }
+  });
+}
 function plSealedRender(){
   var card=document.getElementById('pl-sealed-card'); var host=document.getElementById('pl-sealed'); if(!card||!host) return;
   var seals=(window.__plEvents||[]).filter(function(e){
@@ -330,7 +348,7 @@ function plReferenceHtml(ev){
 }
 function plCopyProofValue(text, label){
   if(!text) return;
-  var done=function(){ showToast((label||'Value')+' copied.'); };
+  var done=function(){ showToast(plT('{label} copied.',{label:plT(label||'Value')})); };
   if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(String(text)).then(done).catch(function(){ plCopyFallback(text,done); }); }
   else plCopyFallback(text,done);
 }
@@ -406,10 +424,14 @@ function plDashRender(){
   var host=document.getElementById('pl-dash'); if(!host) return;
   var evs=window.__plEvents||[];
   var src=plSourceState();
-  var canCount = src==='loaded' || src==='empty' || src==='demo';
+  var canCount = src==='loaded' || src==='partial' || src==='empty' || src==='demo';
+  // A partial load still counts what arrived, but every count says it may be
+  // incomplete instead of presenting a partial log as the whole record.
+  var partial = src==='partial';
   function val(n){ return canCount ? String(n) : 'Not available yet'; }
   function stat(cls, ic, label, value, sub){
     var isNa = value === 'Not available yet';
+    if(partial && cls!=='net') sub='Incomplete: a proof source is unavailable';
     return '<div class="pl-stat '+cls+'"><div class="pl-stat-top"><span class="pl-stat-ic">'+ic+'</span><span class="pl-stat-label">'+label+'</span></div><div><div class="pl-stat-val '+(isNa?'na':'')+'">'+value+'</div><div class="pl-stat-sub">'+sub+'</div></div></div>';
   }
   var total=evs.length;
@@ -443,6 +465,7 @@ function plHealthRender(){
   var evs=window.__plEvents||[];
   var stateCls=''; var title='No proof events yet'; var body='Explicitly classified OSI proof events will appear here after they are recorded.';
   if(src==='loaded' && evs.length){ stateCls='ok'; title='Live proof source connected'; body=plT(evs.length===1?'{count} classified proof event loaded from the OSI proof index.':'{count} classified proof events loaded from the OSI proof index.',{count:evs.length}); }
+  else if(src==='partial'){ title='Some proof sources are unavailable'; body=plT(evs.length===1?'{count} proof event loaded from the sources that answered. The log is incomplete until every source recovers.':'{count} proof events loaded from the sources that answered. The log is incomplete until every source recovers.',{count:evs.length}); }
   else if(src==='error'){ stateCls='err'; title='Proof source unavailable'; body='Unable to load proof events right now.'; }
   else if(src==='unavailable'){ stateCls='err'; title='Proof source unavailable'; body='The proof source is not connected in this environment.'; }
   else if(src==='demo'){ title='Sample mode enabled'; body='Sample proof events are visible because the explicit sample-data switch is enabled.'; }
@@ -466,13 +489,15 @@ function plPaint(){
     });
   }
   if(plState.filter!=='all') evs=evs.filter(function(e){ return plGroup(e)===plState.filter; });
-  var stripCls = (src==='loaded' && all.length) ? ' ok' : ((src==='error'||src==='unavailable') ? ' err' : '');
-  var stripTitle = (src==='loaded' && all.length) ? 'Live proof source connected' : (src==='error'||src==='unavailable' ? 'Proof source unavailable' : (src==='demo' ? 'Sample mode enabled' : 'No proof events yet'));
+  var stripCls = (src==='loaded' && all.length) ? ' ok' : ((src==='error'||src==='unavailable') ? ' err' : (src==='partial' ? ' warn' : ''));
+  var stripTitle = (src==='loaded' && all.length) ? 'Live proof source connected' : (src==='error'||src==='unavailable' ? 'Proof source unavailable' : (src==='partial' ? 'Some proof sources are unavailable' : (src==='demo' ? 'Sample mode enabled' : 'No proof events yet')));
   var stripBody = (src==='loaded' && all.length) ? plT(all.length===1?'{count} public proof event loaded and classified by explicit receipt fields.':'{count} public proof events loaded and classified by explicit receipt fields.',{count:all.length})
+    : (src==='partial' ? plT(all.length===1?'{count} public proof event loaded from the sources that answered. Receipts from an unavailable source are missing until it recovers.':'{count} public proof events loaded from the sources that answered. Receipts from an unavailable source are missing until it recovers.',{count:all.length})
     : (src==='error' ? 'Unable to load proof events right now.'
     : (src==='unavailable' ? 'Proof source is not connected in this environment.'
-    : (src==='demo' ? 'Sample rows are visible only because the explicit sample-data switch is enabled.' : 'Explicitly classified OSI proof events will appear here after they are recorded.')));
-  var strip = '<div class="pl-strip'+stripCls+'"><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>'+stripTitle+'</b><span>'+stripBody+'</span></div></div>';
+    : (src==='demo' ? 'Sample rows are visible only because the explicit sample-data switch is enabled.' : 'Explicitly classified OSI proof events will appear here after they are recorded.'))));
+  var retry = (src==='partial'||src==='error') ? '<button class="cr-btn outline pl-strip-retry" type="button" onclick="plRetry()">'+(src==='partial'?'Retry all sources':'Try again')+'</button>' : '';
+  var strip = '<div class="pl-strip'+stripCls+'"'+(src==='partial'?' role="status"':'')+'><span class="pl-strip-dot"></span><div class="pl-strip-t"><b>'+stripTitle+'</b><span>'+stripBody+'</span></div>'+retry+'</div>';
   var totalPages=Math.max(1, Math.ceil(evs.length/PL_PER));
   if(plState.page>totalPages) plState.page=totalPages; if(plState.page<1) plState.page=1;
   var from=(plState.page-1)*PL_PER, page=evs.slice(from, from+PL_PER);
@@ -489,9 +514,9 @@ function plPaint(){
   if(pn){
     if(totalPages<=1){ pn.innerHTML=''; }
     else{
-      var ph='<button class="fo-pg" type="button" '+(plState.page<=1?'disabled':'')+' onclick="plSetPage('+(plState.page-1)+')">Prev</button>';
-      for(var pi=1;pi<=totalPages;pi++){ ph+='<button class="fo-pg n'+(pi===plState.page?' active':'')+'" type="button" onclick="plSetPage('+pi+')">'+pi+'</button>'; }
-      ph+='<button class="fo-pg" type="button" '+(plState.page>=totalPages?'disabled':'')+' onclick="plSetPage('+(plState.page+1)+')">Next</button>';
+      var ph='<button class="fo-pg" type="button" '+(plState.page<=1?'disabled':'')+' onclick="plSetPage('+(plState.page-1)+')" aria-label="'+escapeHtml(plT('Previous page'))+'">Prev</button>';
+      for(var pi=1;pi<=totalPages;pi++){ var current=pi===plState.page; ph+='<button class="fo-pg n'+(current?' active':'')+'" type="button"'+(current?' aria-current="page"':'')+' aria-label="'+escapeHtml(plT('Page {n}',{n:pi}))+'" onclick="plSetPage('+pi+')">'+pi+'</button>'; }
+      ph+='<button class="fo-pg" type="button" '+(plState.page>=totalPages?'disabled':'')+' onclick="plSetPage('+(plState.page+1)+')" aria-label="'+escapeHtml(plT('Next page'))+'">Next</button>';
       pn.innerHTML=ph;
     }
   }
@@ -558,7 +583,7 @@ async function renderProofLog(){
       seen[key]=true;
       return true;
     }).sort(function(a,b){return new Date(b.created_at||0)-new Date(a.created_at||0);});
-    source = events.length ? 'loaded' : (attempts>0&&failures===attempts?'error':(failures?'error':'empty'));
+    source = events.length ? (failures ? 'partial' : 'loaded') : (attempts>0&&failures===attempts?'error':(failures?'error':'empty'));
   }
   if(typeof events==='undefined') events=[];
   window.__plDemo = false;
@@ -567,7 +592,7 @@ async function renderProofLog(){
   window.__plSourceState = source;
   plState.filter='all'; plState.q=''; plState.page=1;
   var s=document.getElementById('pl-search'); if(s) s.value='';
-  document.querySelectorAll('#pl-fils .rf-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.f==='all'); });
+  plMarkFilter('all');
   plPaint();
 }
 function cfDrawerHtml(b){

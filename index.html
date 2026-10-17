@@ -459,13 +459,13 @@
       <div class="pl-maincol">
         <div class="pl-toolbar">
           <div class="rf-tabs pl-fils" id="pl-fils">
-            <button class="rf-tab active" data-f="all" type="button" onclick="plFilter('all')">All</button>
-            <button class="rf-tab" data-f="case" type="button" onclick="plFilter('case')">Cases</button>
-            <button class="rf-tab" data-f="report" type="button" onclick="plFilter('report')">Reports</button>
-            <button class="rf-tab" data-f="vote" type="button" onclick="plFilter('vote')">Reviews</button>
-            <button class="rf-tab" data-f="challenge" type="button" onclick="plFilter('challenge')">Challenges</button>
-            <button class="rf-tab" data-f="support" type="button" onclick="plFilter('support')">Support</button>
-            <button class="rf-tab" data-f="seal" type="button" onclick="plFilter('seal')">Seals</button>
+            <button class="rf-tab active" data-f="all" type="button" aria-pressed="true" onclick="plFilter('all')">All</button>
+            <button class="rf-tab" data-f="case" type="button" aria-pressed="false" onclick="plFilter('case')">Cases</button>
+            <button class="rf-tab" data-f="report" type="button" aria-pressed="false" onclick="plFilter('report')">Reports</button>
+            <button class="rf-tab" data-f="vote" type="button" aria-pressed="false" onclick="plFilter('vote')">Reviews</button>
+            <button class="rf-tab" data-f="challenge" type="button" aria-pressed="false" onclick="plFilter('challenge')">Challenges</button>
+            <button class="rf-tab" data-f="support" type="button" aria-pressed="false" onclick="plFilter('support')">Support</button>
+            <button class="rf-tab" data-f="seal" type="button" aria-pressed="false" onclick="plFilter('seal')">Seals</button>
           </div>
           <div class="pl-search-wrap"><input class="cr-search" id="pl-search" type="search" aria-label="Search the public Proof Log" placeholder="Search by wallet / case ID / tx hash" oninput="plSearch(this.value)"></div>
         </div>

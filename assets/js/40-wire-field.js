@@ -74,7 +74,7 @@ function drawWire(){
   let list = wireState.data.slice();
   list.sort(function(a,b){ return new Date(b.created_at||0) - new Date(a.created_at||0); });
   const sourceNotice = wireState.phase==='error'
-    ? '<div class="wire-empty wire-source-error" role="alert"><div class="wire-empty-h">Live dispatches are temporarily unavailable.</div><p>'+(list.length ? 'Curated public reports are still available below.' : 'We could not reach the intelligence network just now.')+'</p><button class="wire-retry" type="button" onclick="renderWire()">Retry live source</button></div>'
+    ? '<div class="wire-empty wire-source-error" role="alert"><div class="wire-empty-h">Live dispatches are temporarily unavailable.</div><p>'+(list.length ? 'Curated public reports are still available below.' : 'We could not reach the intelligence network just now.')+'</p><button class="wire-retry" type="button" onclick="wireRetry()">Retry live source</button></div>'
     : '';
   if(!list.length){
     if(sourceNotice){ host.innerHTML = sourceNotice; return; }
@@ -85,6 +85,14 @@ function drawWire(){
   const boosted=lsGet('stw_boosted',{});
   host.querySelectorAll('.bounty[data-bid]').forEach(function(card){ if(boosted[card.dataset.bid]) markBoostedUI(card,null); });
   hydrateBoosts();
+}
+// Retrying replaces the pressed button, so keyboard focus moves to the
+// refreshed feed instead of falling back to the page.
+function wireRetry(){
+  return Promise.resolve(renderWire()).then(function(){
+    const feed=document.getElementById('wire-cases');
+    if(feed&&wireState.mode==='public'&&typeof feed.focus==='function'){ feed.setAttribute('tabindex','-1'); feed.focus({preventScroll:true}); }
+  });
 }
 function wireCard(d){
   const id = escapeHtml(d.id);
@@ -146,11 +154,18 @@ function wireLocale(){var selected=window.OSI_I18N&&typeof window.OSI_I18N.getLo
 // counter at all, so the empty state never reads as activity.
 function wireStats(list){
   const host=document.getElementById('wire-stats'); if(!host) return;
-  const total = list.length;
-  const published = list.filter(function(d){ return d.native; }).length;
-  const legacy = total - published;
+  const native = list.filter(function(d){ return d.native; });
+  const legacy = list.length - native.length;
+  // The public feed lists superseded versions beside the current one, so a
+  // Wire Report is counted once by its stable reference and the earlier
+  // versions are named separately.
+  const reports = {};
+  native.forEach(function(d){ reports[String(d.wire_report_public_ref||d.id)] = true; });
+  const published = Object.keys(reports).length;
+  const earlier = native.filter(function(d){ return d.is_current_published===false; }).length;
   const parts = [];
   if(published) parts.push(wireT(published===1?'{count} published Wire Report':'{count} published Wire Reports',{count:published}));
+  if(earlier) parts.push(wireT(earlier===1?'{count} earlier version':'{count} earlier versions',{count:earlier}));
   if(legacy) parts.push(wireT(legacy===1?'{count} legacy reference':'{count} legacy references',{count:legacy}));
   host.textContent = parts.join(', ');
   host.hidden = !parts.length;

@@ -74,7 +74,7 @@ ok(analyst.includes("op:'prepare_activation'") && analyst.includes("op:'commit_a
 ok(analyst.includes('signMessage(prepared.message)'), 'class-B application and review proofs sign exact server messages');
 ok(analyst.includes('castOnchainVote(prepared.memo)'), 'probation activation uses an exact Solana Memo');
 ok(analyst.includes('transaction_not_confirmed') && analyst.includes('commitActivationWithConfirmation'), 'UI never treats an unconfirmed Memo as success');
-ok(analyst.includes("weight '+Number(committed.analyst.weight).toFixed(2)"), 'activated weight is displayed from the server result');
+ok(analyst.includes("t('Probation activated at server-derived weight {weight}.',{weight:weightText(committed.analyst.weight)})"), 'activated weight is displayed from the server result');
 ok(analyst.includes("t('Pay with Phantom')")
   && analyst.includes("t('Solana Pay QR')")
   && analyst.includes("\\'phantom\\'")

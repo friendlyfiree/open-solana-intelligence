@@ -169,7 +169,8 @@ function pfShell(addr, name, email, joined, reports, bounties, boosted, pubIds){
 function pfLiveName(v){ const el=document.querySelector('.pf-name'); if(el && el.firstChild){ el.firstChild.textContent=(v || (walletPubkey?short(walletPubkey):'')) + ' '; } }
 function pfCopy(a){
   osiCopyText(a).then(function(copied){
-    showToast(copied ? 'Address copied.' : 'Copy failed. Select the address and copy it manually.');
+    var copyMessage = copied ? 'Address copied.' : 'Copy failed. Select the address and copy it manually.';
+    showToast(typeof window.osiT === 'function' ? window.osiT(copyMessage) : copyMessage);
   });
 }
 

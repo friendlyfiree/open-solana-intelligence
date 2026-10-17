@@ -468,6 +468,14 @@ function crResetFilters(){
   // where the next action starts instead of dropping focus to the page.
   if(search&&typeof search.focus==='function') search.focus({preventScroll:true});
 }
+// Retrying replaces the pressed button, so keyboard focus moves to the
+// refreshed record list instead of falling back to the page.
+function crRetry(){
+  return Promise.resolve(renderCaseRecords()).then(function(){
+    var list=document.getElementById('case-records');
+    if(list&&typeof list.focus==='function'){ list.setAttribute('tabindex','-1'); list.focus({preventScroll:true}); }
+  });
+}
 function crPage(p){
   crState.page=p|0; crPaint();
   var h=document.getElementById('case-records'); if(h){ try{ h.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
@@ -555,10 +563,10 @@ function crPaint(){
   var from=(crState.page-1)*CR_PER, page=reports.slice(from, from+CR_PER);
   var sourceState = window.__crSourceState || 'empty';
   var partialHtml=sourceState==='partial'
-    ?'<div class="cr-source-warning" role="status"><div><b>'+escapeHtml(crT('Some public record sources are temporarily unavailable.'))+'</b><span>'+escapeHtml(crT('The records shown are verified results from the sources that answered. Published Reports may be incomplete until the Case registry recovers.'))+'</span></div><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Retry all sources'))+'</button></div>'
+    ?'<div class="cr-source-warning" role="status"><div><b>'+escapeHtml(crT('Some public record sources are temporarily unavailable.'))+'</b><span>'+escapeHtml(crT('The records shown are verified results from the sources that answered. Published Reports may be incomplete until the Case registry recovers.'))+'</span></div><button class="cr-btn outline" type="button" onclick="crRetry()">'+escapeHtml(crT('Retry all sources'))+'</button></div>'
     :'';
   var emptyHtml = (sourceState === 'error' || sourceState === 'unavailable')
-    ? '<div class="cr-noyet" role="alert"><b>'+escapeHtml(crT('Public records source unavailable.'))+'</b><span>'+escapeHtml(crT('Unable to load reviewed records right now. Private or cached data is never used as a fallback.'))+'</span><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Try again'))+'</button></div>'
+    ? '<div class="cr-noyet" role="alert"><b>'+escapeHtml(crT('Public records source unavailable.'))+'</b><span>'+escapeHtml(crT('Unable to load reviewed records right now. Private or cached data is never used as a fallback.'))+'</span><button class="cr-btn outline" type="button" onclick="crRetry()">'+escapeHtml(crT('Try again'))+'</button></div>'
     : '<div class="cr-noyet"><b>'+escapeHtml(crT('No published or sealed records yet.'))+'</b><span>'+escapeHtml(crT('Exact published Report versions and governed public outcomes will appear here. Open investigations remain available in the Field Office.'))+'</span><button class="cr-btn outline" type="button" onclick="osiNavigate(&quot;field&quot;)">'+escapeHtml(crT('Browse public Cases'))+'</button></div>';
   // A search that only matches an open investigation says where that Case is,
   // instead of reading as a missing record.

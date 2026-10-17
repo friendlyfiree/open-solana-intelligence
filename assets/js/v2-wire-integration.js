@@ -86,6 +86,18 @@
       ,not_eligible_for_wire_queue:'This wallet is not authorized for the restricted Wire queue.'
       ,bad_signature:'The wallet signature did not verify for this exact action.'
       ,private_session_changed:'Private access changed while this action was running. Reopen the exact task.'
+      ,'evidence URL is invalid':'One evidence link is not a public https:// address.'
+      ,'transaction reference is invalid':'One transaction signature is not a valid Solana signature.'
+      ,'evidence ref is invalid':'One evidence line is empty or too long.'
+      ,'duplicate evidence item':'The same evidence reference appears twice.'
+      ,'actor_wallet is invalid':'One evidence wallet address is not a valid Solana address.'
+      ,'evidence is invalid':'A Wire Report can include at most 12 evidence references.'
+      ,'Wire title is invalid':'The public-safe title must be 3 to 160 characters.'
+      ,'Wire summary is invalid':'The public-safe summary must be 10 to 10,000 characters.'
+      ,'Wire analysis is invalid':'The analysis must be 20 to 100,000 characters.'
+      ,'Wire uncertainties is invalid':'Uncertainties and limits can be at most 10,000 characters.'
+      ,bad_wire_payload:'The Wire content or evidence did not pass server validation. Your draft is safe. Check the fields and evidence formats, then submit again.'
+      ,body_too_large:'This submission is larger than the server accepts. Shorten the longest field and try again.'
     };
     if(messages[code])return messages[code];
     // A wallet failure carries free text or a numeric provider code, never a
@@ -118,7 +130,9 @@
   function draftPublicSummary(value){
     return String(value||'').replace(/\s+/g,' ').trim().slice(0,4000);
   }
-  function lines(id,kind){var node=document.getElementById(id);if(!node)return[];return String(node.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});}
+  // A link is split on new lines only, because an https URL may contain a
+  // comma; addresses and signatures may also be comma-separated on one line.
+  function lines(id,kind){var node=document.getElementById(id);if(!node)return[];return String(node.value||'').split(kind==='url'?/\r?\n/:/[\r\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});}
   function payload(){
     return{
       title_public_safe:document.getElementById('osi-wire-title').value,
@@ -443,8 +457,11 @@
   }
   // The drawer header already carries the title, so the overview opens on
   // what the header does not say: which version this is and who wrote it.
+  // On a phone the header clamps a long title to three lines, so the full
+  // title is repeated here and shown only at that width.
   function overviewTab(item){
-    return'<section class="osi-case-section"><div class="osi-section-heading"><span class="osi-eyebrow">Standalone finding</span><span class="osi-chip">'+esc(t('Version {n}',{n:item.version_no}))+'</span></div>'+attribution(item.author,'author')+'<h4>Public-safe summary</h4><p data-osi-user-content>'+esc(item.summary)+'</p>'+publicationBlock(item)+'<div class="osi-case-note">Publication exposes the public-safe summary, approved public evidence, review record, and proof log. Restricted analysis and uncertainties remain private. Publication is not automatic truth, guilt, legal certainty, recovery, custody, or guaranteed payment.</div></section>';
+    var title=String(item.title||'');
+    return'<section class="osi-case-section">'+(title.length>60?'<p class="osi-wire-full-title" data-osi-user-content>'+esc(title)+'</p>':'')+'<div class="osi-section-heading"><span class="osi-eyebrow">Standalone finding</span><span class="osi-chip">'+esc(t('Version {n}',{n:item.version_no}))+'</span></div>'+attribution(item.author,'author')+'<h4>Public-safe summary</h4><p data-osi-user-content>'+esc(item.summary)+'</p>'+publicationBlock(item)+'<div class="osi-case-note">Publication exposes the public-safe summary, approved public evidence, review record, and proof log. Restricted analysis and uncertainties remain private. Publication is not automatic truth, guilt, legal certainty, recovery, custody, or guaranteed payment.</div></section>';
   }
   function evidenceTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact immutable version</span><h3>Evidence</h3></div><span class="osi-chip">'+esc(t((item.evidence||[]).length===1?'{count} reference':'{count} references',{count:(item.evidence||[]).length}))+'</span></div><div class="osi-report-evidence-list">'+((item.evidence||[]).map(publicEvidenceItem).join('')||'<p>No public evidence references were recorded.</p>')+'</div></section>';}
   // A revision deactivates the earlier row. It stays in the public record,

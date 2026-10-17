@@ -1689,9 +1689,10 @@
     var ref=String(publicRef||'');
     var drawerToken=++state.drawerLoadToken;
     state.activeReviewTask=reviewTask||null;
-    // A malformed reference never reaches the server. It opens the drawer's
+    // A malformed #case/ link never reaches the server. It opens the drawer's
     // own "not a valid public reference" state, with its way back to the list.
-    if(!isCaseRef(ref)){
+    // References the interface itself holds are left to the server to judge.
+    if(options.fromRoute===true&&!isCaseRef(ref)){
       var badDrawer=revealCaseDrawer();
       if(!badDrawer){state.activeReviewTask=null;return null;}
       state.current=null;state.activeReviewTask=null;

@@ -15,6 +15,10 @@ function setMaintainerServerGate(allowed,reason){
   OSI_MAINTAINER_SERVER_GATE = allowed === true;
   OSI_MAINTAINER_GATE_REASON = reason || (allowed ? 'full' : 'denied');
   updateMaintainerAccessUI();
+  // A disconnect or sign-out drops a gate, so the operator's profile editor
+  // on the Analyst Network goes with it. Only the Case capability read grants
+  // it back; a check in progress changes nothing.
+  if(allowed !== true && reason !== 'checking' && typeof window.osiV2SetMaintainerCapability === 'function') window.osiV2SetMaintainerCapability(false);
 }
 
 function updateMaintainerAccessUI(){

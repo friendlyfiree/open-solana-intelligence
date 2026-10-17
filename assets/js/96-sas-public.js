@@ -57,8 +57,15 @@
   // The credential's states are named for what they say about the credential.
   // "Verified" is also an analyst tier, so the credential never borrows it.
   var STATE_TEXT={verified:'Current',invalid:'Invalid',expired:'Expired',revoked:'Revoked',unavailable:'Unavailable',pending_verification:'Check pending'};
-  var REASON_TEXT={valid:'Current credential',absent:'No credential exists for this wallet',expired:'The credential has expired',revoked:'The credential was revoked'};
-  var SOURCE_TEXT={live:'Live Solana read',cache:'Recent cached read',cached:'Recent cached read'};
+  var REASON_TEXT={valid:'Current credential',absent:'No credential exists for this wallet',expired:'The credential has expired',revoked:'The credential was revoked',
+    not_configured:'OSI has not published its credential configuration yet',
+    credential_mismatch:'The attestation names a different credential',
+    schema_mismatch:'The attestation uses a different schema',
+    issuer_mismatch:'The attestation was signed by a different issuer',
+    wrong_program:'The account is not owned by the attestation program',
+    decode_error:'The attestation account could not be decoded',
+    rpc_unavailable:'Solana could not be read right now'};
+  var SOURCE_TEXT={live:'Live Solana read',cache:'Recent cached read',cached:'Recent cached read',config:'OSI configuration, no Solana read'};
   function stateText(value){value=String(value||'unavailable');return STATE_TEXT[value]?tr(STATE_TEXT[value]):value;}
   function reasonText(value){value=String(value||'');return REASON_TEXT[value]?tr(REASON_TEXT[value]):(value||tr('Not returned'));}
   function sourceText(value){value=String(value||'');return SOURCE_TEXT[value]?tr(SOURCE_TEXT[value]):(value||tr('Unavailable'));}

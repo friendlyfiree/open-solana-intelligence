@@ -5172,3 +5172,210 @@ test('Report review reasons follow the decision and blocked publish controls exp
   await page.evaluate(() => window.osiSetLanguage('en'));
   expectCleanRuntime(page);
 });
+
+test('Wire evidence keeps comma URLs whole and names the evidence a server rejects', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  let prepared = null;
+  await page.route('**/functions/v1/osi-v2-wire', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'prepare_wire') {
+      prepared = body;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'evidence URL is invalid' }) });
+    }
+    if (body.op === 'list_my_wire_reports') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'read_session_expired' }) });
+    return route.fallback();
+  });
+  await page.evaluate(() => window.osiV2OpenWireForm());
+  await page.locator('#osi-wire-title').fill('Comma evidence Wire fixture');
+  await page.locator('#osi-wire-summary').fill('A public-safe standalone finding prepared for independent review and exact publication.');
+  await page.locator('#osi-wire-analysis').fill('The detailed fixture analysis follows transaction order, competing explanations, and reproducible evidence limitations.');
+  await page.locator('#osi-wire-urls').evaluate((node) => { node.value = 'https://example.org/report?ids=1,2,3\nhttps://example.org/second'; });
+  await page.locator('#osi-wire-transactions').evaluate((node, tx) => { node.value = `${tx}, ${tx.slice(0, -1)}2`; }, TX);
+  await page.locator('#osi-wire-safety').check();
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.locator('#osi-wire-submit').click();
+  await expect.poll(() => prepared && prepared.wire && prepared.wire.evidence.length).toBe(4);
+  const urls = prepared.wire.evidence.filter((item) => item.kind === 'url').map((item) => item.ref);
+  expect(urls).toEqual(['https://example.org/report?ids=1,2,3', 'https://example.org/second']);
+  expect(prepared.wire.evidence.filter((item) => item.kind === 'onchain_tx')).toHaveLength(2);
+  await expect(page.locator('#osi-wire-form-status')).toHaveText('Kanıt bağlantılarından biri kamuya açık bir https:// adresi değil.');
+  await page.evaluate(() => window.osiV2CloseWireForm && window.osiV2CloseWireForm());
+  await page.evaluate(() => window.osiV2OpenMyWireReports());
+  await expect(page.locator('#wire-cases')).toContainText('Özel çalışma oturumunuzun süresi gerçekten doldu');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+test('Proof Log marks a partial source, pages with focus, and speaks Turkish when filters empty', async ({ page }) => {
+  await ready(page, { role: 'anonymous', caseReadFailureOnly: true });
+  const events = Array.from({ length: 12 }, (_, index) => ({
+    event_type: 'WIRE_REPORT_REVIEW_CAST', label: 'Wallet-signed and server-verified', proof_type: 'wallet_signed_server_verified',
+    actor_wallet: WALLET, actor_role: 'analyst', decision: index === 0 ? 'revise' : 'approve', weight: 1, occurred_at: iso(-1 - index / 100),
+  }));
+  await page.route('**/functions/v1/osi-v2-wire', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_public_wire_reports') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, public_projection: true, reports: [{ ...publicWireListItem, proof_log: events }] }) });
+  });
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await page.evaluate(() => window.osiNavigate('prooflog'));
+  await expect(page.locator('#pl-body .pl-strip')).toContainText('Some proof sources are unavailable');
+  expect(await page.evaluate(() => window.__plSourceState)).toBe('partial');
+  await expect(page.locator('#pl-health')).not.toContainText('Live proof source connected');
+  await expect(page.locator('#pl-dash')).toContainText('Incomplete: a proof source is unavailable');
+  await expect(page.locator('#pl-fils [data-f="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#pl-pnav [aria-current="page"]')).toHaveText('1');
+  await page.locator('#pl-pnav button', { hasText: /^2$/ }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#pl-count')).toBeFocused();
+  await expect(page.locator('#pl-pnav [aria-current="page"]')).toHaveText('2');
+  await page.locator('#pl-fils [data-f="challenge"]').click();
+  await expect(page.locator('#pl-fils [data-f="challenge"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#pl-fils [data-f="all"]')).toHaveAttribute('aria-pressed', 'false');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(page.locator('#pl-body .pl-empty')).toContainText('Eşleşen kanıt olayı bulunamadı.');
+  await expect(page.locator('#pl-body .pl-empty')).toContainText('Başka bir filtre veya arama terimi deneyin.');
+  await page.locator('#pl-fils [data-f="all"]').click();
+  await expect(page.locator('#pl-body')).toContainText('Karar: revizyon');
+  await page.locator('#pl-body .plc-copy').first().click();
+  await expect(page.locator('#stw-toast')).toContainText('Cüzdan kopyalandı.');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await page.locator('#pl-body .pl-strip-retry').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#pl-body')).toBeFocused();
+  expectCleanRuntime(page);
+});
+
+test('Wire counts each report once, retries keep focus, and long titles stay readable on phones', async ({ page }) => {
+  await ready(page, { role: 'anonymous', caseReadFailureOnly: true });
+  let wireDown = true;
+  const longTitle = 'Treasury movement pattern: consolidation of drained funds through intermediary wallets before bridge exits and exchange deposits over 6 days';
+  const earlier = { ...publicWireListItem, version_public_ref: 'OSI-WV-A1B2C3D4E5F60001', version_no: 1, is_current_published: false, published_at: iso(-4) };
+  const other = { ...publicWireListItem, wire_report_public_ref: 'OSI-WR-C1C2C3D4E5F6', version_public_ref: 'OSI-WV-C1C2C3D4E5F60718', title: 'Second Wire fixture' };
+  await page.route('**/functions/v1/osi-v2-wire', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'list_public_wire_reports') {
+      if (wireDown) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'read_failed' }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, public_projection: true, reports: [publicWireListItem, earlier, other] }) });
+    }
+    if (body.op === 'get_public_wire_report') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, public_projection: true, report: { ...publicWireDetail, title: longTitle } }) });
+    return route.fallback();
+  });
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await page.evaluate(() => window.osiNavigate('wire'));
+  const retry = page.locator('#wire-cases .wire-retry');
+  await expect(retry).toBeVisible();
+  wireDown = false;
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await retry.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#wire-cases')).toBeFocused();
+  await expect(page.locator('#wire-stats')).toContainText('2 published Wire Reports, 1 earlier version');
+
+  await page.evaluate(() => window.osiNavigate('records'));
+  const recordsRetry = page.locator('#case-records .cr-source-warning button');
+  await expect(recordsRetry).toBeVisible();
+  await recordsRetry.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#case-records')).toBeFocused();
+
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.evaluate((ref) => window.osiV2OpenWireReport(ref), WIRE_VERSION_REF);
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toBeVisible();
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toHaveText(longTitle);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toBeHidden();
+  expectCleanRuntime(page);
+});
+
+test('profile routes explain a missing analyst or maintainer instead of a raw code or silence', async ({ page }) => {
+  await ready(page, { role: 'anonymous', noMaintainerProfile: true });
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_profile') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'profile_not_found' }) });
+  });
+  await page.evaluate(() => { window.osiPublicReadInvalidate(); window.location.hash = 'maintainer'; });
+  await expect(page.locator('#ap-modal')).toHaveClass(/\bopen\b/);
+  await expect(page.locator('#ap-modal-body')).toContainText('Maintainer profile unavailable');
+  await expect(page.locator('#ap-modal-body')).toContainText('No maintainer profile is published yet.');
+  await page.evaluate(() => window.closeAnalystProfile());
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.evaluate(() => { window.location.hash = 'analyst/nobody_here'; });
+  await expect(page.locator('#ap-modal-body')).toContainText('Bu kullanıcı adını kullanan herkese açık bir analist profili yok.');
+  await expect(page.locator('#ap-modal-body')).not.toContainText('profile not found');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+test('the maintainer editor keeps focus, speaks Turkish and goes away when a gate drops', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  const host = page.locator('#osi-maintainer-profile');
+  const edit = host.locator('[data-maintainer-edit]');
+  await expect(edit).toBeVisible();
+  await edit.click();
+  await expect(host.locator('[data-mp-name]')).toBeFocused();
+  await host.locator('[data-mp-cancel]').click();
+  await expect(edit).toBeFocused();
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(edit).toHaveText('Sürdürücü profilini düzenle');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await page.evaluate(() => window.setMaintainerServerGate(false, 'signed_out'));
+  await expect(host.locator('[data-maintainer-edit]')).toHaveCount(0);
+  expectCleanRuntime(page);
+});
+
+test('the Operations application queue reads in Turkish with named reasons and expertise', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.evaluate(() => window.admOpen());
+  await expect(page.locator('#admPanel')).toBeVisible();
+  await page.getByRole('button', { name: 'Refresh queue' }).click();
+  const application = page.locator(`[data-application-id="${APPLICATION_ID}"]`);
+  await expect(application).toBeVisible();
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(application.locator('[data-analyst-reason] option').first()).toHaveText('Deneme süreci asgari koşullarını karşılıyor');
+  await expect(application.locator('header p')).toContainText('sürüm 1');
+  await expect(application).not.toContainText('Onchain Tracing');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+test('an active analyst is sent to My Profile instead of a new application form', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await expect(page.locator('#lb-body')).toContainText('Verified analyst role fixture');
+  await page.evaluate(() => window.apxOpen());
+  await expect(page.locator('#stw-toast')).toContainText('Your wallet already has an active analyst profile. Open My Profile instead.');
+  await expect(page.locator('#apx-modal')).not.toHaveClass(/\bopen\b/);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'prepare_application')).toBe(0);
+  expectCleanRuntime(page);
+});
+
+test('the public SAS verifier names every server reason and source in plain words', async ({ page }) => {
+  await ready(page, { role: 'anonymous' });
+  await page.route('**/functions/v1/osi-v2-proof', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.mode !== 'sas_verify') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, wallet: body.wallet, valid: false, state: 'invalid', reason: 'credential_mismatch', source: 'config', checked_at: null }) });
+  });
+  await page.evaluate(() => window.osiNavigate('methodology'));
+  await page.locator('#sas-verifier-wallet').fill(OTHER);
+  await page.locator('#sas-verifier-form').getByRole('button', { name: 'Verify wallet' }).click();
+  await expect(page.locator('#sas-verifier-result')).toContainText('The attestation names a different credential');
+  await expect(page.locator('#sas-verifier-result')).toContainText('OSI configuration, no Solana read');
+  await expect(page.locator('#sas-verifier-result')).not.toContainText('credential_mismatch');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.locator('#sas-verifier-wallet').fill('');
+  await page.locator('#sas-verifier-form button[type="submit"]').click();
+  await expect(page.locator('#sas-verifier-status')).toHaveText('Kontrol etmek için bir Solana cüzdan adresi yapıştırın.');
+  expect(await page.evaluate(() => window.identityWeightText(1.5))).toBe('1,50');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expect(await page.evaluate(() => window.identityWeightText(1.5))).toBe('1.50');
+  expectCleanRuntime(page);
+});
