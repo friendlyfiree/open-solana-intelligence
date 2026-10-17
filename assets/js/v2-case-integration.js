@@ -692,7 +692,7 @@
     var publicRef=taskValue(row,['public_ref','report_public_ref','wire_report_public_ref','case_ref','case_public_ref','version_ref'],exact);
     return{
       lane:lane,targetKind:row.target_kind||kind,publicRef:String(publicRef||''),caseRef:String(taskValue(row,['case_ref','case_public_ref'],'')||''),
-      exactTarget:String(exact||''),stage:String(taskValue(row,['stage','lifecycle_state','status'],'submitted')||'submitted'),
+      exactTarget:String(exact||''),stage:String(taskValue(row,['stage','lifecycle_state','status'],'')||''),stageLabel:String(row.stage_label||''),
       routeTarget:String(taskValue(row,['route_target','application_id'],exact)||''),
       conflict:taskValue(row,['submitter_conflict','conflict'],false)===true,
       nextAction:String(taskValue(row,['next_action','prerequisite'],'Open the exact authorized task')||'Open the exact authorized task'),
@@ -801,7 +801,7 @@
   }
   function reviewTaskMarkup(task){
     return'<button class="osi-review-task" type="button" data-review-kind="'+esc(task.targetKind)+'" data-review-target="'+esc(task.exactTarget)+'" data-review-route="'+esc(task.routeTarget||task.exactTarget)+'" data-review-lane="'+esc(task.lane)+'" data-case-ref="'+esc(task.caseRef)+'"><div><span>'+esc(task.publicRef)+'</span>'+(task.exactTarget&&task.exactTarget!==task.publicRef?'<span>'+esc(task.exactTarget)+'</span>':'')+'<b>'+esc(t(task.nextAction))+'</b></div><dl>'
-      +'<div><dt>'+esc(t('Stage'))+'</dt><dd>'+esc(t(label(task.stage)))+'</dd></div><div><dt>'+esc(t('Deadline'))+'</dt><dd>'+esc(task.deadline?dateText(task.deadline):t('No separate deadline'))+'</dd></div><div><dt>'+esc(t('Conflict'))+'</dt><dd class="'+(task.conflict?'warn':'ok')+'">'+esc(task.conflict?t('Excluded'):t('Clear'))+'</dd></div>'
+      +(task.stageLabel||task.stage?'<div><dt>'+esc(t('Stage'))+'</dt><dd>'+esc(t(task.stageLabel||label(task.stage)))+'</dd></div>':'')+'<div><dt>'+esc(t('Deadline'))+'</dt><dd>'+esc(task.deadline?dateText(task.deadline):t('No separate deadline'))+'</dd></div><div><dt>'+esc(t('Conflict'))+'</dt><dd class="'+(task.conflict?'warn':'ok')+'">'+esc(task.conflict?t('Excluded'):t('Clear'))+'</dd></div>'
       +'<div><dt>'+esc(t('Current vote'))+'</dt><dd>'+esc(task.currentVote?t(label(task.currentVote)):t('None'))+'</dd></div><div><dt>'+esc(t('Weight'))+'</dt><dd>'+esc(task.weight==null?t('Not counted'):Number(task.weight).toFixed(2))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(t(label(task.targetKind)))+'</dd></div></dl></button>';
   }
   function drawReviewTasks(host){
@@ -918,7 +918,7 @@
 
   async function openMyChallenges(options){
     options=options||{};++state.drawerLoadToken;var drawer=document.getElementById('osi-case-drawer');if(drawer&&!drawer.hidden)closeCase();
-    showView('field');var token=++state.loadToken;state.mode='challenges';state.locked=null;setFieldRailActive('my-challenges');setFieldCopy('challenges');setReviewChrome(true);setLoading();
+    showView('field');var token=claimFieldList();state.mode='challenges';state.locked=null;setFieldRailActive('my-challenges');setFieldCopy('challenges');setReviewChrome(true);setLoading();
     if(!walletPubkey&&options.authorize!==true){try{if(window.OSI_WALLET_READY)await window.OSI_WALLET_READY;}catch(_){}if(token!==state.loadToken)return;if(!walletPubkey){state.locked='challenges';drawWorkspaceLock(document.getElementById('field-cases'),'challenges');return;}}
     try{
       var result=await sessionRead('challenge:mine','list_my_challenges');if(token!==state.loadToken)return;
@@ -1028,6 +1028,23 @@
     var preview=document.getElementById('fo-preview');
     if(preview) preview.innerHTML='<div class="fo-prev-empty mono">Select a Case for evidence, reviews, Proof Log, and lifecycle prerequisites.</div>';
   }
+  // Governance tasks carry no state field of their own. Read it from the Case
+  // in the same response, so a challenge under review or a seal-ready
+  // Resolution never reads as "Submitted".
+  function withGovernanceStage(id,row){
+    if(id==='initial_open'||!row||row.stage!=null||row.lifecycle_state!=null||row.status!=null)return row;
+    var item=(state.cases||[]).find(function(entry){return entry&&entry.public_ref===String(row.case_ref||row.case_public_ref||'');});
+    var governance=item&&item.governance||{},text='',stage='';
+    if(id==='challenge_admissibility'||id==='challenge_adjudication'){
+      var challenge=(governance.challenges||[]).find(function(entry){return entry&&entry.public_ref===String(row.exact_target||'');});
+      stage=challenge&&challenge.state||'';text=CHALLENGE_STATE[stage]||'';
+    }else if(governance.resolution&&governance.resolution.state){
+      stage=governance.resolution.state;text=RESOLUTION_STATE_LABELS[stage]||'';
+    }else if(item&&item.stage){
+      stage=item.stage;text=stageLabel(item.stage,item);
+    }
+    return stage?Object.assign({},row,{stage:stage,stage_label:text}):row;
+  }
   async function loadCaseReviewLanes(token){
     var laneIds=['initial_open','resolution_selection','challenge_admissibility','challenge_adjudication','seal_reviews'];
     try{
@@ -1041,7 +1058,7 @@
           });
         }
         if(!Array.isArray(rows)){updateReviewLane(id,'error',[],t('The server did not return this lane.'));return;}
-        updateReviewLane(id,'success',rows.map(function(row){return normalizeReviewTask(id,row,'case');}));
+        updateReviewLane(id,'success',rows.map(function(row){return normalizeReviewTask(id,withGovernanceStage(id,row),'case');}));
       });
     }catch(error){
       if(token!==state.reviewLoadToken)return;var code=String(error&&error.message||'');laneIds.forEach(function(id){updateReviewLane(id,'error',[],reviewLaneError(error),code);});
@@ -1098,6 +1115,10 @@
     state.tab=tab;drawTabs();renderTab();
     var active=document.querySelector('#osi-case-tabs [data-tab="'+tab+'"]');if(active)active.focus();
   }
+  // Every Field Office list owns #field-cases. Claiming it retires both an
+  // in-flight list read and an in-flight review queue, so a queue that answers
+  // late never paints its lanes under the public registry or My Cases.
+  function claimFieldList(){++state.reviewLoadToken;return ++state.loadToken;}
   async function loadUnifiedReviewQueue(){
     var token=++state.reviewLoadToken;state.locked=null;setFieldRailActive('review');state.mode='review';state.page=1;state.stage='all';setFieldCopy('review');setReviewChrome(true);resetReviewLanes();
     var host=document.getElementById('field-cases');if(host)drawReviewTasks(host);
@@ -1107,7 +1128,7 @@
     await refreshCapabilities();
   }
   async function loadPublicCases(){
-    var token=++state.loadToken;
+    var token=claimFieldList();
     state.locked=null;setFieldRailActive(railKeyForStage(state.stage));
     state.mode='public';state.actorRole='public';state.page=1;setFieldCopy('public');setReviewChrome(false);setLoading();
     try{
@@ -1138,7 +1159,7 @@
     }
     showView('field');
     if(!walletPubkey&&options.authorize!==true){
-      var lockToken=++state.loadToken;
+      var lockToken=claimFieldList();
       state.locked=null;setFieldRailActive(mode==='review'?'review':(mode==='mine'?'mine':''));setFieldCopy(mode);setReviewChrome(false);setLoading();
       // A trusted Phantom reconnect never prompts, so waiting for it avoids
       // showing the lock to a wallet that is about to restore itself.
@@ -1153,7 +1174,7 @@
     }
     state.locked=null;
     if(mode==='review'){++state.loadToken;return loadUnifiedReviewQueue();}
-    var token=++state.loadToken;
+    var token=claimFieldList();
     setFieldRailActive(mode==='mine'?'mine':'');
     state.mode=mode;state.page=1;state.stage='all';setFieldCopy(mode);setReviewChrome(false);setLoading();
     try{
@@ -1645,6 +1666,11 @@
       ?String(options.returnHash):'';
     if(options.fromRoute!==true)pushCaseRoute(ref);
     paintCaseHeader(ref,cached);
+    // A different Case starts on Overview whether or not it is cached. Keeping
+    // the previous Case's tab could select a tab this Case does not have.
+    if(!state.current||state.current.public_ref!==ref)state.tab='overview';
+    // The actor role belongs to the previous Case until this one's read returns.
+    state.currentActorRole='';
     if(cached){state.current=cached;state.tab='overview';drawTabs();renderTab();renderActions();}
     else caseDrawerLoading();
     setTimeout(function(){
@@ -1778,9 +1804,17 @@
       host.addEventListener('scroll',function(){syncTabOverflow(host);},{passive:true});
     }
   }
+  // The selected tab must be one this Case shows. Otherwise no tab is
+  // selected, the panel names a missing tab, and every tab leaves the
+  // keyboard order.
+  function ensureVisibleTab(rows){
+    rows=rows||visibleTabs();
+    if(rows.length&&!rows.some(function(tab){return tab[0]===state.tab;}))state.tab=rows[0][0];
+    return rows;
+  }
   function drawTabs(){
     var host=document.getElementById('osi-case-tabs');
-    var rows=visibleTabs();
+    var rows=ensureVisibleTab();
     host.hidden=false;
     host.setAttribute('role','tablist');
     host.innerHTML=rows.map(function(tab){
@@ -1908,6 +1942,18 @@
     var analysts=analystRows.filter(sasCounted);
     var uncounted=analystRows.length-analysts.length;
     var opened=(item.proof_log||[]).find(function(row){return row.event_type==='CASE_OPENED';});
+    // A rejected Case has an outcome, not a pending review. Normal rejection
+    // needs an independent analyst quorum and a confirmed Memo.
+    if(String(item.stage||'')==='initial_rejected'){
+      var rejection=(item.proof_log||[]).filter(function(row){return row.event_type==='CASE_INITIAL_REVIEW_REJECTED';})
+        .sort(function(left,right){return (new Date(right.occurred_at).getTime()||0)-(new Date(left.occurred_at).getTime()||0);})[0];
+      var rejectUrl=solscanTx(rejection&&rejection.solscan_url);
+      return '<div class="osi-state-message warning" role="note"><b>'+esc(t('Initial review rejected'))+'</b><span>'+esc(t('An independent analyst quorum rejected this Case for normal investigation, so it stays private. This is not a finding of bad faith. The Case owner may appeal with a new evidence reference; the original submission and the rejection proof are never rewritten.'))+'</span>'
+        +(rejectUrl
+          ?'<a class="osi-proof-link" href="'+esc(rejectUrl)+'" target="_blank" rel="noopener">'+esc(t('Verify the rejection Memo on Solscan'))+'</a>'
+          :'<span class="osi-case-quiet">'+esc(t('No confirmed rejection Memo is public for this Case yet.'))+'</span>')
+        +'</div>';
+    }
     if(!approvals.length){
       return String(item.visibility||'')==='public'
         ? '<div class="osi-state-message" role="note"><b>'+esc(t('Opened for public investigation'))+'</b><span>'+esc(t('No attributable initial-review row is exposed for this Case. OSI shows no reviewer it cannot prove.'))+'</span></div>'
@@ -2247,6 +2293,7 @@
   }
   function renderTab(){
     var item=state.current;if(!item)return;
+    ensureVisibleTab();
     if(state.tab!=='ai_pack'&&typeof window.osiV2AiPackClear==='function')window.osiV2AiPackClear();
     var aiPackAvailable=typeof window.osiV2AiPackRender==='function';
     var html=state.tab==='overview'?overview(item)
@@ -2339,8 +2386,14 @@
   function renderActions(){
     var host=document.getElementById('osi-case-actions');var item=state.current;if(!host||!item)return;
     host.hidden=false;
-    if(item.stage==='initial_rejected'&&state.mode==='mine'){
+    // The appeal follows the server-derived owner, not the surface the Case
+    // was opened from, so the owner keeps it on a #case/ link or a reload.
+    var owner=state.currentActorRole==='owner'
+      ||(!!walletPubkey&&String(item.submitted_by_wallet||'')===String(walletPubkey||''));
+    if(item.stage==='initial_rejected'&&owner){
       host.innerHTML='<span class="osi-action-help">'+esc(t('The rejection is retained with its Memo proof. Appeal only with a new evidence reference; the original submission is never rewritten.'))+'</span><button class="osi-action primary" type="button" onclick="osiV2ComposeCaseAppeal()">'+esc(t('Appeal with new evidence'))+'</button>';
+    }else if(item.stage==='initial_rejected'){
+      host.innerHTML='<span class="osi-action-help">'+esc(t('Initial review rejected. Only the Case owner can appeal, with a new evidence reference.'))+'</span>';
     }else if(reviewSurfaceAvailable(item)){
       // Review and publication controls follow the server-derived capability,
       // not the surface the reader happened to arrive from. An eligible analyst

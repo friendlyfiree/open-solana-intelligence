@@ -4591,3 +4591,109 @@ test('My Reviews shows the analyst\'s own Report vote and weight', async ({ page
   await expect(task).not.toContainText('Not counted');
   expectCleanRuntime(page);
 });
+
+// A review queue that answers after the reader moved to another Field Office
+// list must not paint its lanes over that list.
+test('a slow review queue never paints over the list the reader moved to', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator('#field-cases .osi-v2-row').first()).toBeVisible();
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'list_reviewable_cases') await new Promise((resolve) => setTimeout(resolve, 2500));
+    return route.fallback();
+  });
+  for (const target of ['cases', 'mine']) {
+    await page.evaluate(() => { window.osiV2OpenReviewQueue(); });
+    await expect(page.locator('#field-cases .osi-review-lanes')).toBeVisible();
+    await page.locator(`.fo-rail [data-fo-nav="${target}"]`).click();
+    await page.waitForTimeout(3200);
+    await expect(page.locator('#field-cases .osi-review-lanes')).toHaveCount(0);
+    await expect(page.locator('#field-cases .osi-v2-row').first()).toBeVisible();
+    await expect(page.locator(`.fo-rail [data-fo-nav="${target}"]`)).toHaveClass(/active/);
+  }
+  expectCleanRuntime(page);
+});
+
+// A rejected Case has an outcome, and its owner keeps the appeal however the
+// Case was opened: from My Cases, a #case/ link or a reload.
+test('a rejected Case says it was rejected and keeps the owner appeal outside My Cases', async ({ page }) => {
+  await ready(page, { role: 'legacy', initialRejected: true });
+  const ref = 'OSI-REJ000000001';
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_authorized_case' || body.case_ref !== ref) return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, actor_role: 'owner', case: { ...rejectedCase, public_ref: ref } }) });
+  });
+  // My Cases unlocks the private read session; the Case is then opened from
+  // the public Field Office list, as a #case/ link would.
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator('#field-cases .osi-v2-row').first()).toBeVisible();
+  await page.locator('.fo-rail [data-fo-nav="cases"]').click();
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), ref);
+  await expect(page.locator('#osi-case-state')).toContainText('Initial review rejected');
+  const actions = page.locator('#osi-case-actions');
+  await expect(actions.getByRole('button', { name: 'Appeal with new evidence' })).toBeVisible();
+  await expect(actions).not.toContainText('Awaiting review');
+  await page.getByRole('tab', { name: 'Initial Review', exact: true }).click();
+  const content = page.locator('#osi-case-content');
+  await expect(content).toContainText('An independent analyst quorum rejected this Case for normal investigation');
+  await expect(content.locator(`a[href="https://solscan.io/tx/${TX}"]`).first()).toBeVisible();
+  await expect(content).not.toContainText('Awaiting initial review');
+  expectCleanRuntime(page);
+});
+
+// A Case that is not in the cached list opens on Overview with one selected,
+// keyboard-reachable tab, even when the previous Case was on a tab this one
+// does not have.
+test('a Case opened from a link starts on a tab it actually has', async ({ page }) => {
+  await ready(page);
+  const ref = 'OSI-PRV000000001';
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_case' || body.public_ref !== ref) return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, case: { ...privateCase, public_ref: ref, visibility: 'public', stage: 'open_public', reviews: [], details_restricted: undefined } }) });
+  });
+  await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+  await page.getByRole('tab', { name: 'Initial Review', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#osi-case-drawer')).toBeHidden();
+  await page.evaluate((caseRef) => { window.location.hash = `#case/${caseRef}`; }, ref);
+  await expect(page.locator('#osi-case-ref')).toHaveText(ref);
+  await expect(page.locator('#osi-case-tabs [data-tab="reviews"]')).toHaveCount(0);
+  await expect(page.locator('#osi-case-tabs [aria-selected="true"]')).toHaveCount(1);
+  await expect(page.locator('#osi-case-tabs [aria-selected="true"]')).toHaveAttribute('data-tab', 'overview');
+  await expect(page.locator('#osi-case-tabs [tabindex="0"]')).toHaveCount(1);
+  expectCleanRuntime(page);
+});
+
+// The server sends no state with challenge and seal tasks; the queue reads it
+// from the task's Case instead of calling every task "Submitted".
+test('governance review tasks show the state of their own challenge or Resolution', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  const challenge = richCase.governance.challenges[0];
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_reviewable_cases') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, actor_role: 'analyst', cases: [richCase],
+      review_tasks: {
+        initial_open: [], report_publication: [], resolution_selection: [], challenge_admissibility: [],
+        challenge_adjudication: [{ lane: 'challenge_adjudication', case_ref: CASE_REF, exact_target: challenge.public_ref, deadline: iso(4), conflict: false, current_vote: null, weight_snapshot: 1.5, next_action: 'Review challenge merits' }],
+        seal_reviews: [{ lane: 'seal_reviews', case_ref: CASE_REF, exact_target: 'OSI-RES-A1B2C3D4E5F60718', deadline: iso(6), conflict: false, current_vote: null, weight_snapshot: 1.5, next_action: 'Review process seal' }],
+      },
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReviewQueue());
+  const adjudication = page.locator('#field-cases .osi-review-task[data-review-lane="challenge_adjudication"]');
+  const seal = page.locator('#field-cases .osi-review-task[data-review-lane="seal_reviews"]');
+  await expect(adjudication).toContainText('Under review');
+  await expect(seal).toContainText('Challenge window');
+  await expect(adjudication).not.toContainText('Submitted');
+  await expect(seal).not.toContainText('Submitted');
+  expectCleanRuntime(page);
+});
