@@ -5627,3 +5627,38 @@ test('probation activation retries an incomplete RPC answer with the same transa
   expect(fixtureOperationCount(page, 'osi-v2-analyst', 'prepare_activation')).toBe(1);
   expectCleanRuntime(page);
 });
+
+// A session expiry leaves the amount dialog open, and a support transfer does
+// not use the private read session, so the same wallet's transfer goes on
+// instead of being dropped after the amount is confirmed.
+test('a session expiry keeps an open support transfer for the same wallet', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  let wirePrepared = null;
+  await page.route('**/functions/v1/osi-v2-payment', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'prepare_wire_support') return route.fallback();
+    wirePrepared = body;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'payment_writes_disabled' }) });
+  });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const support = page.locator('#ap-modal-body section', { has: page.locator('#osi-profile-support-copy') });
+  await support.getByRole('button', { name: 'Pay with Phantom' }).click();
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.evaluate(() => window.osiV2ClearReadSession('expiry'));
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.locator('#sol-ask-go').click();
+  await expectFixtureOperation(page, 'osi-v2-payment', 'prepare_payment');
+  await expect(page.locator('#stw-toast')).not.toContainText('transfer was cancelled');
+
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.closeAnalystProfile && window.closeAnalystProfile());
+  await page.evaluate(({ ref, author }) => { window.osiV2SupportWireAuthor(ref, author); }, { ref: WIRE_VERSION_REF, author: OTHER });
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.evaluate(() => window.osiV2ClearReadSession('expiry'));
+  await page.locator('#sol-ask-go').click();
+  await expect.poll(() => wirePrepared && wirePrepared.wallet).toBe(WALLET);
+  await expect(page.locator('#stw-toast')).not.toContainText('transfer was cancelled');
+  expectCleanRuntime(page);
+});

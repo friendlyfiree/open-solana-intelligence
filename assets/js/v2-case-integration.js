@@ -2771,9 +2771,13 @@
     access:'Private access changed while the amount was open, so this transfer was cancelled. Nothing was sent. Start it again.'
   };
   function transferCancelled(kind){showToast(t(TRANSFER_CANCELLED[kind]||TRANSFER_CANCELLED.access));}
-  function transferCancelledSince(openedWallet){
+  // A support transfer opened by one wallet is cancelled when that wallet is
+  // gone or replaced by the time the amount is confirmed.
+  function walletLeftTransfer(openedWallet){
     var current=String(walletPubkey||'');
-    transferCancelled(!current?'disconnected':current!==openedWallet?'wallet':'access');
+    if(!openedWallet||current===openedWallet)return false;
+    transferCancelled(current?'wallet':'disconnected');
+    return true;
   }
   function cancelAmountDialogForWalletChange(reason){
     if(typeof window.osiSolAskOpen!=='function'||!window.osiSolAskOpen()||typeof window.osiCloseSolAsk!=='function')return;
@@ -3366,7 +3370,7 @@
   }
   async function supportExternal(targetType,targetRef,reviewerWallet,preferredMethod){
     if(await handleExistingPayment(preferredMethod))return;
-    var generation=privateGeneration(),openedWallet=String(walletPubkey||'');
+    var openedWallet=String(walletPubkey||'');
     var address=supportAddress(targetType,targetRef,reviewerWallet);
     if(isSelfSupport(address)){showToast(t('The connected wallet is the recipient. Self-support is not allowed.'));return;}
     var amount=await askSolAmount({
@@ -3378,7 +3382,10 @@
         ?t('Recipient: the wallet that authored {version}. OSI never publishes that wallet, so the server derives the exact recipient and Memo when the transfer is prepared and you approve one transaction in your wallet. Direct wallet-to-wallet in native SOL. No custody. Support never changes review, ranking, weight, eligibility, or publication.',{version:String(targetRef||'')})
         :undefined
     });
-    if(generation!==privateGeneration()){if(amount!==null)transferCancelledSince(openedWallet);return;}
+    // The amount dialog stays open through a session expiry or refresh, and a
+    // support transfer does not use the private read session, so it goes on
+    // while the same wallet is connected. Any other change closes the dialog.
+    if(amount!==null&&walletLeftTransfer(openedWallet))return;
     if(amount===null)return;
     if(isSelfSupport(address)){showToast(t('The connected wallet is the recipient. Self-support is not allowed.'));return;}
     if(!validSolInput(amount)){showToast(t('Enter a positive SOL amount with at most 9 decimals.'));return;}
@@ -3395,8 +3402,12 @@
       address:authorWallet,
       action:'Review transfer →'
     });
-    if(generation!==privateGeneration()){if(amount!==null)transferCancelledSince(openedWallet);return;}
+    // As for other support: a session expiry or refresh keeps the transfer
+    // while the same wallet is connected, and the flow then guards against
+    // any later change from the session it has now.
+    if(amount!==null&&walletLeftTransfer(openedWallet))return;
     if(amount===null)return;
+    generation=privateGeneration();
     if(!validSolInput(amount)){showToast(t('Enter a positive SOL amount with at most 9 decimals.'));return;}
     state.paymentBusy=true;
     try{
