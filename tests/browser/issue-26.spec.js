@@ -373,13 +373,13 @@ const publicWireDetail = {
   uncertainties: 'Wallet control and attribution remain uncertain after independent review.',
   evidence: [{ ordinal: 1, kind: 'onchain_tx', ref: TX, sha256: 'a'.repeat(64) }],
   reviews: [
-    { review_public_ref: 'OSI-WRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'reviewer-one', display_name: 'Reviewer one' }, actor_role: 'analyst', decision: 'approve', weight: 1.5, tier_snapshot: 'verified', public_rationale: 'The exact evidence supports publication with the stated uncertainty.', proof_type: 'wallet_signed_server_verified', created_at: iso(-3) },
-    { review_public_ref: 'OSI-WRV-B1B2C3D4E5F6', reviewer: { wallet: '11111111111111111111111111111113', handle: 'reviewer-two', display_name: 'Reviewer two' }, actor_role: 'analyst', decision: 'approve', weight: .5, tier_snapshot: 'probationary', public_rationale: 'The limits are explicit and evidence remains independently inspectable.', proof_type: 'wallet_signed_server_verified', created_at: iso(-2.5) },
+    { review_public_ref: 'OSI-WRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'reviewer-one', display_name: 'Reviewer one' }, actor_role: 'analyst', decision: 'approve', weight: 1.5, tier_snapshot: 'verified', public_rationale: 'The exact evidence supports publication with the stated uncertainty.', proof_type: 'wallet_signed_server_verified', active: true, created_at: iso(-3) },
+    { review_public_ref: 'OSI-WRV-B1B2C3D4E5F6', reviewer: { wallet: '11111111111111111111111111111113', handle: 'reviewer-two', display_name: 'Reviewer two' }, actor_role: 'analyst', decision: 'approve', weight: .5, tier_snapshot: 'probationary', public_rationale: 'The limits are explicit and evidence remains independently inspectable.', proof_type: 'wallet_signed_server_verified', active: true, created_at: iso(-2.5) },
   ],
   challenges: [{
     challenge_public_ref: 'OSI-CHL-A1B2C3D4E5F60718', challenger_wallet: '11111111111111111111111111111114', state: 'accepted',
     public_safe_summary: 'The exact published version omitted material transaction context.', created_at: iso(-1.5), terminal_at: iso(-1),
-    reviews: [{ review_public_ref: 'OSI-CRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'challenge-reviewer', display_name: 'Challenge reviewer' }, actor_role: 'analyst', decision: 'accept', weight: 1.5, public_rationale: 'The linked evidence confirms a material omission.', proof_type: 'wallet_signed_server_verified', created_at: iso(-1) }],
+    reviews: [{ review_public_ref: 'OSI-CRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'challenge-reviewer', display_name: 'Challenge reviewer' }, actor_role: 'analyst', decision: 'accept', weight: 1.5, public_rationale: 'The linked evidence confirms a material omission.', proof_type: 'wallet_signed_server_verified', active: true, created_at: iso(-1) }],
   }],
   support: [{ amount_lamports: '100000000', from_wallet: WALLET, proof_type: 'solana_memo', tx_sig: TX, confirmed_at: iso(-1) }],
   publication: publicWireListItem.publication_proof,
@@ -4695,5 +4695,50 @@ test('governance review tasks show the state of their own challenge or Resolutio
   await expect(seal).toContainText('Challenge window');
   await expect(adjudication).not.toContainText('Submitted');
   await expect(seal).not.toContainText('Submitted');
+  expectCleanRuntime(page);
+});
+
+// "Analyst reviews" on a Public Records card counts current analyst rows only.
+// A maintainer initial-open approval and a revised row are not analyst votes.
+test('Public Records counts only current analyst reviews', async ({ page }) => {
+  await ready(page);
+  const count = await page.evaluate(() => window.crNativeCaseRecord({
+    public_ref: 'OSI-AB12CD34EF56', title: 'Counted reviews', stage: 'open_public', visibility: 'public',
+    reviews: [
+      { reviewer_role: 'maintainer', decision: 'approve_open', is_active: true, weight: 0 },
+      { reviewer_role: 'analyst', decision: 'needs_more', is_active: false, weight: 1 },
+      { reviewer_role: 'analyst', decision: 'approve_open', is_active: true, weight: 1 },
+    ],
+    proof_log: [], governance: {},
+  }).native_review_count);
+  expect(count).toBe(1);
+  expectCleanRuntime(page);
+});
+
+// A revised Wire review stays in the record but is marked superseded and
+// carries no weight, in the review list and under a challenge.
+test('the Wire drawer marks revised reviews as superseded', async ({ page }) => {
+  await ready(page);
+  await page.route('**/functions/v1/osi-v2-wire', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_wire_report') return route.fallback();
+    const old = { ...publicWireDetail.reviews[0], review_public_ref: 'OSI-WRV-C1B2C3D4E5F6', decision: 'approve', weight: 1.5, active: false, created_at: iso(-4) };
+    const current = { ...publicWireDetail.reviews[0], decision: 'request_changes', active: true };
+    const challenge = { ...publicWireDetail.challenges[0], reviews: [{ ...publicWireDetail.challenges[0].reviews[0], active: false }] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, public_projection: true, report: { ...publicWireDetail, reviews: [old, current], challenges: [challenge] },
+    }) });
+  });
+  await page.evaluate((versionRef) => window.osiV2OpenWireReport(versionRef), WIRE_VERSION_REF);
+  await page.locator('[data-wire-tab="reviews"]').click();
+  const rows = page.locator('#osi-wire-drawer .osi-report-version');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('Superseded by a later vote');
+  await expect(rows.nth(0)).not.toContainText('Weight snapshot');
+  await expect(rows.nth(1)).toContainText('Weight snapshot');
+  await expect(rows.nth(1)).not.toContainText('Superseded by a later vote');
+  await page.locator('[data-wire-tab="challenges"]').click();
+  await expect(page.locator('#osi-wire-drawer [data-review-superseded]')).toHaveCount(1);
   expectCleanRuntime(page);
 });

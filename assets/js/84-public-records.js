@@ -128,7 +128,7 @@ function crStatus(r){
       return { txt:'Sealed', cls:'cr-sealed', channel:sealBoot?CR_BOOTSTRAP:'', detail:crSealDetail(r.seal_channel,r.selection_channel) };
     }
     if(stage==='sealed') return { txt:'Seal proof unavailable', cls:'cr-pending', detail:'The server stage is sealed, but its public seal Memo receipt is unavailable.' };
-    if(['ready_for_finalization','resolution_proposed','in_challenge_window','resolved','archived'].indexOf(stage)!==-1 && Number(r.native_review_count||0)>0){
+    if(['ready_for_finalization','resolution_proposed','in_challenge_window','resolved','archived'].indexOf(stage)!==-1 && Number(r.native_review_rows!=null?r.native_review_rows:r.native_review_count||0)>0){
       var selectionBoot=r.selection_channel===CR_BOOTSTRAP;
       return { txt:'Reviewed', pill:stage==='resolved'?'Resolved':'Reviewed', cls:'cr-reviewed', channel:selectionBoot?CR_BOOTSTRAP:'', detail:CR_REVIEWED_STAGE_DETAIL[stage]+(selectionBoot?' That selection was a maintainer bootstrap (cold-start) decision, not independent analyst quorum.':'') };
     }
@@ -246,7 +246,12 @@ function crNativeCaseRecord(item){
     sealed_at:item.sealed_at||null,
     record_source:'native_public_dto',
     native_evidence_count:Array.isArray(item.evidence)?item.evidence.length:0,
-    native_review_count:Array.isArray(item.reviews)?item.reviews.length:0,
+    // The card labels this "Analyst reviews". A maintainer initial-open row is
+    // the maintainer path, not an analyst vote, and a revised row is replaced
+    // by its later vote, so only current analyst rows count.
+    native_review_count:Array.isArray(item.reviews)?item.reviews.filter(function(review){return review&&review.is_active===true&&String(review.reviewer_role||'')==='analyst';}).length:0,
+    // The Reviewed status asks only whether any review record exists.
+    native_review_rows:Array.isArray(item.reviews)?item.reviews.length:0,
     native_challenge_count:challenges.filter(function(challenge){return ['open','under_review'].indexOf(String(challenge&&challenge.state||''))!==-1;}).length,
     native_seal_verified:!!sealReceipt,
     seal_channel:sealReceipt?(sealReceipt.decision_channel===CR_BOOTSTRAP?CR_BOOTSTRAP:'standard'):'',
