@@ -350,7 +350,19 @@
     return !a||a.enforced!==true||a.counted===true;
   }
   // A revised vote stays in the record but is no longer the reviewer's vote.
-  function isSuperseded(row){return !!row&&row.is_active===false;}
+  // A row the caller already judged within its own phase carries that answer;
+  // otherwise an inactive row is one a later vote replaced.
+  function isSuperseded(row){if(row&&typeof row.superseded_in_phase==='boolean')return row.superseded_in_phase;return !!row&&row.is_active===false;}
+  // A resolution reviewer's seal review retires their active selection row,
+  // but the selection vote still counts. Only a later selection vote from the
+  // same wallet supersedes it.
+  function selectionPhaseRows(rows){
+    return rows.map(function(review){
+      var at=new Date(review.created_at).getTime()||0;
+      var later=rows.some(function(other){return other!==review&&String(other.reviewer_wallet)===String(review.reviewer_wallet)&&(new Date(other.created_at).getTime()||0)>at;});
+      return Object.assign({},review,{superseded_in_phase:later});
+    });
+  }
   function supersededLabel(){return' <span class="osi-chip" data-review-superseded>'+esc(t('Superseded by a later vote'))+'</span>';}
   function sasAuthority(review){
     var a=review&&review.sas_authority;
@@ -595,7 +607,10 @@
   function setLoading(){
     var host=document.getElementById('field-cases');
     clearListChrome();
-    if(host){host.setAttribute('aria-busy','true');host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';}
+    // A loading or error panel is not a list this module drew, so a language
+    // switch must not redraw the previous rows over it. A private-cache clear
+    // during a private load still gives way to the lock.
+    if(host){host.setAttribute('data-drawn-mode','loading');host.setAttribute('aria-busy','true');host.innerHTML='<div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div><div class="osi-v2-skeleton"></div>';}
   }
   // The stage select and the search box always show the filter that produced
   // the list below them.
@@ -807,10 +822,21 @@
   // Target kinds name what the task or challenge points at, in reviewed copy.
   var TARGET_KIND_LABELS={case:'Case',report:'Report',wire:'Wire Report',application:'Analyst application',case_report_version:'Report version',wire_report_version:'Wire Report version',resolution:'Resolution'};
   function targetKindLabel(value){var key=String(value||'');return t(TARGET_KIND_LABELS[key]||sentence(key));}
+  // The task card is shared by every lane, but a decision word means different
+  // things in each: "reject" is a normal-investigation rejection only in the
+  // Case opening lane, and keeps the selected Report in challenge adjudication.
+  var PLAIN_VOTE_LABELS={approve:'Approve',reject:'Reject',request_revision:'Request revision',request_changes:'Request changes',abstain:'Abstain'};
+  function taskVoteLabel(task){
+    var vote=String(task&&task.currentVote||'');
+    if(task&&task.lane==='initial_open')return reviewDecisionLabel(vote);
+    if(task&&task.lane==='challenge_adjudication'&&MERIT_DECISION_LABELS[vote])return t(MERIT_DECISION_LABELS[vote]);
+    if(PLAIN_VOTE_LABELS[vote])return t(PLAIN_VOTE_LABELS[vote]);
+    return reviewDecisionLabel(vote);
+  }
   function reviewTaskMarkup(task){
     return'<button class="osi-review-task" type="button" data-review-kind="'+esc(task.targetKind)+'" data-review-target="'+esc(task.exactTarget)+'" data-review-route="'+esc(task.routeTarget||task.exactTarget)+'" data-review-lane="'+esc(task.lane)+'" data-case-ref="'+esc(task.caseRef)+'"><div><span>'+esc(task.publicRef)+'</span>'+(task.exactTarget&&task.exactTarget!==task.publicRef?'<span>'+esc(task.exactTarget)+'</span>':'')+'<b>'+esc(t(task.nextAction))+'</b></div><dl>'
       +(task.stageLabel||task.stage?'<div><dt>'+esc(t('Stage'))+'</dt><dd>'+esc(task.stageLabel?t(task.stageLabel):t(sentence(task.stage)))+'</dd></div>':'')+'<div><dt>'+esc(t('Deadline'))+'</dt><dd>'+esc(task.deadline?dateText(task.deadline):t('No separate deadline'))+'</dd></div><div><dt>'+esc(t('Conflict'))+'</dt><dd class="'+(task.conflict?'warn':'ok')+'">'+esc(task.conflict?t('Excluded'):t('Clear'))+'</dd></div>'
-      +'<div><dt>'+esc(t('Current vote'))+'</dt><dd>'+esc(task.currentVote?reviewDecisionLabel(task.currentVote):t('None'))+'</dd></div><div><dt>'+esc(t('Weight'))+'</dt><dd>'+esc(task.weight==null?t('Not counted'):Number(task.weight).toFixed(2))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(targetKindLabel(task.targetKind))+'</dd></div></dl></button>';
+      +'<div><dt>'+esc(t('Current vote'))+'</dt><dd>'+esc(task.currentVote?taskVoteLabel(task):t('None'))+'</dd></div><div><dt>'+esc(t('Weight'))+'</dt><dd>'+esc(task.weight==null?t('Not counted'):Number(task.weight).toFixed(2))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(targetKindLabel(task.targetKind))+'</dd></div></dl></button>';
   }
   function drawReviewTasks(host){
     host.setAttribute('data-drawn-mode','review');
@@ -933,7 +959,7 @@
     try{
       var result=await sessionRead('challenge:mine','list_my_challenges');if(token!==state.loadToken)return;
       state.challenges=result.challenges||[];drawMyChallenges();
-    }catch(error){if(token!==state.loadToken)return;var host=document.getElementById('field-cases');if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Challenge workspace locked'))+'</b><span>'+esc(userError(error))+'</span>'+(refresh?'<button class="osi-action" type="button" data-challenge-access-refresh>'+esc(t('Refresh private access'))+'</button>':'<button class="osi-action" type="button" data-challenge-access-retry>'+esc(t('Try again'))+'</button>')+'</div>';var again=host.querySelector('[data-challenge-access-retry]');if(again)again.addEventListener('click',function(){openMyChallenges({authorize:true});});var retry=host.querySelector('[data-challenge-access-refresh]');if(retry)retry.addEventListener('click',function(){window.osiV2RefreshReadSession(['challenge:mine']).then(function(){openMyChallenges({authorize:true});});});}}
+    }catch(error){if(token!==state.loadToken)return;var host=document.getElementById('field-cases');if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.removeAttribute('data-drawn-mode');host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Challenge workspace locked'))+'</b><span>'+esc(userError(error))+'</span>'+(refresh?'<button class="osi-action" type="button" data-challenge-access-refresh>'+esc(t('Refresh private access'))+'</button>':'<button class="osi-action" type="button" data-challenge-access-retry>'+esc(t('Try again'))+'</button>')+'</div>';var again=host.querySelector('[data-challenge-access-retry]');if(again)again.addEventListener('click',function(){openMyChallenges({authorize:true});});var retry=host.querySelector('[data-challenge-access-refresh]');if(retry)retry.addEventListener('click',function(){window.osiV2RefreshReadSession(['challenge:mine']).then(function(){openMyChallenges({authorize:true});});});}}
   }
   function drawCases(){
     var host=document.getElementById('field-cases');
@@ -1060,7 +1086,7 @@
     var laneIds=['initial_open','resolution_selection','challenge_admissibility','challenge_adjudication','seal_reviews'];
     try{
       var result=await sessionRead('case:review','list_reviewable_cases');if(token!==state.reviewLoadToken)return;
-      state.actorRole=result.actor_role||'analyst';state.cases=result.cases||[];state.reviewTasks=result.review_tasks||{};
+      state.actorRole=result.actor_role||'analyst';state.cases=result.cases||[];state.casesMode='review';state.reviewTasks=result.review_tasks||{};
       laneIds.forEach(function(id){
         var rows=state.reviewTasks[id];
         if(id==='initial_open'&&!Array.isArray(rows)){
@@ -1144,18 +1170,22 @@
     state.locked=null;setFieldRailActive(railKeyForStage(state.stage));
     if(!state.keepListPage)state.page=1;state.keepListPage=false;
     state.mode='public';state.actorRole='public';setFieldCopy('public');setReviewChrome(false);setLoading();
+    // Rows from a private projection never wait in memory for a public read
+    // that may fail: a filter, sort or redraw would show them under the public
+    // heading, owner details included.
+    if(state.casesMode!=='public'){state.cases=[];state.reviewTasks={};state.casesMode='';}
     try{
       var result=await publicRead({op:'list_public_cases'});
       if(token!==state.loadToken) return;
       state.pendingPublicLoad=0;
-      state.cases=result.cases||[];state.reviewTasks={};drawCases();
+      state.cases=result.cases||[];state.casesMode='public';state.reviewTasks={};drawCases();
     }catch(error){
       if(token!==state.loadToken) return;
       state.pendingPublicLoad=0;
       var host=document.getElementById('field-cases');
       clearListChrome();
       if(host){
-        host.removeAttribute('aria-busy');
+        host.removeAttribute('aria-busy');host.removeAttribute('data-drawn-mode');
         host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Public registry unavailable'))+'</b><span>'+esc(userError(error))+'</span><button class="osi-action" type="button" data-registry-retry>'+esc(t('Retry'))+'</button></div>';
         var retry=host.querySelector('[data-registry-retry]');
         if(retry)retry.addEventListener('click',function(){if(typeof window.osiPublicReadInvalidate==='function')window.osiPublicReadInvalidate();loadPublicCases();});
@@ -1196,7 +1226,7 @@
       var result=await sessionRead('case:mine','list_my_cases');
       if(token!==state.loadToken) return;
       state.actorRole=result.actor_role||(mode==='mine'?'owner':'analyst');
-      state.cases=result.cases||[];state.reviewTasks=result.review_tasks||{};drawCases();
+      state.cases=result.cases||[];state.casesMode=mode;state.reviewTasks=result.review_tasks||{};drawCases();
       await refreshCapabilities();
     }catch(error){
       if(token!==state.loadToken) return;
@@ -1205,6 +1235,7 @@
         var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));
         // Every failure keeps a way forward: a refresh for a lapsed or
         // wrong-scope session, otherwise the same unlock again.
+        host.removeAttribute('data-drawn-mode');
         host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Authorized workspace locked'))+'</b><span>'+esc(userError(error))+'</span>'+(refresh?'<button class="osi-action" type="button" onclick="osiV2RefreshCaseWorkspace(\''+esc(mode)+'\')">'+esc(t('Refresh private access'))+'</button>':'<button class="osi-action" type="button" data-workspace-retry>'+esc(t('Try again'))+'</button>')+'</div>';
         var again=host.querySelector('[data-workspace-retry]');
         if(again)again.addEventListener('click',function(){openSignedCollection(mode,{authorize:true});});
@@ -1389,13 +1420,14 @@
     try{var parsed=new URL(value);return parsed.protocol==='https:'&&!parsed.username&&!parsed.password;}catch(_){return false;}
   }
   // Each evidence entry with the textarea line it sits on. A link is split on
-  // new lines only, because an https URL may contain a comma; addresses and
-  // signatures may also be comma-separated on one line. Line numbers are the
-  // lines the person sees, blank lines included.
+  // new lines and on a comma that starts another link, so an https URL that
+  // contains a comma stays whole; addresses and signatures may also be
+  // comma-separated on one line. Line numbers are the lines the person sees,
+  // blank lines included.
   function evidenceEntries(value,kind){
     var out=[];
     String(value||'').split(/\r?\n/).forEach(function(raw,index){
-      (kind==='url'?[raw]:raw.split(',')).forEach(function(part){var ref=part.trim();if(ref)out.push({ref:ref,line:index+1});});
+      (kind==='url'?raw.split(/,\s*(?=https?:\/\/)/i):raw.split(',')).forEach(function(part){var ref=part.trim();if(ref)out.push({ref:ref,line:index+1});});
     });
     return out;
   }
@@ -2002,10 +2034,16 @@
           :'<span class="osi-case-quiet">'+esc(t('No confirmed rejection Memo is public for this Case yet.'))+'</span>')
         +'</div>';
     }
-    if(!approvals.length){
+    var uncountedOnly=approvals.length&&!maintainer&&!analysts.length;
+    // With no counted approval there is nothing approved to announce; the
+    // uncounted rows are named under the state the Case is actually in.
+    if(!approvals.length||uncountedOnly){
+      var uncountedNote=uncountedOnly?'<span>'+esc(uncounted===1
+        ?t('1 analyst approval was not counted: no current SAS review authority.')
+        :t('{count} analyst approvals were not counted: no current SAS review authority.',{count:uncounted}))+'</span>':'';
       return String(item.visibility||'')==='public'
-        ? '<div class="osi-state-message" role="note"><b>'+esc(t('Opened for public investigation'))+'</b><span>'+esc(t('No attributable initial-review row is exposed for this Case. OSI shows no reviewer it cannot prove.'))+'</span></div>'
-        : '<div class="osi-state-message warning" role="note"><b>'+esc(t('Awaiting initial review'))+'</b><span>'+esc(t('This Case stays private until an eligible analyst or a full maintainer records an approve-open decision.'))+'</span></div>';
+        ? '<div class="osi-state-message" role="note"><b>'+esc(t('Opened for public investigation'))+'</b>'+(uncountedOnly?uncountedNote:'<span>'+esc(t('No attributable initial-review row is exposed for this Case. OSI shows no reviewer it cannot prove.'))+'</span>')+'</div>'
+        : '<div class="osi-state-message warning" role="note"><b>'+esc(t('Awaiting initial review'))+'</b><span>'+esc(t('This Case stays private until an eligible analyst or a full maintainer records an approve-open decision.'))+'</span>'+uncountedNote+'</div>';
     }
     var who=[];
     if(maintainer)who.push(t('a full maintainer'));
@@ -2201,7 +2239,7 @@
         +(sealed?outcomeStep('Record sealed',row.seal_proof,row.sealed_at||item.sealed_at,'Verify the seal Memo on Solscan'):'')
         +'</ol>';
     }
-    var selectionReviews=row&&row.reviews?row.reviews.filter(function(review){return review.phase==='selection';}):[];
+    var selectionReviews=row&&row.reviews?selectionPhaseRows(row.reviews.filter(function(review){return review.phase==='selection';})):[];
     var timeline=selectionReviews.length?governanceTimeline(selectionReviews)
       :bootstrap?'<div class="osi-v2-empty compact"><b>'+esc(t('No analyst selection reviews recorded'))+'</b><span>'+esc(t('This outcome came from the maintainer bootstrap channel, not from analyst reviews.'))+'</span></div>'
       :governanceTimeline([]);
@@ -2724,14 +2762,24 @@
     if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(wallet||'')))return;
     try{localStorage.removeItem(paymentRecoveryKey(wallet));}catch(error){}
   }
-  // A wallet change while the amount dialog is open cancels that transfer out
-  // loud. The dialog was opened for the previous wallet, so continuing from
-  // it would do nothing and say nothing.
-  function walletChangeCancelledTransfer(){showToast(t('The connected wallet changed, so this transfer was cancelled. Nothing was sent.'));}
-  function cancelAmountDialogForWalletChange(){
+  // A wallet or private-access change while the amount dialog is open cancels
+  // that transfer out loud, with the reason it really has. Continuing from a
+  // dialog opened under the previous state would do nothing and say nothing.
+  var TRANSFER_CANCELLED={
+    disconnected:'The wallet disconnected, so this transfer was cancelled. Nothing was sent.',
+    wallet:'The connected wallet changed, so this transfer was cancelled. Nothing was sent.',
+    access:'Private access changed while the amount was open, so this transfer was cancelled. Nothing was sent. Start it again.'
+  };
+  function transferCancelled(kind){showToast(t(TRANSFER_CANCELLED[kind]||TRANSFER_CANCELLED.access));}
+  function transferCancelledSince(openedWallet){
+    var current=String(walletPubkey||'');
+    transferCancelled(!current?'disconnected':current!==openedWallet?'wallet':'access');
+  }
+  function cancelAmountDialogForWalletChange(reason){
     if(typeof window.osiSolAskOpen!=='function'||!window.osiSolAskOpen()||typeof window.osiCloseSolAsk!=='function')return;
     window.osiCloseSolAsk(null);
-    walletChangeCancelledTransfer();
+    transferCancelled(reason==='explicit_logout'||reason==='disconnect'?'disconnected'
+      :['account_changed','wallet_changed','wallet_mismatch'].indexOf(reason)>=0?'wallet':'access');
   }
   // The server refuses a transfer to the connected wallet itself. Saying so
   // before the amount is asked beats a generic refusal after it.
@@ -3318,7 +3366,7 @@
   }
   async function supportExternal(targetType,targetRef,reviewerWallet,preferredMethod){
     if(await handleExistingPayment(preferredMethod))return;
-    var generation=privateGeneration();
+    var generation=privateGeneration(),openedWallet=String(walletPubkey||'');
     var address=supportAddress(targetType,targetRef,reviewerWallet);
     if(isSelfSupport(address)){showToast(t('The connected wallet is the recipient. Self-support is not allowed.'));return;}
     var amount=await askSolAmount({
@@ -3330,7 +3378,7 @@
         ?t('Recipient: the wallet that authored {version}. OSI never publishes that wallet, so the server derives the exact recipient and Memo when the transfer is prepared and you approve one transaction in your wallet. Direct wallet-to-wallet in native SOL. No custody. Support never changes review, ranking, weight, eligibility, or publication.',{version:String(targetRef||'')})
         :undefined
     });
-    if(generation!==privateGeneration()){if(amount!==null)walletChangeCancelledTransfer();return;}
+    if(generation!==privateGeneration()){if(amount!==null)transferCancelledSince(openedWallet);return;}
     if(amount===null)return;
     if(isSelfSupport(address)){showToast(t('The connected wallet is the recipient. Self-support is not allowed.'));return;}
     if(!validSolInput(amount)){showToast(t('Enter a positive SOL amount with at most 9 decimals.'));return;}
@@ -3340,14 +3388,14 @@
   async function supportWireAuthor(versionRef,authorWallet){
     if(!/^OSI-WV-[0-9A-F]{16}$/.test(String(versionRef||''))||state.paymentBusy)return;
     if(state.paymentPending){showToast('Finish or re-verify the existing wallet-bound payment before preparing another transfer. Do not pay twice.');return;}
-    var generation=privateGeneration();
+    var generation=privateGeneration(),openedWallet=String(walletPubkey||'');
     var amount=await askSolAmount({
       title:'◎ Support the Wire author',
       label:'this Wire Report author',
       address:authorWallet,
       action:'Review transfer →'
     });
-    if(generation!==privateGeneration()){if(amount!==null)walletChangeCancelledTransfer();return;}
+    if(generation!==privateGeneration()){if(amount!==null)transferCancelledSince(openedWallet);return;}
     if(amount===null)return;
     if(!validSolInput(amount)){showToast(t('Enter a positive SOL amount with at most 9 decimals.'));return;}
     state.paymentBusy=true;
@@ -3541,8 +3589,11 @@
     if(reason==='expiry'||reason==='explicit_refresh')saveCaseDraft();
     state.loadToken+=1;state.reviewLoadToken+=1;state.drawerLoadToken+=1;state.locked=null;
     var previousMode=state.mode;
+    // Rows a private read returned go with the session, whatever list is on
+    // screen now.
+    if(state.casesMode&&state.casesMode!=='public'){state.cases=[];state.reviewTasks={};state.casesMode='';}
     if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.reviewLanes={};state.reviewUpdatedAt=null;state.current=null;state.activeReviewTask=null;state.actorRole='public';state.currentActorRole='';state.mode='public';}
-    state.capabilities=null;state.reviewBusy=false;state.governanceBusy=false;state.paymentBusy=false;state.caseReceipt=null;state.caseIdempotency='';if(reason!=='expiry'&&reason!=='explicit_refresh')cancelAmountDialogForWalletChange();clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
+    state.capabilities=null;state.reviewBusy=false;state.governanceBusy=false;state.paymentBusy=false;state.caseReceipt=null;state.caseIdempotency='';if(reason!=='expiry'&&reason!=='explicit_refresh')cancelAmountDialogForWalletChange(reason);clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
     clearSubmissionReceipt('v2-case-receipt');
     var form=document.getElementById('field-form');if(form)form.reset();
     var modal=document.getElementById('fo-modal');if(modal)modal.classList.remove('open');
@@ -3558,7 +3609,8 @@
     // The previous wallet's private rows must not stay on screen under the
     // next wallet, or under no wallet. A private list gives way to its lock.
     var listHost=document.getElementById('field-cases');
-    if(listHost&&['mine','challenges','review'].indexOf(previousMode)>=0&&listHost.getAttribute('data-drawn-mode')===previousMode){
+    var drawnMode=listHost&&listHost.getAttribute('data-drawn-mode');
+    if(listHost&&['mine','challenges','review'].indexOf(previousMode)>=0&&(drawnMode===previousMode||drawnMode==='loading')){
       state.locked=previousMode;setFieldCopy(previousMode);setReviewChrome(false);listHost.removeAttribute('data-drawn-mode');
       drawWorkspaceLock(listHost,previousMode);
     }
@@ -3620,7 +3672,7 @@
       if(!provider||!provider.on)return;
       provider.on('disconnect',clearPaymentState);
       provider.on('disconnect',function(){setReviewNavigationVisibility(false);});
-      provider.on('accountChanged',function(){cancelAmountDialogForWalletChange();clearPaymentState();state.capabilities=null;setReviewNavigationVisibility(false);});
+      provider.on('accountChanged',function(){cancelAmountDialogForWalletChange('account_changed');clearPaymentState();state.capabilities=null;setReviewNavigationVisibility(false);});
     }
     // The wallet extension can inject after load; attach to the real provider.
     if(typeof waitForProvider==='function')waitForProvider().then(attach);

@@ -98,6 +98,12 @@ throws("non-HTTPS evidence is blocked", () => core.normalizeCasePayload({
   ...validPayload,
   evidence: [{ kind: "url", ref: "http://example.com/evidence" }],
 }), /evidence URL/);
+// Two links pasted on one line with a comma used to parse as one URL whose
+// path held the second link.
+throws("two links run together are not one evidence URL", () => core.normalizeCasePayload({
+  ...validPayload,
+  evidence: [{ kind: "url", ref: "https://example.com/a, https://example.com/b" }],
+}), /evidence URL/);
 throws("duplicate evidence is blocked", () => core.normalizeCasePayload({
   ...validPayload,
   evidence: [

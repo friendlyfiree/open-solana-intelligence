@@ -90,6 +90,8 @@ export function normalizeEvidence(input) {
       }
     } else if (kind === "url") {
       let parsed;
+      // A link with whitespace inside is two links run together, not one.
+      if (/\s/.test(ref)) throw new TypeError("evidence URL is invalid");
       try { parsed = new URL(ref); } catch { throw new TypeError("evidence URL is invalid"); }
       if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
         throw new TypeError("evidence URL is invalid");

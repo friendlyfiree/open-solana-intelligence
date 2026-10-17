@@ -79,15 +79,18 @@ const PROOF_BINDING_DATABASE_MESSAGES = Object.freeze([
 // Database SQLSTATE classes are deliberately broad. Classify only reviewed,
 // exact proof messages as proof failures; a schema or lifecycle constraint must
 // never be presented to the user as an expired signature or nonce.
+// Only messages that name one state are mapped. 'Publication requires an
+// active approving eligible analyst' and 'Rejection requires an active
+// rejecting eligible analyst' are raised for self-review, Case-owner,
+// ineligible and missing-vote refusals alike, so they stay
+// not_eligible_or_self_review.
 const REPORT_GOVERNANCE_42501 = Object.freeze([
   [/^Report version is not available( for (publication|rejection|review))?$/, "report_version_not_awaiting_review"],
   [/^Report (publication|rejection) quorum is not ready$/, "analyst_quorum_not_ready"],
   [/^Report approve and reject quorum are both ready$/, "analyst_quorum_conflict"],
-  [/^Publication requires an active approving eligible analyst$/, "active_approve_review_required"],
-  [/^Actor needs a current counted reject review$/, "active_reject_review_required"],
   [/^Normal analyst publication quorum is available$/, "standard_analyst_quorum_available"],
   [/^Bootstrap publication support requirements are not met$/, "bootstrap_support_not_met"],
-  [/^(Publication|Rejection|Report review) actor role changed after prepare$|^Bootstrap publication lost a maintainer gate$|^Rejection actor lost analyst authority$/, "actor_authority_changed"],
+  [/^(Publication|Rejection|Report review) actor role changed after prepare$|^Bootstrap publication lost a maintainer gate$/, "actor_authority_changed"],
 ]);
 
 export function classifyReportRpcFailure(error, governance = false) {
@@ -172,6 +175,8 @@ export async function normalizeReportEvidence(input, options = {}) {
       }
     } else if (kind === "url") {
       let parsed;
+      // A link with whitespace inside is two links run together, not one.
+      if (/\s/.test(ref)) throw new TypeError("evidence URL is invalid");
       try { parsed = new URL(ref); } catch { throw new TypeError("evidence URL is invalid"); }
       if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
         throw new TypeError("evidence URL is invalid");

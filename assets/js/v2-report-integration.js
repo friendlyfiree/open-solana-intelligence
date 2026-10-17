@@ -337,9 +337,12 @@
     document.body.style.overflow=(modal&&modal.classList.contains('open'))||(drawer&&!drawer.hidden)?'hidden':'';
   }
   function status(text,kind){var node=document.getElementById('osi-report-form-status');if(node){node.textContent=text||'';node.className='osi-form-status mono '+(kind||'');}}
+  // Links are split on new lines and on a comma that starts another link, so
+  // an https URL that contains a comma stays whole. Addresses and signatures
+  // may be comma-separated.
   function lines(id,kind){
     var node=document.getElementById(id);if(!node)return[];
-    return String(node.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});
+    return String(node.value||'').split(kind==='url'?/\r?\n|,\s*(?=https?:\/\/)/i:/[\r\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});
   }
   function payload(){
     return{

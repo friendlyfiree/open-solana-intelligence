@@ -186,6 +186,11 @@ ok("blank evidence placeholders are omitted without weakening supplied evidence 
 await rejects("non-HTTPS evidence is denied", () => core.normalizeReportPayload({
   ...validPayload, evidence: [{ kind: "url", ref: "http://example.com" }],
 }), /URL/);
+// Two links pasted on one line with a comma used to parse as one URL whose
+// path held the second link. Wire intake uses the same normalizer.
+await rejects("two links run together are not one evidence URL", () => core.normalizeReportPayload({
+  ...validPayload, evidence: [{ kind: "url", ref: "https://example.com/a, https://example.com/b" }],
+}), /evidence URL is invalid/);
 await rejects("duplicate evidence is denied", () => core.normalizeReportPayload({
   ...validPayload, evidence: [
     { kind: "wallet", ref: WALLET }, { kind: "wallet", ref: WALLET },
@@ -513,7 +518,11 @@ for (const [message, expected] of [
   ["Report version is not available for publication", "report_version_not_awaiting_review"],
   ["Report publication quorum is not ready", "analyst_quorum_not_ready"],
   ["Report rejection quorum is not ready", "analyst_quorum_not_ready"],
-  ["Publication requires an active approving eligible analyst", "active_approve_review_required"],
+  // One SQL message covers self-review, Case owner, ineligible and missing
+  // approve vote, so it must not read as "cast an approve review".
+  ["Publication requires an active approving eligible analyst", "not_eligible_or_self_review"],
+  ["Rejection requires an active rejecting eligible analyst", "not_eligible_or_self_review"],
+  ["Publication actor role changed after prepare", "actor_authority_changed"],
   ["Normal analyst publication quorum is available", "standard_analyst_quorum_available"],
   ["Bootstrap publication support requirements are not met", "bootstrap_support_not_met"],
   ["Report author and Case owner cannot review this Report", "not_eligible_or_self_review"],
@@ -922,6 +931,15 @@ ok("legacy and preview pages never load the Report bundle",
   !readFileSync(join(root, "legacy.html"), "utf8").includes("v2-report-integration")
     && !existsSync(join(root, "v2-preview.html"))
     && readFileSync(join(root, "vercel.json"), "utf8").includes('"source": "/v2-preview.html"'));
+
+// Report and Wire forms split evidence links the same way: one per line, or
+// several on a line when a comma comes before the next https:// link, so a
+// link that itself holds a comma stays whole. The browser suite exercises the
+// Wire form; the Report form must use the same splitter.
+const wireUiSource = readFileSync(join(root, "assets/js/v2-wire-integration.js"), "utf8");
+const URL_SPLIT = "split(kind==='url'?/\\r?\\n|,\\s*(?=https?:\\/\\/)/i:/[\\r\\n,]+/)";
+ok("Report and Wire forms split evidence links with the same comma-aware rule",
+  reportUiSource.includes(URL_SPLIT) && wireUiSource.includes(URL_SPLIT));
 
 console.log((fail ? "FAILED: " + fail : "OK")
   + " (" + pass + " assertions passed, " + fail + " failed)");

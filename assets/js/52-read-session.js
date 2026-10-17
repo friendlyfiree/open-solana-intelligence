@@ -284,16 +284,26 @@
     try{return JSON.parse(sessionStorage.getItem(DRAFT_PREFIX+String(key||''))||'null');}catch(_){return null;}
   };
   window.osiV2RemoveDraft=function(key){try{sessionStorage.removeItem(DRAFT_PREFIX+String(key||''));}catch(_){}};
-  // An explicit disconnect or a wallet change forgets the private drafts this
-  // tab kept, so unsent Case, Report or application text does not outlive the
-  // wallet that typed it. An expiry or a refresh keeps them, so a lapsed
-  // session never costs typed work. The removal waits for every other clearer,
-  // because some of them save their form on the way out.
-  var DRAFT_FORGET_REASONS={explicit_logout:1,disconnect:1,account_changed:1,wallet_changed:1,wallet_mismatch:1};
+  // Drafts are keyed '<kind>:<wallet>[:...]'. A wallet change forgets the
+  // drafts of every wallet but the one now connected, so unsent Case, Report,
+  // Wire or application text does not outlive the wallet that typed it. A
+  // reload or a reconnect of the same wallet keeps its own drafts, and an
+  // expiry or a refresh keeps them all, so a lapsed session never costs typed
+  // work. An explicit disconnect forgets every draft. The removal waits for
+  // every other clearer, because some of them save their form on the way out,
+  // and for the new wallet to be recorded.
+  var DRAFT_FORGET_ALL={explicit_logout:1,disconnect:1};
+  var DRAFT_FORGET_OTHERS={account_changed:1,wallet_changed:1,wallet_mismatch:1};
   client.registerCache('drafts',function(reason){
-    if(DRAFT_FORGET_REASONS[reason]!==1)return;
+    if(DRAFT_FORGET_ALL[reason]!==1&&DRAFT_FORGET_OTHERS[reason]!==1)return;
     Promise.resolve().then(function(){
-      try{for(var index=sessionStorage.length-1;index>=0;index--){var key=sessionStorage.key(index);if(key&&key.indexOf(DRAFT_PREFIX)===0)sessionStorage.removeItem(key);}}catch(_){}
+      var current=DRAFT_FORGET_ALL[reason]===1?'':String((typeof walletPubkey!=='undefined'&&walletPubkey)||'');
+      try{for(var index=sessionStorage.length-1;index>=0;index--){
+        var key=sessionStorage.key(index);
+        if(!key||key.indexOf(DRAFT_PREFIX)!==0)continue;
+        var owner=key.slice(DRAFT_PREFIX.length).split(':')[1]||'';
+        if(!current||owner!==current)sessionStorage.removeItem(key);
+      }}catch(_){}
     });
   });
   window.osiV2ApproveMessage=function(message){

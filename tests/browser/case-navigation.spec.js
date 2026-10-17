@@ -879,4 +879,39 @@ test.describe('governance rows say what the server counted', () => {
     await expect(replaced.locator('[data-sas-authority="counted"]')).toHaveCount(0);
     expect(page.__runtimeErrors).toEqual([]);
   });
+
+  // A seal review retires the reviewer's active selection row, but the
+  // selection vote still counts and is not "superseded".
+  test('a seal review does not mark the reviewer\'s selection vote superseded', async ({ page }) => {
+    const selection = { ...review(SECOND_ANALYST, 'analyst', 'select', false, true, 5), phase: 'selection', target_version_ref: VERSION_REF };
+    const seal = { ...review(SECOND_ANALYST, 'analyst', 'approve', true, true, 9), phase: 'seal' };
+    await boot(page, { wallet: 'none', caseOverride: { governance: { ...publicCase.governance, resolution: {
+      state: 'in_challenge_window', winning_report_version_ref: VERSION_REF,
+      selection_quorum: { leader_version_ref: VERSION_REF, leader_count: 1, leader_weight: 1, required_count: 1, required_weight: 1 },
+      reviews: [selection, seal],
+    } } } });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`).click();
+    await page.locator('#osi-case-tabs [data-tab="resolution"]').click();
+    const events = page.locator('#osi-case-content .osi-governance-event');
+    await expect(events).toHaveCount(1);
+    await expect(events.first()).not.toContainText('Superseded by a later vote');
+    await expect(page.locator('#osi-case-content .osi-governance-event.superseded')).toHaveCount(0);
+    expect(page.__runtimeErrors).toEqual([]);
+  });
+
+  // With no counted approval there is nothing approved to announce.
+  test('an opening with only uncounted approvals does not read as approved', async ({ page }) => {
+    await boot(page, { wallet: 'none', caseOverride: { reviews: [
+      review(ANALYST, 'analyst', 'approve_open', true, false, 7),
+    ] } });
+    await page.evaluate(() => window.osiNavigate('field'));
+    await page.locator(`#field-cases [data-case-ref="${CASE_REF}"]`).click();
+    await page.locator('#osi-case-tabs [data-tab="reviews"]').click();
+    const content = page.locator('#osi-case-content');
+    await expect(content).toContainText('1 analyst approval was not counted: no current SAS review authority.');
+    await expect(content).not.toContainText('Approved for public investigation');
+    await expect(content.locator('.osi-state-message.approved')).toHaveCount(0);
+    expect(page.__runtimeErrors).toEqual([]);
+  });
 });

@@ -1461,7 +1461,7 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
       await expect(page.locator('body')).toHaveAttribute('data-view', view);
     }
 
-    await page.locator('#global-nav [data-global-view="methodology"]').click();
+    await page.locator('#global-nav > [data-global-view="methodology"]:not(.osi-nav-quick)').click();
     await expect(page.locator('#about-hero')).toBeVisible();
     await page.locator('#sas-verifier-wallet').fill(OTHER);
     await page.locator('#sas-verifier-form').getByRole('button', { name: 'Verify wallet' }).click();
@@ -2456,7 +2456,7 @@ test('Home keeps a compact three-section product route with truthful live action
   await expect(page.locator('#platform-menu-trigger')).toHaveAttribute('aria-current', 'page');
   await page.evaluate(() => window.osiNavigate('registry'));
   await expect(page.locator('#platform-menu-trigger')).not.toHaveAttribute('aria-current', 'page');
-  await page.locator('#global-nav > [data-global-view="methodology"]').click();
+  await page.locator('#global-nav > [data-global-view="methodology"]:not(.osi-nav-quick)').click();
   await expect(page.locator('#about-hero')).toBeVisible();
   await expect(page.locator('#osi-about-emblem')).toBeVisible();
   await expect(page.locator('.osi-about-wordmark figcaption')).toContainText('Never used as a proof or verification seal');
@@ -4948,11 +4948,21 @@ test('Case intake keeps a link with a comma whole and names the real line of a b
   await page.locator('#v2-case-confirm').check();
   await page.locator('#v2-case-submit').click();
   await expect(page.locator('#v2-case-urls-error')).toHaveText('Line 3 is not a public https:// link.');
-  await page.locator('#v2-case-urls').fill('https://example.org/report?ids=1,2');
+  // Two links pasted on one line with a comma are two links.
+  let prepared = null;
+  await page.route('**/functions/v1/osi-v2-case-write', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'prepare_case') prepared = body;
+    return route.fallback();
+  });
+  await page.locator('#v2-case-urls').fill('https://example.org/report?ids=1,2, https://example.org/second');
   await page.locator('#v2-case-submit').click();
   await expectFixtureOperation(page, 'osi-v2-case-write', 'commit_case');
-  const prepared = page.__fixtureOps.find((entry) => entry.endpoint === 'osi-v2-case-write' && entry.op === 'prepare_case');
-  expect(JSON.stringify(prepared || {})).not.toContain('"ref":"2"');
+  const refs = JSON.stringify(prepared || {});
+  expect(refs).not.toContain('"ref":"2"');
+  expect(refs).toContain('"https://example.org/report?ids=1,2"');
+  expect(refs).toContain('"https://example.org/second"');
   expectCleanRuntime(page);
 });
 
@@ -5093,6 +5103,16 @@ test('the mobile navigation drawer shows its links in focus order', async ({ pag
     .filter((node) => node.getClientRects().length).map((node) => Math.round(node.getBoundingClientRect().top)));
   expect(tops.length).toBeGreaterThan(4);
   for (let index = 1; index < tops.length; index++) expect(tops[index]).toBeGreaterThan(tops[index - 1]);
+  // The brief's primary order, with the Platform catalogue last.
+  const labels = await page.evaluate(() => Array.from(document.querySelectorAll('#global-nav > .osi-nav-link, #global-nav > .osi-platform-wrap > .osi-platform-trigger'))
+    .filter((node) => node.getClientRects().length).map((node) => node.firstChild.textContent.trim()));
+  expect(labels).toEqual(['Home', 'Field Office', 'The Wire', 'Public Records', 'Analyst Network', 'Proof Log', 'About', 'Platform']);
+  // Desktop keeps its four entries.
+  await page.locator('#mobile-nav-toggle').click();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const desktop = await page.evaluate(() => Array.from(document.querySelectorAll('#global-nav > .osi-nav-link, #global-nav > .osi-platform-wrap > .osi-platform-trigger'))
+    .filter((node) => node.getClientRects().length).map((node) => node.firstChild.textContent.trim()));
+  expect(desktop).toEqual(['Home', 'Platform', 'Analyst Network', 'About']);
   expectCleanRuntime(page);
 });
 
@@ -5190,14 +5210,14 @@ test('Wire evidence keeps comma URLs whole and names the evidence a server rejec
   await page.locator('#osi-wire-title').fill('Comma evidence Wire fixture');
   await page.locator('#osi-wire-summary').fill('A public-safe standalone finding prepared for independent review and exact publication.');
   await page.locator('#osi-wire-analysis').fill('The detailed fixture analysis follows transaction order, competing explanations, and reproducible evidence limitations.');
-  await page.locator('#osi-wire-urls').evaluate((node) => { node.value = 'https://example.org/report?ids=1,2,3\nhttps://example.org/second'; });
+  await page.locator('#osi-wire-urls').evaluate((node) => { node.value = 'https://example.org/report?ids=1,2,3, https://example.org/second\nhttps://example.org/third'; });
   await page.locator('#osi-wire-transactions').evaluate((node, tx) => { node.value = `${tx}, ${tx.slice(0, -1)}2`; }, TX);
   await page.locator('#osi-wire-safety').check();
   await page.evaluate(() => window.osiSetLanguage('tr'));
   await page.locator('#osi-wire-submit').click();
-  await expect.poll(() => prepared && prepared.wire && prepared.wire.evidence.length).toBe(4);
+  await expect.poll(() => prepared && prepared.wire && prepared.wire.evidence.length).toBe(5);
   const urls = prepared.wire.evidence.filter((item) => item.kind === 'url').map((item) => item.ref);
-  expect(urls).toEqual(['https://example.org/report?ids=1,2,3', 'https://example.org/second']);
+  expect(urls).toEqual(['https://example.org/report?ids=1,2,3', 'https://example.org/second', 'https://example.org/third']);
   expect(prepared.wire.evidence.filter((item) => item.kind === 'onchain_tx')).toHaveLength(2);
   await expect(page.locator('#osi-wire-form-status')).toHaveText('Kanıt bağlantılarından biri kamuya açık bir https:// adresi değil.');
   await page.evaluate(() => window.osiV2CloseWireForm && window.osiV2CloseWireForm());
@@ -5242,6 +5262,16 @@ test('Proof Log marks a partial source, pages with focus, and speaks Turkish whe
   await page.locator('#pl-body .plc-copy').first().click();
   await expect(page.locator('#stw-toast')).toContainText('Cüzdan kopyalandı.');
   await page.evaluate(() => window.osiSetLanguage('en'));
+  // On a phone only the Retry button wraps; the status dot stays beside its text.
+  await page.setViewportSize({ width: 360, height: 780 });
+  const strip = await page.locator('#pl-body .pl-strip').evaluate((node) => {
+    const dot = node.querySelector('.pl-strip-dot').getBoundingClientRect();
+    const text = node.querySelector('.pl-strip-t').getBoundingClientRect();
+    return { dot: dot.top + dot.height / 2, top: text.top, bottom: text.bottom };
+  });
+  expect(strip.dot).toBeGreaterThanOrEqual(strip.top);
+  expect(strip.dot).toBeLessThanOrEqual(strip.bottom);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.locator('#pl-body .pl-strip-retry').focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#pl-body')).toBeFocused();
@@ -5252,6 +5282,7 @@ test('Wire counts each report once, retries keep focus, and long titles stay rea
   await ready(page, { role: 'anonymous', caseReadFailureOnly: true });
   let wireDown = true;
   const longTitle = 'Treasury movement pattern: consolidation of drained funds through intermediary wallets before bridge exits and exchange deposits over 6 days';
+  let detailTitle = longTitle;
   const earlier = { ...publicWireListItem, version_public_ref: 'OSI-WV-A1B2C3D4E5F60001', version_no: 1, is_current_published: false, published_at: iso(-4) };
   const other = { ...publicWireListItem, wire_report_public_ref: 'OSI-WR-C1C2C3D4E5F6', version_public_ref: 'OSI-WV-C1C2C3D4E5F60718', title: 'Second Wire fixture' };
   await page.route('**/functions/v1/osi-v2-wire', async (route) => {
@@ -5261,7 +5292,7 @@ test('Wire counts each report once, retries keep focus, and long titles stay rea
       if (wireDown) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'read_failed' }) });
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, public_projection: true, reports: [publicWireListItem, earlier, other] }) });
     }
-    if (body.op === 'get_public_wire_report') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, public_projection: true, report: { ...publicWireDetail, title: longTitle } }) });
+    if (body.op === 'get_public_wire_report') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, public_projection: true, report: { ...publicWireDetail, title: detailTitle } }) });
     return route.fallback();
   });
   await page.evaluate(() => window.osiPublicReadInvalidate());
@@ -5286,8 +5317,21 @@ test('Wire counts each report once, retries keep focus, and long titles stay rea
   await page.evaluate((ref) => window.osiV2OpenWireReport(ref), WIRE_VERSION_REF);
   await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toBeVisible();
   await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toHaveText(longTitle);
+  // It reads as the title, not as a dim body paragraph.
+  expect(await page.locator('#osi-wire-detail-content .osi-wire-full-title').evaluate((node) => getComputedStyle(node).fontWeight)).toBe('700');
   await page.setViewportSize({ width: 1280, height: 720 });
   await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toBeHidden();
+  // The header clamps titles of about 20 characters and up on a phone, so a
+  // 59-character title is repeated as well.
+  detailTitle = 'Phishing drainer moved stolen funds through three exchanges';
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#osi-wire-drawer')).toBeHidden();
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.evaluate((ref) => window.osiV2OpenWireReport(ref), WIRE_VERSION_REF);
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toBeVisible();
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toHaveText(detailTitle);
+  await page.setViewportSize({ width: 1280, height: 720 });
   expectCleanRuntime(page);
 });
 
@@ -5303,6 +5347,15 @@ test('profile routes explain a missing analyst or maintainer instead of a raw co
   await expect(page.locator('#ap-modal')).toHaveClass(/\bopen\b/);
   await expect(page.locator('#ap-modal-body')).toContainText('Maintainer profile unavailable');
   await expect(page.locator('#ap-modal-body')).toContainText('No maintainer profile is published yet.');
+  // A language switch redraws the maintainer message, not an analyst one.
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.waitForTimeout(800);
+  await expect(page.locator('#ap-modal-body')).toContainText('Sürdürücü profili kullanılamıyor');
+  await expect(page.locator('#ap-modal-body')).not.toContainText('Analist profili kullanılamıyor');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await page.waitForTimeout(800);
+  await expect(page.locator('#ap-modal-body')).toContainText('Maintainer profile unavailable');
+  await expect(page.locator('#ap-modal-body')).not.toContainText('Analyst profile unavailable');
   await page.evaluate(() => window.closeAnalystProfile());
   await page.evaluate(() => window.osiSetLanguage('tr'));
   await page.evaluate(() => { window.location.hash = 'analyst/nobody_here'; });
@@ -5398,5 +5451,179 @@ test('a wallet change cancels an open transfer out loud, redraws profile support
   await expect(page.locator('#stw-toast')).toContainText('The connected wallet is the recipient. Self-support is not allowed.');
   await expect(page.locator('#sol-ask')).not.toHaveClass(/\bopen\b/);
   expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  expectCleanRuntime(page);
+});
+
+// Drafts are keyed by the wallet that typed them. Restoring the same wallet
+// after a reload keeps its drafts, a change of wallet forgets the other
+// wallet's drafts, an expiry keeps them all and an explicit disconnect
+// forgets them all.
+test('a same-wallet restore keeps its drafts and a disconnect forgets them', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  const drafts = () => page.evaluate(() => Object.keys(sessionStorage).filter((key) => key.indexOf('osi_v2_draft_v1:') === 0).sort());
+  const mine = 'osi_v2_draft_v1:case-intake:' + WALLET;
+  await page.evaluate(({ me, other }) => {
+    window.osiV2SaveDraft('case-intake:' + me, { 'v2-case-title': 'Unsent private title' });
+    window.osiV2SaveDraft('case-intake:' + other, { 'v2-case-title': 'Another wallet title' });
+  }, { me: WALLET, other: OTHER });
+  await page.evaluate(() => window.osiV2ClearReadSession('wallet_mismatch'));
+  await expect.poll(drafts).toEqual([mine]);
+  await page.evaluate(() => window.osiV2ClearReadSession('expiry'));
+  await page.waitForTimeout(100);
+  expect(await drafts()).toEqual([mine]);
+  await page.evaluate(() => window.osiV2ClearReadSession('explicit_logout'));
+  await expect.poll(drafts).toEqual([]);
+  expectCleanRuntime(page);
+});
+
+// The cancelled-transfer notice says what happened: private access changed
+// or the wallet disconnected. It used to say "the connected wallet changed"
+// for both.
+test('a cancelled transfer says whether access changed or the wallet disconnected', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const support = page.locator('#ap-modal-body section', { has: page.locator('#osi-profile-support-copy') });
+  for (const [reason, message] of [
+    ['auth_changed', 'Private access changed while the amount was open, so this transfer was cancelled. Nothing was sent. Start it again.'],
+    ['explicit_logout', 'The wallet disconnected, so this transfer was cancelled. Nothing was sent.'],
+  ]) {
+    await support.getByRole('button', { name: 'Pay with Phantom' }).click();
+    await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+    await page.evaluate((why) => window.osiV2ClearReadSession(why), reason);
+    await expect(page.locator('#sol-ask')).not.toHaveClass(/\bopen\b/);
+    await expect(page.locator('#stw-toast')).toContainText(message);
+    await expect(page.locator('#stw-toast')).not.toContainText('The connected wallet changed');
+  }
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  expectCleanRuntime(page);
+});
+
+// A task's current vote reads in its own lane's words. A Report reject or a
+// challenge merit reject is not the Case-opening "Reject normal investigation".
+test('review tasks name the current vote in the words of their own lane', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  const me = ROLE_WALLETS.verified_analyst;
+  const challenge = richCase.governance.challenges[0];
+  const current = reportFixture.versions[2];
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_reviewable_cases') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, actor_role: 'analyst', cases: [richCase],
+      review_tasks: {
+        initial_open: [], report_publication: [], resolution_selection: [], challenge_admissibility: [], seal_reviews: [],
+        challenge_adjudication: [{ lane: 'challenge_adjudication', case_ref: CASE_REF, exact_target: challenge.public_ref, deadline: iso(4), conflict: false, current_vote: 'reject', weight_snapshot: 1.5, next_action: 'Review challenge merits' }],
+      },
+    }) });
+  });
+  await page.route('**/functions/v1/osi-v2-report-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_review_queue') return route.fallback();
+    const version = { ...current, lifecycle_state: 'in_review', can_cast_analyst_review: true, reviews: [{
+      reviewer_wallet: me, decision: 'reject', reason_code: 'evidence_insufficient', weight: 1.5, is_active: true,
+      created_at: current.submitted_at, proof_label: 'Wallet-signed and server-verified',
+    }] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false,
+      reports: [{ ...reportFixture, access: 'analyst', can_cast_analyst_review: true, versions: [version] }],
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReviewQueue());
+  const adjudication = page.locator('#field-cases .osi-review-task[data-review-lane="challenge_adjudication"]');
+  const report = page.locator('#field-cases .osi-review-task[data-review-kind="report"]').first();
+  await expect(adjudication).toContainText('Reject challenge, keep the selected Report');
+  await expect(report).toContainText('Reject');
+  for (const task of [adjudication, report]) await expect(task).not.toContainText('Reject normal investigation');
+  expectCleanRuntime(page);
+});
+
+// A language switch over a failed list keeps the failure and its Retry, and
+// a failed public read never leaves private My Cases rows in memory for a
+// filter to draw under the public heading.
+test('a failed public list stays failed across a language switch and drops private rows', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiNavigate('field'));
+  await expect(page.locator('#field-cases .osi-v2-row').first()).toBeVisible();
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_public_cases') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'read_failed' }) });
+  });
+  const list = page.locator('#field-cases');
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await page.locator('.fo-rail [data-fo-nav="cases"]').click();
+  await expect(list).toContainText('Public registry unavailable');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(list).toContainText('Kamusal kayda ulaşılamıyor');
+  await expect(list.locator('.osi-v2-row')).toHaveCount(0);
+  await expect(list.locator('[data-registry-retry]')).toBeVisible();
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await expect(list.locator('.osi-v2-row')).toHaveCount(0);
+
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(list).toContainText('Private owner workspace');
+  await page.locator('.fo-rail [data-fo-nav="cases"]').click();
+  await expect(list).toContainText('Public registry unavailable');
+  await page.evaluate(() => window.fieldFilter('all'));
+  await expect(list).not.toContainText('Private owner workspace');
+  await expect(list).not.toContainText(PRIVATE_SENTINEL);
+  expectCleanRuntime(page);
+});
+
+// A transient failure of the routine gate re-check keeps an open maintainer
+// edit. Only a confirmed loss of identity takes the editor away, and a
+// confirmed full gate brings it back.
+test('a gate re-check that fails in transit keeps the open maintainer edit', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  const host = page.locator('#osi-maintainer-profile');
+  await host.locator('[data-maintainer-edit]').click();
+  const name = host.locator('[data-mp-name]');
+  await name.fill('Unsaved maintainer name');
+  await page.evaluate(() => window.setMaintainerServerGate(false, 'unavailable'));
+  await page.waitForTimeout(300);
+  await expect(name).toHaveValue('Unsaved maintainer name');
+  await page.evaluate(() => window.setMaintainerServerGate(false, 'signed_out'));
+  await expect(name).toHaveCount(0);
+  await expect(host.locator('[data-maintainer-edit]')).toHaveCount(0);
+  await page.evaluate(() => window.setMaintainerServerGate(true, 'full'));
+  await expect(host.locator('[data-maintainer-edit]')).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// A commit that meets an incomplete RPC answer is retried with the same
+// transaction, so the maintainer never sends a second probation Memo.
+test('probation activation retries an incomplete RPC answer with the same transaction', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const me = ROLE_WALLETS.maintainer;
+  const commits = [];
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'maintainer_queue') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, applications: [{
+        ...candidateApplication,
+        reviews: [{ reviewer_wallet: me, decision: 'approve', reason_code: 'meets_probationary_baseline', is_active: true, created_at: iso(-.1) }],
+      }] }) });
+    }
+    if (body.op === 'commit_activation') {
+      commits.push(body.tx_sig);
+      if (commits.length === 1) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'rpc_invalid_response' }) });
+    }
+    return route.fallback();
+  });
+  await page.evaluate((tx) => { window.castOnchainVote = async () => tx; }, TX);
+  await page.locator('#walletBtn').click();
+  await page.locator('#maintainerAccessMenu').click();
+  const activate = page.locator('#osi-analyst-ops [data-analyst-activate]');
+  await expect(activate).toBeVisible();
+  await activate.click();
+  await expect(page.locator('#stw-toast')).toContainText('Analyst probation is Memo-anchored on Solana.', { timeout: 10_000 });
+  expect(commits).toEqual([TX, TX]);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'prepare_activation')).toBe(1);
   expectCleanRuntime(page);
 });

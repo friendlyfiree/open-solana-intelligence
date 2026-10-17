@@ -64,7 +64,7 @@
       unknown_or_wrong_nonce:'The single-use proof is missing, expired, or bound to another action.',
       transaction_not_confirmed:'The probation Memo is not confirmed yet. Keep this window open and retry.',
       rpc_unavailable:'Solana confirmation is temporarily unavailable. This transaction can be retried safely.',
-      rpc_invalid_response:'Solana RPC returned an incomplete response. Retry safely with the same transaction.',
+      rpc_invalid_response:'Solana RPC kept returning an incomplete response, so probation is not confirmed yet. Reload the application queue before anchoring again; the Memo you sent may still confirm.',
       wrong_cluster:'The trusted RPC did not identify Solana mainnet. Probation was not activated.',
       replayed_or_expired:'This read authorization was already used or expired.',
       handle_unavailable:'That analyst handle is already in use.',
@@ -1165,7 +1165,7 @@
     }catch(error){if(generation===privateGeneration())queueStatus(id,userError(error),'error');}
     finally{if(generation===privateGeneration()){state.busy=false;if(card&&document.body.contains(card))card.querySelectorAll('button,select').forEach(function(node){node.disabled=false;});}}
   }
-  async function commitActivationWithConfirmation(body,generation){var last;for(var attempt=0;attempt<5;attempt++){assertPrivateGeneration(generation);try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){last=error;if(String(error.message)!=='transaction_not_confirmed')throw error;assertPrivateGeneration(generation);await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}}throw last;}
+  async function commitActivationWithConfirmation(body,generation){var last;for(var attempt=0;attempt<5;attempt++){assertPrivateGeneration(generation);try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){last=error;if(['transaction_not_confirmed','rpc_unavailable','rpc_invalid_response'].indexOf(String(error.message))<0)throw error;assertPrivateGeneration(generation);await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}}throw last;}
   async function activateProbation(id,nested){
     // One activation at a time. reviewApplication calls in while it holds the
     // busy flag; any other call during an activation would send a second
@@ -1377,7 +1377,10 @@
       // loaded is remembered by handle, not by wallet. Reopening it as a wallet
       // turned a language switch into "Analyst profile unavailable".
       var handleIntent=/^handle:([a-z0-9_]{2,32})$/.exec(String(state.profileIntent));
-      if(handleIntent){
+      // The #maintainer route's own unavailable state names no wallet, so it
+      // is drawn again as itself rather than looked up as one.
+      if(state.profileIntent==='maintainer')showMaintainerRouteUnavailable(state.maintainerProfileFailed===true);
+      else if(handleIntent){
         var cached=state.profiles.find(function(row){return String(row.handle||'').toLowerCase()===handleIntent[1];});
         if(cached)openPublicProfile(String(cached.wallet),{preserveReturnFocus:true,preserveFocus:true});
         else openProfileByHandle(handleIntent[1]);

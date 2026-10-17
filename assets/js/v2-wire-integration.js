@@ -131,9 +131,10 @@
   function draftPublicSummary(value){
     return String(value||'').replace(/\s+/g,' ').trim().slice(0,4000);
   }
-  // A link is split on new lines only, because an https URL may contain a
-  // comma; addresses and signatures may also be comma-separated on one line.
-  function lines(id,kind){var node=document.getElementById(id);if(!node)return[];return String(node.value||'').split(kind==='url'?/\r?\n/:/[\r\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});}
+  // Links are split on new lines and on a comma that starts another link, so
+  // an https URL that contains a comma stays whole and two links on one line
+  // never merge into one. Addresses and signatures may be comma-separated.
+  function lines(id,kind){var node=document.getElementById(id);if(!node)return[];return String(node.value||'').split(kind==='url'?/\r?\n|,\s*(?=https?:\/\/)/i:/[\r\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});}
   function payload(){
     return{
       title_public_safe:document.getElementById('osi-wire-title').value,
@@ -462,7 +463,7 @@
   // title is repeated here and shown only at that width.
   function overviewTab(item){
     var title=String(item.title||'');
-    return'<section class="osi-case-section">'+(title.length>60?'<p class="osi-wire-full-title" data-osi-user-content>'+esc(title)+'</p>':'')+'<div class="osi-section-heading"><span class="osi-eyebrow">Standalone finding</span><span class="osi-chip">'+esc(t('Version {n}',{n:item.version_no}))+'</span></div>'+attribution(item.author,'author')+'<h4>Public-safe summary</h4><p data-osi-user-content>'+esc(item.summary)+'</p>'+publicationBlock(item)+'<div class="osi-case-note">Publication exposes the public-safe summary, approved public evidence, review record, and proof log. Restricted analysis and uncertainties remain private. Publication is not automatic truth, guilt, legal certainty, recovery, custody, or guaranteed payment.</div></section>';
+    return'<section class="osi-case-section">'+(title?'<p class="osi-wire-full-title" data-osi-user-content>'+esc(title)+'</p>':'')+'<div class="osi-section-heading"><span class="osi-eyebrow">Standalone finding</span><span class="osi-chip">'+esc(t('Version {n}',{n:item.version_no}))+'</span></div>'+attribution(item.author,'author')+'<h4>Public-safe summary</h4><p data-osi-user-content>'+esc(item.summary)+'</p>'+publicationBlock(item)+'<div class="osi-case-note">Publication exposes the public-safe summary, approved public evidence, review record, and proof log. Restricted analysis and uncertainties remain private. Publication is not automatic truth, guilt, legal certainty, recovery, custody, or guaranteed payment.</div></section>';
   }
   function evidenceTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact immutable version</span><h3>Evidence</h3></div><span class="osi-chip">'+esc(t((item.evidence||[]).length===1?'{count} reference':'{count} references',{count:(item.evidence||[]).length}))+'</span></div><div class="osi-report-evidence-list">'+((item.evidence||[]).map(publicEvidenceItem).join('')||'<p>No public evidence references were recorded.</p>')+'</div></section>';}
   // A revision deactivates the earlier row. It stays in the public record,

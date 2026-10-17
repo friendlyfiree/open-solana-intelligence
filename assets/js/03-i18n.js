@@ -2889,7 +2889,17 @@
     'The connected wallet is the recipient. Self-support is not allowed.': 'Bağlı cüzdan alıcının kendisi. Kendine destek verilemez.',
     'The trusted RPC did not identify Solana mainnet. Nothing was recorded.': 'Güvenilir RPC Solana mainnet\'i tanımlamadı. Hiçbir şey kaydedilmedi.',
     'Solana RPC returned an incomplete response. Retry safely with the same transaction.': 'Solana RPC eksik bir yanıt döndürdü. Aynı işlemle güvenle yeniden deneyin.',
-    'The trusted RPC did not identify Solana mainnet. Probation was not activated.': 'Güvenilir RPC Solana mainnet\'i tanımlamadı. Deneme süreci etkinleştirilmedi.'
+    'The trusted RPC did not identify Solana mainnet. Probation was not activated.': 'Güvenilir RPC Solana mainnet\'i tanımlamadı. Deneme süreci etkinleştirilmedi.',
+    'The wallet disconnected, so this transfer was cancelled. Nothing was sent.': 'Cüzdan bağlantısı kesildi, bu yüzden bu transfer iptal edildi. Hiçbir şey gönderilmedi.',
+    'Private access changed while the amount was open, so this transfer was cancelled. Nothing was sent. Start it again.': 'Tutar penceresi açıkken özel erişim değişti, bu yüzden bu transfer iptal edildi. Hiçbir şey gönderilmedi. Yeniden başlatın.',
+    'Solana RPC kept returning an incomplete response, so probation is not confirmed yet. Reload the application queue before anchoring again; the Memo you sent may still confirm.': 'Solana RPC eksik yanıt vermeye devam etti, bu yüzden deneme süreci henüz onaylanmadı. Yeniden sabitlemeden önce başvuru kuyruğunu yenileyin; gönderdiğiniz Memo yine de onaylanabilir.',
+    'Any analyst whose active review on this exact version is approve can publish it. Cast or revise your review to approve to take that step.': 'Bu tam sürümdeki etkin incelemesi onay olan her analist onu yayımlayabilir. Bu adımı atmak için onay incelemesi verin ya da incelemenizi onay olarak güncelleyin.',
+    'An eligible analyst who approved this exact version completes the publication. This wallet does not carry counted analyst weight.': 'Yayımlamayı bu tam sürümü onaylamış uygun bir analist tamamlar. Bu cüzdan sayılan analist ağırlığı taşımıyor.',
+    'The Report author cannot publish their own version. An approving independent analyst completes this step.': 'Rapor yazarı kendi sürümünü yayımlayamaz. Bu adımı onay veren bağımsız bir analist tamamlar.',
+    'The Case owner cannot publish a Report on their own Case. An approving independent analyst completes this step.': 'Vaka sahibi kendi Vakasındaki bir Raporu yayımlayamaz. Bu adımı onay veren bağımsız bir analist tamamlar.',
+    'Counted Report review and publication are safely disabled during rollout.': 'Sayılan Rapor incelemesi ve yayımlama, kademeli geçiş sırasında güvenli biçimde kapalı.',
+    'An eligible analyst who approved this exact version completes the publication.': 'Yayımlamayı bu tam sürümü onaylamış uygun bir analist tamamlar.',
+    'The current server-computed bootstrap tier is not satisfied.': 'Sunucunun hesapladığı geçerli başlangıç kademesi karşılanmadı.'
   };
 
   var translations = { en: {}, tr: turkish };

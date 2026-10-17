@@ -2576,10 +2576,18 @@ footer > .wrap {
 
   /* The drawer lists the links in document order, the same order keyboard
    * focus takes. A CSS order that put Analyst Network and About above the
-   * Platform group made Tab jump back up the drawer (WCAG 2.4.3). */
+   * Platform group made Tab jump back up the drawer (WCAG 2.4.3). The
+   * drawer-only copies of those two links sit in the brief's primary order
+   * (Home, Field Office, The Wire, Public Records, Analysts, Proof Log,
+   * About), so the desktop originals after Platform are hidden here. */
   body.nav-open .osi-global-nav > .osi-nav-quick {
     display: flex;
     align-items: center;
+  }
+
+  body.nav-open .osi-global-nav > .osi-nav-link:not(.osi-nav-quick)[data-global-view="analysts"],
+  body.nav-open .osi-global-nav > .osi-nav-link:not(.osi-nav-quick)[data-global-view="methodology"] {
+    display: none;
   }
 
   .osi-global-nav > .osi-platform-wrap {
@@ -8812,14 +8820,16 @@ body .osi-status.maintainer {
 }
 /* === end Item-6 dup pass === */
 
-/* A long Wire title is clamped in the drawer header on phones, so the
-   overview repeats it in full at that width only. */
-.osi-wire-full-title {
+/* The drawer header clamps a Wire title to three lines on phones, which
+   cuts titles of about 20 characters and up, so the overview repeats the
+   title in full at that width only. The ID selector outranks the drawer's
+   body-paragraph rule. */
+#osi-wire-drawer .osi-case-section > p.osi-wire-full-title {
   display: none;
 }
 
 @media (max-width: 720px) {
-  .osi-wire-full-title {
+  #osi-wire-drawer .osi-case-section > p.osi-wire-full-title {
     display: block;
     margin: 0 0 12px;
     color: var(--ink);
@@ -8828,7 +8838,14 @@ body .osi-status.maintainer {
   }
 }
 
-/* The Proof Log source strip carries its retry control at the end. */
+/* The Proof Log source strip carries its retry control at the end. The text
+   takes the remaining width, so on a phone only the button wraps and the
+   status dot stays beside its text. */
+#prooflog .pl-strip-t {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 #prooflog .pl-strip-retry {
   margin-left: auto;
   flex: 0 0 auto;
