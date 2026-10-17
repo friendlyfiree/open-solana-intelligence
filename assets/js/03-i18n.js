@@ -2720,7 +2720,11 @@
     'Verify the rejection Memo on Solscan': 'Ret Memo\'sunu Solscan\'de doğrula',
     'No confirmed rejection Memo is public for this Case yet.': 'Bu Vaka için henüz kamusal, onaylanmış bir ret Memo\'su yok.',
     'Initial review rejected. Only the Case owner can appeal, with a new evidence reference.': 'İlk inceleme reddedildi. Yalnızca Vaka sahibi, yeni bir kanıt referansıyla itiraz edebilir.',
-    'The maintainer profile could not be read. Editing stays off until it loads.': 'Bakımcı profili okunamadı. Profil yüklenene kadar düzenleme kapalı kalır.'
+    'The maintainer profile could not be read. Editing stays off until it loads.': 'Bakımcı profili okunamadı. Profil yüklenene kadar düzenleme kapalı kalır.',
+    'Unverified payment attempts': 'Doğrulanmamış ödeme denemeleri',
+    'Not confirmed by OSI. A listed transaction is not a verified payment.': 'OSI tarafından onaylanmadı. Listelenen bir işlem doğrulanmış bir ödeme değildir.',
+    'View transaction on Solscan': 'İşlemi Solscan\'de görüntüle',
+    'This submission is larger than the server accepts. Shorten the longest field and try again.': 'Bu gönderim sunucunun kabul ettiğinden büyük. En uzun alanı kısaltıp yeniden deneyin.'
   };
 
   var translations = { en: {}, tr: turkish };

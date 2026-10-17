@@ -4851,3 +4851,87 @@ test('the SAS badge in a profile drawer closes the drawer before opening About',
   expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
   expectCleanRuntime(page);
 });
+
+// A wallet change, a disconnect or a session expiry must not leave the
+// previous wallet's private rows on screen. The private list gives way to its
+// lock state.
+test('a session clear replaces private My Cases and My Challenges rows with the lock', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator('#field-cases .osi-v2-row')).toHaveCount(1);
+  await page.evaluate(() => window.osiV2ClearReadSession('wallet_changed'));
+  await expect(page.locator('#field-cases .osi-v2-row')).toHaveCount(0);
+  await expect(page.locator('#field-cases [data-workspace-lock="mine"]')).toBeVisible();
+  await page.evaluate(() => window.osiV2OpenMyChallenges());
+  await expect(page.locator('#field-cases .osi-review-lanes')).toBeVisible();
+  await page.evaluate(() => window.osiV2ClearReadSession('explicit_logout'));
+  await expect(page.locator('#field-cases .osi-review-lanes')).toHaveCount(0);
+  await expect(page.locator('#field-cases')).not.toContainText(PRIVATE_SENTINEL);
+  await expect(page.locator('#field-cases [data-workspace-lock="challenges"]')).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// The amount the dialog sends is the amount it shows. A cleared custom field
+// falls back to the selected preset, a decimal comma is a decimal point, and a
+// leading-zero amount is refused inline with the dialog still open.
+test('the SOL amount dialog sends exactly the amount on screen', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  const ask = () => page.evaluate((wallet) => {
+    window.__amount = undefined;
+    window.osiAskSolAmount({ address: wallet, label: 'published analyst', amount: 0.1, title: 'Voluntary support' })
+      .then((value) => { window.__amount = value; });
+  }, OTHER);
+  const custom = page.locator('#sol-ask-custom');
+  const go = page.locator('#sol-ask-go');
+
+  await ask();
+  await custom.fill('7');
+  await custom.fill('');
+  await expect(page.locator('.sol-ask-amt.active')).toHaveAttribute('data-sol', '0.1');
+  await go.click();
+  await expect.poll(() => page.evaluate(() => window.__amount)).toBe('0.1');
+
+  await ask();
+  await custom.fill('1,5');
+  await expect(custom).toHaveValue('1,5');
+  await go.click();
+  await expect.poll(() => page.evaluate(() => window.__amount)).toBe('1.5');
+
+  await ask();
+  await custom.fill('05');
+  await go.click();
+  await expect(page.locator('#sol-ask-err')).toBeVisible();
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  expect(await page.evaluate(() => window.__amount)).toBeUndefined();
+  await page.keyboard.press('Escape');
+  expectCleanRuntime(page);
+});
+
+// Only a confirmed transfer is listed as verified. Failed or unconfirmed
+// attempts get their own heading and a neutral transaction link.
+test('Rewards & Support lists unconfirmed payment attempts apart from verified transfers', async ({ page }) => {
+  await ready(page);
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_case' || body.public_ref !== CASE_REF) return route.fallback();
+    const reward = { ...richCase.money.reward, payments: [
+      ...richCase.money.reward.payments,
+      { amount_lamports: '2000000000', state: 'failed', confirmed_at: null, solscan_url: `https://solscan.io/tx/${TX}` },
+      { amount_lamports: '500000000', state: 'submitted', confirmed_at: null, solscan_url: null },
+    ] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, case: { ...richCase, money: { ...richCase.money, reward } } }) });
+  });
+  await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+  await page.locator('#osi-case-tabs [data-tab="reward"]').click();
+  const content = page.locator('#osi-case-content');
+  const verified = content.locator('h4', { hasText: 'Verified transfers' }).locator('xpath=following-sibling::ol[1]');
+  await expect(verified.locator('li')).toHaveCount(2);
+  await expect(verified).not.toContainText('Failed');
+  const attempts = content.locator('[data-payment-attempts]');
+  await expect(attempts.locator('li')).toHaveCount(2);
+  await expect(attempts).toContainText('Failed');
+  await expect(attempts).not.toContainText('Verify on Solscan');
+  await expect(attempts.getByRole('link', { name: 'View transaction on Solscan' })).toHaveCount(1);
+  expectCleanRuntime(page);
+});

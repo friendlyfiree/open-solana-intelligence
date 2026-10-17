@@ -18,6 +18,9 @@
   var MAX_SOL = 100;
   var pending = null;      // { resolve }
   var amount = 0.1;
+  // The preset the dialog shows as selected. A cleared custom field falls back
+  // to it, so the amount sent is always the amount on screen.
+  var preset = 0.1;
   var returnFocus = null;
 
   function el(id) { return document.getElementById(id); }
@@ -54,10 +57,18 @@
     host.classList.toggle('show', !!message);
   }
 
-  // Accepts what the server accepts: a positive amount with at most 9 decimals.
+  // A single decimal comma ("1,5") is read as a decimal point. The field used
+  // to be type=number, which drops the comma and turned 1,5 into 15 SOL.
+  function decimalText(value) {
+    return String(value == null ? '' : value).trim().replace(/^(\d+),(\d+)$/, '$1.$2');
+  }
+
+  // Accepts what the server accepts: a positive amount up to the cap, at most
+  // 9 decimals and no leading zero ("05" and "00.5" are refused here, inline,
+  // instead of after the dialog has closed).
   function normalize(value) {
-    var text = String(value == null ? '' : value).trim();
-    if (!/^\d+(\.\d{1,9})?$/.test(text)) return null;
+    var text = decimalText(value);
+    if (!/^(?:0|[1-9]\d{0,2})(?:\.\d{1,9})?$/.test(text)) return null;
     var num = Number(text);
     if (!isFinite(num) || num <= 0 || num > MAX_SOL) return null;
     return text.replace(/\.?0+$/, function (m) { return m.indexOf('.') === 0 ? '' : m; });
@@ -115,7 +126,7 @@
 
   function confirm() {
     var custom = el('sol-ask-custom');
-    var raw = custom && String(custom.value || '').trim() ? custom.value : amount;
+    var raw = custom && String(custom.value || '').trim() ? custom.value : (amount > 0 ? amount : '');
     var value = normalize(raw);
     if (value === null) {
       setError(t('Enter a positive amount up to {max} SOL, with at most 9 decimals.', { max: MAX_SOL }));
@@ -139,6 +150,7 @@
     if (typeof window.osiActivateRouteStyles === 'function') window.osiActivateRouteStyles();
 
     amount = Number(options.amount) > 0 ? Number(options.amount) : 0.1;
+    preset = PRESETS.indexOf(amount) === -1 ? 0 : amount;
     var head = el('sol-ask-h'); if (head) head.textContent = t(options.title || '◎ Voluntary support');
     var label = el('sol-ask-label'); if (label) label.textContent = t(options.label || 'recipient');
     var addr = el('sol-ask-addr'); if (addr) addr.textContent = options.address ? shortAddr(options.address) : '';
@@ -169,14 +181,18 @@
     var button = event.target && event.target.closest && event.target.closest('.sol-ask-amt');
     if (!button || !modal() || !modal().contains(button)) return;
     amount = Number(button.getAttribute('data-sol')) || amount;
+    preset = amount;
     var custom = el('sol-ask-custom'); if (custom) custom.value = '';
     markActive(amount); setError(''); renderUsd();
   });
 
   document.addEventListener('input', function (event) {
     if (!event.target || event.target.id !== 'sol-ask-custom') return;
-    var typed = Number(event.target.value);
-    if (isFinite(typed) && typed > 0) { amount = typed; markActive(null); }
+    var text = decimalText(event.target.value);
+    var typed = Number(text);
+    if (!text) { amount = preset; markActive(preset || null); }
+    else if (isFinite(typed) && typed > 0) { amount = typed; markActive(null); }
+    else { amount = 0; markActive(null); }
     setError(''); renderUsd();
   });
 

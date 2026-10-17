@@ -478,6 +478,8 @@
       replayed_or_expired:'This read authorization was already used or expired.',
       prohibited_secret_material:'Remove any seed phrase, recovery phrase, mnemonic, private key, or secret key reference.',
       prohibited_illegal_access_material:'Illegal-access material cannot be submitted.',
+      prohibited_personal_data:'Remove doxxing, payment-card numbers, or government identity numbers.',
+      body_too_large:'This submission is larger than the server accepts. Shorten the longest field and try again.',
       rate_limited:'Too many proof requests. Wait a few minutes and try again.'
       ,analyst_required:'Normal Case rejection requires an eligible analyst. Maintainer authority cannot replace this quorum.'
       ,owner_required:'Only the Case owner can submit this appeal.'
@@ -2250,6 +2252,7 @@
     return whole+(fraction?'.'+fraction:'');
   }
   function validSolInput(value){var text=String(value||'').trim();if(!/^(?:0|[1-9]\d{0,2})(?:\.\d{1,9})?$/.test(text)||/^0(?:\.0+)?$/.test(text))return false;var parts=text.split('.'),whole=Number(parts[0]);return whole<100||(whole===100&&(!parts[1]||/^0+$/.test(parts[1])));}
+  function paymentAttemptLink(row){var url=solscanTx(row&&row.solscan_url);return url?'<a class="osi-proof-link" href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(t('View transaction on Solscan'))+'</a>':'';}
   function paymentProofLink(row){var url=solscanTx(row&&row.solscan_url);return url?'<a class="osi-proof-link" href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(t('Verify on Solscan'))+'</a>':'';}
   var SUPPORT_TARGET_LABELS={report_author:'Report author',counted_reviewer:'Counted reviewer',analyst:'Analyst',maintainer:'OSI maintainer'};
   function reward(item){
@@ -2287,7 +2290,14 @@
     var chip=pledge?(REWARD_CHIP[pledge.status]||['Pledged, not escrowed','neutral']):null;
     var summary=pledge?'<dl class="osi-case-facts"><div><dt>'+esc(t('Pledge'))+'</dt><dd><span class="mono">'+esc(solFromLamports(pledge.amount_lamports))+'</span> SOL</dd></div><div><dt>'+esc(t('Server-derived status'))+'</dt><dd>'+esc(t(sentence(pledge.status)))+'</dd></div><div><dt>'+esc(t('Confirmed'))+'</dt><dd><span class="mono">'+esc(solFromLamports(pledge.confirmed_lamports))+'</span> SOL</dd></div><div><dt>'+esc(t('Outstanding'))+'</dt><dd><span class="mono">'+esc(solFromLamports(pledge.outstanding_lamports))+'</span> SOL</dd></div></dl>'
       :'<div class="osi-state-message"><b>'+esc(t('No reward pledge'))+'</b><span>'+esc(t('A Case intake reward intent is not a pledge and cannot be paid.'))+'</span></div>';
-    var rows=(pledge&&pledge.payments||[]).concat(money.confirmed_support||[]);var history=rows.length?'<h4 class="osi-case-subhead">'+esc(t('Verified transfers'))+'</h4><ol class="osi-list">'+rows.map(function(row){return'<li class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(t(row.support_type?'Voluntary support':'Reward payment'))+' · <span class="mono">'+esc(solFromLamports(row.amount_lamports))+'</span> SOL</b>'+proofLabelHtml(row.state==='confirmed'?'SOL transfer verified on Solana':t(sentence(row.state)))+'</div><p>'+esc(dateText(row.confirmed_at))+'</p>'+paymentProofLink(row)+'</li>';}).join('')+'</ol>':'';
+    // Only a confirmed transfer sits under "Verified transfers". The authorized
+    // projection also returns failed, submitted, initiated and timed-out
+    // attempts; they get their own heading and a neutral transaction link.
+    var rows=(pledge&&pledge.payments||[]).concat(money.confirmed_support||[]);
+    function transferItem(row){var confirmed=row.state==='confirmed';return'<li class="osi-list-item"><div class="osi-list-item-head"><b>'+esc(t(row.support_type?'Voluntary support':'Reward payment'))+' · <span class="mono">'+esc(solFromLamports(row.amount_lamports))+'</span> SOL</b>'+proofLabelHtml(confirmed?'SOL transfer verified on Solana':t(sentence(row.state)))+'</div>'+(confirmed?'<p>'+esc(dateText(row.confirmed_at))+'</p>'+paymentProofLink(row):paymentAttemptLink(row))+'</li>';}
+    var verifiedRows=rows.filter(function(row){return row&&row.state==='confirmed';}),attemptRows=rows.filter(function(row){return row&&row.state!=='confirmed';});
+    var history=(verifiedRows.length?'<h4 class="osi-case-subhead">'+esc(t('Verified transfers'))+'</h4><ol class="osi-list">'+verifiedRows.map(transferItem).join('')+'</ol>':'')
+      +(attemptRows.length?'<h4 class="osi-case-subhead">'+esc(t('Unverified payment attempts'))+'</h4><p class="osi-case-quiet">'+esc(t('Not confirmed by OSI. A listed transaction is not a verified payment.'))+'</p><ol class="osi-list" data-payment-attempts>'+attemptRows.map(transferItem).join('')+'</ol>':'');
     var retry=pendingRecovery?'<div class="osi-state-message warning" role="status" aria-live="polite"><b>'+esc(t('Do not start a second payment'))+'</b><span>'+(state.paymentPending.method==='solana_pay'?esc(t('A single-use Solana Pay request is already bound to this exact intent. Resume it; OSI still shows unpaid until finalized RPC verification succeeds.')):esc(t('SOL was already submitted with signature {signature}, but OSI has not confirmed its receipt. Re-run trusted verification of this same signature before preparing any replacement payment.',{signature:short(state.paymentPending.txSig)})))+'</span><button class="'+cls('retry')+'" type="button" onclick="osiV2RetryPayment()">'+esc(t(state.paymentPending.method==='solana_pay'?'Resume Solana Pay':'Re-verify existing signature'))+'</button></div>':'';
     return '<section class="osi-case-section"><div class="osi-case-section-head"><h3>'+esc(t('Rewards & Support'))+'</h3>'+(chip?'<span class="osi-chip reward-'+esc(chip[1])+'">'+esc(t(chip[0]))+'</span>':'')+'</div>'+summary+retry+pledgeControls+payControl+support+'<div id="osi-payment-status" class="osi-form-status" role="status" aria-live="polite"></div>'+history+'<div class="osi-case-note">'+esc(t('A pledge records intent only and never moves SOL. All transfers are voluntary, direct wallet-to-wallet native SOL. OSI never holds funds, provides escrow, or takes commission. A payment or support receipt does not affect ranking, review weight, governance, truth, guilt, legal certainty, or recovery.'))+'</div></section>';
   }
@@ -3462,6 +3472,7 @@
   function clearPrivateCaseCache(reason){
     if(reason==='expiry'||reason==='explicit_refresh')saveCaseDraft();
     state.loadToken+=1;state.reviewLoadToken+=1;state.drawerLoadToken+=1;state.locked=null;
+    var previousMode=state.mode;
     if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.reviewLanes={};state.reviewUpdatedAt=null;state.current=null;state.activeReviewTask=null;state.actorRole='public';state.currentActorRole='';state.mode='public';}
     state.capabilities=null;state.reviewBusy=false;state.governanceBusy=false;state.paymentBusy=false;state.caseReceipt=null;state.caseIdempotency='';clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
     clearSubmissionReceipt('v2-case-receipt');
@@ -3476,6 +3487,13 @@
     // The drawer is gone, so the canonical Case route must not linger and
     // reopen it on the next history event.
     clearCaseRoute();
+    // The previous wallet's private rows must not stay on screen under the
+    // next wallet, or under no wallet. A private list gives way to its lock.
+    var listHost=document.getElementById('field-cases');
+    if(listHost&&['mine','challenges','review'].indexOf(previousMode)>=0&&listHost.querySelector('.osi-v2-row,.osi-review-lanes')){
+      state.locked=previousMode;setFieldCopy(previousMode);setReviewChrome(false);listHost.removeAttribute('data-drawn-mode');
+      drawWorkspaceLock(listHost,previousMode);
+    }
   }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('cases',clearPrivateCaseCache);
   var caseDraftForm=document.getElementById('field-form');
@@ -3517,6 +3535,7 @@
     // old owner rows can still be on screen while state already holds an
     // empty public list, and redrawing that would claim an empty registry.
     else if(host&&!state.locked&&state.cases.length&&host.querySelector('.osi-v2-row')&&host.getAttribute('data-drawn-mode')===state.mode)drawCases();
+    else if(host&&state.locked&&host.querySelector('[data-workspace-lock]'))drawWorkspaceLock(host,state.locked);
     if(state.current){drawTabs();renderTab();renderActions();paintSameTitle(state.current);}
     var titleHint=document.getElementById('v2-case-title-match');
     if(titleHint&&!titleHint.hidden)paintIntakeTitleHint();
