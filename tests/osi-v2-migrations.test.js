@@ -53,6 +53,7 @@ const expectedFiles = [
   '20260811065353_governance_bootstrap_challenge_controls.sql',
   '20260811084040_solana_pay_nonce_binding_guard.sql',
   '20260811090354_maintainer_voluntary_support.sql',
+  '20261017090000_osi_v2_challenge_receipt_guard_fk_indexes.sql',
 ];
 
 const sqlByFile = Object.fromEntries(
@@ -202,6 +203,15 @@ ok(
     .test(resolutionLifecycle),
 );
 
+const challengeGuardRepair =
+  sqlByFile['20261017090000_osi_v2_challenge_receipt_guard_fk_indexes.sql'] || '';
+ok(
+  'challenge bad-faith receipt is write-once again and every audited FK gains a leading index',
+  /old\.bad_faith_receipt_id is not null\s+and new\.bad_faith_receipt_id is distinct from old\.bad_faith_receipt_id then\s+raise exception 'Challenge bad-faith receipt is write-once' using errcode = '55000'/
+    .test(challengeGuardRepair)
+    && (challengeGuardRepair.match(/^create index /gm) || []).length === 14
+    && !/\bdrop\b|\bdelete\b|\bupdate\s+public\./i.test(challengeGuardRepair.replace(/--[^\n]*/g, '')),
+);
 ok(
   'exact ordered migration set',
   JSON.stringify(migrationFiles) === JSON.stringify(expectedFiles),

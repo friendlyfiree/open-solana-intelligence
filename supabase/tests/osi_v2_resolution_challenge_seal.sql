@@ -3,7 +3,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(77);
+select plan(81);
 
 create function pg_temp.add_published_report(
   p_case_id uuid, p_report_id uuid, p_version_id uuid,
@@ -661,6 +661,48 @@ select ok((select challenge.state='expired' and challenge.expired_reason='admiss
  from public.challenges_v2 challenge join public.event_receipts receipt on receipt.id=challenge.resolved_receipt_id
  where challenge.id='36000000-0000-4000-8000-000000000001'),
  'expired challenge records immutable timeout and system proof without penalty');
+
+-- A recorded bad-faith outcome keeps its exact receipt: it can be neither
+-- repointed at another receipt nor removed.
+insert into public.event_receipts (
+  id,event_version,event_type,target_type,target_id,public_ref,actor_wallet,
+  actor_role,decision,proof_type,payload_hash,server_verified,occurred_at
+) values
+  ('39000000-0000-4000-8000-000000000001','legacy','LEGACY_REPORT_IMPORTED','report_version',
+    '39000000-0000-4000-8000-0000000000a1','OSI-BADFAITH-0001','77777777777777777777777777777777',
+    'wallet','submit','legacy_imported',repeat('c',64),false,statement_timestamp()),
+  ('39000000-0000-4000-8000-000000000002','legacy','LEGACY_REPORT_IMPORTED','report_version',
+    '39000000-0000-4000-8000-0000000000a2','OSI-BADFAITH-0002','77777777777777777777777777777777',
+    'wallet','submit','legacy_imported',repeat('d',64),false,statement_timestamp());
+update public.challenges_v2 set bad_faith_state='under_review'
+ where challenger_wallet='77777777777777777777777777777777';
+select lives_ok($test$
+ update public.challenges_v2 set bad_faith_state='confirmed',
+  bad_faith_receipt_id='39000000-0000-4000-8000-000000000001'
+  where challenger_wallet='77777777777777777777777777777777'
+$test$,'a reviewed bad-faith outcome records its exact receipt once');
+select throws_ok($test$
+ update public.challenges_v2 set bad_faith_receipt_id='39000000-0000-4000-8000-000000000002'
+  where challenger_wallet='77777777777777777777777777777777'
+$test$,'55000','Challenge bad-faith receipt is write-once',
+ 'a recorded bad-faith receipt cannot be repointed at another receipt');
+select throws_ok($test$
+ update public.challenges_v2 set bad_faith_receipt_id=null
+  where challenger_wallet='77777777777777777777777777777777'
+$test$,'55000','Challenge bad-faith receipt is write-once',
+ 'a recorded bad-faith receipt cannot be removed while the outcome stays confirmed');
+
+-- Every foreign key the FK-index audit found unindexed now has an index that
+-- leads with it.
+select is((select count(*) from pg_catalog.pg_indexes where schemaname='public' and indexname in (
+  'challenges_v2_case_target_idx','challenges_v2_report_version_target_idx',
+  'challenges_v2_wire_version_target_idx','challenges_v2_ai_pack_version_target_idx',
+  'resolution_reviews_case_idx','case_report_reviews_reviewer_profile_idx',
+  'resolution_reviews_reviewer_profile_idx','challenge_reviews_reviewer_profile_idx',
+  'wire_report_reviews_reviewer_profile_idx','ai_pack_reviews_reviewer_profile_idx',
+  'case_resolutions_final_receipt_idx','case_resolutions_seal_receipt_idx',
+  'wire_report_versions_contested_receipt_idx','ai_pack_versions_first_stale_receipt_idx')),
+ 14::bigint,'each previously unindexed foreign key has a leading index');
 
 select is((select value from public.osi_config where key='OSI_V2_WRITES_ENABLED'),'false',
  'broad V2 write flag remains false');
