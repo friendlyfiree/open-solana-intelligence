@@ -4742,3 +4742,112 @@ test('the Wire drawer marks revised reviews as superseded', async ({ page }) => 
   await expect(page.locator('#osi-wire-drawer [data-review-superseded]')).toHaveCount(1);
   expectCleanRuntime(page);
 });
+
+// Probation activation sends one ANALYST_PROBATION Memo. Repeated presses
+// during the prepare and wallet window used to send one each.
+test('probation activation prepares one Memo however often the button is pressed', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const me = ROLE_WALLETS.maintainer;
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'maintainer_queue') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, applications: [{
+        ...candidateApplication,
+        reviews: [{ reviewer_wallet: me, decision: 'approve', reason_code: 'meets_probationary_baseline', is_active: true, created_at: iso(-.1) }],
+      }] }) });
+    }
+    if (body.op === 'prepare_activation') await new Promise((resolve) => setTimeout(resolve, 800));
+    return route.fallback();
+  });
+  await page.evaluate((tx) => { window.castOnchainVote = async () => tx; }, TX);
+  await page.locator('#walletBtn').click();
+  await page.locator('#maintainerAccessMenu').click();
+  const activate = page.locator('#osi-analyst-ops [data-analyst-activate]');
+  await expect(activate).toBeVisible();
+  await page.evaluate(() => {
+    const button = document.querySelector('#osi-analyst-ops [data-analyst-activate]');
+    button.click(); button.click(); button.click();
+  });
+  await expectFixtureOperation(page, 'osi-v2-analyst', 'commit_activation');
+  await page.waitForTimeout(300);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'prepare_activation')).toBe(1);
+  expectCleanRuntime(page);
+});
+
+// A language switch redraws the application queue. The chosen reason must
+// survive it, or the next decision is signed with the first reason.
+test('a language switch keeps the chosen application review reason', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.locator('#walletBtn').click();
+  await page.locator('#maintainerAccessMenu').click();
+  const reason = page.locator('#osi-analyst-ops [data-analyst-reason]').first();
+  await expect(reason).toBeVisible();
+  await reason.selectOption('unsafe_or_prohibited');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.waitForTimeout(300);
+  await expect(page.locator('#osi-analyst-ops [data-analyst-reason]').first()).toHaveValue('unsafe_or_prohibited');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+// #identity-body is shared by the passport, My Profile and the analyst
+// workspace. Once the workspace has been open, a language switch or a private
+// session clear must not replace the passport with it.
+test('the passport survives a language switch and a session clear after the analyst workspace was open', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiAnalystOpenWorkspace());
+  await expect(page.locator('#identity-body .osi-analyst-workspace')).toBeVisible();
+  await page.evaluate(() => window.osiNavigate('identity'));
+  await expect(page.locator('#identity-body .identity-hero')).toBeVisible();
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.waitForTimeout(300);
+  await expect(page.locator('#identity-body .osi-analyst-workspace')).toHaveCount(0);
+  await expect(page.locator('#identity-body .identity-hero')).toBeVisible();
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await page.waitForTimeout(200);
+  await page.evaluate(() => window.osiV2ClearReadSession('explicit_refresh'));
+  await page.waitForTimeout(200);
+  await expect(page.locator('#identity-body')).not.toContainText('Analyst workspace locked');
+  await expect(page.locator('#identity-body .identity-hero')).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// A failed maintainer-profile read is not "nothing published". Offering the
+// publish frame would let an empty save replace the real profile.
+test('a failed maintainer-profile read offers a retry, not an empty publish form', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_maintainer_profile') return route.fallback();
+    return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'maintainer_profile_unavailable' }) });
+  });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.evaluate(() => { if (typeof window.osiPublicReadInvalidate === 'function') window.osiPublicReadInvalidate(); window.osiV2SetMaintainerCapability(false); window.osiV2SetMaintainerCapability(true); });
+  const host = page.locator('#osi-maintainer-profile');
+  await expect(host.locator('[data-maintainer-read-failed]')).toBeVisible();
+  await expect(host).not.toContainText('No maintainer profile is published yet.');
+  await expect(host.locator('[data-maintainer-edit]')).toHaveCount(0);
+  await expect(host.getByRole('button', { name: 'Try again' })).toBeVisible();
+  const unexpected = page.__issue26Errors.filter((entry) => !(
+    /^http: 503 .*\/functions\/v1\/osi-v2-analyst$/.test(entry)
+    || /^console error: Failed to load resource: the server responded with a status of 503 /.test(entry)
+  ));
+  expect(unexpected).toEqual([]);
+});
+
+// The SAS badge inside the open profile drawer leads to About. The modal
+// drawer closes first, so focus and the verifier are not left behind it.
+test('the SAS badge in a profile drawer closes the drawer before opening About', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const badge = page.locator('#ap-modal-body [data-sas-badge="verified"]');
+  await expect(badge).toBeVisible();
+  await badge.click();
+  await expect(page.locator('#ap-modal')).not.toHaveClass(/\bopen\b/);
+  await expect(page.locator('#sas-verifier-wallet')).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
+  expectCleanRuntime(page);
+});

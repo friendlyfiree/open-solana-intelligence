@@ -64,6 +64,11 @@
   function sourceText(value){value=String(value||'');return SOURCE_TEXT[value]?tr(SOURCE_TEXT[value]):(value||tr('Unavailable'));}
   function openExplanation(value){
     var wallet=walletValue(value);
+    // A badge inside the open profile drawer leaves the drawer for About. The
+    // drawer is modal, so it closes first; otherwise it stays over About and
+    // the verifier input is focused behind it.
+    var profileModal=document.getElementById('ap-modal');
+    if(profileModal&&profileModal.classList.contains('open')&&typeof window.closeAnalystProfile==='function')window.closeAnalystProfile();
     if(typeof window.osiNavigate==='function')window.osiNavigate('methodology');
     else if(typeof window.showView==='function')window.showView('methodology');
     setTimeout(function(){

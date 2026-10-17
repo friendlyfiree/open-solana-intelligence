@@ -2719,7 +2719,8 @@
     'An independent analyst quorum rejected this Case for normal investigation, so it stays private. This is not a finding of bad faith. The Case owner may appeal with a new evidence reference; the original submission and the rejection proof are never rewritten.': 'Bağımsız bir analist yeter sayısı bu Vakayı olağan inceleme için reddetti, bu yüzden Vaka gizli kalıyor. Bu bir kötü niyet tespiti değildir. Vaka sahibi yeni bir kanıt referansıyla itiraz edebilir; ilk başvuru ve ret kanıtı hiçbir zaman yeniden yazılmaz.',
     'Verify the rejection Memo on Solscan': 'Ret Memo\'sunu Solscan\'de doğrula',
     'No confirmed rejection Memo is public for this Case yet.': 'Bu Vaka için henüz kamusal, onaylanmış bir ret Memo\'su yok.',
-    'Initial review rejected. Only the Case owner can appeal, with a new evidence reference.': 'İlk inceleme reddedildi. Yalnızca Vaka sahibi, yeni bir kanıt referansıyla itiraz edebilir.'
+    'Initial review rejected. Only the Case owner can appeal, with a new evidence reference.': 'İlk inceleme reddedildi. Yalnızca Vaka sahibi, yeni bir kanıt referansıyla itiraz edebilir.',
+    'The maintainer profile could not be read. Editing stays off until it loads.': 'Bakımcı profili okunamadı. Profil yüklenene kadar düzenleme kapalı kalır.'
   };
 
   var translations = { en: {}, tr: turkish };
