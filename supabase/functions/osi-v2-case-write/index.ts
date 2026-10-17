@@ -31,7 +31,9 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ALLOWED_ORIGIN = Deno.env.get("OSI_V2_ALLOWED_ORIGIN") ?? "*";
 const SOLANA_RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "https://api.mainnet-beta.solana.com";
 const MAINTAINER_AUTH_UUID = Deno.env.get("OSI_MAINTAINER_AUTH_UUID") ?? "";
-const MAX_BODY_BYTES = 32_768;
+// A maximum Case (160 + 10,000 + 25,000 characters, up to 3 UTF-8 bytes each,
+// plus 12 evidence references and the commit Memo) must fit, as in report-write.
+const MAX_BODY_BYTES = 180_000;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },

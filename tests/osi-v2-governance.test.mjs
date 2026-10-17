@@ -223,5 +223,38 @@ ok("governance pgTAP plan matches its exact assertion count",
   Number(pgTap.match(/select\s+plan\((\d+)\)/i)?.[1])
     === (pgTap.match(/^\s*select\s+(?:ok|is|isnt|throws_ok|lives_ok|cmp_ok|results_eq|bag_eq|set_eq|matches|unlike|has_)\s*\(/gmi) || []).length);
 
+// Case challenge summaries and governance rationales are public as soon as
+// they are recorded. They get the same content screen as the Wire equivalents.
+{
+  const challenge = (summary, detail) => governance.normalizeGovernancePayload("challenge_submit", {
+    reason_code: "material_evidence_challenge", public_safe_summary: summary, restricted_detail: detail,
+    evidence_item_id: "11111111-1111-4111-8111-111111111111",
+  });
+  const review = (rationale, note) => governance.normalizeGovernancePayload("challenge_review", {
+    decision: "accept", reason_code: "evidence_reviewed", public_rationale: rationale, private_note: note,
+  });
+  ok("a plain challenge summary is accepted",
+    challenge("The cited transfer needs independent context.", "").public_safe_summary.startsWith("The cited"));
+  rejects("a payment card in a public challenge summary is refused",
+    () => challenge("Refund was sent to card 4111 1111 1111 1111 per the victim.", ""), /prohibited_personal_data/);
+  rejects("a payment card in the restricted challenge detail is refused",
+    () => challenge("The cited transfer needs independent context.", "Card 4111111111111111"), /prohibited_personal_data/);
+  rejects("secret material in a challenge summary is refused",
+    () => challenge("Here is the seed phrase of the drained wallet for checking.", ""), /prohibited_secret_material/);
+  rejects("doxxing in a challenge review rationale is refused",
+    () => review("Their home address shows the wallet owner.", ""), /prohibited_personal_data/);
+  rejects("a payment card in a resolution review note is refused",
+    () => governance.normalizeGovernancePayload("resolution_review", {
+      phase: "selection", report_version_ref: "OSI-RV-A1B2C3D4E5F60718", decision: "select",
+      reason_code: "strongest_evidence", public_rationale: "The exact version has the strongest evidence.",
+      private_note: "Card 4111 1111 1111 1111",
+    }), /prohibited_personal_data/);
+  ok("a plain challenge review rationale is accepted",
+    review("The linked evidence confirms a material omission.", "").decision === "accept");
+}
+const governanceGateway = readFileSync(join(root, "supabase/functions/osi-v2-governance-write/index.ts"), "utf8");
+ok("governance gateway accepts two 10,000-character multi-byte fields",
+  Number(governanceGateway.match(/const MAX_BODY_BYTES = ([0-9_]+);/)?.[1].replace(/_/g, "")) >= 2 * 10000 * 3 + 4096);
+
 console.log(`OSI V2 governance: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

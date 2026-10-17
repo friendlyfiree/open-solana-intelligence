@@ -476,7 +476,7 @@
       transaction_not_confirmed:'The Memo transaction is not confirmed yet. Keep this window open and retry.',
       rpc_unavailable:'Solana confirmation is temporarily unavailable. Your transaction can be retried safely.',
       replayed_or_expired:'This read authorization was already used or expired.',
-      prohibited_secret_material:'Remove any seed phrase, recovery phrase, mnemonic, private key, or secret key reference.',
+      prohibited_secret_material:'Remove any seed phrase, recovery phrase, mnemonic, private key, secret key, access token or API key reference.',
       prohibited_illegal_access_material:'Illegal-access material cannot be submitted.',
       prohibited_personal_data:'Remove doxxing, payment-card numbers, or government identity numbers.',
       body_too_large:'This submission is larger than the server accepts. Shorten the longest field and try again.',

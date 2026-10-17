@@ -2757,7 +2757,8 @@
     'Case pages': 'Vaka sayfaları',
     'Leaderboard pages': 'Analist listesi sayfaları',
     'WALLET': 'CÜZDAN',
-    'MANIFEST': 'MANİFEST'
+    'MANIFEST': 'MANİFEST',
+    'Remove any seed phrase, recovery phrase, mnemonic, private key, secret key, access token or API key reference.': 'Tohum ifadesi, kurtarma ifadesi, anımsatıcı, özel anahtar, gizli anahtar, erişim belirteci veya API anahtarı içeren her referansı kaldırın.'
   };
 
   var translations = { en: {}, tr: turkish };
