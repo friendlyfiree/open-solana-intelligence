@@ -11,11 +11,13 @@ import {
   encodeBase58,
   estimatePaymentTransactionBytes,
   formatLamportsAsSol,
+  isPayerAttemptForIntent,
   isSolanaMainnetGenesis,
   normalizePaymentTargetRef,
   normalizeRecipientManifest,
   parseSolToLamports,
   recipientManifestHash,
+  rpcMemoMayMatch,
   validateFinalizedPaymentTransaction,
   validateSolanaPayReference,
   validateSolanaPayReferenceTransaction,
@@ -597,6 +599,61 @@ ok("confirmed support rows require exact server-verified finalized mainnet recei
   assert.ok(phase2.includes("receipt.proof_type is distinct from 'solana_memo'"));
   assert.ok(phase2.includes("receipt.server_verified is distinct from true"));
   assert.ok(phase2.includes("receipt.verification_metadata->>'finality' is distinct from 'finalized'"));
+});
+ok("only the payer's own attempt at the intent may bind or fail it", () => {
+  const real = mainnetFixture.transaction;
+  assert.equal(isPayerAttemptForIntent(real, mainnetFixture.intent, mainnetFixture.tx_signature), true);
+  // An observer reads the payer and the nonce from the landed Memo, then
+  // submits an unrelated finalized transaction for the same intent.
+  const foreign = structuredClone(real);
+  foreign.transaction.message.accountKeys[0] = { ...foreign.transaction.message.accountKeys[0], pubkey: "11111111111111111111111111111112" };
+  assert.equal(isPayerAttemptForIntent(foreign, mainnetFixture.intent, mainnetFixture.tx_signature), false);
+  // The payer's own transaction for another intent carries another Memo.
+  const otherIntent = { ...mainnetFixture.intent, nonce: "x".repeat(43) };
+  assert.equal(isPayerAttemptForIntent(real, otherIntent, mainnetFixture.tx_signature), false);
+  // A signature that is not this transaction's.
+  assert.equal(isPayerAttemptForIntent(real, mainnetFixture.intent, "3".repeat(88)), false);
+  // A second signer, or no transaction at all.
+  const cosigned = structuredClone(real);
+  cosigned.transaction.message.accountKeys[1] = { ...cosigned.transaction.message.accountKeys[1], signer: true };
+  assert.equal(isPayerAttemptForIntent(cosigned, mainnetFixture.intent, mainnetFixture.tx_signature), false);
+  assert.equal(isPayerAttemptForIntent(null, mainnetFixture.intent, mainnetFixture.tx_signature), false);
+  // A transaction that failed on chain moved no funds and never binds the
+  // intent, so a replay of it cannot block the payer's later real payment.
+  const failed = structuredClone(real);
+  failed.meta.err = { InstructionError: [2, { Custom: 1 }] };
+  assert.equal(isPayerAttemptForIntent(failed, mainnetFixture.intent, mainnetFixture.tx_signature), false);
+  assert.equal(validateFinalizedPaymentTransaction(failed, mainnetFixture.signature_status, mainnetFixture.intent, mainnetFixture.tx_signature).reason, "transaction_failed");
+  // The payer's own pending attempt is still the payer's attempt.
+  assert.equal(isPayerAttemptForIntent(real, mainnetFixture.intent, mainnetFixture.tx_signature), true);
+  assert.equal(validateFinalizedPaymentTransaction(real, null, mainnetFixture.intent, mainnetFixture.tx_signature).state, "awaiting_finality");
+});
+ok("the gateway binds or fails an intent only for the payer's own attempt", () => {
+  assert.ok(edge.includes("const payerAttempt = isPayerAttemptForIntent(rpc.transaction, exactIntent, txSig);"));
+  assert.ok(edge.includes("if (rpc.transaction && payerAttempt) {"));
+  assert.ok(edge.includes('if (rpc.transaction && payerAttempt && !recovery && paymentMethod !== "solana_pay" && !solanaPayBound) {'));
+  // A Solana Pay intent is never failed, whichever op the caller chose.
+  assert.ok(edge.includes("const solanaPayBound = !!safeText(bound.binding_context?.solana_pay?.reference);"));
+  const failure = edge.indexOf('admin.rpc("osi_v2_record_payment_failure"');
+  const guard = edge.lastIndexOf("payerAttempt", failure);
+  assert.ok(failure > 0 && guard > 0 && failure - guard < 600);
+});
+ok("the Solana Pay poll reads the RPC memo format instead of dropping every paid transfer", () => {
+  const memo = "OSI2|1|SUPPORT_PAYMENT_CONFIRMED|support|OSI-AN-6A51BDF0420CE0A3|a=x|n=y";
+  const bytes = new TextEncoder().encode(memo).length;
+  assert.equal(rpcMemoMayMatch(`[${bytes}] ${memo}`, memo), true);
+  assert.equal(rpcMemoMayMatch(`[3] abc; [${bytes}] ${memo}`, memo), true);
+  assert.equal(rpcMemoMayMatch(null, memo), true);
+  assert.equal(rpcMemoMayMatch(`[${bytes}] ${memo}X`, memo), false);
+  assert.equal(rpcMemoMayMatch("[3] abc", memo), false);
+  assert.equal(rpcMemoMayMatch("[3] abc", ""), false);
+  assert.ok(edge.includes("&& rpcMemoMayMatch(memo, exactMemo);"));
+  assert.ok(!edge.includes("memo === exactMemo"));
+  // The poll pages back to the intent's issue time and checks exact-Memo
+  // candidates oldest first, so newer copies of the reference cannot hide it.
+  assert.ok(edge.includes("signaturesForReference(reference, issuedAt - 5)"));
+  assert.ok(edge.includes("if (before) options.before = before;"));
+  assert.ok(/\.sort\(\(left, right\) => \(Number\(left\?\.memo == null\) - Number\(right\?\.memo == null\)\)\s*\|\| \(Number\(left\?\.blockTime\) - Number\(right\?\.blockTime\)\)\)/.test(edge));
 });
 
 if (!process.exitCode) console.log(`OK (${passed} assertions passed)`);

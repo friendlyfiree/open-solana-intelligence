@@ -483,6 +483,48 @@ export function validateSolanaPayReferenceTransaction(transaction, intent) {
   };
 }
 
+// A submission or a failure may be stored against an intent only for the
+// payer's own attempt at that intent: the payer is the fee payer and the only
+// signer, the signature is this transaction's, and its single Memo is the
+// intent's canonical Memo. The payer and the nonce are public in that Memo as
+// soon as a payment lands, so any other transaction must be refused without
+// touching the intent. Binding it would make the real payment unconfirmable.
+export function isPayerAttemptForIntent(transaction, intent, txSignature) {
+  if (!transaction || typeof transaction !== "object") return false;
+  // A transaction that failed on chain moved no funds. Binding it to the
+  // intent could only block the payer's later, real payment, so it never
+  // counts as the attempt.
+  if (transaction?.meta?.err != null) return false;
+  let payer;
+  let expectedMemo;
+  try {
+    payer = requireText(intent?.payer_wallet, "payer_wallet", WALLET, 44);
+    expectedMemo = canonicalPaymentMemo(intent);
+  } catch {
+    return false;
+  }
+  const message = transaction?.transaction?.message;
+  const keys = message?.accountKeys ?? [];
+  if (accountKeyValue(keys[0]) !== payer) return false;
+  const signers = signerAccountKeys(message);
+  if (signers.length !== 1 || signers[0] !== payer) return false;
+  const signatures = transaction?.transaction?.signatures ?? [];
+  if (signatures.length !== 1 || String(signatures[0]) !== String(txSignature ?? "")) return false;
+  const memos = (message?.instructions ?? []).map(parsedMemo).filter((memo) => memo != null);
+  return memos.length === 1 && memos[0] === expectedMemo;
+}
+
+// getSignaturesForAddress reports a transaction's memos as "[<byte length>]
+// <text>", joined with "; " when there is more than one. The Solana Pay poll
+// only drops candidates that cannot carry the canonical Memo; the commit path
+// still verifies the Memo exactly.
+export function rpcMemoMayMatch(rpcMemo, expectedMemo) {
+  if (rpcMemo == null) return true;
+  const expected = String(expectedMemo ?? "");
+  if (!expected) return false;
+  return String(rpcMemo).split("; ").some((part) => part.replace(/^\[\d+\] /, "") === expected);
+}
+
 export function validateFinalizedPaymentTransaction(transaction, signatureStatus, intent, txSignature) {
   const txSig = requireText(txSignature, "tx_signature", SIGNATURE, 96);
   if (!transaction || !signatureStatus) return { ok: false, state: "awaiting_finality", reason: "transaction_pending" };
