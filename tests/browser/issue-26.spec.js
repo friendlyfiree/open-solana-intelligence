@@ -5055,3 +5055,81 @@ test('Back from a Case keeps the public list page and returns focus to the row',
   await expect(page.locator(`#field-cases .osi-v2-row[data-case-ref="${ref}"]`)).toBeFocused();
   expectCleanRuntime(page);
 });
+
+// Without a wallet the wallet button is a plain Connect button: ArrowDown does
+// not open the connected-wallet menu and no menu is announced. With a wallet,
+// tabbing out of the open menu closes it.
+test('the wallet menu opens only for a connected wallet and closes when focus leaves it', async ({ page }) => {
+  await ready(page, { role: 'anonymous' });
+  const button = page.locator('#walletBtn');
+  await expect(button).not.toHaveAttribute('aria-haspopup', 'menu');
+  await button.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#wbMenu')).not.toHaveClass(/\bopen\b/);
+  expectCleanRuntime(page);
+});
+
+test('a connected wallet menu closes when keyboard focus tabs out of it', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  const button = page.locator('#walletBtn');
+  await expect(button).toHaveAttribute('aria-haspopup', 'menu');
+  await button.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#wbMenu')).toHaveClass(/\bopen\b/);
+  for (let index = 0; index < 12; index++) {
+    await page.keyboard.press('Tab');
+    if (!(await page.evaluate(() => document.querySelector('.wb-wrap').contains(document.activeElement)))) break;
+  }
+  await expect(page.locator('#wbMenu')).not.toHaveClass(/\bopen\b/);
+  expectCleanRuntime(page);
+});
+
+// The mobile drawer lists its links in the order keyboard focus takes.
+test('the mobile navigation drawer shows its links in focus order', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ready(page);
+  await page.locator('#mobile-nav-toggle').click();
+  const tops = await page.evaluate(() => Array.from(document.querySelectorAll('#global-nav > .osi-nav-link, #global-nav > .osi-platform-wrap'))
+    .filter((node) => node.getClientRects().length).map((node) => Math.round(node.getBoundingClientRect().top)));
+  expect(tops.length).toBeGreaterThan(4);
+  for (let index = 1; index < tops.length; index++) expect(tops[index]).toBeGreaterThan(tops[index - 1]);
+  expectCleanRuntime(page);
+});
+
+// A final empty or unavailable Home list does not keep a spinning loader.
+test('a finished Home list shows no spinning loader', async ({ page }) => {
+  await ready(page, { role: 'anonymous', publicFailure: true });
+  const list = page.locator('#home-public-records');
+  await expect(list).toHaveAttribute('aria-busy', 'false');
+  await expect(list).toContainText('Private or cached data is never used as a fallback.');
+  const spinning = await list.locator('.osi-list-loading > span').first().evaluate((node) => getComputedStyle(node, '::after').animationName);
+  expect(spinning === 'none' || spinning === '').toBe(true);
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(list).toContainText('Gizli veya önbelleğe alınmış veri asla yedek olarak kullanılmaz.');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+});
+
+// Text composed with t() is drawn again on a language switch, and the
+// remaining fixed strings have Turkish entries.
+test('Case header chips, counters, Wire note and landmarks follow the language', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(page.locator('#fo-pnav')).toHaveAttribute('aria-label', 'Vaka sayfaları');
+  await expect(page.locator('#lb-pnav')).toHaveAttribute('aria-label', 'Analist listesi sayfaları');
+  await expect(page.locator('svg text', { hasText: 'CÜZDAN' }).first()).toHaveCount(1);
+  await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+  await expect(page.locator('#osi-case-state')).not.toContainText('Public');
+  const turkishHeader = await page.locator('#osi-case-state').innerText();
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await expect(page.locator('#osi-case-state')).not.toHaveText(turkishHeader);
+  await page.evaluate(() => window.osiV2CloseCase());
+  await openPlatformItem(page, 'Open a Case');
+  await page.locator('#v2-case-summary').fill('Twelve chars');
+  const counter = page.locator('[data-osi-counter-for="v2-case-summary"]');
+  await expect(counter).toContainText('of 10,000 characters');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(counter).not.toContainText('characters');
+  await expect(page.locator('#field-form')).toContainText("Yalnızca analist onayı ve onaylanmış kamusal açılış Memo'sundan sonra görünür.");
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});

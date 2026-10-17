@@ -778,8 +778,10 @@ button {
   position: relative;
 }
 
+/* The ring spins only while its list is still loading. A final empty or
+ * unavailable answer reuses the same box and must not look unfinished. */
 .osi-home-live-state[aria-busy="true"] .osi-state-mark::after,
-.osi-list-loading > span::after {
+.osi-live-list[aria-busy="true"] .osi-list-loading > span::after {
   content: "";
   position: absolute;
   inset: 5px;
@@ -2572,22 +2574,15 @@ footer > .wrap {
     min-height: 58px;
   }
 
-  /* Drawer order follows the accepted primary navigation; the Platform
-   * group follows as the full action catalogue. */
+  /* The drawer lists the links in document order, the same order keyboard
+   * focus takes. A CSS order that put Analyst Network and About above the
+   * Platform group made Tab jump back up the drawer (WCAG 2.4.3). */
   body.nav-open .osi-global-nav > .osi-nav-quick {
     display: flex;
     align-items: center;
   }
 
-  .osi-global-nav > [data-global-view="registry"] { order: 1; }
-  .osi-global-nav > [data-global-view="field"] { order: 2; }
-  .osi-global-nav > [data-global-view="wire"] { order: 3; }
-  .osi-global-nav > [data-global-view="records"] { order: 4; }
-  .osi-global-nav > [data-global-view="analysts"] { order: 5; }
-  .osi-global-nav > [data-global-view="prooflog"] { order: 6; }
-  .osi-global-nav > [data-global-view="methodology"] { order: 7; }
   .osi-global-nav > .osi-platform-wrap {
-    order: 8;
     margin-top: 10px;
     border-top: 1px solid var(--line);
     padding-top: 10px;

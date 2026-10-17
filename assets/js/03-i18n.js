@@ -2751,7 +2751,13 @@
     'Review exact primary candidate and create the Resolution parent': 'Tam birincil adayı incele ve Çözüm kaydını oluştur',
     'Review process seal': 'Süreç mührünü incele',
     'Seal finalization prerequisite is not met': 'Mühür sonuçlandırma ön koşulu karşılanmadı',
-    'Selected Report author excluded': 'Seçilen Raporun yazarı hariç tutuldu'
+    'Selected Report author excluded': 'Seçilen Raporun yazarı hariç tutuldu',
+    'Private or cached data is never used as a fallback.': 'Gizli veya önbelleğe alınmış veri asla yedek olarak kullanılmaz.',
+    '10 to 10,000 characters. Visible only after analyst approval and the confirmed public-opening Memo.': '10 ile 10.000 karakter. Yalnızca analist onayı ve onaylanmış kamusal açılış Memo\'sundan sonra görünür.',
+    'Case pages': 'Vaka sayfaları',
+    'Leaderboard pages': 'Analist listesi sayfaları',
+    'WALLET': 'CÜZDAN',
+    'MANIFEST': 'MANİFEST'
   };
 
   var translations = { en: {}, tr: turkish };

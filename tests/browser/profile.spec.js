@@ -163,3 +163,24 @@ test('Refresh profile shows the profile again after the new signature', async ({
   await expect(page.locator('#osi-profile-handle')).toBeVisible();
   await expect(page.getByText('Connect a wallet to open My Profile')).toHaveCount(0);
 });
+
+// Try again retries the profile that was asked for. It used to read the
+// address bar, find no profile there and report the profile as not found.
+test('Try again on a public profile error fetches the same profile again', async ({ page }) => {
+  let failures = 1;
+  await installFixture(page);
+  await page.route('**/functions/v1/osi-v2-profile', async (route) => {
+    let body = {};
+    try { body = JSON.parse(route.request().postData() || '{}'); } catch (_) {}
+    if (body.op === 'get_public_profile' && failures > 0) {
+      failures -= 1;
+      return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'read_failed' }) });
+    }
+    return route.fallback();
+  });
+  await page.evaluate((profileRef) => window.osiV2OpenPublicProfile(profileRef), PROFILE_REF);
+  const retry = page.getByRole('button', { name: 'Try again' });
+  await expect(retry).toBeVisible();
+  await retry.click();
+  await expect(page.getByRole('heading', { name: 'Chain Reader' })).toBeVisible();
+});

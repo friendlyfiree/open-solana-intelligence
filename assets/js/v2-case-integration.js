@@ -3588,7 +3588,11 @@
     // clear owns carries no matching marker and is left alone.
     else if(host&&!state.locked&&drawn===state.mode)drawCases();
     else if(host&&state.locked&&host.querySelector('[data-workspace-lock]'))drawWorkspaceLock(host,state.locked);
-    if(state.current){drawTabs();renderTab();renderActions();paintSameTitle(state.current);}
+    // The header chips and the long-form counters are composed with t(); the
+    // page translator cannot turn Turkish back into English, so both are drawn
+    // again in the new language.
+    if(state.current){paintCaseHeader(state.current.public_ref,state.current);drawTabs();renderTab();renderActions();paintSameTitle(state.current);}
+    counterNodes().forEach(function(node){var field=document.getElementById(node.getAttribute('data-osi-counter-for')||'');if(field&&node.getAttribute('data-osi-counter-bound')==='true')paintCounter(node,field);});
     var titleHint=document.getElementById('v2-case-title-match');
     if(titleHint&&!titleHint.hidden)paintIntakeTitleHint();
   });

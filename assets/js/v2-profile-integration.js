@@ -4,7 +4,7 @@
 
   var API_URL=SUPABASE_URL+'/functions/v1/osi-v2-profile';
   var AVATAR_PREFIX=SUPABASE_URL+'/storage/v1/object/public/osi-profile-avatars/';
-  var state={profile:null,writesEnabled:false,busy:false,loadToken:0,publicLoadToken:0,wallet:'',session:null};
+  var state={profile:null,writesEnabled:false,busy:false,loadToken:0,publicLoadToken:0,wallet:'',session:null,publicRoute:''};
 
   function esc(value){
     return String(value==null?'':value).replace(/[&<>"']/g,function(char){
@@ -110,7 +110,7 @@
     var node=host();if(!node)return;
     var missing=String(error&&error.message||'')==='profile_not_found';
     node.innerHTML=publicShell('<section class="osi-profile-state error" role="alert"><span class="osi-profile-state-mark" aria-hidden="true">!</span><h2>'+esc(t(missing?'Public profile not found':'Public profile is unavailable'))+'</h2><p>'+esc(t(missing?'This profile is private, no longer published, or the public address is invalid.':'The public profile could not be loaded. Try again in a moment.'))+'</p><button class="osi-profile-secondary" type="button" data-public-profile-retry>'+esc(t('Try again'))+'</button></section>');
-    bindPublicBack(node);var retry=node.querySelector('[data-public-profile-retry]');if(retry)retry.addEventListener('click',function(){openPublicProfile(window.location.hash.replace(/^#profile\//,''),{history:true});});
+    bindPublicBack(node);var retry=node.querySelector('[data-public-profile-retry]');if(retry)retry.addEventListener('click',function(){openPublicProfile(state.publicRoute,{history:true});});
   }
   function publicDate(value){
     try{return new Date(value).toLocaleDateString(document.documentElement.lang==='tr'?'tr-TR':'en-US',{year:'numeric',month:'short',day:'numeric',timeZone:'UTC'});}catch(_){return'';}
@@ -285,6 +285,9 @@
   }
   async function openPublicProfile(reference,options){
     options=options||{};var parsed=publicProfileReference(reference),token=++state.publicLoadToken;
+    // Try again retries the profile that was asked for, whatever the address
+    // bar holds by then.
+    state.publicRoute=parsed?parsed.route:'';
     showProfileView(!!parsed);
     if(!parsed){renderPublicError(new Error('profile_not_found'));return;}
     if(!options.history){try{window.history.pushState({osiProfile:parsed.route},'','#profile/'+encodeURIComponent(parsed.route));}catch(_){}}

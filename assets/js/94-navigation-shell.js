@@ -333,15 +333,42 @@
     var walletButton = document.getElementById('walletBtn');
     var walletMenu = document.getElementById('wbMenu');
     if (!walletButton || !walletMenu) return;
-    walletButton.setAttribute('aria-haspopup', 'menu');
-    walletButton.setAttribute('aria-controls', 'wbMenu');
+    // The button is a menu button only while a wallet is connected. Without
+    // one it is a plain Connect button, and ArrowDown must not open the
+    // connected-wallet menu with its Disconnect item.
+    var connected = function () {
+      return typeof walletPubkey !== 'undefined' && !!walletPubkey;
+    };
     var sync = function () {
       var open = walletMenu.classList.contains('open');
-      walletButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (connected()) {
+        walletButton.setAttribute('aria-haspopup', 'menu');
+        walletButton.setAttribute('aria-controls', 'wbMenu');
+        walletButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+      } else {
+        walletButton.removeAttribute('aria-haspopup');
+        walletButton.removeAttribute('aria-controls');
+        walletButton.removeAttribute('aria-expanded');
+      }
     };
     new MutationObserver(sync).observe(walletMenu, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(sync).observe(walletButton, { attributes: true, attributeFilter: ['aria-label'] });
+    walletButton.addEventListener('focus', sync);
+    // Tabbing out of the menu closes it, as the Platform menu does, so it
+    // never covers the control that now has focus.
+    var wrap = walletButton.closest('.wb-wrap');
+    if (wrap) {
+      wrap.addEventListener('focusout', function (event) {
+        if (!walletMenu.classList.contains('open')) return;
+        var next = event.relatedTarget;
+        if (next && wrap.contains(next)) return;
+        if (!next) return;
+        if (typeof window.closeWalletMenu === 'function') window.closeWalletMenu();
+      });
+    }
     walletButton.addEventListener('keydown', function (event) {
       if (event.key !== 'ArrowDown') return;
+      if (!connected()) return;
       event.preventDefault();
       if (typeof window.openWalletMenu === 'function') window.openWalletMenu();
       var first = walletMenu.querySelector('[role="menuitem"]:not([style*="display:none"])');

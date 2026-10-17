@@ -712,6 +712,9 @@
   if(typeof window.addEventListener==='function')window.addEventListener('osi:localechange',function(){
     var drawer=document.getElementById('osi-wire-drawer');
     localizePlaceholders();
+    // The note under the Wire buttons is composed with t(), so it is drawn
+    // again rather than left in the previous language.
+    syncWireActionNote();
     if(state.current&&drawer&&!drawer.hidden)renderDetail();
     if(typeof wireState==='undefined'||wireState.mode!=='private')return;
     if(state.privateView==='mine'&&state.reports.length)drawWorkspace(state.reports);
