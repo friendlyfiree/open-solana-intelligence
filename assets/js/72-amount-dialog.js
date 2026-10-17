@@ -199,4 +199,5 @@
   window.osiAskSolAmount = ask;
   window.osiConfirmSolAsk = confirm;
   window.osiCloseSolAsk = close;
+  window.osiSolAskOpen = function () { return !!pending; };
 })();

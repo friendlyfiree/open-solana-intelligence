@@ -140,15 +140,35 @@ async function handlePublicMeta(): Promise<Response> {
   return jsonResponse(200, { ok: true, packs: data ?? [] });
 }
 
+// These compatibility calls carry a mode and a few short fields, so the body
+// is capped before it is parsed, as every V2 gateway does.
+const MAX_BODY_BYTES = 16_384;
+
+async function readBoundedObject(req: Request): Promise<Record<string, unknown> | Response> {
+  const declaredLength = Number(req.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return jsonResponse(413, { error: "body_too_large" });
+  }
+  try {
+    const raw = await req.text();
+    if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) return jsonResponse(413, { error: "body_too_large" });
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return jsonResponse(400, { error: "bad_request" });
+    return parsed as Record<string, unknown>;
+  } catch {
+    return jsonResponse(400, { error: "bad_request" });
+  }
+}
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return jsonResponse(405, { error: "method_not_allowed" });
 
-  let body: Record<string, unknown> | null = null;
-  try { body = await req.json(); } catch { body = null; }
-  const mode = String(body?.mode ?? "");
+  const body = await readBoundedObject(req);
+  if (body instanceof Response) return body;
+  const mode = String(body.mode ?? "");
   if (mode === "public_meta") return await handlePublicMeta();
-  if (mode === "get") return await handleGet(req, body ?? {});
+  if (mode === "get") return await handleGet(req, body);
   if (mode === "generate") {
     return jsonResponse(503, { ok: false, error: "native_ai_pack_generation_disabled" });
   }

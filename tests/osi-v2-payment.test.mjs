@@ -534,7 +534,7 @@ ok("status slot must bind to the exact finalized transaction", () => {
 });
 ok("Edge RPC path verifies the canonical mainnet genesis before any payment result", () => {
   assert.ok(edge.includes('method: "getGenesisHash"'));
-  assert.ok(edge.includes("isSolanaMainnetGenesis"));
+  assert.ok(edge.includes("genesisBatchFailure(results, SOLANA_MAINNET_GENESIS_HASH)"));
 });
 ok("Solana Pay polling uses one bound reference and the same finalized commit path", () => {
   assert.ok(edge.includes('method: "getSignaturesForAddress"'));

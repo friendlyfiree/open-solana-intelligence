@@ -515,7 +515,8 @@
       ,payment_state_changed_retry:'Payment state changed concurrently. Reload and prepare again.'
       ,transaction_already_used:'This Solana transaction was already used for another OSI payment receipt.'
       ,awaiting_finality:'The transaction exists but is not finalized yet. Retry verification with the same signature.'
-      ,wrong_cluster:'The trusted RPC did not identify Solana mainnet. No payment was recorded.'
+      ,wrong_cluster:'The trusted RPC did not identify Solana mainnet. Nothing was recorded.'
+      ,rpc_invalid_response:'Solana RPC returned an incomplete response. Retry safely with the same transaction.'
       ,wrong_payer:'The finalized transaction payer does not match the prepared wallet.'
       ,wrong_recipient:'The finalized transfer recipients do not match the server-derived manifest.'
       ,wrong_amount:'The finalized transfer amount does not match the exact integer lamports.'
@@ -2723,6 +2724,18 @@
     if(!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(wallet||'')))return;
     try{localStorage.removeItem(paymentRecoveryKey(wallet));}catch(error){}
   }
+  // A wallet change while the amount dialog is open cancels that transfer out
+  // loud. The dialog was opened for the previous wallet, so continuing from
+  // it would do nothing and say nothing.
+  function walletChangeCancelledTransfer(){showToast(t('The connected wallet changed, so this transfer was cancelled. Nothing was sent.'));}
+  function cancelAmountDialogForWalletChange(){
+    if(typeof window.osiSolAskOpen!=='function'||!window.osiSolAskOpen()||typeof window.osiCloseSolAsk!=='function')return;
+    window.osiCloseSolAsk(null);
+    walletChangeCancelledTransfer();
+  }
+  // The server refuses a transfer to the connected wallet itself. Saying so
+  // before the amount is asked beats a generic refusal after it.
+  function isSelfSupport(address){return !!address&&!!walletPubkey&&String(walletPubkey)===String(address);}
   function clearPaymentState(settings){
     settings=settings&&typeof settings==='object'?settings:{};
     var pendingWallet=String(settings.wallet||state.paymentPending&&state.paymentPending.wallet||'');
@@ -3307,6 +3320,7 @@
     if(await handleExistingPayment(preferredMethod))return;
     var generation=privateGeneration();
     var address=supportAddress(targetType,targetRef,reviewerWallet);
+    if(isSelfSupport(address)){showToast(t('The connected wallet is the recipient. Self-support is not allowed.'));return;}
     var amount=await askSolAmount({
       title:'◎ Voluntary support',
       label:supportLabel(targetType),
@@ -3316,8 +3330,9 @@
         ?t('Recipient: the wallet that authored {version}. OSI never publishes that wallet, so the server derives the exact recipient and Memo when the transfer is prepared and you approve one transaction in your wallet. Direct wallet-to-wallet in native SOL. No custody. Support never changes review, ranking, weight, eligibility, or publication.',{version:String(targetRef||'')})
         :undefined
     });
-    if(generation!==privateGeneration())return;
+    if(generation!==privateGeneration()){if(amount!==null)walletChangeCancelledTransfer();return;}
     if(amount===null)return;
+    if(isSelfSupport(address)){showToast(t('The connected wallet is the recipient. Self-support is not allowed.'));return;}
     if(!validSolInput(amount)){showToast(t('Enter a positive SOL amount with at most 9 decimals.'));return;}
     var recipient={target_type:targetType,target_ref:targetRef,amount_sol:amount};if(targetType==='counted_reviewer')recipient.reviewer_wallet=reviewerWallet;
     prepareAndSendPayment('support',targetRef,[recipient],undefined,preferredMethod);
@@ -3332,7 +3347,7 @@
       address:authorWallet,
       action:'Review transfer →'
     });
-    if(generation!==privateGeneration())return;
+    if(generation!==privateGeneration()){if(amount!==null)walletChangeCancelledTransfer();return;}
     if(amount===null)return;
     if(!validSolInput(amount)){showToast(t('Enter a positive SOL amount with at most 9 decimals.'));return;}
     state.paymentBusy=true;
@@ -3527,7 +3542,7 @@
     state.loadToken+=1;state.reviewLoadToken+=1;state.drawerLoadToken+=1;state.locked=null;
     var previousMode=state.mode;
     if(state.mode!=='public'){state.cases=[];state.reviewTasks={};state.reviewLanes={};state.reviewUpdatedAt=null;state.current=null;state.activeReviewTask=null;state.actorRole='public';state.currentActorRole='';state.mode='public';}
-    state.capabilities=null;state.reviewBusy=false;state.governanceBusy=false;state.paymentBusy=false;state.caseReceipt=null;state.caseIdempotency='';clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
+    state.capabilities=null;state.reviewBusy=false;state.governanceBusy=false;state.paymentBusy=false;state.caseReceipt=null;state.caseIdempotency='';if(reason!=='expiry'&&reason!=='explicit_refresh')cancelAmountDialogForWalletChange();clearPaymentState();setAdminVisibility(false);setReviewNavigationVisibility(false);
     clearSubmissionReceipt('v2-case-receipt');
     var form=document.getElementById('field-form');if(form)form.reset();
     var modal=document.getElementById('fo-modal');if(modal)modal.classList.remove('open');
@@ -3605,7 +3620,7 @@
       if(!provider||!provider.on)return;
       provider.on('disconnect',clearPaymentState);
       provider.on('disconnect',function(){setReviewNavigationVisibility(false);});
-      provider.on('accountChanged',function(){clearPaymentState();state.capabilities=null;setReviewNavigationVisibility(false);});
+      provider.on('accountChanged',function(){cancelAmountDialogForWalletChange();clearPaymentState();state.capabilities=null;setReviewNavigationVisibility(false);});
     }
     // The wallet extension can inject after load; attach to the real provider.
     if(typeof waitForProvider==='function')waitForProvider().then(attach);

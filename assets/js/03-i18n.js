@@ -2884,7 +2884,12 @@
     'OSI configuration, no Solana read': 'OSI yapılandırması, Solana okuması yok',
     'Paste a Solana wallet address to check.': 'Kontrol etmek için bir Solana cüzdan adresi yapıştırın.',
     'Address copied.': 'Adres kopyalandı.',
-    'Copy failed. Select the address and copy it manually.': 'Kopyalanamadı. Adresi seçip elle kopyalayın.'
+    'Copy failed. Select the address and copy it manually.': 'Kopyalanamadı. Adresi seçip elle kopyalayın.',
+    'The connected wallet changed, so this transfer was cancelled. Nothing was sent.': 'Bağlı cüzdan değişti, bu yüzden bu transfer iptal edildi. Hiçbir şey gönderilmedi.',
+    'The connected wallet is the recipient. Self-support is not allowed.': 'Bağlı cüzdan alıcının kendisi. Kendine destek verilemez.',
+    'The trusted RPC did not identify Solana mainnet. Nothing was recorded.': 'Güvenilir RPC Solana mainnet\'i tanımlamadı. Hiçbir şey kaydedilmedi.',
+    'Solana RPC returned an incomplete response. Retry safely with the same transaction.': 'Solana RPC eksik bir yanıt döndürdü. Aynı işlemle güvenle yeniden deneyin.',
+    'The trusted RPC did not identify Solana mainnet. Probation was not activated.': 'Güvenilir RPC Solana mainnet\'i tanımlamadı. Deneme süreci etkinleştirilmedi.'
   };
 
   var translations = { en: {}, tr: turkish };

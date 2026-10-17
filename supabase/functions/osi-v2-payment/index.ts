@@ -15,7 +15,7 @@ import {
 import {
   PAYMENT_MAX_RECIPIENTS,
   encodeBase58,
-  isSolanaMainnetGenesis,
+  SOLANA_MAINNET_GENESIS_HASH,
   formatLamportsAsSol,
   isPayerAttemptForIntent,
   normalizePaymentTargetRef,
@@ -25,6 +25,7 @@ import {
   validateSolanaPayReference,
   validateSolanaPayReferenceTransaction,
 } from "../_shared/osi-v2-payment-core.mjs";
+import { genesisBatchFailure } from "../_shared/osi-v2-cluster-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -468,9 +469,8 @@ async function rpcTransaction(txSig: string): Promise<Row> {
   if (!response.ok) throw new Error("rpc_unavailable");
   const results = await response.json().catch(() => null) as Row[] | null;
   if (!Array.isArray(results)) throw new Error("rpc_invalid_response");
-  if (!isSolanaMainnetGenesis(results.find((item) => item.id === 3)?.result)) {
-    throw new Error("wrong_cluster");
-  }
+  const cluster = genesisBatchFailure(results, SOLANA_MAINNET_GENESIS_HASH);
+  if (cluster) throw new Error(cluster);
   return {
     transaction: results.find((item) => item.id === 1)?.result ?? null,
     status: results.find((item) => item.id === 2)?.result?.value?.[0] ?? null,
@@ -507,9 +507,8 @@ async function signaturesForReference(reference: string, notBefore: number): Pro
     if (!response.ok) throw new Error("rpc_unavailable");
     const results = await response.json().catch(() => null) as Row[] | null;
     if (!Array.isArray(results)) throw new Error("rpc_invalid_response");
-    if (page === 0 && !isSolanaMainnetGenesis(results.find((item) => item.id === 2)?.result)) {
-      throw new Error("wrong_cluster");
-    }
+    const cluster = page === 0 ? genesisBatchFailure(results, SOLANA_MAINNET_GENESIS_HASH, 2) : null;
+    if (cluster) throw new Error(cluster);
     const signatures = results.find((item) => item.id === 1)?.result;
     if (!Array.isArray(signatures) || !signatures.length) break;
     collected.push(...signatures);

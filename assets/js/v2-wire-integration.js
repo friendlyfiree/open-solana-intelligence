@@ -61,6 +61,7 @@
       transaction_not_confirmed:'The Memo transaction is not confirmed yet. Retry safely with the same proof.',
       rpc_unavailable:'Solana confirmation is temporarily unavailable. Retry safely with the same transaction.',
       wrong_cluster:'The RPC did not identify Solana mainnet. No Wire version was created.',
+      rpc_invalid_response:'Solana RPC returned an incomplete response. Retry safely with the same transaction.',
       wrong_signer:'The confirmed transaction signer is not the Wire author wallet.',
       wrong_memo:'The confirmed transaction does not contain the exact prepared Memo.',
       transaction_failed:'The Solana transaction failed. No Wire version was created.',
@@ -248,7 +249,7 @@
     var lastError;
     for(var attempt=0;attempt<5;attempt++){
       assertPrivateGeneration(generation);
-      try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){lastError=error;if(['transaction_not_confirmed','rpc_unavailable'].indexOf(String(error.message))<0)throw error;assertPrivateGeneration(generation);status(t('Waiting for Solana RPC confirmation. Retry {n} of 5.',{n:attempt+1}));await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}
+      try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){lastError=error;if(['transaction_not_confirmed','rpc_unavailable','rpc_invalid_response'].indexOf(String(error.message))<0)throw error;assertPrivateGeneration(generation);status(t('Waiting for Solana RPC confirmation. Retry {n} of 5.',{n:attempt+1}));await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}
     }
     throw lastError;
   }

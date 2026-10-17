@@ -284,6 +284,18 @@
     try{return JSON.parse(sessionStorage.getItem(DRAFT_PREFIX+String(key||''))||'null');}catch(_){return null;}
   };
   window.osiV2RemoveDraft=function(key){try{sessionStorage.removeItem(DRAFT_PREFIX+String(key||''));}catch(_){}};
+  // An explicit disconnect or a wallet change forgets the private drafts this
+  // tab kept, so unsent Case, Report or application text does not outlive the
+  // wallet that typed it. An expiry or a refresh keeps them, so a lapsed
+  // session never costs typed work. The removal waits for every other clearer,
+  // because some of them save their form on the way out.
+  var DRAFT_FORGET_REASONS={explicit_logout:1,disconnect:1,account_changed:1,wallet_changed:1,wallet_mismatch:1};
+  client.registerCache('drafts',function(reason){
+    if(DRAFT_FORGET_REASONS[reason]!==1)return;
+    Promise.resolve().then(function(){
+      try{for(var index=sessionStorage.length-1;index>=0;index--){var key=sessionStorage.key(index);if(key&&key.indexOf(DRAFT_PREFIX)===0)sessionStorage.removeItem(key);}}catch(_){}
+    });
+  });
   window.osiV2ApproveMessage=function(message){
     return approvals.message(message,async function(){
       var provider=typeof getProvider==='function'?getProvider():null;

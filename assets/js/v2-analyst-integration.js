@@ -64,6 +64,8 @@
       unknown_or_wrong_nonce:'The single-use proof is missing, expired, or bound to another action.',
       transaction_not_confirmed:'The probation Memo is not confirmed yet. Keep this window open and retry.',
       rpc_unavailable:'Solana confirmation is temporarily unavailable. This transaction can be retried safely.',
+      rpc_invalid_response:'Solana RPC returned an incomplete response. Retry safely with the same transaction.',
+      wrong_cluster:'The trusted RPC did not identify Solana mainnet. Probation was not activated.',
       replayed_or_expired:'This read authorization was already used or expired.',
       handle_unavailable:'That analyst handle is already in use.',
       prohibited_secret_material:'Remove every seed phrase, recovery phrase, mnemonic, private key, or secret-key reference.',
@@ -756,11 +758,21 @@
         +'<button class="osi-primary-action" type="button" onclick="'+supportHandler+'(\''+esc(profile.wallet)+'\',\'phantom\')">'+esc(t('Pay with Phantom'))+'</button>'
         +'<button class="osi-secondary-action" type="button" onclick="'+supportHandler+'(\''+esc(profile.wallet)+'\',\'solana_pay\')">'+esc(t('Solana Pay QR'))+'</button>'
         +'</div>';
-    return'<section class="osi-cv-hide-in-print"><h4>'+esc(t('Voluntary support'))+'</h4><p id="osi-profile-support-copy">'+supportCopy+'</p>'+action+'</section>';
+    return'<section class="osi-cv-hide-in-print" data-profile-support><h4>'+esc(t('Voluntary support'))+'</h4><p id="osi-profile-support-copy">'+supportCopy+'</p>'+action+'</section>';
+  }
+  // The open profile's support controls depend on who is connected, so a
+  // wallet change redraws them: the owner is never offered self-support and
+  // another wallet is never told it owns the profile.
+  function refreshOpenProfileSupport(){
+    var modal=document.getElementById('ap-modal'),open=state.openProfile;
+    if(!open||!modal||!modal.classList.contains('open'))return;
+    var section=modal.querySelector('[data-profile-support]');
+    if(section)section.outerHTML=supportSection(open.profile,open.maintainer);
   }
   function renderProfileModal(body,profile,options){
     options=options||{};
     var isMaintainer=options.maintainer===true;
+    state.openProfile={profile:profile,maintainer:isMaintainer};
     var links=(profile.links||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(linkLabel(link.label,url))+'</a>':'';}).join('');
     var proofOfWork=safeHttps(profile.proof_of_work_url);
     if(proofOfWork)links+='<a href="'+esc(proofOfWork)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a>';
@@ -1313,6 +1325,7 @@
   window.osiAnalystActivate=activateProbation;
 
   function clearPrivateAnalystCache(){
+    setTimeout(refreshOpenProfileSupport,0);
     state.workspace=null;state.workspaceWallet='';state.queue=[];state.busy=false;state.receipt=null;state.returnFocus=null;
     if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');
     var form=document.getElementById('analyst-form');if(form)form.reset();

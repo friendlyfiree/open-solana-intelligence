@@ -5379,3 +5379,24 @@ test('the public SAS verifier names every server reason and source in plain word
   expect(await page.evaluate(() => window.identityWeightText(1.5))).toBe('1.50');
   expectCleanRuntime(page);
 });
+
+test('a wallet change cancels an open transfer out loud, redraws profile support and forgets drafts', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate((wallet) => window.osiV2SaveDraft('case-intake:' + wallet, { 'v2-case-title': 'Unsent private title' }), WALLET);
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const support = page.locator('#ap-modal-body section', { has: page.locator('#osi-profile-support-copy') });
+  await expect(support.getByRole('button', { name: 'Pay with Phantom' })).toBeEnabled();
+  await support.getByRole('button', { name: 'Pay with Phantom' }).click();
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.evaluate(({ other }) => window.__fixtureProvider.__emit('accountChanged', { toString: () => other }), { other: OTHER });
+  await expect(page.locator('#sol-ask')).not.toHaveClass(/\bopen\b/);
+  await expect(page.locator('#stw-toast')).toContainText('The connected wallet changed, so this transfer was cancelled. Nothing was sent.');
+  await expect(support).toContainText('Self-support unavailable');
+  await expect.poll(() => page.evaluate(() => Object.keys(sessionStorage).filter((key) => key.indexOf('osi_v2_draft_v1:') === 0).length)).toBe(0);
+  await page.evaluate((wallet) => window.osiV2SupportAnalyst(wallet, 'phantom'), OTHER);
+  await expect(page.locator('#stw-toast')).toContainText('The connected wallet is the recipient. Self-support is not allowed.');
+  await expect(page.locator('#sol-ask')).not.toHaveClass(/\bopen\b/);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  expectCleanRuntime(page);
+});
