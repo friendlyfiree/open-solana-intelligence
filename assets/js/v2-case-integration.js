@@ -536,6 +536,7 @@
       ,'transaction reference is invalid':'One transaction signature is not a valid Solana signature.'
       ,'evidence ref is invalid':'One evidence line is empty or too long.'
       ,'duplicate evidence item':'The same evidence reference appears twice.'
+      ,'actor_wallet is invalid':'One evidence wallet address is not a valid Solana address.'
       ,'evidence is invalid':'A Case can include at most 12 structured evidence references.'
       ,'reward intent is invalid':'Reward intent must be a positive SOL amount with at most 9 decimals.'
       ,payment_recovery_poll_only:'A restored payment record can only be checked against the server. It cannot reopen a wallet or construct a transfer.'
@@ -2687,7 +2688,7 @@
   function governanceSealReview(){
     if(!requireActiveReviewTask('seal_reviews'))return;
     var row=resolutionRow();if(!row)return;
-    var rationale=window.prompt('Public-safe seal rationale. Explain why the exact process is complete; do not claim truth or guilt.','The exact resolution completed its challenge window with no active blocking challenge.');
+    var rationale=window.prompt(t('Public-safe seal rationale. Explain why the exact process is complete; do not claim truth or guilt.'),t('The exact resolution completed its challenge window with no active blocking challenge.'));
     if(rationale===null)return;rationale=String(rationale).trim();if(rationale.length<10){showToast('The public-safe rationale must be at least 10 characters.');return;}
     governanceMutation('resolution_review',state.current.public_ref,{phase:'seal',report_version_ref:row.winning_report_version_ref,decision:'select',reason_code:'process_window_complete',public_rationale:rationale,private_note:null});
   }
@@ -2708,7 +2709,7 @@
   function governanceAdmitChallenge(ref,decision,route){if(!requireActiveReviewTask('challenge_admissibility',ref))return;governanceMutation('challenge_admit',ref,{decision:decision,route:route});}
   function governanceReviewChallenge(ref,decision){
     if(!requireActiveReviewTask('challenge_adjudication',ref))return;
-    var rationale=window.prompt('Public-safe challenge review rationale.','The submitted evidence was reviewed against the exact selected Report version.');
+    var rationale=window.prompt(t('Public-safe challenge review rationale.'),t('The submitted evidence was reviewed against the exact selected Report version.'));
     if(rationale===null)return;rationale=String(rationale).trim();if(rationale.length<10){showToast('The public-safe rationale must be at least 10 characters.');return;}
     governanceMutation('challenge_review',ref,{decision:decision,reason_code:decision==='accept'?'material_issue_confirmed':'selected_report_preserved',public_rationale:rationale,private_note:null});
   }

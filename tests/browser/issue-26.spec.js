@@ -5133,3 +5133,42 @@ test('Case header chips, counters, Wire note and landmarks follow the language',
   await page.evaluate(() => window.osiSetLanguage('en'));
   expectCleanRuntime(page);
 });
+
+// The Report review reason code follows the decision while it holds a
+// default, so a Reject is never signed with the Approve reason. Disabled
+// publish controls state their prerequisite as a sentence, not a code.
+test('Report review reasons follow the decision and blocked publish controls explain themselves', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const current = reportFixture.versions[2];
+  await page.route('**/functions/v1/osi-v2-report-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_review_queue') return route.fallback();
+    const version = { ...current, lifecycle_state: 'in_review', reviews: [], publication_capability: {
+      standard_publication_reason_code: 'analyst_quorum_not_ready', maintainer_bootstrap_reason_code: 'bootstrap_support_not_met',
+    } };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false,
+      reports: [{ ...reportFixture, access: 'maintainer', can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false, versions: [version] }],
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const card = page.locator(`[data-report-version-ref="${current.version_ref}"]`);
+  const reason = page.locator(`#osi-review-reason-${current.version_ref}`);
+  await expect(reason).toHaveValue('evidence_reviewed');
+  await page.locator(`#osi-review-decision-${current.version_ref}`).selectOption('reject');
+  await expect(reason).toHaveValue('evidence_insufficient');
+  await reason.fill('custom_reason');
+  await page.locator(`#osi-review-decision-${current.version_ref}`).selectOption('abstain');
+  await expect(reason).toHaveValue('custom_reason');
+  await expect(card).not.toContainText('bootstrap_support_not_met');
+  await expect(card).toContainText('The independent analyst support that bootstrap publication requires is not met yet.');
+  const publish = card.locator('.osi-report-publish').first();
+  await expect(publish).toBeDisabled();
+  expect(await publish.getAttribute('title')).toBe('The analyst quorum for this exact version is not reached yet.');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  await expect(page.locator('#field-cases')).toContainText('Tam sürüm');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});

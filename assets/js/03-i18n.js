@@ -2758,7 +2758,26 @@
     'Leaderboard pages': 'Analist listesi sayfaları',
     'WALLET': 'CÜZDAN',
     'MANIFEST': 'MANİFEST',
-    'Remove any seed phrase, recovery phrase, mnemonic, private key, secret key, access token or API key reference.': 'Tohum ifadesi, kurtarma ifadesi, anımsatıcı, özel anahtar, gizli anahtar, erişim belirteci veya API anahtarı içeren her referansı kaldırın.'
+    'Remove any seed phrase, recovery phrase, mnemonic, private key, secret key, access token or API key reference.': 'Tohum ifadesi, kurtarma ifadesi, anımsatıcı, özel anahtar, gizli anahtar, erişim belirteci veya API anahtarı içeren her referansı kaldırın.',
+    'Exact version {number}': 'Tam sürüm {number}',
+    'Author {wallet}': 'Yazar {wallet}',
+    'Approve for publication': 'Yayımlama için onayla',
+    'Revise my review': 'İncelememi güncelle',
+    'Public-safe seal rationale. Explain why the exact process is complete; do not claim truth or guilt.': 'Kamuya açık mühür gerekçesi. Tam sürecin neden tamamlandığını açıklayın; doğruluk veya suç iddiasında bulunmayın.',
+    'The exact resolution completed its challenge window with no active blocking challenge.': 'Tam çözüm, etkin engelleyici bir itiraz olmadan itiraz süresini tamamladı.',
+    'The submitted evidence was reviewed against the exact selected Report version.': 'Gönderilen kanıt, seçilen tam Rapor sürümüne göre incelendi.',
+    'This exact version is no longer awaiting review.': 'Bu tam sürüm artık inceleme beklemiyor.',
+    'The analyst quorum for this exact version is not reached yet.': 'Bu tam sürüm için analist yeter sayısına henüz ulaşılmadı.',
+    'Approve and reject quorum are both reached on this version, so neither outcome can be anchored.': 'Bu sürümde hem onay hem ret yeter sayısına ulaşıldı; bu nedenle iki sonuç da sabitlenemez.',
+    'Only an analyst whose active review on this exact version is reject can anchor the rejection.': 'Reddi yalnızca bu tam sürümdeki etkin incelemesi ret olan bir analist sabitleyebilir.',
+    'Your role or eligibility changed after this action was prepared. Start again.': 'Bu işlem hazırlandıktan sonra rolünüz veya uygunluğunuz değişti. Yeniden başlayın.',
+    'Maintainer bootstrap needs both the configured admin wallet and the maintainer sign-in.': 'Sürdürücü başlangıç yolu, yapılandırılmış yönetici cüzdanını ve sürdürücü oturumunu birlikte gerektirir.',
+    'Maintainer bootstrap publication is switched off.': 'Sürdürücü başlangıç yoluyla yayımlama kapalı.',
+    'Maintainer bootstrap is not available for this version right now.': 'Sürdürücü başlangıç yolu şu anda bu sürüm için kullanılamıyor.',
+    'The maintainer already reviewed this version as a counted analyst, so the bootstrap path is closed for it.': 'Sürdürücü bu sürümü sayılan bir analist olarak zaten inceledi; bu yüzden başlangıç yolu bu sürüm için kapalı.',
+    'The standard analyst quorum is available, so bootstrap publication is not used.': 'Standart analist yeter sayısı mevcut; bu yüzden başlangıç yoluyla yayımlama kullanılmaz.',
+    'The independent analyst support that bootstrap publication requires is not met yet.': 'Başlangıç yoluyla yayımlamanın gerektirdiği bağımsız analist desteği henüz karşılanmadı.',
+    'One evidence wallet address is not a valid Solana address.': 'Bir kanıt cüzdan adresi geçerli bir Solana adresi değil.'
   };
 
   var translations = { en: {}, tr: turkish };

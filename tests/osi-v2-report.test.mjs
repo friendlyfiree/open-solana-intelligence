@@ -507,6 +507,24 @@ ok("the exact publication issuance-window failure keeps its recovery guidance",
     code: "22023", message: "Report publication transaction outside issuance window",
   }, true).error === "publication_transaction_outside_window");
 
+// A governance 42501 names the state that blocked the action. Only a real
+// conflict or eligibility refusal reads as "not eligible or self review".
+for (const [message, expected] of [
+  ["Report version is not available for publication", "report_version_not_awaiting_review"],
+  ["Report publication quorum is not ready", "analyst_quorum_not_ready"],
+  ["Report rejection quorum is not ready", "analyst_quorum_not_ready"],
+  ["Publication requires an active approving eligible analyst", "active_approve_review_required"],
+  ["Normal analyst publication quorum is available", "standard_analyst_quorum_available"],
+  ["Bootstrap publication support requirements are not met", "bootstrap_support_not_met"],
+  ["Report author and Case owner cannot review this Report", "not_eligible_or_self_review"],
+  ["Actor is not an eligible Report analyst", "not_eligible_or_self_review"],
+]) {
+  ok(`42501 "${message}" is reported as ${expected}`,
+    core.classifyReportRpcFailure({ code: "42501", message }, true).error === expected);
+}
+ok("a non-governance 42501 still reads as an unavailable Case",
+  core.classifyReportRpcFailure({ code: "42501", message: "Report version is not available" }, false).error === "case_not_available");
+
 const writeSource = readFileSync(
   join(root, "supabase/functions/osi-v2-report-write/index.ts"), "utf8",
 );
