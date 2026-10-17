@@ -492,6 +492,7 @@
       ,bad_public_ref:'That Case reference is not a valid public reference.'
       ,read_session_disabled_or_unavailable:'Private read sessions are safely disabled or temporarily unavailable.'
       ,read_session_required:'Unlock private views with one wallet signature.'
+      ,wallet_not_connected:'Connect Phantom first.'
       ,read_session_scope_denied:'This view is open to verified analysts, and this wallet does not hold that standing yet. Nothing is wrong with your session: the surfaces your wallet can reach stay open, and no further signature will be asked for this one.'
       ,read_session_expired:'Your private working session genuinely lapsed. Sign once to unlock a new bounded session; typed drafts stay in this browser tab.'
       ,read_session_wrong_origin:'This private session belongs to a different site origin.'
@@ -801,12 +802,16 @@
     // An unmapped code is still a code. Show the neutral sentence instead.
     return /^[a-z0-9_]+$/.test(code)?t('This lane is not available to the current role.'):code;
   }
+  // Target kinds name what the task or challenge points at, in reviewed copy.
+  var TARGET_KIND_LABELS={case:'Case',report:'Report',wire:'Wire Report',application:'Analyst application',case_report_version:'Report version',wire_report_version:'Wire Report version',resolution:'Resolution'};
+  function targetKindLabel(value){var key=String(value||'');return t(TARGET_KIND_LABELS[key]||sentence(key));}
   function reviewTaskMarkup(task){
     return'<button class="osi-review-task" type="button" data-review-kind="'+esc(task.targetKind)+'" data-review-target="'+esc(task.exactTarget)+'" data-review-route="'+esc(task.routeTarget||task.exactTarget)+'" data-review-lane="'+esc(task.lane)+'" data-case-ref="'+esc(task.caseRef)+'"><div><span>'+esc(task.publicRef)+'</span>'+(task.exactTarget&&task.exactTarget!==task.publicRef?'<span>'+esc(task.exactTarget)+'</span>':'')+'<b>'+esc(t(task.nextAction))+'</b></div><dl>'
-      +(task.stageLabel||task.stage?'<div><dt>'+esc(t('Stage'))+'</dt><dd>'+esc(t(task.stageLabel||label(task.stage)))+'</dd></div>':'')+'<div><dt>'+esc(t('Deadline'))+'</dt><dd>'+esc(task.deadline?dateText(task.deadline):t('No separate deadline'))+'</dd></div><div><dt>'+esc(t('Conflict'))+'</dt><dd class="'+(task.conflict?'warn':'ok')+'">'+esc(task.conflict?t('Excluded'):t('Clear'))+'</dd></div>'
-      +'<div><dt>'+esc(t('Current vote'))+'</dt><dd>'+esc(task.currentVote?t(label(task.currentVote)):t('None'))+'</dd></div><div><dt>'+esc(t('Weight'))+'</dt><dd>'+esc(task.weight==null?t('Not counted'):Number(task.weight).toFixed(2))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(t(label(task.targetKind)))+'</dd></div></dl></button>';
+      +(task.stageLabel||task.stage?'<div><dt>'+esc(t('Stage'))+'</dt><dd>'+esc(task.stageLabel?t(task.stageLabel):t(sentence(task.stage)))+'</dd></div>':'')+'<div><dt>'+esc(t('Deadline'))+'</dt><dd>'+esc(task.deadline?dateText(task.deadline):t('No separate deadline'))+'</dd></div><div><dt>'+esc(t('Conflict'))+'</dt><dd class="'+(task.conflict?'warn':'ok')+'">'+esc(task.conflict?t('Excluded'):t('Clear'))+'</dd></div>'
+      +'<div><dt>'+esc(t('Current vote'))+'</dt><dd>'+esc(task.currentVote?reviewDecisionLabel(task.currentVote):t('None'))+'</dd></div><div><dt>'+esc(t('Weight'))+'</dt><dd>'+esc(task.weight==null?t('Not counted'):Number(task.weight).toFixed(2))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(targetKindLabel(task.targetKind))+'</dd></div></dl></button>';
   }
   function drawReviewTasks(host){
+    host.setAttribute('data-drawn-mode','review');
     var total=reviewLaneDefinitions.reduce(function(sum,definition){var lane=state.reviewLanes[definition[0]]||{};return sum+(lane.status==='success'?(lane.tasks||[]).length:0);},0);
     var updated=state.reviewUpdatedAt?dateText(state.reviewUpdatedAt):t('Refresh in progress');
     host.innerHTML='<div class="osi-review-queue-tools"><div><p>'+esc(t('One queue, eight server-authorized lanes. Errors never become empty results.'))+'</p><time>'+esc(t('Last refreshed: {time}',{time:updated}))+'</time></div><button class="osi-action" type="button" data-review-refresh>'+esc(t('Refresh queue'))+'</button></div><div class="osi-review-lanes">'+reviewLaneDefinitions.map(function(definition){
@@ -894,13 +899,14 @@
   }
   function drawMyChallenges(){
     var host=document.getElementById('field-cases');if(!host)return;
+    host.setAttribute('data-drawn-mode','challenges');
     var rows=state.challenges||[];
     if(!rows.length){host.innerHTML='<div class="osi-v2-empty"><b>'+esc(t('No challenges submitted by this wallet'))+'</b><span>'+esc(t('A challenge appears here only after the existing evidence-bound submission succeeds.'))+'</span></div>';}
     else{
       host.innerHTML='<div class="osi-review-queue-tools"><div><p>'+esc(t('Only your wallet-bound challenge rows are shown. Server state remains authoritative.'))+'</p><time>'+esc(t('Deadlines update locally; refresh before acting.'))+'</time></div><button class="osi-action" type="button" data-my-challenges-refresh>'+esc(t('Refresh challenges'))+'</button></div><div class="osi-review-lanes"><section class="osi-review-lane"><header><h3>'+esc(t('Challenge history'))+'</h3><span>'+rows.length+'</span></header>'+rows.map(function(row){
         var deadline=challengeDeadline(row),detail=row.restricted_detail?'<p class="osi-my-challenge-detail" data-osi-user-content>'+esc(row.restricted_detail)+'</p>':'';
         var actions=(row.case_public_ref?'<button class="osi-action" type="button" data-challenge-case="'+esc(row.case_public_ref)+'">'+esc(t('Open public Case'))+'</button>':'')+(row.can_withdraw?'<button class="osi-action danger" type="button" data-challenge-withdraw="'+esc(row.public_ref)+'">'+esc(t('Withdraw challenge'))+'</button>':'');
-        return'<article class="osi-review-task osi-my-challenge"><div><span>'+esc(row.public_ref)+'</span>'+(row.target_public_ref?'<span>'+esc(row.target_public_ref)+'</span>':'')+'<b data-osi-user-content>'+esc(row.public_safe_summary)+'</b>'+detail+'</div><dl><div><dt>'+esc(t('State'))+'</dt><dd class="'+(row.blocking?'warn':'')+'">'+esc(t(CHALLENGE_STATE[row.state]||label(row.state)))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(t(label(row.target_kind)))+'</dd></div>'+(challengeActive(row)
+        return'<article class="osi-review-task osi-my-challenge"><div><span>'+esc(row.public_ref)+'</span>'+(row.target_public_ref?'<span>'+esc(row.target_public_ref)+'</span>':'')+'<b data-osi-user-content>'+esc(row.public_safe_summary)+'</b>'+detail+'</div><dl><div><dt>'+esc(t('State'))+'</dt><dd class="'+(row.blocking?'warn':'')+'">'+esc(t(CHALLENGE_STATE[row.state]||label(row.state)))+'</dd></div><div><dt>'+esc(t('Target'))+'</dt><dd>'+esc(targetKindLabel(row.target_kind))+'</dd></div>'+(challengeActive(row)
           ?'<div><dt>'+esc(t('Deadline'))+'</dt><dd><time datetime="'+esc(deadline||'')+'" data-my-challenge-deadline>'+esc(challengeCountdown(deadline))+'</time></dd></div>'
           :'<div><dt>'+esc(t('Closed'))+'</dt><dd><time datetime="'+esc(row.terminal_at||'')+'">'+esc(row.terminal_at?dateText(row.terminal_at):t('Closed'))+'</time></dd></div>')+'<div><dt>'+esc(t('Submitted'))+'</dt><dd>'+esc(dateText(row.created_at))+'</dd></div><div><dt>'+esc(t('Sealing effect'))+'</dt><dd>'+esc(row.blocking?t('Blocks sealing while active'):t('Does not block sealing'))+'</dd></div><div><dt>'+esc(t('Withdraw'))+'</dt><dd>'+esc(row.can_withdraw?t('Available; server rechecks state'):t('Unavailable in this state'))+'</dd></div></dl>'+(actions?'<div class="osi-my-challenge-actions">'+actions+'</div>':'')+'</article>';
       }).join('')+'</section></div>';
@@ -925,7 +931,7 @@
     try{
       var result=await sessionRead('challenge:mine','list_my_challenges');if(token!==state.loadToken)return;
       state.challenges=result.challenges||[];drawMyChallenges();
-    }catch(error){if(token!==state.loadToken)return;var host=document.getElementById('field-cases');if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Challenge workspace locked'))+'</b><span>'+esc(userError(error))+'</span>'+(refresh?'<button class="osi-action" type="button" data-challenge-access-refresh>'+esc(t('Refresh private access'))+'</button>':'')+'</div>';var retry=host.querySelector('[data-challenge-access-refresh]');if(retry)retry.addEventListener('click',function(){window.osiV2RefreshReadSession(['challenge:mine']).then(function(){openMyChallenges({authorize:true});});});}}
+    }catch(error){if(token!==state.loadToken)return;var host=document.getElementById('field-cases');if(host){var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Challenge workspace locked'))+'</b><span>'+esc(userError(error))+'</span>'+(refresh?'<button class="osi-action" type="button" data-challenge-access-refresh>'+esc(t('Refresh private access'))+'</button>':'<button class="osi-action" type="button" data-challenge-access-retry>'+esc(t('Try again'))+'</button>')+'</div>';var again=host.querySelector('[data-challenge-access-retry]');if(again)again.addEventListener('click',function(){openMyChallenges({authorize:true});});var retry=host.querySelector('[data-challenge-access-refresh]');if(retry)retry.addEventListener('click',function(){window.osiV2RefreshReadSession(['challenge:mine']).then(function(){openMyChallenges({authorize:true});});});}}
   }
   function drawCases(){
     var host=document.getElementById('field-cases');
@@ -974,6 +980,7 @@
         emptyBody=t(state.mode==='public'?'The registry is live and reads production data. A Case appears only after an eligible analyst threshold or full maintainer approval, plus the confirmed public-opening Memo.':(state.mode==='mine'?'Open a Case to create a private, wallet-anchored record.':'Only private initial-review Cases available under server-derived authorization appear here.'));
       }
       host.innerHTML='<div class="osi-v2-empty"><b>'+esc(emptyTitle)+'</b><span>'+esc(emptyBody)+'</span>'+emptyAction+'</div>';
+      host.setAttribute('data-drawn-mode',state.mode);
     }else{
       host.innerHTML=visible.map(function(item){
         var proof=t(hasOpenProof(item)?'Memo anchored':((item.proof_log||[]).length?'Proof recorded':'Awaiting proof'));
@@ -1131,14 +1138,18 @@
   }
   async function loadPublicCases(){
     var token=claimFieldList();
+    state.pendingPublicLoad=token;
     state.locked=null;setFieldRailActive(railKeyForStage(state.stage));
-    state.mode='public';state.actorRole='public';state.page=1;setFieldCopy('public');setReviewChrome(false);setLoading();
+    if(!state.keepListPage)state.page=1;state.keepListPage=false;
+    state.mode='public';state.actorRole='public';setFieldCopy('public');setReviewChrome(false);setLoading();
     try{
       var result=await publicRead({op:'list_public_cases'});
       if(token!==state.loadToken) return;
+      state.pendingPublicLoad=0;
       state.cases=result.cases||[];state.reviewTasks={};drawCases();
     }catch(error){
       if(token!==state.loadToken) return;
+      state.pendingPublicLoad=0;
       var host=document.getElementById('field-cases');
       clearListChrome();
       if(host){
@@ -1190,7 +1201,11 @@
       var host=document.getElementById('field-cases');
       if(host){
         var refresh=/^read_session_(expired|wrong_scope)$/.test(String(error&&error.message||''));
-        host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>Authorized workspace locked</b><span>'+esc(userError(error))+'</span>'+(refresh?'<button class="osi-action" type="button" onclick="osiV2RefreshCaseWorkspace(\''+esc(mode)+'\')">Refresh private access</button>':'')+'</div>';
+        // Every failure keeps a way forward: a refresh for a lapsed or
+        // wrong-scope session, otherwise the same unlock again.
+        host.innerHTML='<div class="osi-v2-empty osi-v2-error"><b>'+esc(t('Authorized workspace locked'))+'</b><span>'+esc(userError(error))+'</span>'+(refresh?'<button class="osi-action" type="button" onclick="osiV2RefreshCaseWorkspace(\''+esc(mode)+'\')">'+esc(t('Refresh private access'))+'</button>':'<button class="osi-action" type="button" data-workspace-retry>'+esc(t('Try again'))+'</button>')+'</div>';
+        var again=host.querySelector('[data-workspace-retry]');
+        if(again)again.addEventListener('click',function(){openSignedCollection(mode,{authorize:true});});
       }
     }
   }
@@ -1276,7 +1291,9 @@
       generation=privateGeneration();
       var capabilities=await refreshCapabilities();
       assertPrivateGeneration(generation);
-      if(!capabilities||capabilities.case_writes_enabled!==true)throw new Error('case_writes_disabled');
+      // A failed capability read is not the rollout flag being off.
+      if(!capabilities)throw new Error('case_writes_disabled_or_unavailable');
+      if(capabilities.case_writes_enabled!==true)throw new Error('case_writes_disabled');
       if(state.caseReceipt){state.caseReceipt=null;clearSubmissionReceipt('v2-case-receipt');var staleForm=document.getElementById('field-form');if(staleForm)staleForm.reset();lockCaseFields(false);}
       restoreCaseDraft(wallet);
       var modal=document.getElementById('fo-modal'); if(modal) modal.classList.add('open');
@@ -1314,7 +1331,7 @@
   }
   function lines(id,kind){
     var input=document.getElementById(id);if(!input)return[];
-    return String(input.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});
+    return evidenceEntries(input.value,kind).map(function(entry){return{kind:kind,ref:entry.ref};});
   }
   var CASE_DRAFT_FIELDS=['v2-case-category','v2-case-title','v2-case-summary','v2-case-details','v2-case-wallets','v2-case-transactions','v2-case-urls','v2-case-reward'];
   function caseDraftKey(wallet){return'case-intake:'+String(wallet||'');}
@@ -1369,18 +1386,30 @@
   function validEvidenceUrl(value){
     try{var parsed=new URL(value);return parsed.protocol==='https:'&&!parsed.username&&!parsed.password;}catch(_){return false;}
   }
+  // Each evidence entry with the textarea line it sits on. A link is split on
+  // new lines only, because an https URL may contain a comma; addresses and
+  // signatures may also be comma-separated on one line. Line numbers are the
+  // lines the person sees, blank lines included.
+  function evidenceEntries(value,kind){
+    var out=[];
+    String(value||'').split(/\r?\n/).forEach(function(raw,index){
+      (kind==='url'?[raw]:raw.split(',')).forEach(function(part){var ref=part.trim();if(ref)out.push({ref:ref,line:index+1});});
+    });
+    return out;
+  }
   function validateEvidenceFields(){
     clearEvidenceErrors();
     var firstInvalid=null,total=0;
     EVIDENCE_FIELDS.forEach(function(field){
       var input=document.getElementById(field[0]);if(!input)return;
       var seen={},problem='';
-      String(input.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean).forEach(function(value,index){
+      evidenceEntries(input.value,field[1]).forEach(function(entry){
+        var value=entry.ref;
         total+=1;
         if(problem)return;
         var ok=field[2]?field[2].test(value):validEvidenceUrl(value);
-        if(!ok)problem=t(field[3],{line:index+1});
-        else if(seen[value])problem=t('Line {line} repeats an earlier reference.',{line:index+1});
+        if(!ok)problem=t(field[3],{line:entry.line});
+        else if(seen[value])problem=t('Line {line} repeats an earlier reference.',{line:entry.line});
         seen[value]=true;
       });
       if(!problem)return;
@@ -1659,6 +1688,20 @@
     var ref=String(publicRef||'');
     var drawerToken=++state.drawerLoadToken;
     state.activeReviewTask=reviewTask||null;
+    // A malformed reference never reaches the server. It opens the drawer's
+    // own "not a valid public reference" state, with its way back to the list.
+    if(!isCaseRef(ref)){
+      var badDrawer=revealCaseDrawer();
+      if(!badDrawer){state.activeReviewTask=null;return null;}
+      state.current=null;state.activeReviewTask=null;
+      paintCaseHeader(ref.slice(0,48),null,true);
+      caseDrawerError(ref.slice(0,48),{message:'bad_public_ref'});
+      setTimeout(function(){
+        if(drawerToken!==state.drawerLoadToken)return;
+        var close=badDrawer.querySelector('.osi-case-close');if(close)close.focus();
+      },30);
+      return null;
+    }
     // list_public_cases and get_public_case share one server projection, so a
     // cached row renders the identical canonical detail with no extra wait.
     var cached=state.cases.find(function(entry){return entry.public_ref===ref;})||null;
@@ -3389,7 +3432,11 @@
     if(state.mode!=='public')return;
     setFieldRailActive(railKeyForStage(state.stage));
   }
-  window.fieldFilter=function(value){state.stage=String(value||'all');state.page=1;markStageRail();drawCases();};
+  // While the public read is in flight, state.cases still holds the previous
+  // list (My Cases or the review queue). The filter is recorded and the public
+  // read draws it when it lands, instead of drawing private rows and counts
+  // under the public registry heading.
+  window.fieldFilter=function(value){state.stage=String(value||'all');state.page=1;markStageRail();if(state.pendingPublicLoad&&state.pendingPublicLoad===state.loadToken)return;drawCases();};
   // Offered by the filtered-empty state so a stage filter or search term is
   // never a dead end.
   window.osiV2ClearCaseFilters=function(){
@@ -3433,13 +3480,17 @@
   window.osiV2OpenCaseFromRoute=function(publicRef){return openCase(publicRef,null,{fromRoute:true});};
   window.osiV2CloseCaseFromRoute=function(){
     var drawer=document.getElementById('osi-case-drawer');
-    if(drawer&&!drawer.hidden)closeCase({fromRoute:true});
+    // Back from a Case returns to the same page of the same list, so the row
+    // it was opened from is still there to take focus.
+    if(drawer&&!drawer.hidden){state.keepListPage=state.mode==='public';closeCase({fromRoute:true});}
   };
   // Another module is taking over #field-cases. Invalidate any in-flight Case
   // list render so a late public read cannot overwrite the new owner's content.
   window.osiSetFieldOfficeNav=setFieldRailActive;
   window.osiV2CancelFieldListRender=function(){
     ++state.loadToken;++state.reviewLoadToken;state.locked=null;
+    // Another module now owns #field-cases; nothing on it was drawn here.
+    var host=document.getElementById('field-cases');if(host)host.removeAttribute('data-drawn-mode');
   };
   window.osiV2ActiveCaseRef=function(){
     var drawer=document.getElementById('osi-case-drawer');
@@ -3490,7 +3541,7 @@
     // The previous wallet's private rows must not stay on screen under the
     // next wallet, or under no wallet. A private list gives way to its lock.
     var listHost=document.getElementById('field-cases');
-    if(listHost&&['mine','challenges','review'].indexOf(previousMode)>=0&&listHost.querySelector('.osi-v2-row,.osi-review-lanes')){
+    if(listHost&&['mine','challenges','review'].indexOf(previousMode)>=0&&listHost.getAttribute('data-drawn-mode')===previousMode){
       state.locked=previousMode;setFieldCopy(previousMode);setReviewChrome(false);listHost.removeAttribute('data-drawn-mode');
       drawWorkspaceLock(listHost,previousMode);
     }
@@ -3528,13 +3579,14 @@
       renderSubmissionReceipt(hostId,state.submissionReceipts[hostId],false);
     });
     var host=document.getElementById('field-cases');
-    if(host&&state.mode==='review')drawReviewTasks(host);
-    // Case rows compose dates, counts and the same-title note in the active
-    // language, so a drawn list is drawn again rather than left half English.
-    // Only rows this state drew are redrawn: after a private-cache clear the
-    // old owner rows can still be on screen while state already holds an
-    // empty public list, and redrawing that would claim an empty registry.
-    else if(host&&!state.locked&&state.cases.length&&host.querySelector('.osi-v2-row')&&host.getAttribute('data-drawn-mode')===state.mode)drawCases();
+    var drawn=host&&host.getAttribute('data-drawn-mode');
+    if(host&&state.mode==='review'&&drawn==='review')drawReviewTasks(host);
+    else if(host&&state.mode==='challenges'&&drawn==='challenges'){setFieldCopy('challenges');drawMyChallenges();}
+    // Case rows, empty states and the count compose text in the active
+    // language, so whatever this module drew is drawn again rather than left
+    // in the previous language. Content another module or a private-cache
+    // clear owns carries no matching marker and is left alone.
+    else if(host&&!state.locked&&drawn===state.mode)drawCases();
     else if(host&&state.locked&&host.querySelector('[data-workspace-lock]'))drawWorkspaceLock(host,state.locked);
     if(state.current){drawTabs();renderTab();renderActions();paintSameTitle(state.current);}
     var titleHint=document.getElementById('v2-case-title-match');

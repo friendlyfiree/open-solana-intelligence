@@ -638,8 +638,18 @@
 
   // #case/OSI-XXXXXXXXXXXX is the canonical, shareable public Case route. It
   // carries only a public reference, never a token, nonce or wallet value.
+  // A copied link can carry an encoded space or a trailing slash; both are
+  // read past. Anything else after #case/ is still a Case route, and the
+  // drawer says the reference is not valid instead of landing on Home.
+  function caseRouteSegment(hash) {
+    var raw = String(hash || '');
+    if (!/^case\//i.test(raw)) return null;
+    var segment = raw.slice(5);
+    try { segment = decodeURIComponent(segment); } catch (_) {}
+    return segment.trim().replace(/\/+$/, '');
+  }
   function caseRouteRef(hash) {
-    var match = /^case\/(OSI-[0-9A-Z]{6,20})$/i.exec(String(hash || ''));
+    var match = /^(OSI-[0-9A-Z]{6,20})$/i.exec(caseRouteSegment(hash) || '');
     return match ? match[1].toUpperCase() : '';
   }
 
@@ -676,6 +686,14 @@
       if (typeof window.osiV2ActiveCaseRef === 'function' && window.osiV2ActiveCaseRef() === caseRef) return;
       window.setTimeout(function () {
         if (typeof window.osiV2OpenCaseFromRoute === 'function') window.osiV2OpenCaseFromRoute(caseRef);
+      }, 0);
+      return;
+    }
+    var badCaseRoute = caseRouteSegment(hash);
+    if (badCaseRoute !== null) {
+      navigate('field', { history: true, focus: false, preserveScroll: true, keepCaseDrawer: true });
+      window.setTimeout(function () {
+        if (typeof window.osiV2OpenCaseFromRoute === 'function') window.osiV2OpenCaseFromRoute(badCaseRoute);
       }, 0);
       return;
     }

@@ -4935,3 +4935,123 @@ test('Rewards & Support lists unconfirmed payment attempts apart from verified t
   await expect(attempts.getByRole('link', { name: 'View transaction on Solscan' })).toHaveCount(1);
   expectCleanRuntime(page);
 });
+
+// An https link may contain a comma, so links are split on new lines only, and
+// the line an error names is the line the person sees, blank lines included.
+test('Case intake keeps a link with a comma whole and names the real line of a bad link', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst', lifecycle: true });
+  await page.evaluate((tx) => { window.castOnchainVote = async () => tx; }, TX);
+  await openPlatformItem(page, 'Open a Case');
+  await page.locator('#v2-case-title').fill('Evidence line fixture');
+  await page.locator('#v2-case-summary').fill('A neutral public-safe Case summary with enough detail for review.');
+  await page.locator('#v2-case-urls').fill('https://example.org/report?ids=1,2\n\nnot-a-link');
+  await page.locator('#v2-case-confirm').check();
+  await page.locator('#v2-case-submit').click();
+  await expect(page.locator('#v2-case-urls-error')).toHaveText('Line 3 is not a public https:// link.');
+  await page.locator('#v2-case-urls').fill('https://example.org/report?ids=1,2');
+  await page.locator('#v2-case-submit').click();
+  await expectFixtureOperation(page, 'osi-v2-case-write', 'commit_case');
+  const prepared = page.__fixtureOps.find((entry) => entry.endpoint === 'osi-v2-case-write' && entry.op === 'prepare_case');
+  expect(JSON.stringify(prepared || {})).not.toContain('"ref":"2"');
+  expectCleanRuntime(page);
+});
+
+// A malformed #case/ link opens the drawer's "not a valid public reference"
+// state instead of landing silently on Home.
+test('a malformed Case link says the reference is not valid', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => { window.location.hash = '#case/OSI-12'; });
+  await expect(page.locator('#osi-case-drawer')).toBeVisible();
+  await expect(page.locator('#osi-case-content')).toContainText('That Case reference is not a valid public reference.');
+  await expect(page.locator('#osi-case-content').getByRole('button', { name: 'Browse public Cases' })).toBeVisible();
+  // A copied link with an encoded trailing space still opens the Case.
+  await page.evaluate(() => window.osiV2CloseCase());
+  await page.evaluate((ref) => { window.location.hash = `#case/${ref}%20`; }, CASE_REF);
+  await expect(page.locator('#osi-case-ref')).toHaveText(CASE_REF);
+  await expect(page.locator('#osi-case-content')).not.toContainText('not a valid public reference');
+  expectCleanRuntime(page);
+});
+
+// Every failed unlock keeps a way forward, and "wallet_not_connected" reads
+// as a sentence.
+test('a failed private unlock keeps a retry and a plain message', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => {
+    window.osiV2ReadSession = async () => { throw new Error('wallet_not_connected'); };
+  });
+  await page.evaluate(() => window.osiV2OpenMyCases({ authorize: true }));
+  await expect(page.locator('#field-cases')).toContainText('Connect Phantom first.');
+  await expect(page.locator('#field-cases').getByRole('button', { name: 'Try again' })).toBeVisible();
+  await page.evaluate(() => window.osiV2OpenMyChallenges({ authorize: true }));
+  await expect(page.locator('#field-cases').getByRole('button', { name: 'Try again' })).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// A language switch redraws the Field Office empty state and My Challenges in
+// the new language.
+test('a language switch redraws the Field Office empty state and My Challenges', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiNavigate('field'));
+  await page.locator('#fo-search').fill('zzzz-no-match');
+  await expect(page.locator('#field-cases')).toContainText('No Cases match this view');
+  // The sentence carries a count, which only a redraw can translate.
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(page.locator('#field-cases')).toContainText(/Burada (bir|\d+) Vaka var/);
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await expect(page.locator('#field-cases')).toContainText(/Cases? (is|are) available here/);
+  await page.evaluate(() => window.osiV2OpenMyChallenges());
+  await expect(page.locator('#field-cases .osi-my-challenge').first()).toContainText('State');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(page.locator('#field-cases .osi-my-challenge').first()).toContainText('Durum');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+// A stage link from My Cases must not draw the private list's rows and counts
+// under the public registry heading while the public read is in flight.
+test('a stage link from My Cases waits for the public list instead of drawing private rows', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator(`#field-cases [data-case-ref="${PRIVATE_REF}"]`)).toBeVisible();
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'list_public_cases') await new Promise((resolve) => setTimeout(resolve, 1500));
+    return route.fallback();
+  });
+  await page.evaluate(() => { if (typeof window.osiPublicReadInvalidate === 'function') window.osiPublicReadInvalidate(); window.osiNavigateFieldStage('resolution_selection'); });
+  await page.waitForTimeout(300);
+  await expect(page.locator(`#field-cases [data-case-ref="${PRIVATE_REF}"]`)).toHaveCount(0);
+  await expect(page.locator('#field-cases')).not.toContainText('No Cases match this view');
+  await expect(page.locator('.fo-rail [data-fo-nav="resolutions"]')).toHaveClass(/active/);
+  expectCleanRuntime(page);
+});
+
+// Back from a Case returns to the same page of the public list, so the row the
+// Case was opened from is still there and takes focus again.
+test('Back from a Case keeps the public list page and returns focus to the row', async ({ page }) => {
+  await ready(page);
+  const many = Array.from({ length: 15 }, (_, index) => ({
+    ...richCase, public_ref: `OSI-PG${String(index).padStart(10, '0')}`, title: `Paged Case ${index}`,
+    created_at: new Date(Date.UTC(2026, 8, 1 + index)).toISOString(), governance: {}, reports: [], proof_log: [],
+  }));
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'list_public_cases') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, cases: many }) });
+    if (body.op === 'get_public_case') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, case: many.find((item) => item.public_ref === body.public_ref) || many[0] }) });
+    return route.fallback();
+  });
+  await page.evaluate(() => { if (typeof window.osiPublicReadInvalidate === 'function') window.osiPublicReadInvalidate(); window.osiNavigate('field'); });
+  await page.locator('#fo-pnav [data-page="next"]').click();
+  await expect(page.locator('#fo-pnav .fo-pg-state')).toHaveText('Page 2 of 2');
+  const row = page.locator('#field-cases .osi-v2-row').first();
+  const ref = await row.getAttribute('data-case-ref');
+  await row.click();
+  await expect(page.locator('#osi-case-ref')).toHaveText(ref);
+  await page.goBack();
+  await expect(page.locator('#osi-case-drawer')).toBeHidden();
+  await expect(page.locator('#fo-pnav .fo-pg-state')).toHaveText('Page 2 of 2');
+  await expect(page.locator(`#field-cases .osi-v2-row[data-case-ref="${ref}"]`)).toBeFocused();
+  expectCleanRuntime(page);
+});
