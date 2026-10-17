@@ -61,8 +61,10 @@
     return walletDetail||code.replace(/_/g,' ');
   }
   function host(){return document.getElementById('identity-body');}
-  function showProfileView(){
-    if(typeof window.osiNavigate==='function')window.osiNavigate('identity',{render:false,focus:false});
+  // A public profile records its own #profile/<ref> entry, so showing the view
+  // for it must not push #identity over the shareable address.
+  function showProfileView(ownRoute){
+    if(typeof window.osiNavigate==='function')window.osiNavigate('identity',{render:false,focus:false,history:ownRoute===true});
     else if(document.body){document.body.dataset.view='identity';window.scrollTo({top:0,behavior:'auto'});}
   }
   function shell(body){
@@ -253,15 +255,22 @@
     try{await toggleWallet();if(connectedWallet())openProfile();}catch(error){renderError(error);}
   }
   async function openProfile(options){
-    options=options||{};showProfileView();var token=++state.loadToken,wallet=connectedWallet();
+    options=options||{};showProfileView();
+    // A refresh clears the private session first, which moves the private
+    // generation and this module's load token. Taking both before it made
+    // every refresh fail as private_session_changed after the signature.
+    var refreshed=null;
+    if(options.refresh&&connectedWallet()&&typeof window.osiV2RefreshReadSession==='function'){
+      renderLoading();
+      try{refreshed=await window.osiV2RefreshReadSession(['profile:self']);}catch(error){renderError(error);return;}
+    }
+    var token=++state.loadToken,wallet=connectedWallet();
     if(!wallet){state.profile=null;state.wallet='';state.session=null;renderLocked();return;}
     state.wallet=wallet;renderLoading();var generation=privateGeneration();
     var rollout=api({op:'rollout_status'}).catch(function(){return{profile_writes_enabled:false};});
     try{
       if(typeof window.osiV2ReadSession!=='function')throw new Error('read_session_disabled_or_unavailable');
-      var session=options.refresh&&typeof window.osiV2RefreshReadSession==='function'
-        ?await window.osiV2RefreshReadSession(['profile:self'])
-        :await window.osiV2ReadSession(['profile:self'],{allowUnlock:true});
+      var session=refreshed||await window.osiV2ReadSession(['profile:self'],{allowUnlock:true});
       assertPrivateGeneration(generation);if(token!==state.loadToken||session.wallet!==wallet)throw new Error('private_session_changed');
       var result=await api({op:'get_my_profile',wallet:session.wallet,read_session:session.token});assertPrivateGeneration(generation);
       var flags=await rollout;if(token!==state.loadToken)return;
@@ -276,7 +285,7 @@
   }
   async function openPublicProfile(reference,options){
     options=options||{};var parsed=publicProfileReference(reference),token=++state.publicLoadToken;
-    showProfileView();
+    showProfileView(!!parsed);
     if(!parsed){renderPublicError(new Error('profile_not_found'));return;}
     if(!options.history){try{window.history.pushState({osiProfile:parsed.route},'','#profile/'+encodeURIComponent(parsed.route));}catch(_){}}
     renderPublicLoading();

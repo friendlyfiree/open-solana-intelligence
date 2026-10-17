@@ -150,8 +150,10 @@
     }
   }
 
-  function navigateSection(view, sectionId, hash) {
-    navigate(view, { focus: false, preserveScroll: true });
+  // fromRoute: the address already names this section (a load, a reload or
+  // Back), so the move must not push a second entry for it.
+  function navigateSection(view, sectionId, hash, fromRoute) {
+    navigate(view, { focus: false, preserveScroll: true, history: fromRoute === true });
     window.setTimeout(function () {
       var section = document.getElementById(sectionId);
       if (!section) return;
@@ -665,7 +667,7 @@
     var hash = window.location.hash.replace(/^#/, '');
     if (hash === 'how-it-works') {
       closeCaseRoute();
-      navigateSection('registry', 'how-osi-works', 'how-it-works');
+      navigateSection('registry', 'how-osi-works', 'how-it-works', true);
       return;
     }
     var caseRef = caseRouteRef(hash);

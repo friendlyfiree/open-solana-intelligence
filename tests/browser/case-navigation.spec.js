@@ -444,6 +444,19 @@ test.describe('public Case navigation', () => {
   });
 });
 
+// The How OSI works address is already in the bar when it is routed, so it
+// must not push a second copy of itself.
+test('the How OSI works address adds one history entry, so Back leaves it in one step', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => window.osiNavigate('field'));
+  await expect(page).toHaveURL(/#field-office$/);
+  await page.evaluate(() => { window.location.hash = '#how-it-works'; });
+  await expect(page).toHaveURL(/#how-it-works$/);
+  await page.waitForTimeout(200);
+  await page.goBack();
+  await expect(page).toHaveURL(/#field-office$/);
+});
+
 test.describe('private workspace friction', () => {
   test('My Reports navigation shows an inline lock and never opens the wallet by itself', async ({ page }) => {
     await boot(page, { wallet: 'phantom' });
