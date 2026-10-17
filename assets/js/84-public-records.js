@@ -128,7 +128,7 @@ function crStatus(r){
       return { txt:'Sealed', cls:'cr-sealed', channel:sealBoot?CR_BOOTSTRAP:'', detail:crSealDetail(r.seal_channel,r.selection_channel) };
     }
     if(stage==='sealed') return { txt:'Seal proof unavailable', cls:'cr-pending', detail:'The server stage is sealed, but its public seal Memo receipt is unavailable.' };
-    if(['ready_for_finalization','resolution_proposed','in_challenge_window','resolved','archived'].indexOf(stage)!==-1 && Number(r.native_review_count||0)>0){
+    if(['ready_for_finalization','resolution_proposed','in_challenge_window','resolved','archived'].indexOf(stage)!==-1 && Number(r.native_review_rows!=null?r.native_review_rows:r.native_review_count||0)>0){
       var selectionBoot=r.selection_channel===CR_BOOTSTRAP;
       return { txt:'Reviewed', pill:stage==='resolved'?'Resolved':'Reviewed', cls:'cr-reviewed', channel:selectionBoot?CR_BOOTSTRAP:'', detail:CR_REVIEWED_STAGE_DETAIL[stage]+(selectionBoot?' That selection was a maintainer bootstrap (cold-start) decision, not independent analyst quorum.':'') };
     }
@@ -246,7 +246,12 @@ function crNativeCaseRecord(item){
     sealed_at:item.sealed_at||null,
     record_source:'native_public_dto',
     native_evidence_count:Array.isArray(item.evidence)?item.evidence.length:0,
-    native_review_count:Array.isArray(item.reviews)?item.reviews.length:0,
+    // The card labels this "Analyst reviews". A maintainer initial-open row is
+    // the maintainer path, not an analyst vote, and a revised row is replaced
+    // by its later vote, so only current analyst rows count.
+    native_review_count:Array.isArray(item.reviews)?item.reviews.filter(function(review){return review&&review.is_active===true&&String(review.reviewer_role||'')==='analyst';}).length:0,
+    // The Reviewed status asks only whether any review record exists.
+    native_review_rows:Array.isArray(item.reviews)?item.reviews.length:0,
     native_challenge_count:challenges.filter(function(challenge){return ['open','under_review'].indexOf(String(challenge&&challenge.state||''))!==-1;}).length,
     native_seal_verified:!!sealReceipt,
     seal_channel:sealReceipt?(sealReceipt.decision_channel===CR_BOOTSTRAP?CR_BOOTSTRAP:'standard'):'',
@@ -463,6 +468,14 @@ function crResetFilters(){
   // where the next action starts instead of dropping focus to the page.
   if(search&&typeof search.focus==='function') search.focus({preventScroll:true});
 }
+// Retrying replaces the pressed button, so keyboard focus moves to the
+// refreshed record list instead of falling back to the page.
+function crRetry(){
+  return Promise.resolve(renderCaseRecords()).then(function(){
+    var list=document.getElementById('case-records');
+    if(list&&typeof list.focus==='function'){ list.setAttribute('tabindex','-1'); list.focus({preventScroll:true}); }
+  });
+}
 function crPage(p){
   crState.page=p|0; crPaint();
   var h=document.getElementById('case-records'); if(h){ try{ h.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
@@ -550,10 +563,10 @@ function crPaint(){
   var from=(crState.page-1)*CR_PER, page=reports.slice(from, from+CR_PER);
   var sourceState = window.__crSourceState || 'empty';
   var partialHtml=sourceState==='partial'
-    ?'<div class="cr-source-warning" role="status"><div><b>'+escapeHtml(crT('Some public record sources are temporarily unavailable.'))+'</b><span>'+escapeHtml(crT('The records shown are verified results from the sources that answered. Published Reports may be incomplete until the Case registry recovers.'))+'</span></div><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Retry all sources'))+'</button></div>'
+    ?'<div class="cr-source-warning" role="status"><div><b>'+escapeHtml(crT('Some public record sources are temporarily unavailable.'))+'</b><span>'+escapeHtml(crT('The records shown are verified results from the sources that answered. Published Reports may be incomplete until the Case registry recovers.'))+'</span></div><button class="cr-btn outline" type="button" onclick="crRetry()">'+escapeHtml(crT('Retry all sources'))+'</button></div>'
     :'';
   var emptyHtml = (sourceState === 'error' || sourceState === 'unavailable')
-    ? '<div class="cr-noyet" role="alert"><b>'+escapeHtml(crT('Public records source unavailable.'))+'</b><span>'+escapeHtml(crT('Unable to load reviewed records right now. Private or cached data is never used as a fallback.'))+'</span><button class="cr-btn outline" type="button" onclick="renderCaseRecords()">'+escapeHtml(crT('Try again'))+'</button></div>'
+    ? '<div class="cr-noyet" role="alert"><b>'+escapeHtml(crT('Public records source unavailable.'))+'</b><span>'+escapeHtml(crT('Unable to load reviewed records right now. Private or cached data is never used as a fallback.'))+'</span><button class="cr-btn outline" type="button" onclick="crRetry()">'+escapeHtml(crT('Try again'))+'</button></div>'
     : '<div class="cr-noyet"><b>'+escapeHtml(crT('No published or sealed records yet.'))+'</b><span>'+escapeHtml(crT('Exact published Report versions and governed public outcomes will appear here. Open investigations remain available in the Field Office.'))+'</span><button class="cr-btn outline" type="button" onclick="osiNavigate(&quot;field&quot;)">'+escapeHtml(crT('Browse public Cases'))+'</button></div>';
   // A search that only matches an open investigation says where that Case is,
   // instead of reading as a missing record.

@@ -55,7 +55,7 @@ ok('an available source with zero rows renders a genuine public empty state with
 
 wireRowsMode = 'error';
 await wireContext.renderWire();
-ok('a source failure is distinct from empty and offers a real retry action', wireHost.innerHTML.includes('temporarily unavailable') && wireHost.innerHTML.includes('class="wire-retry"') && wireHost.innerHTML.includes('onclick="renderWire()"') && !wireHost.innerHTML.includes('The wire is quiet'));
+ok('a source failure is distinct from empty and offers a real retry action', wireHost.innerHTML.includes('temporarily unavailable') && wireHost.innerHTML.includes('class="wire-retry"') && wireHost.innerHTML.includes('onclick="wireRetry()"') && typeof wireContext.wireRetry === 'function' && !wireHost.innerHTML.includes('The wire is quiet'));
 wireRowsMode = 'private-race';
 const stalePublicRender = wireContext.wireOpenPublic();
 wireContext.wireEnterPrivateMode();

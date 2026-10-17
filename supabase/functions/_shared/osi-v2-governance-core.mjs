@@ -3,6 +3,7 @@
 // exact binding before the Edge gateway verifies Ed25519 or a mainnet Memo.
 
 import { parseHistoricalGovernanceV0 } from "./osi-v2-event-registry.mjs";
+import { containsProhibitedPersonalData } from "./osi-v2-content-safety-core.mjs";
 
 const WALLET = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const NONCE = /^[A-Za-z0-9_-]{32,128}$/;
@@ -79,6 +80,25 @@ export function validateGovernanceIdempotencyKey(value) {
   return text(value, "idempotency_key", 16, 128, IDEMPOTENCY);
 }
 
+// Case challenge summaries and governance rationales are public as soon as
+// they are recorded, with no human gate. They get the same content screen as
+// the Wire equivalents (normalizeWireGovernancePayload).
+const PROHIBITED_SECRET = /\b(seed phrase|recovery phrase|mnemonic|private key|secret key|keypair bytes?|access token|api key)\b/i;
+const ILLEGAL_ACCESS = /\b(stolen credentials?|credential dump|malware payload|exploit kit|unauthorized access)\b/i;
+const DOXXING = /\b(doxx(?:ing|ed)?|home address|private phone number|private messages?)\b/i;
+
+function rejectUnsafeContent(value) {
+  if (PROHIBITED_SECRET.test(value)) throw new TypeError("prohibited_secret_material");
+  if (ILLEGAL_ACCESS.test(value)) throw new TypeError("prohibited_illegal_access_material");
+  if (DOXXING.test(value)) throw new TypeError("prohibited_personal_data");
+  if (containsProhibitedPersonalData(value)) throw new TypeError("prohibited_personal_data");
+}
+
+function screened(payload, fields) {
+  rejectUnsafeContent(fields.map((field) => payload[field] || "").join("\n"));
+  return payload;
+}
+
 export function normalizeGovernancePayload(action, input) {
   if (!GOVERNANCE_ACTIONS.has(action) || !input || typeof input !== "object" || Array.isArray(input)) {
     throw new TypeError("governance payload is invalid");
@@ -91,22 +111,22 @@ export function normalizeGovernancePayload(action, input) {
         || (phase === "seal" && decision === "object")) {
       throw new TypeError("resolution review phase or decision is invalid");
     }
-    return {
+    return screened({
       phase,
       report_version_ref: text(input.report_version_ref, "report_version_ref", 23, 23, VERSION_REF),
       decision,
       reason_code: text(input.reason_code, "reason_code", 1, 96, /^[a-z][a-z0-9_:-]{0,95}$/),
       public_rationale: text(input.public_rationale, "public_rationale", 10, GOVERNANCE_RATIONALE_MAX),
       private_note: optionalText(input.private_note, "private_note", GOVERNANCE_LONG_TEXT_MAX),
-    };
+    }, ["public_rationale", "private_note"]);
   }
   if (action === "challenge_submit") {
-    return {
+    return screened({
       reason_code: text(input.reason_code, "reason_code", 1, 96, /^[a-z][a-z0-9_:-]{0,95}$/),
       public_safe_summary: text(input.public_safe_summary, "public_safe_summary", 20, GOVERNANCE_LONG_TEXT_MAX),
       restricted_detail: optionalText(input.restricted_detail, "restricted_detail", GOVERNANCE_LONG_TEXT_MAX),
       evidence_item_id: text(input.evidence_item_id, "evidence_item_id", 36, 36, UUID),
-    };
+    }, ["public_safe_summary", "restricted_detail"]);
   }
   if (action === "challenge_admit") {
     const decision = text(input.decision, "decision", 6, 6);
@@ -122,12 +142,12 @@ export function normalizeGovernancePayload(action, input) {
     if (!new Set(["accept", "reject"]).has(decision)) {
       throw new TypeError("challenge decision is invalid");
     }
-    return {
+    return screened({
       decision,
       reason_code: text(input.reason_code, "reason_code", 1, 96, /^[a-z][a-z0-9_:-]{0,95}$/),
       public_rationale: text(input.public_rationale, "public_rationale", 10, GOVERNANCE_RATIONALE_MAX),
       private_note: optionalText(input.private_note, "private_note", GOVERNANCE_LONG_TEXT_MAX),
-    };
+    }, ["public_rationale", "private_note"]);
   }
   if (action === "resolution_finalize") {
     // Normal finalize carries an empty payload and is unchanged. Only the

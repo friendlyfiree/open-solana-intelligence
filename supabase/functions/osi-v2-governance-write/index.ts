@@ -15,6 +15,7 @@ import {
   maintainerGate,
   validateConfirmedMemoTransaction,
 } from "../_shared/osi-v2-case-write-core.mjs";
+import { genesisBatchFailure } from "../_shared/osi-v2-cluster-core.mjs";
 import {
   GOVERNANCE_MEMO_EVENTS,
   governanceProofLabel,
@@ -32,7 +33,8 @@ const ALLOWED_ORIGIN = Deno.env.get("OSI_V2_ALLOWED_ORIGIN") ?? "*";
 const SOLANA_RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "https://api.mainnet-beta.solana.com";
 const MAINTAINER_AUTH_UUID = Deno.env.get("OSI_MAINTAINER_AUTH_UUID") ?? "";
 const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
-const MAX_BODY_BYTES = 32_768;
+// Two 10,000-character fields at up to 3 UTF-8 bytes each, plus the proof.
+const MAX_BODY_BYTES = 96_000;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -279,10 +281,8 @@ async function verifyMainnetMemo(
   let results: Row[];
   try { results = await response.json() as Row[]; }
   catch { return { ok: false, reason: "rpc_invalid_response" }; }
-  if (!Array.isArray(results)) return { ok: false, reason: "rpc_invalid_response" };
-  if (results.find((item) => item.id === 3)?.result !== MAINNET_GENESIS_HASH) {
-    return { ok: false, reason: "wrong_cluster" };
-  }
+  const cluster = genesisBatchFailure(results, MAINNET_GENESIS_HASH);
+  if (cluster) return { ok: false, reason: cluster };
   const transaction = results.find((item) => item.id === 1)?.result;
   const status = results.find((item) => item.id === 2)?.result?.value?.[0];
   return validateConfirmedMemoTransaction(transaction, status, {

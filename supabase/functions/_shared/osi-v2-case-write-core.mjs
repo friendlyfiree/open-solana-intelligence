@@ -4,6 +4,7 @@
 
 import { base58Decode, validateWallet } from "./osi-v2-proof-core.mjs";
 import { canonicalOsi2Envelope } from "./osi-v2-event-registry.mjs";
+import { containsProhibitedPersonalData } from "./osi-v2-content-safety-core.mjs";
 
 export const CASE_CATEGORIES = new Set([
   "wallet_drain",
@@ -66,6 +67,9 @@ function requireLength(value, name, min, max) {
 function rejectProhibitedContent(value) {
   if (PROHIBITED_SECRET.test(value)) throw new TypeError("prohibited_secret_material");
   if (ILLEGAL_ACCESS.test(value)) throw new TypeError("prohibited_illegal_access_material");
+  // The public summary is published when the Case opens. Payment-card and
+  // government identity numbers are refused here, as Report and Wire intake do.
+  if (containsProhibitedPersonalData(value)) throw new TypeError("prohibited_personal_data");
 }
 
 export function normalizeEvidence(input) {
@@ -86,6 +90,8 @@ export function normalizeEvidence(input) {
       }
     } else if (kind === "url") {
       let parsed;
+      // A link with whitespace inside is two links run together, not one.
+      if (/\s/.test(ref)) throw new TypeError("evidence URL is invalid");
       try { parsed = new URL(ref); } catch { throw new TypeError("evidence URL is invalid"); }
       if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
         throw new TypeError("evidence URL is invalid");

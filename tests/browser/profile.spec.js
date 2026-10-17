@@ -121,3 +121,66 @@ test('published handle and rollout-disabled controls are visibly unavailable', a
   await expect(page.getByText('This username cannot be renamed after its first publication.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Profile updates disabled' })).toBeDisabled();
 });
+
+// Opening a public profile records one #profile/<ref> entry. It used to push
+// #identity first, so the shareable address was replaced and Back stuck.
+test('a public profile keeps its address and Back leaves it in one step', async ({ page }) => {
+  await installFixture(page);
+  await page.evaluate(() => window.osiNavigate('field'));
+  await expect(page).toHaveURL(/#field-office$/);
+  await page.evaluate((profileRef) => window.osiV2OpenPublicProfile(profileRef), PROFILE_REF);
+  await expect(page.getByRole('heading', { name: 'Chain Reader' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`#profile/${PROFILE_REF}$`));
+  await page.goBack();
+  await expect(page).toHaveURL(/#field-office$/);
+
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(`#profile/${PROFILE_REF}$`));
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Chain Reader' })).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(page).toHaveURL(new RegExp(`#profile/${PROFILE_REF}$`));
+});
+
+// Refresh profile clears the private session and asks for a new signature.
+// The profile must come back afterwards, not a locked or blank screen.
+test('Refresh profile shows the profile again after the new signature', async ({ page }) => {
+  await installFixture(page);
+  await page.evaluate((wallet) => {
+    eval('walletPubkey = wallet');
+    window.osiV2ReadSession = async () => ({ wallet, token: 'owner-read-session' });
+    window.osiV2RefreshReadSession = async () => {
+      window.osiV2ClearReadSession('explicit_refresh');
+      return { wallet, token: 'owner-read-session-2' };
+    };
+    window.osiV2ApproveMessage = async () => 'base64-wallet-signature';
+    window.resolveWorkspaceContext = () => ({ isVerifiedAnalyst: false, isMaintainer: false });
+    window.osiV2OpenMyProfile();
+  }, WALLET);
+  await expect(page.getByRole('heading', { name: 'My Profile', exact: true })).toBeVisible();
+  await expect(page.locator('#osi-profile-handle')).toBeVisible();
+  await page.getByRole('button', { name: 'Refresh profile' }).click();
+  await expect(page.locator('#osi-profile-handle')).toBeVisible();
+  await expect(page.getByText('Connect a wallet to open My Profile')).toHaveCount(0);
+});
+
+// Try again retries the profile that was asked for. It used to read the
+// address bar, find no profile there and report the profile as not found.
+test('Try again on a public profile error fetches the same profile again', async ({ page }) => {
+  let failures = 1;
+  await installFixture(page);
+  await page.route('**/functions/v1/osi-v2-profile', async (route) => {
+    let body = {};
+    try { body = JSON.parse(route.request().postData() || '{}'); } catch (_) {}
+    if (body.op === 'get_public_profile' && failures > 0) {
+      failures -= 1;
+      return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'read_failed' }) });
+    }
+    return route.fallback();
+  });
+  await page.evaluate((profileRef) => window.osiV2OpenPublicProfile(profileRef), PROFILE_REF);
+  const retry = page.getByRole('button', { name: 'Try again' });
+  await expect(retry).toBeVisible();
+  await retry.click();
+  await expect(page.getByRole('heading', { name: 'Chain Reader' })).toBeVisible();
+});

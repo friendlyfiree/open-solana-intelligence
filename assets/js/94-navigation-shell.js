@@ -150,8 +150,10 @@
     }
   }
 
-  function navigateSection(view, sectionId, hash) {
-    navigate(view, { focus: false, preserveScroll: true });
+  // fromRoute: the address already names this section (a load, a reload or
+  // Back), so the move must not push a second entry for it.
+  function navigateSection(view, sectionId, hash, fromRoute) {
+    navigate(view, { focus: false, preserveScroll: true, history: fromRoute === true });
     window.setTimeout(function () {
       var section = document.getElementById(sectionId);
       if (!section) return;
@@ -331,15 +333,42 @@
     var walletButton = document.getElementById('walletBtn');
     var walletMenu = document.getElementById('wbMenu');
     if (!walletButton || !walletMenu) return;
-    walletButton.setAttribute('aria-haspopup', 'menu');
-    walletButton.setAttribute('aria-controls', 'wbMenu');
+    // The button is a menu button only while a wallet is connected. Without
+    // one it is a plain Connect button, and ArrowDown must not open the
+    // connected-wallet menu with its Disconnect item.
+    var connected = function () {
+      return typeof walletPubkey !== 'undefined' && !!walletPubkey;
+    };
     var sync = function () {
       var open = walletMenu.classList.contains('open');
-      walletButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (connected()) {
+        walletButton.setAttribute('aria-haspopup', 'menu');
+        walletButton.setAttribute('aria-controls', 'wbMenu');
+        walletButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+      } else {
+        walletButton.removeAttribute('aria-haspopup');
+        walletButton.removeAttribute('aria-controls');
+        walletButton.removeAttribute('aria-expanded');
+      }
     };
     new MutationObserver(sync).observe(walletMenu, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(sync).observe(walletButton, { attributes: true, attributeFilter: ['aria-label'] });
+    walletButton.addEventListener('focus', sync);
+    // Tabbing out of the menu closes it, as the Platform menu does, so it
+    // never covers the control that now has focus.
+    var wrap = walletButton.closest('.wb-wrap');
+    if (wrap) {
+      wrap.addEventListener('focusout', function (event) {
+        if (!walletMenu.classList.contains('open')) return;
+        var next = event.relatedTarget;
+        if (next && wrap.contains(next)) return;
+        if (!next) return;
+        if (typeof window.closeWalletMenu === 'function') window.closeWalletMenu();
+      });
+    }
     walletButton.addEventListener('keydown', function (event) {
       if (event.key !== 'ArrowDown') return;
+      if (!connected()) return;
       event.preventDefault();
       if (typeof window.openWalletMenu === 'function') window.openWalletMenu();
       var first = walletMenu.querySelector('[role="menuitem"]:not([style*="display:none"])');
@@ -636,8 +665,18 @@
 
   // #case/OSI-XXXXXXXXXXXX is the canonical, shareable public Case route. It
   // carries only a public reference, never a token, nonce or wallet value.
+  // A copied link can carry an encoded space or a trailing slash; both are
+  // read past. Anything else after #case/ is still a Case route, and the
+  // drawer says the reference is not valid instead of landing on Home.
+  function caseRouteSegment(hash) {
+    var raw = String(hash || '');
+    if (!/^case\//i.test(raw)) return null;
+    var segment = raw.slice(5);
+    try { segment = decodeURIComponent(segment); } catch (_) {}
+    return segment.trim().replace(/\/+$/, '');
+  }
   function caseRouteRef(hash) {
-    var match = /^case\/(OSI-[0-9A-Z]{6,20})$/i.exec(String(hash || ''));
+    var match = /^(OSI-[0-9A-Z]{6,20})$/i.exec(caseRouteSegment(hash) || '');
     return match ? match[1].toUpperCase() : '';
   }
 
@@ -665,7 +704,7 @@
     var hash = window.location.hash.replace(/^#/, '');
     if (hash === 'how-it-works') {
       closeCaseRoute();
-      navigateSection('registry', 'how-osi-works', 'how-it-works');
+      navigateSection('registry', 'how-osi-works', 'how-it-works', true);
       return;
     }
     var caseRef = caseRouteRef(hash);
@@ -674,6 +713,14 @@
       if (typeof window.osiV2ActiveCaseRef === 'function' && window.osiV2ActiveCaseRef() === caseRef) return;
       window.setTimeout(function () {
         if (typeof window.osiV2OpenCaseFromRoute === 'function') window.osiV2OpenCaseFromRoute(caseRef);
+      }, 0);
+      return;
+    }
+    var badCaseRoute = caseRouteSegment(hash);
+    if (badCaseRoute !== null) {
+      navigate('field', { history: true, focus: false, preserveScroll: true, keepCaseDrawer: true });
+      window.setTimeout(function () {
+        if (typeof window.osiV2OpenCaseFromRoute === 'function') window.osiV2OpenCaseFromRoute(badCaseRoute);
       }, 0);
       return;
     }

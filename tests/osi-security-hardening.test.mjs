@@ -171,6 +171,11 @@ const aiUi = read("assets/js/80-ai-pack.js");
 ok("AI Pack generation is fail-closed and makes no provider call", /native_ai_pack_generation_disabled/.test(aiEdge) && !/ANTHROPIC_API_KEY|api\.anthropic\.com/.test(aiEdge));
 ok("restricted AI Pack reads require a report-review session", /verifyReadSessionToken/.test(aiEdge) && /READ_SESSION_SCOPES\.REPORT_REVIEW/.test(aiEdge));
 ok("AI Pack public metadata is an explicit content-free projection", /select\("case_ref,pack_type,status,created_at"\)/.test(aiEdge));
+ok("legacy AI Pack and intake gateways cap the body and accept only a JSON object",
+  [aiEdge, intakeEdge].every((source) => /const MAX_BODY_BYTES = 16_384;/.test(source)
+    && /"body_too_large"/.test(source)
+    && /Array\.isArray\(parsed\)/.test(source)
+    && !/await req\.json\(\)/.test(source)));
 ok("legacy AI Pack UI has no direct content query or mutation", /osiV2ReadSession\(\['report:review'\]/.test(aiUi) && !/supaGet\(|supaPatch\(|mode:'generate'/.test(aiUi));
 
 const sasIssuer = read("supabase/functions/_shared/osi-v2-sas-issuer.ts");

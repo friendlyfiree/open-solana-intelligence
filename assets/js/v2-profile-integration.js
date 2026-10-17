@@ -4,7 +4,7 @@
 
   var API_URL=SUPABASE_URL+'/functions/v1/osi-v2-profile';
   var AVATAR_PREFIX=SUPABASE_URL+'/storage/v1/object/public/osi-profile-avatars/';
-  var state={profile:null,writesEnabled:false,busy:false,loadToken:0,publicLoadToken:0,wallet:'',session:null};
+  var state={profile:null,writesEnabled:false,busy:false,loadToken:0,publicLoadToken:0,wallet:'',session:null,publicRoute:''};
 
   function esc(value){
     return String(value==null?'':value).replace(/[&<>"']/g,function(char){
@@ -61,8 +61,10 @@
     return walletDetail||code.replace(/_/g,' ');
   }
   function host(){return document.getElementById('identity-body');}
-  function showProfileView(){
-    if(typeof window.osiNavigate==='function')window.osiNavigate('identity',{render:false,focus:false});
+  // A public profile records its own #profile/<ref> entry, so showing the view
+  // for it must not push #identity over the shareable address.
+  function showProfileView(ownRoute){
+    if(typeof window.osiNavigate==='function')window.osiNavigate('identity',{render:false,focus:false,history:ownRoute===true});
     else if(document.body){document.body.dataset.view='identity';window.scrollTo({top:0,behavior:'auto'});}
   }
   function shell(body){
@@ -108,7 +110,7 @@
     var node=host();if(!node)return;
     var missing=String(error&&error.message||'')==='profile_not_found';
     node.innerHTML=publicShell('<section class="osi-profile-state error" role="alert"><span class="osi-profile-state-mark" aria-hidden="true">!</span><h2>'+esc(t(missing?'Public profile not found':'Public profile is unavailable'))+'</h2><p>'+esc(t(missing?'This profile is private, no longer published, or the public address is invalid.':'The public profile could not be loaded. Try again in a moment.'))+'</p><button class="osi-profile-secondary" type="button" data-public-profile-retry>'+esc(t('Try again'))+'</button></section>');
-    bindPublicBack(node);var retry=node.querySelector('[data-public-profile-retry]');if(retry)retry.addEventListener('click',function(){openPublicProfile(window.location.hash.replace(/^#profile\//,''),{history:true});});
+    bindPublicBack(node);var retry=node.querySelector('[data-public-profile-retry]');if(retry)retry.addEventListener('click',function(){openPublicProfile(state.publicRoute,{history:true});});
   }
   function publicDate(value){
     try{return new Date(value).toLocaleDateString(document.documentElement.lang==='tr'?'tr-TR':'en-US',{year:'numeric',month:'short',day:'numeric',timeZone:'UTC'});}catch(_){return'';}
@@ -253,15 +255,22 @@
     try{await toggleWallet();if(connectedWallet())openProfile();}catch(error){renderError(error);}
   }
   async function openProfile(options){
-    options=options||{};showProfileView();var token=++state.loadToken,wallet=connectedWallet();
+    options=options||{};showProfileView();
+    // A refresh clears the private session first, which moves the private
+    // generation and this module's load token. Taking both before it made
+    // every refresh fail as private_session_changed after the signature.
+    var refreshed=null;
+    if(options.refresh&&connectedWallet()&&typeof window.osiV2RefreshReadSession==='function'){
+      renderLoading();
+      try{refreshed=await window.osiV2RefreshReadSession(['profile:self']);}catch(error){renderError(error);return;}
+    }
+    var token=++state.loadToken,wallet=connectedWallet();
     if(!wallet){state.profile=null;state.wallet='';state.session=null;renderLocked();return;}
     state.wallet=wallet;renderLoading();var generation=privateGeneration();
     var rollout=api({op:'rollout_status'}).catch(function(){return{profile_writes_enabled:false};});
     try{
       if(typeof window.osiV2ReadSession!=='function')throw new Error('read_session_disabled_or_unavailable');
-      var session=options.refresh&&typeof window.osiV2RefreshReadSession==='function'
-        ?await window.osiV2RefreshReadSession(['profile:self'])
-        :await window.osiV2ReadSession(['profile:self'],{allowUnlock:true});
+      var session=refreshed||await window.osiV2ReadSession(['profile:self'],{allowUnlock:true});
       assertPrivateGeneration(generation);if(token!==state.loadToken||session.wallet!==wallet)throw new Error('private_session_changed');
       var result=await api({op:'get_my_profile',wallet:session.wallet,read_session:session.token});assertPrivateGeneration(generation);
       var flags=await rollout;if(token!==state.loadToken)return;
@@ -276,7 +285,10 @@
   }
   async function openPublicProfile(reference,options){
     options=options||{};var parsed=publicProfileReference(reference),token=++state.publicLoadToken;
-    showProfileView();
+    // Try again retries the profile that was asked for, whatever the address
+    // bar holds by then.
+    state.publicRoute=parsed?parsed.route:'';
+    showProfileView(!!parsed);
     if(!parsed){renderPublicError(new Error('profile_not_found'));return;}
     if(!options.history){try{window.history.pushState({osiProfile:parsed.route},'','#profile/'+encodeURIComponent(parsed.route));}catch(_){}}
     renderPublicLoading();

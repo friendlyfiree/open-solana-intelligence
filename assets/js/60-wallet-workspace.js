@@ -636,8 +636,14 @@ function identityAnalystRows(m){
   if(m.analystStatus && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(m.wallet || ''))){
     rows += '<div class="identity-status-row identity-sas-row"><span>On-chain review authority</span><span class="identity-sas-slot" data-sas-wallet="'+escapeHtml(m.wallet)+'" data-sas-role="passport"></span></div>';
   }
-  if(m.analystWeight !== null && m.analystWeight !== undefined){ rows += '<div class="identity-status-row"><span>Counted review weight</span><b class="mono">'+escapeHtml(Number(m.analystWeight).toFixed(2))+'</b></div>'; }
+  if(m.analystWeight !== null && m.analystWeight !== undefined){ rows += '<div class="identity-status-row"><span>Counted review weight</span><b class="mono">'+escapeHtml(identityWeightText(m.analystWeight))+'</b></div>'; }
   return rows;
+}
+// The same locale-aware two-decimal weight the roster and profile drawer show.
+function identityWeightText(value){
+  var number=Number(value);
+  var locale=window.OSI_I18N&&typeof window.OSI_I18N.getLocale==='function'&&String(window.OSI_I18N.getLocale()).toLowerCase()==='tr'?'tr-TR':'en-US';
+  try{ return number.toLocaleString(locale,{minimumFractionDigits:2,maximumFractionDigits:2}); }catch(_){ return number.toFixed(2); }
 }
 function identityStatusCard(m){
   var ctx = m.ctx || {};

@@ -240,7 +240,9 @@ function version(no, state, decisions) {
     body_private: `Restricted version ${no} narrative for authorized fixture rendering.`,
     content_public_safe: `Public-safe version ${no} summary.`, evidence_snapshot_hash: String(no).repeat(64),
     submitted_at: iso(-6 + no), evidence: [{ ordinal: 1, kind: 'onchain_tx', ref: TX }],
-    proof: { proof_type: 'solana_memo', server_verified: true, tx_sig: TX, occurred_at: iso(-6 + no) },
+    // Production shape: a version's proof is its submission receipt, and the
+    // server stamps every non-bootstrap receipt with decision_channel standard.
+    proof: { event_type: 'CASE_REPORT_VERSION_SUBMITTED', decision_channel: 'standard', decision_channel_label: null, proof_type: 'solana_memo', server_verified: true, tx_sig: TX, occurred_at: iso(-6 + no) },
     quorum: { approve_count: 3, approve_weight: 4.75, required_count: 3, required_weight: 4.5, approve_ready: true },
     publication_capability: {
       standard_quorum_ready: state === 'in_review',
@@ -371,13 +373,13 @@ const publicWireDetail = {
   uncertainties: 'Wallet control and attribution remain uncertain after independent review.',
   evidence: [{ ordinal: 1, kind: 'onchain_tx', ref: TX, sha256: 'a'.repeat(64) }],
   reviews: [
-    { review_public_ref: 'OSI-WRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'reviewer-one', display_name: 'Reviewer one' }, actor_role: 'analyst', decision: 'approve', weight: 1.5, tier_snapshot: 'verified', public_rationale: 'The exact evidence supports publication with the stated uncertainty.', proof_type: 'wallet_signed_server_verified', created_at: iso(-3) },
-    { review_public_ref: 'OSI-WRV-B1B2C3D4E5F6', reviewer: { wallet: '11111111111111111111111111111113', handle: 'reviewer-two', display_name: 'Reviewer two' }, actor_role: 'analyst', decision: 'approve', weight: .5, tier_snapshot: 'probationary', public_rationale: 'The limits are explicit and evidence remains independently inspectable.', proof_type: 'wallet_signed_server_verified', created_at: iso(-2.5) },
+    { review_public_ref: 'OSI-WRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'reviewer-one', display_name: 'Reviewer one' }, actor_role: 'analyst', decision: 'approve', weight: 1.5, tier_snapshot: 'verified', public_rationale: 'The exact evidence supports publication with the stated uncertainty.', proof_type: 'wallet_signed_server_verified', active: true, created_at: iso(-3) },
+    { review_public_ref: 'OSI-WRV-B1B2C3D4E5F6', reviewer: { wallet: '11111111111111111111111111111113', handle: 'reviewer-two', display_name: 'Reviewer two' }, actor_role: 'analyst', decision: 'approve', weight: .5, tier_snapshot: 'probationary', public_rationale: 'The limits are explicit and evidence remains independently inspectable.', proof_type: 'wallet_signed_server_verified', active: true, created_at: iso(-2.5) },
   ],
   challenges: [{
     challenge_public_ref: 'OSI-CHL-A1B2C3D4E5F60718', challenger_wallet: '11111111111111111111111111111114', state: 'accepted',
     public_safe_summary: 'The exact published version omitted material transaction context.', created_at: iso(-1.5), terminal_at: iso(-1),
-    reviews: [{ review_public_ref: 'OSI-CRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'challenge-reviewer', display_name: 'Challenge reviewer' }, actor_role: 'analyst', decision: 'accept', weight: 1.5, public_rationale: 'The linked evidence confirms a material omission.', proof_type: 'wallet_signed_server_verified', created_at: iso(-1) }],
+    reviews: [{ review_public_ref: 'OSI-CRV-A1B2C3D4E5F6', reviewer: { wallet: WALLET, handle: 'challenge-reviewer', display_name: 'Challenge reviewer' }, actor_role: 'analyst', decision: 'accept', weight: 1.5, public_rationale: 'The linked evidence confirms a material omission.', proof_type: 'wallet_signed_server_verified', active: true, created_at: iso(-1) }],
   }],
   support: [{ amount_lamports: '100000000', from_wallet: WALLET, proof_type: 'solana_memo', tx_sig: TX, confirmed_at: iso(-1) }],
   publication: publicWireListItem.publication_proof,
@@ -1459,7 +1461,7 @@ for (const [role, workspaceTitle, canReview, canMaintain] of readinessRoles) {
       await expect(page.locator('body')).toHaveAttribute('data-view', view);
     }
 
-    await page.locator('#global-nav [data-global-view="methodology"]').click();
+    await page.locator('#global-nav > [data-global-view="methodology"]:not(.osi-nav-quick)').click();
     await expect(page.locator('#about-hero')).toBeVisible();
     await page.locator('#sas-verifier-wallet').fill(OTHER);
     await page.locator('#sas-verifier-form').getByRole('button', { name: 'Verify wallet' }).click();
@@ -1929,7 +1931,7 @@ test('launch readiness: verified analyst controls traverse Case, Wire, governanc
   await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'challenge_review');
   await page.waitForTimeout(200);
   await page.locator('[data-tab="challenges"]').click();
-  await page.getByRole('button', { name: 'Memo-anchor quorum outcome' }).click();
+  await page.getByRole('button', { name: 'Memo-anchor outcome: challenge accepted' }).click();
   await expectFixtureOperation(page, 'osi-v2-governance-write', 'commit', 'challenge_finalize');
   await page.waitForTimeout(200);
 
@@ -2265,7 +2267,7 @@ for (const role of ['ordinary_wallet', 'report_author', 'verified_analyst']) {
     await page.locator('[data-tab="challenges"]').click();
     await expect(page.getByRole('button', { name: 'Admit', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Accept review' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Memo-anchor quorum outcome' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Memo-anchor (quorum )?outcome/ })).toHaveCount(0);
     expect(fixtureOperationCount(page, 'osi-v2-governance-write', 'prepare')).toBe(0);
     expectCleanRuntime(page);
   });
@@ -2454,7 +2456,7 @@ test('Home keeps a compact three-section product route with truthful live action
   await expect(page.locator('#platform-menu-trigger')).toHaveAttribute('aria-current', 'page');
   await page.evaluate(() => window.osiNavigate('registry'));
   await expect(page.locator('#platform-menu-trigger')).not.toHaveAttribute('aria-current', 'page');
-  await page.locator('#global-nav > [data-global-view="methodology"]').click();
+  await page.locator('#global-nav > [data-global-view="methodology"]:not(.osi-nav-quick)').click();
   await expect(page.locator('#about-hero')).toBeVisible();
   await expect(page.locator('#osi-about-emblem')).toBeVisible();
   await expect(page.locator('.osi-about-wordmark figcaption')).toContainText('Never used as a proof or verification seal');
@@ -4473,5 +4475,1190 @@ test('a language switch after a private-cache clear never claims an empty public
   await expect(page.locator('#field-cases')).not.toContainText('Henüz kamusal Vaka yok');
   await expect(page.locator('#field-cases')).not.toContainText('No public Cases yet');
   await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+// A submission receipt carries decision_channel standard by default, so a
+// version that was only submitted must never read as published.
+test('a submitted Report version never says it was published through the analyst quorum', async ({ page }) => {
+  await ready(page, { role: 'report_author' });
+  await page.evaluate(() => window.osiV2OpenMyReports());
+  await expect(page.locator('#field-cases')).toContainText('Version history (3)');
+  await page.locator('#field-cases details summary').first().click();
+  const versions = page.locator('#field-cases .osi-report-version');
+  await expect(versions).toHaveCount(3);
+  await expect(page.locator('#field-cases .osi-report-version .osi-report-proof').first()).toContainText('Memo-anchored on Solana');
+  await expect(page.locator('#field-cases .osi-report-version [data-decision-channel]')).toHaveCount(0);
+  await expect(page.locator('#field-cases .osi-report-version')).not.toContainText(['Published through the standard analyst quorum']);
+  expectCleanRuntime(page);
+});
+
+// Only the version under review is reviewed or published from the queue. An
+// older published or replaced version keeps its approvals, so its quorum can
+// still read as reached; it must not offer to be published again.
+test('the review queue offers review and publication only on the version under review', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const v1 = page.locator(`[data-report-version-ref="${reportFixture.versions[0].version_ref}"]`);
+  const v2 = page.locator(`[data-report-version-ref="${reportFixture.versions[1].version_ref}"]`);
+  const v3 = page.locator(`[data-report-version-ref="${reportFixture.current_version_ref}"]`);
+  await expect(v1).toContainText('This version is published. Reviews go to the current version.');
+  await expect(v2).toContainText('This version is no longer under review. Reviews go to the current version.');
+  for (const old of [v1, v2]) {
+    await expect(old.locator('.osi-report-ready')).toHaveCount(0);
+    await expect(old.locator('select, .osi-report-review-jump')).toHaveCount(0);
+    await expect(old).not.toContainText('ready to publish');
+  }
+  await expect(v3.locator('select[id^="osi-review-decision-"]')).toBeVisible();
+  await expect(v3.locator('.osi-report-review-jump')).toHaveCount(1);
+  expectCleanRuntime(page);
+});
+
+// Revising a review starts from the reviewer's own decision. It used to start
+// on Approve, so revising a Reject only to edit its rationale cast Approve.
+test('revising a Report review keeps the reviewer\'s current decision selected', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  const me = ROLE_WALLETS.verified_analyst;
+  const current = reportFixture.versions[2];
+  await page.route('**/functions/v1/osi-v2-report-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_review_queue') return route.fallback();
+    const version = { ...current, lifecycle_state: 'in_review', can_cast_analyst_review: true, reviews: [{
+      reviewer_wallet: me, reviewer_handle: 'me', decision: 'reject', reason_code: 'evidence_insufficient',
+      public_rationale: 'The traced path skips one hop.', private_note: '', weight: 1, is_active: true,
+      created_at: current.submitted_at, proof_label: 'Wallet-signed and server-verified',
+    }] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false,
+      reports: [{ ...reportFixture, access: 'analyst', can_cast_analyst_review: true, versions: [version] }],
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const decision = page.locator(`#osi-review-decision-${current.version_ref}`);
+  await expect(decision).toHaveValue('reject');
+  await expect(page.locator(`#osi-review-rationale-${current.version_ref}`)).toHaveValue('The traced path skips one hop.');
+  await expect(page.locator(`[data-report-version-ref="${current.version_ref}"]`).getByRole('button', { name: 'Revise my review' })).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// A challenge review is labelled as a challenge decision, and both outcome
+// gates are shown, so an adjudicator can see which outcome a Memo would anchor.
+test('challenge records name the challenge decision and show both outcome quorums', async ({ page }) => {
+  await ready(page);
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_case' || body.public_ref !== CASE_REF) return route.fallback();
+    const challenge = { ...richCase.governance.challenges[0],
+      reviews: [{ ...richCase.governance.challenges[0].reviews[0], phase: 'merit', decision: 'reject', is_active: true }],
+      outcome_quorum: { accept_count: 0, accept_weight: 0, reject_count: 3, reject_weight: 4.5, required_count: 3, required_weight: 4.5 } };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, case: { ...richCase, governance: { ...richCase.governance, challenges: [challenge] } } }) });
+  });
+  await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+  await page.locator('#osi-case-tabs [data-tab="challenges"]').click();
+  const record = page.locator('#osi-case-content .osi-challenge-record').first();
+  await expect(record).toContainText('Reject challenge, keep the selected Report');
+  await expect(record).not.toContainText('Reject normal investigation');
+  await expect(record).toContainText('Challenge merit review');
+  await expect(record.locator('.osi-quorum-title')).toHaveText([/Acceptance quorum/, /Rejection quorum · met/]);
+  expectCleanRuntime(page);
+});
+
+// My Reviews reads the analyst's own vote from the Report version's reviews;
+// the Report DTO has no my_active_review field.
+test('My Reviews shows the analyst\'s own Report vote and weight', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  const me = ROLE_WALLETS.verified_analyst;
+  const current = reportFixture.versions[2];
+  await page.route('**/functions/v1/osi-v2-report-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_review_queue') return route.fallback();
+    const version = { ...current, lifecycle_state: 'in_review', can_cast_analyst_review: true, reviews: [{
+      reviewer_wallet: me, decision: 'approve', reason_code: 'evidence_reviewed', weight: 1.5, is_active: true,
+      created_at: current.submitted_at, proof_label: 'Wallet-signed and server-verified',
+    }] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false,
+      reports: [{ ...reportFixture, access: 'analyst', can_cast_analyst_review: true, versions: [version] }],
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReviewQueue());
+  const task = page.locator('#field-cases .osi-review-task[data-review-kind="report"]').first();
+  await expect(task).toBeVisible();
+  await expect(task).toContainText('Approve');
+  await expect(task).not.toContainText('Not counted');
+  expectCleanRuntime(page);
+});
+
+// A review queue that answers after the reader moved to another Field Office
+// list must not paint its lanes over that list.
+test('a slow review queue never paints over the list the reader moved to', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator('#field-cases .osi-v2-row').first()).toBeVisible();
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'list_reviewable_cases') await new Promise((resolve) => setTimeout(resolve, 2500));
+    return route.fallback();
+  });
+  for (const target of ['cases', 'mine']) {
+    await page.evaluate(() => { window.osiV2OpenReviewQueue(); });
+    await expect(page.locator('#field-cases .osi-review-lanes')).toBeVisible();
+    await page.locator(`.fo-rail [data-fo-nav="${target}"]`).click();
+    await page.waitForTimeout(3200);
+    await expect(page.locator('#field-cases .osi-review-lanes')).toHaveCount(0);
+    await expect(page.locator('#field-cases .osi-v2-row').first()).toBeVisible();
+    await expect(page.locator(`.fo-rail [data-fo-nav="${target}"]`)).toHaveClass(/active/);
+  }
+  expectCleanRuntime(page);
+});
+
+// A rejected Case has an outcome, and its owner keeps the appeal however the
+// Case was opened: from My Cases, a #case/ link or a reload.
+test('a rejected Case says it was rejected and keeps the owner appeal outside My Cases', async ({ page }) => {
+  await ready(page, { role: 'legacy', initialRejected: true });
+  const ref = 'OSI-REJ000000001';
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_authorized_case' || body.case_ref !== ref) return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, actor_role: 'owner', case: { ...rejectedCase, public_ref: ref } }) });
+  });
+  // My Cases unlocks the private read session; the Case is then opened from
+  // the public Field Office list, as a #case/ link would.
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator('#field-cases .osi-v2-row').first()).toBeVisible();
+  await page.locator('.fo-rail [data-fo-nav="cases"]').click();
+  await page.evaluate((caseRef) => window.osiV2OpenCase(caseRef), ref);
+  await expect(page.locator('#osi-case-state')).toContainText('Initial review rejected');
+  const actions = page.locator('#osi-case-actions');
+  await expect(actions.getByRole('button', { name: 'Appeal with new evidence' })).toBeVisible();
+  await expect(actions).not.toContainText('Awaiting review');
+  await page.getByRole('tab', { name: 'Initial Review', exact: true }).click();
+  const content = page.locator('#osi-case-content');
+  await expect(content).toContainText('An independent analyst quorum rejected this Case for normal investigation');
+  await expect(content.locator(`a[href="https://solscan.io/tx/${TX}"]`).first()).toBeVisible();
+  await expect(content).not.toContainText('Awaiting initial review');
+  expectCleanRuntime(page);
+});
+
+// A Case that is not in the cached list opens on Overview with one selected,
+// keyboard-reachable tab, even when the previous Case was on a tab this one
+// does not have.
+test('a Case opened from a link starts on a tab it actually has', async ({ page }) => {
+  await ready(page);
+  const ref = 'OSI-PRV000000001';
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_case' || body.public_ref !== ref) return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, case: { ...privateCase, public_ref: ref, visibility: 'public', stage: 'open_public', reviews: [], details_restricted: undefined } }) });
+  });
+  await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+  await page.getByRole('tab', { name: 'Initial Review', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#osi-case-drawer')).toBeHidden();
+  await page.evaluate((caseRef) => { window.location.hash = `#case/${caseRef}`; }, ref);
+  await expect(page.locator('#osi-case-ref')).toHaveText(ref);
+  await expect(page.locator('#osi-case-tabs [data-tab="reviews"]')).toHaveCount(0);
+  await expect(page.locator('#osi-case-tabs [aria-selected="true"]')).toHaveCount(1);
+  await expect(page.locator('#osi-case-tabs [aria-selected="true"]')).toHaveAttribute('data-tab', 'overview');
+  await expect(page.locator('#osi-case-tabs [tabindex="0"]')).toHaveCount(1);
+  expectCleanRuntime(page);
+});
+
+// The server sends no state with challenge and seal tasks; the queue reads it
+// from the task's Case instead of calling every task "Submitted".
+test('governance review tasks show the state of their own challenge or Resolution', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  const challenge = richCase.governance.challenges[0];
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_reviewable_cases') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, actor_role: 'analyst', cases: [richCase],
+      review_tasks: {
+        initial_open: [], report_publication: [], resolution_selection: [], challenge_admissibility: [],
+        challenge_adjudication: [{ lane: 'challenge_adjudication', case_ref: CASE_REF, exact_target: challenge.public_ref, deadline: iso(4), conflict: false, current_vote: null, weight_snapshot: 1.5, next_action: 'Review challenge merits' }],
+        seal_reviews: [{ lane: 'seal_reviews', case_ref: CASE_REF, exact_target: 'OSI-RES-A1B2C3D4E5F60718', deadline: iso(6), conflict: false, current_vote: null, weight_snapshot: 1.5, next_action: 'Review process seal' }],
+      },
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReviewQueue());
+  const adjudication = page.locator('#field-cases .osi-review-task[data-review-lane="challenge_adjudication"]');
+  const seal = page.locator('#field-cases .osi-review-task[data-review-lane="seal_reviews"]');
+  await expect(adjudication).toContainText('Under review');
+  await expect(seal).toContainText('Challenge window');
+  await expect(adjudication).not.toContainText('Submitted');
+  await expect(seal).not.toContainText('Submitted');
+  expectCleanRuntime(page);
+});
+
+// "Analyst reviews" on a Public Records card counts current analyst rows only.
+// A maintainer initial-open approval and a revised row are not analyst votes.
+test('Public Records counts only current analyst reviews', async ({ page }) => {
+  await ready(page);
+  const count = await page.evaluate(() => window.crNativeCaseRecord({
+    public_ref: 'OSI-AB12CD34EF56', title: 'Counted reviews', stage: 'open_public', visibility: 'public',
+    reviews: [
+      { reviewer_role: 'maintainer', decision: 'approve_open', is_active: true, weight: 0 },
+      { reviewer_role: 'analyst', decision: 'needs_more', is_active: false, weight: 1 },
+      { reviewer_role: 'analyst', decision: 'approve_open', is_active: true, weight: 1 },
+    ],
+    proof_log: [], governance: {},
+  }).native_review_count);
+  expect(count).toBe(1);
+  expectCleanRuntime(page);
+});
+
+// A revised Wire review stays in the record but is marked superseded and
+// carries no weight, in the review list and under a challenge.
+test('the Wire drawer marks revised reviews as superseded', async ({ page }) => {
+  await ready(page);
+  await page.route('**/functions/v1/osi-v2-wire', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_wire_report') return route.fallback();
+    const old = { ...publicWireDetail.reviews[0], review_public_ref: 'OSI-WRV-C1B2C3D4E5F6', decision: 'approve', weight: 1.5, active: false, created_at: iso(-4) };
+    const current = { ...publicWireDetail.reviews[0], decision: 'request_changes', active: true };
+    const challenge = { ...publicWireDetail.challenges[0], reviews: [{ ...publicWireDetail.challenges[0].reviews[0], active: false }] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, public_projection: true, report: { ...publicWireDetail, reviews: [old, current], challenges: [challenge] },
+    }) });
+  });
+  await page.evaluate((versionRef) => window.osiV2OpenWireReport(versionRef), WIRE_VERSION_REF);
+  await page.locator('[data-wire-tab="reviews"]').click();
+  const rows = page.locator('#osi-wire-drawer .osi-report-version');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('Superseded by a later vote');
+  await expect(rows.nth(0)).not.toContainText('Weight snapshot');
+  await expect(rows.nth(1)).toContainText('Weight snapshot');
+  await expect(rows.nth(1)).not.toContainText('Superseded by a later vote');
+  await page.locator('[data-wire-tab="challenges"]').click();
+  await expect(page.locator('#osi-wire-drawer [data-review-superseded]')).toHaveCount(1);
+  expectCleanRuntime(page);
+});
+
+// Probation activation sends one ANALYST_PROBATION Memo. Repeated presses
+// during the prepare and wallet window used to send one each.
+test('probation activation prepares one Memo however often the button is pressed', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const me = ROLE_WALLETS.maintainer;
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'maintainer_queue') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, applications: [{
+        ...candidateApplication,
+        reviews: [{ reviewer_wallet: me, decision: 'approve', reason_code: 'meets_probationary_baseline', is_active: true, created_at: iso(-.1) }],
+      }] }) });
+    }
+    if (body.op === 'prepare_activation') await new Promise((resolve) => setTimeout(resolve, 800));
+    return route.fallback();
+  });
+  await page.evaluate((tx) => { window.castOnchainVote = async () => tx; }, TX);
+  await page.locator('#walletBtn').click();
+  await page.locator('#maintainerAccessMenu').click();
+  const activate = page.locator('#osi-analyst-ops [data-analyst-activate]');
+  await expect(activate).toBeVisible();
+  await page.evaluate(() => {
+    const button = document.querySelector('#osi-analyst-ops [data-analyst-activate]');
+    button.click(); button.click(); button.click();
+  });
+  await expectFixtureOperation(page, 'osi-v2-analyst', 'commit_activation');
+  await page.waitForTimeout(300);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'prepare_activation')).toBe(1);
+  expectCleanRuntime(page);
+});
+
+// A language switch redraws the application queue. The chosen reason must
+// survive it, or the next decision is signed with the first reason.
+test('a language switch keeps the chosen application review reason', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.locator('#walletBtn').click();
+  await page.locator('#maintainerAccessMenu').click();
+  const reason = page.locator('#osi-analyst-ops [data-analyst-reason]').first();
+  await expect(reason).toBeVisible();
+  await reason.selectOption('unsafe_or_prohibited');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.waitForTimeout(300);
+  await expect(page.locator('#osi-analyst-ops [data-analyst-reason]').first()).toHaveValue('unsafe_or_prohibited');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+// #identity-body is shared by the passport, My Profile and the analyst
+// workspace. Once the workspace has been open, a language switch or a private
+// session clear must not replace the passport with it.
+test('the passport survives a language switch and a session clear after the analyst workspace was open', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiAnalystOpenWorkspace());
+  await expect(page.locator('#identity-body .osi-analyst-workspace')).toBeVisible();
+  await page.evaluate(() => window.osiNavigate('identity'));
+  await expect(page.locator('#identity-body .identity-hero')).toBeVisible();
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.waitForTimeout(300);
+  await expect(page.locator('#identity-body .osi-analyst-workspace')).toHaveCount(0);
+  await expect(page.locator('#identity-body .identity-hero')).toBeVisible();
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await page.waitForTimeout(200);
+  await page.evaluate(() => window.osiV2ClearReadSession('explicit_refresh'));
+  await page.waitForTimeout(200);
+  await expect(page.locator('#identity-body')).not.toContainText('Analyst workspace locked');
+  await expect(page.locator('#identity-body .identity-hero')).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// A failed maintainer-profile read is not "nothing published". Offering the
+// publish frame would let an empty save replace the real profile.
+test('a failed maintainer-profile read offers a retry, not an empty publish form', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_maintainer_profile') return route.fallback();
+    return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'maintainer_profile_unavailable' }) });
+  });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.evaluate(() => { if (typeof window.osiPublicReadInvalidate === 'function') window.osiPublicReadInvalidate(); window.osiV2SetMaintainerCapability(false); window.osiV2SetMaintainerCapability(true); });
+  const host = page.locator('#osi-maintainer-profile');
+  await expect(host.locator('[data-maintainer-read-failed]')).toBeVisible();
+  await expect(host).not.toContainText('No maintainer profile is published yet.');
+  await expect(host.locator('[data-maintainer-edit]')).toHaveCount(0);
+  await expect(host.getByRole('button', { name: 'Try again' })).toBeVisible();
+  const unexpected = page.__issue26Errors.filter((entry) => !(
+    /^http: 503 .*\/functions\/v1\/osi-v2-analyst$/.test(entry)
+    || /^console error: Failed to load resource: the server responded with a status of 503 /.test(entry)
+  ));
+  expect(unexpected).toEqual([]);
+});
+
+// The SAS badge inside the open profile drawer leads to About. The modal
+// drawer closes first, so focus and the verifier are not left behind it.
+test('the SAS badge in a profile drawer closes the drawer before opening About', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const badge = page.locator('#ap-modal-body [data-sas-badge="verified"]');
+  await expect(badge).toBeVisible();
+  await badge.click();
+  await expect(page.locator('#ap-modal')).not.toHaveClass(/\bopen\b/);
+  await expect(page.locator('#sas-verifier-wallet')).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
+  expectCleanRuntime(page);
+});
+
+// A wallet change, a disconnect or a session expiry must not leave the
+// previous wallet's private rows on screen. The private list gives way to its
+// lock state.
+test('a session clear replaces private My Cases and My Challenges rows with the lock', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator('#field-cases .osi-v2-row')).toHaveCount(1);
+  await page.evaluate(() => window.osiV2ClearReadSession('wallet_changed'));
+  await expect(page.locator('#field-cases .osi-v2-row')).toHaveCount(0);
+  await expect(page.locator('#field-cases [data-workspace-lock="mine"]')).toBeVisible();
+  await page.evaluate(() => window.osiV2OpenMyChallenges());
+  await expect(page.locator('#field-cases .osi-review-lanes')).toBeVisible();
+  await page.evaluate(() => window.osiV2ClearReadSession('explicit_logout'));
+  await expect(page.locator('#field-cases .osi-review-lanes')).toHaveCount(0);
+  await expect(page.locator('#field-cases')).not.toContainText(PRIVATE_SENTINEL);
+  await expect(page.locator('#field-cases [data-workspace-lock="challenges"]')).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// The amount the dialog sends is the amount it shows. A cleared custom field
+// falls back to the selected preset, a decimal comma is a decimal point, and a
+// leading-zero amount is refused inline with the dialog still open.
+test('the SOL amount dialog sends exactly the amount on screen', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  const ask = () => page.evaluate((wallet) => {
+    window.__amount = undefined;
+    window.osiAskSolAmount({ address: wallet, label: 'published analyst', amount: 0.1, title: 'Voluntary support' })
+      .then((value) => { window.__amount = value; });
+  }, OTHER);
+  const custom = page.locator('#sol-ask-custom');
+  const go = page.locator('#sol-ask-go');
+
+  await ask();
+  await custom.fill('7');
+  await custom.fill('');
+  await expect(page.locator('.sol-ask-amt.active')).toHaveAttribute('data-sol', '0.1');
+  await go.click();
+  await expect.poll(() => page.evaluate(() => window.__amount)).toBe('0.1');
+
+  await ask();
+  await custom.fill('1,5');
+  await expect(custom).toHaveValue('1,5');
+  await go.click();
+  await expect.poll(() => page.evaluate(() => window.__amount)).toBe('1.5');
+
+  await ask();
+  await custom.fill('05');
+  await go.click();
+  await expect(page.locator('#sol-ask-err')).toBeVisible();
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  expect(await page.evaluate(() => window.__amount)).toBeUndefined();
+  await page.keyboard.press('Escape');
+  expectCleanRuntime(page);
+});
+
+// Only a confirmed transfer is listed as verified. Failed or unconfirmed
+// attempts get their own heading and a neutral transaction link.
+test('Rewards & Support lists unconfirmed payment attempts apart from verified transfers', async ({ page }) => {
+  await ready(page);
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_case' || body.public_ref !== CASE_REF) return route.fallback();
+    const reward = { ...richCase.money.reward, payments: [
+      ...richCase.money.reward.payments,
+      { amount_lamports: '2000000000', state: 'failed', confirmed_at: null, solscan_url: `https://solscan.io/tx/${TX}` },
+      { amount_lamports: '500000000', state: 'submitted', confirmed_at: null, solscan_url: null },
+    ] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, case: { ...richCase, money: { ...richCase.money, reward } } }) });
+  });
+  await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+  await page.locator('#osi-case-tabs [data-tab="reward"]').click();
+  const content = page.locator('#osi-case-content');
+  const verified = content.locator('h4', { hasText: 'Verified transfers' }).locator('xpath=following-sibling::ol[1]');
+  await expect(verified.locator('li')).toHaveCount(2);
+  await expect(verified).not.toContainText('Failed');
+  const attempts = content.locator('[data-payment-attempts]');
+  await expect(attempts.locator('li')).toHaveCount(2);
+  await expect(attempts).toContainText('Failed');
+  await expect(attempts).not.toContainText('Verify on Solscan');
+  await expect(attempts.getByRole('link', { name: 'View transaction on Solscan' })).toHaveCount(1);
+  expectCleanRuntime(page);
+});
+
+// An https link may contain a comma, so links are split on new lines only, and
+// the line an error names is the line the person sees, blank lines included.
+test('Case intake keeps a link with a comma whole and names the real line of a bad link', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst', lifecycle: true });
+  await page.evaluate((tx) => { window.castOnchainVote = async () => tx; }, TX);
+  await openPlatformItem(page, 'Open a Case');
+  await page.locator('#v2-case-title').fill('Evidence line fixture');
+  await page.locator('#v2-case-summary').fill('A neutral public-safe Case summary with enough detail for review.');
+  await page.locator('#v2-case-urls').fill('https://example.org/report?ids=1,2\n\nnot-a-link');
+  await page.locator('#v2-case-confirm').check();
+  await page.locator('#v2-case-submit').click();
+  await expect(page.locator('#v2-case-urls-error')).toHaveText('Line 3 is not a public https:// link.');
+  // Two links pasted on one line with a comma are two links.
+  let prepared = null;
+  await page.route('**/functions/v1/osi-v2-case-write', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'prepare_case') prepared = body;
+    return route.fallback();
+  });
+  await page.locator('#v2-case-urls').fill('https://example.org/report?ids=1,2, https://example.org/second');
+  await page.locator('#v2-case-submit').click();
+  await expectFixtureOperation(page, 'osi-v2-case-write', 'commit_case');
+  const refs = JSON.stringify(prepared || {});
+  expect(refs).not.toContain('"ref":"2"');
+  expect(refs).toContain('"https://example.org/report?ids=1,2"');
+  expect(refs).toContain('"https://example.org/second"');
+  expectCleanRuntime(page);
+});
+
+// A malformed #case/ link opens the drawer's "not a valid public reference"
+// state instead of landing silently on Home.
+test('a malformed Case link says the reference is not valid', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => { window.location.hash = '#case/OSI-12'; });
+  await expect(page.locator('#osi-case-drawer')).toBeVisible();
+  await expect(page.locator('#osi-case-content')).toContainText('That Case reference is not a valid public reference.');
+  await expect(page.locator('#osi-case-content').getByRole('button', { name: 'Browse public Cases' })).toBeVisible();
+  // A copied link with an encoded trailing space still opens the Case.
+  await page.evaluate(() => window.osiV2CloseCase());
+  await page.evaluate((ref) => { window.location.hash = `#case/${ref}%20`; }, CASE_REF);
+  await expect(page.locator('#osi-case-ref')).toHaveText(CASE_REF);
+  await expect(page.locator('#osi-case-content')).not.toContainText('not a valid public reference');
+  expectCleanRuntime(page);
+});
+
+// Every failed unlock keeps a way forward, and "wallet_not_connected" reads
+// as a sentence.
+test('a failed private unlock keeps a retry and a plain message', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => {
+    window.osiV2ReadSession = async () => { throw new Error('wallet_not_connected'); };
+  });
+  await page.evaluate(() => window.osiV2OpenMyCases({ authorize: true }));
+  await expect(page.locator('#field-cases')).toContainText('Connect Phantom first.');
+  await expect(page.locator('#field-cases').getByRole('button', { name: 'Try again' })).toBeVisible();
+  await page.evaluate(() => window.osiV2OpenMyChallenges({ authorize: true }));
+  await expect(page.locator('#field-cases').getByRole('button', { name: 'Try again' })).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// A language switch redraws the Field Office empty state and My Challenges in
+// the new language.
+test('a language switch redraws the Field Office empty state and My Challenges', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiNavigate('field'));
+  await page.locator('#fo-search').fill('zzzz-no-match');
+  await expect(page.locator('#field-cases')).toContainText('No Cases match this view');
+  // The sentence carries a count, which only a redraw can translate.
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(page.locator('#field-cases')).toContainText(/Burada (bir|\d+) Vaka var/);
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await expect(page.locator('#field-cases')).toContainText(/Cases? (is|are) available here/);
+  await page.evaluate(() => window.osiV2OpenMyChallenges());
+  await expect(page.locator('#field-cases .osi-my-challenge').first()).toContainText('State');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(page.locator('#field-cases .osi-my-challenge').first()).toContainText('Durum');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+// A stage link from My Cases must not draw the private list's rows and counts
+// under the public registry heading while the public read is in flight.
+test('a stage link from My Cases waits for the public list instead of drawing private rows', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(page.locator(`#field-cases [data-case-ref="${PRIVATE_REF}"]`)).toBeVisible();
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'list_public_cases') await new Promise((resolve) => setTimeout(resolve, 1500));
+    return route.fallback();
+  });
+  await page.evaluate(() => { if (typeof window.osiPublicReadInvalidate === 'function') window.osiPublicReadInvalidate(); window.osiNavigateFieldStage('resolution_selection'); });
+  await page.waitForTimeout(300);
+  await expect(page.locator(`#field-cases [data-case-ref="${PRIVATE_REF}"]`)).toHaveCount(0);
+  await expect(page.locator('#field-cases')).not.toContainText('No Cases match this view');
+  await expect(page.locator('.fo-rail [data-fo-nav="resolutions"]')).toHaveClass(/active/);
+  expectCleanRuntime(page);
+});
+
+// Back from a Case returns to the same page of the public list, so the row the
+// Case was opened from is still there and takes focus again.
+test('Back from a Case keeps the public list page and returns focus to the row', async ({ page }) => {
+  await ready(page);
+  const many = Array.from({ length: 15 }, (_, index) => ({
+    ...richCase, public_ref: `OSI-PG${String(index).padStart(10, '0')}`, title: `Paged Case ${index}`,
+    created_at: new Date(Date.UTC(2026, 8, 1 + index)).toISOString(), governance: {}, reports: [], proof_log: [],
+  }));
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'list_public_cases') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, cases: many }) });
+    if (body.op === 'get_public_case') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, case: many.find((item) => item.public_ref === body.public_ref) || many[0] }) });
+    return route.fallback();
+  });
+  await page.evaluate(() => { if (typeof window.osiPublicReadInvalidate === 'function') window.osiPublicReadInvalidate(); window.osiNavigate('field'); });
+  await page.locator('#fo-pnav [data-page="next"]').click();
+  await expect(page.locator('#fo-pnav .fo-pg-state')).toHaveText('Page 2 of 2');
+  const row = page.locator('#field-cases .osi-v2-row').first();
+  const ref = await row.getAttribute('data-case-ref');
+  await row.click();
+  await expect(page.locator('#osi-case-ref')).toHaveText(ref);
+  await page.goBack();
+  await expect(page.locator('#osi-case-drawer')).toBeHidden();
+  await expect(page.locator('#fo-pnav .fo-pg-state')).toHaveText('Page 2 of 2');
+  await expect(page.locator(`#field-cases .osi-v2-row[data-case-ref="${ref}"]`)).toBeFocused();
+  expectCleanRuntime(page);
+});
+
+// Without a wallet the wallet button is a plain Connect button: ArrowDown does
+// not open the connected-wallet menu and no menu is announced. With a wallet,
+// tabbing out of the open menu closes it.
+test('the wallet menu opens only for a connected wallet and closes when focus leaves it', async ({ page }) => {
+  await ready(page, { role: 'anonymous' });
+  const button = page.locator('#walletBtn');
+  await expect(button).not.toHaveAttribute('aria-haspopup', 'menu');
+  await button.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#wbMenu')).not.toHaveClass(/\bopen\b/);
+  expectCleanRuntime(page);
+});
+
+test('a connected wallet menu closes when keyboard focus tabs out of it', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  const button = page.locator('#walletBtn');
+  await expect(button).toHaveAttribute('aria-haspopup', 'menu');
+  await button.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#wbMenu')).toHaveClass(/\bopen\b/);
+  for (let index = 0; index < 12; index++) {
+    await page.keyboard.press('Tab');
+    if (!(await page.evaluate(() => document.querySelector('.wb-wrap').contains(document.activeElement)))) break;
+  }
+  await expect(page.locator('#wbMenu')).not.toHaveClass(/\bopen\b/);
+  expectCleanRuntime(page);
+});
+
+// The mobile drawer lists its links in the order keyboard focus takes.
+test('the mobile navigation drawer shows its links in focus order', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ready(page);
+  await page.locator('#mobile-nav-toggle').click();
+  const tops = await page.evaluate(() => Array.from(document.querySelectorAll('#global-nav > .osi-nav-link, #global-nav > .osi-platform-wrap'))
+    .filter((node) => node.getClientRects().length).map((node) => Math.round(node.getBoundingClientRect().top)));
+  expect(tops.length).toBeGreaterThan(4);
+  for (let index = 1; index < tops.length; index++) expect(tops[index]).toBeGreaterThan(tops[index - 1]);
+  // The brief's primary order, with the Platform catalogue last.
+  const labels = await page.evaluate(() => Array.from(document.querySelectorAll('#global-nav > .osi-nav-link, #global-nav > .osi-platform-wrap > .osi-platform-trigger'))
+    .filter((node) => node.getClientRects().length).map((node) => node.firstChild.textContent.trim()));
+  expect(labels).toEqual(['Home', 'Field Office', 'The Wire', 'Public Records', 'Analyst Network', 'Proof Log', 'About', 'Platform']);
+  // Desktop keeps its four entries.
+  await page.locator('#mobile-nav-toggle').click();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const desktop = await page.evaluate(() => Array.from(document.querySelectorAll('#global-nav > .osi-nav-link, #global-nav > .osi-platform-wrap > .osi-platform-trigger'))
+    .filter((node) => node.getClientRects().length).map((node) => node.firstChild.textContent.trim()));
+  expect(desktop).toEqual(['Home', 'Platform', 'Analyst Network', 'About']);
+  expectCleanRuntime(page);
+});
+
+// A final empty or unavailable Home list does not keep a spinning loader.
+test('a finished Home list shows no spinning loader', async ({ page }) => {
+  await ready(page, { role: 'anonymous', publicFailure: true });
+  const list = page.locator('#home-public-records');
+  await expect(list).toHaveAttribute('aria-busy', 'false');
+  await expect(list).toContainText('Private or cached data is never used as a fallback.');
+  const spinning = await list.locator('.osi-list-loading > span').first().evaluate((node) => getComputedStyle(node, '::after').animationName);
+  expect(spinning === 'none' || spinning === '').toBe(true);
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(list).toContainText('Gizli veya önbelleğe alınmış veri asla yedek olarak kullanılmaz.');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+});
+
+// Text composed with t() is drawn again on a language switch, and the
+// remaining fixed strings have Turkish entries.
+test('Case header chips, counters, Wire note and landmarks follow the language', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(page.locator('#fo-pnav')).toHaveAttribute('aria-label', 'Vaka sayfaları');
+  await expect(page.locator('#lb-pnav')).toHaveAttribute('aria-label', 'Analist listesi sayfaları');
+  await expect(page.locator('svg text', { hasText: 'CÜZDAN' }).first()).toHaveCount(1);
+  await page.evaluate((ref) => window.osiV2OpenCase(ref), CASE_REF);
+  await expect(page.locator('#osi-case-state')).not.toContainText('Public');
+  const turkishHeader = await page.locator('#osi-case-state').innerText();
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await expect(page.locator('#osi-case-state')).not.toHaveText(turkishHeader);
+  await page.evaluate(() => window.osiV2CloseCase());
+  await openPlatformItem(page, 'Open a Case');
+  await page.locator('#v2-case-summary').fill('Twelve chars');
+  const counter = page.locator('[data-osi-counter-for="v2-case-summary"]');
+  await expect(counter).toContainText('of 10,000 characters');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(counter).not.toContainText('characters');
+  await expect(page.locator('#field-form')).toContainText("Yalnızca analist onayı ve onaylanmış kamusal açılış Memo'sundan sonra görünür.");
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+// The Report review reason code follows the decision while it holds a
+// default, so a Reject is never signed with the Approve reason. Disabled
+// publish controls state their prerequisite as a sentence, not a code.
+test('Report review reasons follow the decision and blocked publish controls explain themselves', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const current = reportFixture.versions[2];
+  await page.route('**/functions/v1/osi-v2-report-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_review_queue') return route.fallback();
+    const version = { ...current, lifecycle_state: 'in_review', reviews: [], publication_capability: {
+      standard_publication_reason_code: 'analyst_quorum_not_ready', maintainer_bootstrap_reason_code: 'bootstrap_support_not_met',
+    } };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false,
+      reports: [{ ...reportFixture, access: 'maintainer', can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false, versions: [version] }],
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  const card = page.locator(`[data-report-version-ref="${current.version_ref}"]`);
+  const reason = page.locator(`#osi-review-reason-${current.version_ref}`);
+  await expect(reason).toHaveValue('evidence_reviewed');
+  await page.locator(`#osi-review-decision-${current.version_ref}`).selectOption('reject');
+  await expect(reason).toHaveValue('evidence_insufficient');
+  await reason.fill('custom_reason');
+  await page.locator(`#osi-review-decision-${current.version_ref}`).selectOption('abstain');
+  await expect(reason).toHaveValue('custom_reason');
+  await expect(card).not.toContainText('bootstrap_support_not_met');
+  await expect(card).toContainText('The independent analyst support that bootstrap publication requires is not met yet.');
+  const publish = card.locator('.osi-report-publish').first();
+  await expect(publish).toBeDisabled();
+  expect(await publish.getAttribute('title')).toBe('The analyst quorum for this exact version is not reached yet.');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.evaluate(() => window.osiV2OpenReportQueue());
+  await expect(page.locator('#field-cases')).toContainText('Tam sürüm');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+test('Wire evidence keeps comma URLs whole and names the evidence a server rejects', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  let prepared = null;
+  await page.route('**/functions/v1/osi-v2-wire', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'prepare_wire') {
+      prepared = body;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'evidence URL is invalid' }) });
+    }
+    if (body.op === 'list_my_wire_reports') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'read_session_expired' }) });
+    return route.fallback();
+  });
+  await page.evaluate(() => window.osiV2OpenWireForm());
+  await page.locator('#osi-wire-title').fill('Comma evidence Wire fixture');
+  await page.locator('#osi-wire-summary').fill('A public-safe standalone finding prepared for independent review and exact publication.');
+  await page.locator('#osi-wire-analysis').fill('The detailed fixture analysis follows transaction order, competing explanations, and reproducible evidence limitations.');
+  await page.locator('#osi-wire-urls').evaluate((node) => { node.value = 'https://example.org/report?ids=1,2,3, https://example.org/second\nhttps://example.org/third'; });
+  await page.locator('#osi-wire-transactions').evaluate((node, tx) => { node.value = `${tx}, ${tx.slice(0, -1)}2`; }, TX);
+  await page.locator('#osi-wire-safety').check();
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.locator('#osi-wire-submit').click();
+  await expect.poll(() => prepared && prepared.wire && prepared.wire.evidence.length).toBe(5);
+  const urls = prepared.wire.evidence.filter((item) => item.kind === 'url').map((item) => item.ref);
+  expect(urls).toEqual(['https://example.org/report?ids=1,2,3', 'https://example.org/second', 'https://example.org/third']);
+  expect(prepared.wire.evidence.filter((item) => item.kind === 'onchain_tx')).toHaveLength(2);
+  await expect(page.locator('#osi-wire-form-status')).toHaveText('Kanıt bağlantılarından biri kamuya açık bir https:// adresi değil.');
+  await page.evaluate(() => window.osiV2CloseWireForm && window.osiV2CloseWireForm());
+  await page.evaluate(() => window.osiV2OpenMyWireReports());
+  await expect(page.locator('#wire-cases')).toContainText('Özel çalışma oturumunuzun süresi gerçekten doldu');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+test('Proof Log marks a partial source, pages with focus, and speaks Turkish when filters empty', async ({ page }) => {
+  await ready(page, { role: 'anonymous', caseReadFailureOnly: true });
+  const events = Array.from({ length: 12 }, (_, index) => ({
+    event_type: 'WIRE_REPORT_REVIEW_CAST', label: 'Wallet-signed and server-verified', proof_type: 'wallet_signed_server_verified',
+    actor_wallet: WALLET, actor_role: 'analyst', decision: index === 0 ? 'revise' : 'approve', weight: 1, occurred_at: iso(-1 - index / 100),
+  }));
+  await page.route('**/functions/v1/osi-v2-wire', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_public_wire_reports') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, public_projection: true, reports: [{ ...publicWireListItem, proof_log: events }] }) });
+  });
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await page.evaluate(() => window.osiNavigate('prooflog'));
+  await expect(page.locator('#pl-body .pl-strip')).toContainText('Some proof sources are unavailable');
+  expect(await page.evaluate(() => window.__plSourceState)).toBe('partial');
+  await expect(page.locator('#pl-health')).not.toContainText('Live proof source connected');
+  await expect(page.locator('#pl-dash')).toContainText('Incomplete: a proof source is unavailable');
+  await expect(page.locator('#pl-fils [data-f="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#pl-pnav [aria-current="page"]')).toHaveText('1');
+  await page.locator('#pl-pnav button', { hasText: /^2$/ }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#pl-count')).toBeFocused();
+  await expect(page.locator('#pl-pnav [aria-current="page"]')).toHaveText('2');
+  await page.locator('#pl-fils [data-f="challenge"]').click();
+  await expect(page.locator('#pl-fils [data-f="challenge"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#pl-fils [data-f="all"]')).toHaveAttribute('aria-pressed', 'false');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(page.locator('#pl-body .pl-empty')).toContainText('Eşleşen kanıt olayı bulunamadı.');
+  await expect(page.locator('#pl-body .pl-empty')).toContainText('Başka bir filtre veya arama terimi deneyin.');
+  await page.locator('#pl-fils [data-f="all"]').click();
+  await expect(page.locator('#pl-body')).toContainText('Karar: revizyon');
+  await page.locator('#pl-body .plc-copy').first().click();
+  await expect(page.locator('#stw-toast')).toContainText('Cüzdan kopyalandı.');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  // On a phone only the Retry button wraps; the status dot stays beside its text.
+  await page.setViewportSize({ width: 360, height: 780 });
+  const strip = await page.locator('#pl-body .pl-strip').evaluate((node) => {
+    const dot = node.querySelector('.pl-strip-dot').getBoundingClientRect();
+    const text = node.querySelector('.pl-strip-t').getBoundingClientRect();
+    return { dot: dot.top + dot.height / 2, top: text.top, bottom: text.bottom };
+  });
+  expect(strip.dot).toBeGreaterThanOrEqual(strip.top);
+  expect(strip.dot).toBeLessThanOrEqual(strip.bottom);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.locator('#pl-body .pl-strip-retry').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#pl-body')).toBeFocused();
+  expectCleanRuntime(page);
+});
+
+test('Wire counts each report once, retries keep focus, and long titles stay readable on phones', async ({ page }) => {
+  await ready(page, { role: 'anonymous', caseReadFailureOnly: true });
+  let wireDown = true;
+  const longTitle = 'Treasury movement pattern: consolidation of drained funds through intermediary wallets before bridge exits and exchange deposits over 6 days';
+  let detailTitle = longTitle;
+  const earlier = { ...publicWireListItem, version_public_ref: 'OSI-WV-A1B2C3D4E5F60001', version_no: 1, is_current_published: false, published_at: iso(-4) };
+  const other = { ...publicWireListItem, wire_report_public_ref: 'OSI-WR-C1C2C3D4E5F6', version_public_ref: 'OSI-WV-C1C2C3D4E5F60718', title: 'Second Wire fixture' };
+  await page.route('**/functions/v1/osi-v2-wire', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'list_public_wire_reports') {
+      if (wireDown) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'read_failed' }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, public_projection: true, reports: [publicWireListItem, earlier, other] }) });
+    }
+    if (body.op === 'get_public_wire_report') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, public_projection: true, report: { ...publicWireDetail, title: detailTitle } }) });
+    return route.fallback();
+  });
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await page.evaluate(() => window.osiNavigate('wire'));
+  const retry = page.locator('#wire-cases .wire-retry');
+  await expect(retry).toBeVisible();
+  wireDown = false;
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await retry.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#wire-cases')).toBeFocused();
+  await expect(page.locator('#wire-stats')).toContainText('2 published Wire Reports, 1 earlier version');
+
+  await page.evaluate(() => window.osiNavigate('records'));
+  const recordsRetry = page.locator('#case-records .cr-source-warning button');
+  await expect(recordsRetry).toBeVisible();
+  await recordsRetry.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#case-records')).toBeFocused();
+
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.evaluate((ref) => window.osiV2OpenWireReport(ref), WIRE_VERSION_REF);
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toBeVisible();
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toHaveText(longTitle);
+  // It reads as the title, not as a dim body paragraph.
+  expect(await page.locator('#osi-wire-detail-content .osi-wire-full-title').evaluate((node) => getComputedStyle(node).fontWeight)).toBe('700');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toBeHidden();
+  // The header clamps titles of about 20 characters and up on a phone, so a
+  // 59-character title is repeated as well.
+  detailTitle = 'Phishing drainer moved stolen funds through three exchanges';
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#osi-wire-drawer')).toBeHidden();
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.evaluate((ref) => window.osiV2OpenWireReport(ref), WIRE_VERSION_REF);
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toBeVisible();
+  await expect(page.locator('#osi-wire-detail-content .osi-wire-full-title')).toHaveText(detailTitle);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  expectCleanRuntime(page);
+});
+
+test('profile routes explain a missing analyst or maintainer instead of a raw code or silence', async ({ page }) => {
+  await ready(page, { role: 'anonymous', noMaintainerProfile: true });
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'get_public_profile') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'profile_not_found' }) });
+  });
+  await page.evaluate(() => { window.osiPublicReadInvalidate(); window.location.hash = 'maintainer'; });
+  await expect(page.locator('#ap-modal')).toHaveClass(/\bopen\b/);
+  await expect(page.locator('#ap-modal-body')).toContainText('Maintainer profile unavailable');
+  await expect(page.locator('#ap-modal-body')).toContainText('No maintainer profile is published yet.');
+  // A language switch redraws the maintainer message, not an analyst one.
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.waitForTimeout(800);
+  await expect(page.locator('#ap-modal-body')).toContainText('Sürdürücü profili kullanılamıyor');
+  await expect(page.locator('#ap-modal-body')).not.toContainText('Analist profili kullanılamıyor');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await page.waitForTimeout(800);
+  await expect(page.locator('#ap-modal-body')).toContainText('Maintainer profile unavailable');
+  await expect(page.locator('#ap-modal-body')).not.toContainText('Analyst profile unavailable');
+  await page.evaluate(() => window.closeAnalystProfile());
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.evaluate(() => { window.location.hash = 'analyst/nobody_here'; });
+  await expect(page.locator('#ap-modal-body')).toContainText('Bu kullanıcı adını kullanan herkese açık bir analist profili yok.');
+  await expect(page.locator('#ap-modal-body')).not.toContainText('profile not found');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+test('the maintainer editor keeps focus, speaks Turkish and goes away when a gate drops', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  const host = page.locator('#osi-maintainer-profile');
+  const edit = host.locator('[data-maintainer-edit]');
+  await expect(edit).toBeVisible();
+  await edit.click();
+  await expect(host.locator('[data-mp-name]')).toBeFocused();
+  await host.locator('[data-mp-cancel]').click();
+  await expect(edit).toBeFocused();
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(edit).toHaveText('Sürdürücü profilini düzenle');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await page.evaluate(() => window.setMaintainerServerGate(false, 'signed_out'));
+  await expect(host.locator('[data-maintainer-edit]')).toHaveCount(0);
+  expectCleanRuntime(page);
+});
+
+test('the Operations application queue reads in Turkish with named reasons and expertise', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.evaluate(() => window.admOpen());
+  await expect(page.locator('#admPanel')).toBeVisible();
+  await page.getByRole('button', { name: 'Refresh queue' }).click();
+  const application = page.locator(`[data-application-id="${APPLICATION_ID}"]`);
+  await expect(application).toBeVisible();
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(application.locator('[data-analyst-reason] option').first()).toHaveText('Deneme süreci asgari koşullarını karşılıyor');
+  await expect(application.locator('header p')).toContainText('sürüm 1');
+  await expect(application).not.toContainText('Onchain Tracing');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expectCleanRuntime(page);
+});
+
+test('an active analyst is sent to My Profile instead of a new application form', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await expect(page.locator('#lb-body')).toContainText('Verified analyst role fixture');
+  await page.evaluate(() => window.apxOpen());
+  await expect(page.locator('#stw-toast')).toContainText('Your wallet already has an active analyst profile. Open My Profile instead.');
+  await expect(page.locator('#apx-modal')).not.toHaveClass(/\bopen\b/);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'prepare_application')).toBe(0);
+  expectCleanRuntime(page);
+});
+
+test('the public SAS verifier names every server reason and source in plain words', async ({ page }) => {
+  await ready(page, { role: 'anonymous' });
+  await page.route('**/functions/v1/osi-v2-proof', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.mode !== 'sas_verify') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, wallet: body.wallet, valid: false, state: 'invalid', reason: 'credential_mismatch', source: 'config', checked_at: null }) });
+  });
+  await page.evaluate(() => window.osiNavigate('methodology'));
+  await page.locator('#sas-verifier-wallet').fill(OTHER);
+  await page.locator('#sas-verifier-form').getByRole('button', { name: 'Verify wallet' }).click();
+  await expect(page.locator('#sas-verifier-result')).toContainText('The attestation names a different credential');
+  await expect(page.locator('#sas-verifier-result')).toContainText('OSI configuration, no Solana read');
+  await expect(page.locator('#sas-verifier-result')).not.toContainText('credential_mismatch');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await page.locator('#sas-verifier-wallet').fill('');
+  await page.locator('#sas-verifier-form button[type="submit"]').click();
+  await expect(page.locator('#sas-verifier-status')).toHaveText('Kontrol etmek için bir Solana cüzdan adresi yapıştırın.');
+  expect(await page.evaluate(() => window.identityWeightText(1.5))).toBe('1,50');
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  expect(await page.evaluate(() => window.identityWeightText(1.5))).toBe('1.50');
+  expectCleanRuntime(page);
+});
+
+test('a wallet change cancels an open transfer out loud, redraws profile support and forgets drafts', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate((wallet) => window.osiV2SaveDraft('case-intake:' + wallet, { 'v2-case-title': 'Unsent private title' }), WALLET);
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const support = page.locator('#ap-modal-body section', { has: page.locator('#osi-profile-support-copy') });
+  await expect(support.getByRole('button', { name: 'Pay with Phantom' })).toBeEnabled();
+  await support.getByRole('button', { name: 'Pay with Phantom' }).click();
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.evaluate(({ other }) => window.__fixtureProvider.__emit('accountChanged', { toString: () => other }), { other: OTHER });
+  await expect(page.locator('#sol-ask')).not.toHaveClass(/\bopen\b/);
+  await expect(page.locator('#stw-toast')).toContainText('The connected wallet changed, so this transfer was cancelled. Nothing was sent.');
+  await expect(support).toContainText('Self-support unavailable');
+  await expect.poll(() => page.evaluate(() => Object.keys(sessionStorage).filter((key) => key.indexOf('osi_v2_draft_v1:') === 0).length)).toBe(0);
+  await page.evaluate((wallet) => window.osiV2SupportAnalyst(wallet, 'phantom'), OTHER);
+  await expect(page.locator('#stw-toast')).toContainText('The connected wallet is the recipient. Self-support is not allowed.');
+  await expect(page.locator('#sol-ask')).not.toHaveClass(/\bopen\b/);
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  expectCleanRuntime(page);
+});
+
+// Drafts are keyed by the wallet that typed them. Restoring the same wallet
+// after a reload keeps its drafts, a change of wallet forgets the other
+// wallet's drafts, an expiry keeps them all and an explicit disconnect
+// forgets them all.
+test('a same-wallet restore keeps its drafts and a disconnect forgets them', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  const drafts = () => page.evaluate(() => Object.keys(sessionStorage).filter((key) => key.indexOf('osi_v2_draft_v1:') === 0).sort());
+  const mine = 'osi_v2_draft_v1:case-intake:' + WALLET;
+  await page.evaluate(({ me, other }) => {
+    window.osiV2SaveDraft('case-intake:' + me, { 'v2-case-title': 'Unsent private title' });
+    window.osiV2SaveDraft('case-intake:' + other, { 'v2-case-title': 'Another wallet title' });
+  }, { me: WALLET, other: OTHER });
+  await page.evaluate(() => window.osiV2ClearReadSession('wallet_mismatch'));
+  await expect.poll(drafts).toEqual([mine]);
+  await page.evaluate(() => window.osiV2ClearReadSession('expiry'));
+  await page.waitForTimeout(100);
+  expect(await drafts()).toEqual([mine]);
+  await page.evaluate(() => window.osiV2ClearReadSession('explicit_logout'));
+  await expect.poll(drafts).toEqual([]);
+  expectCleanRuntime(page);
+});
+
+// The cancelled-transfer notice says what happened: private access changed
+// or the wallet disconnected. It used to say "the connected wallet changed"
+// for both.
+test('a cancelled transfer says whether access changed or the wallet disconnected', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const support = page.locator('#ap-modal-body section', { has: page.locator('#osi-profile-support-copy') });
+  for (const [reason, message] of [
+    ['auth_changed', 'Private access changed while the amount was open, so this transfer was cancelled. Nothing was sent. Start it again.'],
+    ['explicit_logout', 'The wallet disconnected, so this transfer was cancelled. Nothing was sent.'],
+  ]) {
+    await support.getByRole('button', { name: 'Pay with Phantom' }).click();
+    await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+    await page.evaluate((why) => window.osiV2ClearReadSession(why), reason);
+    await expect(page.locator('#sol-ask')).not.toHaveClass(/\bopen\b/);
+    await expect(page.locator('#stw-toast')).toContainText(message);
+    await expect(page.locator('#stw-toast')).not.toContainText('The connected wallet changed');
+  }
+  expect(fixtureOperationCount(page, 'osi-v2-payment', 'prepare_payment')).toBe(0);
+  expectCleanRuntime(page);
+});
+
+// A task's current vote reads in its own lane's words. A Report reject or a
+// challenge merit reject is not the Case-opening "Reject normal investigation".
+test('review tasks name the current vote in the words of their own lane', async ({ page }) => {
+  await ready(page, { role: 'verified_analyst' });
+  const me = ROLE_WALLETS.verified_analyst;
+  const challenge = richCase.governance.challenges[0];
+  const current = reportFixture.versions[2];
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_reviewable_cases') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, actor_role: 'analyst', cases: [richCase],
+      review_tasks: {
+        initial_open: [], report_publication: [], resolution_selection: [], challenge_admissibility: [], seal_reviews: [],
+        challenge_adjudication: [{ lane: 'challenge_adjudication', case_ref: CASE_REF, exact_target: challenge.public_ref, deadline: iso(4), conflict: false, current_vote: 'reject', weight_snapshot: 1.5, next_action: 'Review challenge merits' }],
+      },
+    }) });
+  });
+  await page.route('**/functions/v1/osi-v2-report-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_review_queue') return route.fallback();
+    const version = { ...current, lifecycle_state: 'in_review', can_cast_analyst_review: true, reviews: [{
+      reviewer_wallet: me, decision: 'reject', reason_code: 'evidence_insufficient', weight: 1.5, is_active: true,
+      created_at: current.submitted_at, proof_label: 'Wallet-signed and server-verified',
+    }] };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ok: true, can_cast_analyst_review: true, can_publish_via_maintainer_bootstrap: false,
+      reports: [{ ...reportFixture, access: 'analyst', can_cast_analyst_review: true, versions: [version] }],
+    }) });
+  });
+  await page.evaluate(() => window.osiV2OpenReviewQueue());
+  const adjudication = page.locator('#field-cases .osi-review-task[data-review-lane="challenge_adjudication"]');
+  const report = page.locator('#field-cases .osi-review-task[data-review-kind="report"]').first();
+  await expect(adjudication).toContainText('Reject challenge, keep the selected Report');
+  await expect(report).toContainText('Reject');
+  for (const task of [adjudication, report]) await expect(task).not.toContainText('Reject normal investigation');
+  expectCleanRuntime(page);
+});
+
+// A language switch over a failed list keeps the failure and its Retry, and
+// a failed public read never leaves private My Cases rows in memory for a
+// filter to draw under the public heading.
+test('a failed public list stays failed across a language switch and drops private rows', async ({ page }) => {
+  await ready(page, { role: 'legacy' });
+  await page.evaluate(() => window.osiNavigate('field'));
+  await expect(page.locator('#field-cases .osi-v2-row').first()).toBeVisible();
+  await page.route('**/functions/v1/osi-v2-case-read', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'list_public_cases') return route.fallback();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'read_failed' }) });
+  });
+  const list = page.locator('#field-cases');
+  await page.evaluate(() => window.osiPublicReadInvalidate());
+  await page.locator('.fo-rail [data-fo-nav="cases"]').click();
+  await expect(list).toContainText('Public registry unavailable');
+  await page.evaluate(() => window.osiSetLanguage('tr'));
+  await expect(list).toContainText('Kamusal kayda ulaşılamıyor');
+  await expect(list.locator('.osi-v2-row')).toHaveCount(0);
+  await expect(list.locator('[data-registry-retry]')).toBeVisible();
+  await page.evaluate(() => window.osiSetLanguage('en'));
+  await expect(list.locator('.osi-v2-row')).toHaveCount(0);
+
+  await page.evaluate(() => window.osiV2OpenMyCases());
+  await expect(list).toContainText('Private owner workspace');
+  await page.locator('.fo-rail [data-fo-nav="cases"]').click();
+  await expect(list).toContainText('Public registry unavailable');
+  await page.evaluate(() => window.fieldFilter('all'));
+  await expect(list).not.toContainText('Private owner workspace');
+  await expect(list).not.toContainText(PRIVATE_SENTINEL);
+  expectCleanRuntime(page);
+});
+
+// A transient failure of the routine gate re-check keeps an open maintainer
+// edit. Only a confirmed loss of identity takes the editor away, and a
+// confirmed full gate brings it back.
+test('a gate re-check that fails in transit keeps the open maintainer edit', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  const host = page.locator('#osi-maintainer-profile');
+  await host.locator('[data-maintainer-edit]').click();
+  const name = host.locator('[data-mp-name]');
+  await name.fill('Unsaved maintainer name');
+  await page.evaluate(() => window.setMaintainerServerGate(false, 'unavailable'));
+  await page.waitForTimeout(300);
+  await expect(name).toHaveValue('Unsaved maintainer name');
+  await page.evaluate(() => window.setMaintainerServerGate(false, 'signed_out'));
+  await expect(name).toHaveCount(0);
+  await expect(host.locator('[data-maintainer-edit]')).toHaveCount(0);
+  await page.evaluate(() => window.setMaintainerServerGate(true, 'full'));
+  await expect(host.locator('[data-maintainer-edit]')).toBeVisible();
+  expectCleanRuntime(page);
+});
+
+// A commit that meets an incomplete RPC answer is retried with the same
+// transaction, so the maintainer never sends a second probation Memo.
+test('probation activation retries an incomplete RPC answer with the same transaction', async ({ page }) => {
+  await ready(page, { role: 'maintainer' });
+  const me = ROLE_WALLETS.maintainer;
+  const commits = [];
+  await page.route('**/functions/v1/osi-v2-analyst', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op === 'maintainer_queue') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, applications: [{
+        ...candidateApplication,
+        reviews: [{ reviewer_wallet: me, decision: 'approve', reason_code: 'meets_probationary_baseline', is_active: true, created_at: iso(-.1) }],
+      }] }) });
+    }
+    if (body.op === 'commit_activation') {
+      commits.push(body.tx_sig);
+      if (commits.length === 1) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'rpc_invalid_response' }) });
+    }
+    return route.fallback();
+  });
+  await page.evaluate((tx) => { window.castOnchainVote = async () => tx; }, TX);
+  await page.locator('#walletBtn').click();
+  await page.locator('#maintainerAccessMenu').click();
+  const activate = page.locator('#osi-analyst-ops [data-analyst-activate]');
+  await expect(activate).toBeVisible();
+  await activate.click();
+  await expect(page.locator('#stw-toast')).toContainText('Analyst probation is Memo-anchored on Solana.', { timeout: 10_000 });
+  expect(commits).toEqual([TX, TX]);
+  expect(fixtureOperationCount(page, 'osi-v2-analyst', 'prepare_activation')).toBe(1);
+  expectCleanRuntime(page);
+});
+
+// A session expiry leaves the amount dialog open, and a support transfer does
+// not use the private read session, so the same wallet's transfer goes on
+// instead of being dropped after the amount is confirmed.
+test('a session expiry keeps an open support transfer for the same wallet', async ({ page }) => {
+  await ready(page, { role: 'ordinary_wallet' });
+  let wirePrepared = null;
+  await page.route('**/functions/v1/osi-v2-payment', async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() || {}; } catch (_) {}
+    if (body.op !== 'prepare_wire_support') return route.fallback();
+    wirePrepared = body;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'payment_writes_disabled' }) });
+  });
+  await page.evaluate(() => window.osiNavigate('analysts'));
+  await page.locator(`[data-analyst-wallet="${OTHER}"]`).click();
+  const support = page.locator('#ap-modal-body section', { has: page.locator('#osi-profile-support-copy') });
+  await support.getByRole('button', { name: 'Pay with Phantom' }).click();
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.evaluate(() => window.osiV2ClearReadSession('expiry'));
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.locator('#sol-ask-go').click();
+  await expectFixtureOperation(page, 'osi-v2-payment', 'prepare_payment');
+  await expect(page.locator('#stw-toast')).not.toContainText('transfer was cancelled');
+
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.closeAnalystProfile && window.closeAnalystProfile());
+  await page.evaluate(({ ref, author }) => { window.osiV2SupportWireAuthor(ref, author); }, { ref: WIRE_VERSION_REF, author: OTHER });
+  await expect(page.locator('#sol-ask')).toHaveClass(/\bopen\b/);
+  await page.evaluate(() => window.osiV2ClearReadSession('expiry'));
+  await page.locator('#sol-ask-go').click();
+  await expect.poll(() => wirePrepared && wirePrepared.wallet).toBe(WALLET);
+  await expect(page.locator('#stw-toast')).not.toContainText('transfer was cancelled');
   expectCleanRuntime(page);
 });

@@ -208,4 +208,15 @@ ok('profile user content is escaped and excluded from mutation translation',
     && profileUi.includes('esc(profile.bio)')
     && profileUi.includes("esc(t('Privacy and Case attribution'))"));
 
+// The Report bootstrap paragraph and the disabled Publish titles show these
+// sentences through t(); every one needs a Turkish key.
+const reportReasonBlock = reportUi.slice(reportUi.indexOf('var REPORT_REASON_COPY={'), reportUi.indexOf('};', reportUi.indexOf('var REPORT_REASON_COPY={')));
+const reportReasonSentences = [...reportReasonBlock.matchAll(/:'([^']+)'/g)].map((match) => match[1])
+  .concat(['An eligible analyst who approved this exact version completes the publication.', 'The current server-computed bootstrap tier is not satisfied.']);
+ok('every Report reason sentence and fallback has a Turkish key',
+  reportReasonSentences.length >= 18
+    && reportUi.includes("'An eligible analyst who approved this exact version completes the publication.'")
+    && reportUi.includes("'The current server-computed bootstrap tier is not satisfied.'")
+    && reportReasonSentences.every((sentence) => i18n.includes(`'${sentence}': '`)));
+
 console.log(`\n${passed} localization checks passed.`);

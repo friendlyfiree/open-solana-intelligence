@@ -407,7 +407,8 @@ ok('Public Records exposes loading, empty, filtered-empty and retryable error st
   recordsSource.includes("host.setAttribute('aria-busy','true')")
     && recordsSource.includes('No published or sealed records yet.')
     && recordsSource.includes('No records match these filters.')
-    && recordsSource.includes('onclick="renderCaseRecords()"')
+    && recordsSource.includes('onclick="crRetry()"')
+    && /function crRetry\(\)\{\s*return Promise\.resolve\(renderCaseRecords\(\)\)/.test(recordsSource)
     && recordsSource.includes("crT('Try again')"));
 ok('Public Records discloses partial source failure instead of silently omitting published Reports',
   recordsSource.includes("sourceFailures?'partial':'loaded'")

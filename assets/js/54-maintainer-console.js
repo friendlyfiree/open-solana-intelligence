@@ -15,7 +15,18 @@ function setMaintainerServerGate(allowed,reason){
   OSI_MAINTAINER_SERVER_GATE = allowed === true;
   OSI_MAINTAINER_GATE_REASON = reason || (allowed ? 'full' : 'denied');
   updateMaintainerAccessUI();
+  // The operator's profile editor on the Analyst Network follows the gates.
+  // A confirmed loss of identity (disconnect, another wallet, sign-out) takes
+  // it away; a check in progress or a transient failure of the routine
+  // re-check changes nothing, so an open edit is not thrown away by a network
+  // blip. A server-confirmed full gate brings it back. save_maintainer_profile
+  // re-checks both gates on every write either way.
+  if(typeof window.osiV2SetMaintainerCapability === 'function'){
+    if(allowed === true) window.osiV2SetMaintainerCapability(true);
+    else if(MAINTAINER_IDENTITY_LOSS[reason] === 1) window.osiV2SetMaintainerCapability(false);
+  }
 }
+var MAINTAINER_IDENTITY_LOSS = { wallet_changed:1, no_wallet:1, wrong_wallet:1, login_required:1, signed_out:1 };
 
 function updateMaintainerAccessUI(){
   var badge=document.getElementById('maintainerAccessBadge');

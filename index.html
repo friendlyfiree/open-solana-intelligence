@@ -81,7 +81,9 @@
     <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="field" onclick="osiNavigate('field')">Field Office</button>
     <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="wire" onclick="osiNavigate('wire')">The Wire</button>
     <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="records" onclick="osiNavigate('records')">Public Records</button>
+    <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="analysts" onclick="osiNavigate('analysts')">Analyst Network</button>
     <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="prooflog" onclick="osiNavigate('prooflog')">Proof Log</button>
+    <button class="osi-nav-link osi-nav-quick" type="button" data-global-view="methodology" onclick="osiNavigate('methodology')">About</button>
     <div class="osi-platform-wrap">
       <button class="osi-nav-link osi-platform-trigger" id="platform-menu-trigger" type="button" aria-expanded="false" aria-controls="platform-menu">Platform <span aria-hidden="true">&#8964;</span></button>
       <div class="osi-platform-menu" id="platform-menu" hidden>
@@ -459,13 +461,13 @@
       <div class="pl-maincol">
         <div class="pl-toolbar">
           <div class="rf-tabs pl-fils" id="pl-fils">
-            <button class="rf-tab active" data-f="all" type="button" onclick="plFilter('all')">All</button>
-            <button class="rf-tab" data-f="case" type="button" onclick="plFilter('case')">Cases</button>
-            <button class="rf-tab" data-f="report" type="button" onclick="plFilter('report')">Reports</button>
-            <button class="rf-tab" data-f="vote" type="button" onclick="plFilter('vote')">Reviews</button>
-            <button class="rf-tab" data-f="challenge" type="button" onclick="plFilter('challenge')">Challenges</button>
-            <button class="rf-tab" data-f="support" type="button" onclick="plFilter('support')">Support</button>
-            <button class="rf-tab" data-f="seal" type="button" onclick="plFilter('seal')">Seals</button>
+            <button class="rf-tab active" data-f="all" type="button" aria-pressed="true" onclick="plFilter('all')">All</button>
+            <button class="rf-tab" data-f="case" type="button" aria-pressed="false" onclick="plFilter('case')">Cases</button>
+            <button class="rf-tab" data-f="report" type="button" aria-pressed="false" onclick="plFilter('report')">Reports</button>
+            <button class="rf-tab" data-f="vote" type="button" aria-pressed="false" onclick="plFilter('vote')">Reviews</button>
+            <button class="rf-tab" data-f="challenge" type="button" aria-pressed="false" onclick="plFilter('challenge')">Challenges</button>
+            <button class="rf-tab" data-f="support" type="button" aria-pressed="false" onclick="plFilter('support')">Support</button>
+            <button class="rf-tab" data-f="seal" type="button" aria-pressed="false" onclick="plFilter('seal')">Seals</button>
           </div>
           <div class="pl-search-wrap"><input class="cr-search" id="pl-search" type="search" aria-label="Search the public Proof Log" placeholder="Search by wallet / case ID / tx hash" oninput="plSearch(this.value)"></div>
         </div>
@@ -1150,7 +1152,7 @@
       <button class="sol-ask-amt" type="button" data-sol="0.5">0.5</button>
       <button class="sol-ask-amt" type="button" data-sol="1">1</button>
       <label class="sr-only" for="sol-ask-custom">Custom amount in SOL</label>
-      <input class="sol-ask-custom" id="sol-ask-custom" type="number" step="0.001" min="0" max="100" inputmode="decimal" placeholder="Custom amount">
+      <input class="sol-ask-custom" id="sol-ask-custom" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Custom amount">
       <span class="sol-ask-unit">SOL</span>
     </div>
     <div class="sol-ask-usd" id="sol-ask-usd"></div>

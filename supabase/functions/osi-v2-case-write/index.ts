@@ -25,13 +25,17 @@ import {
   validateIdempotencyKey,
 } from "../_shared/osi-v2-case-write-core.mjs";
 import { refreshReviewVerifications, runShadowValidation } from "../_shared/osi-v2-sas-onchain.ts";
+import { genesisBatchFailure } from "../_shared/osi-v2-cluster-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ALLOWED_ORIGIN = Deno.env.get("OSI_V2_ALLOWED_ORIGIN") ?? "*";
 const SOLANA_RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "https://api.mainnet-beta.solana.com";
+const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const MAINTAINER_AUTH_UUID = Deno.env.get("OSI_MAINTAINER_AUTH_UUID") ?? "";
-const MAX_BODY_BYTES = 32_768;
+// A maximum Case (160 + 10,000 + 25,000 characters, up to 3 UTF-8 bytes each,
+// plus 12 evidence references and the commit Memo) must fit, as in report-write.
+const MAX_BODY_BYTES = 180_000;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -199,6 +203,7 @@ async function verifyMemoTransaction(txSig: string, wallet: string, memo: string
         { jsonrpc: "2.0", id: 2, method: "getSignatureStatuses", params: [[txSig], {
           searchTransactionHistory: true,
         }] },
+        { jsonrpc: "2.0", id: 3, method: "getGenesisHash" },
       ]),
     });
   } catch {
@@ -207,6 +212,9 @@ async function verifyMemoTransaction(txSig: string, wallet: string, memo: string
   if (!response.ok) return { ok: false, reason: "rpc_unavailable" };
   let results: any[];
   try { results = await response.json() as any[]; } catch { return { ok: false, reason: "rpc_invalid_response" }; }
+  // A Case is opened or made public only by a Memo on Solana mainnet.
+  const cluster = genesisBatchFailure(results, MAINNET_GENESIS_HASH);
+  if (cluster) return { ok: false, reason: cluster };
   const transaction = results.find((item) => item.id === 1)?.result;
   const status = results.find((item) => item.id === 2)?.result?.value?.[0];
   return validateConfirmedMemoTransaction(transaction, status, {

@@ -79,6 +79,20 @@ const PROOF_BINDING_DATABASE_MESSAGES = Object.freeze([
 // Database SQLSTATE classes are deliberately broad. Classify only reviewed,
 // exact proof messages as proof failures; a schema or lifecycle constraint must
 // never be presented to the user as an expired signature or nonce.
+// Only messages that name one state are mapped. 'Publication requires an
+// active approving eligible analyst' and 'Rejection requires an active
+// rejecting eligible analyst' are raised for self-review, Case-owner,
+// ineligible and missing-vote refusals alike, so they stay
+// not_eligible_or_self_review.
+const REPORT_GOVERNANCE_42501 = Object.freeze([
+  [/^Report version is not available( for (publication|rejection|review))?$/, "report_version_not_awaiting_review"],
+  [/^Report (publication|rejection) quorum is not ready$/, "analyst_quorum_not_ready"],
+  [/^Report approve and reject quorum are both ready$/, "analyst_quorum_conflict"],
+  [/^Normal analyst publication quorum is available$/, "standard_analyst_quorum_available"],
+  [/^Bootstrap publication support requirements are not met$/, "bootstrap_support_not_met"],
+  [/^(Publication|Rejection|Report review) actor role changed after prepare$|^Bootstrap publication lost a maintainer gate$/, "actor_authority_changed"],
+]);
+
 export function classifyReportRpcFailure(error, governance = false) {
   const code = cleanText(error?.code);
   const message = cleanText(error?.message);
@@ -87,9 +101,14 @@ export function classifyReportRpcFailure(error, governance = false) {
     return { status: 409, error: "publication_transaction_outside_window" };
   }
   if (code === "42501") {
-    return governance
-      ? { status: 403, error: "not_eligible_or_self_review" }
-      : { status: 404, error: "case_not_available" };
+    if (!governance) return { status: 404, error: "case_not_available" };
+    // Publication and rejection refuse for several distinct reasons. Only a
+    // real conflict or eligibility refusal is reported as one; the others say
+    // which state blocked the action.
+    const governanceState = REPORT_GOVERNANCE_42501.find(([pattern]) => pattern.test(message));
+    return governanceState
+      ? { status: 409, error: governanceState[1] }
+      : { status: 403, error: "not_eligible_or_self_review" };
   }
   if (code === "23514"
       && `${message}\n${details}`.includes("case_report_versions_publication_state_check")) {
@@ -156,6 +175,8 @@ export async function normalizeReportEvidence(input, options = {}) {
       }
     } else if (kind === "url") {
       let parsed;
+      // A link with whitespace inside is two links run together, not one.
+      if (/\s/.test(ref)) throw new TypeError("evidence URL is invalid");
       try { parsed = new URL(ref); } catch { throw new TypeError("evidence URL is invalid"); }
       if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
         throw new TypeError("evidence URL is invalid");

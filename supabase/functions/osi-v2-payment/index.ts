@@ -15,14 +15,17 @@ import {
 import {
   PAYMENT_MAX_RECIPIENTS,
   encodeBase58,
-  isSolanaMainnetGenesis,
+  SOLANA_MAINNET_GENESIS_HASH,
   formatLamportsAsSol,
+  isPayerAttemptForIntent,
   normalizePaymentTargetRef,
   parseSolToLamports,
+  rpcMemoMayMatch,
   validateFinalizedPaymentTransaction,
   validateSolanaPayReference,
   validateSolanaPayReferenceTransaction,
 } from "../_shared/osi-v2-payment-core.mjs";
+import { genesisBatchFailure } from "../_shared/osi-v2-cluster-core.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -466,9 +469,8 @@ async function rpcTransaction(txSig: string): Promise<Row> {
   if (!response.ok) throw new Error("rpc_unavailable");
   const results = await response.json().catch(() => null) as Row[] | null;
   if (!Array.isArray(results)) throw new Error("rpc_invalid_response");
-  if (!isSolanaMainnetGenesis(results.find((item) => item.id === 3)?.result)) {
-    throw new Error("wrong_cluster");
-  }
+  const cluster = genesisBatchFailure(results, SOLANA_MAINNET_GENESIS_HASH);
+  if (cluster) throw new Error(cluster);
   return {
     transaction: results.find((item) => item.id === 1)?.result ?? null,
     status: results.find((item) => item.id === 2)?.result?.value?.[0] ?? null,
@@ -476,33 +478,47 @@ async function rpcTransaction(txSig: string): Promise<Row> {
   };
 }
 
-async function signaturesForReference(reference: string): Promise<Row[]> {
-  let response: Response;
-  try {
-    response = await fetch(SOLANA_RPC_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([
-        {
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getSignaturesForAddress",
-          params: [reference, { commitment: "finalized", limit: 100 }],
-        },
-        { jsonrpc: "2.0", id: 2, method: "getGenesisHash" },
-      ]),
-    });
-  } catch {
-    throw new Error("rpc_unavailable");
+// The reference becomes public once the payment lands, and anyone can then
+// list it in cheap transactions. Reading only the newest page let those hide
+// the real payment, so the history is paged back to the intent's issue time
+// (bounded), and the caller checks the oldest exact-Memo candidates first.
+const SOLANA_PAY_SIGNATURE_PAGES = 5;
+
+async function signaturesForReference(reference: string, notBefore: number): Promise<Row[]> {
+  const collected: Row[] = [];
+  let before = "";
+  for (let page = 0; page < SOLANA_PAY_SIGNATURE_PAGES; page++) {
+    let response: Response;
+    const options: Row = { commitment: "finalized", limit: 100 };
+    if (before) options.before = before;
+    const calls: Row[] = [
+      { jsonrpc: "2.0", id: 1, method: "getSignaturesForAddress", params: [reference, options] },
+    ];
+    if (page === 0) calls.push({ jsonrpc: "2.0", id: 2, method: "getGenesisHash" });
+    try {
+      response = await fetch(SOLANA_RPC_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(calls),
+      });
+    } catch {
+      throw new Error("rpc_unavailable");
+    }
+    if (!response.ok) throw new Error("rpc_unavailable");
+    const results = await response.json().catch(() => null) as Row[] | null;
+    if (!Array.isArray(results)) throw new Error("rpc_invalid_response");
+    const cluster = page === 0 ? genesisBatchFailure(results, SOLANA_MAINNET_GENESIS_HASH, 2) : null;
+    if (cluster) throw new Error(cluster);
+    const signatures = results.find((item) => item.id === 1)?.result;
+    if (!Array.isArray(signatures) || !signatures.length) break;
+    collected.push(...signatures);
+    const oldest = signatures[signatures.length - 1];
+    const oldestTime = Number(oldest?.blockTime);
+    if (signatures.length < 100 || !Number.isSafeInteger(oldestTime) || oldestTime < notBefore) break;
+    before = safeText(oldest?.signature);
+    if (!before) break;
   }
-  if (!response.ok) throw new Error("rpc_unavailable");
-  const results = await response.json().catch(() => null) as Row[] | null;
-  if (!Array.isArray(results)) throw new Error("rpc_invalid_response");
-  if (!isSolanaMainnetGenesis(results.find((item) => item.id === 2)?.result)) {
-    throw new Error("wrong_cluster");
-  }
-  const signatures = results.find((item) => item.id === 1)?.result;
-  return Array.isArray(signatures) ? signatures : [];
+  return collected;
 }
 
 async function pollSolanaPay(body: Row): Promise<Response> {
@@ -542,13 +558,13 @@ async function pollSolanaPay(body: Row): Promise<Response> {
       paid: false,
     });
   }
+  const issuedAt = Math.floor(Date.parse(String(bound.issued_at)) / 1000);
   let candidates: Row[];
   try {
-    candidates = await signaturesForReference(reference);
+    candidates = await signaturesForReference(reference, issuedAt - 5);
   } catch (error) {
     return jsonResponse(503, { ok: false, error: errorMessage(error) });
   }
-  const issuedAt = Math.floor(Date.parse(String(bound.issued_at)) / 1000);
   const expiresAtSeconds = Math.floor(expiresAt / 1000);
   const exactMemo = safeText(bound.binding_context?.memo);
   const possible = candidates.filter((candidate) => {
@@ -559,8 +575,13 @@ async function pollSolanaPay(body: Row): Promise<Response> {
       && Number.isSafeInteger(blockTime)
       && blockTime >= issuedAt - 5
       && blockTime <= expiresAtSeconds + 120
-      && (memo == null || memo === exactMemo);
-  }).slice(0, 8);
+      && rpcMemoMayMatch(memo, exactMemo);
+  })
+    // Candidates that carry the exact Memo come first, then the oldest:
+    // transactions copying the reference after the payment landed are newer.
+    .sort((left, right) => (Number(left?.memo == null) - Number(right?.memo == null))
+      || (Number(left?.blockTime) - Number(right?.blockTime)))
+    .slice(0, 8);
   for (const candidate of possible) {
     const response = await commitPayment({
       wallet,
@@ -651,8 +672,13 @@ async function commitPayment(
     recoveryRequested
     || Date.now() > Date.parse(String(bound.expires_at)) + 120_000
   );
+  // Only the payer's own attempt at this intent may bind or fail it. A
+  // Solana Pay intent stays open after a failed attempt (the QR is reused),
+  // so it is never failed here, whichever op the caller chose.
+  const payerAttempt = isPayerAttemptForIntent(rpc.transaction, exactIntent, txSig);
+  const solanaPayBound = !!safeText(bound.binding_context?.solana_pay?.reference);
   if (!verified.ok && verified.state === "awaiting_finality") {
-    if (rpc.transaction) {
+    if (rpc.transaction && payerAttempt) {
       const { error } = await recordPaymentSubmission(bound, nonce, txSig);
       if (error) return rpcFailure(error);
     }
@@ -667,7 +693,7 @@ async function commitPayment(
     });
   }
   if (!verified.ok) {
-    if (rpc.transaction && !recovery && paymentMethod !== "solana_pay") {
+    if (rpc.transaction && payerAttempt && !recovery && paymentMethod !== "solana_pay" && !solanaPayBound) {
       if (bound.binding_context?.payment_kind === "wire_support") {
         const recorded = await recordPaymentSubmission(bound, nonce, txSig);
         if (recorded.error) return rpcFailure(recorded.error);

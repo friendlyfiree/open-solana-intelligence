@@ -41,6 +41,7 @@ import {
   validateConfirmedMemoTransaction,
   validateIdempotencyKey,
 } from "../_shared/osi-v2-case-write-core.mjs";
+import { genesisBatchFailure } from "../_shared/osi-v2-cluster-core.mjs";
 import {
   READ_SESSION_SCOPES,
   readSessionIssuer,
@@ -53,6 +54,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ALLOWED_ORIGIN = Deno.env.get("OSI_V2_ALLOWED_ORIGIN") ?? "*";
 const SOLANA_RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "https://api.mainnet-beta.solana.com";
+const MAINNET_GENESIS_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const MAINTAINER_AUTH_UUID = Deno.env.get("OSI_MAINTAINER_AUTH_UUID") ?? "";
 const MAX_BODY_BYTES = 850_000;
 const AVATAR_BUCKET = "osi-analyst-avatars";
@@ -280,12 +282,16 @@ async function verifyMemoTransaction(
         { jsonrpc: "2.0", id: 2, method: "getSignatureStatuses", params: [[txSig], {
           searchTransactionHistory: true,
         }] },
+        { jsonrpc: "2.0", id: 3, method: "getGenesisHash" },
       ]),
     });
   } catch { return { ok: false, reason: "rpc_unavailable" }; }
   if (!response.ok) return { ok: false, reason: "rpc_unavailable" };
   let results: any[];
   try { results = await response.json() as any[]; } catch { return { ok: false, reason: "rpc_invalid_response" }; }
+  // Analyst probation is activated only by a Memo on Solana mainnet.
+  const cluster = genesisBatchFailure(results, MAINNET_GENESIS_HASH);
+  if (cluster) return { ok: false, reason: cluster };
   const transaction = results.find((item) => item.id === 1)?.result;
   const status = results.find((item) => item.id === 2)?.result?.value?.[0];
   return validateConfirmedMemoTransaction(transaction, status, {

@@ -61,6 +61,7 @@
       transaction_not_confirmed:'The Memo transaction is not confirmed yet. Retry safely with the same proof.',
       rpc_unavailable:'Solana confirmation is temporarily unavailable. Retry safely with the same transaction.',
       wrong_cluster:'The RPC did not identify Solana mainnet. No Wire version was created.',
+      rpc_invalid_response:'Solana RPC returned an incomplete response. Retry safely with the same transaction.',
       wrong_signer:'The confirmed transaction signer is not the Wire author wallet.',
       wrong_memo:'The confirmed transaction does not contain the exact prepared Memo.',
       transaction_failed:'The Solana transaction failed. No Wire version was created.',
@@ -86,6 +87,18 @@
       ,not_eligible_for_wire_queue:'This wallet is not authorized for the restricted Wire queue.'
       ,bad_signature:'The wallet signature did not verify for this exact action.'
       ,private_session_changed:'Private access changed while this action was running. Reopen the exact task.'
+      ,'evidence URL is invalid':'One evidence link is not a public https:// address.'
+      ,'transaction reference is invalid':'One transaction signature is not a valid Solana signature.'
+      ,'evidence ref is invalid':'One evidence line is empty or too long.'
+      ,'duplicate evidence item':'The same evidence reference appears twice.'
+      ,'actor_wallet is invalid':'One evidence wallet address is not a valid Solana address.'
+      ,'evidence is invalid':'A Wire Report can include at most 12 evidence references.'
+      ,'Wire title is invalid':'The public-safe title must be 3 to 160 characters.'
+      ,'Wire summary is invalid':'The public-safe summary must be 10 to 10,000 characters.'
+      ,'Wire analysis is invalid':'The analysis must be 20 to 100,000 characters.'
+      ,'Wire uncertainties is invalid':'Uncertainties and limits can be at most 10,000 characters.'
+      ,bad_wire_payload:'The Wire content or evidence did not pass server validation. Your draft is safe. Check the fields and evidence formats, then submit again.'
+      ,body_too_large:'This submission is larger than the server accepts. Shorten the longest field and try again.'
     };
     if(messages[code])return messages[code];
     // A wallet failure carries free text or a numeric provider code, never a
@@ -118,7 +131,10 @@
   function draftPublicSummary(value){
     return String(value||'').replace(/\s+/g,' ').trim().slice(0,4000);
   }
-  function lines(id,kind){var node=document.getElementById(id);if(!node)return[];return String(node.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});}
+  // Links are split on new lines and on a comma that starts another link, so
+  // an https URL that contains a comma stays whole and two links on one line
+  // never merge into one. Addresses and signatures may be comma-separated.
+  function lines(id,kind){var node=document.getElementById(id);if(!node)return[];return String(node.value||'').split(kind==='url'?/\r?\n|,\s*(?=https?:\/\/)/i:/[\r\n,]+/).map(function(value){return value.trim();}).filter(Boolean).map(function(ref){return{kind:kind,ref:ref};});}
   function payload(){
     return{
       title_public_safe:document.getElementById('osi-wire-title').value,
@@ -234,7 +250,7 @@
     var lastError;
     for(var attempt=0;attempt<5;attempt++){
       assertPrivateGeneration(generation);
-      try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){lastError=error;if(['transaction_not_confirmed','rpc_unavailable'].indexOf(String(error.message))<0)throw error;assertPrivateGeneration(generation);status(t('Waiting for Solana RPC confirmation. Retry {n} of 5.',{n:attempt+1}));await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}
+      try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){lastError=error;if(['transaction_not_confirmed','rpc_unavailable','rpc_invalid_response'].indexOf(String(error.message))<0)throw error;assertPrivateGeneration(generation);status(t('Waiting for Solana RPC confirmation. Retry {n} of 5.',{n:attempt+1}));await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}
     }
     throw lastError;
   }
@@ -443,12 +459,18 @@
   }
   // The drawer header already carries the title, so the overview opens on
   // what the header does not say: which version this is and who wrote it.
+  // On a phone the header clamps a long title to three lines, so the full
+  // title is repeated here and shown only at that width.
   function overviewTab(item){
-    return'<section class="osi-case-section"><div class="osi-section-heading"><span class="osi-eyebrow">Standalone finding</span><span class="osi-chip">'+esc(t('Version {n}',{n:item.version_no}))+'</span></div>'+attribution(item.author,'author')+'<h4>Public-safe summary</h4><p data-osi-user-content>'+esc(item.summary)+'</p>'+publicationBlock(item)+'<div class="osi-case-note">Publication exposes the public-safe summary, approved public evidence, review record, and proof log. Restricted analysis and uncertainties remain private. Publication is not automatic truth, guilt, legal certainty, recovery, custody, or guaranteed payment.</div></section>';
+    var title=String(item.title||'');
+    return'<section class="osi-case-section">'+(title?'<p class="osi-wire-full-title" data-osi-user-content>'+esc(title)+'</p>':'')+'<div class="osi-section-heading"><span class="osi-eyebrow">Standalone finding</span><span class="osi-chip">'+esc(t('Version {n}',{n:item.version_no}))+'</span></div>'+attribution(item.author,'author')+'<h4>Public-safe summary</h4><p data-osi-user-content>'+esc(item.summary)+'</p>'+publicationBlock(item)+'<div class="osi-case-note">Publication exposes the public-safe summary, approved public evidence, review record, and proof log. Restricted analysis and uncertainties remain private. Publication is not automatic truth, guilt, legal certainty, recovery, custody, or guaranteed payment.</div></section>';
   }
   function evidenceTab(item){return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact immutable version</span><h3>Evidence</h3></div><span class="osi-chip">'+esc(t((item.evidence||[]).length===1?'{count} reference':'{count} references',{count:(item.evidence||[]).length}))+'</span></div><div class="osi-report-evidence-list">'+((item.evidence||[]).map(publicEvidenceItem).join('')||'<p>No public evidence references were recorded.</p>')+'</div></section>';}
+  // A revision deactivates the earlier row. It stays in the public record,
+  // but it is no longer a counted vote, so it carries no weight.
+  function supersededReview(){return'<span class="osi-chip" data-review-superseded>'+esc(t('Superseded by a later vote'))+'</span>';}
   function reviewsTab(item){
-    var rows=(item.reviews||[]).map(function(review){return'<article class="osi-report-version">'+attribution(review.reviewer,review.actor_role)+'<p class="wire-review-line" data-osi-i18n-ui><b>'+esc(decisionLabel(review.decision))+'</b><span>Weight snapshot</span> <code>'+esc(review.weight)+'</code><span>'+esc(stateLabel(review.tier_snapshot))+'</span></p><p data-osi-user-content>'+esc(review.public_rationale)+'</p>'+publicProof({proof_type:review.proof_type,occurred_at:review.created_at})+'</article>';}).join('');
+    var rows=(item.reviews||[]).map(function(review){return'<article class="osi-report-version'+(review.active===true?'':' superseded')+'">'+attribution(review.reviewer,review.actor_role)+'<p class="wire-review-line" data-osi-i18n-ui><b>'+esc(decisionLabel(review.decision))+'</b>'+(review.active===true?'<span>Weight snapshot</span> <code>'+esc(review.weight)+'</code><span>'+esc(stateLabel(review.tier_snapshot))+'</span>':supersededReview())+'</p><p data-osi-user-content>'+esc(review.public_rationale)+'</p>'+publicProof({proof_type:review.proof_type,occurred_at:review.created_at})+'</article>';}).join('');
     return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Public attribution</span><h3>Reviews</h3></div></div>'+(rows||'<p>No public reviews were recorded.</p>')+'</section>';
   }
   function challengeButtons(challenge){
@@ -464,7 +486,7 @@
   function challengesTab(item){
     var options=(item.evidence||[]).filter(function(row){return Number.isInteger(Number(row.ordinal))&&Number(row.ordinal)>=1&&Number(row.ordinal)<=12&&/^[0-9a-f]{64}$/.test(String(row.sha256||''));}).map(function(row){return'<option value="'+esc(String(Number(row.ordinal))+':'+String(row.sha256))+'">#'+esc(row.ordinal)+' '+esc(t(kindLabel(row.kind)))+', '+esc(short(row.ref))+'</option>';}).join('');
     var caps=state.capabilities||{},compose=item.is_current_published===true&&options&&caps.challenge_enabled===true?'<div class="osi-payment-compose"><h4>Challenge this exact published version</h4><label>Public-safe summary<textarea id="osi-wire-challenge-summary" minlength="20" maxlength="10000"></textarea></label><label>Linked evidence<select id="osi-wire-challenge-evidence">'+options+'</select></label><label>Restricted detail<textarea id="osi-wire-challenge-detail" maxlength="10000"></textarea></label><button class="osi-action primary" type="button" data-wire-governance="submit">Submit wallet-signed challenge</button></div>':'<div class="osi-case-note">New challenges require the current published version, public approved evidence, and the Wire write gate.</div>';
-    var rows=(item.challenges||[]).map(function(challenge){return'<article class="osi-report-version"><div class="osi-report-version-head"><b>'+esc(challenge.challenge_public_ref)+'</b><span class="osi-chip">'+esc(stateLabel(challenge.state))+'</span></div><p data-osi-user-content>'+esc(challenge.public_safe_summary)+'</p><p class="wire-review-line" data-osi-i18n-ui><span>Challenger</span> <code>'+esc(challenge.challenger_wallet)+'</code></p>'+((challenge.reviews||[]).map(function(review){return attribution(review.reviewer,review.actor_role)+'<p class="wire-review-line" data-osi-i18n-ui><b>'+esc(decisionLabel(review.decision))+'</b><span>Weight</span> <code>'+esc(review.weight)+'</code></p><p data-osi-user-content>'+esc(review.public_rationale)+'</p>';}).join(''))+'<div class="osi-case-actions">'+challengeButtons(challenge)+'</div></article>';}).join('');
+    var rows=(item.challenges||[]).map(function(challenge){return'<article class="osi-report-version"><div class="osi-report-version-head"><b>'+esc(challenge.challenge_public_ref)+'</b><span class="osi-chip">'+esc(stateLabel(challenge.state))+'</span></div><p data-osi-user-content>'+esc(challenge.public_safe_summary)+'</p><p class="wire-review-line" data-osi-i18n-ui><span>Challenger</span> <code>'+esc(challenge.challenger_wallet)+'</code></p>'+((challenge.reviews||[]).map(function(review){return attribution(review.reviewer,review.actor_role)+'<p class="wire-review-line" data-osi-i18n-ui><b>'+esc(decisionLabel(review.decision))+'</b>'+(review.active===true?'<span>Weight</span> <code>'+esc(review.weight)+'</code>':supersededReview())+'</p><p data-osi-user-content>'+esc(review.public_rationale)+'</p>';}).join(''))+'<div class="osi-case-actions">'+challengeButtons(challenge)+'</div></article>';}).join('');
     return'<section class="osi-case-section"><div class="osi-section-heading"><div><span class="osi-eyebrow">Exact published version</span><h3>Challenges</h3></div></div>'+compose+(rows||'<p>No challenges have been submitted.</p>')+'<div class="osi-case-note">Challenge accept or reject always requires the independent analyst count and weight gates. Maintainer bootstrap is unavailable.</div></section>';
   }
   function supportTab(item){
@@ -709,6 +731,9 @@
   if(typeof window.addEventListener==='function')window.addEventListener('osi:localechange',function(){
     var drawer=document.getElementById('osi-wire-drawer');
     localizePlaceholders();
+    // The note under the Wire buttons is composed with t(), so it is drawn
+    // again rather than left in the previous language.
+    syncWireActionNote();
     if(state.current&&drawer&&!drawer.hidden)renderDetail();
     if(typeof wireState==='undefined'||wireState.mode!=='private')return;
     if(state.privateView==='mine'&&state.reports.length)drawWorkspace(state.reports);

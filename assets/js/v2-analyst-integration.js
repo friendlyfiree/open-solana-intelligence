@@ -64,6 +64,8 @@
       unknown_or_wrong_nonce:'The single-use proof is missing, expired, or bound to another action.',
       transaction_not_confirmed:'The probation Memo is not confirmed yet. Keep this window open and retry.',
       rpc_unavailable:'Solana confirmation is temporarily unavailable. This transaction can be retried safely.',
+      rpc_invalid_response:'Solana RPC kept returning an incomplete response, so probation is not confirmed yet. Reload the application queue before anchoring again; the Memo you sent may still confirm.',
+      wrong_cluster:'The trusted RPC did not identify Solana mainnet. Probation was not activated.',
       replayed_or_expired:'This read authorization was already used or expired.',
       handle_unavailable:'That analyst handle is already in use.',
       prohibited_secret_material:'Remove every seed phrase, recovery phrase, mnemonic, private key, or secret-key reference.',
@@ -83,6 +85,8 @@
       ,read_session_wrong_scope:'Refresh private access explicitly for this role.'
       ,read_session_tampered:'The private session token failed server verification.'
       ,private_session_changed:'Private access changed while this action was running. Reopen the exact task.'
+      ,profile_not_found:'No public analyst profile uses this handle.'
+      ,bad_handle:'This analyst link does not contain a valid handle.'
     };
     // The analyst-standing sentence is wrong for a full maintainer: in the
     // Operations queue their session simply lacks this view's scope.
@@ -307,12 +311,23 @@
       renderMaintainerProfile(result&&result.profile);
       attachMaintainerEditor(result&&result.profile);
       state.maintainerProfileLoaded=true;
+      state.maintainerProfileFailed=false;
       return result&&result.profile;
     }catch(_){
+      state.maintainerProfileFailed=true;
       // An unavailable operator card is not worth an error banner over the
-      // roster, and inventing one would be worse. Stay absent.
+      // roster, and inventing one would be worse. Stay absent for a visitor.
       host.hidden=true;host.innerHTML='';
-      attachMaintainerEditor(null);
+      // The maintainer is told the read failed. The publish frame would claim
+      // nothing is published, and saving it replaces the real profile.
+      if(state.maintainerAccess===true){
+        host.innerHTML='<h2 id="osi-maintainer-profile-title" class="osi-maintainer-kicker">'+esc(t('Maintainer'))+'</h2>'
+          +'<p class="osi-maintainer-empty" role="status" data-maintainer-read-failed>'+esc(t('The maintainer profile could not be read. Editing stays off until it loads.'))+'</p>';
+        var retry=document.createElement('button');
+        retry.className='osi-action';retry.type='button';retry.textContent=t('Try again');
+        retry.addEventListener('click',function(){loadMaintainerProfile();});
+        host.appendChild(retry);host.hidden=false;
+      }
       return null;
     }
   }
@@ -349,8 +364,8 @@
   async function maintainerAvatarPayload(form){
     var input=form.querySelector('[data-mp-avatar-file]'),file=input&&input.files&&input.files[0];
     if(!file)return null;
-    if(['image/png','image/jpeg'].indexOf(file.type)===-1)throw new Error('Profile image must be PNG or JPEG.');
-    if(file.size>524288)throw new Error('Profile image must be 512 KB or smaller.');
+    if(['image/png','image/jpeg'].indexOf(file.type)===-1)throw new Error(t('Profile image must be PNG or JPEG.'));
+    if(file.size>524288)throw new Error(t('Profile image must be 512 KB or smaller.'));
     return {mime:file.type,data_base64:bytesToBase64(new Uint8Array(await file.arrayBuffer()))};
   }
   async function readMaintainerEditor(form){
@@ -379,7 +394,12 @@
     host.appendChild(panel);
     var form=panel.querySelector('[data-maintainer-editor]');
     var status=panel.querySelector('[data-mp-status]');
-    panel.querySelector('[data-mp-cancel]').addEventListener('click',function(){panel.remove();});
+    var first=form&&form.querySelector('input,textarea');
+    if(first&&typeof first.focus==='function')first.focus();
+    // Closing the editor removes the control that had focus, so the reader
+    // returns to the edit button instead of the top of the page.
+    function focusEditButton(){var edit=host.querySelector('[data-maintainer-edit]');if(edit&&typeof edit.focus==='function')edit.focus();}
+    panel.querySelector('[data-mp-cancel]').addEventListener('click',function(){panel.remove();focusEditButton();});
     // Removing clears the stored URL and any pending file, so saving after this
     // genuinely publishes a profile with no image rather than keeping the old
     // one because the field was left untouched.
@@ -401,6 +421,7 @@
         renderMaintainerProfile(saved&&saved.profile);
         panel.remove();
         attachMaintainerEditor(saved&&saved.profile);
+        focusEditButton();
         if(typeof window.osiPublicReadInvalidate==='function')window.osiPublicReadInvalidate();
       }catch(error){
         // The card stays as it was. A failed save never leaves a half-written
@@ -737,11 +758,21 @@
         +'<button class="osi-primary-action" type="button" onclick="'+supportHandler+'(\''+esc(profile.wallet)+'\',\'phantom\')">'+esc(t('Pay with Phantom'))+'</button>'
         +'<button class="osi-secondary-action" type="button" onclick="'+supportHandler+'(\''+esc(profile.wallet)+'\',\'solana_pay\')">'+esc(t('Solana Pay QR'))+'</button>'
         +'</div>';
-    return'<section class="osi-cv-hide-in-print"><h4>'+esc(t('Voluntary support'))+'</h4><p id="osi-profile-support-copy">'+supportCopy+'</p>'+action+'</section>';
+    return'<section class="osi-cv-hide-in-print" data-profile-support><h4>'+esc(t('Voluntary support'))+'</h4><p id="osi-profile-support-copy">'+supportCopy+'</p>'+action+'</section>';
+  }
+  // The open profile's support controls depend on who is connected, so a
+  // wallet change redraws them: the owner is never offered self-support and
+  // another wallet is never told it owns the profile.
+  function refreshOpenProfileSupport(){
+    var modal=document.getElementById('ap-modal'),open=state.openProfile;
+    if(!open||!modal||!modal.classList.contains('open'))return;
+    var section=modal.querySelector('[data-profile-support]');
+    if(section)section.outerHTML=supportSection(open.profile,open.maintainer);
   }
   function renderProfileModal(body,profile,options){
     options=options||{};
     var isMaintainer=options.maintainer===true;
+    state.openProfile={profile:profile,maintainer:isMaintainer};
     var links=(profile.links||[]).map(function(link){var url=safeHttps(link.url);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(linkLabel(link.label,url))+'</a>':'';}).join('');
     var proofOfWork=safeHttps(profile.proof_of_work_url);
     if(proofOfWork)links+='<a href="'+esc(proofOfWork)+'" target="_blank" rel="noopener noreferrer">'+esc(t('Verifiable proof of work'))+'</a>';
@@ -867,8 +898,12 @@
   // An application review is a maintainer decision. It carries no analyst
   // weight, so none is printed; the decision and its reason are words.
   var DECISION_LABELS={approve:'Approved',reject:'Rejected',request_revision:'Revision requested',abstain:'Abstained'};
+  // The application review reason codes, named the way the decision control
+  // names them so the history and the control agree in both languages.
+  var REASON_LABELS={meets_probationary_baseline:'Meets probationary baseline',insufficient_public_work:'Insufficient public work',more_public_work_samples:'More public work samples needed',unsafe_or_prohibited:'Unsafe or prohibited'};
+  var DECISION_ACTIONS={approve:'Approve',reject:'Reject',request_revision:'Request revision'};
   function sentence(code){var text=String(code||'').replace(/_/g,' ').trim();return text?text.charAt(0).toUpperCase()+text.slice(1):'';}
-  function reviewHistory(review){return '<div class="osi-review-history"><b>'+esc(t(DECISION_LABELS[String(review.decision||'')]||sentence(review.decision)))+'</b><span>'+esc(t(sentence(review.reason_code)))+'</span><time>'+esc(dateText(review.created_at))+'</time></div>';}
+  function reviewHistory(review){return '<div class="osi-review-history"><b>'+esc(t(DECISION_LABELS[String(review.decision||'')]||sentence(review.decision)))+'</b><span>'+esc(t(REASON_LABELS[String(review.reason_code||'')]||sentence(review.reason_code)))+'</span><time>'+esc(dateText(review.created_at))+'</time></div>';}
   function applicationPane(){
     var applications=state.workspace&&state.workspace.applications||[];
     if(!applications.length)return empty(t('No applications yet'),t('Start an analyst application to create version 1 with exact wallet proof.'))+'<button class="osi-primary-action" type="button" onclick="apxOpen()">'+esc(t('Start analyst application'))+'</button>';
@@ -987,6 +1022,17 @@
       var wallet=await ensureWallet();
       generation=privateGeneration();
       assertPrivateGeneration(generation);
+      // An active analyst, or a wallet whose application is already under
+      // review, cannot open a new one. Saying so before the form is filled
+      // beats a refusal after it; the server still enforces both rules.
+      var activeProfile=(state.profiles||[]).some(function(row){return String(row&&row.wallet)===String(wallet);});
+      var current=state.workspaceWallet===wallet?latestApplication():null;
+      var reviewing=!!current&&['submitted','in_review'].indexOf(String(current.status))>=0;
+      if(activeProfile||reviewing){
+        if(typeof showToast==='function')showToast(t(userError(new Error(activeProfile?'active_analyst_cannot_apply':'application_under_review'))));
+        await openWorkspace(activeProfile?'profile':'applications');
+        return;
+      }
       var form=document.getElementById('analyst-form');if(form)form.reset();prefillApplication();var restored=restoreApplicationDraft(wallet),optional=document.getElementById('analyst-optional-details');if(optional)optional.open=!!latestApplication()||(restored&&hasOptionalApplicationData(applicationDraft()));state.receipt=null;if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');setApplicationStatus('');updateHandlePreview();
       var modal=document.getElementById('apx-modal');state.returnFocus=document.activeElement;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(typeof showToast==='function')showToast(t('Application ready. Only the final exact message needs one wallet signature.'));setTimeout(function(){var target=document.getElementById('an-bio');var host=document.getElementById('apx-modal');if(!target)return;if(host&&document.activeElement&&host.contains(document.activeElement))return;target.focus();},50);
     }catch(error){if((generation==null||generation===privateGeneration())&&typeof showToast==='function')showToast(userError(error));}
@@ -995,8 +1041,8 @@
   function inputLines(id){var node=document.getElementById(id);return String(node&&node.value||'').split(/[\n,]+/).map(function(value){return value.trim();}).filter(Boolean);}
   async function avatarPayload(){
     var input=document.getElementById('an-avatar'),file=input&&input.files&&input.files[0];if(!file)return null;
-    if(['image/png','image/jpeg'].indexOf(file.type)===-1)throw new Error('Profile image must be PNG or JPEG.');
-    if(file.size>524288)throw new Error('Profile image must be 512 KB or smaller.');
+    if(['image/png','image/jpeg'].indexOf(file.type)===-1)throw new Error(t('Profile image must be PNG or JPEG.'));
+    if(file.size>524288)throw new Error(t('Profile image must be 512 KB or smaller.'));
     return {mime:file.type,data_base64:bytesToBase64(new Uint8Array(await file.arrayBuffer()))};
   }
   function showApplicationReceipt(committed){
@@ -1023,22 +1069,22 @@
     try{
       var wallet=await ensureWallet();var expertise=Array.prototype.map.call(document.querySelectorAll('input[name="an-expertise"]:checked'),function(box){return box.value;});
       assertPrivateGeneration(generation);
-      var linkLabel=String(document.getElementById('an-link-label').value||'').trim(),linkUrl=String(document.getElementById('an-link-url').value||'').trim();if((linkLabel&&!linkUrl)||(!linkLabel&&linkUrl))throw new Error('Provide both the public link label and HTTPS URL.');
-      var proofUrls=inputLines('an-proof');if(proofUrls.length>5)throw new Error('Use at most five public proof links.');
+      var linkLabel=String(document.getElementById('an-link-label').value||'').trim(),linkUrl=String(document.getElementById('an-link-url').value||'').trim();if((linkLabel&&!linkUrl)||(!linkLabel&&linkUrl))throw new Error(t('Provide both the public link label and HTTPS URL.'));
+      var proofUrls=inputLines('an-proof');if(proofUrls.length>5)throw new Error(t('Use at most five public proof links.'));
       var xHandle=String(document.getElementById('an-x-handle').value||'').trim(),handle=String(document.getElementById('an-handle').value||'').trim();
       var application={x_handle:xHandle,handle:handle,display_name:document.getElementById('an-name').value,bio:document.getElementById('an-bio').value,expertise:expertise,links:linkUrl?[{label:linkLabel,url:linkUrl}]:[],motivation:document.getElementById('an-motivation').value,experience:document.getElementById('an-experience').value,proof_urls:proofUrls,safety_acknowledged:document.getElementById('an-safety').checked===true};
       var image=await avatarPayload();assertPrivateGeneration(generation);if(image)application.avatar=image;
-      setApplicationStatus('Preparing an exact single-use application message...');
+      setApplicationStatus(t('Preparing an exact single-use application message...'));
       var prepared=await api({op:'prepare_application',wallet:wallet,application:application,idempotency_key:randomKey('application')});
       assertPrivateGeneration(generation);
-      setApplicationStatus('Sign exact '+prepared.version_ref+'. This is not an on-chain transaction.');
+      setApplicationStatus(t('Sign exact {ref}. This is not an on-chain transaction.',{ref:prepared.version_ref}));
       var signature=await signMessage(prepared.message);
       assertPrivateGeneration(generation);
       var committed=await api({op:'commit_application',wallet:wallet,application:application,nonce:prepared.nonce,message:prepared.message,signature:signature});
       assertPrivateGeneration(generation);
-      setApplicationStatus('Version '+committed.application.version_no+' recorded as wallet-signed and server-verified.','success');
+      setApplicationStatus(t('Version {number} recorded as wallet-signed and server-verified.',{number:committed.application.version_no}),'success');
       if(typeof window.osiV2RemoveDraft==='function')window.osiV2RemoveDraft(applicationDraftKey(wallet));
-      state.workspace=null;state.workspaceWallet='';if(typeof showToast==='function')showToast('Immutable analyst application version submitted.');
+      state.workspace=null;state.workspaceWallet='';if(typeof showToast==='function')showToast(t('Immutable analyst application version submitted.'));
       showApplicationReceipt(committed);
     }catch(error){if(generation===privateGeneration())setApplicationStatus(userError(error),'error');}
     finally{if(generation===privateGeneration()){state.busy=false;if(button){button.removeAttribute('aria-busy');button.disabled=!!state.receipt;}}}
@@ -1048,16 +1094,27 @@
   function queueCard(app){
     var profile=app.profile||{},version=app.version||{},details=version.details_restricted||{},waiting=app.status==='revision_requested',approved=queueReview(app,walletPubkey);
     var proofLinks=(details.proof_urls||[]).map(function(value){var url=safeHttps(value);return url?'<a data-osi-user-content href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(url)+'</a>':'';}).join('');
-    return '<article class="osi-ops-application" data-application-id="'+esc(app.id)+'" tabindex="-1"><header>'+avatar(profile,46)+'<div><span class="mono">'+esc(version.version_ref||short(version.id))+'</span><h4 data-osi-user-content>'+esc(profile.display_name||profile.handle||short(app.applicant_wallet))+'</h4><p>'+esc(short(app.applicant_wallet))+' / version '+Number(version.version_no||0)+'</p></div>'+statusBadge(app.status)+'</header>'
-      +'<div class="osi-ops-grid"><section><h5>Public profile</h5><p data-osi-user-content>'+esc(profile.bio||'')+'</p><div class="osi-tag-list">'+(version.expertise_public||[]).map(function(item){return '<span>'+esc(label(item))+'</span>';}).join('')+'</div></section><section><h5>Restricted application evidence</h5><p><b>'+esc(t('Motivation'))+'</b> '+(details.motivation?'<span data-osi-user-content>'+esc(details.motivation)+'</span>':esc(t('Not recorded')))+'</p><p><b>'+esc(t('Experience'))+'</b> '+(details.experience?'<span data-osi-user-content>'+esc(details.experience)+'</span>':esc(t('Not recorded')))+'</p><div class="osi-safe-links">'+proofLinks+'</div></section></div>'
+    return '<article class="osi-ops-application" data-application-id="'+esc(app.id)+'" tabindex="-1"><header>'+avatar(profile,46)+'<div><span class="mono">'+esc(version.version_ref||short(version.id))+'</span><h4 data-osi-user-content>'+esc(profile.display_name||profile.handle||short(app.applicant_wallet))+'</h4><p>'+esc(short(app.applicant_wallet))+' / '+esc(t('version {n}',{n:Number(version.version_no||0)}))+'</p></div>'+statusBadge(app.status)+'</header>'
+      +'<div class="osi-ops-grid"><section><h5>'+esc(t('Public profile'))+'</h5><p data-osi-user-content>'+esc(profile.bio||'')+'</p><div class="osi-tag-list">'+(version.expertise_public||[]).map(function(item){return '<span>'+esc(expertiseLabel(item))+'</span>';}).join('')+'</div></section><section><h5>'+esc(t('Restricted application evidence'))+'</h5><p><b>'+esc(t('Motivation'))+'</b> '+(details.motivation?'<span data-osi-user-content>'+esc(details.motivation)+'</span>':esc(t('Not recorded')))+'</p><p><b>'+esc(t('Experience'))+'</b> '+(details.experience?'<span data-osi-user-content>'+esc(details.experience)+'</span>':esc(t('Not recorded')))+'</p><div class="osi-safe-links">'+proofLinks+'</div></section></div>'
       +((app.reviews||[]).length?'<div class="osi-review-list">'+app.reviews.map(reviewHistory).join('')+'</div>':'')
-      +(waiting?'<div class="osi-callout warning"><b>Waiting for applicant revision</b><span>Review controls stay locked until a new exact version is submitted.</span></div>':'<div class="osi-ops-decision"><label>Reason code<select data-analyst-reason><option value="meets_probationary_baseline">Meets probationary baseline</option><option value="insufficient_public_work">Insufficient public work</option><option value="more_public_work_samples">More public work samples needed</option><option value="unsafe_or_prohibited">Unsafe or prohibited</option></select></label><div><button type="button" data-analyst-decision="approve">Approve</button><button type="button" data-analyst-decision="request_revision">Request revision</button><button type="button" data-analyst-decision="reject">Reject</button></div><p>Abstain is unavailable because it is not in the canonical application decision set.</p></div>')
-      +(approved&&!waiting?'<button class="osi-primary-action" type="button" data-analyst-activate>Anchor probation activation</button>':'')+'<div class="osi-form-status mono" data-analyst-status role="status"></div></article>';
+      +(waiting?'<div class="osi-callout warning"><b>'+esc(t('Waiting for applicant revision'))+'</b><span>'+esc(t('Review controls stay locked until a new exact version is submitted.'))+'</span></div>':'<div class="osi-ops-decision"><label>'+esc(t('Reason code'))+'<select data-analyst-reason>'+Object.keys(REASON_LABELS).map(function(code){return '<option value="'+code+'">'+esc(t(REASON_LABELS[code]))+'</option>';}).join('')+'</select></label><div>'+['approve','request_revision','reject'].map(function(decision){return '<button type="button" data-analyst-decision="'+decision+'">'+esc(t(DECISION_ACTIONS[decision]))+'</button>';}).join('')+'</div><p>'+esc(t('Abstain is unavailable because it is not in the canonical application decision set.'))+'</p></div>')
+      +(approved&&!waiting?'<button class="osi-primary-action" type="button" data-analyst-activate>'+esc(t('Anchor probation activation'))+'</button>':'')+'<div class="osi-form-status mono" data-analyst-status role="status"></div></article>';
   }
   function renderQueue(){
     var host=document.getElementById('osi-analyst-ops');if(!host)return;
     if(!state.queue.length){host.innerHTML=empty('No applications await action','New exact application versions will appear here after server authorization.');return;}
+    // A redraw (a language switch) keeps each card's chosen reason and status.
+    // A reason reset to the first option would be signed with the next
+    // decision, for example a Reject recorded as meets_probationary_baseline.
+    var kept={};
+    host.querySelectorAll('[data-application-id]').forEach(function(card){var select=card.querySelector('[data-analyst-reason]'),status=card.querySelector('[data-analyst-status]');kept[card.dataset.applicationId]={reason:select?select.value:'',status:status?status.textContent:'',kind:status?status.className:''};});
     host.innerHTML=state.queue.map(queueCard).join('');
+    host.querySelectorAll('[data-application-id]').forEach(function(card){
+      var previous=kept[card.dataset.applicationId];if(!previous)return;
+      var select=card.querySelector('[data-analyst-reason]'),status=card.querySelector('[data-analyst-status]');
+      if(select&&previous.reason&&Array.prototype.some.call(select.options,function(option){return option.value===previous.reason;}))select.value=previous.reason;
+      if(status&&previous.status){status.textContent=previous.status;status.className=previous.kind;}
+    });
     host.querySelectorAll('[data-application-id]').forEach(function(card){card.querySelectorAll('[data-analyst-decision]').forEach(function(button){button.addEventListener('click',function(){reviewApplication(card.dataset.applicationId,button.dataset.analystDecision);});});var activate=card.querySelector('[data-analyst-activate]');if(activate)activate.addEventListener('click',function(){activateProbation(card.dataset.applicationId);});});
   }
   async function loadMaintainerQueueData(){
@@ -1095,36 +1152,42 @@
     try{
       var wallet=await ensureWallet(),reason=card.querySelector('[data-analyst-reason]').value,review={application_version_id:app.version.id,version_ref:app.version.version_ref,decision:decision,reason_code:reason};
       assertPrivateGeneration(generation);
-      queueStatus(id,'Preparing exact '+label(decision)+' review...');var prepared=await api({op:'prepare_review',wallet:wallet,review:review,idempotency_key:randomKey('application-review')});
+      queueStatus(id,t('Preparing exact {decision} review...',{decision:t(DECISION_ACTIONS[decision]||label(decision))}));var prepared=await api({op:'prepare_review',wallet:wallet,review:review,idempotency_key:randomKey('application-review')});
       assertPrivateGeneration(generation);
-      queueStatus(id,'Sign the exact review message. Review weight is 0.');var signature=await signMessage(prepared.message);
+      queueStatus(id,t('Sign the exact review message. Review weight is 0.'));var signature=await signMessage(prepared.message);
       assertPrivateGeneration(generation);
       var committed=await api({op:'commit_review',wallet:wallet,review:review,nonce:prepared.nonce,message:prepared.message,signature:signature});
       assertPrivateGeneration(generation);
-      queueStatus(id,'Decision recorded as wallet-signed and server-verified.','success');
-      if(committed.activation_ready&&confirm('Approval is recorded. Anchor the exact ANALYST_PROBATION Memo now? Only the standard Solana fee applies.'))await activateProbation(id);
+      queueStatus(id,t('Decision recorded as wallet-signed and server-verified.'),'success');
+      if(committed.activation_ready&&confirm(t('Approval is recorded. Anchor the exact ANALYST_PROBATION Memo now? Only the standard Solana fee applies.')))await activateProbation(id,true);
       else await loadQueue();
       assertPrivateGeneration(generation);
     }catch(error){if(generation===privateGeneration())queueStatus(id,userError(error),'error');}
     finally{if(generation===privateGeneration()){state.busy=false;if(card&&document.body.contains(card))card.querySelectorAll('button,select').forEach(function(node){node.disabled=false;});}}
   }
-  async function commitActivationWithConfirmation(body,generation){var last;for(var attempt=0;attempt<5;attempt++){assertPrivateGeneration(generation);try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){last=error;if(String(error.message)!=='transaction_not_confirmed')throw error;assertPrivateGeneration(generation);await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}}throw last;}
-  async function activateProbation(id){
-    if(state.busy&&!(document.querySelector('[data-application-id="'+String(id).replace(/[^A-Za-z0-9-]/g,'')+'"]')))return;
+  async function commitActivationWithConfirmation(body,generation){var last;for(var attempt=0;attempt<5;attempt++){assertPrivateGeneration(generation);try{var result=await api(body);assertPrivateGeneration(generation);return result;}catch(error){last=error;if(['transaction_not_confirmed','rpc_unavailable','rpc_invalid_response'].indexOf(String(error.message))<0)throw error;assertPrivateGeneration(generation);await new Promise(function(resolve){setTimeout(resolve,1600+attempt*900);});assertPrivateGeneration(generation);}}throw last;}
+  async function activateProbation(id,nested){
+    // One activation at a time. reviewApplication calls in while it holds the
+    // busy flag; any other call during an activation would send a second
+    // ANALYST_PROBATION Memo transaction.
+    if(state.busy&&nested!==true)return;
     var app=queueApplication(id);if(!app||!app.version)return;var generation=privateGeneration(),previouslyBusy=state.busy;state.busy=true;
+    var card=document.querySelector('[data-application-id="'+String(id).replace(/[^A-Za-z0-9-]/g,'')+'"]'),activate=card&&card.querySelector('[data-analyst-activate]');
+    var locked=card?Array.prototype.filter.call(card.querySelectorAll('button,select'),function(node){return !node.disabled;}):[];
+    locked.forEach(function(node){node.disabled=true;});if(activate)activate.setAttribute('aria-busy','true');
     try{
       var wallet=await ensureWallet(),activation={analyst_wallet:app.applicant_wallet,application_version_id:app.version.id,version_ref:app.version.version_ref};
       assertPrivateGeneration(generation);
-      queueStatus(id,'Preparing exact ANALYST_PROBATION Memo...');var prepared=await api({op:'prepare_activation',wallet:wallet,activation:activation,idempotency_key:randomKey('analyst-probation')});
+      queueStatus(id,t('Preparing exact ANALYST_PROBATION Memo...'));var prepared=await api({op:'prepare_activation',wallet:wallet,activation:activation,idempotency_key:randomKey('analyst-probation')});
       assertPrivateGeneration(generation);
-      queueStatus(id,'Approve the probation Memo. Tier probationary and weight 0.50 are server-derived.');var txSig=await castOnchainVote(prepared.memo);
+      queueStatus(id,t('Approve the probation Memo. Tier probationary and weight {weight} are server-derived.',{weight:weightText(0.5)}));var txSig=await castOnchainVote(prepared.memo);
       assertPrivateGeneration(generation);
-      queueStatus(id,'Confirming exact signer, Memo, target, payload hash, and mainnet transaction...');var committed=await commitActivationWithConfirmation({op:'commit_activation',wallet:wallet,activation:activation,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},generation);
+      queueStatus(id,t('Confirming exact signer, Memo, target, payload hash, and mainnet transaction...'));var committed=await commitActivationWithConfirmation({op:'commit_activation',wallet:wallet,activation:activation,nonce:prepared.nonce,memo:prepared.memo,tx_sig:txSig},generation);
       assertPrivateGeneration(generation);
-      queueStatus(id,'Probation activated at server-derived weight '+Number(committed.analyst.weight).toFixed(2)+'.','success');if(typeof showToast==='function')showToast('Analyst probation is Memo-anchored on Solana.');await Promise.all([loadQueue(),loadPublicProfiles()]);
+      queueStatus(id,t('Probation activated at server-derived weight {weight}.',{weight:weightText(committed.analyst.weight)}),'success');if(typeof showToast==='function')showToast(t('Analyst probation is Memo-anchored on Solana.'));await Promise.all([loadQueue(),loadPublicProfiles()]);
       assertPrivateGeneration(generation);
     }catch(error){if(generation===privateGeneration())queueStatus(id,userError(error),'error');}
-    finally{if(generation===privateGeneration())state.busy=previouslyBusy;}
+    finally{if(generation===privateGeneration()){state.busy=previouslyBusy;if(nested!==true)locked.forEach(function(node){if(document.body.contains(node))node.disabled=false;});if(activate)activate.removeAttribute('aria-busy');}}
   }
 
   var legacyCloseProfile=window.closeAnalystProfile;
@@ -1205,15 +1268,29 @@
       return null;
     }
   }
+  function showMaintainerRouteUnavailable(failed){
+    var body=document.getElementById('ap-modal-body'),modal=document.getElementById('ap-modal');
+    if(!body||!modal)return;
+    state.profileIntent='maintainer';
+    modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
+    body.removeAttribute('aria-busy');
+    body.innerHTML=empty(t('Maintainer profile unavailable'),failed?t('The maintainer profile could not be read right now.'):t('No maintainer profile is published yet.'))
+      +(failed?'<button class="osi-primary-action" type="button" data-profile-retry>'+esc(t('Retry'))+'</button>':'');
+    var retry=body.querySelector('[data-profile-retry]');
+    if(retry)retry.addEventListener('click',function(){routeProfileFromLocation();});
+    setTimeout(function(){var close=modal.querySelector('.ap-modal-x');if(close)close.focus();},0);
+  }
   function routeProfileFromLocation(){
     var hash=String(window.location.hash||'').replace(/^#/,'');
     if(hash==='maintainer'){
       var maintainer=state.maintainerProfile;
       if(maintainer&&maintainer.wallet)return openPublicProfile(maintainer.wallet,{route:'maintainer'});
       return loadMaintainerProfile().then(function(profile){
-        if(profile&&profile.wallet&&String(window.location.hash||'').replace(/^#/,'')==='maintainer'){
-          return openPublicProfile(profile.wallet,{route:'maintainer'});
-        }
+        if(String(window.location.hash||'').replace(/^#/,'')!=='maintainer')return null;
+        if(profile&&profile.wallet)return openPublicProfile(profile.wallet,{route:'maintainer'});
+        // A #maintainer link with nothing to show says why, instead of
+        // leaving the reader on the roster with no explanation.
+        showMaintainerRouteUnavailable(state.maintainerProfileFailed===true);
         return null;
       });
     }
@@ -1248,6 +1325,7 @@
   window.osiAnalystActivate=activateProbation;
 
   function clearPrivateAnalystCache(){
+    setTimeout(refreshOpenProfileSupport,0);
     state.workspace=null;state.workspaceWallet='';state.queue=[];state.busy=false;state.receipt=null;state.returnFocus=null;
     if(typeof window.osiV2ClearSubmissionReceipt==='function')window.osiV2ClearSubmissionReceipt('osi-analyst-receipt');
     var form=document.getElementById('analyst-form');if(form)form.reset();
@@ -1255,7 +1333,9 @@
     setApplicationStatus('');
     var submit=document.querySelector('#analyst-form button[type="submit"]');if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');}
     var profileModal=document.getElementById('ap-modal');document.body.style.overflow=profileModal&&profileModal.classList.contains('open')?'hidden':'';
-    var host=document.getElementById('identity-body');if(host&&document.body&&document.body.dataset.view==='identity')host.innerHTML=workspaceShell(empty('Analyst workspace locked','Sign once to unlock a bounded private working session. Any application draft in this tab is preserved.')+'<div class="osi-workspace-recover"><button class="osi-secondary-action" type="button" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Unlock workspace</button></div>');
+    // #identity-body also holds the passport and My Profile. Only the analyst
+    // workspace is replaced by its own locked state.
+    var host=document.getElementById('identity-body');if(host&&document.body&&document.body.dataset.view==='identity'&&host.querySelector('.osi-analyst-workspace'))host.innerHTML=workspaceShell(empty('Analyst workspace locked','Sign once to unlock a bounded private working session. Any application draft in this tab is preserved.')+'<div class="osi-workspace-recover"><button class="osi-secondary-action" type="button" onclick="osiAnalystOpenWorkspace(\''+esc(state.workspaceTab)+'\')">Unlock workspace</button></div>');
     var queueHost=document.getElementById('osi-analyst-ops');if(queueHost)queueHost.innerHTML=empty('Application queue locked','Restore the bounded double-gated private session to continue.');
   }
   if(typeof window.osiV2RegisterPrivateCache==='function')window.osiV2RegisterPrivateCache('analyst',clearPrivateAnalystCache);
@@ -1297,14 +1377,21 @@
       // loaded is remembered by handle, not by wallet. Reopening it as a wallet
       // turned a language switch into "Analyst profile unavailable".
       var handleIntent=/^handle:([a-z0-9_]{2,32})$/.exec(String(state.profileIntent));
-      if(handleIntent){
+      // The #maintainer route's own unavailable state names no wallet, so it
+      // is drawn again as itself rather than looked up as one.
+      if(state.profileIntent==='maintainer')showMaintainerRouteUnavailable(state.maintainerProfileFailed===true);
+      else if(handleIntent){
         var cached=state.profiles.find(function(row){return String(row.handle||'').toLowerCase()===handleIntent[1];});
         if(cached)openPublicProfile(String(cached.wallet),{preserveReturnFocus:true,preserveFocus:true});
         else openProfileByHandle(handleIntent[1]);
       }
       else openPublicProfile(state.profileIntent,{preserveReturnFocus:true,preserveFocus:true});
     }
-    if(state.workspace)renderWorkspace();
-    if(state.queue.length)renderQueue();
+    // The workspace was already redrawn above when it is on screen. Redrawing
+    // it here as well replaced the passport, My Profile or a public profile
+    // that shares #identity-body.
+    // A card mid-decision keeps its disabled controls; the DOM translator
+    // still updates its static text.
+    if(state.queue.length&&!state.busy)renderQueue();
   });
 })();

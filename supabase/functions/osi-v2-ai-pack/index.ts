@@ -24,6 +24,7 @@ import {
   maintainerGate,
   validateConfirmedMemoTransaction,
 } from "../_shared/osi-v2-case-write-core.mjs";
+import { genesisBatchFailure } from "../_shared/osi-v2-cluster-core.mjs";
 import {
   READ_SESSION_SCOPES,
   isExactReadSessionOrigin,
@@ -1118,10 +1119,8 @@ async function verifyMainnetMemo(
   } catch {
     return { ok: false, reason: "rpc_invalid_response" };
   }
-  if (!Array.isArray(result)) return { ok: false, reason: "rpc_invalid_response" };
-  if (result.find((entry) => entry.id === 3)?.result !== MAINNET_GENESIS_HASH) {
-    return { ok: false, reason: "wrong_cluster" };
-  }
+  const cluster = genesisBatchFailure(result, MAINNET_GENESIS_HASH);
+  if (cluster) return { ok: false, reason: cluster };
   const transaction = result.find((entry) => entry.id === 1)?.result;
   const status = result.find((entry) => entry.id === 2)?.result?.value?.[0];
   return validateConfirmedMemoTransaction(transaction, status, {

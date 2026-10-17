@@ -778,8 +778,10 @@ button {
   position: relative;
 }
 
+/* The ring spins only while its list is still loading. A final empty or
+ * unavailable answer reuses the same box and must not look unfinished. */
 .osi-home-live-state[aria-busy="true"] .osi-state-mark::after,
-.osi-list-loading > span::after {
+.osi-live-list[aria-busy="true"] .osi-list-loading > span::after {
   content: "";
   position: absolute;
   inset: 5px;
@@ -2572,22 +2574,23 @@ footer > .wrap {
     min-height: 58px;
   }
 
-  /* Drawer order follows the accepted primary navigation; the Platform
-   * group follows as the full action catalogue. */
+  /* The drawer lists the links in document order, the same order keyboard
+   * focus takes. A CSS order that put Analyst Network and About above the
+   * Platform group made Tab jump back up the drawer (WCAG 2.4.3). The
+   * drawer-only copies of those two links sit in the brief's primary order
+   * (Home, Field Office, The Wire, Public Records, Analysts, Proof Log,
+   * About), so the desktop originals after Platform are hidden here. */
   body.nav-open .osi-global-nav > .osi-nav-quick {
     display: flex;
     align-items: center;
   }
 
-  .osi-global-nav > [data-global-view="registry"] { order: 1; }
-  .osi-global-nav > [data-global-view="field"] { order: 2; }
-  .osi-global-nav > [data-global-view="wire"] { order: 3; }
-  .osi-global-nav > [data-global-view="records"] { order: 4; }
-  .osi-global-nav > [data-global-view="analysts"] { order: 5; }
-  .osi-global-nav > [data-global-view="prooflog"] { order: 6; }
-  .osi-global-nav > [data-global-view="methodology"] { order: 7; }
+  body.nav-open .osi-global-nav > .osi-nav-link:not(.osi-nav-quick)[data-global-view="analysts"],
+  body.nav-open .osi-global-nav > .osi-nav-link:not(.osi-nav-quick)[data-global-view="methodology"] {
+    display: none;
+  }
+
   .osi-global-nav > .osi-platform-wrap {
-    order: 8;
     margin-top: 10px;
     border-top: 1px solid var(--line);
     padding-top: 10px;
@@ -8816,3 +8819,45 @@ body .osi-status.maintainer {
   .osi-same-title-open { min-height: 44px; }
 }
 /* === end Item-6 dup pass === */
+
+/* The drawer header clamps a Wire title to three lines on phones, which
+   cuts titles of about 20 characters and up, so the overview repeats the
+   title in full at that width only. The ID selector outranks the drawer's
+   body-paragraph rule. */
+#osi-wire-drawer .osi-case-section > p.osi-wire-full-title {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  #osi-wire-drawer .osi-case-section > p.osi-wire-full-title {
+    display: block;
+    margin: 0 0 12px;
+    color: var(--ink);
+    font: 700 16px/1.35 var(--font-sans);
+    overflow-wrap: anywhere;
+  }
+}
+
+/* The Proof Log source strip carries its retry control at the end. The text
+   takes the remaining width, so on a phone only the button wraps and the
+   status dot stays beside its text. */
+#prooflog .pl-strip-t {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+#prooflog .pl-strip-retry {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 620px) {
+  #prooflog .pl-strip:has(.pl-strip-retry) {
+    flex-wrap: wrap;
+  }
+
+  #prooflog .pl-strip-retry {
+    width: 100%;
+    margin-left: 0;
+  }
+}

@@ -98,6 +98,12 @@ throws("non-HTTPS evidence is blocked", () => core.normalizeCasePayload({
   ...validPayload,
   evidence: [{ kind: "url", ref: "http://example.com/evidence" }],
 }), /evidence URL/);
+// Two links pasted on one line with a comma used to parse as one URL whose
+// path held the second link.
+throws("two links run together are not one evidence URL", () => core.normalizeCasePayload({
+  ...validPayload,
+  evidence: [{ kind: "url", ref: "https://example.com/a, https://example.com/b" }],
+}), /evidence URL/);
 throws("duplicate evidence is blocked", () => core.normalizeCasePayload({
   ...validPayload,
   evidence: [
@@ -244,6 +250,28 @@ ok("appeal appends evidence and starts a fresh review cycle without rewriting in
     && rejectionAppealSource.includes("stage='initial_review'")
     && rejectionAppealSource.includes("osi_v2_case_review_cycle_started_at"));
 ok("Case gateway never logs payloads", !/console\.log/.test(edgeSource));
+
+// The public summary is published when the Case opens, so payment-card and
+// government identity numbers are refused at intake, as Report and Wire do.
+throws("Case intake refuses a payment card in the public summary",
+  () => core.normalizeCasePayload({ title: "Drained wallet", category: "wallet_drain",
+    summary_public: "Victim paid with card 4111 1111 1111 1111 before the drain.", details_restricted: "" }),
+  /prohibited_personal_data/);
+ok("Case intake accepts a plain public summary",
+  core.normalizeCasePayload({ title: "Drained wallet", category: "wallet_drain",
+    summary_public: "A wallet was drained through a malicious approval.", details_restricted: "" }).title === "Drained wallet");
+// A Case at the advertised field limits must fit the gateway body cap.
+{
+  // Worst case: every character takes 3 UTF-8 bytes, and 12 evidence
+  // references of 4,096 characters ride inside the Case payload.
+  const maxCase = { title: "中".repeat(core.CASE_TITLE_MAX), category: "other",
+    summary_public: "中".repeat(core.CASE_SUMMARY_MAX), details_restricted: "中".repeat(core.CASE_DETAILS_MAX),
+    evidence: Array.from({ length: 12 }, () => ({ kind: "url", ref: "https://example.org/" + "a".repeat(4096 - 20) })) };
+  const bytes = new TextEncoder().encode(JSON.stringify({ op: "commit_case", case: maxCase,
+    memo: "m".repeat(700), tx_sig: "1".repeat(88), nonce: "n".repeat(64), idempotency_key: "k".repeat(64) })).length;
+  const cap = Number(edgeSource.match(/const MAX_BODY_BYTES = ([0-9_]+);/)?.[1].replace(/_/g, ""));
+  ok("a maximum-length Case fits the Case gateway body cap", bytes < cap, `${bytes} >= ${cap}`);
+}
 
 console.log((fail ? "FAILED: " + fail : "OK")
   + " (" + pass + " assertions passed, " + fail + " failed)");
